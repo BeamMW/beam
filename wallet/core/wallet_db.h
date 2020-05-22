@@ -97,7 +97,7 @@ namespace beam::wallet
     };
 
     using CoinIDList = std::vector<Coin::ID>;
-    
+    std::string toString(const CoinID& id);
     // Used for SBBS Address management in the wallet
     struct WalletAddress
     {

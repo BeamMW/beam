@@ -952,17 +952,22 @@ namespace beam::wallet
     };
 #pragma pack (pop)
 
-    string Coin::toStringID() const
+    std::string toString(const CoinID& id)
     {
         CoinIDPacked packed;
-        packed.m_Kid = m_ID;
-        packed.m_Value = m_ID.m_Value;
+        packed.m_Kid = id;
+        packed.m_Value = id.m_Value;
 
-        if (!m_ID.m_AssetID)
+        if (!id.m_AssetID)
             return to_hex(&packed.m_Kid, sizeof(packed) - sizeof(packed.m_AssetID));
 
-        packed.m_AssetID = m_ID.m_AssetID;
+        packed.m_AssetID = id.m_AssetID;
         return to_hex(&packed, sizeof(packed));
+    }
+
+    string Coin::toStringID() const
+    {
+        return toString(m_ID);
     }
 
     Amount Coin::getAmount() const
@@ -4865,8 +4870,8 @@ namespace beam::wallet
             bool bSuccess = 
                 (
                     (
-                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerSecureWalletID, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
-                        storage::getTxParameter(walletDB, txID, TxParameterID::MySecureWalletID, pi.m_Sender.m_Pk)
+                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                        storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender.m_Pk)
                     ) ||
                     (
                         storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
@@ -4921,8 +4926,8 @@ namespace beam::wallet
 
         std::string getIdentity(const TxParameters& txParams, bool isSender)
         {
-            auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MySecureWalletID)
-                              : txParams.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+            auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
+                              : txParams.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
 
             return v ? std::to_string(*v) : "";
         }

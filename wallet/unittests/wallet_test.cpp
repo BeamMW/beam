@@ -1400,6 +1400,24 @@ namespace
                 WALLET_CHECK_NO_THROW(p = wallet::ParseParameters(a));
                 WALLET_CHECK(p && *p->GetParameter<WalletID>(TxParameterID::PeerID) == id);
             }
+
+
+            {
+                auto jsParams = CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, myID)
+                    .SetParameter(TxParameterID::PeerID, peerID)
+                    .SetParameter(TxParameterID::Lifetime, Height(200))
+                    .SetParameter(TxParameterID::Amount, Amount(234))
+                    .SetParameter(TxParameterID::Fee, Amount(32));
+
+                auto token1 = std::to_string(jsParams);
+
+                auto jsonParams = ConvertTokenToJson(token);
+                auto token2 = ConvertJsonToToken(jsonParams);
+                auto jsonParams2 = ConvertTokenToJson(token2);
+                WALLET_CHECK(jsonParams == jsonParams2);
+               // WALLET_CHECK(token == token2);
+            }
         }
         {
             std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
@@ -1428,9 +1446,10 @@ namespace
             WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerID) == address);
             auto  identity = FromHex(identityStr);
             WALLET_CHECK(identity.is_initialized());
-            WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID));
+            WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
         }
+
     }
 
     void TestConvertions()
@@ -1685,9 +1704,9 @@ namespace
         //completedCount = 1;
         //auto txId1 = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
         //    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-        //    .SetParameter(TxParameterID::MySecureWalletID, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
         //    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-        //    .SetParameter(TxParameterID::PeerSecureWalletID, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::PeerWalletIdentity, sender.m_SecureWalletID)
         //    .SetParameter(TxParameterID::Amount, Amount(4))
         //    .SetParameter(TxParameterID::Fee, Amount(2))
         //    .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -1703,9 +1722,9 @@ namespace
 
         auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-            .SetParameter(TxParameterID::MySecureWalletID, sender.m_SecureWalletID)
+            .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerSecureWalletID, receiver.m_SecureWalletID)
+            .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
             .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -1807,9 +1826,9 @@ namespace
             auto& sender = *w;
             sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                .SetParameter(TxParameterID::MySecureWalletID, sender.m_SecureWalletID)
+                .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                .SetParameter(TxParameterID::PeerSecureWalletID, receiver.m_SecureWalletID)
+                .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(2))
                 .SetParameter(TxParameterID::Lifetime, Height(200))

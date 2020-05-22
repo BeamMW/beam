@@ -635,8 +635,8 @@ namespace beam::wallet
 
         if (bIsConventional)
         {
-            if (m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer) &&
-                m_Tx.GetParameter(TxParameterID::MySecureWalletID, m.m_MyID))
+            if (m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
+                m_Tx.GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
             {
                 // newer scheme
                 m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
@@ -772,7 +772,7 @@ namespace beam::wallet
         }
         else
         {
-            m_Tx.GetParameter(TxParameterID::PeerSecureWalletID, m.m_Peer);
+            m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
 
             if (m.m_Peer != Zero)
                 m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);

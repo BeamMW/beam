@@ -233,7 +233,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
 
             if (useSecureIDs)
             {
-                parameters.SetParameter(TxParameterID::MySecureWalletID, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+                parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
             }
 
             TestWalletRig* initiator = &sender;
@@ -247,7 +247,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
             auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, feeRate);
             if (useSecureIDs)
             {
-                acceptParams.SetParameter(TxParameterID::MySecureWalletID, acceptor->m_SecureWalletID);
+                acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
             }
             txID = acceptor->m_Wallet.StartTransaction(acceptParams);
         }
