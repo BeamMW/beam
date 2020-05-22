@@ -149,8 +149,8 @@ namespace beam
     const char kSeedPhraseReadTitle[] = "Generating seed phrase...";
 
     // Wallet info
-    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
-    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n\n";
+    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n%23%%24%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletUnreliableAsset[] = "This asset has been burned or reissued at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
     const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregisterd or asset info needs to be updated using asset_info command.\n\n";
     const char kWalletAssetOwnerFormat[] = "Asset Owner ID";
@@ -172,6 +172,7 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
+    const char kWalletSummaryFieldShielded[] = "Shielded";
     const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";

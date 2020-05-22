@@ -167,6 +167,7 @@ namespace beam
     extern const char kWalletSummaryFieldAvaliableFee[];
     extern const char kWalletSummaryFieldTotalFee[];
     extern const char kWalletSummaryFieldTotalUnspent[];
+    extern const char kWalletSummaryFieldShielded[];
     extern const char kCoinsTableHeadFormat[];
     extern const char kCoinColumnId[];
     extern const char kCoinColumnMaturity[];
