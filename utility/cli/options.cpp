@@ -396,11 +396,7 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
             (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
-#ifdef BEAM_LASER_SUPPORT
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token|laser]")
-#else
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token]")
-#endif  // BEAM_LASER_SUPPORT
+            (cli::COMMAND, po::value<string>(), "command to execute (see Wallet command list)")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "Use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "Proxy server address");
@@ -420,16 +416,10 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-        po::options_description swap_options("Atomic swap options");        
-        po::options_description visible_swap_options(swap_options);
-        visible_swap_options.add_options()
-            (cli::SWAP_INIT, "command to initialize")
-            (cli::SWAP_ACCEPT, "command to accept swap");
+        po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
-            (cli::SET_SWAP_SETTINGS, "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
-            (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
@@ -443,19 +433,6 @@ namespace beam
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
-
-        for (auto opt : swap_options.options())
-        {
-            visible_swap_options.add(opt);
-        }
-
-        po::options_description wallet_assets_commands("Confidential assets commands");
-        wallet_assets_commands.add_options()
-            (cli::ASSET_REGISTER,   "register new asset on chain")
-            (cli::ASSET_UNREGISTER, "unregister asset from chain")
-            (cli::ASSET_ISSUE,      "issue asset coins")
-            (cli::ASSET_CONSUME,    "consume (burn) asset coins")
-            (cli::ASSET_INFO,       "receive asset information from node");
 
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
@@ -485,11 +462,6 @@ namespace beam
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
-        po::options_description lelantus_commands("Lelantus commands");
-        lelantus_commands.add_options()
-            (cli::INSERT_TO_POOL, "insert utxos to shielded pool")
-            (cli::EXTRACT_FROM_POOL, "extract shielded utxo from shielded pool");
-
         po::options_description lelantus_options("Lelantus options");
         lelantus_options.add_options()
             (cli::SHIELDED_UTXOS, "show shielded utxo in pool")
@@ -518,23 +490,19 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
-            options.add(lelantus_commands);
             options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
-                options.add(wallet_assets_commands);
                 options.add(wallet_assets_options);
             }
 
             visible_options.add(wallet_options);
-            visible_options.add(visible_swap_options);
-            visible_options.add(lelantus_commands);
-            visible_options.add(lelantus_options);
+            visible_options.add(swap_options);
+             visible_options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
-                visible_options.add(wallet_assets_commands);
                 visible_options.add(wallet_assets_options);
             }
 
