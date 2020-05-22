@@ -737,8 +737,9 @@ namespace
         std::string unitName = kAmountASSET;
         std::string nthName  = kAmountAGROTH;
         std::string ownerStr = kNA;
-        Height lkHeight = 0;
-        Height rfHeight = 0;
+        std::string lkHeight = kNA;
+        std::string rfHeight = kNA;
+        std::string emission = kNA;
 
         const auto info = db->findAsset(totals.AssetId);
         if (info.is_initialized())
@@ -749,8 +750,12 @@ namespace
             nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
             ownerStr = (isOwned ? info->m_Owner.str() + "\nYou own this asset": info->m_Owner.str());
             coinName = meta.isStd() ? meta.GetName() + " (" + meta.GetShortName() + ")" : kNA;
-            lkHeight = info->m_LockHeight;
-            rfHeight = info->m_RefreshHeight;
+            lkHeight = std::to_string(info->m_LockHeight);
+            rfHeight = std::to_string(info->m_RefreshHeight);
+
+            std::stringstream ss;
+            ss << PrintableAmount(info->m_Value, true, unitName, nthName);
+            emission = ss.str();
         }
 
         const unsigned kWidth = 26;
@@ -759,6 +764,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetNameFormat) % coinName
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetLockHeightFormat) % lkHeight
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetRefreshHeightFormat) % rfHeight
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetEmissionFormat) % emission
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetOwnerFormat) % ownerStr
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))

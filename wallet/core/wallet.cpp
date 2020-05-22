@@ -892,6 +892,12 @@ namespace beam::wallet
                         m_This.ProcessEventShieldedUtxo(shieldedEvt, m_Height);
                         return;
                     }
+                    case proto::Event::Type::AssetCtl:
+                    {
+                        proto::Event::AssetCtl assetEvt = Cast::Up<proto::Event::AssetCtl>(evt_);
+                        m_This.ProcessEventAsset(assetEvt, m_Height);
+                        return;
+                    }
                     case proto::Event::Type::Utxo:
                     {
                         proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
@@ -982,6 +988,11 @@ namespace beam::wallet
         }
 
         m_WalletDB->saveCoin(c);
+    }
+
+    void Wallet::ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h)
+    {
+        // since there is not asset id passed we ignore this event at the moment
     }
 
     void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)

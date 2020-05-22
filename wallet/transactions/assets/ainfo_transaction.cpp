@@ -131,6 +131,27 @@ namespace beam::wallet
             fromByteBuffer(info.m_Metadata.m_Value, strMeta);
             SetParameter(TxParameterID::AssetMetadata, strMeta);
             SetParameter(TxParameterID::AssetID, info.m_ID);
+
+            try
+            {
+                auto masterKdf = get_MasterKdfStrict();
+                if (beam::wallet::GetAssetOwnerID(masterKdf, strMeta) == info.m_Owner)
+                {
+                    m_WalletDB->markAssetOwned(info.m_ID);
+                    LOG_INFO() << GetTxID() << " You own this asset";
+                }
+            }
+            catch(const TransactionFailedException& ex)
+            {
+                if (ex.GetReason() == TxFailureReason::NoMasterKey)
+                {
+                    LOG_WARNING() << GetTxID() << " Unable to get master key. Asset ownership won't be checked.";
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
         SetState(State::Finalzing);

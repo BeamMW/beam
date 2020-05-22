@@ -154,6 +154,7 @@ namespace beam
     extern const char kWalletAssetNameFormat[];
     extern const char kWalletAssetLockHeightFormat[];
     extern const char kWalletAssetRefreshHeightFormat[];
+    extern const char kWalletAssetEmissionFormat[];
     extern const char kWalletAssetOwnerFormat[];
     extern const char kWalletSummaryFieldCurHeight[];
     extern const char kWalletSummaryFieldCurStateID[];
