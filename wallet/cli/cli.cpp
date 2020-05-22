@@ -474,8 +474,8 @@ namespace
     {
         if (begin != end)
         {
-            cout << "\nUSAGE: " << APP_NAME << " <command> [options]\n\n";
-            cout << "Wallet commands:\n";
+            cout << "\nUSAGE: " << APP_NAME << " <command> [options] [configuration rules]\n\n";
+            cout << "COMMANDS:\n";
             for (auto it = begin; it != end; ++it)
             {
                 std::stringstream ss;
@@ -3101,42 +3101,42 @@ int main_impl(int argc, char* argv[])
     beam::Crash::InstallHandler(NULL);
     const Command commands[] =
     {
-        {cli::INIT,               InitWallet,                       "initialize a new wallet database  with a new seed phrase"},
-        {cli::RESTORE,            RestoreWallet,                    "restore wallet database from the seed phrase provided by user"},
-        {cli::SEND,               Send,                             "send BEAMs, wallet automatically closes when transaction is completed"},
-        {cli::LISTEN,             Listen,                           "listen to the node"},
+        {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
+        {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
+        {cli::SEND,               Send,                             "send BEAM"},
+        {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
         {cli::TREASURY,           HandleTreasury,                   "process treasury"},
         {cli::INFO,               ShowWalletInfo,                   "print information about wallet balance and transactions"},
-        {cli::EXPORT_MINER_KEY,   ExportMinerKey,                   "export miner key, it should be passed to the mining node"},
-        {cli::EXPORT_OWNER_KEY,   ExportOwnerKey,                   "export owner key to allow node notify wallet about new UTXO"},
+        {cli::EXPORT_MINER_KEY,   ExportMinerKey,                   "export miner key to pass to a mining node"},
+        {cli::EXPORT_OWNER_KEY,   ExportOwnerKey,                   "export owner key to allow a node to monitor owned UTXO on the blockchain"},
         {cli::NEW_ADDRESS,        CreateNewAddress,                 "generate new SBBS address"},
         {cli::CANCEL_TX,          CancelTransaction,                "cancel transaction by ID"},
         {cli::DELETE_TX,          DeleteTransaction,                "delete transaction by ID"},
-        {cli::CHANGE_ADDRESS_EXPIRATION, ChangeAddressExpiration,   "change SBBS address life time"},
-        {cli::TX_DETAILS,         TxDetails,                        "print details of transaction with given ID"},
-        {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof,             "export payment proof for transaction"},
+        {cli::CHANGE_ADDRESS_EXPIRATION, ChangeAddressExpiration,   "change SBBS address expiration time"},
+        {cli::TX_DETAILS,         TxDetails,                        "print details of the transaction with given ID"},
+        {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof,             "export payment proof by transaction ID"},
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
         {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print SBBS addresses"},
-        {cli::WALLET_RESCAN,        Rescan,                         "rescan blockchain for UTXO (works only with node which has owner key)"},
-        {cli::EXPORT_DATA,          ExportWalletData,               "export wallet's data (utxo, transactions, addresses) to JSON file"},
-        {cli::IMPORT_DATA,          ImportWalletData,               "import wallet's data from JSON file"},
-        {cli::SWAP_INIT,            InitSwap,                       "command to initialize swap"},
-        {cli::SWAP_ACCEPT,          AcceptSwap,                     "command to accept swap"},
-        {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "command to work with swap settings"},
-        {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "show altcoin's settings"},
-        {cli::GET_TOKEN,            GetToken,                       "generate token with transaction parameters (SBBS address, identity)"},
+        {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
+        {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
+        {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
+        {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
+        {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
+        {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
+        {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
+        {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
 #ifdef BEAM_LASER_SUPPORT   
-        {cli::LASER,                HandleLaser,                    "start operation with lazer"},
+        {cli::LASER,                HandleLaser,                    "laser beam command"},
 #endif  // BEAM_LASER_SUPPORT
-        {cli::ASSET_ISSUE,          IssueAsset,                     "issue asset coins"},
-        {cli::ASSET_CONSUME,        ConsumeAsset,                   "consume (burn) asset coins"},
-        {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset on chain"},
-        {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from chain"},
-        {cli::ASSET_INFO,           GetAssetInfo,                   "receive asset information from node"},
+        {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
+        {cli::ASSET_CONSUME,        ConsumeAsset,                   "consume (burn) an existing confidential asset"},
+        {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
+        {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from the blockchain"},
+        {cli::ASSET_INFO,           GetAssetInfo,                   "print confidential asset information from a node"},
 
-        {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert utxos to shielded pool"},
-        {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded utxo from shielded pool"}
+        {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert UTXO to the shielded pool"},
+        {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded UTXO from the shielded pool"}
     };
 
     try
