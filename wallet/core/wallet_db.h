@@ -386,6 +386,7 @@ namespace beam::wallet
         // Generic visitors
         virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
         virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
+        virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) = 0;
 
         // Used in split API for session management
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
@@ -535,6 +536,7 @@ namespace beam::wallet
 
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
         void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
+        void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;

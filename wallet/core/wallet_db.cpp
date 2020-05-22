@@ -2528,6 +2528,21 @@ namespace beam::wallet
         return true;
     }
 
+    void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func)
+    {
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+        while (stm.step())
+        {
+            ShieldedCoin coin;
+
+            int colIdx = 0;
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+            if (!func(coin))
+                break;
+        }
+    }
+
     void WalletDB::visitCoins(function<bool(const Coin& coin)> func)
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
@@ -4292,8 +4307,19 @@ namespace beam::wallet
                 return true;
             });
 
+            walletDB.visitShieldedCoins([getTotalsRef](const ShieldedCoin& coin) -> bool {
+                // always add to totals even if there will be no available coins
+                auto& totals = getTotalsRef(coin.m_assetID);
+                if(coin.IsAvailable())
+                {
+                    const AmountBig::Type value = coin.m_value;
+                    totals.Shielded += value;
+                }
+                return true;
+            });
+
              walletDB.visitAssets([this](const WalletAsset& asset) -> bool {
-                // we also add owned assets to totals even if there are no coins
+                // we also add owned assets to totals even if there are no coins for owned assets
                 if(!HasTotals(asset.m_ID) && asset.m_IsOwned)
                 {
                     allTotals[asset.m_ID] = AssetTotals();
