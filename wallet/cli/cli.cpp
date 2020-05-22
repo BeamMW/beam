@@ -1134,7 +1134,7 @@ namespace
         const uint8_t nameWidth = std::max<uint8_t>(10, static_cast<uint8_t>(unitName.size()));
         const uint8_t nthWidth  = std::max<uint8_t>(10, static_cast<uint8_t>(nthName.size()));
 
-        const array<uint8_t, 9> columnWidths{ { 12, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
+        const array<uint8_t, 9> columnWidths{ { 10, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
         cout << "SHIELDED COINS\n\n"
              << boost::format(kShieldedCoinsTableHeadFormat)
                 % boost::io::group(left, setw(columnWidths[0]),  kCoinColumnId)
