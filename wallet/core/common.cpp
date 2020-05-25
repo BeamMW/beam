@@ -20,6 +20,8 @@
 #include "utility/string_helpers.h"
 #include "strings_resources.h"
 #include "core/shielded.h"
+#include "3rdparty/nlohmann/json.hpp"
+#include "wallet_db.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -153,6 +155,7 @@ namespace std
         return ss.str();
     }
 #endif  // EMSCRIPTEN
+
 }  // namespace std
 
 namespace beam
@@ -481,9 +484,9 @@ namespace beam::wallet
             params.SetParameter(TxParameterID::PeerID, *peerID);
             res = true;
         }
-        if (auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID); peerID)
+        if (auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
         {
-            params.SetParameter(TxParameterID::PeerSecureWalletID, *peerID);
+            params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
 
             if (auto vouchers = p.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
             {
@@ -781,8 +784,8 @@ namespace beam::wallet
 
     std::string TxDescription::getIdentity(bool isSender) const
     {
-        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MySecureWalletID)
-            : GetParameter<PeerID>(TxParameterID::PeerSecureWalletID);
+        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
+            : GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
         if (v)
         {
             return std::to_string(*v);
@@ -821,7 +824,7 @@ namespace beam::wallet
 
         parameters.SetParameter(TxParameterID::PeerID, walletID);
         parameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-        parameters.SetParameter(TxParameterID::PeerSecureWalletID, *identity);
+        parameters.SetParameter(TxParameterID::PeerWalletIdentity, *identity);
 
         return std::to_string(parameters);
     }
@@ -888,4 +891,289 @@ namespace beam::wallet
         }
         return true;
     }
+
+    using nlohmann::json;
+
+#define BEAM_IGNORED_JSON_TYPES2(MACRO) \
+        MACRO(ECC::RangeProof::Confidential::Part1) \
+        MACRO(ECC::RangeProof::Confidential::Part2) \
+        MACRO(ECC::RangeProof::Confidential::Part3)
+
+#define MACRO(type) \
+    static bool fromByteBuffer(const ByteBuffer&, type&) \
+    { \
+        return false; \
+    } \
+
+    BEAM_IGNORED_JSON_TYPES2(MACRO)
+#undef MACRO
+
+#define MACRO(type) \
+    static ByteBuffer toByteBuffer(const type&) \
+    { \
+        return {}; \
+    } \
+
+    BEAM_IGNORED_JSON_TYPES2(MACRO)
+#undef MACRO
+
+    namespace
+    {
+        using Names = std::array<string, uint8_t(128)>;
+        Names GetParameterNames()
+        {
+            Names names;
+#define MACRO(name, index, type) names[index] = #name;
+            BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+            return names;
+        }
+
+        using NameIDs = std::map<string, TxParameterID>;
+        NameIDs GetParameterNameIDs()
+        {
+            NameIDs names;
+#define MACRO(name, index, type) names[#name] = TxParameterID(index);
+            BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+            return names;
+        }
+
+        template<typename T>
+        string ToJsonValue(const T& v)
+        {
+            return std::to_string(v);
+        }
+
+        string ToJsonValue(TxType t)
+        {
+            return std::to_string(uint8_t(t));
+        }
+
+        string ToJsonValue(const ByteBuffer& buf)
+        {
+            return EncodeToHex(buf);
+        }
+
+        string ToJsonValue(const AmountList& amountList)
+        {
+            json list = json::array();
+            for (const auto& a : amountList)
+            {
+                list.push_back(a);
+            }
+            return list.dump();
+        }
+
+        string ToJsonValue(const CoinIDList& coinList)
+        {
+            json list = json::array();
+            for (const auto& c : coinList)
+            {
+                list.push_back(toString(c));
+            }
+            return list.dump();
+        }
+
+#define BEAM_IGNORED_JSON_TYPES(MACRO) \
+        MACRO(ECC::Point) \
+        MACRO(ECC::Scalar) \
+        MACRO(ECC::Signature) \
+        MACRO(std::vector<Input::Ptr>) \
+        MACRO(std::vector<Output::Ptr>) \
+        MACRO(std::vector<ExchangeRate>) \
+        MACRO(ShieldedVoucherList)
+
+#define MACRO(type) \
+        string ToJsonValue(const type&) \
+        { \
+            return {}; \
+        } \
+
+        BEAM_IGNORED_JSON_TYPES(MACRO)
+        BEAM_IGNORED_JSON_TYPES2(MACRO)
+
+#undef MACRO
+
+#define MACRO(type) \
+        bool FromJson(const json&, type&) \
+        { \
+            return false; \
+        } \
+
+        BEAM_IGNORED_JSON_TYPES(MACRO)
+        BEAM_IGNORED_JSON_TYPES2(MACRO)
+#undef MACRO
+
+        const string& ToJsonValue(const std::string& s)
+        {
+            return s;
+        }
+
+        const string& GetParameterName(TxParameterID id)
+        {
+            static auto names = GetParameterNames();
+            return names[uint8_t(id)];
+        }
+
+        TxParameterID GetParameterID(const std::string& n)
+        {
+            static auto names = GetParameterNameIDs();
+            return names[n];
+        }
+
+        string GetParameterValue(TxParameterID id, const ByteBuffer& buffer)
+        {
+            switch (id)
+            {
+#define MACRO(name, index, type) \
+            case TxParameterID::name: \
+                { \
+                    type value; \
+                    if (fromByteBuffer(buffer, value)) \
+                    { \
+                        return ToJsonValue(value); \
+                    } \
+                } break; 
+             BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+            default:
+                break;
+            }
+            return {};
+        }
+
+        bool FromJson(const json& s, WalletID& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            return v.FromHex(s.get<string>());
+        }
+
+        template<typename T>
+        bool FromJson(const json& s, T& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            v = T(stoll(s.get<string>()));
+            return true;
+        }
+
+        bool FromJson(const json& s, uintBig& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            bool isValid = false;
+            auto buf = from_hex(s.get<std::string>(), &isValid);
+            if (!isValid)
+            {
+                return false;
+            }
+            v = Blob(buf.data(), static_cast<uint32_t>(buf.size()));
+            return true;
+        }
+
+        bool FromJson(const json& s, PeerID& p)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            return FromJson(s, static_cast<uintBig&>(p));
+        }
+
+        bool FromJson(const json& s, std::string& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            v = s.get<std::string>();
+            return true;
+        }
+
+        ByteBuffer GetParameterValue(TxParameterID id, const json& jsonValue)
+        {
+            switch (id)
+            {
+#define MACRO(name, index, type) \
+            case TxParameterID::name: \
+                { \
+                    type value; \
+                    if (FromJson(jsonValue, value)) \
+                    { \
+                        return toByteBuffer(value); \
+                    } \
+                } break; 
+                BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+            default:
+                break;
+            }
+            return {};
+        }
+
+        const std::string ParamsName = "params";
+        const std::string IdName = "id";
+        const std::string ValueName = "value";
+    }
+
+    std::string ConvertTokenToJson(const std::string& token)
+    {
+        auto p = ParseParameters(token);
+        if (!p)
+        {
+            return {};
+        }
+        auto packedParams = p->Pack();
+        json params = json::object();
+        for (const auto& pair : packedParams)
+        {
+            params.push_back(
+            {
+                GetParameterName(pair.first),
+                GetParameterValue(pair.first, pair.second)
+            });
+        }
+        json res = json
+        {
+            { ParamsName, params }
+        };
+        return res.dump();
+    }
+
+    std::string ConvertJsonToToken(const std::string& jsonParams)
+    {
+        try
+        {
+            json obj = json::parse(jsonParams.data(), jsonParams.data() + jsonParams.size());
+            auto paramsIt = obj.find(ParamsName);
+            if (paramsIt == obj.end())
+            {
+                LOG_ERROR() << "There are no transaction params";
+                return {};
+            }
+            TxParameters txParams;
+            for (const auto& p : paramsIt->items())
+            {
+                auto id = GetParameterID(p.key());
+                ByteBuffer value = GetParameterValue(id, p.value());
+                txParams.SetParameter(id, value);
+            }
+            return std::to_string(txParams);
+        }
+        catch (const nlohmann::detail::exception& e)
+        {
+            LOG_ERROR() << "json parse: " << e.what();
+        }
+        return {};
+
+    }
+
 }  // namespace beam::wallet

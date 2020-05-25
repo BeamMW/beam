@@ -95,7 +95,7 @@ namespace beam::wallet
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
-            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerSecureWalletID); identity)
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
             {
                 address.m_Identity = *identity;
             }
@@ -181,7 +181,7 @@ namespace beam::wallet
                     if (waddr && waddr->isOwn())
                     {
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                        SetParameter(TxParameterID::MySecureWalletID, waddr->m_Identity);
+                        SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
                     }
                 }
             }
@@ -189,8 +189,8 @@ namespace beam::wallet
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
                 PeerID myWalletID, peerWalletID;
-                bool hasID = GetParameter<PeerID>(TxParameterID::MySecureWalletID, myWalletID)
-                    && GetParameter<PeerID>(TxParameterID::PeerSecureWalletID, peerWalletID);
+                bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
+                    && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
                 stringstream ss;
                 ss << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")

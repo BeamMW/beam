@@ -245,89 +245,76 @@ namespace beam::wallet
         return (numberOfOutputs + numberOfKenrnels) * 10;
     }
 
+    using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
+
+#define BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO) \
+    /*     Name                           Value Type */ \
+    MACRO(TransactionType,                 0,   TxType) \
+    MACRO(IsSender,                        1,   bool) \
+    MACRO(Amount,                          2,   Amount) \
+    MACRO(Fee,                             3,   Amount) \
+    MACRO(MinHeight,                       4,   Height) \
+    MACRO(Message,                         5,   ByteBuffer) \
+    MACRO(MyID,                            6,   WalletID) \
+    MACRO(PeerID,                          7,   WalletID) \
+    MACRO(CreateTime,                      10,  Timestamp) \
+    MACRO(IsInitiator,                     11,  bool) \
+    MACRO(PeerMaxHeight,                   12,  Height) \
+    MACRO(AmountList,                      13,  AmountList) \
+    MACRO(PreselectedCoins,                14,  CoinIDList) \
+    MACRO(Lifetime,                        15,  Height) \
+    MACRO(PeerProtoVersion,                16,  uint32_t) \
+    MACRO(MaxHeight,                       17,  Height) \
+    MACRO(AssetID,                         18,  Asset::ID) \
+    MACRO(MyWalletIdentity,                20,  PeerID) \
+    MACRO(PeerWalletIdentity,              21,  PeerID) \
+    MACRO(PeerResponseTime,                24,  Height) \
+    MACRO(SubTxIndex,                      25,  SubTxID) \
+    MACRO(PeerPublicSharedBlindingFactor,  26,  ECC::Point) \
+    MACRO(IsSelfTx,                        27,  bool) \
+    MACRO(AtomicSwapPeerPrivateKey,        29,  uintBig) \
+    MACRO(AtomicSwapIsBeamSide,            30,  bool) \
+    MACRO(AtomicSwapCoin,                  31,  int32_t) \
+    MACRO(AtomicSwapAmount,                32,  Amount) \
+    MACRO(AtomicSwapPublicKey,             33,  std::string) \
+    MACRO(AtomicSwapPeerPublicKey,         34,  std::string) \
+    MACRO(AtomicSwapExternalLockTime,      36,  Height) \
+    MACRO(AtomicSwapExternalTx,            37,  std::string) \
+    MACRO(AtomicSwapExternalTxID,          38,  std::string) \
+    MACRO(AtomicSwapExternalTxOutputIndex, 39,  uint32_t) \
+    /* signature parameters */ \
+    MACRO(PeerPublicNonce,                 40,  ECC::Point) \
+    MACRO(PeerPublicExcess,                50,  ECC::Point) \
+    MACRO(PeerSignature,                   60,  ECC::Scalar) \
+    MACRO(PeerOffset,                      70,  ECC::Scalar) \
+    MACRO(PeerInputs,                      80,  std::vector<Input::Ptr>) \
+    MACRO(PeerOutputs,                     81,  std::vector<Output::Ptr>) \
+    MACRO(TransactionRegistered,           90,  uint8_t) \
+    MACRO(FailureReason,                   92,  TxFailureReason) \
+    MACRO(PaymentConfirmation,             99,  ECC::Signature) \
+    MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) \
+    MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
+    MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
+    MACRO(PeerLockImage,                   115, Hash::Value) \
+    MACRO(AssetMetadata,                   116, std::string) \
+    MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
+    MACRO(OriginalToken,                   121, std::string) \
+    /* Lelantus */ \
+    MACRO(ShieldedOutputId,                122, TxoID) \
+    MACRO(WindowBegin,                     123, TxoID) \
+    MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
+    /* Version */ \
+    MACRO(ClientVersion,                   126, std::string) \
+    MACRO(LibraryVersion,                  127, std::string) 
+
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
     {
         // public parameters
         // Can be set during outside communications
-        TransactionType = 0,
-        IsSender = 1,
-        Amount = 2,
-        Fee = 3,
-        MinHeight = 4,
-        Message = 5,
-        MyID = 6,
-        PeerID = 7,
-        //Inputs = 8,
-        //Outputs = 9,
-        CreateTime = 10,
-        IsInitiator = 11,
-        PeerMaxHeight = 12,
-        AmountList = 13,
-        PreselectedCoins = 14,
-        Lifetime = 15,
-        PeerProtoVersion = 16,
-        MaxHeight = 17,
-        AssetID = 18,
-
-        MySecureWalletID = 20,
-        PeerSecureWalletID = 21,
-
-        PeerResponseTime = 24,
-        SubTxIndex = 25,
-        PeerPublicSharedBlindingFactor = 26,
-
-        IsSelfTx = 27,
-
-        AtomicSwapPeerPrivateKey = 29,
-        AtomicSwapIsBeamSide = 30,
-        AtomicSwapCoin = 31,
-        AtomicSwapAmount = 32,
-        AtomicSwapPublicKey = 33,
-        AtomicSwapPeerPublicKey = 34,
-        AtomicSwapLockTime = 35,
-        AtomicSwapExternalLockTime = 36,
-        AtomicSwapExternalTx = 37,
-        AtomicSwapExternalTxID = 38,
-        AtomicSwapExternalTxOutputIndex = 39,
-
-        // signature parameters
-
-        PeerPublicNonce = 40,
-
-        PeerPublicExcess = 50,
-
-        PeerSignature = 60,
-
-        PeerOffset = 70,
-
-        PeerInputs = 80,
-        PeerOutputs = 81,
-
-        TransactionRegistered = 90,
-
-        FailureReason = 92,
-
-        PaymentConfirmation = 99,
-
-        PeerSharedBulletProofMSig = 108,
-        PeerSharedBulletProofPart2 = 109,
-        PeerSharedBulletProofPart3 = 110,
-
-        PeerLockImage = 115,
-        AssetMetadata = 116,
-
-        ExchangeRates = 120,
-        OriginalToken = 121,
-
-        // Lelantus
-        ShieldedOutputId = 122,
-        WindowBegin = 123,
-        ShieldedVoucherList = 124,
-
-        // Version
-        ClientVersion = 126,
-        LibraryVersion = 127,
+#define MACRO(name, index, type) name = index,
+        BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
 
         // private parameters
         PrivateFirstParam = 128,
@@ -767,9 +754,11 @@ namespace beam::wallet
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
 
-    using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
     ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count);
     bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity);
+
+    std::string ConvertTokenToJson(const std::string& token);
+    std::string ConvertJsonToToken(const std::string& json);
 
 }    // beam::wallet
 
@@ -799,7 +788,7 @@ namespace std
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
-    string to_string(const beam::PeerID& id);
+    string to_string(const beam::PeerID&);
     string to_string(const beam::AmountBig::Type&);
 
     template<>

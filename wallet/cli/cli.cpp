@@ -690,7 +690,7 @@ namespace
 #ifdef BEAM_LIB_VERSION
             params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
 #endif // BEAM_LIB_VERSION
-            params.SetParameter(TxParameterID::PeerSecureWalletID, address->m_Identity);
+            params.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
             AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
         }
         else
@@ -699,7 +699,7 @@ namespace
             WalletAddress address = GenerateNewAddress(walletDB, "");
             
             params.SetParameter(TxParameterID::PeerID, address.m_walletID);
-            params.SetParameter(TxParameterID::PeerSecureWalletID, address.m_Identity);
+            params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
             AddVoucherParameter(vm, params, walletDB, address.m_OwnID);
         }
 

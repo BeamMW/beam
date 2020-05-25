@@ -1351,7 +1351,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter(TxParameterID::PeerSecureWalletID); peerID)
+        if (auto peerID = parameters.GetParameter(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)
@@ -1359,7 +1359,7 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(*myID);
                 if (address)
                 {
-                    completedParameters.SetParameter(TxParameterID::MySecureWalletID, address->m_Identity);
+                    completedParameters.SetParameter(TxParameterID::MyWalletIdentity, address->m_Identity);
                 }
             }
         }
