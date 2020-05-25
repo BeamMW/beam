@@ -1280,8 +1280,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
-		m_ShieldedInput = 1000;
-		m_ShieldedOutput = 1000;
+		m_ShieldedInput = Rules::Coin / 100 - m_Kernel;
+		m_ShieldedOutput = Rules::Coin / 100 - m_Kernel - m_Output;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
