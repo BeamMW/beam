@@ -291,6 +291,16 @@ struct KeyKeeper
         return isValidMnemonic(string_helpers::split(words, ' '), language::en);
     }
 
+    static std::string ConvertTokenToJson(const std::string& token)
+    {
+        return wallet::ConvertTokenToJson(token);
+    }
+
+    static std::string ConvertJsonToToken(const std::string& jsonParams)
+    {
+        return wallet::ConvertJsonToToken(jsonParams);
+    }
+
     // TODO: move to common place
     static ECC::Key::IKdf::Ptr CreateKdfFromSeed(const std::string& phrase)
     {
@@ -425,6 +435,7 @@ EMSCRIPTEN_BINDINGS()
         .class_function("GeneratePhrase",   &KeyKeeper::GeneratePhrase)
         .class_function("IsAllowedWord",    &KeyKeeper::IsAllowedWord)
         .class_function("IsValidPhrase",    &KeyKeeper::IsValidPhrase)
-
+        .class_function("ConvertTokenToJson",&KeyKeeper::ConvertTokenToJson)
+        .class_function("ConvertJsonToToken", &KeyKeeper::ConvertJsonToToken)
         ;
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2019 The Beam Team;
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 #include "common.h"
 #include "utility/logger.h"
 #include "core/ecc_native.h"
+#include "core/serialization_adapters.h"
 #include "base58.h"
 #include "utility/string_helpers.h"
 #include "strings_resources.h"
@@ -42,14 +43,8 @@ using namespace beam;
 using boost::multiprecision::cpp_dec_float_50;
 namespace
 {
-    // skips leading zeroes
-    template<typename T>
-    string EncodeToHex(const T& v)
+    string SkipLeadingZeroes(const char* szPtr)
     {
-        char szBuf[sizeof(v) * 2 + 1];
-        beam::to_hex(szBuf, &v, sizeof(v));
-
-        const char* szPtr = szBuf;
         while (*szPtr == '0')
             szPtr++;
 
@@ -57,6 +52,26 @@ namespace
             szPtr--; // leave at least 1 symbol
 
         return szPtr;
+    }
+
+    // skips leading zeroes
+    template<typename T>
+    string EncodeToHex(const T& v)
+    {
+        char szBuf[sizeof(v) * 2 + 1];
+        beam::to_hex(szBuf, &v, sizeof(v));
+        return SkipLeadingZeroes(szBuf);
+    }
+
+    string EncodeToHex(const ByteBuffer& v)
+    {
+        if (v.empty())
+        {
+            return {};
+        }
+        char* szBuf = (char*)alloca(2 * v.size() + 1);
+        beam::to_hex(szBuf, &v[0], v.size());
+        return SkipLeadingZeroes(szBuf);
     }
 }
 
@@ -247,6 +262,11 @@ namespace beam::wallet
         ECC::Scalar s;
         value.Export(s);
         return toByteBuffer(s);
+    }
+
+    ByteBuffer toByteBuffer(const ByteBuffer& value)
+    {
+        return value;
     }
 
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
@@ -895,7 +915,6 @@ namespace beam::wallet
     using nlohmann::json;
 
 #define BEAM_IGNORED_JSON_TYPES2(MACRO) \
-        MACRO(ECC::RangeProof::Confidential::Part1) \
         MACRO(ECC::RangeProof::Confidential::Part2) \
         MACRO(ECC::RangeProof::Confidential::Part3)
 
@@ -945,9 +964,14 @@ namespace beam::wallet
             return std::to_string(v);
         }
 
-        string ToJsonValue(TxType t)
+        json ToJsonValue(TxType v)
         {
-            return std::to_string(uint8_t(t));
+            return uint8_t(v);
+        }
+
+        json ToJsonValue(bool v)
+        {
+            return v;
         }
 
         string ToJsonValue(const ByteBuffer& buf)
@@ -955,24 +979,24 @@ namespace beam::wallet
             return EncodeToHex(buf);
         }
 
-        string ToJsonValue(const AmountList& amountList)
+        json ToJsonValue(const AmountList& amountList)
         {
             json list = json::array();
             for (const auto& a : amountList)
             {
-                list.push_back(a);
+                list.push_back(std::to_string(a));
             }
-            return list.dump();
+            return list;
         }
 
-        string ToJsonValue(const CoinIDList& coinList)
+        json ToJsonValue(const CoinIDList& coinList)
         {
             json list = json::array();
             for (const auto& c : coinList)
             {
                 list.push_back(toString(c));
             }
-            return list.dump();
+            return list;
         }
 
 #define BEAM_IGNORED_JSON_TYPES(MACRO) \
@@ -985,7 +1009,7 @@ namespace beam::wallet
         MACRO(ShieldedVoucherList)
 
 #define MACRO(type) \
-        string ToJsonValue(const type&) \
+        json ToJsonValue(const type&) \
         { \
             return {}; \
         } \
@@ -1022,7 +1046,7 @@ namespace beam::wallet
             return names[n];
         }
 
-        string GetParameterValue(TxParameterID id, const ByteBuffer& buffer)
+        json GetParameterValue(TxParameterID id, const ByteBuffer& buffer)
         {
             switch (id)
             {
@@ -1063,6 +1087,28 @@ namespace beam::wallet
             return true;
         }
 
+        bool FromJson(const json& s, TxType& v)
+        {
+            if (!s.is_number_integer())
+            {
+                return false;
+            }
+
+            v = TxType(s.get<uint8_t>());
+            return true;
+        }
+
+        bool FromJson(const json& s, bool& v)
+        {
+            if (!s.is_boolean())
+            {
+                return false;
+            }
+
+            v = s.get<bool>();
+            return true;
+        }
+
         bool FromJson(const json& s, uintBig& v)
         {
             if (!s.is_string())
@@ -1088,6 +1134,21 @@ namespace beam::wallet
             return FromJson(s, static_cast<uintBig&>(p));
         }
 
+        bool FromJson(const json& s, CoinID& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            auto t = Coin::FromString(s.get<std::string>());
+            if (!t)
+            {
+                return false;
+            }
+            v = *t;
+            return true;
+        }
+
         bool FromJson(const json& s, std::string& v)
         {
             if (!s.is_string())
@@ -1096,6 +1157,45 @@ namespace beam::wallet
             }
             v = s.get<std::string>();
             return true;
+        }
+
+        bool FromJson(const json& s, ByteBuffer& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            bool isValid = false;
+            v = from_hex(s.get<std::string>(), &isValid);
+            return isValid;
+        }
+
+        template<typename T>
+        bool VectorFromJson(const json& s, T& v)
+        {
+            if (!s.is_array())
+            {
+                return false;
+            }
+            for (const auto& item : s)
+            {
+                typename T::value_type t;
+                if (FromJson(item, t))
+                {
+                    v.push_back(t);
+                }
+            }
+            return true;
+        }
+
+        bool FromJson(const json& s, AmountList& v)
+        {
+            return VectorFromJson(s, v);
+        }
+
+        bool FromJson(const json& s, CoinIDList& v)
+        {
+            return VectorFromJson(s, v);
         }
 
         ByteBuffer GetParameterValue(TxParameterID id, const json& jsonValue)
@@ -1120,6 +1220,7 @@ namespace beam::wallet
         }
 
         const std::string ParamsName = "params";
+        const std::string TxIDName = "tx_id";
         const std::string IdName = "id";
         const std::string ValueName = "value";
     }
@@ -1133,6 +1234,7 @@ namespace beam::wallet
         }
         auto packedParams = p->Pack();
         json params = json::object();
+
         for (const auto& pair : packedParams)
         {
             params.push_back(
@@ -1141,8 +1243,11 @@ namespace beam::wallet
                 GetParameterValue(pair.first, pair.second)
             });
         }
+        auto txID = p->GetTxID();
+
         json res = json
         {
+            { TxIDName, txID.is_initialized() ? json(std::to_string(*txID)) : json{}},
             { ParamsName, params }
         };
         return res.dump();
@@ -1156,10 +1261,21 @@ namespace beam::wallet
             auto paramsIt = obj.find(ParamsName);
             if (paramsIt == obj.end())
             {
-                LOG_ERROR() << "There are no transaction params";
                 return {};
             }
-            TxParameters txParams;
+            boost::optional<TxID> txID;
+            auto txIDIt = obj.find(TxIDName);
+            if (txIDIt != obj.end() && !txIDIt->is_null())
+            {
+                auto txIdVec = from_hex(*txIDIt);
+
+                if (txIdVec.size() >= 16)
+                {
+                    txID.emplace();
+                    std::copy_n(txIdVec.begin(), 16, txID->begin());
+                }
+            }
+            TxParameters txParams(txID);
             for (const auto& p : paramsIt->items())
             {
                 auto id = GetParameterID(p.key());
@@ -1168,9 +1284,8 @@ namespace beam::wallet
             }
             return std::to_string(txParams);
         }
-        catch (const nlohmann::detail::exception& e)
+        catch (const nlohmann::detail::exception&)
         {
-            LOG_ERROR() << "json parse: " << e.what();
         }
         return {};
 
