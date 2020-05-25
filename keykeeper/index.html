@@ -34,6 +34,15 @@
                 console.log('token #42 (amount 0) is: ' + keykeeper.getSendToken(address, identity, "0"));
                 console.log('token #42 (amount 42) is: ' + keykeeper.getSendToken(address, identity, "42"));
                 console.log('token #42 (amount -42) is: ' + keykeeper.getSendToken(address, identity, "-42"));
+
+                var token = "6GhyHhPAT9ZWXBBgXL19fkQHRExjqJ8sgYuV4Phz7J9wPwf5EUgsuhuwHHiG4GMPc84cfcz2HTcxGXGVhMNhP7CVSH84UeaaU4HJ4NMbesJYCmjfwwTpJdMnNHAQ9hPatfEjg6qzFBgoKXLCCmetvuP1sBoPfLdfayQvKb1aRJaQYapufaXwa9KdrxjkZMHXdLsTet5n4rLiNfn1";
+                console.log('Converting token to json: ' + token);
+                console.log('Result: ' + Module.KeyKeeper.ConvertTokenToJson(token))
+                var res = JSON.parse(Module.KeyKeeper.ConvertTokenToJson(token));
+                console.log('res.params.PeerID=' + res.params.PeerID);
+                var token2 = Module.KeyKeeper.ConvertJsonToToken(JSON.stringify(res));
+                console.log('Back conversion: ' + token2);                
+                
             }
         })
     </script>

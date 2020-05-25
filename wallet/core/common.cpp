@@ -1261,7 +1261,6 @@ namespace beam::wallet
             auto paramsIt = obj.find(ParamsName);
             if (paramsIt == obj.end())
             {
-                LOG_ERROR() << "There are no transaction params";
                 return {};
             }
             boost::optional<TxID> txID;
@@ -1287,7 +1286,6 @@ namespace beam::wallet
         }
         catch (const nlohmann::detail::exception& e)
         {
-            LOG_ERROR() << "json parse: " << e.what();
         }
         return {};
 
