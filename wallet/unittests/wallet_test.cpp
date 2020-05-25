@@ -2509,6 +2509,8 @@ void TestHWCommitment()
 
         //beam::WordList generatedPhrases = {"budget", "focus", "surface", "plug", "dragon", "elephant", "token", "child", "kitchen", "coast", "lounge", "mean" };
         beam::WordList generatedPhrases = { "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" };
+        //phrase that is used in beam-hw-crypto tests
+        //beam::WordList generatedPhrases = {"edge", "video", "genuine", "moon", "vibrant", "hybrid", "forum", "climb", "history", "iron", "involve", "sausage"};
 
         auto buf = beam::decodeMnemonic(generatedPhrases);
 

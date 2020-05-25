@@ -481,8 +481,7 @@ namespace beam::wallet
             }
 
             ECC::Scalar::Native tauX;
-            tauX.get_Raw() = ConvertResultTo<secp256k1_scalar>(brpd.data_taux());
-            m_pRes->m_pConfidential->m_Part3.m_TauX = tauX;
+            m_pRes->m_pConfidential->m_Part3.m_TauX = ConvertResultTo<ECC::Scalar>(brpd.data_taux());
 
             BeamCrypto_CompactPoint bccp;
             TxExport(bccp, brpd.pt0());
