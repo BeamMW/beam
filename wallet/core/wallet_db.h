@@ -225,7 +225,7 @@ namespace beam::wallet
 
         bool IsAvailable() const
         {
-            return m_confirmHeight != MaxHeight && !m_spentTxId;
+            return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight;
         }
 
         ShieldedTxo::BaseKey m_Key;
