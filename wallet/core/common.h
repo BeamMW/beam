@@ -209,6 +209,7 @@ namespace beam::wallet
 
     ByteBuffer toByteBuffer(const ECC::Point::Native& value);
     ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+    ByteBuffer toByteBuffer(const ByteBuffer& value);
 
     template <typename T>
     std::string to_base64(const T& obj)
@@ -292,7 +293,7 @@ namespace beam::wallet
     MACRO(TransactionRegistered,           90,  uint8_t) \
     MACRO(FailureReason,                   92,  TxFailureReason) \
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
-    MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) \
+    /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
     MACRO(PeerLockImage,                   115, Hash::Value) \
