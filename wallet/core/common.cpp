@@ -1284,7 +1284,7 @@ namespace beam::wallet
             }
             return std::to_string(txParams);
         }
-        catch (const nlohmann::detail::exception& e)
+        catch (const nlohmann::detail::exception&)
         {
         }
         return {};
