@@ -22,7 +22,8 @@ namespace beam::wallet
      *  @storage                used to store notifications
      *  @activeNotifications    shows which of Notification::Type are active
      */
-    NotificationCenter::NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor)
+    NotificationCenter::NotificationCenter(
+        IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor)
         : m_storage(storage)
         , m_activeNotifications(activeNotifications)
         , m_checkoutTimer(io::Timer::create(*reactor))
@@ -66,11 +67,11 @@ namespace beam::wallet
         m_activeNotifications[type] = onOff;
     }
 
-    size_t NotificationCenter::getUnreadCount(VersionInfo::Application app, const Version& currentAppVersion) const
+    size_t NotificationCenter::getUnreadCount(
+        VersionInfo::Application app, const Version& currentLibVersion, uint32_t currentClientRevision) const
     {
-        // TODO: #1414 change to use WalletImplVerInfo
         return std::count_if(m_cache.begin(), m_cache.end(),
-            [app, &currentAppVersion](const auto& p)
+            [app, &currentLibVersion, &currentClientRevision](const auto& p)
             {
                 if (p.second.m_state == Notification::State::Unread)
                 {
@@ -79,7 +80,18 @@ namespace beam::wallet
                         VersionInfo info;
                         if (fromByteBuffer(p.second.m_content, info) &&
                             app == VersionInfo::Application::DesktopWallet &&
-                            currentAppVersion < info.m_version)
+                            currentLibVersion < info.m_version)
+                        {
+                            return true;
+                        }
+                    }
+                    if (p.second.m_type == Notification::Type::WalletImplUpdateAvailable)
+                    {
+                        WalletImplVerInfo info;
+                        if (fromByteBuffer(p.second.m_content, info) &&
+                            app == VersionInfo::Application::DesktopWallet &&
+                            (currentLibVersion < info.m_version ||
+                             (currentLibVersion == info.m_version && currentClientRevision < info.m_UIrevision)))
                         {
                             return true;
                         }
@@ -157,6 +169,7 @@ namespace beam::wallet
             if (!isNotificationTypeActive(pair.second.m_type))
                 continue;
             if (pair.second.m_type != Notification::Type::SoftwareUpdateAvailable // we do not filter out deleted software update notifications
+                && pair.second.m_type != Notification::Type::WalletImplUpdateAvailable
                 && pair.second.m_state == Notification::State::Deleted)
                 continue;
             notifications.push_back(pair.second);

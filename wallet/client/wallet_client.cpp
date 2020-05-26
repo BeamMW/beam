@@ -291,7 +291,7 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
-    Version WalletClient::getAppVersion()
+    Version WalletClient::getLibVersion() const
     {
         // TODO: replace with current wallet library version
         return beam::Version
@@ -300,6 +300,11 @@ namespace beam::wallet
             0,
             0
         };
+    }
+
+    uint32_t WalletClient::getClientRevision() const
+    {
+        return 0;
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
@@ -1144,7 +1149,9 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-        size_t count = m_notificationCenter->getUnreadCount(VersionInfo::Application::DesktopWallet, getAppVersion());
+
+        size_t count = m_notificationCenter->getUnreadCount(
+            VersionInfo::Application::DesktopWallet, getLibVersion(), getClientRevision());
         postFunctionToClientContext([this, count]()
         {
             m_unreadNotificationsCount = count;
