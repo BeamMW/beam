@@ -1611,9 +1611,10 @@ namespace beam
 		ZeroObject(pForks);
 
 		pForks[1].m_Height = 270910; // testnet fork
+		pForks[2].m_Height = 690000;
 
 		// future forks
-		for (size_t i = 2; i < _countof(pForks); i++)
+		for (size_t i = 3; i < _countof(pForks); i++)
 			pForks[i].m_Height = MaxHeight;
 	}
 
