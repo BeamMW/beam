@@ -44,15 +44,12 @@ namespace beam::wallet
         }
     }
 
+    // Deprecated. TODO: dh remove after 2 fork.
     bool BroadcastMsgValidator::processMessage(const ByteBuffer& in, BroadcastMsg& out) const
     {
-        SignatureHandler signValidator;
         try
         {
-            // deserialize whole message
             fromByteBuffer(in, out);
-            // deserialize signature
-            fromByteBuffer(out.m_signature, signValidator.m_Signature);
         }
         catch(...)
         {
@@ -60,7 +57,25 @@ namespace beam::wallet
             return false;
         }
 
-        signValidator.m_data = out.m_content;
+        return isSignatureValid(out);
+    }
+
+    // Later on can be implemented in ProtocolBase::VerifyMsg() and become incapsulated in BroadcatRouter class
+    bool BroadcastMsgValidator::isSignatureValid(const BroadcastMsg& msg) const
+    {
+        SignatureHandler signValidator;
+
+        try
+        {
+            fromByteBuffer(msg.m_signature, signValidator.m_Signature);
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "broadcast message signature deserialization exception";
+            return false;
+        }
+        signValidator.m_data = msg.m_content;
+
         auto it = std::find_if( std::cbegin(m_publisherKeys),
                                 std::cend(m_publisherKeys),
                                 [&signValidator](const PublicKey& pk)

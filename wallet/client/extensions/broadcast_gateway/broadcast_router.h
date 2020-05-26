@@ -45,21 +45,20 @@ namespace beam
         void sendMessage(BroadcastContentType type, const BroadcastMsg&) override;
 
         // IBbsReceiver
-        virtual void OnMsg(proto::BbsMsg&&) override;
+        void OnMsg(proto::BbsMsg&&) override;
 
         // IErrorHandler
-        virtual void on_protocol_error(uint64_t fromStream, ProtocolError error) override;
-        virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override; /// unused
+        void on_protocol_error(uint64_t fromStream, ProtocolError error) override;
+        void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override; /// unused
 
         static constexpr std::array<uint8_t, 3> m_ver_1 = { 0, 0, 1 };  // version used before 2nd fork: has custom deserialization and signature hash for SwapOffersBoard. TODO: dh remove after 2 fork.
         static constexpr std::array<uint8_t, 3> m_ver_2 = { 0, 0, 2 };  // verison after 2nd fork: will has common deserialization and signatures type for all BBS-based broadcasting.
 
     private:
-        static constexpr size_t m_maxMessageTypes = 3;
+        static constexpr size_t m_maxMessageTypes = 4;
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
         static constexpr size_t m_minMessageSize = 1;
         static constexpr size_t m_maxMessageSize = 1024*1024*10;
-        static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
 
         static const std::vector<BbsChannel> m_incomingBbsChannels;
         static const std::map<BroadcastContentType, BbsChannel> m_outgoingBbsChannelsMap;

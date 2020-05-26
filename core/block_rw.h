@@ -42,6 +42,11 @@ namespace beam
 	// Full recovery info. Includes ChainWorkProof, and all the UTXO set which hash should correspond to the tip commitment
 	struct RecoveryInfo
 	{
+		struct Flags {
+			static const uint8_t Output = 1; // if not specified - considered as input
+			static const uint8_t HadAsset = 2; // The asset proof itself is omitted in recovery, but it affects the bulletproof's blinding factor
+		};
+
 		struct Writer
 		{
 			std::FStream m_Stream;
@@ -68,14 +73,16 @@ namespace beam
 			:public IParser
 		{
 			Key::IPKdf::Ptr m_pOwner;
-			const ShieldedTxo::Viewer* m_pViewer = nullptr;
+			std::vector<ShieldedTxo::Viewer> m_vSh;
+
+			void Init(const Key::IPKdf::Ptr&, Key::Index nMaxShieldedIdx = 1);
 
 			virtual bool OnUtxo(Height, const Output&) override;
 			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
 			virtual bool OnAsset(Asset::Full&) override;
 
 			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) { return true; }
-			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&) { return true; }
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&, Key::Index) { return true; }
 			virtual bool OnAssetRecognized(Asset::Full&) { return true; }
 		};
 	};

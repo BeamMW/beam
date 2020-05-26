@@ -74,8 +74,8 @@ class NodeProcessor
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
 	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height, const ShieldedTxo::Viewer*);
-	void Recognize(const TxKernelAssetCreate&, Height, Key::IPKdf*);
+	void Recognize(const TxKernelShieldedOutput&, Height);
+	void Recognize(const TxKernelAssetCreate&, Height);
 	void Recognize(const TxKernelAssetDestroy&, Height);
 	void Recognize(const TxKernelAssetEmit&, Height);
 
@@ -98,9 +98,11 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&, TxoID);
+	void ToInputWithMaturity(Input&, Output&, bool bNake);
 
 	TxoID get_TxosBefore(Height);
+	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
+
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor(bool bMovingUp);
@@ -240,7 +242,7 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	bool ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
+	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
 
 	struct DataStatus {
 		enum Enum {
@@ -348,8 +350,16 @@ public:
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 
-	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
-	virtual const ShieldedTxo::Viewer* get_ViewerShieldedKey() { return nullptr; }
+	struct ViewerKeys
+	{
+		Key::IPKdf* m_pMw;
+		ShieldedTxo::Viewer* m_pSh;
+		Key::Index m_nSh;
+		
+		bool IsEmpty() const;
+	};
+
+	virtual void get_ViewerKeys(ViewerKeys&);
 
 	void RescanOwnedTxos();
 

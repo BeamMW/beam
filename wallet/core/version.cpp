@@ -69,6 +69,11 @@ namespace beam
             && m_revision == other.m_revision;
     }
 
+    bool Version::operator!=(const Version& other) const
+    {
+        return !(*this == other);
+    }
+
     bool Version::operator<(const Version& other) const
     {
         return m_major < other.m_major
@@ -77,8 +82,8 @@ namespace beam
                     || (m_minor == other.m_minor && m_revision < other.m_revision)));
     }
 
-    bool Version::operator!=(const Version& other) const
+    bool Version::operator<=(const Version& other) const
     {
-        return !(*this == other);
+        return *this == other || *this < other;
     }
 } // namespace beam

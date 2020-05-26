@@ -424,6 +424,7 @@ void Channel::UpdateRestorePoint()
         ser & upd.m_tx2;
         ser & upd.m_CommPeer1;
         ser & upd.m_txPeer2;
+        ser & upd.m_hvTx1KernelID;
 
         ser & upd.m_RevealedSelfKey;
         ser & upd.m_PeerKeyValid;
@@ -614,6 +615,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
             der & upd.m_tx2;
             der & upd.m_CommPeer1;
             der & upd.m_txPeer2;
+            der & upd.m_hvTx1KernelID;
 
             der & upd.m_RevealedSelfKey;
             der & upd.m_PeerKeyValid;

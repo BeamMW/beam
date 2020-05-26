@@ -135,9 +135,11 @@ namespace beam
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
+        const char* POW_SOLVE_TIME = "pow_solve_time";
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
+        const char* NODE_PEERS_PERSISTENT = "peers_persistent";
         const char* PASS = "pass";
         const char* SET_SWAP_SETTINGS = "set_swap_settings";
         const char* ACTIVE_CONNECTION = "active_connection";
@@ -227,9 +229,12 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        const char* WITH_SYNC_PIPES = "sync_pipes";
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
+        const char* VOUCHER_COUNT = "voucher_count";
+
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -279,11 +284,12 @@ namespace beam
         const char* ASSET_ISSUE       = "issue";
         const char* ASSET_CONSUME     = "consume";
         const char* ASSET_INFO        = "asset_info";
-        const char* ASSET_REGISTER    = "reg";
-        const char* ASSET_UNREGISTER  = "unreg";
-        const char* ASSET_INDEX       = "asset_idx";
+        const char* ASSET_REGISTER    = "asset_reg";
+        const char* ASSET_UNREGISTER  = "asset_unreg";
         const char* ASSET_ID          = "asset_id";
-        const char* METADATA          = "metadata";
+        const char* ASSET_METADATA    = "asset_meta";
+        const char* ASSETS            = "assets";
+        const char* WITH_ASSETS       = "enable_assets";
 
         // broadcaster
         const char* GENERATE_KEYS     = "generate_keys";
@@ -295,6 +301,14 @@ namespace beam
         const char* EXCHANGE_CURR     = "exch_curr";
         const char* EXCHANGE_RATE     = "exch_rate";
         const char* EXCHANGE_UNIT     = "exch_unit";
+
+        // lelantus
+        const char* INSERT_TO_POOL = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL = "extract_from_pool";
+        const char* SHIELDED_UTXOS = "shielded_utxos";
+        const char* SHIELDED_ID = "shielded_id";
+        const char* WINDOW_BEGIN = "window_begin";
+        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -314,24 +328,26 @@ namespace beam
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
-        po::options_description general_options("General options");
+        po::options_description general_options("General");
         general_options.add_options()
-            (cli::HELP_FULL, "list of all options")
-            (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
-            (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
+            (cli::HELP_FULL, "list all available options and commands")
+            (cli::VERSION_FULL, "print project version")
+            (cli::LOG_LEVEL, po::value<string>(), "set log level [info|debug|verbose]")
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [info|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
-            (cli::VERSION_FULL, "return project version")
-            (cli::GIT_COMMIT_HASH, "return commit hash");
+            (cli::GIT_COMMIT_HASH, "print git commit hash value");
 
         po::options_description node_options("Node options");
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0). It works if FakePoW is enabled")
+            (cli::POW_SOLVE_TIME, po::value<uint32_t>()->default_value(15 * 1000), "pow solve time. It works if FakePoW is enabled")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
+            (cli::NODE_PEERS_PERSISTENT, po::value<bool>()->default_value(false), "Keep persistent connection to the specified peers, regardless to ratings")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
@@ -358,35 +374,32 @@ namespace beam
         node_treasury_options.add_options()
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from");
 
-        po::options_description wallet_options("Wallet options");
+        po::options_description wallet_options("Wallet");
         wallet_options.add_options()
-            (cli::PASS, po::value<string>(), "password for the wallet")
-            (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
-            (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver's address or token")
-            (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-            (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::TX_HISTORY, "print transactions' history in info command")
+            (cli::COMMAND, po::value<string>(), "execute a specific command")
+            (cli::PASS, po::value<string>(), "wallet password")
+            (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
+            (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
+            (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
+            (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
+            (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::LISTEN, "start listen after new_addr command")
-            (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
-            (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
+            (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
+            (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_24H), "expiration time for own address [24h|never|now]")
-            (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
-            (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Child key index.")
+            (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
+            (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
-            (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
-            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
-            (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
-#ifdef BEAM_LASER_SUPPORT
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token|laser]")
-#else
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|get_token]")
-#endif  // BEAM_LASER_SUPPORT
-            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-            (cli::PROXY_USE, po::value<bool>()->default_value(false), "Use socks5 proxy server for node connection")
-            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "Proxy server address");
+            (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
+            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export wallet data (should be used with import_data|export_data)")
+            (cli::IGNORE_DICTIONARY, "ignore dictionary for a specific seed phrase validation")
+            (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+            (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -403,92 +416,100 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-        po::options_description swap_options("Atomic swap options");        
-        po::options_description visible_swap_options(swap_options);
-        visible_swap_options.add_options()
-            (cli::SWAP_INIT, "command to initialize")
-            (cli::SWAP_ACCEPT, "command to accept swap");
+        po::options_description swap_options("Atomic swap");
         swap_options.add_options()
-            (cli::SET_SWAP_SETTINGS, "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
-            (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
-            (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
-            (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
+            (cli::ELECTRUM_ADDR, po::value<string>(), "set electrum wallet address")
+            (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of the swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
-            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
-            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
-            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
-            (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
+            (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM)")
+            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin (e.g. satoshi for BTC)")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "specific feerate you are willing to pay (the smallest unit of the coin per KB)")
+            (cli::SWAP_BEAM_SIDE, "should be always set by the swap party who owns BEAM")
+            (cli::SWAP_TX_HISTORY, "print swap transaction history in info command")
+            (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap");
 
-        for (auto opt : swap_options.options())
-        {
-            visible_swap_options.add(opt);
-        }
-
-        po::options_description wallet_assets_options("Confidential assets options");
+        po::options_description wallet_assets_options("Confidential assets");
         wallet_assets_options.add_options()
-            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
-            (cli::ASSET_ID,    po::value<Positive<uint32_t>>(), "asset id")
-            (cli::METADATA,    po::value<string>(),             "asset metadata");
+            (cli::ASSET_ID,         po::value<Positive<uint32_t>>(), "asset ID")
+            (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
+            (cli::ASSETS,           "print assets (should be used with an info command)")
+            (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
 #ifdef BEAM_LASER_SUPPORT
-        po::options_description laser_commands("Laser commands");
-        laser_commands.add_options()
-            (cli::LASER_LIST, "view all opened lightning channel")
-            (cli::LASER_WAIT, "wait for open incomming lightning channel")
-            (cli::LASER_OPEN, "open lightning channel")
-            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen lightning channels")
-            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
-            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close opened lightning channel. Use before lock time is up, only if other side is online")
-            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel. Use after lock time is up or if other side is offline")
-            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from data base");
-
-        po::options_description laser_options("Laser options");
+        po::options_description laser_options("Laser beam");
         laser_options.add_options()
-            (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_LIST, "print all opened lightning channel")
+            (cli::LASER_WAIT, "wait for open incoming lightning channel")
+            (cli::LASER_OPEN, "open lightning channel")
+            (cli::LASER_SERVE, po::value<string>()->implicit_value(""), "listen to lightning channels")
+            (cli::LASER_TRANSFER, po::value<Positive<double>>(), "send to lightning channel")
+            (cli::LASER_CLOSE_GRACEFUL, po::value<string>()->implicit_value(""), "close lightning channel (use before the lock time is up, only if the other side is online)")
+            (cli::LASER_DROP, po::value<string>()->implicit_value(""), "drop opened lightning channel (use after lock time is up or if the other side is offline)")
+            (cli::LASER_DELETE, po::value<string>()->implicit_value(""), "delete closed laser channel from the wallet database")
+
+            (cli::LASER_AMOUNT_MY, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on the owned side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<NonnegativeFloatingPoint<double>>(), "amount to lock in channel on the target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
-            (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "transaction fee (in GROTH, 100,000,000 groth = 1 BEAM)")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
-        po::options_description options{ "Allowed options" };
-        po::options_description visible_options{ "Allowed options" };
+        po::options_description lelantus_options("Lelantus-MW");
+        lelantus_options.add_options()
+            (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
+            (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
+            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
+            (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
+
+        po::options_description options{ "OPTIONS" };
+        po::options_description visible_options{ "OPTIONS" };
+
         if (flags & GENERAL_OPTIONS)
         {
             options.add(general_options);
             visible_options.add(general_options);
         }
+
         if (flags & NODE_OPTIONS)
         {
             options.add(node_options);
             options.add(node_treasury_options);
             visible_options.add(node_options);
         }
+
         if (flags & WALLET_OPTIONS)
         {
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
-            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
+            options.add(lelantus_options);
+
+            if(Rules::get().CA.Enabled)
+            {
+                options.add(wallet_assets_options);
+            }
+
             visible_options.add(wallet_options);
-            visible_options.add(visible_swap_options);
-            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
+            visible_options.add(swap_options);
+             visible_options.add(lelantus_options);
+
+            if(Rules::get().CA.Enabled)
+            {
+                visible_options.add(wallet_assets_options);
+            }
 
 #ifdef BEAM_LASER_SUPPORT
-            options.add(laser_commands);
             options.add(laser_options);
-            visible_options.add(laser_commands);
             visible_options.add(laser_options);
 #endif  // BEAM_LASER_SUPPORT
         }
+
         if (flags & UI_OPTIONS)
         {
             options.add(uioptions);
@@ -516,22 +537,53 @@ namespace beam
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
+            macro(uint32_t, MaxRollback, "Max allowed rollback (reorg) depth") \
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
+            macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
+            macro(bool, CA.Enabled, "Enable/disable CA (confidential assets)") \
+            macro(Amount, CA.DepositForList, "Deposit for new CA allocation") \
+            macro(Height, CA.LockPeriod, "Lock height for deposit after the CA is completely burned") \
+            macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
+            macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
+            macro(bool, Shielded.Enabled, "Enable/disable Shielded pool (Lelantus)") \
+            macro(uint32_t, Shielded.m_ProofMax.n, "Shielded anonymity set max n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMax.M, "Shielded anonymity set max M (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.n, "Shielded anonymity set min n (n^M)") \
+            macro(uint32_t, Shielded.m_ProofMin.M, "Shielded anonymity set min M (n^M)") \
+            macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
+            macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
+            macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
 
 		#define Fork1 pForks[1].m_Height
 		#define Fork2 pForks[2].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
-            po::options_description rules_options("Rules configuration");
+            po::options_description rules_options("CONFIGURATION RULES");
             rules_options.add_options() RulesParams(THE_MACRO);
 
         #undef THE_MACRO
 
         return rules_options;
+    }
+
+    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    {
+        std::ifstream cfg(szFile);
+        if (!cfg)
+            return false;
+
+        LOG_INFO() << "Reading config from " << szFile;
+        po::store(po::parse_config_file(cfg, desc), vm);
+        return true;
+    }
+
+    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    {
+        return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
@@ -548,14 +600,8 @@ namespace beam
         }
         po::store(parser.run(), vm); // value stored first is preferred
 
-        {
-            std::ifstream cfg(configFile);
-
-            if (cfg)
-            {
-                po::store(po::parse_config_file(cfg, options), vm);
-            }
-        }
+        ReadCfgFromFileCommon(vm, options);
+        ReadCfgFromFile(vm, options, configFile);
 
         getRulesOptions(vm);
 

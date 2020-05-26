@@ -670,14 +670,14 @@ void NodeConnection::OnMsg(Login0&& msg0)
 	Login msg;
 	msg.m_Flags = msg0.m_Flags;
 
-	OnLoginInternal(MaxHeight, std::move(msg));
+	OnLoginInternal(std::move(msg));
 }
 
 void NodeConnection::OnMsg(Login&& msg)
 {
 	if (msg.m_Cfgs.empty()) // Peers send cfgs only on 1st login
 	{
-		OnLoginInternal(MaxHeight, std::move(msg));
+		OnLoginInternal(std::move(msg));
 		return;
 	}
 
@@ -690,16 +690,25 @@ void NodeConnection::OnMsg(Login&& msg)
 		const HeightHash* pFork = r.FindFork(msg.m_Cfgs[i]);
 		if (pFork)
 		{
-			Height hMaxScheme = MaxHeight;
 			if (&r.get_LastFork() != pFork)
 			{
-				if (i + 1 != msg.m_Cfgs.size())
-					break; // overlap config found, but then we have incompatible forks.
+                size_t nMyFork = pFork - r.pForks;
 
-				hMaxScheme = pFork[1].m_Height - 1;
+                Height hScheme = pFork[1].m_Height;
+
+                LOG_WARNING() << "Peer " << m_Connection->peer_address() << " incompatible with HF " << (nMyFork + 1) << ", Height=" << hScheme;
+
+                Height hMinScheme = get_MinPeerFork();
+                if (hMinScheme >= hScheme)
+                    ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
 			}
 
-			OnLoginInternal(hMaxScheme, std::move(msg));
+            if (i + 1 != msg.m_Cfgs.size())
+            {
+                LOG_WARNING() << "Peer " << m_Connection->peer_address() << " has unknown fork: " << msg.m_Cfgs[i + 1];
+            }
+
+			OnLoginInternal(std::move(msg));
 			return;
 		}
 	}
@@ -719,7 +728,7 @@ void NodeConnection::OnMsg(Login&& msg)
 	ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
 }
 
-void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
+void NodeConnection::OnLoginInternal(Login&& msg)
 {
 	if (LoginFlags::ExtensionsBeforeHF1 != (LoginFlags::ExtensionsBeforeHF1 & msg.m_Flags))
 	{
@@ -737,15 +746,6 @@ void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 		if (nFlags2 != nMask) {
 			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
 		}
-	}
-
-	if (hScheme < MaxHeight)
-	{
-		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " incompatible with fork " << (hScheme + 1);
-
-		Height hMinScheme = get_MinPeerFork();
-		if (hScheme < hMinScheme)
-			ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
 	}
 
 	OnLogin(std::move(msg));
@@ -1026,7 +1026,7 @@ void Event::Utxo::Dump(std::ostringstream& os) const
 void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
-    os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_Sender;
+    os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_User.m_Sender;
 }
 
 void Event::AssetCtl::Dump(std::ostringstream& os) const

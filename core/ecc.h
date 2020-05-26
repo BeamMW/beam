@@ -478,3 +478,14 @@ namespace ECC
 	}
 }
 
+// TODO: review this types, they don't have standard layout
+inline void ZeroObject(ECC::Signature& x)
+{
+	ZeroObjectUnchecked(x);
+}
+
+inline void ZeroObject(ECC::RangeProof::Public& x)
+{
+	ZeroObjectUnchecked(x);
+}
+

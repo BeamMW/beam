@@ -14,10 +14,7 @@
 
 #pragma once
 
-#include "wallet/core/common.h"
-#include "wallet/core/wallet_db.h"
-#include "wallet/core/base_transaction.h"
-
+#include "asset_base_tx.h"
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
@@ -27,7 +24,7 @@ namespace beam::wallet
 {
     class BaseTxBuilder;
 
-    class AssetIssueTransaction : public BaseTransaction
+    class AssetIssueTransaction : public AssetTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
@@ -49,17 +46,15 @@ namespace beam::wallet
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        bool IsLoopbackTransaction() const;
         AssetIssueTxBuilder& GetTxBuilder();
         void ConfirmAsset();
 
         enum State : uint8_t
         {
             Initial,
+            AssetConfirm,
             AssetCheck,
-            MakingInputs,
-            MakingOutputs,
-            MakingKernels,
+            Making,
             Registration,
             KernelConfirmation,
             Finalizing

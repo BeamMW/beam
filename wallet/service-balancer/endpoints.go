@@ -159,7 +159,6 @@ func (points *Endpoints) Add(wid string, svcIdx int, address string) {
 			}
 		}
 	}()
-	return
 }
 
 var (

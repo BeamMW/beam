@@ -28,10 +28,18 @@ struct Channel::MuSigLocator
 	typedef boost::intrusive_ptr<MuSigLocator> Ptr;
 
 	virtual ~MuSigLocator() {}
+};
 
-	DataUpdate* m_pIndex; // set nullptr if we're looking for MSig0
+struct Channel::KernelLocator
+	:public proto::FlyClient::RequestKernel
+{
+	typedef boost::intrusive_ptr<KernelLocator> Ptr;
+
+	DataUpdate* m_pIndex; // set to non-null if we're in the middle of a search
 	uint32_t m_nRevision;
 	bool m_Initiator;
+
+	virtual ~KernelLocator() {}
 };
 
 Channel::State::Enum Channel::get_State() const
@@ -163,6 +171,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			bool bOk =
 				dataIn.Get(m_Params.m_hLockTime, Codes::HLock) &&
+				dataIn.Get(m_Params.m_hPostLockReserve, Codes::HPostLockReserve) &&
 				dataIn.Get(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime) &&
 				dataIn.Get(m_Params.m_Fee, Codes::Fee) &&
 				dataIn.Get(nPeer, Codes::ValueMy) &&
@@ -412,6 +421,32 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 	Update();
 }
 
+void Channel::ForgetOutdatedRevisions(Height hTip)
+{
+	// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
+	while (m_lstUpdates.size() > 1)
+	{
+
+		DataUpdate& d = m_lstUpdates.front();
+		assert(!m_State.m_Close.m_pPath); // no chance we're deleting the being-used revision
+
+		const HeightRange* pHR = d.get_HR();
+		if (!pHR)
+			break; // not ready?
+
+		Height h1 = pHR->m_Max + Rules::get().MaxRollback;
+		if (h1 < pHR->m_Max)
+			break; // overflow
+
+		if (h1 >= hTip)
+			break;
+
+		// outdated!
+		m_lstUpdates.DeleteFront();
+		OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
+	}
+}
+
 void Channel::Update()
 {
 	if (m_State.m_Close.m_hPhase2)
@@ -422,32 +457,6 @@ void Channel::Update()
 	assert(!m_lstUpdates.empty());
 
 	Height hTip = get_Tip();
-
-	if (!m_pRequest)
-	{
-		// check if we can forget some oldest revisions. Don't do this while the request is in the progress (it may use it)
-		while (m_lstUpdates.size() > 1)
-		{
-			DataUpdate& d = m_lstUpdates.front();
-			if (&d == m_State.m_Close.m_pPath)
-				break;
-
-			const HeightRange* pHR = d.get_HR();
-			if (!pHR)
-				break; // not ready?
-
-			Height h1 = pHR->m_Max + Rules::get().MaxRollback;
-			if (h1 < pHR->m_Max)
-				break; // overflow
-
-			if (h1 >= hTip)
-				break;
-
-			// outdated!
-			m_lstUpdates.DeleteFront();
-			OnRevisionOutdated(m_nRevision - static_cast<uint32_t>(m_lstUpdates.size()));
-		}
-	}
 
 	if (!m_pOpen->m_hOpened)
 	{
@@ -642,7 +651,7 @@ void Channel::RequestHandler::OnComplete(proto::FlyClient::Request& x)
 		break;
 
 	case proto::FlyClient::Request::Type::Kernel:
-		get_ParentObj().OnRequestComplete(Cast::Up<proto::FlyClient::RequestKernel>(x));
+		get_ParentObj().OnRequestComplete(Cast::Up<KernelLocator>(x));
 		break;
 
 	case proto::FlyClient::Request::Type::Transaction:
@@ -654,59 +663,38 @@ void Channel::RequestHandler::OnComplete(proto::FlyClient::Request& x)
 	}
 }
 
-void Channel::OnRequestComplete(MuSigLocator& r)
+void Channel::OnRequestCompleteInSearch(KernelLocator& r)
 {
 	assert(!m_State.m_Close.m_hPhase1);
 	assert(!m_State.m_Close.m_hPhase2);
+	assert(r.m_pIndex);
 
-	if (r.m_Res.m_Proofs.empty())
+	Height h = r.m_Res.m_Proof.m_State.m_Height;
+	if (!h)
 	{
 		// continue search
 		if (r.m_Initiator)
 		{
 			assert(r.m_pIndex);
-
 			r.m_Initiator = false;
-			r.m_Msg.m_Utxo = r.m_pIndex->m_CommPeer1;
 		}
 		else
 		{
-			if (r.m_pIndex)
+			r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
+			r.m_nRevision--;
+
+			if (!r.m_pIndex)
 			{
-				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
-				r.m_nRevision--;
-			}
-			else
-			{
-				r.m_pIndex = &m_lstUpdates.back();
-				r.m_nRevision = m_nRevision;
-			}
-
-			while (true)
-			{
-				if (!r.m_pIndex)
-				{
-					// not found! (it's a problem)
-					m_State.m_hQueryLast = get_Tip();
-					Update();
-					return;
-				}
-
-				const DataUpdate& d = *r.m_pIndex;
-
-				bool bIs2Phase = (DataUpdate::Type::TimeLocked == d.m_Type) || (DataUpdate::Type::Punishment == d.m_Type);
-				if (bIs2Phase)
-				{
-					r.m_Initiator = true;
-					r.m_Msg.m_Utxo = d.m_Comm1;
-					break;
-				}
-
-				r.m_pIndex = m_lstUpdates.get_PrevSafe(*r.m_pIndex);
-				r.m_nRevision--;
+				// not found! (it's a problem)
+				m_State.m_hQueryLast = get_Tip();
+				Update();
+				return;
 			}
 
+			r.m_Initiator = true;
 		}
+
+		r.m_pIndex->get_Phase1ID(r.m_Msg.m_ID, r.m_Initiator);
 
 		r.m_pTrg = nullptr;
 		get_Net().PostRequest(r, m_RequestHandler);
@@ -715,37 +703,81 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	}
 	else
 	{
-		// bingo!
-		if (!r.m_pIndex)
+		// withdrawal detected
+		if (m_gracefulClose || get_State() == State::Updating)
+			DiscardLastRevision();
+
+		m_State.m_hQueryLast = 0;
+		m_State.m_hTxSentLast = 0;
+
+		m_State.m_Close.m_pPath = r.m_pIndex;
+		m_State.m_Close.m_nRevision = r.m_nRevision;
+		m_State.m_Close.m_Initiator = r.m_Initiator;
+		m_State.m_Close.m_hPhase1 = h;
+
+		m_State.m_Terminate = true; // either we're closing it, or peer attempted
+		m_pNegCtx.reset(); // nore more negotiations!
+
+		if (IsUnfairPeerClosed())
 		{
-			m_State.m_hQueryLast = get_Tip();
-			ZeroObject(m_State.m_Close); // msig0 is still intact
+			DataUpdate& d = *r.m_pIndex;
+			if (DataUpdate::Type::TimeLocked == d.m_Type)
+				// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
+				CreatePunishmentTx();
 		}
-		else
+
+		Update();
+	}
+}
+
+
+void Channel::OnRequestComplete(MuSigLocator& r)
+{
+	assert(!m_State.m_Close.m_hPhase1);
+	assert(!m_State.m_Close.m_hPhase2);
+
+	if (r.m_Res.m_Proofs.empty())
+	{
+		// MuSig disappeared. Search for appropriate withdrawal tx
+		KernelLocator::Ptr pReq(new KernelLocator);
+		KernelLocator& r2 = *pReq;
+		r2.m_pIndex = &m_lstUpdates.back();
+		r2.m_nRevision = m_nRevision;
+
+		while (true)
 		{
-			// withdrawal detected
-			if (m_gracefulClose || get_State() == State::Updating)
-				DiscardLastRevision();
-
-			m_State.m_hQueryLast = 0;
-			m_State.m_hTxSentLast = 0;
-
-			m_State.m_Close.m_pPath = r.m_pIndex;
-			m_State.m_Close.m_nRevision = r.m_nRevision;
-			m_State.m_Close.m_Initiator = r.m_Initiator;
-			m_State.m_Close.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
-
-			m_State.m_Terminate = true; // either we're closing it, or peer attempted
-			m_pNegCtx.reset(); // nore more negotiations!
-
-			if (IsUnfairPeerClosed())
+			if (!r2.m_pIndex)
 			{
-				DataUpdate& d = *r.m_pIndex;
-				if (DataUpdate::Type::TimeLocked == d.m_Type)
-					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
-					CreatePunishmentTx();
+				// not found! (it's a problem)
+				m_State.m_hQueryLast = get_Tip();
+				Update();
+				return;
 			}
+
+			const DataUpdate& d = *r2.m_pIndex;
+
+			bool bIs2Phase = (DataUpdate::Type::TimeLocked == d.m_Type) || (DataUpdate::Type::Punishment == d.m_Type);
+			if (bIs2Phase)
+			{
+				r2.m_Initiator = true;
+				d.get_Phase1ID(r2.m_Msg.m_ID, r2.m_Initiator);
+				break;
+			}
+
+			r2.m_pIndex = m_lstUpdates.get_PrevSafe(*r2.m_pIndex);
+			r2.m_nRevision--;
 		}
+
+		get_Net().PostRequest(r2, m_RequestHandler);
+		m_pRequest = std::move(pReq);
+	}
+	else
+	{
+		// bingo!
+		m_State.m_hQueryLast = get_Tip();
+		ZeroObject(m_State.m_Close); // msig0 is still intact
+
+		ForgetOutdatedRevisions(m_State.m_hQueryLast);
 
 		Update();
 	}
@@ -820,8 +852,14 @@ void Channel::CreatePunishmentTx()
 
 }
 
-void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
+void Channel::OnRequestComplete(KernelLocator& r)
 {
+	if (r.m_pIndex)
+	{
+		OnRequestCompleteInSearch(r);
+		return;
+	}
+
 	Height h = r.m_Res.m_Proof.m_State.m_Height;
 	if (h)
 	{
@@ -878,7 +916,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 	{
 		const DataUpdate& d = m_lstUpdates.back();
 		if (DataUpdate::Type::Direct == d.m_Type)
-			ConfirmMuSig();
+			ConfirmMuSig(); // graceful close not confirmed, meanwhile re-check musig
 		else
 			m_State.m_hQueryLast = get_Tip();
 	}
@@ -946,7 +984,7 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 	{
 		if (proto::FlyClient::Request::Type::Kernel == m_pRequest->get_Type())
 		{
-			proto::FlyClient::RequestKernel& r = Cast::Up<proto::FlyClient::RequestKernel>(*m_pRequest);
+			KernelLocator& r = Cast::Up<KernelLocator>(*m_pRequest);
 			if (r.m_Msg.m_ID == hv)
 				return; // already querying
 		}
@@ -954,8 +992,9 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 		CancelRequest();
 	}
 
-	proto::FlyClient::RequestKernel::Ptr pReq(new proto::FlyClient::RequestKernel);
+	KernelLocator::Ptr pReq(new KernelLocator);
 	pReq->m_Msg.m_ID = hv;
+	pReq->m_pIndex = nullptr;
 
 	get_Net().PostRequest(*pReq, m_RequestHandler);
 	m_pRequest = std::move(pReq);
@@ -966,14 +1005,31 @@ void Channel::ConfirmMuSig()
 	// Start the std locator logic
 	if (m_pRequest)
 	{
-		if (proto::FlyClient::Request::Type::Utxo == m_pRequest->get_Type())
+		// don't interrupt current musig search
+		switch (m_pRequest->get_Type())
+		{
+		case proto::FlyClient::Request::Type::Utxo:
 			return;
+
+		case proto::FlyClient::Request::Type::Kernel:
+			if (Cast::Up<KernelLocator>(*m_pRequest).m_pIndex)
+				return;
+
+			// no break;
+
+		default: // suppress warning
+			break;
+		}
+
 		CancelRequest();
+	}
+	else
+	{
+		if (get_Tip() == m_State.m_hQueryLast)
+			return; // as well
 	}
 
 	MuSigLocator::Ptr pReq(new MuSigLocator);
-	pReq->m_pIndex = nullptr;
-	pReq->m_Initiator = false;
 	pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
 	get_Net().PostRequest(*pReq, m_RequestHandler);
@@ -985,13 +1041,29 @@ const Transaction& Channel::DataUpdate::get_TxPhase2(bool bInitiator) const
 	return bInitiator ? m_tx2 : m_txPeer2;
 }
 
+bool Channel::DataUpdate::get_KernelIDSafe(Merkle::Hash& hv, const Transaction& tx)
+{
+	if (tx.m_vKernels.empty())
+	{
+		hv = Zero;
+		return false;
+	}
+
+	hv = tx.m_vKernels.front()->m_Internal.m_ID;
+	return true;
+}
+
 void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 {
-	const Transaction& tx = get_TxPhase2(bInitiator);
-	if (tx.m_vKernels.empty())
-		hv = Zero; //?!
+	get_KernelIDSafe(hv, get_TxPhase2(bInitiator));
+}
+
+void Channel::DataUpdate::get_Phase1ID(Merkle::Hash& hv, bool bInitiator) const
+{
+	if (bInitiator)
+		get_KernelIDSafe(hv, m_tx1);
 	else
-		hv = tx.m_vKernels.front()->m_Internal.m_ID;
+		hv = m_hvTx1KernelID;
 }
 
 void Channel::DataUpdate::CheckStdType()
@@ -1015,6 +1087,7 @@ bool Channel::Open(Amount nMy, Amount nOther, Height hOpenTxDh)
 	Storage::Map dataIn, dataOut;
 
 	dataOut.Set(m_Params.m_hLockTime, Codes::HLock);
+	dataOut.Set(m_Params.m_hPostLockReserve, Codes::HPostLockReserve);
 	dataOut.Set(m_Params.m_hRevisionMaxLifeTime, Codes::HLifeTime);
 	dataOut.Set(m_Params.m_Fee, Codes::Fee);
 	dataOut.Set(nMy, Codes::ValueMy);

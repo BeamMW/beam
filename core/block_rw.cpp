@@ -516,20 +516,24 @@ namespace beam
 			if (MaxHeight == h)
 				break;
 
-			bool bIsOutp = true;
-			m_Der & bIsOutp;
+			uint8_t nFlags = 0;
+			m_Der & nFlags;
 
 			Merkle::Hash hv;
 
-			if (bIsOutp)
+			if (Flags::Output & nFlags)
 			{
 				ShieldedTxo txo;
 				m_Der & txo;
 				m_Der & hv;
 
+				assert(!txo.m_pAsset); // the asset proof itself is omitted.
+				if (Flags::HadAsset & nFlags)
+					txo.m_pAsset.reset(new Asset::Proof);
+
 				ShieldedTxo::DescriptionOutp dOutp;
 				dOutp.m_Commitment = txo.m_Commitment;
-				dOutp.m_SerialPub = txo.m_Serial.m_SerialPub;
+				dOutp.m_SerialPub = txo.m_Ticket.m_SerialPub;
 				dOutp.m_ID = nOuts++;
 				dOutp.m_Height = h;
 
@@ -585,6 +589,18 @@ namespace beam
 		return true;
 	}
 
+	void RecoveryInfo::IRecognizer::Init(const Key::IPKdf::Ptr& pKdf, Key::Index nMaxShieldedIdx /* = 1 */)
+	{
+		m_pOwner = pKdf;
+		if (pKdf)
+		{
+			m_vSh.resize(nMaxShieldedIdx);
+			
+			for (Key::Index nIdx = 0; nIdx < nMaxShieldedIdx; nIdx++)
+				m_vSh[nIdx].FromOwner(*pKdf, nIdx);
+		}
+	}
+
 	bool RecoveryInfo::IRecognizer::OnUtxo(Height h, const Output& outp)
 	{
 		if (m_pOwner)
@@ -599,17 +615,17 @@ namespace beam
 
 	bool RecoveryInfo::IRecognizer::OnShieldedOut(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo& txo, const ECC::Hash::Value& hvMsg)
 	{
-		if (m_pViewer)
+		for (Key::Index nIdx = 0; nIdx < static_cast<Key::Index>(m_vSh.size()); nIdx++)
 		{
 			ShieldedTxo::DataParams pars;
 
-			if (pars.m_Serial.Recover(txo.m_Serial, *m_pViewer))
+			if (pars.m_Ticket.Recover(txo.m_Ticket, m_vSh[nIdx]))
 			{
 				ECC::Oracle oracle;
 				oracle << hvMsg;
 
-				if (pars.m_Output.Recover(txo, pars.m_Serial.m_SharedSecret, oracle, *m_pViewer))
-					return OnShieldedOutRecognized(dout, pars);
+				if (pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, oracle))
+					return OnShieldedOutRecognized(dout, pars, nIdx);
 			}
 		}
 

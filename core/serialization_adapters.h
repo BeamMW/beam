@@ -821,9 +821,9 @@ namespace detail
 
 			return ar;
 		}
-		/// beam::ShieldedTxo::Serial serialization
+		/// beam::ShieldedTxo::Ticket serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::ShieldedTxo::Serial& x)
+		static Archive& save(Archive& ar, const beam::ShieldedTxo::Ticket& x)
 		{
 			uint8_t nFlags =
 				(x.m_SerialPub.m_Y ? 1 : 0) |
@@ -840,7 +840,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::ShieldedTxo::Serial& x)
+		static Archive& load(Archive& ar, beam::ShieldedTxo::Ticket& x)
 		{
 			uint8_t nFlags;
 
@@ -857,24 +857,47 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::ShieldedTxo::Voucher serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::ShieldedTxo::Voucher& x)
+		{
+			ar
+				& x.m_Ticket
+				& x.m_SharedSecret
+				& x.m_Signature;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::ShieldedTxo::Voucher& x)
+		{
+			ar
+				& x.m_Ticket
+				& x.m_SharedSecret
+				& x.m_Signature;
+
+			return ar;
+		}
+
 		/// beam::ShieldedTxo serialization
 		template<typename Archive>
         static Archive& save(Archive& ar, const beam::ShieldedTxo& val)
         {
 			uint32_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
-				(val.m_Serial.m_SerialPub.m_Y ? 2 : 0) |
-				(val.m_Serial.m_Signature.m_NoncePub.m_Y ? 4 : 0) |
+				(val.m_Ticket.m_SerialPub.m_Y ? 2 : 0) |
+				(val.m_Ticket.m_Signature.m_NoncePub.m_Y ? 4 : 0) |
 				(val.m_pAsset ? 8 : 0);
 
 			ar
 				& nFlags
 				& val.m_Commitment.m_X
 				& val.m_RangeProof
-				& val.m_Serial.m_SerialPub.m_X
-				& val.m_Serial.m_Signature.m_NoncePub
-				& val.m_Serial.m_Signature.m_pK[0]
-				& val.m_Serial.m_Signature.m_pK[1];
+				& val.m_Ticket.m_SerialPub.m_X
+				& val.m_Ticket.m_Signature.m_NoncePub
+				& val.m_Ticket.m_Signature.m_pK[0]
+				& val.m_Ticket.m_Signature.m_pK[1];
 
 			if (val.m_pAsset)
 				savePtr(ar, val.m_pAsset);
@@ -890,20 +913,39 @@ namespace detail
 				& nFlags
 				& val.m_Commitment.m_X
 				& val.m_RangeProof
-				& val.m_Serial.m_SerialPub.m_X
-				& val.m_Serial.m_Signature.m_NoncePub
-				& val.m_Serial.m_Signature.m_pK[0]
-				& val.m_Serial.m_Signature.m_pK[1];
+				& val.m_Ticket.m_SerialPub.m_X
+				& val.m_Ticket.m_Signature.m_NoncePub
+				& val.m_Ticket.m_Signature.m_pK[0]
+				& val.m_Ticket.m_Signature.m_pK[1];
 
 			val.m_Commitment.m_Y = (1 & nFlags);
-			val.m_Serial.m_SerialPub.m_Y = ((2 & nFlags) != 0);
-			val.m_Serial.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
+			val.m_Ticket.m_SerialPub.m_Y = ((2 & nFlags) != 0);
+			val.m_Ticket.m_Signature.m_NoncePub.m_Y = ((4 & nFlags) != 0);
 
 			if (8 & nFlags)
 				loadPtr(ar, val.m_pAsset);
 
 			return ar;
 		}
+
+        /// beam::Lelantus::Cfg serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Lelantus::Cfg& cfg)
+        {
+            ar
+                & cfg.n
+                & cfg.M;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Lelantus::Cfg& cfg)
+        {
+            ar
+                & cfg.n
+                & cfg.M;
+            return ar;
+        }
 
 		/// beam::CoinID serialization
 		template<typename Archive>

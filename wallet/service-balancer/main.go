@@ -28,6 +28,8 @@ func main () {
 	// Command line is OK
 	//
 	log.Println("starting wallet service balancer")
+	log.Printf("cwd is %s", getCWD())
+
 	startCounters()
 	m := melody.New()
 

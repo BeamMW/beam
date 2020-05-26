@@ -37,7 +37,7 @@ namespace beam::wallet
             Unknown
         };
 
-        Application m_application;
+        Application m_application = Application::Unknown;
         beam::Version m_version;
 
         SERIALIZE(m_application, m_version);
@@ -47,6 +47,23 @@ namespace beam::wallet
 
         bool operator==(const VersionInfo& other) const;
         bool operator!=(const VersionInfo& other) const;
+    };
+
+    struct WalletImplVerInfo
+    {
+        VersionInfo::Application m_application = VersionInfo::Application::DesktopWallet;
+        Version m_version;          // Beam Core Wallet library version info
+        std::string m_title;        // RFU
+        std::string m_message;      // RFU
+        uint32_t m_UIrevision;      // UI revision
+
+        Version getBeamCoreVersion() const;
+        uint32_t getUIrevision() const;
+
+        SERIALIZE(m_application, m_version, m_title, m_message, m_UIrevision);
+
+        bool operator==(const WalletImplVerInfo& other) const;
+        bool operator!=(const WalletImplVerInfo& other) const;
     };
 
 } // namespace beam::wallet

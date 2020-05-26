@@ -36,6 +36,7 @@ public:
     WalletApiHandler(
         IWalletData& walletData
       , WalletApi::ACL acl
+      , bool withAssets
     );
     virtual ~WalletApiHandler();
 
@@ -82,6 +83,12 @@ public:
             else res = {};
         }
     }
+
+    template<typename T>
+    void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data);
+
+    template<typename T>
+    bool setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
 protected:
     IWalletData& _walletData;

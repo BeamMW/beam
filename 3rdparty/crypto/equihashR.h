@@ -30,6 +30,8 @@
 #include <set>
 #include <vector>
 
+#include "crypto/powScheme.h"
+
 typedef blake2b_state eh_HashState;
 typedef uint32_t eh_index;
 typedef uint8_t eh_trunc;
@@ -140,27 +142,7 @@ public:
     std::shared_ptr<eh_trunc> GetTruncatedIndices(size_t len, size_t lenIndices) const;
 };
 
-enum EhSolverCancelCheck
-{
-    ListGeneration,
-    ListSorting,
-    ListColliding,
-    RoundEnd,
-    FinalSorting,
-    FinalColliding,
-    PartialGeneration,
-    PartialSorting,
-    PartialSubtreeEnd,
-    PartialIndexEnd,
-    PartialEnd
-};
 
-class EhSolverCancelledException : public std::exception
-{
-    virtual const char* what() const throw() {
-        return "BeamHash solver was cancelled";
-    }
-};
 
 inline constexpr const size_t max(const size_t A, const size_t B) { return A > B ? A : B; }
 
@@ -217,21 +199,6 @@ bool IsValidBranch(const FullStepRow<WIDTH>& a, const size_t len, const unsigned
 
 
 
-class PoWScheme {
-public:
-    virtual int InitialiseState(eh_HashState& base_state) = 0;
-    virtual bool IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln) = 0;	
-
-#ifdef ENABLE_MINING
-    virtual bool OptimisedSolve(const eh_HashState& base_state,
-                        const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                        const std::function<bool(EhSolverCancelCheck)> cancelled) = 0;
-#endif
-    
-};  
-
-
-
 template<unsigned int N, unsigned int K, unsigned int R>
 class EquihashR : public PoWScheme
 {
@@ -258,7 +225,7 @@ public:
 #ifdef ENABLE_MINING
     bool OptimisedSolve(const eh_HashState& base_state,
                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                        const std::function<bool(EhSolverCancelCheck)> cancelled);
+                        const std::function<bool(SolverCancelCheck)> cancelled);
 #endif
 };
 

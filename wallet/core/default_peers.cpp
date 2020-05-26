@@ -23,6 +23,12 @@ namespace beam
             "us-nodes.testnet.beam.mw:8100",
             "eu-nodes.testnet.beam.mw:8100",
             "ap-nodes.testnet.beam.mw:8100"
+#elif defined(BEAM_MAINNET)
+            "ap-nodes.mainnet.beam.mw:8100",
+            "eu-nodes.mainnet.beam.mw:8100",
+            "us-nodes.mainnet.beam.mw:8100",
+            "ap-hk-nodes.mainnet.beam.mw:8100",
+            "shanghai-node.mainnet.beam.mw:8100"
 #else
             "eu-node01.masternet.beam.mw:8100",
             "eu-node02.masternet.beam.mw:8100",

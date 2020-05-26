@@ -30,20 +30,23 @@ namespace beam::wallet
     // TODO dh unittests of address notifications
 
     public:
-        NotificationCenter(IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor);
+        NotificationCenter(
+            IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor);
 
         std::vector<Notification> getNotifications();
         void markNotificationAsRead(const ECC::uintBig& notificationID);
         void deleteNotification(const ECC::uintBig& notificationID);
 
         void switchOnOffNotifications(Notification::Type, bool);
-        size_t getUnreadCount() const;
+        size_t getUnreadCount(
+            VersionInfo::Application app, const Version& currentLibVersion, uint32_t currentClientRevision) const;
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);
 
         // INewsObserver implementation
-        virtual void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
+        void onNewWalletVersion(const VersionInfo&, const ECC::uintBig&) override;
+        void onNewWalletVersion(const WalletImplVerInfo&, const ECC::uintBig&) override;
 
         // IWalletDbObserver implementation
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;

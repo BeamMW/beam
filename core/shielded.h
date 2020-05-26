@@ -31,16 +31,16 @@ namespace beam
 		Key::IKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
 
-		void FromOwner(Key::IPKdf&);
-		static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&);
+		void FromOwner(Key::IPKdf&, Key::Index);
+		static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&, Key::Index);
 
 	private:
-		static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
+		static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&, Key::Index);
 	};
 
 	struct ShieldedTxo::Data
 	{
-		struct SerialParams
+		struct TicketParams
 		{
 			ECC::Scalar::Native m_pK[2]; // kG, kJ
 
@@ -50,20 +50,20 @@ namespace beam
 
 			bool m_IsCreatedByViewer;
 
-			void Generate(Serial&, const PublicGen&, const ECC::Hash::Value& nonce);
-			void Generate(Serial&, const Viewer&, const ECC::Hash::Value& nonce);
+			void Generate(Ticket&, const PublicGen&, const ECC::Hash::Value& nonce);
+			void Generate(Ticket&, const Viewer&, const ECC::Hash::Value& nonce);
 
-			bool Recover(const Serial&, const Viewer&);
+			bool Recover(const Ticket&, const Viewer&);
 
 			void Restore(const Viewer&); // must set kG and m_IsCreatedByViewer before calling
 
 		protected:
-			void GenerateInternal(Serial&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
-			void set_PreimageFromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void GenerateInternal(Ticket&, const ECC::Hash::Value& nonce, Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
 			void set_FromkG(Key::IPKdf& gen, Key::IKdf* pGenPriv, Key::IPKdf& ser);
+			void set_SharedSecretFromKs(ECC::Point& ptSerialPub, Key::IPKdf& gen);
 			void set_SharedSecret(const ECC::Point::Native&);
 			static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native*);
-			static void get_DH(ECC::Hash::Value&, const Serial&);
+			static void get_DH(ECC::Hash::Value&, const ECC::Point& ptSerialPub);
 			void get_Nonces(Key::IPKdf& gen, ECC::Scalar::Native*) const;
 		};
 
@@ -72,30 +72,29 @@ namespace beam
 			Amount m_Value;
 			Asset::ID m_AssetID = 0;
 			ECC::Scalar::Native m_k;
-			PeerID m_Sender;
-			ECC::uintBig m_Message;
+			User m_User;
 
-			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const PublicGen&);
-			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
-			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, const Viewer&);
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
+			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
+			void Restore_kG(const ECC::Hash::Value& hvShared); // restores m_k, all other members must be set
 
 		protected:
-			void GenerateInternal(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, Key::IPKdf& gen);
-			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared);
+			static void get_Seed(ECC::uintBig&, const ECC::Hash::Value& hvShared, const ECC::Oracle&);
 			static uint8_t Msg2Scalar(ECC::Scalar::Native&, const ECC::uintBig&);
 			static void Scalar2Msg(ECC::uintBig&, const ECC::Scalar::Native&, uint32_t);
-			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared, Key::IPKdf& gen) const;
+			void get_sk(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
+			void get_skGen(ECC::Scalar::Native&, const ECC::Hash::Value& hvShared) const;
+			uint8_t set_kG(const ECC::Hash::Value& hvShared, ECC::Scalar::Native& kTmp); // returns overflow flag
 
 			struct Packed;
 		};
 
 		struct Params
 		{
-			SerialParams m_Serial;
+			TicketParams m_Ticket;
 			OutputParams m_Output;
 
-			void Generate(ShieldedTxo&, ECC::Oracle&, const PublicGen&, const ECC::Hash::Value& nonce);
-			void Generate(ShieldedTxo&, ECC::Oracle&, const Viewer&, const ECC::Hash::Value& nonce);
+			void GenerateOutp(ShieldedTxo&, ECC::Oracle&);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 		};
 

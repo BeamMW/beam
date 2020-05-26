@@ -21,6 +21,9 @@ target_link_libraries(node
     PRIVATE
         sqlite
 )
-
-add_subdirectory(unittests)
-add_subdirectory(laser_beam_demo)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
+endif()
+if (NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(utils)
+endif()

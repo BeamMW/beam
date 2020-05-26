@@ -36,7 +36,6 @@ target_link_libraries(core
         secp256k1
 )
 
-#target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/core)
-
-add_subdirectory(unittest)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittest)
+endif()

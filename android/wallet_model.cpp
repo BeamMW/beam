@@ -25,6 +25,56 @@ using namespace std;
 
 namespace
 {
+    jobject fillNotificationInfo(JNIEnv* env, const Notification& notification)
+    {
+        jobject jNotificationInfo = env->AllocObject(NotificationClass);
+
+        setStringField(env, NotificationClass, jNotificationInfo, "id", to_string(notification.m_ID));
+        setIntField(env, NotificationClass, jNotificationInfo, "state", beam::underlying_cast(notification.m_state));
+        setLongField(env, NotificationClass, jNotificationInfo, "createTime", notification.m_createTime);
+
+        return jNotificationInfo;
+    }
+
+    jobject fillAddressData(JNIEnv* env, const WalletAddress& address)
+    {
+        jobject addr = env->AllocObject(WalletAddressClass);
+
+        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
+        setStringField(env, WalletAddressClass, addr, "label", address.m_label);
+        setStringField(env, WalletAddressClass, addr, "category", address.m_category);
+        setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
+        setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
+        setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
+
+        return addr;
+    }
+
+    jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
+    {
+        jobject tx = env->AllocObject(TxDescriptionClass);
+
+        setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
+        setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
+        setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
+        setLongField(env, TxDescriptionClass, tx, "change", txDescription.m_changeBeam);
+        setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
+
+        setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
+        setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myId));
+
+        setStringField(env, TxDescriptionClass, tx, "message", string(txDescription.m_message.begin(), txDescription.m_message.end()));
+        setLongField(env, TxDescriptionClass, tx, "createTime", txDescription.m_createTime);
+        setLongField(env, TxDescriptionClass, tx, "modifyTime", txDescription.m_modifyTime);
+        setBooleanField(env, TxDescriptionClass, tx, "sender", txDescription.m_sender);
+        setBooleanField(env, TxDescriptionClass, tx, "selfTx", txDescription.m_selfTx);
+        setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(txDescription.m_status));
+        setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(txDescription.m_kernelID.m_pData, txDescription.m_kernelID.nBytes));
+        setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
+
+        return tx;
+    }
+
     jobjectArray convertCoinsToJObject(JNIEnv* env, const std::vector<Coin>& utxosVec)
     {
         jobjectArray utxos = 0;
@@ -74,16 +124,7 @@ namespace
             {
                 const auto& addrRef = addresses[i];
 
-                jobject addr = env->AllocObject(WalletAddressClass);
-
-                {
-                    setStringField(env, WalletAddressClass, addr, "walletID", to_string(addrRef.m_walletID));
-                    setStringField(env, WalletAddressClass, addr, "label", addrRef.m_label);
-                    setStringField(env, WalletAddressClass, addr, "category", addrRef.m_category);
-                    setLongField(env, WalletAddressClass, addr, "createTime", addrRef.m_createTime);
-                    setLongField(env, WalletAddressClass, addr, "duration", addrRef.m_duration);
-                    setLongField(env, WalletAddressClass, addr, "own", addrRef.m_OwnID);
-                }
+                jobject addr = fillAddressData(env, addrRef);
 
                 env->SetObjectArrayElement(addrArray, static_cast<jsize>(i), addr);
 
@@ -118,6 +159,103 @@ namespace
             }
         }
         return ratesArray;
+    }
+
+    void callSoftwareUpdateNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
+    {
+        VersionInfo versionInfo;
+
+        if (fromByteBuffer(notification.m_content, versionInfo))
+        {
+            jobject jNotificationInfo = fillNotificationInfo(env, notification);
+
+            jobject jVersionInfo = env->AllocObject(VersionInfoClass);
+            {
+                setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(versionInfo.m_application));
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", versionInfo.m_version.m_major);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", versionInfo.m_version.m_minor);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", versionInfo.m_version.m_revision);
+            }
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
+
+            env->DeleteLocalRef(jNotificationInfo);
+            env->DeleteLocalRef(jVersionInfo);
+        }
+    }
+    
+    void callAddressStatusNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
+    {
+        WalletAddress address;
+
+        if (fromByteBuffer(notification.m_content, address))
+        {
+            jobject jNotificationInfo = fillNotificationInfo(env, notification);
+
+            jobject jAddress = fillAddressData(env, address);
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAddressChangedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
+            
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jAddress);
+
+            env->DeleteLocalRef(jNotificationInfo);
+            env->DeleteLocalRef(jAddress);
+        }
+    }
+
+    void callTransactionFailed(JNIEnv* env, const Notification& notification, ChangeAction action)
+    {
+        TxToken token;
+
+        if (fromByteBuffer(notification.m_content, token))
+        {
+            TxParameters txParameters = token.UnpackParameters();
+            TxDescription txDescription(txParameters);
+
+            jobject jNotificationInfo = fillNotificationInfo(env, notification);
+
+            jobject jTransaction = fillTransactionData(env, txDescription);
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTransactionFailedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO;)V");
+            
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jTransaction);
+
+            env->DeleteLocalRef(jNotificationInfo);
+            env->DeleteLocalRef(jTransaction);
+        }
+    }
+
+    void callTransactionCompleted(JNIEnv* env, const Notification& notification, ChangeAction action)
+    {
+        TxToken token;
+
+        if (fromByteBuffer(notification.m_content, token))
+        {
+            TxParameters txParameters = token.UnpackParameters();
+            TxDescription txDescription(txParameters);
+
+            jobject jNotificationInfo = fillNotificationInfo(env, notification);
+
+            jobject jTransaction = fillTransactionData(env, txDescription);
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTransactionCompletedNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO;)V");
+            
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jTransaction);
+
+            env->DeleteLocalRef(jNotificationInfo);
+            env->DeleteLocalRef(jTransaction);
+        }
+    }
+
+    void callBeamNewsNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
+    {
+        // TODO: deserialize notification content and fill JAVA data object
+
+        jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onBeamNewsNotification", "(I)V");
+
+        env->CallStaticVoidMethod(WalletListenerClass, callback, action);
     }
 }
 
@@ -180,25 +318,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
         {
             const auto& item = items[i];
 
-            jobject tx = env->AllocObject(TxDescriptionClass);
-
-            setStringField(env, TxDescriptionClass, tx, "id", to_hex(item.m_txId.data(), item.m_txId.size()));
-            setLongField(env, TxDescriptionClass, tx, "amount", item.m_amount);
-            setLongField(env, TxDescriptionClass, tx, "fee", item.m_fee);
-            setLongField(env, TxDescriptionClass, tx, "change", item.m_changeBeam);
-            setLongField(env, TxDescriptionClass, tx, "minHeight", item.m_minHeight);
-
-            setStringField(env, TxDescriptionClass, tx, "peerId", to_string(item.m_peerId));
-            setStringField(env, TxDescriptionClass, tx, "myId", to_string(item.m_myId));
-
-            setStringField(env, TxDescriptionClass, tx, "message", string(item.m_message.begin(), item.m_message.end()));
-            setLongField(env, TxDescriptionClass, tx, "createTime", item.m_createTime);
-            setLongField(env, TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
-            setBooleanField(env, TxDescriptionClass, tx, "sender", item.m_sender);
-            setBooleanField(env, TxDescriptionClass, tx, "selfTx", item.m_selfTx);
-            setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
-            setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
-            setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(item.m_failureReason));
+            jobject tx = fillTransactionData(env, item);
 
             env->SetObjectArrayElement(txItems, static_cast<jsize>(i), tx);
 
@@ -247,7 +367,7 @@ void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>&
     env->DeleteLocalRef(utxos);
 }
 
-void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& addresses)
+void WalletModel::onAddressesChanged(ChangeAction action, const std::vector<WalletAddress>& addresses)
 {
     LOG_DEBUG() << "onAddressesChanged()";
 
@@ -277,7 +397,7 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
 }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers)
 {
     LOG_DEBUG() << "onSwapOffersChanged()";
 
@@ -291,16 +411,7 @@ void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jobject addr = env->AllocObject(WalletAddressClass);
-
-    {
-        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
-        setStringField(env, WalletAddressClass, addr, "label", address.m_label);
-        setStringField(env, WalletAddressClass, addr, "category", address.m_category);
-        setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
-        setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
-        setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
-    }
+    jobject addr = fillAddressData(env, address);
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewAddress", "(L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
@@ -447,7 +558,7 @@ void WalletModel::onExportDataToJson(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
-void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>& notifications)
+void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
     LOG_DEBUG() << "onNotificationsChanged";
 
@@ -455,37 +566,30 @@ void WalletModel::onNotificationsChanged(beam::wallet::ChangeAction action, cons
 
     for (const auto& notification : notifications)
     {
-        beam::wallet::VersionInfo versionInfo;
-
-        if (notification.m_type == beam::wallet::Notification::Type::SoftwareUpdateAvailable &&
-            beam::wallet::fromByteBuffer(notification.m_content, versionInfo))
+        switch(notification.m_type)
         {
-            jobject jNotificationInfo = env->AllocObject(NotificationClass);
-            {
-                setStringField(env, NotificationClass, jNotificationInfo, "id", to_string(notification.m_ID));
-                setIntField(env, NotificationClass, jNotificationInfo, "state", beam::underlying_cast(notification.m_state));
-                setLongField(env, NotificationClass, jNotificationInfo, "createTime", notification.m_createTime);
-            }
-
-            jobject jVersionInfo = env->AllocObject(VersionInfoClass);
-            {
-                setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(versionInfo.m_application));
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", versionInfo.m_version.m_major);
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", versionInfo.m_version.m_minor);
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", versionInfo.m_version.m_revision);
-            }
-
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
-
-            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
-
-            env->DeleteLocalRef(jNotificationInfo);
-            env->DeleteLocalRef(jVersionInfo);
+            case Notification::Type::SoftwareUpdateAvailable:
+                callSoftwareUpdateNotification(env, notification, action);
+                break;
+            case Notification::Type::AddressStatusChanged:
+                callAddressStatusNotification(env, notification, action);
+                break;
+            case Notification::Type::TransactionFailed:
+                callTransactionFailed(env, notification, action);
+                break;
+            case Notification::Type::TransactionCompleted:
+                callTransactionCompleted(env, notification, action);
+                break;
+            case Notification::Type::BeamNews:
+                callBeamNewsNotification(env, notification, action);
+                break;
+            default:
+                break;
         }
     }
 }
 
-void WalletModel::onExchangeRates(const std::vector<beam::wallet::ExchangeRate>& rates)
+void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
     LOG_DEBUG() << "onExchangeRates";
 

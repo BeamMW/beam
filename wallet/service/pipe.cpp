@@ -17,6 +17,10 @@
 #include <cstdio>
 
 namespace beam::wallet {
+     const int Pipe::SyncFileDescriptor      = 3;
+     const int Pipe::HeartbeatFileDescriptor = 4;
+     const int Pipe::HeartbeatInterval       = 5000;
+
     Pipe::Pipe(int fd):
         _fd(fd)
     {

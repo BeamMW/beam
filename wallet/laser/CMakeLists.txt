@@ -9,4 +9,4 @@ set(LASER_SRC
 
 add_library(laser STATIC ${LASER_SRC})
 target_link_libraries(laser PUBLIC wallet)
-target_include_directories(laser PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(laser PUBLIC BEAM_LASER_SUPPORT)

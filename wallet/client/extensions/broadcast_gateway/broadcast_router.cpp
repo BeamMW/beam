@@ -31,14 +31,16 @@ const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsC
 {
     { BroadcastContentType::SwapOffers, proto::Bbs::s_BtcSwapOffersChannel },
     { BroadcastContentType::SoftwareUpdates, proto::Bbs::s_BroadcastChannel },
-    { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel }
+    { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel },
+    { BroadcastContentType::WalletUpdates, proto::Bbs::s_BroadcastChannel }
 };
 
 const std::map<BroadcastContentType, MsgType> BroadcastRouter::m_messageTypeMap =
 {
     { BroadcastContentType::SwapOffers, MsgType(0) },
     { BroadcastContentType::SoftwareUpdates, MsgType(1) },
-    { BroadcastContentType::ExchangeRates, MsgType(2) }
+    { BroadcastContentType::ExchangeRates, MsgType(2) },
+    { BroadcastContentType::WalletUpdates, MsgType(3) }
 };
 
 /**
@@ -73,9 +75,9 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
     , m_protocol_old(m_ver_1[0],
                      m_ver_1[1],
                      m_ver_1[2],
-                     m_maxMessageTypes,
-                     *this,
-                     MsgHeader::SIZE+1) // note: MsgSerializer is not used here
+                 m_maxMessageTypes,
+                 *this,
+                 MsgHeader::SIZE+1)     // note: MsgSerializer is not used here
     , m_protocol(m_ver_2[0],
                  m_ver_2[1],
                  m_ver_2[2],
@@ -109,19 +111,17 @@ void BroadcastRouter::registerListener(BroadcastContentType type, IBroadcastList
 
     auto msgType = getMsgType(type);
 
-    // Common serilization data object is not used because of SwapOffersBoard protocol.
+    // For SwapOffers common serilization data object is not used.
     m_protocol_old.add_message_handler_wo_deserializer
-        < IBroadcastListener,
-        &IBroadcastListener::onMessage >
-        (msgType, listener, m_minMessageSize, m_maxMessageSize);
-
-    if (type != BroadcastContentType::SwapOffers)
-    {
-        m_protocol.add_message_handler_wo_deserializer
         < IBroadcastListener,
           &IBroadcastListener::onMessage >
         (msgType, listener, m_minMessageSize, m_maxMessageSize);
-    }
+
+    m_protocol.add_message_handler
+        < IBroadcastListener,
+          BroadcastMsg,
+          &IBroadcastListener::onMessage >
+        (msgType, listener, m_minMessageSize, m_maxMessageSize);
 
     m_msgReader_old.enable_msg_type(msgType);
     m_msgReader.enable_msg_type(msgType);

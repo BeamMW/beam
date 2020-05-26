@@ -2279,14 +2279,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			Recognize(*block.m_vInputs[i], sid.m_Height);
 
-		Key::IPKdf* pKey = get_ViewerKey();
-		if (pKey)
+		ViewerKeys vk;
+		get_ViewerKeys(vk);
+		if (vk.m_pMw)
 		{
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(*block.m_vOutputs[i], sid.m_Height, *pKey);
+				Recognize(*block.m_vOutputs[i], sid.m_Height, *vk.m_pMw);
 		}
 
-		if (pKey || get_ViewerShieldedKey())
+		if (!vk.IsEmpty())
 		{
 			KrnWalkerRecognize wlkKrn(*this);
 			wlkKrn.m_Height = sid.m_Height;
@@ -2437,11 +2438,11 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 		break;
 
 	case TxKernel::Subtype::ShieldedOutput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height, m_Proc.get_ViewerShieldedKey());
+		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height);
 		break;
 
 	case TxKernel::Subtype::AssetCreate:
-		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height, m_Proc.get_ViewerKey());
+		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height);
 		break;
 
 	case TxKernel::Subtype::AssetDestroy:
@@ -2459,42 +2460,44 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, const ShieldedTxo::Viewer* pKeyShielded)
+void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
-	if (!pKeyShielded)
-		return;
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
 
-	const ShieldedTxo& txo = v.m_Txo;
+	for (Key::Index nIdx = 0; nIdx < vk.m_nSh; nIdx++)
+	{
+		const ShieldedTxo& txo = v.m_Txo;
 
-	ShieldedTxo::Data::SerialParams sp;
-	if (!sp.Recover(txo.m_Serial, *pKeyShielded))
-		return;
+		ShieldedTxo::Data::TicketParams sp;
+		if (!sp.Recover(txo.m_Ticket, vk.m_pSh[nIdx]))
+			continue;
 
-	ECC::Oracle oracle;
-	oracle << v.m_Msg;
+		ECC::Oracle oracle;
+		oracle << v.m_Msg;
 
-	ShieldedTxo::Data::OutputParams op;
-	if (!op.Recover(txo, sp.m_SharedSecret, oracle, *pKeyShielded))
-		return;
+		ShieldedTxo::Data::OutputParams op;
+		if (!op.Recover(txo, sp.m_SharedSecret, oracle))
+			continue;
 
-	proto::Event::Shielded evt;
-	evt.m_ID = nID;
-	evt.m_Value = op.m_Value;
-	evt.m_AssetID = op.m_AssetID;
-	evt.m_Sender = op.m_Sender;
-	evt.m_Message = op.m_Message;
-	evt.m_kSerG = sp.m_pK[0];
-	evt.m_kOutG = op.m_k;
-	evt.m_Flags = proto::Event::Flags::Add;
-	if (sp.m_IsCreatedByViewer)
-		evt.m_Flags |= proto::Event::Flags::CreatedByViewer;
+		proto::Event::Shielded evt;
+		evt.m_ID = nID;
+		evt.m_Value = op.m_Value;
+		evt.m_AssetID = op.m_AssetID;
+		evt.m_User = op.m_User;
+		evt.m_Key.m_nIdx = nIdx;
+		evt.m_Key.m_IsCreatedByViewer = sp.m_IsCreatedByViewer;
+		evt.m_Key.m_kSerG = sp.m_pK[0];
+		evt.m_Flags = proto::Event::Flags::Add;
 
-	EventKey::Shielded key = sp.m_SpendPk;
-	key.m_Y |= EventKey::s_FlagShielded;
+		EventKey::Shielded key = sp.m_SpendPk;
+		key.m_Y |= EventKey::s_FlagShielded;
 
-	AddEvent(h, evt, key);
+		AddEvent(h, evt, key);
+		break;
+	}
 }
 
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
@@ -2521,13 +2524,15 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	AddEvent(h, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, Key::IPKdf* pOwner)
+void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h)
 {
-	if (!pOwner)
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
+	if (!vk.m_pMw)
 		return;
 
 	EventKey::AssetCtl key;
-	v.m_MetaData.get_Owner(key, *pOwner);
+	v.m_MetaData.get_Owner(key, *vk.m_pMw);
 	if (key != v.m_Owner)
 		return;
 
@@ -2561,6 +2566,16 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
 
 	evt.m_Flags = proto::Event::Flags::Delete;
 	AddEvent(h, evt);
+}
+
+void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
+{
+	ZeroObject(vk);
+}
+
+bool NodeProcessor::ViewerKeys::IsEmpty() const
+{
+	return !(m_pMw || m_nSh);
 }
 
 void NodeProcessor::RescanOwnedTxos()
@@ -2611,12 +2626,14 @@ void NodeProcessor::RescanOwnedTxos()
 		}
 	};
 
-	Key::IPKdf* pKey = get_ViewerKey();
-	if (pKey)
+	ViewerKeys vk;
+	get_ViewerKeys(vk);
+
+	if (vk.m_pMw)
 	{
 		LOG_INFO() << "Rescanning owned Txos...";
 
-		TxoRecover wlk(*pKey, *this);
+		TxoRecover wlk(*vk.m_pMw, *this);
 		EnumTxos(wlk);
 
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
@@ -2626,7 +2643,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	if (pKey || get_ViewerShieldedKey())
+	if (!vk.IsEmpty())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 
@@ -2697,10 +2714,7 @@ void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
 	assert(ai.m_ID); // it's 1-based
 
 	if (m_Mmr.m_Assets.m_Count < ai.m_ID)
-	{
-		assert(m_Mmr.m_Assets.m_Count + 1 == ai.m_ID);
 		m_Mmr.m_Assets.ResizeTo(ai.m_ID);
-	}
 
 	Merkle::Hash hv;
 	ai.get_Hash(hv);
@@ -2921,7 +2935,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 
 bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
-	const ECC::Point& key = krn.m_Txo.m_Serial.m_SerialPub;
+	const ECC::Point& key = krn.m_Txo.m_Ticket.m_SerialPub;
 	Blob blobKey(&key, sizeof(key));
 
 	if (bic.m_Fwd)
@@ -2957,7 +2971,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			{
 				ECC::Point::Native pt, pt2;
 				pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
-				pt2.Import(krn.m_Txo.m_Serial.m_SerialPub);
+				pt2.Import(krn.m_Txo.m_Ticket.m_SerialPub);
 				pt += pt2;
 
 				ECC::Point::Storage pt_s;
@@ -2971,7 +2985,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 			if (bic.m_UpdateMmrs)
 			{
 				ShieldedTxo::DescriptionOutp d;
-				d.m_SerialPub = krn.m_Txo.m_Serial.m_SerialPub;
+				d.m_SerialPub = krn.m_Txo.m_Ticket.m_SerialPub;
 				d.m_Commitment = krn.m_Txo.m_Commitment;
 				d.m_ID = m_Extra.m_ShieldedOutputs;
 				d.m_Height = bic.m_Height;
@@ -3420,14 +3434,10 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	if (krn.m_WindowEnd > m_Extra.m_ShieldedOutputs)
 		return false;
 
-	uint32_t N = krn.m_SpendProof.m_Cfg.get_N();
-	if (N < r.Shielded.NMin)
-		return false; // invalid cfg or anonymity set is too small
-
-	if (N > r.Shielded.NMin)
+	if (!(krn.m_SpendProof.m_Cfg == r.Shielded.m_ProofMin))
 	{
-		if (N > r.Shielded.NMax)
-			return false; // too large
+		if (!(krn.m_SpendProof.m_Cfg == r.Shielded.m_ProofMax))
+			return false; // cfg not allowed
 
 		if (m_Extra.m_ShieldedOutputs > krn.m_WindowEnd + r.Shielded.MaxWindowBacklog)
 			return false; // large anonymity set is no more allowed, expired
@@ -3539,32 +3549,32 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	return true;
 }
 
-void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
+void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
 {
 	// awkward and relatively used, but this is not used frequently.
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
 	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
 
 	NodeDB::WalkerTxo wlk;
-	m_DB.TxoGetValue(wlk, id);
+	m_DB.TxoGetValue(wlk, inp.m_Internal.m_ID);
 
 	uint8_t pNaked[s_TxoNakedMax];
 	Blob val = wlk.m_Value;
-	TxoToNaked(pNaked, val);
+
+	if (bNake)
+		TxoToNaked(pNaked, val);
 
 	Deserializer der;
 	der.reset(val.p, val.n);
 
-	Output outp;
 	der & outp;
 
 	inp.m_Commitment = outp.m_Commitment;
-	inp.m_Internal.m_ID = id;
 
-	NodeDB::StateID sidPrev;
-	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
+	Height hCreate = 0;
+	FindHeightByTxoID(hCreate, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
 
-	inp.m_Internal.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+	inp.m_Internal.m_Maturity = outp.get_MinMaturity(hCreate);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -3591,7 +3601,9 @@ void NodeProcessor::RollbackTo(Height h)
 				continue; // created and spent within this range - skip it
 
 			Input inp;
-			ToInputWithMaturity(inp, id);
+			inp.m_Internal.m_ID = id;
+			Output outp;
+			ToInputWithMaturity(inp, outp, true);
 
 			if (!HandleBlockElement(inp, bic))
 				OnCorrupted();
@@ -3656,10 +3668,13 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.H2I(m_Cursor.m_Sid.m_Height));
 
-	InitCursor(false);
-	OnRolledBack();
-
 	m_Extra.m_Txos = id0;
+
+	InitCursor(false);
+	if (!TestDefinition())
+		OnCorrupted();
+
+	OnRolledBack();
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
@@ -4414,7 +4429,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return mbc.Flush();
 }
 
-bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
+bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid)
 {
 	ByteBuffer bbE;
 	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
@@ -4424,11 +4439,15 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bbE);
 	der & Cast::Down<TxVectors::Eternal>(block);
 
-	// Set maturity to inputs
+	vOutsIn.reserve(block.m_vInputs.size());
+
 	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 	{
 		Input& inp = *block.m_vInputs[i];
-		ToInputWithMaturity(inp, inp.m_Internal.m_ID);
+		Output::Ptr& pOutp = vOutsIn.emplace_back();
+		pOutp = std::make_unique<Output>();
+
+		ToInputWithMaturity(inp, *pOutp, false);
 	}
 
 	return true;
@@ -4447,6 +4466,21 @@ TxoID NodeProcessor::get_TxosBefore(Height h)
 		OnCorrupted();
 
 	return id;
+}
+
+TxoID NodeProcessor::FindHeightByTxoID(Height& h, TxoID id0)
+{
+	if (id0 < m_Extra.m_TxosTreasury)
+	{
+		h = 0;
+		return m_Extra.m_TxosTreasury;
+	}
+
+	NodeDB::StateID sid;
+	TxoID ret = m_DB.FindStateByTxoID(sid, id0);
+
+	h = sid.m_Height;
+	return ret;
 }
 
 bool NodeProcessor::EnumTxos(ITxoWalker& wlk)
@@ -4476,11 +4510,8 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 
 			if (wlk.m_ID >= id1)
 			{
-				NodeDB::StateID sid;
-				id1 = m_DB.FindStateByTxoID(sid, wlk.m_ID);
-
+				id1 = FindHeightByTxoID(h, wlk.m_ID);
 				assert(wlk.m_ID < id1);
-				h = sid.m_Height;
 			}
 		}
 

@@ -61,7 +61,10 @@ void LaserObserver::OnClosed(const laser::ChannelIDPtr& chID)
 
 void LaserObserver::OnCloseFailed(const laser::ChannelIDPtr& chID)
 {
-    io::Reactor::get_Current().stop();
+    if (m_vm.count(cli::LASER_CLOSE_GRACEFUL))
+    {
+        io::Reactor::get_Current().stop();
+    }
     LOG_ERROR() << boost::format(kLaserMessageCloseFailed)
                 % to_hex(chID->m_pData, chID->nBytes);
 }

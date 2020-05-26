@@ -52,6 +52,29 @@ namespace beam::wallet
         return true;
     }
 
+    bool AppUpdateInfoProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    {
+        if (m_validator.isSignatureValid(msg))
+        {
+            try
+            {
+                VersionInfo updateInfo;
+                if (fromByteBuffer(msg.m_content, updateInfo))
+                {
+                    ECC::Hash::Value hash;   // use hash like unique ID
+                    ECC::Hash::Processor() << Blob(msg.m_content) >> hash;
+                    notifySubscribers(updateInfo, hash);
+                }
+            }
+            catch(...)
+            {
+                LOG_WARNING() << "broadcast message processing exception";
+                return false;
+            }
+        }
+        return true;
+    }
+
     void AppUpdateInfoProvider::Subscribe(INewsObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),

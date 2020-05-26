@@ -152,12 +152,18 @@ namespace beam::wallet
         }
         catch (const TransactionFailedException & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
         catch (const exception & ex)
         {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            if (ex.what() && strlen(ex.what()))
+            {
+                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            }
             OnFailed(TxFailureReason::Unknown);
         }
     }
@@ -342,8 +348,6 @@ namespace beam::wallet
             m_WalletDB->SlotFree(iSlot);
             SetParameter(TxParameterID::NonceSlot, IPrivateKeyKeeper2::Slot::Invalid);
         }
-
-
     }
 
     void BaseTransaction::FreeResources()
@@ -385,7 +389,7 @@ namespace beam::wallet
         return ret;
     }
 
-    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict()
+    Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict() const
     {
         Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
         if (!ret)
@@ -423,10 +427,10 @@ namespace beam::wallet
             && GetParameter(TxParameterID::PeerID, peerID))
         { 
             PeerID secureWalletID = Zero, peerWalletID = Zero;
-            if (GetParameter(TxParameterID::MySecureWalletID, secureWalletID) 
-             && GetParameter(TxParameterID::PeerSecureWalletID, peerWalletID))
+            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID) 
+             && GetParameter(TxParameterID::PeerWalletIdentity, peerWalletID))
             {
-                msg.AddParameter(TxParameterID::PeerSecureWalletID, secureWalletID);
+                msg.AddParameter(TxParameterID::PeerWalletIdentity, secureWalletID);
             }
             GetGateway().send_tx_params(peerID, msg);
             return true;
@@ -439,8 +443,8 @@ namespace beam::wallet
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
+            bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_ID);
+            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_ID);
             if (bIn || bOut)
             {
                 if (bIn)

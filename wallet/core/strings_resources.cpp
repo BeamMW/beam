@@ -23,37 +23,21 @@ namespace beam
     const char kAGROTH[] = "AGROTH";
     const char kAmountASSET[] = "assets";
     const char kAmountAGROTH[] = "agroth";
+    const char kNA[] = "N/A";
 
     // Coin statuses
     const char kCoinStatusAvailable[] = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
     const char kCoinStatusSpent[] = "Spent";
     const char kCoinStatusMaturing[] = "Maturing";
-    const char kCoinStatusOutgoing[] = "In progress(outgoing)";
-    const char kCoinStatusIncoming[] = "In progress(incoming/change)";
+    const char kCoinStatusOutgoing[] = "Outgoing";
+    const char kCoinStatusIncoming[] = "Incoming/change";
     const char kCoinStatusConsumed[]    = "Consumed";
-
-    // Tx statuses
-    const char kTxStatusPending[] = "pending";
-    const char kTxStatusWaitingForSender[] = "waiting for sender";
-    const char kTxStatusWaitingForReceiver[] = "waiting for receiver";
-    const char kTxStatusInProgress[] = "in progress";
-    const char kTxStatusSendingToOwn[] = "sending to own address";
-    const char kTxStatusCancelled[] = "cancelled";
-    const char kTxStatusSent[] = "sent";
-    const char kTxStatusReceived[] = "received";
-    const char kTxStatusFailed[] = "failed";
-    const char kTxStatusSentToOwn[] = "sent to own address";
-    const char kTxStatusExpired[] = "expired";
-    const char kTxStatusConsumed[] = "asset consumed";
-    const char kTxStatusIssued[] = "asset issued";
-    const char kTxStatusRegistered[] = "asset registred";
-    const char kTxStatusUnregistered[] = "asset unregistred";
-    const char kTxStatusInfoProvided[] = "asset info provided";
 
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
-    const char kErrorUnknowmTxStatus[] = "Unknown status";
+    const char kErrorUnknownTxStatus[] = "Unknown transaction status";
+    const char kErrorUnknownTxType[] = "Unknown transaction type";
     const char kErrorUnknownSwapCoin[] = "Unknow SwapCoin";
     const char kErrorInvalidWID[] = "invalid WID";
     const char kErrorTreasuryBadN[] = "bad n (roundoff)";
@@ -76,7 +60,8 @@ namespace beam
     const char kErrorExportDataFail[] = "Failed to save exported data.";
     const char kErrorReceiverAddrMissing[] = "receiver's address is missing";
     const char kErrorAmountMissing[] = "amount is missing";
-    const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
+    const char kErrorNegativeAmount[] = "Unable to send negative (%1%) amount of coins";
+    const char kErrorTooBigAmount[] = "Amount %1% is too big. Maximum supported amount is %2%.";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
@@ -164,8 +149,18 @@ namespace beam
     const char kSeedPhraseReadTitle[] = "Generating seed phrase...";
 
     // Wallet info
-    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
-    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n%4%%5%\n%6%%7%\n%8%%9%\n\n";
+    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n%23%%24%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
+    const char kWalletUnreliableAsset[] = "This asset has been burned or reissued at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
+    const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregisterd or asset info needs to be updated using asset_info command.\n\n";
+    const char kWalletAssetOwnerFormat[] = "Asset Owner ID";
+    const char kWalletAssetIDFormat[] = "Asset ID";
+    const char kWalletAssetNameFormat[] = "Asset Name";
+    const char kWalletAssetLockHeightFormat[] = "Lock Height";
+    const char kWalletAssetRefreshHeightFormat[] = "Refresh Height";
+    const char kWalletAssetEmissionFormat[] = "Total Emission";
+    const char kBeamFee[] = " (BEAM Fee)";
+    const char kBeamRefund[] = " (BEAM Refund)";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";
@@ -177,20 +172,23 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
-    const char kCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% |";
+    const char kWalletSummaryFieldShielded[] = "Shielded";
+    const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";
     const char kCoinColumnStatus[] = "Status";
     const char kCoinColumnType[] = "Type";
-    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
+    const char kCoinColumnIsUnlinked[] = "Unlinked";
+    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
 
     // Tx history
     const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
     const char kTxHistoryColumnDatetTime[] = "datetime";
+    const char kTxHistoryColumnHeight[] = "height";
     const char kTxHistoryColumnDirection[] = "direction";
     const char kTxHistoryColumnAmount[] = "amount, BEAM";
-    const char kAssetTxHistoryColumnAmount[] = "amount, ASSET";
+    const char kAssetTxHistoryColumnAmount[] = "amount, %1%";
     const char kTxHistoryColumnStatus[] = "status";
     const char kTxHistoryColumnId[] = "ID";
     const char kTxHistoryColumnKernelId[] = "kernel ID";
@@ -198,12 +196,19 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kNoCoins[] = "No coins";
+    const char kNoShieldedCoins[] = "No Shielded coins";
+    const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
+    const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxToken[] = "token";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
     const char kTxHistoryColumnSwapAmount[] = "swap amount";
     const char kTxHistoryColumnSwapType[] = "swap type";
+    const char kOrphanedAseetTxs[]   = "____Orphaned transactions____\n\nThis sections includes transactions that do not have valid Asset ID.\n";
+    const char kNoAssetsInWallet[]   = "You do not have any assets in your wallet";
+    const char kNoAssetTxsInWallet[] = "You do not have any asset transactions in your wallet";
 
     // Tx Details
     const char kTxDetailsFormat[] = "Transaction details:\n%1%Status: %2%";
@@ -228,9 +233,15 @@ namespace beam
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 
     // Confidential assets
-    const char kErrorAssetIdxRequired[] = "Asset owner index is not specified";
-    const char kErrorAssetIdRequired[] = "Asset ID is not specified";
+    const char kErrorAssetIdOrMetaRequired[] = "Asset ID or Asset metadata is required";
     const char kErrorAssetMetadataRequired[] = "Asset metadata required";
+    const char kErrorAssetIDRequired[]       = "Asset ID required";
+    const char kErrorAssetNonSTDMeta[]       = "Bad (non-std) asset metadata";
+    const char kErrorAssetNotFound[]         = "Asset not found in a local database. Check asset ID, update asset info using asset_info command or provide asset metadata";
+    const char kErrorAssetNotOwned[]         = "You do not own the asset";
+    const char kErrorAssetLoadMeta[]         = "Cannot load asset metadata";
+    const char kErrorAssetsFork2[]           = "Confidential assets can be used only after fork2";
+    const char kErrorAssetsDisabled[]        = "Confidential assets are disabled. Add --enable_assets to command line";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
@@ -263,4 +274,8 @@ namespace beam
 
     const char kLaserCurrentState[] = "Current state is %1%";
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    const char kErrorShieldedIDMissing[] = "shielded id is missing";
+    const char kErrorWindowBeginMissing[] = "window begin is missing";
 }

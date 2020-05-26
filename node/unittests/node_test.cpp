@@ -32,15 +32,9 @@
 
 namespace ECC {
 
-	void GenerateRandom(void* p, uint32_t n)
-	{
-		for (uint32_t i = 0; i < n; i++)
-			((uint8_t*) p)[i] = (uint8_t) rand();
-	}
-
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, x.nBytes);
+		GenRandom(x);
 	}
 
 	void SetRandom(Scalar::Native& x)
@@ -988,12 +982,16 @@ namespace beam
 			sid.m_Row = np.FindActiveAtStrict(h);
 
 			Block::Body block;
-			np.ExtractBlockWithExtra(block, sid);
+			std::vector<Output::Ptr> vOutsIn;
+			np.ExtractBlockWithExtra(block, vOutsIn, sid);
+
+			verify_test(vOutsIn.size() == block.m_vInputs.size());
 
 			// inputs must come with maturities!
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
 				const Input& inp = *block.m_vInputs[i];
+				verify_test(inp.m_Commitment == vOutsIn[i]->m_Commitment);
 				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
 			}
 		}
@@ -1763,8 +1761,7 @@ namespace beam
 
 				sdp.m_Output.m_Value -= fee;
 
-				m_Shielded.m_Cfg.n = 4;
-				m_Shielded.m_Cfg.M = 6; // 4K
+				m_Shielded.m_Cfg = Rules::get().Shielded.m_ProofMax;
 
 				assert(msgTx.m_Transaction);
 
@@ -1773,24 +1770,43 @@ namespace beam
 					pKrn->m_Height.m_Min = h + 1;
 					pKrn->m_Fee = fee;
 
-					ShieldedTxo::Viewer viewer;
-					viewer.FromOwner(*m_Wallet.m_pKdf);
+					ShieldedTxo::Voucher voucher;
+					{
+						// create a voucher
+						ShieldedTxo::Viewer viewer;
+						viewer.FromOwner(*m_Wallet.m_pKdf, 0);
+
+						ShieldedTxo::Data::TicketParams sp;
+						sp.Generate(voucher.m_Ticket, viewer, 13U);
+
+						voucher.m_SharedSecret = sp.m_SharedSecret;
+
+						m_Shielded.m_Params.m_Ticket = sp; // save just for later verification.
+
+						// skip the voucher signature
+					}
 
 					pKrn->UpdateMsg();
 					ECC::Oracle oracle;
 					oracle << pKrn->m_Msg;
 
-					sdp.m_Output.m_Sender = 165U;
-					sdp.m_Output.m_Message = 243U;
-					sdp.Generate(pKrn->m_Txo, oracle, viewer, 13U);
+					// substitute the voucher
+					pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
+					sdp.m_Ticket.m_SharedSecret = voucher.m_SharedSecret;
+
+					ZeroObject(sdp.m_Output.m_User);
+					sdp.m_Output.m_User.m_Sender = 165U;
+					sdp.m_Output.m_User.m_pMessage[0] = 243U;
+					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
+					sdp.GenerateOutp(pKrn->m_Txo, oracle);
 
 					pKrn->MsgToID();
 
-					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Serial.m_SerialPub;
+					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Ticket.m_SerialPub;
 
 					Key::IKdf::Ptr pSerPrivate;
-					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
-					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Serial.m_SerialPreimage);
+					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf, 0);
+					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Ticket.m_SerialPreimage);
 
 					ECC::Point::Native pt;
 					verify_test(pKrn->IsValid(h + 1, pt));
@@ -1828,9 +1844,6 @@ namespace beam
 				msgTx.m_Transaction = std::make_shared<Transaction>();
 				msgTx.m_Transaction->m_Offset = Zero;
 
-				ECC::Scalar::Native sk;
-				ECC::SetRandom(sk);
-
 				Height h = m_vStates.back().m_Height;
 
 				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
@@ -1858,39 +1871,19 @@ namespace beam
 
 				Lelantus::Prover p(lst, pKrn->m_SpendProof);
 				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
-				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Serial.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
-				p.m_Witness.V.m_R_Output = sk;
+				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Ticket.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
-				ECC::Point::Native hGen;
+				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
-				{
-					// not necessary for beams, just a demonstration of assets support
-					pKrn->m_pAsset = std::make_unique<Asset::Proof>();
-					p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
-					pKrn->m_pAsset->Create(hGen, p.m_Witness.V.m_R_Adj, m_Shielded.m_Params.m_Output.m_Value, 0, hGen);
-				}
-
-				pKrn->UpdateMsg();
-
-				ECC::Oracle o1;
-				o1 << pKrn->m_Msg;
-				p.Generate(Zero, o1, &hGen);
-
-				pKrn->MsgToID();
-
-				{
-					// test
-				}
-
-				verify_test(m_Shielded.m_Params.m_Serial.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
+				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
 				Amount fee = 100;
 				fee += Transaction::FeeSettings().m_ShieldedInput;
 
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
+				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.V.m_R_Output, false);
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
@@ -1946,7 +1939,7 @@ namespace beam
 
 				ShieldedTxo::DescriptionInp d;
 				d.m_Height = msg.m_Height;
-				d.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
+				d.m_SpendPk = m_Shielded.m_Params.m_Ticket.m_SpendPk;
 
 				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
@@ -2346,7 +2339,7 @@ namespace beam
 							m_Shielded.m_SpendConfirmed = true;
 
 							proto::GetProofShieldedInp msgOut;
-							msgOut.m_SpendPk = m_Shielded.m_Params.m_Serial.m_SpendPk;
+							msgOut.m_SpendPk = m_Shielded.m_Params.m_Ticket.m_SpendPk;
 							Send(msgOut);
 
 							printf("Waiting for shielded input proof...\n");
@@ -2428,27 +2421,32 @@ namespace beam
 						verify_test(evt.m_ID == 0);
 
 						// Output parameters are fully recovered
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Sender == evt.m_Sender);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Message == evt.m_Message);
+						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_User, sizeof(evt.m_User)));
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == evt.m_kOutG);
 						
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
-						viewer.FromOwner(*m_This.m_Wallet.m_pKdf);
+						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_Key.m_nIdx);
 
-						ShieldedTxo::Data::SerialParams sp;
-						sp.m_pK[0] = evt.m_kSerG;
-						sp.m_IsCreatedByViewer = 0 != (proto::Event::Flags::CreatedByViewer & evt.m_Flags);
+						ShieldedTxo::Data::TicketParams sp;
+						sp.m_pK[0] = evt.m_Key.m_kSerG;
+						sp.m_IsCreatedByViewer = evt.m_Key.m_IsCreatedByViewer;
 						sp.Restore(viewer); // restores only what is necessary for spend
 
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_pK[0] == sp.m_pK[0]);
-						verify_test(m_This.m_Shielded.m_Params.m_Serial.m_SerialPreimage == sp.m_SerialPreimage);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_pK[0] == sp.m_pK[0]);
+						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_SerialPreimage == sp.m_SerialPreimage);
 
 						// Recover the full data
+						ShieldedTxo::Data::OutputParams op;
+						op.m_Value = evt.m_Value;
+						op.m_AssetID = evt.m_AssetID;
+						op.m_User = evt.m_User;
+						op.Restore_kG(sp.m_SharedSecret);
+
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == op.m_k);
 
 						if (proto::Event::Flags::Add & evt.m_Flags)
 							m_This.m_Shielded.m_EvtAdd = true;
@@ -2621,10 +2619,10 @@ namespace beam
 				return true;
 			}
 
-			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars) override
+			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index) override
 			{
-				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Serial.m_SpendPk));
-				m_SpendKeys.insert(pars.m_Serial.m_SpendPk);
+				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Ticket.m_SpendPk));
+				m_SpendKeys.insert(pars.m_Ticket.m_SpendPk);
 				return true;
 			}
 
@@ -2644,12 +2642,7 @@ namespace beam
 		};
 
 		MyParser p;
-		p.m_pOwner = cl.m_Wallet.m_pKdf;
-
-		ShieldedTxo::Viewer viewer;
-		viewer.FromOwner(*p.m_pOwner);
-		p.m_pViewer = &viewer;
-
+		p.Init(cl.m_Wallet.m_pKdf);
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
 		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
@@ -2940,6 +2933,9 @@ namespace beam
 
 void TestAll()
 {
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+
 	bool bClientProtoOnly = false;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
@@ -3016,6 +3012,8 @@ void TestAll()
 
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
+	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
 	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");

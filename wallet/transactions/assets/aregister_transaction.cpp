@@ -15,9 +15,9 @@
 #include "aregister_transaction.h"
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
-#include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -57,67 +57,43 @@ namespace beam::wallet
     }
 
     AssetRegisterTransaction::AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : BaseTransaction{gateway, std::move(walletDB), txID}
+        : AssetTransaction(gateway, std::move(walletDB), txID)
     {
     }
 
     void AssetRegisterTransaction::UpdateImpl()
     {
-        if (!IsLoopbackTransaction())
+        if (!AssetTransaction::BaseUpdate())
         {
-            OnFailed(TxFailureReason::NotLoopback, true);
             return;
         }
 
         auto& builder = GetTxBuilder();
-        if (!builder.LoadKernel())
+        if (!builder.LoadKernel() && GetState() == State::Initial)
         {
-            if (GetState() == State::Initial)
-            {
-                LOG_INFO() << GetTxID() << " Registering asset with the owner index " << builder.GetAssetOwnerIdx()
-                           << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false);
+            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.GetAssetOwnerId()
+                       << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false)
+                       << ". Fee is "  << PrintableAmount(builder.GetFee(), false);
 
-                if (!builder.GetInitialTxParams())
-                {
-                    builder.SelectInputCoins();
-                    builder.AddChange();
-                    UpdateTxDescription(TxStatus::InProgress);
-                }
+            if (!builder.GetInitialTxParams())
+            {
+                builder.SelectInputCoins();
+                builder.AddChange();
+                UpdateTxDescription(TxStatus::InProgress);
             }
 
-            if (GetState() == State::Initial)
-            {
-                SetState(State::MakingInputs);
-                if (builder.CreateInputs())
-                {
-                    return;
-                }
-            }
-
-            if (GetState() == State::MakingInputs)
-            {
-                SetState(State::MakingOutputs);
-                if (builder.CreateOutputs())
-                {
-                    return;
-                }
-            }
-
-            if(GetState() == State::MakingOutputs)
-            {
-                SetState(State::MakingKernels);
-                if (builder.MakeKernel())
-                {
-                    return;
-                }
-            }
+            SetState(State::Making);
+            builder.CreateInputs();
+            builder.CreateOutputs();
+            builder.MakeKernel();
         }
 
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
-            if (CheckExpired())
+            if(const auto ainfo = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
             {
+                OnFailed(TxFailureReason::AssetExists);
                 return;
             }
 
@@ -132,8 +108,8 @@ namespace beam::wallet
                 return;
             }
 
+			SetState(State::Registration);
             m_Gateway.register_tx(GetTxID(), transaction);
-            SetState(State::Registration);
             return;
         }
 
@@ -154,7 +130,7 @@ namespace beam::wallet
 
         if (GetState() == State::KernelConfirmation)
         {
-            LOG_INFO() << GetTxID() << " Asset with owner index " << _builder->GetAssetOwnerIdx() << " successfully registered";
+            LOG_INFO() << GetTxID() << " Asset with the owner ID " << _builder->GetAssetOwnerId() << " successfully registered";
             SetState(State::AssetConfirmation);
             ConfirmAsset();
             return;
@@ -177,17 +153,39 @@ namespace beam::wallet
                 ConfirmAsset();
                 return;
             }
+
+            SetState(State::AssetCheck);
+        }
+
+        if(GetState() == State::AssetCheck)
+        {
+            Asset::Full info;
+            if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return;
+            }
+
+            if(_builder->GetAssetOwnerId() != info.m_Owner)
+            {
+                OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                return;
+            }
+
+            SetParameter(TxParameterID::AssetID, info.m_ID);
         }
 
         SetState(State::Finalizing);
         std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            if (coin.m_createTxId == m_ID) {
+            if (coin.m_createTxId == m_ID)
+            {
                 std::setmin(coin.m_confirmHeight, kpHeight);
                 coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
-            if (coin.m_spentTxId == m_ID) {
+            if (coin.m_spentTxId == m_ID)
+            {
                 std::setmin(coin.m_spentHeight, kpHeight);
             }
         }
@@ -198,27 +196,7 @@ namespace beam::wallet
 
     void AssetRegisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerIdx(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
-    }
-
-    bool AssetRegisterTransaction::Rollback(Height height)
-    {
-        bool rthis = false;
-        Height cheight(0);
-        if (GetParameter(TxParameterID::AssetConfirmedHeight, cheight) && (cheight > height))
-        {
-            SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetFullInfo, Asset::Full());
-            rthis = true;
-        }
-        const bool rsuper = super::Rollback(height);
-        return rthis || rsuper;
-    }
-
-    bool AssetRegisterTransaction::IsLoopbackTransaction() const
-    {
-        return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
+        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
     }
 
     bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
@@ -232,7 +210,6 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
-        case TxParameterID::AssetOwnerIdx:
             return true;
         default:
             return false;

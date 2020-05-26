@@ -22,6 +22,7 @@
 #include "utility/log_rotation.h"
 #include "version.h"
 #include "pipe.h"
+#include "utils.h"
 
 #include <memory>
 #include <unordered_map>
@@ -481,29 +482,35 @@ namespace
         int m_requests = 0;
     };
 
-
     class Server : public wallet::WebSocketServer
     {
     public:
-        Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port)
+        Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port, bool withPipes)
             : WebSocketServer(reactor, port,
             [&monitor](auto&& func)->IHandler::Ptr {
                 return std::make_unique<MonitorApiHandler>(monitor, std::move(func));
             },
-            [] () {
-                Pipe syncPipe(Pipe::SyncFileDescriptor);
-                syncPipe.notifyListening();
+            [withPipes] () {
+                if (withPipes)
+                {
+                    Pipe syncPipe(Pipe::SyncFileDescriptor);
+                    syncPipe.notifyListening();
+                }
             })
-            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
         {
-            _heartbeatTimer = io::Timer::create(*reactor);
-            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notifyAlive();
-            });
+            if (withPipes)
+            {
+                _heartbeatPipe  = std::make_unique<Pipe>(Pipe::HeartbeatFileDescriptor);
+                _heartbeatTimer = io::Timer::create(*reactor);
+                _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this]() {
+                    assert(_heartbeatPipe != nullptr);
+                    _heartbeatPipe->notifyAlive();
+                });
+            }
         }
     private:
         io::Timer::Ptr _heartbeatTimer;
-        Pipe _heartbeatPipe;
+        std::unique_ptr<Pipe> _heartbeatPipe;
     };
 }
 
@@ -512,8 +519,8 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-#define LOG_FILES_DIR "logs"
-#define LOG_FILES_PREFIX "monitor_"
+    const char* LOG_FILES_DIR = "logs";
+    const char* LOG_FILES_PREFIX = "monitor_";
 
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
     auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_FILES_PREFIX, path.string());
@@ -526,6 +533,7 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
+            bool withPipes = false;
         } options;
 
         io::Address nodeAddress;
@@ -538,6 +546,7 @@ int main(int argc, char* argv[])
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "Enable or disable sync pipes")
                 ;
 
             desc.add(createRulesOptionsDescription());
@@ -555,24 +564,17 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("monitor.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
-
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "monitor.cfg");
             vm.notify();
 
-            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, options.logCleanupPeriod);
-
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, beam::wallet::days2sec(options.logCleanupPeriod));
             getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet SBBS Monitor " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
 
             if (vm.count(cli::NODE_ADDR) == 0)
             {
@@ -590,9 +592,8 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
-
-        LOG_INFO() << "Starting server on port " << options.port;
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, beam::wallet::days2sec(options.logCleanupPeriod));
+        LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
         
         Monitor monitor;
         proto::FlyClient::NetworkStd nnet(monitor);
@@ -604,7 +605,7 @@ int main(int argc, char* argv[])
             nnet.BbsSubscribe(c, getTimestamp(), &monitor);
         }
  
-        Server server(monitor, reactor, options.port);
+        Server server(monitor, reactor, options.port, options.withPipes);
         reactor->run();
 
         LOG_INFO() << "Done";

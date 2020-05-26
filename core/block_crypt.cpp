@@ -344,10 +344,21 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
-		ECC::Point::Native hGen;
-		if (m_pAsset && !m_pAsset->IsValid(hGen))
+		if (!m_pAsset)
+			return IsValid2(hScheme, comm, nullptr);
+
+		const Rules& r = Rules::get();
+		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
 			return false;
 
+		ECC::Point::Native hGen;
+		return
+			m_pAsset->IsValid(hGen) &&
+			IsValid2(hScheme, comm, &hGen);
+	}
+
+	bool Output::IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const
+	{
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
@@ -359,16 +370,27 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &hGen);
+			return m_pConfidential->IsValid(comm, oracle, pGen);
 		}
 
 		if (!m_pPublic)
 			return false;
 
+		if (m_Coinbase)
+		{
+			if (pGen)
+				return false; // should contain unobscured default asset
+		}
+		else
+		{
+			if (!Rules::get().AllowPublicUtxos)
+				return false;
+		}
+
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle, &hGen);
+		return m_pPublic->IsValid(comm, oracle, pGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -1108,6 +1130,9 @@ namespace beam
 		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
 			return false; // unsupported for that version
 
+		if (m_Txo.m_pAsset && !r.CA.Enabled)
+			return false; // unsupported for that version
+
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
@@ -1159,8 +1184,14 @@ namespace beam
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
 
 		ECC::Point::Native comm;
-		if (m_pAsset && !m_pAsset->IsValid(comm))
-			return false;
+		if (m_pAsset)
+		{
+			if (!r.CA.Enabled)
+				return false;
+
+			if (!m_pAsset->IsValid(comm))
+				return false;
+		}
 
 		if (!comm.ImportNnz(ptNeg))
 			return false;
@@ -1201,14 +1232,56 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
+	{
+		UpdateMsg();
+
+		ECC::Oracle oracle;
+		oracle << m_Msg;
+
+		// auto-generate seed for sigma proof and m_R_Output
+		ECC::NoLeak<ECC::uintBig> hvSeed;
+		ECC::GenRandom(hvSeed.V); // use both deterministic and random
+
+		Lelantus::Prover::Witness& w = p.m_Witness.V; // alias
+
+		ECC::Oracle(oracle) // copy
+			<< hvSeed.V
+			<< w.m_L
+			<< w.m_V
+			<< w.m_R
+			<< w.m_SpendSk
+			>> hvSeed.V;
+
+		ECC::NonceGenerator("krn.sh.i")
+			<< hvSeed.V
+			>> w.m_R_Output;
+
+		ECC::Point::Native hGen;
+		if (aid)
+			Asset::Base(aid).get_Generator(hGen);
+
+		if (aid || bHideAssetAlways)
+		{
+			// not necessary for beams, just a demonstration of assets support
+			m_pAsset = std::make_unique<Asset::Proof>();
+			w.m_R_Adj = w.m_R_Output;
+			m_pAsset->Create(hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
+		}
+
+		p.Generate(hvSeed.V, oracle, &hGen);
+
+		MsgToID();
+	}
+
 	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()
 	{
 		m_Output = 10;
 		m_Kernel = 10;
-		m_ShieldedInput = 1000;
-		m_ShieldedOutput = 1000;
+		m_ShieldedInput = MinShieldedFee - m_Kernel;
+		m_ShieldedOutput = MinShieldedFee - m_Kernel - m_Output;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -1517,13 +1590,9 @@ namespace beam
 	}
 
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin			= 100000000;
 
 	Rules::Rules()
 	{
-		CA.m_ProofCfg.n = 4;
-		CA.m_ProofCfg.M = 3; // 64 elements
-
 		TreasuryChecksum = {
 			0x5d, 0x9b, 0x18, 0x78, 0x9c, 0x02, 0x1a, 0x1e,
 			0xfb, 0x83, 0xd9, 0x06, 0xf4, 0xac, 0x7d, 0xce,
@@ -1635,6 +1704,15 @@ namespace beam
 		if (!IsForkHeightsConsistent())
 			throw std::runtime_error("Inconsistent Forks");
 
+		if (!CA.m_ProofCfg.get_N())
+			throw std::runtime_error("Bad CA/Sigma cfg");
+
+		uint32_t n1 = Shielded.m_ProofMin.get_N();
+		uint32_t n2 = Shielded.m_ProofMax.get_N();
+
+		if (!n1 || (n1 > n2))
+			throw std::runtime_error("Bad Shielded/Sigma cfg");
+
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
 		oracle
@@ -1684,9 +1762,11 @@ namespace beam
 			<< pForks[2].m_Height
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
-			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
-			<< Shielded.NMax
-			<< Shielded.NMin
+			<< uint32_t(2) // increment this whenever we change something in the protocol
+			<< Shielded.m_ProofMax.n
+			<< Shielded.m_ProofMax.M
+			<< Shielded.m_ProofMin.n
+			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
 			<< CA.DepositForList
@@ -2335,6 +2415,8 @@ namespace beam
 
 	/////////////
 	// Asset
+	const PeerID Asset::s_InvalidOwnerID = Zero;
+
 	void Asset::Base::get_Generator(ECC::Point::Native& res, ECC::Point::Storage& res_s) const
 	{
 		assert(m_ID);
@@ -2511,6 +2593,7 @@ namespace beam
 			>> hvSeed;
 
 		ECC::Oracle oracle;
+		oracle << m_hGen;
 		prover.Generate(hvSeed, oracle, genBlinded);
 	}
 
@@ -2553,6 +2636,8 @@ namespace beam
 	bool Asset::Proof::IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
 	{
 		ECC::Oracle oracle;
+		oracle << m_hGen;
+
 		ECC::Scalar::Native kBias;
 		if (!Cast::Down<Sigma::Proof>(*this).IsValid(bc, oracle, Rules::get().CA.m_ProofCfg, pKs, kBias))
 			return false;
