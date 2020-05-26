@@ -46,13 +46,13 @@ namespace beam::wallet
     using TxID = std::array<uint8_t, 16>;
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
-    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
-    const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
+    extern const char kTimeStampFormat3x3[];
+    extern const char kTimeStampFormatCsv[];
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
     constexpr Amount kMinFeeInGroth = 100;
-    constexpr Amount kShieldedCoinMinFeeInGroth = 1000;
+    constexpr Amount kShieldedCoinMinFeeInGroth = Transaction::FeeSettings::MinShieldedFee;
     constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
     inline const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
 

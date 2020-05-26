@@ -1280,8 +1280,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
-		m_ShieldedInput = Rules::Coin / 100 - m_Kernel;
-		m_ShieldedOutput = Rules::Coin / 100 - m_Kernel - m_Output;
+		m_ShieldedInput = MinShieldedFee - m_Kernel;
+		m_ShieldedOutput = MinShieldedFee - m_Kernel - m_Output;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -1590,7 +1590,6 @@ namespace beam
 	}
 
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin			= 100000000;
 
 	Rules::Rules()
 	{

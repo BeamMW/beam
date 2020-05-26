@@ -193,6 +193,9 @@ namespace beam
 
 namespace beam::wallet
 {
+    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
+    const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
+
     int WalletID::cmp(const WalletID& x) const
     {
         int n = m_Channel.cmp(x.m_Channel);
