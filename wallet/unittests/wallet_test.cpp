@@ -2585,9 +2585,8 @@ void TestHWWallet()
 
     auto keyKeeper = hw.getKeyKeeper(hw.getDevices()[0]);
 
-
-    //TestKeyKeeper(keyKeeper, 0);
     TestKeyKeeper(keyKeeper, 1);
+    TestKeyKeeper(keyKeeper, 0);
 }
 #endif
 

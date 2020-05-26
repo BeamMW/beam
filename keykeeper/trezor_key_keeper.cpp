@@ -78,17 +78,15 @@ namespace beam::wallet
         {
             v.m_Inputs.resize(m.m_vInputs.size());
             v.m_Outputs.resize(m.m_vOutputs.size());
-            if (!v.m_Inputs.empty() && !v.m_Outputs.empty())
-            {
-                for (size_t i = 0; i < v.m_Inputs.size(); ++i)
-                    CidCvt(v.m_Inputs[i], m.m_vInputs[i]);
 
-                for (size_t i = 0; i < v.m_Outputs.size(); ++i)
-                    CidCvt(v.m_Outputs[i], m.m_vOutputs[i]);
-        
-                tx2.m_pIns = &v.m_Inputs;
-                tx2.m_pOuts = &v.m_Outputs;
-            }
+            for (size_t i = 0; i < v.m_Inputs.size(); ++i)
+                CidCvt(v.m_Inputs[i], m.m_vInputs[i]);
+
+            for (size_t i = 0; i < v.m_Outputs.size(); ++i)
+                CidCvt(v.m_Outputs[i], m.m_vOutputs[i]);
+
+            tx2.m_pIns = &v.m_Inputs;
+            tx2.m_pOuts = &v.m_Outputs;
         
             // kernel
             assert(m.m_pKernel);
@@ -242,7 +240,8 @@ namespace beam::wallet
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
-        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, 
+            [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
             typedef struct
@@ -294,7 +293,8 @@ namespace beam::wallet
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
-        m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        m_DeviceManager->call_BeamGetNumSlots(true, 
+            [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             m.m_Count = child_cast<Message, BeamNumSlots>(msg).num_slots();
 
@@ -529,7 +529,8 @@ namespace beam::wallet
         txMutualInfo.m_MyIDKey = m.m_MyIDKey;
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
 
-        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, 
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             const auto& txReceive = child_cast<Message, BeamSignTransactionReceive>(msg);
             TxExport(txCommon, txReceive.tx_common());
@@ -559,7 +560,8 @@ namespace beam::wallet
         txSenderParams.m_iSlot = m.m_Slot;
         txSenderParams.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
 
-        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams,
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
             BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
@@ -576,7 +578,8 @@ namespace beam::wallet
         Vectors v;
         TxImport(txCommon, m, v);
 
-        m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        m_DeviceManager->call_BeamSignTransactionSplit(txCommon,
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
             TxExport(m, txCommon);
