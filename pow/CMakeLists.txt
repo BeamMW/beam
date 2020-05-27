@@ -7,6 +7,7 @@ include_directories(impl)
 set(POW_SRC
     beamHash.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/crypto/equihashR_impl.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/crypto/beamHashIII_impl.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/arith_uint256.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/uint256.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/utilstrencodings.cpp
@@ -35,11 +36,13 @@ add_library(external_pow STATIC
 
 target_link_libraries(external_pow p2p pow core)
 
-if (NOT ANDROID AND NOT IOS)
+if (NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????
 
     #find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
     target_link_libraries(miner_client external_pow Boost::program_options)
 
-    add_subdirectory(unittests)
+    if(BEAM_TESTS_ENABLED)
+        add_subdirectory(unittests)
+    endif()
 endif()

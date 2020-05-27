@@ -26,15 +26,8 @@ namespace beam
     {
         SwapOffers,
         SoftwareUpdates,
-        ExchangeRates
-    };
-
-    /**
-     *  Interface for different content providers to get information from the broadcast
-     */
-    struct IBroadcastListener
-    {
-        virtual bool onMessage(uint64_t, ByteBuffer&&) = 0;
+        ExchangeRates,
+        WalletUpdates       // used for Wallet Core library based implementations
     };
 
     /**
@@ -60,10 +53,21 @@ namespace beam
     };
 
     /**
+     *  Interface for different content providers to get information from the broadcast
+     */
+    struct IBroadcastListener
+    {
+        virtual bool onMessage(uint64_t, ByteBuffer&&) { return true; };    // Deprecated. TODO: dh remove after 2 fork.
+        virtual bool onMessage(uint64_t, BroadcastMsg&&) { return true; };
+    };
+
+    /**
      *  Interface to access broadcasting network
      */
     struct IBroadcastMsgGateway
     {
+        static constexpr uint32_t m_bbsTimeWindow = 12*60*60;       // BBS message lifetime is 12 hours
+        
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
         virtual void unregisterListener(BroadcastContentType) = 0;
         virtual void sendRawMessage(BroadcastContentType type, const ByteBuffer&) = 0;

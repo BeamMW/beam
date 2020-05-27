@@ -45,7 +45,7 @@ inline bool CanBeDeleted(int state)
            state == beam::Lightning::Channel::State::Closed;
 }
 
-const beam::Timestamp kDefaultLaserTolerance = 60 * (beam::Lightning::kMaxBlackoutTime >> 1);
+const beam::Timestamp kDefaultLaserTolerance = 60 * (beam::Lightning::kMaxBlackoutTime - 1);
 }  // namespace
 
 namespace beam::wallet::laser
@@ -810,7 +810,7 @@ void Mediator::UpdateChannels()
         bool revisionDiscarded = false;
         if (state == Lightning::Channel::State::Updating && channel->IsUpdateStuck())
         {
-            LOG_DEBUG() << "Update stuck, discarding last revision...";
+            LOG_WARNING() << "Update stuck, discarding last revision...";
             channel->DiscardLastRevision();
             revisionDiscarded = true;
         }
@@ -818,7 +818,7 @@ void Mediator::UpdateChannels()
         bool closingDiscarded = false;
         if (state == Lightning::Channel::State::Closing1 && channel->IsGracefulCloseStuck())
         {
-            LOG_DEBUG() << "Closing stuck, discarding last revision...";
+            LOG_WARNING() << "Closing stuck, discarding last revision...";
             channel->DiscardLastRevision();
             closingDiscarded = true;
         }
@@ -860,13 +860,11 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
         if (lastState <= Lightning::Channel::State::Opening2 &&
             lastState != Lightning::Channel::State::None)
         {
-            LOG_DEBUG() << "observer->OnOpened";
             for (auto observer : m_observers)
                 observer->OnOpened(channel->get_chID());
         }
         else if (lastState == Lightning::Channel::State::Updating)
         {
-            LOG_DEBUG() << "observer->OnUpdateFinished";
             for (auto observer : m_observers)
                 observer->OnUpdateFinished(channel->get_chID());
         }
@@ -875,7 +873,6 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
     {
         if (lastState == Lightning::Channel::State::Open)
         {
-            LOG_DEBUG() << "observer->OnUpdateStarted";
             for (auto observer : m_observers)
                 observer->OnUpdateStarted(channel->get_chID());
         }
@@ -916,9 +913,8 @@ bool Mediator::ValidateTip()
 bool Mediator::IsEnoughCoinsAvailable(Amount required)
 {
     storage::Totals totalsCalc(*m_pWalletDB);
-    const auto& totals = totalsCalc.GetTotals(Zero);
-
-    return totals.Avail >= required; 
+    const auto& totals = totalsCalc.GetBeamTotals();
+    return AmountBig::get_Lo(totals.Avail) >= required;
 }
 
 void Mediator::Subscribe()

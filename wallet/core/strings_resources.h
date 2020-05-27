@@ -24,6 +24,7 @@ namespace beam
     extern const char kAGROTH[];
     extern const char kAmountASSET[];
     extern const char kAmountAGROTH[];
+    extern const char kNA[];
     // Coin statuses
     extern const char kCoinStatusAvailable[];
     extern const char kCoinStatusUnavailable[];
@@ -32,26 +33,11 @@ namespace beam
     extern const char kCoinStatusOutgoing[];
     extern const char kCoinStatusIncoming[];
     extern const char kCoinStatusConsumed[];
-    // Tx statuses
-    extern const char kTxStatusPending[];
-    extern const char kTxStatusWaitingForSender[];
-    extern const char kTxStatusWaitingForReceiver[];
-    extern const char kTxStatusInProgress[];
-    extern const char kTxStatusSendingToOwn[];
-    extern const char kTxStatusCancelled[];
-    extern const char kTxStatusSent[];
-    extern const char kTxStatusReceived[];
-    extern const char kTxStatusFailed[];
-    extern const char kTxStatusSentToOwn[];
-    extern const char kTxStatusIssued[];
-    extern const char kTxStatusConsumed[];
-    extern const char kTxStatusRegistered[];
-    extern const char kTxStatusUnregistered[];
-    extern const char kTxStatusInfoProvided[];
-    extern const char kTxStatusExpired[];
+
     // Errors
     extern const char kErrorUnknownCoinStatus[];
-    extern const char kErrorUnknowmTxStatus[];
+    extern const char kErrorUnknownTxStatus[];
+    extern const char kErrorUnknownTxType[];
     extern const char kErrorUnknownSwapCoin[];
     extern const char kErrorInvalidWID[];
     extern const char kErrorTreasuryBadN[];
@@ -75,6 +61,7 @@ namespace beam
     extern const char kErrorReceiverAddrMissing[];
     extern const char kErrorAmountMissing[];
     extern const char kErrorNegativeAmount[];
+    extern const char kErrorTooBigAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
     extern const char kErrorSwapFeeRateMissing[];
@@ -159,6 +146,16 @@ namespace beam
     // Wallet info
     extern const char kWalletSummaryFormat[];
     extern const char kWalletAssetSummaryFormat[];
+    extern const char kWalletUnreliableAsset[];
+    extern const char kWalletNoInfo[];
+    extern const char kBeamFee[];
+    extern const char kBeamRefund[];
+    extern const char kWalletAssetIDFormat[];
+    extern const char kWalletAssetNameFormat[];
+    extern const char kWalletAssetLockHeightFormat[];
+    extern const char kWalletAssetRefreshHeightFormat[];
+    extern const char kWalletAssetEmissionFormat[];
+    extern const char kWalletAssetOwnerFormat[];
     extern const char kWalletSummaryFieldCurHeight[];
     extern const char kWalletSummaryFieldCurStateID[];
     extern const char kWalletSummaryFieldAvailable[];
@@ -170,16 +167,19 @@ namespace beam
     extern const char kWalletSummaryFieldAvaliableFee[];
     extern const char kWalletSummaryFieldTotalFee[];
     extern const char kWalletSummaryFieldTotalUnspent[];
+    extern const char kWalletSummaryFieldShielded[];
     extern const char kCoinsTableHeadFormat[];
     extern const char kCoinColumnId[];
     extern const char kCoinColumnMaturity[];
     extern const char kCoinColumnStatus[];
     extern const char kCoinColumnType[];
+    extern const char kCoinColumnIsUnlinked[];
     extern const char kCoinsTableFormat[];
     // Tx history
     extern const char kTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];
     extern const char kTxHistoryColumnDatetTime[];
+    extern const char kTxHistoryColumnHeight[];
     extern const char kTxHistoryColumnDirection[];
     extern const char kTxHistoryColumnAmount[];
     extern const char kAssetTxHistoryColumnAmount[];
@@ -190,12 +190,20 @@ namespace beam
     extern const char kTxDirectionOut[];
     extern const char kTxDirectionIn[];
     extern const char kTxHistoryEmpty[];
+    extern const char kTxHistoryUnreliableTxs[];
+    extern const char kTxHistoryUnreliableCoins[];
     extern const char kTxToken[];
+    extern const char kNoCoins[];
+    extern const char kNoShieldedCoins[];
     extern const char kSwapTxHistoryEmpty[];
     extern const char kSwapTxHistoryTableHead[];
     extern const char kSwapTxHistoryTableFormat[];
     extern const char kTxHistoryColumnSwapAmount[];
     extern const char kTxHistoryColumnSwapType[];
+    extern const char kOrphanedAseetTxs[];
+    extern const char kNoAssetsInWallet[];
+    extern const char kNoAssetTxsInWallet[];
+
     // Tx Details
     extern const char kTxDetailsFormat[];
     extern const char kTxDetailsFailReason[];
@@ -219,9 +227,15 @@ namespace beam
     extern const char kPpRequired[];
 
     // Assets
-    extern const char kErrorAssetIdxRequired[];
-    extern const char kErrorAssetIdRequired[];
+    extern const char kErrorAssetIdOrMetaRequired[];
     extern const char kErrorAssetMetadataRequired[];
+    extern const char kErrorAssetIDRequired[];
+    extern const char kErrorAssetNonSTDMeta[];
+    extern const char kErrorAssetNotFound[];
+    extern const char kErrorAssetNotOwned[];
+    extern const char kErrorAssetLoadMeta[];
+    extern const char kErrorAssetsFork2[];
+    extern const char kErrorAssetsDisabled[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
@@ -254,4 +268,8 @@ namespace beam
 
     extern const char kLaserCurrentState[];
 #endif  // BEAM_LASER_SUPPORT
+
+    // lelantus
+    extern const char kErrorShieldedIDMissing[];
+    extern const char kErrorWindowBeginMissing[];
 }

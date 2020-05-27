@@ -19,6 +19,7 @@
 //#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/updates_provider.h"
+#include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 
 using namespace std;
@@ -290,11 +291,28 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
+    Version WalletClient::getLibVersion() const
+    {
+        // TODO: replace with current wallet library version
+        return beam::Version
+        {
+            0,
+            0,
+            0
+        };
+    }
+
+    uint32_t WalletClient::getClientRevision() const
+    {
+        return 0;
+    }
+
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
+                              bool withAssets,
                               bool isSecondCurrencyEnabled,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, withAssets, txCreators, activeNotifications]()
         {
             try
             {
@@ -305,7 +323,7 @@ namespace beam::wallet
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                auto wallet = make_shared<Wallet>(m_walletDB);
+                auto wallet = make_shared<Wallet>(m_walletDB, withAssets);
                 m_wallet = wallet;
 
                 if (txCreators)
@@ -361,9 +379,9 @@ namespace beam::wallet
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                 // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf(), m_walletDB);
+                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf());
 
-                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler);
+                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler, m_walletDB);
                 m_offersBulletinBoard = offersBulletinBoard;
 
                 using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
@@ -385,14 +403,19 @@ namespace beam::wallet
 
                 // Other content providers using broadcast messages
                 auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
+                auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
                 auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
                     *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
                 m_updatesProvider = updatesProvider;
                 m_exchangeRateProvider = exchangeRateProvider;
+                m_walletUpdatesProvider = walletUpdatesProvider;
                 using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
+                using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
                 auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(
                     m_notificationCenter.get()), updatesProvider);
+                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
+                    m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
                     static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
@@ -1041,16 +1064,15 @@ namespace beam::wallet
     {
         WalletStatus status;
         storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetTotals(Zero);
+        const auto& totals = totalsCalc.GetBeamTotals();
 
-        status.available = totals.Avail;
-        status.receivingIncoming = totals.ReceivingIncoming;
-        status.receivingChange = totals.ReceivingChange;
-        status.receiving = totals.Incoming;
-        status.sending = totals.Outgoing;
-        status.maturing = totals.Maturing;
-
-        status.update.lastTime = m_walletDB->getLastUpdateTime();
+        status.available         = AmountBig::get_Lo(totals.Avail);
+        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
+        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
+        status.receiving         = AmountBig::get_Lo(totals.Incoming);
+        status.sending           = AmountBig::get_Lo(totals.Outgoing);
+        status.maturing          = AmountBig::get_Lo(totals.Maturing);
+        status.update.lastTime   = m_walletDB->getLastUpdateTime();
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
@@ -1127,7 +1149,10 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-        postFunctionToClientContext([this, count = m_notificationCenter->getUnreadCount()]()
+
+        size_t count = m_notificationCenter->getUnreadCount(
+            VersionInfo::Application::DesktopWallet, getLibVersion(), getClientRevision());
+        postFunctionToClientContext([this, count]()
         {
             m_unreadNotificationsCount = count;
         });

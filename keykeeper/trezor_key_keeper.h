@@ -16,59 +16,73 @@
 
 #include "wallet/core/private_key_keeper.h"
 #include "hw_wallet.h"
+#include <queue>
+#include <functional>
+#include <mutex>
+#include <boost/intrusive/list.hpp>
+#include <boost/intrusive/set.hpp>
+
+class DeviceManager;
 
 namespace beam::wallet
 {
-    class TrezorKeyKeeper : public IPrivateKeyKeeper
-        , public std::enable_shared_from_this<TrezorKeyKeeper>
+    class TrezorKeyKeeperProxy
+        : public PrivateKeyKeeper_WithMarshaller
     {
+        using MessageHandler = std::function<void()>;
     public:
-        TrezorKeyKeeper();
-        virtual ~TrezorKeyKeeper();
+        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager);
+        virtual ~TrezorKeyKeeperProxy() = default;
+    private:
+        Status::Type InvokeSync(Method::get_Kdf& m) override;
+        Status::Type InvokeSync(Method::get_NumSlots& m) override;
 
-        struct DeviceNotConnected : std::runtime_error 
+#define THE_MACRO(method) \
+		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
+    private:
+        std::shared_ptr<DeviceManager> m_DeviceManager;
+
+        struct Cache
         {
-            DeviceNotConnected() : std::runtime_error("") {}
+            std::mutex m_Mutex;
+
+            Key::IPKdf::Ptr m_pOwner;
+
+            struct ChildPKdf
+		        :public boost::intrusive::set_base_hook<>
+		        ,public boost::intrusive::list_base_hook<>
+            {
+                Key::Index m_iChild;
+                Key::IPKdf::Ptr m_pRes;
+                bool operator < (const ChildPKdf& v) const { return (m_iChild < v.m_iChild); }
+            };
+
+            typedef boost::intrusive::list<ChildPKdf> ChildPKdfList;
+            typedef boost::intrusive::multiset<ChildPKdf> ChildPKdfSet;
+
+            ChildPKdfList m_mruPKdfs;
+            ChildPKdfSet m_setPKdfs;
+
+            uint32_t m_Slots = 0;
+
+            ~Cache() { ShrinkMru(0); }
+
+            void ShrinkMru(uint32_t);
+
+            bool FindPKdf(Key::IPKdf::Ptr&, const Key::Index* pChild);
+            void AddPKdf(const Key::IPKdf::Ptr&, const Key::Index* pChild);
+
+        private:
+            void AddMru(ChildPKdf&);
         };
 
-        Key::IKdf::Ptr get_SbbsKdf() const override;
-        void subscribe(Handler::Ptr handler) override;
+        Cache m_Cache;
 
-    private:
-        void GeneratePublicKeys(const std::vector<CoinID>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputs(Height schemeHeight, const std::vector<CoinID>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-
-        size_t AllocateNonceSlotSync() override;
-        PublicKeys GeneratePublicKeysSync(const std::vector<CoinID>& ids, bool createCoinKey) override;
-
-        ECC::Point GeneratePublicKeySync(const ECC::uintBig& id) override;
-        ECC::Point GenerateCoinKeySync(const CoinID& id) override;
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<CoinID>& ids) override;
-
-        ECC::Point GenerateNonceSync(size_t slot) override;
-
-        void SignAssetKernel(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel,
-                Callback<AssetSignature>&&,
-                ExceptionCallback&&) override;
-
-        AssetSignature SignAssetKernelSync(const std::vector<CoinID>& inputs,
-                const std::vector<CoinID>& outputs,
-                Amount fee,
-                Key::Index assetOwnerIdx,
-                TxKernelAssetControl& kernel) override;
-
-        PeerID GetAssetOwnerID(Key::Index assetOwnerIdx) override;
-
-    private:
-        beam::HWWallet m_hwWallet;
-        mutable Key::IKdf::Ptr m_sbbsKdf;
-
-        size_t m_latestSlot;
-
-        std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
+        struct CreateOutputCtx;
+        void PushOut1(Task::Ptr& p);
     };
 }

@@ -17,10 +17,12 @@
 
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
 #include "strings_resources.h"
+#include "assets_utils.h"
 
 #include <algorithm>
 #include <random>
@@ -79,7 +81,7 @@ namespace beam::wallet
 
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{ move(action) }
         , m_UpdateCompleted{ move(updateCompleted) }
@@ -88,7 +90,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB, withAssets));
     }
 
     Wallet::~Wallet()
@@ -321,6 +323,21 @@ namespace beam::wallet
         return false;
     }
 
+    bool Wallet::MyRequestProofShieldedOutp::operator < (const MyRequestProofShieldedOutp& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
+    bool Wallet::MyRequestShieldedList::operator < (const MyRequestShieldedList& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
+    bool Wallet::MyRequestStateSummary::operator < (const MyRequestStateSummary& x) const
+    {
+        return false;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -355,6 +372,18 @@ namespace beam::wallet
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
+            // check if we have already asked for kernel on given height
+            Height lastUnconfirmedHeight = 0;
+            if (it->second->GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
+            {
+                Block::SystemState::Full state;
+                if (!get_tip(state) || state.m_Height == lastUnconfirmedHeight)
+                {
+                    UpdateOnNextTip(it->second);
+                    return;
+                }
+            }
+
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
@@ -365,7 +394,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID)
+    void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
         if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
         {
@@ -376,7 +405,7 @@ namespace beam::wallet
             pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
 
             if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner index: " << ownerIdx;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
         }
     }
 
@@ -387,7 +416,7 @@ namespace beam::wallet
             MyRequestAsset::Ptr pVal(new MyRequestAsset);
             pVal->m_TxID = txID;
             pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = Zero;
+            pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
             pVal->m_Msg.m_AssetID = assetId;
 
             if (PostReqUnique(*pVal))
@@ -432,6 +461,36 @@ namespace beam::wallet
         }
     }
 
+    // Implementation of the INegotiatorGateway::get_shielded_list
+    void Wallet::get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback)
+    {
+        MyRequestShieldedList::Ptr pVal(new MyRequestShieldedList);
+        pVal->m_callback = std::move(callback);
+        pVal->m_TxID = txId;
+
+        pVal->m_Msg.m_Id0 = startIndex;
+        pVal->m_Msg.m_Count = count;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
+        }
+    }
+
+    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    {
+        MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
+        pVal->m_callback = std::move(callback);
+        pVal->m_TxID = txId;
+
+        pVal->m_Msg.m_SerialPub = serialPublic;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txId << " Get proof of shielded output.";
+        }
+    }
+
     // Implementation of the INegotiatorGateway::UpdateOnNextTip
     void Wallet::UpdateOnNextTip(const TxID& txID)
     {
@@ -442,8 +501,100 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
+    {
+        memset0(&msg.m_TxID.front(), msg.m_TxID.size());
+        send_tx_params(peerID, msg);
+    }
+
+    void Wallet::RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount /* = 1 */)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::VoucherRequest;
+
+        msg.AddParameter((TxParameterID) 0, nCount);
+
+        SendSpecialMsg(peerID, msg);
+    }
+
+    void Wallet::OnSpecialMsg(const WalletID& myID, const SetTxParameter& msg)
+    {
+        switch (msg.m_Type)
+        {
+        case TxType::VoucherRequest:
+            {
+                Key::IKdf::Ptr pKdf = m_WalletDB->get_MasterKdf();
+                if (!pKdf)
+                    return; // without master Kdf we can create the ticket, but can't sign it.
+
+                uint32_t nCount = 0;
+                msg.GetParameter((TxParameterID) 0, nCount);
+
+                if (!nCount)
+                    return; //?!
+
+                auto address = m_WalletDB->getAddress(myID);
+                if (!address.is_initialized() || !address->m_OwnID)
+                    return;
+
+                auto res = GenerateVoucherList(pKdf, address->m_OwnID, nCount);
+
+                SetTxParameter msgOut;
+                msgOut.m_Type = TxType::VoucherResponse;
+                msgOut.m_From = myID;
+                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, std::move(res));
+
+                SendSpecialMsg(msg.m_From, msgOut);
+
+            }
+            break;
+
+        case TxType::VoucherResponse:
+            {
+                std::vector<ShieldedTxo::Voucher> res;
+                msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
+                if (res.empty())
+                    return;
+
+                auto address = m_WalletDB->getAddress(msg.m_From);
+                if (!address.is_initialized())
+                    return;
+
+                if (!IsValidVoucherList(res, address->m_Identity))
+                    return;
+
+                OnVouchersFrom(*address, std::move(res));
+
+            }
+            break;
+
+        default: // suppress watning
+            break;
+        }
+    }
+
+    void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
+    {
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
     {
+        if (memis0(&msg.m_TxID.front(), msg.m_TxID.size()))
+        {
+            // special command/request
+            try
+            {
+                OnSpecialMsg(myID, msg);
+            }
+            catch (const std::exception& exc)
+            {
+                LOG_WARNING() << "Special msg failed: " << exc.what();
+            }
+
+            return;
+        }
+
         auto t = GetTransaction(myID, msg);
         if (!t)
         {
@@ -464,6 +615,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
     }
@@ -509,22 +661,26 @@ namespace beam::wallet
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
         {
-            auto tx = it->second;
-            bool bSynced = !SyncRemains() && IsNodeInSync();
-
-            if (bSynced)
-            {
-                AsyncContextHolder holder(*this);
-                tx->Update();
-            }
-            else
-            {
-                UpdateOnSynced(tx);
-            }
+            UpdateTransaction(it->second);
         }
         else
         {
             LOG_DEBUG() << txID << " Unexpected event";
+        }
+    }
+
+    void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
+    {
+        bool bSynced = !SyncRemains() && IsNodeInSync();
+
+        if (bSynced)
+        {
+            AsyncContextHolder holder(*this);
+            tx->Update();
+        }
+        else
+        {
+            UpdateOnSynced(tx);
         }
     }
 
@@ -562,8 +718,7 @@ namespace beam::wallet
 
             if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
             {
-                AsyncContextHolder holder(*this);
-                tx->Update();
+                UpdateTransaction(tx);
             }
         }
         else
@@ -571,7 +726,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 
@@ -589,55 +744,51 @@ namespace beam::wallet
 
         if (!req.m_Res.m_Proof.empty())
         {
-            const auto& info = req.m_Res.m_Info;
-            m_WalletDB->saveAsset(info);
+            const auto& info  = req.m_Res.m_Info;
+            const auto height = m_WalletDB->getCurrentHeight();
+            m_WalletDB->saveAsset(info, height);
 
-            // TODO:ASSETS may be store full asset info (except issued amount?)
-            if (tx->SetParameter(TxParameterID::AssetConfirmedHeight, info.m_LockHeight, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetFullInfo, info, req.m_SubTxID) &&
-                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID))
+            tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+
+            if (tx->GetType() == TxType::AssetReg)
             {
-                // TODO::ASSETS MAY BE (but may be not) print this stuff inside transaction
-                Key::Index aidx = 0;
-                tx->GetParameter(TxParameterID::AssetOwnerIdx, aidx);
-                if (aidx)
-                {
-                    // TODO::ASSETS print this stuff inside transaction
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with the owner index " << aidx;
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset owner index: " << aidx;
-                }
-                else
-                {
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Received proof for Asset with ID " << info.m_ID;
-                }
-
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Asset ID: "           << info.m_ID;
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Issued amount: "      << PrintableAmount(AmountBig::get_Lo(info.m_Value), false, kAmountASSET, kAmountAGROTH);
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Metadata size: "      << info.m_Metadata.m_Value.size() << " bytes";
-                LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]" << " Lock Height: "        << info.m_LockHeight;
-
-                if (tx->GetType() == TxType::AssetReg)
-                {
-                    LOG_INFO() << req.m_TxID << "[" << req.m_SubTxID << "]"
-                               << " Please remember your asset's Owner Index & Asset ID. You wont be able to control/send/receive your asset without this info";
-                }
-
-                AsyncContextHolder holder(*this);
-                tx->Update();
+                m_WalletDB->markAssetOwned(info.m_ID);
             }
-            else
+
+            stringstream ss;
+            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
+            const auto prefix = ss.str();
+            LOG_INFO() << prefix << " Received proof for Asset with ID " << info.m_ID;
+
+            if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
-                // should never happen
-                assert(!"failed to set AssetID");
-                return;
+                wasset->LogInfo(req.m_TxID, req.m_SubTxID);
             }
+
+            UpdateTransaction(tx);
         }
         else
         {
+            const auto& assetId = req.m_Msg.m_AssetID;
+            if (assetId != Asset::s_InvalidID)
+            {
+                m_WalletDB->dropAsset(assetId);
+            }
+            else
+            {
+                const auto& assetOwner = req.m_Msg.m_Owner;
+                if (assetOwner != Asset::s_InvalidOwnerID)
+                {
+                    m_WalletDB->dropAsset(assetOwner);
+                }
+            }
+
             tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetFullInfo, Asset::Full(), req.m_SubTxID);
+            tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
             tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
-            UpdateOnNextTip(tx);
+            UpdateTransaction(tx);
         }
     }
 
@@ -663,9 +814,33 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::OnRequestComplete(MyRequestShieldedList& r)
+    {
+        r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
+    {
+        // TODO(alex.starun): implement this
+    }
+
+    void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
+    {
+        if (!r.m_Res.m_Proof.empty())
+        {
+            r.m_callback(r.m_Res);
+        }
+    }
+
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
     {
         assert(false);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestStateSummary& r)
+    {
+        // TODO: save full response?
+        storage::setVar(*m_WalletDB, kStateSummaryShieldedOutsDBPath, r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()
@@ -709,18 +884,36 @@ namespace beam::wallet
 
             virtual void OnEvent(proto::Event::Base& evt_) override
             {
-                if (proto::Event::Type::Utxo != evt_.get_Type())
-                    return;
+                switch (evt_.get_Type())
+                {
+                    case proto::Event::Type::Shielded:
+                    {
+                        proto::Event::Shielded& shieldedEvt = Cast::Up<proto::Event::Shielded>(evt_);
+                        m_This.ProcessEventShieldedUtxo(shieldedEvt, m_Height);
+                        return;
+                    }
+                    case proto::Event::Type::AssetCtl:
+                    {
+                        proto::Event::AssetCtl assetEvt = Cast::Up<proto::Event::AssetCtl>(evt_);
+                        m_This.ProcessEventAsset(assetEvt, m_Height);
+                        return;
+                    }
+                    case proto::Event::Type::Utxo:
+                    {
+                        proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
 
-                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
+                        // filter-out false positives
 
-                // filter-out false positives
+                        if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
+                            return;
 
-                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
-                    return;
-
-                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+                        bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
+                        m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+                        return;
+                    }
+                    default:
+                        break;
+                }
             }
         } p(*this);
         
@@ -797,6 +990,40 @@ namespace beam::wallet
         m_WalletDB->saveCoin(c);
     }
 
+    void Wallet::ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h)
+    {
+        // since there is not asset id passed we ignore this event at the moment
+    }
+
+    void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
+    {
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_Key);
+        if (!shieldedCoin)
+        {
+            shieldedCoin = ShieldedCoin{};
+            shieldedCoin->m_Key = shieldedEvt.m_Key;
+        }
+
+        shieldedCoin->m_User = shieldedEvt.m_User;
+        shieldedCoin->m_ID = shieldedEvt.m_ID;
+        shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
+        shieldedCoin->m_value = shieldedEvt.m_Value;
+
+        bool isAdd = 0 != (proto::Event::Flags::Add & shieldedEvt.m_Flags);
+        if (isAdd)
+        {
+            shieldedCoin->m_confirmHeight = std::min(shieldedCoin->m_confirmHeight, h);
+        }
+        else
+        {
+            shieldedCoin->m_spentHeight = std::min(shieldedCoin->m_spentHeight, h);
+        }
+
+        m_WalletDB->saveShieldedCoin(*shieldedCoin);
+
+        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_ID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+    }
+
     void Wallet::OnRolledBack()
     {
         Block::SystemState::Full sTip;
@@ -807,14 +1034,14 @@ namespace beam::wallet
         LOG_INFO() << "Rolled back to " << id;
 
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
-
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackConfirmedShieldedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackAssets(sTip.m_Height);
 
         // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
         {
             const auto& pTx = it->second;
-
             if (pTx->Rollback(sTip.m_Height))
             {
                 UpdateOnSynced(pTx);
@@ -840,7 +1067,9 @@ namespace beam::wallet
 
         Height h = GetEventsHeightNext();
         if (h > sTip.m_Height + 1)
+        {
             SetEventsHeight(sTip.m_Height);
+        }
     }
 
     void Wallet::OnNewTip()
@@ -857,6 +1086,7 @@ namespace beam::wallet
         LOG_INFO() << "Sync up to " << id;
 
         RequestEvents();
+        RequestStateSummary();
 
         for (auto& tx : m_NextTipTransactionToUpdate)
         {
@@ -927,9 +1157,6 @@ namespace beam::wallet
             sTip.get_ID(id);
         else
             ZeroObject(id);
-
-        Block::SystemState::ID currentID;
-        m_WalletDB->getSystemStateID(currentID);
 
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
@@ -1124,7 +1351,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter(TxParameterID::PeerSecureWalletID); peerID)
+        if (auto peerID = parameters.GetParameter(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)
@@ -1132,7 +1359,7 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(*myID);
                 if (address)
                 {
-                    completedParameters.SetParameter(TxParameterID::MySecureWalletID, address->m_Identity);
+                    completedParameters.SetParameter(TxParameterID::MyWalletIdentity, address->m_Identity);
                 }
             }
         }
@@ -1174,5 +1401,11 @@ namespace beam::wallet
             return IsValidTimeStamp(sTip.m_TimeStamp);
         }
         return true; // to allow made air-gapped transactions
+    }
+
+    void Wallet::RequestStateSummary()
+    {
+        MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
+        PostReqUnique(*pReq);
     }
 }

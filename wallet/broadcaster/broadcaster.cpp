@@ -70,6 +70,30 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
     return true;
 }
 
+bool parseWalletUpdateInfo(const std::string& versionString, const std::string& typeString, WalletImplVerInfo& walletVersionInfo)
+{
+    VersionInfo::Application appType = VersionInfo::from_string(typeString);
+    if (appType != VersionInfo::Application::DesktopWallet) return false;
+
+    auto lastDot = versionString.find_last_of(".");
+    if (lastDot == std::string::npos) return false;
+
+    Version libVersion;
+    if (bool res = libVersion.from_string(versionString.substr(0, lastDot)); !res) return false;
+
+    auto uiRevisionStr = versionString.substr(lastDot + 1, versionString.length());
+    size_t processed = 0;
+    uint32_t uiRevision = std::stoul(uiRevisionStr, &processed);
+    if (processed != uiRevisionStr.length()) return false;
+
+    walletVersionInfo.m_application = appType;
+    walletVersionInfo.m_version = libVersion;
+    walletVersionInfo.m_UIrevision = uiRevision;
+    walletVersionInfo.m_title = "New version";
+    walletVersionInfo.m_message = "Beam Wallet UI " + versionString;
+    return true;
+}
+
 bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, const std::string& unitString, std::vector<ExchangeRate>& result)
 {
     auto currency = ExchangeRate::from_string(currencyString);
@@ -83,17 +107,6 @@ bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate
 
     result = { {currency, unit, rate, getTimestamp()} };
     return true;
-}
-
-ByteBuffer generateUpdateMessage(const std::string& versionString, const std::string& typeString)
-{
-    VersionInfo result;
-    bool res = parseUpdateInfo(versionString, typeString, result);
-    if (!res)
-    {
-        return ByteBuffer();
-    }
-    return toByteBuffer(result);
 }
 
 ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate, const std::string& unitString)
@@ -289,10 +302,14 @@ namespace
 
         ByteBuffer rawMessage;
         BroadcastContentType contentType;
+        WalletImplVerInfo walletVersionInfo;
         if (options.messageType == "update")
         {
-            rawMessage = generateUpdateMessage(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType);
-            contentType = BroadcastContentType::SoftwareUpdates;
+            bool res =
+                parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo);
+            if (res)
+                rawMessage = toByteBuffer(walletVersionInfo);
+            contentType = BroadcastContentType::WalletUpdates;
         }
         else if (options.messageType == "exchange")
         {
@@ -309,6 +326,17 @@ namespace
         {
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(rawMessage, key);
             broadcastRouter.sendMessage(contentType, msg);
+
+            if (contentType == BroadcastContentType::WalletUpdates)
+            {
+                VersionInfo versionInfo;
+                versionInfo.m_application = walletVersionInfo.m_application;
+                versionInfo.m_version = walletVersionInfo.m_version;
+
+                auto rawMessageOldStyle = toByteBuffer(versionInfo);
+                BroadcastMsg msgOldStyle = BroadcastMsgCreator::createSignedMessage(rawMessageOldStyle, key);
+                broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgOldStyle);
+            }
         }
         else
         {
@@ -348,7 +376,7 @@ int main_impl(int argc, char* argv[])
             messageDesc.add_options()
                 (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
                 (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
-                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x'")
+                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x.x'")
                 (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
                 (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
@@ -369,14 +397,8 @@ int main_impl(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("bbs.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "bbs.cfg");
         }
 
         vm.notify();

@@ -100,9 +100,9 @@ namespace beam {
 #define TblAssets_LockHeight	"LockHeight"
 
 NodeDB::NodeDB()
-	:m_pDb(NULL)
+	:m_pDb(nullptr)
 {
-	ZeroObject(m_pPrep);
+
 }
 
 NodeDB::~NodeDB()
@@ -2470,17 +2470,24 @@ Asset::ID NodeDB::AssetFindMinFree(Asset::ID nMin)
 
 void NodeDB::AssetAdd(Asset::Full& ai)
 {
+	Asset::ID aidMin = ai.m_ID;
 	// find free index
 	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
 	{
 		assert(ai.m_ID > s_AssetEmpty0);
+		assert(ai.m_ID >= aidMin);
+
 		AssetDeleteRaw(ai.m_ID);
 		ai.m_ID -= s_AssetEmpty0;
 	}
 	else
 	{
 		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount) + 1);
+
+		for ( ; ai.m_ID < aidMin; ai.m_ID++)
+			AssetInsertRaw(ai.m_ID + s_AssetEmpty0, nullptr);
+
 		ParamIntSet(ParamID::AssetsCount, ai.m_ID);
 	}
 

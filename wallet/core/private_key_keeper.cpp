@@ -96,8 +96,8 @@ namespace beam::wallet
 	const IPrivateKeyKeeper2::Slot::Type IPrivateKeyKeeper2::Slot::Invalid = static_cast<Type>(-1);
 
 	////////////////////////////////
-	// PrivateKeyKeeper_AsyncNotify
-	void PrivateKeyKeeper_AsyncNotify::TaskList::Pop(Task::Ptr& p)
+	// PrivateKeyKeeper_WithMarshaller
+	void PrivateKeyKeeper_WithMarshaller::TaskList::Pop(Task::Ptr& p)
 	{
 		assert(!empty());
 		Task& t = front();
@@ -106,14 +106,14 @@ namespace beam::wallet
 		p.reset(&t);
 	}
 
-	bool PrivateKeyKeeper_AsyncNotify::TaskList::Push(Task::Ptr& p) // returns if was empty
+	bool PrivateKeyKeeper_WithMarshaller::TaskList::Push(Task::Ptr& p) // returns if was empty
 	{
 		bool b = empty();
 		push_back(*p.release());
 		return b;
 	}
 
-	void PrivateKeyKeeper_AsyncNotify::TaskList::Clear()
+	void PrivateKeyKeeper_WithMarshaller::TaskList::Clear()
 	{
 		while (!empty())
 		{
@@ -122,7 +122,7 @@ namespace beam::wallet
 		}
 	}
 
-	void PrivateKeyKeeper_AsyncNotify::EnsureEvtOut()
+	void PrivateKeyKeeper_WithMarshaller::EnsureEvtOut()
 	{
 		if (!m_pNewOut)
 		{
@@ -131,8 +131,10 @@ namespace beam::wallet
 		}
 	}
 
-	void PrivateKeyKeeper_AsyncNotify::PushOut(Task::Ptr& pTask)
+	void PrivateKeyKeeper_WithMarshaller::PushOut(Task::Ptr& pTask)
 	{
+		std::unique_lock<std::mutex> scope(m_MutexOut);
+
 		if (m_queOut.Push(pTask))
 		{
 			EnsureEvtOut();
@@ -140,34 +142,38 @@ namespace beam::wallet
 		}
 	}
 
-	void PrivateKeyKeeper_AsyncNotify::PushOut(Status::Type n, const Handler::Ptr& pHandler)
+	void PrivateKeyKeeper_WithMarshaller::PushOut(Status::Type n, const Handler::Ptr& pHandler)
 	{
-		Task::Ptr pTask(new Task);
-		pTask->m_Status = n;
+		Task::Ptr pTask(new TaskFin);
+		Cast::Up<TaskFin>(*pTask).m_Status = n;
 		pTask->m_pHandler = pHandler;
 		PushOut(pTask);
 	}
 
-	void PrivateKeyKeeper_AsyncNotify::OnNewOut()
+	void PrivateKeyKeeper_WithMarshaller::OnNewOut()
 	{
 		// protect this obj from destruction from the handler invocation
 		TaskList que;
-		m_queOut.swap(que);
-		CallNewOut(que);
-	}
+		{
+			std::unique_lock<std::mutex> scope(m_MutexOut);
+			m_queOut.swap(que);
+		}
 
-	void PrivateKeyKeeper_AsyncNotify::CallNewOut(TaskList& que)
-	{
 		while (!que.empty())
 		{
 			Task::Ptr pTask;
 			que.Pop(pTask);
-			pTask->m_pHandler->OnDone(pTask->m_Status);
+			pTask->Execute(pTask);
 		}
 	}
 
+	void PrivateKeyKeeper_WithMarshaller::TaskFin::Execute(Task::Ptr&)
+	{
+		m_pHandler->OnDone(m_Status);
+	}
+
 	////////////////////////////////
-	// Asynchronous methods implemented via synchronous
+	// PrivateKeyKeeper_AsyncNotify
 #define THE_MACRO(method) \
 	void PrivateKeyKeeper_AsyncNotify::InvokeAsync(Method::method& m, const Handler::Ptr& p) \
 	{ \
@@ -214,25 +220,8 @@ namespace beam::wallet
 			assert(pTask);
 			Cast::Up<Task>(*pTask).Exec(*m_pKeyKeeper);
 
-			{
-				std::unique_lock<std::mutex> scope(m_MutexOut);
-
-				if (m_queOut.Push(pTask))
-					m_pNewOut->post();
-			}
+			PushOut(pTask);
 		}
-	}
-
-	void ThreadedPrivateKeyKeeper::OnNewOut()
-	{
-		// protect this obj from destruction from the handler invocation
-		TaskList que; 
-		{
-			std::unique_lock<std::mutex> scope(m_MutexOut);
-			m_queOut.swap(que);
-		}
-
-		CallNewOut(que);
 	}
 
 	ThreadedPrivateKeyKeeper::ThreadedPrivateKeyKeeper(const IPrivateKeyKeeper2::Ptr& p)

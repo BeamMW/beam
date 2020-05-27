@@ -32,7 +32,8 @@ namespace beam::wallet
 
         void setPublisherKeys(const std::vector<PublicKey>& keys);
 
-        bool processMessage(const ByteBuffer& in, BroadcastMsg& out) const;
+        bool processMessage(const ByteBuffer& in, BroadcastMsg& out) const; // Deprecated. TODO: dh remove after 2 fork.
+        bool isSignatureValid(const BroadcastMsg& msg) const;
 
         /// Convert public key from HEX string representation to the internal type
         static bool stringToPublicKey(const std::string& keyHexString, PublicKey& out);

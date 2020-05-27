@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
-set(VERSION_MAJOR 4)
-set(VERSION_MINOR 2)
+set(VERSION_MAJOR 5)
+set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
-set(BEAM_SUFFIX_LOWER_CASE "masternet")
-set(BEAM_SUFFIX_UPPER_CASE "Masternet")
-set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
-set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+set(BEAM_SUFFIX_LOWER_CASE "masternet" CACHE INTERNAL "")
+set(BEAM_SUFFIX_UPPER_CASE "Masternet" CACHE INTERNAL "")
+set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
+set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 
 if(IOS)
     add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
@@ -53,7 +53,7 @@ find_package(Git)
 if(Git_FOUND)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} status
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ERROR_VARIABLE RESULT_STRING
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -63,13 +63,13 @@ if(Git_FOUND)
     if(${LENGTH_RESULT_STRING} EQUAL 0)
         execute_process(
             COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             OUTPUT_VARIABLE GIT_COMMIT_HASH
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         execute_process(
             COMMAND ${GIT_EXECUTABLE} rev-list HEAD --count
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             OUTPUT_VARIABLE VERSION_REVISION
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
@@ -80,7 +80,7 @@ if(Git_FOUND)
         if(NOT DEFINED BRANCH_NAME)
             execute_process(
                 COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE BRANCH_NAME
                 OUTPUT_STRIP_TRAILING_WHITESPACE
             )
@@ -95,21 +95,40 @@ message("BRANCH_NAME: ${BRANCH_NAME}")
 
 project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 
+set(BEAM_VERSION ${PROJECT_VERSION} CACHE INTERNAL "")
+set(BEAM_VERSION_MAJOR ${VERSION_MAJOR} CACHE INTERNAL "")
+set(BEAM_VERSION_MINOR ${VERSION_MINOR} CACHE INTERNAL "")
+set(BEAM_VERSION_REVISION ${VERSION_REVISION} CACHE INTERNAL "")
+set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
+
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
+# imported target to setup dependency of beam
+add_library(beam INTERFACE IMPORTED GLOBAL)
+target_include_directories(beam INTERFACE 
+        ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/3rdparty)
+
+target_compile_features(beam INTERFACE cxx_std_17)
+
+
 file(WRITE ${PROJECT_SOURCE_DIR}/beam_version.gen "${PROJECT_VERSION}")
+add_definitions(-DBEAM_LIB_VERSION="${BEAM_VERSION}")
 
 if(UNIX AND NOT APPLE AND NOT ANDROID)
-    set(LINUX TRUE)
+    set(LINUX TRUE CACHE INTERNAL "")
 endif()
 
-enable_testing()
+option(BEAM_TESTS_ENABLED "Enable unit tests" TRUE)
+if (BEAM_TESTS_ENABLED)
+    enable_testing()
 
-function(add_test_snippet EXE_NAME LIB_NAME)
-    add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-    target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
-    add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
-endfunction()
+    function(add_test_snippet EXE_NAME LIB_NAME)
+        add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
+        target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
+        add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
+    endfunction()
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -123,19 +142,17 @@ if(BEAM_USE_AVX)
     add_definitions(-DBEAM_USE_AVX)
 endif()
 
-option(BEAM_QT_UI_WALLET "Build wallet UI" TRUE)
-if (BEAM_NO_QT_UI_WALLET)
-    set(BEAM_QT_UI_WALLET FALSE)    
-endif()
-
 option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
 
 if(BEAM_USE_STATIC)
+    target_compile_definitions(beam INTERFACE -DBEAM_USE_STATIC)
     add_definitions(-DBEAM_USE_STATIC)
 endif()
+
+option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
 
 #it's enabled by default for testnet
 #if(DEBUG_MESSAGES_IN_RELEASE_MODE)
@@ -145,8 +162,13 @@ endif()
 #add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
+    target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
+
+option(BEAM_TESTNET "Build Testnet version" FALSE)
+option(BEAM_MAINNET "Build Mainnet version" FALSE)
+option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 
 # uncomment next line for testnet
 #set(BEAM_TESTNET TRUE)
@@ -157,17 +179,19 @@ set(BEAM_MAINNET TRUE)
 #set(SWAP_MAINNET TRUE)
 
 if(BEAM_TESTNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
-    set(BEAM_SUFFIX_LOWER_CASE "testnet")
-    set(BEAM_SUFFIX_UPPER_CASE "Testnet")
-    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
-    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+    set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 elseif(BEAM_MAINNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_MAINNET)
     add_definitions(-DBEAM_MAINNET)
-    set(BEAM_SUFFIX_LOWER_CASE "")
-    set(BEAM_SUFFIX_UPPER_CASE "")
-    set(BEAM_TARGET_SUFFIX "")
-    set(BEAM_DISPLAY_SUFFIX "")
+    set(BEAM_SUFFIX_LOWER_CASE "" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX "" CACHE INTERNAL "")
 endif()
 
 if(SWAP_MAINNET)
@@ -176,12 +200,10 @@ if(SWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
+option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
 option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
-
 option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
-
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
-
 
 if(BEAM_HW_WALLET)
 
@@ -203,7 +225,6 @@ if(BEAM_HW_WALLET)
     set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
 
     add_subdirectory(3rdparty/protobuf/cmake)
-
 endif()
 
 if(MSVC)
@@ -224,9 +245,12 @@ if(MSVC)
     SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
 
+    target_compile_definitions(beam INTERFACE -D_WIN32_WINNT=0x0600)
     add_definitions(-D_WIN32_WINNT=0x0600)
 
     if(BEAM_USE_STATIC)
+        #target_compile_options(beam INTERFACE $<IF:$<CONFIG:Debug>,/MTd, /MT>)
+        #target_link_options(beam INTERFACE $<IF:$<NOT:$<CONFIG:Debug>>, /OPT:REF /INCREMENTAL:NO, >)
         # use static runtime
         foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
             CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
@@ -238,7 +262,6 @@ if(MSVC)
             endif(${flag_var} MATCHES "/MD")
         endforeach(flag_var)
     endif()
-
 else()
     if(NOT ANDROID AND NOT IOS)
         if(ARCH_NATIVE)
@@ -257,8 +280,6 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
-
-
 endif()
 
 if(BEAM_HW_WALLET)
@@ -327,15 +348,18 @@ elseif(ANDROID)
     endif()
 
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
-    
 else()
 
     if(LINUX)
+        target_compile_definitions(beam INTERFACE
+            -DBOOST_NO_CXX11_SCOPED_ENUMS
+            -DBOOST_NO_AUTO_PTR)
         add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
         add_definitions(-DBOOST_NO_AUTO_PTR)
     endif()
 
     if (WIN32)
+        target_compile_definitions(beam INTERFACE -DNOMINMAX)
         add_definitions(-DNOMINMAX)
     endif()
 
@@ -345,6 +369,7 @@ else()
         set(Boost_USE_STATIC_RUNTIME ON)
     else()
         if (WIN32)
+            target_compile_definitions(beam INTERFACE -DBOOST_ALL_DYN_LINK )
             add_definitions( -DBOOST_ALL_DYN_LINK )
         endif()
     endif()
@@ -363,11 +388,9 @@ include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 #OpenSSL
 
 if(BEAM_USE_STATIC)
-
     set(OPENSSL_USE_STATIC_LIBS TRUE)
     set(OPENSSL_MSVC_STATIC_RT TRUE)
     find_package(OpenSSL REQUIRED)
-
 else()
     if(ANDROID)
 
@@ -392,6 +415,7 @@ endif()
 
 #OpenSSL end
 
+target_compile_definitions(beam INTERFACE -DBC_STATIC)
 add_definitions(-DBC_STATIC)
 
 add_subdirectory(3rdparty)
@@ -411,82 +435,7 @@ if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
 endif()
 
-if(NOT ANDROID AND NOT IOS)
+if(NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(beam)
     add_subdirectory(explorer)
-
-    if(BEAM_QT_UI_WALLET)
-        add_subdirectory(3rdparty/qrcode)
-        add_subdirectory(3rdparty/quazip)
-        add_subdirectory(ui)
-    endif()
- endif()
-
-########################################################
-### PACKAGING ##########################################
-########################################################
-
-if (WIN32)
-    set(CPACK_GENERATOR "NSIS")
-    set(CPACK_SOURCE_GENERATOR "ZIP")
-    set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-    set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-    set(CPACK_NSIS_INSTALLED_ICON_NAME "${PROJECT_SOURCE_DIR}/ui/icon.ico")
-    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe\\\"")
-    set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut \\\"$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe\\\"")
-    set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\"")
-    set(CPACK_NSIS_DELETE_ICONS_EXTRA "Delete \\\"$SMPROGRAMS\\\\$MUI_TEMP\\\\Beam Wallet${BEAM_DISPLAY_SUFFIX}.lnk\\\"")
-
-    set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "Beam Wallet${BEAM_DISPLAY_SUFFIX}.exe") 
-    set(CPACK_NSIS_PACKAGE_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-elseif (APPLE)
-    set(CPACK_GENERATOR "Bundle")
-    set(CPACK_BUNDLE_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-    set(CPACK_BUNDLE_PLIST ui/Info.plist)
-    set(CPACK_BUNDLE_ICON ui/beam.icns)
-    set(CPACK_BUNDLE_STARTUP_COMMAND "ui/Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-    if(BEAM_SIGN_MACOS_BINARY)
-        set(CPACK_COMMAND_CODESIGN "codesign -o runtime --timestamp")
-        set(CPACK_BUNDLE_APPLE_CERT_APP "Developer ID Application: Beam Development Limited (KNU2R94BJK)")
-    endif()
-elseif (LINUX)
-    set(CPACK_GENERATOR "DEB")
-    set(CPACK_DEBIAN_PACKAGE_NAME "beamwallet${BEAM_SUFFIX_LOWER_CASE}")
-    set(CPACK_DEBIAN_PACKAGE_VERSION ${PROJECT_VERSION})
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam <mail@beam-mw.com>")
-    set(CPACK_DEBIAN_PACKAGE_SECTION "Network")
-
-endif ()
-
-set(CPACK_PACKAGE_NAME "BeamWallet${BEAM_SUFFIX_UPPER_CASE}")
-set(CPACK_PACKAGE_VENDOR "Beam Development Limited")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
-set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
-set(CPACK_PACKAGE_VERSION_MINOR "${VERSION_MINOR}")
-set(CPACK_PACKAGE_VERSION_PATCH "${VERSION_REVISION}")
-set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
-
-set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/TERMS.txt")
-
-include(CPack)
-
-#if (BEAM_SIGN_PACKAGE AND WIN32)
-#    add_custom_target(signing ALL  COMMENT "Signing Package...")
-#
-# 
-#     # Signing the installer
-#     add_custom_target(signing-installer)
-#     set(BEAM_INSTALLER_NAME ${CPACK_NSIS_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.exe)
-#     
-#     add_custom_command(
-#         TARGET signing-installer
-#         COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} ${BEAM_INSTALLER_NAME}
-#         ## Other optional options:
-#         # /tr timestampServerUrl 
-#        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-#     )
-#endif()
+endif()

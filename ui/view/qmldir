@@ -1,4 +1,0 @@
-ReceiveRegular ./receive_regular.qml
-ReceiveSwap    ./receive_swap.qml
-SendRegular    ./send_regular.qml
-SendSwap       ./send_swap.qml

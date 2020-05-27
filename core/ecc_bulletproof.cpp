@@ -119,7 +119,7 @@ namespace ECC {
 
 			m_Sum = Zero;
 			m_Casual = 0;
-			ZeroObject(m_Bufs.m_pKPrep);
+			ZeroObjectUnchecked(m_Bufs.m_pKPrep);
 		}
 
 		// mutate multiplier

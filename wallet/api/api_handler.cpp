@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "api_handler.h"
-
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/transactions/assets/assets_kdf_utils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
+#include <regex>
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
 
 using namespace beam;
 
@@ -34,8 +34,8 @@ namespace
     void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
-        auto available = totals.Avail;
+        const auto& totals = allTotals.GetBeamTotals();
+        const auto available = AmountBig::get_Lo(totals.Avail);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -185,12 +185,12 @@ namespace
 
 namespace beam::wallet
 {
-
     WalletApiHandler::WalletApiHandler(
         IWalletData& walletData
-        , WalletApi::ACL acl)
+        , WalletApi::ACL acl
+        , bool withAssets)
         : _walletData(walletData)
-        , _api(*this, acl)
+        , _api(*this, withAssets, acl)
     {
     }
 
@@ -344,7 +344,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Send& data)
     {
-        LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "Send(id = " << id
+                    << " asset_id = " << (data.assetId ? *data.assetId : 0)
+                    << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
 
         try
         {
@@ -416,6 +418,11 @@ namespace beam::wallet
                 params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
             }
 
+            if(data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+
             params.SetParameter(TxParameterID::MyID, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
@@ -432,10 +439,63 @@ namespace beam::wallet
         }
     }
 
+    template<typename T>
+    bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
+    {
+        auto walletDB = _walletData.getWalletDB();
+
+        if (data.assetMeta)
+        {
+            params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            return true;
+        }
+        else if (data.assetId)
+        {
+            if (const auto asset = walletDB->findAsset(*data.assetId))
+            {
+                std::string strmeta;
+                if(!fromByteBuffer(asset->m_Metadata.m_Value, strmeta))
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Failed to load asset metadata.");
+                    return false;
+                }
+
+                params.SetParameter(TxParameterID::AssetMetadata, strmeta);
+                return true;
+            }
+            else
+            {
+                doError(id, ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) or provide asset metdata.");
+                return false;
+            }
+        }
+
+        assert(!"presence of params should be checked already");
+        doError(id, ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
+        return false;
+    }
+
+    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
+    template bool WalletApiHandler::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
+
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Issue& data)
     {
-        LOG_DEBUG() << "Issue(id = " << id << " amount = " << data.value << " fee = " << data.fee;
+        onIssueConsumeMessage(true, id, data);
+    }
 
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const Consume& data)
+    {
+        onIssueConsumeMessage(false, id, data);
+    }
+
+    template<typename T>
+    void WalletApiHandler::onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data)
+    {
+        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
+                    << " amount = " << data.value << " fee = " << data.fee
+                    << ")";
         try
         {
             CoinIDList coins;
@@ -447,8 +507,7 @@ namespace beam::wallet
                     doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
                     return;
                 }
-            }
-            else
+            } else
             {
                 coins = data.coins ? *data.coins : CoinIDList();
             }
@@ -459,12 +518,92 @@ namespace beam::wallet
                 return;
             }
 
-            const auto txId = _walletData.getWallet().StartTransaction(CreateTransactionParameters(TxType::AssetIssue, data.txId)
-                .SetParameter(TxParameterID::Amount, data.value)
-                .SetParameter(TxParameterID::Fee, data.fee)
-                .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::AssetOwnerIdx, data.index));
+            auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume, data.txId)
+                    .SetParameter(TxParameterID::Amount, data.value)
+                    .SetParameter(TxParameterID::Fee, data.fee)
+                    .SetParameter(TxParameterID::PreselectedCoins, coins);
 
+            if(!setTxAssetParams(id, params, data))
+            {
+                return;
+            }
+
+            const auto txId = _walletData.getWallet().StartTransaction(params);
+            doResponse(id, Issue::Response{ txId });
+        }
+        catch (...)
+        {
+            doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+        }
+    }
+
+    template void WalletApiHandler::onIssueConsumeMessage<Issue>(bool issue, const JsonRpcId& id, const Issue& data);
+    template void WalletApiHandler::onIssueConsumeMessage<Consume>(bool issue, const JsonRpcId& id, const Consume& data);
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetAssetInfo& data)
+    {
+        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
+                    << ")";
+
+        auto walletDB = _walletData.getWalletDB();
+        boost::optional<WalletAsset> info;
+
+        if (data.assetId)
+        {
+            info = walletDB->findAsset(*data.assetId);
+        }
+        else if (data.assetMeta)
+        {
+            const auto kdf = walletDB->get_MasterKdf();
+            const auto ownerID = GetAssetOwnerID(kdf, *data.assetMeta);
+            info = walletDB->findAsset(ownerID);
+        }
+
+        if(!info.is_initialized())
+        {
+            doError(id, ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) and try again.");
+            return;
+        }
+
+        GetAssetInfo::Response resp;
+        resp.AssetInfo = *info;
+
+        doResponse(id, resp);
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)
+    {
+        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
+                    << (data.assetId ? *data.assetId : 0)
+                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
+                    << ")";
+        try
+        {
+            auto walletDB = _walletData.getWalletDB();
+            if (data.txId && walletDB->getTx(*data.txId))
+            {
+                doTxAlreadyExistsError(id);
+                return;
+            }
+
+            auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
+            if (data.assetMeta)
+            {
+                params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            }
+            else if (data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+            else
+            {
+                doError(id, ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
+                return;
+            }
+
+            const auto txId = _walletData.getWallet().StartTransaction(params);
             doResponse(id, Issue::Response{ txId });
         }
         catch (...)
@@ -486,12 +625,10 @@ namespace beam::wallet
             walletDB->getSystemStateID(stateID);
 
             Status::Response result;
-            result.tx = *tx;
-            result.kernelProofHeight = 0;
-            result.systemHeight = stateID.m_Height;
+            result.tx            = *tx;
+            result.systemHeight  = stateID.m_Height;
             result.confirmations = 0;
-
-            storage::getTxParameter(*walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
+            result.txHeight      = storage::DeduceTxProofHeight(*walletDB, *tx);
 
             doResponse(id, result);
         }
@@ -503,7 +640,9 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const Split& data)
     {
-        LOG_DEBUG() << "Split(id = " << id << " coins = [";
+        LOG_DEBUG() << "Split(id = " << id
+                    << " asset_id " << (data.assetId ? *data.assetId : 0)
+                    << " coins = [";
         for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
         LOG_DEBUG() << "], fee = " << data.fee;
         try
@@ -519,9 +658,15 @@ namespace beam::wallet
                 return;
             }
 
-            auto txId = _walletData.getWallet().StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
-                .SetParameter(TxParameterID::Fee, data.fee));
+            auto params = CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+                    .SetParameter(TxParameterID::Fee, data.fee);
 
+            if (data.assetId)
+            {
+                params.SetParameter(TxParameterID::AssetID, *data.assetId);
+            }
+
+            auto txId = _walletData.getWallet().StartTransaction(params);
             doResponse(id, Send::Response{ txId });
         }
         catch (...)
@@ -591,17 +736,25 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const GetUtxo& data)
     {
-        LOG_DEBUG() << "GetUtxo(id = " << id << ")";
+        LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << data.withAssets
+                    << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
+                    << ")";
 
         GetUtxo::Response response;
-        _walletData.getWalletDB()->visitCoins([&response](const Coin& c)->bool
+        _walletData.getWalletDB()->visitCoins([&response, &data](const Coin& c)->bool {
+            if(!data.withAssets && c.isAsset())
             {
-                response.utxos.push_back(c);
                 return true;
-            });
+            }
+            if (data.filter.assetId && !c.isAsset(*data.filter.assetId))
+            {
+                return true;
+            }
+            response.utxos.push_back(c);
+            return true;
+        });
 
         doPagination(data.skip, data.count, response.utxos);
-
         doResponse(id, response);
     }
 
@@ -628,12 +781,17 @@ namespace beam::wallet
         }
 
         storage::Totals allTotals(*walletDB);
-        const auto& totals = allTotals.GetTotals(Zero);
+        const auto& totals = allTotals.GetBeamTotals();
 
-        response.available = totals.Avail;
-        response.receiving = totals.Incoming;
-        response.sending = totals.Outgoing;
-        response.maturing = totals.Maturing;
+        response.available = AmountBig::get_Lo(totals.Avail);
+        response.receiving = AmountBig::get_Lo(totals.Incoming);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing);
+
+        if (data.withAssets)
+        {
+            response.totals = allTotals;
+        }
 
         doResponse(id, response);
     }
@@ -675,52 +833,59 @@ namespace beam::wallet
 
         {
             auto walletDB = _walletData.getWalletDB();
-            auto txList = walletDB->getTxHistory();
+            auto txList = walletDB->getTxHistory(TxType::Simple);
+
+            if (data.withAssets)
+            {
+                auto txIssue = walletDB->getTxHistory(TxType::AssetIssue);
+                auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
+                auto txInfo = walletDB->getTxHistory(TxType::AssetInfo);
+
+                txList.insert(txList.end(), txIssue.begin(), txIssue.end());
+                txList.insert(txList.end(), txConsume.begin(), txConsume.end());
+                txList.insert(txList.end(), txInfo.begin(), txInfo.end());
+            }
+
+            std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
+                return a.m_minHeight > b.m_minHeight;
+             });
 
             Block::SystemState::ID stateID = {};
             _walletData.getWalletDB()->getSystemStateID(stateID);
 
             for (const auto& tx : txList)
             {
+                if (!data.withAssets && tx.m_assetId != Asset::s_InvalidID)
+                {
+                    continue;
+                }
+
+                if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
+                {
+                    continue;
+                }
+
+                if (data.filter.status && tx.m_status != *data.filter.status)
+                {
+                    continue;
+                }
+
+                const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
+                if (data.filter.height && height != *data.filter.height)
+                {
+                    continue;
+                }
+
                 Status::Response item;
                 item.tx = tx;
-                item.kernelProofHeight = 0;
+                item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-
-                storage::getTxParameter(*walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
                 res.resultList.push_back(item);
             }
         }
 
-        using Result = decltype(res.resultList);
-
-        // filter transactions by status if provided
-        if (data.filter.status)
-        {
-            Result filteredList;
-
-            for (const auto& it : res.resultList)
-                if (it.tx.m_status == *data.filter.status)
-                    filteredList.push_back(it);
-
-            res.resultList = std::move(filteredList);
-        }
-
-        // filter transactions by height if provided
-        if (data.filter.height)
-        {
-            Result filteredList;
-
-            for (const auto& it : res.resultList)
-                if (it.kernelProofHeight == *data.filter.height)
-                    filteredList.push_back(it);
-
-            res.resultList = std::move(filteredList);
-        }
-
         doPagination(data.skip, data.count, res.resultList);
-
         doResponse(id, res);
     }
 
@@ -790,6 +955,7 @@ namespace beam::wallet
 
             if (it != publicOffers.end())
             {
+                offer = MirrorSwapTxParams(offer);
                 offer.m_publisherId = it->m_publisherId;
             }
             offers.push_back(offer);
@@ -932,7 +1098,7 @@ namespace beam::wallet
 
             if (!tx)
             {
-                doError(id, ApiError::InternalErrorJsonRpc, "Tranzaction not found.");
+                doError(id, ApiError::InternalErrorJsonRpc, "Transaction not found.");
                 return;
             }
 
@@ -975,6 +1141,29 @@ namespace beam::wallet
             auto txParams = ParseParameters(data.token);
             if (!txParams)
                 throw FailToParseToken();
+#ifdef BEAM_LIB_VERSION
+            auto libVersion = txParams->GetParameter(beam::wallet::TxParameterID::LibraryVersion);
+            if (libVersion)
+            {
+                std::string libVersionStr;
+                beam::wallet::fromByteBuffer(*libVersion, libVersionStr);
+                std::string myLibVersionStr = BEAM_LIB_VERSION;
+
+                std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
+                if (std::regex_match(libVersionStr, libVersionRegex) &&
+                    std::lexicographical_compare(
+                        myLibVersionStr.begin(),
+                        myLibVersionStr.end(),
+                        libVersionStr.begin(),
+                        libVersionStr.end(),
+                        std::less<char>{}))
+                {
+                    LOG_WARNING() <<
+                        "This token generated by newer Beam library version(" << libVersionStr << ")\n" <<
+                        "Your version is: " << myLibVersionStr << " Please, check for updates.";
+                }
+            }
+#endif  // BEAM_LIB_VERSION
 
             auto txId = txParams->GetTxID();
             if (!txId)

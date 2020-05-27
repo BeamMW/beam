@@ -181,6 +181,13 @@ void Cfg::Expose(Oracle& oracle) const
 		<< M;
 }
 
+bool Cfg::operator == (const Cfg& cfg) const
+{
+	return
+		(n == cfg.n) &&
+		(M == cfg.M);
+}
+
 ///////////////////////////
 // Proof
 void Proof::Part1::Expose(Oracle& oracle) const

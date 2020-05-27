@@ -14,6 +14,8 @@ set(TARGET_NAME wallet-service${BEAM_TARGET_SUFFIX})
 add_executable(${TARGET_NAME}
     service.cpp
     pipe.cpp
+    utils.cpp
+        node_connection.cpp
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
@@ -30,7 +32,6 @@ endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_directories(${TARGET_NAME} PRIVATE ${Boost_LIBRARY_DIRS})
 target_link_libraries(${TARGET_NAME}
     PRIVATE 
         wallet_api
@@ -46,6 +47,8 @@ set(MONITOR_TARGET_NAME sbbs-monitor${BEAM_TARGET_SUFFIX})
 add_executable(${MONITOR_TARGET_NAME}
         monitor.cpp
         pipe.cpp
+        utils.cpp
+        node_connection.cpp
         )
 
 target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

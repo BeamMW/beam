@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <boost/filesystem.hpp>
-#include "logger.h"
+#include "utility/logger.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/common.h"
 #include "wallet/core/wallet_network.h"
@@ -51,21 +51,21 @@ void TestAssets() {
     const auto walletDB = createSqliteWalletDB("sender_wallet.db", false, true);
     walletDB->AllocateKidRange(100500);
 
-    TestWalletRig sender("sender", walletDB, stopReactor);
+    TestWalletRig sender(walletDB, stopReactor);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
     WALLET_CHECK(node.GetHeight() > Rules::get().pForks[1].m_Height);
     WALLET_CHECK(node.GetHeight() > Rules::get().pForks[2].m_Height);
     beam::wallet::RegisterAssetCreators(sender.m_Wallet);
 
-    const Key::Index assetOwnerIdx = Key::Index(22);
+    //const Key::Index assetOwnerIdx = Key::Index(22);
 
     Asset::ID assetId = 445; // whatever
 
     const auto checkTotals = [&] (Amount beam, Amount amountAsset) {
         storage::Totals allTotals(*walletDB);
-        WALLET_CHECK(allTotals.GetTotals(Zero).Avail == beam);
-        WALLET_CHECK(allTotals.GetTotals(assetId).Avail == amountAsset);
+        WALLET_CHECK(allTotals.GetBeamTotals().Avail == AmountBig::Type(beam));
+        WALLET_CHECK(allTotals.GetTotals(assetId).Avail == AmountBig::Type(amountAsset));
     };
 
     const auto makeCoin = [&walletDB](Amount amount) {
@@ -118,7 +118,7 @@ void TestAssets() {
     auto issueTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
                 .SetParameter(TxParameterID::Amount,   issueAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -135,7 +135,7 @@ void TestAssets() {
     WALLET_CHECK(issueTx.m_changeBeam  == issueChange);
     WALLET_CHECK(issueTx.m_changeAsset == 0);
     WALLET_CHECK(issueTx.m_status      == TxStatus::Completed);
-    WALLET_CHECK(issueTx.m_assetOwnerIdx == assetOwnerIdx);
+    //WALLET_CHECK(issueTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(issueTx.m_assetId     == assetId);
     WALLET_CHECK(issueTx.m_peerId      == Zero);
     WALLET_CHECK(issueTx.m_myId        == Zero);
@@ -171,7 +171,7 @@ void TestAssets() {
     const auto consumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   consumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -187,7 +187,7 @@ void TestAssets() {
     WALLET_CHECK(consumeTx.m_changeBeam  == consumeChange);
     WALLET_CHECK(consumeTx.m_changeAsset == consumeAssetChange);
     WALLET_CHECK(consumeTx.m_status      == TxStatus::Completed);
-    WALLET_CHECK(consumeTx.m_assetOwnerIdx == assetOwnerIdx);
+    //WALLET_CHECK(consumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(consumeTx.m_assetId     == assetId);
     WALLET_CHECK(consumeTx.m_peerId      == Zero);
     WALLET_CHECK(consumeTx.m_myId        == Zero);
@@ -248,7 +248,7 @@ void TestAssets() {
         WALLET_CHECK(loadedIssueTx);
         if (loadedIssueTx) {
             WALLET_CHECK(loadedIssueTx->m_assetId     == issueTx.m_assetId);
-            WALLET_CHECK(loadedIssueTx->m_assetOwnerIdx == issueTx.m_assetOwnerIdx);
+            //WALLET_CHECK(loadedIssueTx->m_assetOwnerIdx == issueTx.m_assetOwnerIdx);
             WALLET_CHECK(loadedIssueTx->m_changeAsset == issueTx.m_changeAsset);
         }
 
@@ -256,7 +256,7 @@ void TestAssets() {
         WALLET_CHECK(loadedConsumeTx);
         if (loadedConsumeTx) {
             WALLET_CHECK(loadedConsumeTx->m_assetId     == consumeTx.m_assetId);
-            WALLET_CHECK(loadedConsumeTx->m_assetOwnerIdx == consumeTx.m_assetOwnerIdx);
+            //WALLET_CHECK(loadedConsumeTx->m_assetOwnerIdx == consumeTx.m_assetOwnerIdx);
             WALLET_CHECK(loadedConsumeTx->m_changeAsset == consumeTx.m_changeAsset);
         }
 
@@ -344,7 +344,7 @@ void TestAssets() {
     const auto srConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   srConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -360,7 +360,7 @@ void TestAssets() {
     WALLET_CHECK(srConsumeTx.m_changeBeam    == srBeamChange);
     WALLET_CHECK(srConsumeTx.m_changeAsset   == srAssetChange);
     WALLET_CHECK(srConsumeTx.m_status        == TxStatus::Completed);
-    WALLET_CHECK(srConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
+    //WALLET_CHECK(srConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(srConsumeTx.m_assetId       == assetId);
     WALLET_CHECK(srConsumeTx.m_peerId        == Zero);
     WALLET_CHECK(srConsumeTx.m_myId          == Zero);
@@ -407,7 +407,7 @@ void TestAssets() {
 
     const auto receiverWalletDB = createSqliteWalletDB("receiver_wallet.db", false, true);
     receiverWalletDB->AllocateKidRange(100500);
-    TestWalletRig receiver("receiver", receiverWalletDB, stopReactor);
+    TestWalletRig receiver(receiverWalletDB, stopReactor);
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
     RegisterAssetCreators(receiver.m_Wallet);
 
@@ -535,13 +535,14 @@ void TestAssets() {
     const auto nonOwnedConsumeAmount = send3rpAmount;
     const auto nonOwnedAssetChange   = 0;
     const auto nonOwnedBeamChange    = 0;
+    const auto assetMeta = std::string("just for test");
 
     sw.start();
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
-                .SetParameter(TxParameterID::Amount,   nonOwnedConsumeAmount)
-                .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
-                .SetParameter(TxParameterID::Lifetime, Height(200)));
+                .SetParameter(TxParameterID::Amount,         nonOwnedConsumeAmount)
+                .SetParameter(TxParameterID::Fee,            feeAmount)
+                .SetParameter(TxParameterID::AssetMetadata,  assetMeta)
+                .SetParameter(TxParameterID::Lifetime,       Height(200)));
 
     // Do not run reactor, transaction should be failed with no inputs already
     LOG_INFO() << "Consuming not owned assets elapsed time: " << sw.milliseconds() << "ms";
@@ -555,7 +556,7 @@ void TestAssets() {
     WALLET_CHECK(nonOwnedConsumeTx.m_changeAsset   == nonOwnedAssetChange);
     WALLET_CHECK(nonOwnedConsumeTx.m_status        == TxStatus::Failed);
     WALLET_CHECK(nonOwnedConsumeTx.m_failureReason == TxFailureReason::NoInputs);
-    WALLET_CHECK(nonOwnedConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
+    WALLET_CHECK(nonOwnedConsumeTx.m_assetMeta     == assetMeta);
     WALLET_CHECK(nonOwnedConsumeTx.m_assetId       != assetId);
 
     LOG_INFO() << "Finished Testing consuming not owned assets...";
@@ -650,7 +651,7 @@ void TestAssets() {
     const auto recvConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
                 .SetParameter(TxParameterID::Amount,   recvConsumeAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                .SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -666,7 +667,7 @@ void TestAssets() {
     WALLET_CHECK(recvConsumeTx.m_changeBeam    == recvBeamChange);
     WALLET_CHECK(recvConsumeTx.m_changeAsset   == recvAssetChange);
     WALLET_CHECK(recvConsumeTx.m_status        == TxStatus::Completed);
-    WALLET_CHECK(recvConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
+    //WALLET_CHECK(recvConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(recvConsumeTx.m_assetId       == assetId);
     WALLET_CHECK(recvConsumeTx.m_peerId        == Zero);
     WALLET_CHECK(recvConsumeTx.m_myId          == Zero);

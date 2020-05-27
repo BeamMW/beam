@@ -104,7 +104,7 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
 
-        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, bool withAssets, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
@@ -128,6 +128,11 @@ namespace beam::wallet
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
+
+        // voucher management
+        void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
+        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
@@ -141,11 +146,13 @@ namespace beam::wallet
 
         void confirm_outputs(const std::vector<Coin>&) override;
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
-        void confirm_asset(const TxID& txID, const Key::Index ownerIdx, const PeerID& ownerID, SubTxID subTxID) override;
+        void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
+        void get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override;
+        void get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
@@ -174,14 +181,18 @@ namespace beam::wallet
         void report_sync_progress();
         void notifySyncProgress();
         void UpdateTransaction(const TxID& txID);
+        void UpdateTransaction(BaseTransaction::Ptr tx);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void saveKnownState();
         void RequestEvents();
         void AbortEvents();
         void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd);
+        void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
         Height GetEventsHeightNext();
+        void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
+        void RequestStateSummary();
 
         BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
@@ -191,6 +202,9 @@ namespace beam::wallet
         void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
+
+        void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
+        void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
 
     private:
 
@@ -204,7 +218,8 @@ namespace beam::wallet
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
         macro(Kernel) \
-        macro(Events)
+        macro(Events) \
+        macro(StateSummary)
 
         struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
@@ -239,6 +254,17 @@ namespace beam::wallet
             {
                 TxID m_TxID;
                 SubTxID m_SubTxID = kDefaultSubTxID;
+            };
+            struct ProofShieldedOutp
+            {
+                TxID m_TxID;
+                SubTxID m_SubTxID = kDefaultSubTxID;
+                ProofShildedOutputCallback m_callback;
+            };
+            struct ShieldedList
+            {
+                TxID m_TxID;
+                ShieldedListCallback m_callback;
             };
         };
 
@@ -311,7 +337,6 @@ namespace beam::wallet
 
         // Number of tasks running during sync with Node
         uint32_t m_LastSyncTotal;
-
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
@@ -320,5 +345,8 @@ namespace beam::wallet
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
+
+        // Confidential assets enable/disable flag
+        bool m_withAssets;
     };
 }

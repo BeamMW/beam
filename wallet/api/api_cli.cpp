@@ -42,6 +42,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "wallet/transactions/assets/assets_reg_creators.h"
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/api/i_atomic_swap_provider.h"
@@ -197,7 +198,7 @@ class WalletApiServer
 {
 public:
     WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
-        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
+        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist, bool withAssets)
         : _reactor(reactor)
         , _bindAddress(listenTo)
         , _useHttp(useHttp)
@@ -206,6 +207,7 @@ public:
         , _wallet(wallet)
         , _acl(acl)
         , _whitelist(whitelist)
+        , _withAssets(withAssets)
     {
         start();
     }
@@ -260,10 +262,9 @@ public:
     {
         _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
         _offerBoardProtocolHandler =
-            std::make_shared<OfferBoardProtocolHandler>(
-                _walletDB->get_SbbsKdf(), _walletDB);
+            std::make_shared<OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
         _offersBulletinBoard = std::make_shared<SwapOffersBoard>(
-            *_broadcastRouter, *_offerBoardProtocolHandler);
+            *_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
         _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
             static_cast<IWalletDbObserver*>(
                 _offersBulletinBoard.get()), _walletDB);
@@ -414,11 +415,12 @@ private:
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
         }
 
-    return std::static_pointer_cast<WalletApiHandler>(
-        std::make_shared<T>(*this
-                            , std::move(newStream)
-                            , *_walletData
-                            , _acl));
+        return std::static_pointer_cast<WalletApiHandler>(
+            std::make_shared<T>(*this
+                                , std::move(newStream)
+                                , *_walletData
+                                , _acl
+                                , _withAssets));
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -456,9 +458,11 @@ private:
                     , io::TcpStream::Ptr&& newStream
                     , IWalletData& walletData
                     , WalletApi::ACL acl
+                    , bool withAssets
         )
         : WalletApiHandler(walletData
-                      , acl )
+                      , acl
+                      , withAssets)
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -519,10 +523,12 @@ private:
                         , io::TcpStream::Ptr&& newStream
                         , IWalletData& walletData
                         , WalletApi::ACL acl
+                        , bool withAssets
             )
             : WalletApiHandler(
                   walletData
-                , acl)
+                , acl
+                , withAssets)
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -642,6 +648,7 @@ private:
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;
+    bool _withAssets;
 };
 }  // namespace
 
@@ -678,6 +685,7 @@ int main(int argc, char* argv[])
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
+        bool withAssets = false;
 
         {
             po::options_description desc("Wallet API general options");
@@ -691,6 +699,7 @@ int main(int argc, char* argv[])
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -725,14 +734,8 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("wallet-api.cfg");
-
-                if (cfg)
-                {                    
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
 
             vm.notify();
 
@@ -812,8 +815,11 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-
             LOG_INFO() << "wallet sucessfully opened...";
+
+            // this should be exactly CLI flag value to print correct error messages
+            // Rules::CA.Enabled would be checked as well but later
+            withAssets = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -821,8 +827,7 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-
-        Wallet wallet{ walletDB };
+        Wallet wallet{ walletDB, withAssets};
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -849,12 +854,17 @@ int main(int argc, char* argv[])
         wallet.SetNodeEndpoint(nnet);
 
         WalletApiServer server(walletDB, wallet, *reactor, 
-            listenTo, options.useHttp, acl, tlsOptions, whitelist);
+            listenTo, options.useHttp, acl, tlsOptions, whitelist, withAssets);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        if (Rules::get().CA.Enabled && withAssets)
+        {
+            RegisterAssetCreators(wallet);
+        }
 
         // All TxCreators must be registered by this point
         wallet.ResumeAllTransactions();

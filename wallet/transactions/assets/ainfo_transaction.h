@@ -14,14 +14,12 @@
 
 #pragma once
 
-#include "wallet/core/common.h"
-#include "wallet/core/wallet_db.h"
-#include "wallet/core/base_transaction.h"
+#include "asset_base_tx.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
 {
-    class AssetInfoTransaction : public BaseTransaction
+    class AssetInfoTransaction : public AssetTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
@@ -32,6 +30,8 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
+
+            IWalletDB::Ptr _walletDB;
         };
 
     private:
@@ -41,16 +41,18 @@ namespace beam::wallet
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        bool IsLoopbackTransaction() const;
         void ConfirmAsset();
 
         enum State : uint8_t
         {
             Initial,
+            AssetConfirmation,
             AssetCheck,
+            Finalzing
         };
 
         State GetState() const;
         Asset::ID GetAssetID() const;
+        PeerID GetAssetOwnerID() const;
     };
 }

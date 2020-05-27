@@ -62,6 +62,10 @@ namespace beam::wallet
 
         params->SetParameter(TxParameterID::Lifetime, lifetime);
         params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
+
+#ifdef BEAM_LIB_VERSION
+        params->SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+#endif // BEAM_LIB_VERSION
     }
 
     void FillSwapFee(
@@ -102,6 +106,9 @@ namespace beam::wallet
         copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
+
+        copyParameter<std::string>(TxParameterID::ClientVersion, original, res);
+        copyParameter<std::string>(TxParameterID::LibraryVersion, original, res);
 
         if (isOwn)
         {
@@ -148,6 +155,9 @@ namespace beam::wallet
         copyParameter<bool>(TxParameterID::IsInitiator, original, res);
         copyParameter<bool>(TxParameterID::AtomicSwapIsBeamSide, original, res);
         copyParameter<bool>(TxParameterID::IsSender, original, res);
+
+        copyParameter<std::string>(TxParameterID::ClientVersion, original, res);
+        copyParameter<std::string>(TxParameterID::LibraryVersion, original, res);
 
         return res;
     }

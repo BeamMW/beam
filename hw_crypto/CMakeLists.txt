@@ -14,4 +14,6 @@ target_link_libraries(hw_crypto
 
 target_include_directories(hw_crypto PUBLIC ${PROJECT_SOURCE_DIR}/hw_crypto)
 
-add_subdirectory(unittest)
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittest)
+endif()

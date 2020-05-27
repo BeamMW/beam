@@ -62,24 +62,35 @@ public:
         ExpiredOfferException() : std::runtime_error(" Can't publish expired offer.") {}
     };
 
-    SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&);
+    class OfferLifetimeExceeded : public std::runtime_error
+    {
+    public:
+        OfferLifetimeExceeded() : std::runtime_error(" Offer lifetime exceeded.") {}
+    };
+
+    SwapOffersBoard(IBroadcastMsgGateway&, OfferBoardProtocolHandler&, IWalletDB::Ptr);
     virtual ~SwapOffersBoard() {};
 
     /**
      *  IBroadcastListener implementation
      *  Processes broadcast messages
      */
-    virtual bool onMessage(uint64_t unused, ByteBuffer&&) override;
+    bool onMessage(uint64_t, ByteBuffer&&) override;    // TODO: dh remove after 2 fork.
+    bool onMessage(uint64_t, BroadcastMsg&&) override;
     
     /**
      *  IWalletDbObserver implementation
      *  Watches for swap transaction status changes to update linked offers on board
      */
-    virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
+    void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
     /**
      *  Watches for system state to remove stuck expired offers from board
      */
-    virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+    void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+    /**
+     *  Addresses used to check whether offer own or foreign
+     */
+    void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
 
     auto getOffersList() const -> std::vector<SwapOffer>;
     void publishOffer(const SwapOffer& offer) const;
@@ -90,16 +101,22 @@ public:
 private:
     IBroadcastMsgGateway& m_broadcastGateway;
     OfferBoardProtocolHandler& m_protocolHandler;       /// handles message creating and parsing
+    const IWalletDB::Ptr m_walletDB;
 
-    Height m_currentHeight = 0;
     std::unordered_map<TxID, SwapOffer> m_offersCache;
     std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
+    Height m_currentHeight = 0;
+    std::unordered_map<WalletID, uint64_t> m_ownAddresses;  /// Own WalletID's with BBS KDF OwnID's
 
-    bool isOfferExpired(const SwapOffer& offer) const;
-    void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
-    void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
+    bool isOfferExpired(const SwapOffer&) const;
+    bool isOfferLifetimeTooLong(const SwapOffer&) const;
+    bool onOfferFromNetwork(SwapOffer& newOffer);
+    void broadcastOffer(const SwapOffer& content, uint64_t keyOwnID) const;
+    void sendUpdateToNetwork(const SwapOffer&) const;
+    void updateOfferStatus(const TxID& offerTxID, SwapOfferStatus newStatus);
     void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
-
+    void fillOwnAdresses();
+    bool isOwnOffer(const SwapOffer&) const;
 };
 
 } // namespace beam::wallet

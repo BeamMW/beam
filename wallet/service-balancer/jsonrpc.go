@@ -33,10 +33,12 @@ type rpcResponse struct {
 	Result  *json.RawMessage `json:"result"`
 }
 
+/* Not used at the moment, but may be would be used in the future
 type rpcError struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
 }
+*/
 
 func getIdStr(rawid *json.RawMessage) string {
 	if rawid == nil {

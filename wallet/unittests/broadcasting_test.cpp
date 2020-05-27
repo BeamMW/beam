@@ -38,13 +38,28 @@ namespace
 
     struct MockBroadcastListener : public IBroadcastListener
     {
-        using OnMessage = function<void(ByteBuffer&)>;
+        using OnMessage = function<void(BroadcastMsg&)>;
 
         MockBroadcastListener(OnMessage func) : m_callback(func) {};
 
         virtual bool onMessage(uint64_t unused, ByteBuffer&& msg) override
         {
-            m_callback(msg);
+            BroadcastMsg bMsg;
+            if (fromByteBuffer(msg, bMsg))
+            {
+                m_callback(bMsg);
+                return true;
+            }
+            else
+            {
+                cout << "MockBroadcastListener message deserialization error" << endl;
+            }
+            return false;
+        };
+
+        virtual bool onMessage(uint64_t unused, BroadcastMsg&& bMsg) override
+        {
+            m_callback(bMsg);
             return true;
         };
 
@@ -114,12 +129,12 @@ namespace
         MockBbsNetwork mockNetwork;
         BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
         
-        ByteBuffer testContent({'t','e','s','t'});
+        BroadcastMsg testContent = { {'t','e','s','t'}, {'t','e','s','t'} };
 
         uint32_t correctMessagesCount = 0;
         MockBroadcastListener testListener(
             [&correctMessagesCount, &testContent]
-            (ByteBuffer& msg)
+            (BroadcastMsg& msg)
             {
                 ++correctMessagesCount;
                 WALLET_CHECK(msg == testContent);
@@ -152,6 +167,16 @@ namespace
             cout << "Case: message contain only header" << endl;
             ByteBuffer data(MsgHeader::SIZE, 0);
             MsgHeader header(0,0,1,0,0);
+            header.write(data.data());
+                        
+            WALLET_CHECK_NO_THROW(
+                mockNetwork.SendRawMessage(dummyWid, data)
+            );
+            WALLET_CHECK(correctMessagesCount == 0);
+        }
+        {
+            ByteBuffer data(MsgHeader::SIZE, 0);
+            MsgHeader header(0,0,2,0,0);
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
@@ -196,7 +221,7 @@ namespace
         {
             cout << "Case: correct message" << endl;
 
-            auto msg = testMsgCreate(testContent, testContentType);
+            auto msg = testMsgCreate(toByteBuffer(testContent), testContentType);
             WALLET_CHECK_NO_THROW(
                 mockNetwork.SendRawMessage(dummyWid, msg)
             );
@@ -218,10 +243,10 @@ namespace
             BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
             uint32_t executed = 0;
 
-            const ByteBuffer testSample = {'s','w','a','p'};
+            const BroadcastMsg testSample = { {'s','w','a','p'}, {'s','w','a','p'} };
             MockBroadcastListener testListener(
                 [&executed, &testSample]
-                (ByteBuffer& msg)
+                (BroadcastMsg& msg)
                 {
                     ++executed;                    
                     WALLET_CHECK(msg == testSample);
@@ -231,7 +256,7 @@ namespace
 
             WalletID dummyWid;
             dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
-            auto msgA = testMsgCreate(testSample, BroadcastContentType::SwapOffers);
+            auto msgA = testMsgCreate(toByteBuffer(testSample), BroadcastContentType::SwapOffers);
             mockNetwork.SendRawMessage(dummyWid, msgA);
 
             WALLET_CHECK(executed == 1);
@@ -248,15 +273,9 @@ namespace
 
             MockBroadcastListener testListener(
                 [&executed, &msgA, &msgB]
-                (ByteBuffer& data)
+                (BroadcastMsg& msg)
                 {
-                    ++executed;
-                    BroadcastMsg msg;
-                    if (!fromByteBuffer<BroadcastMsg>(data, msg))
-                    {
-                        WALLET_CHECK(false);
-                    }
-                    switch (executed)
+                    switch (++executed)
                     {
                     case 1:
                         WALLET_CHECK(msg == msgA);

@@ -33,7 +33,6 @@
 
 #include "wallet/api/api_handler.h"
 #include "wallet/core/wallet_db.h"
-#include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 
@@ -44,8 +43,10 @@
 
 #include "keykeeper/wasm_key_keeper.h"
 #include "pipe.h"
+#include "utils.h"
 
 #include "websocket_server.h"
+#include "node_connection.h"
 
 using json = nlohmann::json;
 
@@ -57,10 +58,27 @@ using namespace beam::wallet;
 
 namespace beam::wallet
 {
-    io::Address node_addr;
+    namespace {
+        std::string makeDBPath(const std::string& name)
+        {
+            const char *DB_FOLDER = "wallets";
+            auto path = boost::filesystem::system_complete(DB_FOLDER);
+
+            if (!boost::filesystem::exists(path))
+            {
+                boost::filesystem::create_directories(path);
+            }
+
+            std::string fname = std::string(name) + ".db";
+            path /= fname;
+            return path.string();
+        }
+    }
 
     WalletServiceApi::WalletServiceApi(IWalletServiceApiHandler& handler, ACL acl)
-        : WalletApi(handler, acl)
+        : WalletApi(handler,
+                false, // assets are forcibly disabled in wallet service
+                acl)
     {
 #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -174,35 +192,36 @@ namespace
     class WalletApiServer : public WebSocketServer
     {
     public:
-
-        WalletApiServer(io::Reactor::Ptr reactor, uint16_t port, const std::string& allowedOrigin)
+        WalletApiServer(io::Reactor::Ptr reactor, bool withAssets, const io::Address& nodeAddr, uint16_t port, const std::string& allowedOrigin, bool withPipes)
             : WebSocketServer(reactor, port,
-            [this, reactor] (auto&& func) {
-                return std::make_unique<ServiceApiConnection>(func, reactor, _walletMap);
+            [this, withAssets, reactor, &nodeAddr] (auto&& func)
+            {
+                return std::make_unique<ServiceApiConnection>(withAssets, nodeAddr, func, reactor, _walletMap);
             },
-            [] () {
-#ifndef _WIN32                
-                Pipe syncPipe(Pipe::SyncFileDescriptor);
-                syncPipe.notifyListening();
-#endif
-            }, allowedOrigin)
-#ifndef _WIN32
-            , _heartbeatPipe(Pipe::HeartbeatFileDescriptor)
-#endif            
+            [withPipes] ()
+            {
+                if (withPipes)
+                {
+                    Pipe syncPipe(Pipe::SyncFileDescriptor);
+                    syncPipe.notifyListening();
+                }
+            },
+            allowedOrigin)
         {
-#ifndef _WIN32
-            _heartbeatTimer = io::Timer::create(*reactor);
-            _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this] () {
-                _heartbeatPipe.notifyAlive();
-            });
-#endif
+            if (withPipes)
+            {
+                _heartbeatPipe  = std::make_unique<Pipe>(Pipe::HeartbeatFileDescriptor);
+                _heartbeatTimer = io::Timer::create(*reactor);
+                _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this]() {
+                    assert(_heartbeatPipe != nullptr);
+                    _heartbeatPipe->notifyAlive();
+                });
+            }
         }
 
     private:
-#ifndef _WIN32    
         io::Timer::Ptr _heartbeatTimer;
-        Pipe _heartbeatPipe;
-#endif
+        std::unique_ptr<Pipe> _heartbeatPipe;
 
     private:
         struct WalletInfo
@@ -236,10 +255,9 @@ namespace
         {
         public:
 
-            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection, io::Reactor::Ptr reactor)
+            WasmKeyKeeperProxy(Key::IPKdf::Ptr ownerKdf, IApiConnectionHandler& connection)
                 : _ownerKdf(ownerKdf)
                 , _connection(connection)
-                , _reactor(reactor)
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
@@ -456,14 +474,13 @@ namespace
         private:
             Key::IPKdf::Ptr _ownerKdf;
             IApiConnectionHandler& _connection;
-            io::Reactor::Ptr _reactor;
         };
 
         class MyApiConnection : public WalletApiHandler
         {
         public:
-            MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl)
-                : WalletApiHandler(walletData, acl)
+            MyApiConnection(IApiConnectionHandler* handler, IWalletData& walletData, WalletApi::ACL acl, bool withAssets)
+                : WalletApiHandler(walletData, acl, withAssets)
                 , _handler(handler)
             {
             
@@ -485,12 +502,14 @@ namespace
             , public IApiConnectionHandler
         {
         public:
-            ServiceApiConnection(WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
-                : _apiConnection(this, *this, boost::none)
+            ServiceApiConnection(bool withAssets, const io::Address& nodeAddr, WebSocketServer::SendMessageFunc sendFunc, io::Reactor::Ptr reactor, WalletMap& walletMap)
+                : _apiConnection(this, *this, boost::none, withAssets)
                 , _sendFunc(sendFunc)
                 , _reactor(reactor)
                 , _api(*this)
                 , _walletMap(walletMap)
+                , _nodeAddr(nodeAddr)
+                , _withAssets(withAssets)
             {
                 assert(_sendFunc);
             }
@@ -584,108 +603,127 @@ namespace
 
             void onMessage(const JsonRpcId& id, const CreateWallet& data) override
             {
-                LOG_DEBUG() << "CreateWallet(id = " << id << ")";
-
-                beam::KeyString ks;
-
-                ks.SetPassword(data.pass);
-                ks.m_sRes = data.ownerKey;
-
-                std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
-
-                if(ks.Import(*ownerKdf))
+                try
                 {
-                    auto keyKeeper = createKeyKeeper(ownerKdf);
-                    auto dbName = generateWalletID(ownerKdf);
-                    IWalletDB::Ptr walletDB = WalletDB::init(dbName + ".db", SecString(data.pass), keyKeeper);
+                    LOG_DEBUG() << "CreateWallet(id = " << id << ")";
 
-                    if(walletDB)
+                    beam::KeyString ks;
+
+                    ks.SetPassword(data.pass);
+                    ks.m_sRes = data.ownerKey;
+
+                    std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
+
+                    if (ks.Import(*ownerKdf))
                     {
-                        _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
-                        // generate default address
-                        WalletAddress address;
-                        walletDB->createAddress(address);
-                        address.m_label = "default";
-                        walletDB->saveAddress(address);
+                        auto keyKeeper = createKeyKeeper(ownerKdf);
+                        auto dbName = generateWalletID(ownerKdf);
+                        IWalletDB::Ptr walletDB = WalletDB::init(makeDBPath(dbName), SecString(data.pass), keyKeeper);
 
-                        doResponse(id, CreateWallet::Response{dbName});
-                        return;
+                        if (walletDB)
+                        {
+                            _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
+                            // generate default address
+                            WalletAddress address;
+                            walletDB->createAddress(address);
+                            address.m_label = "default";
+                            walletDB->saveAddress(address);
+
+                            doResponse(id, CreateWallet::Response{dbName});
+                            return;
+                        }
                     }
-                }
 
-                _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+                    _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+                }
+                catch (const DatabaseException& ex)
+                {
+                     _apiConnection.doError(id, ApiError::DatabaseError, ex.what());
+                }
             }
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
             {
-                LOG_DEBUG() << "OpenWallet(id = " << id << ")";
-
-                auto it = _walletMap.find(data.id);
-                if (it == _walletMap.end())
+                try
                 {
-                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
-                    _wallet = std::make_shared<Wallet>(_walletDB);
+                    LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                    Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
-                    KeyString ks;
-                    ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
-                    ks.m_sMeta = std::to_string(0);
-                    ks.ExportP(*pKey);
-                    _walletMap[data.id].ownerKey = ks.m_sRes;
-
-                }
-                else if (auto wdb = it->second.walletDB.lock(); wdb)
-                {
-                    _walletDB = wdb;
-                    _wallet = it->second.wallet.lock();
-                }
-                else
-                {
-                    _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), createKeyKeeper(data.pass, it->second.ownerKey));
-                    _wallet = std::make_shared<Wallet>(_walletDB);
-                }
-                
-                if(!_walletDB)
-                {
-                    _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
-                    return;
-                }
-
-                _walletMap[data.id].walletDB = _walletDB;
-                _walletMap[data.id].wallet = _wallet;
-
-                LOG_INFO() << "wallet sucessfully opened...";
-
-                _wallet->ResumeAllTransactions();
-
-                auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
-                nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
-            
-                if (nnet->m_Cfg.m_PollPeriod_ms)
-                {
-                    LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-                    uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-                    if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                    auto it = _walletMap.find(data.id);
+                    if (it == _walletMap.end())
                     {
-                        LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
+                                                   createKeyKeeperFromDB(data.id, data.pass));
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
+
+                        Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
+                        KeyString ks;
+                        ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
+                        ks.m_sMeta = std::to_string(0);
+                        ks.ExportP(*pKey);
+                        _walletMap[data.id].ownerKey = ks.m_sRes;
+
+                    } else if (auto wdb = it->second.walletDB.lock(); wdb)
+                    {
+                        _walletDB = wdb;
+                        _wallet = it->second.wallet.lock();
+                    } else
+                    {
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
+                                                   createKeyKeeper(data.pass, it->second.ownerKey));
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
                     }
+
+                    if (!_walletDB)
+                    {
+                        _apiConnection.doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
+                        return;
+                    }
+
+                    _walletMap[data.id].walletDB = _walletDB;
+                    _walletMap[data.id].wallet = _wallet;
+
+                    LOG_INFO() << "wallet sucessfully opened...";
+
+                    _wallet->ResumeAllTransactions();
+
+                    auto nnet = std::make_shared<ServiceNodeConnection>(*_wallet);
+                    nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
+
+                    if (nnet->m_Cfg.m_PollPeriod_ms)
+                    {
+                        LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                        uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                        if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                        {
+                            LOG_INFO() << "Node poll period has been automatically rounded up to block rate: "
+                                       << timeout_ms << " ms";
+                        }
+                    }
+                    uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+                    if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                    {
+                        LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than "
+                                      << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                    }
+                    nnet->m_Cfg.m_vNodes.push_back(_nodeAddr);
+                    nnet->Connect();
+
+                    auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
+                    _wallet->AddMessageEndpoint(wnet);
+                    _wallet->SetNodeEndpoint(nnet);
+
+                    // !TODO: not sure, do we need this id in the future
+                    auto session = generateUid();
+                    doResponse(id, OpenWallet::Response{session});
                 }
-                uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-                if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                catch(const DatabaseNotFoundException& ex)
                 {
-                    LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                    _apiConnection.doError(id, ApiError::DatabaseNotFound, ex.what());
                 }
-                nnet->m_Cfg.m_vNodes.push_back(node_addr);
-                nnet->Connect();
-
-                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
-                _wallet->AddMessageEndpoint(wnet);
-                _wallet->SetNodeEndpoint(nnet);
-
-                // !TODO: not sure, do we need this id in the future
-                auto session = generateUid();
-
-                doResponse(id, OpenWallet::Response{session});
+                catch(const DatabaseException& ex)
+                {
+                    _apiConnection.doError(id, ApiError::DatabaseError, ex.what());
+                }
             }
 
             void onMessage(const JsonRpcId& id, const wallet::Ping& data) override
@@ -743,14 +781,14 @@ namespace
 
             IPrivateKeyKeeper2::Ptr createKeyKeeperFromDB(const std::string& id, const std::string& pass)
             {
-                auto walletDB = WalletDB::open(id + ".db", SecString(pass));
+                auto walletDB = WalletDB::open(makeDBPath(id), SecString(pass));
                 Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
                 return createKeyKeeper(pKey);
             }
 
             IPrivateKeyKeeper2::Ptr createKeyKeeper(Key::IPKdf::Ptr ownerKdf)
             {
-                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *this, _reactor);
+                return std::make_shared<WasmKeyKeeperProxy>(ownerKdf, *this);
             }
 
         protected:
@@ -762,6 +800,8 @@ namespace
             Wallet::Ptr _wallet;
             WalletServiceApi _api;
             WalletMap& _walletMap;
+            io::Address _nodeAddr;
+            bool _withAssets;
         };
 
     };
@@ -772,8 +812,11 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-    const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
+    const char* LOG_FILES_DIR = "logs";
+    const char* LOG_FILES_PREFIX = "service_";
+
+    const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_FILES_PREFIX, path.string());
 
     try
     {
@@ -784,8 +827,11 @@ int main(int argc, char* argv[])
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
             std::string allowedOrigin;
-
+            bool withPipes = false;
+            bool withAssets = false;
         } options;
+
+        io::Address node_addr;
 
         {
             po::options_description desc("Wallet API general options");
@@ -796,6 +842,8 @@ int main(int argc, char* argv[])
                 (cli::ALLOWED_ORIGIN, po::value<std::string>(&options.allowedOrigin)->default_value(""), "allowed origin")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+                (cli::WITH_SYNC_PIPES,  po::bool_switch(&options.withPipes)->default_value(false), "enable sync pipes")
+                (cli::WITH_ASSETS, po::bool_switch(&options.withAssets)->default_value(false), "enable confidential assets transactions")
             ;
 
             desc.add(createRulesOptionsDescription());
@@ -813,22 +861,17 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
-            {
-                std::ifstream cfg("wallet-api.cfg");
-
-                if (cfg)
-                {
-                    po::store(po::parse_config_file(cfg, desc), vm);
-                }
-            }
-
+            ReadCfgFromFileCommon(vm, desc);
+            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
             vm.notify();
 
-            getRulesOptions(vm);
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, beam::wallet::days2sec(options.logCleanupPeriod));
 
+            getRulesOptions(vm);
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
             
             if (vm.count(cli::NODE_ADDR) == 0)
             {
@@ -847,10 +890,10 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
 
-        LOG_INFO() << "Starting server on port " << options.port;
-        WalletApiServer server(reactor, options.port, options.allowedOrigin);
+        LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
+        WalletApiServer server(reactor, options.withAssets, node_addr, options.port, options.allowedOrigin, options.withPipes);
         reactor->run();
 
         LOG_INFO() << "Done";

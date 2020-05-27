@@ -74,6 +74,7 @@ namespace beam::wallet
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
+                    bool withAssets = false,
                     bool isSecondCurrencyEnabled = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
@@ -125,6 +126,8 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual Version getLibVersion() const;
+        virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
         
@@ -207,6 +210,7 @@ namespace beam::wallet
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
+        std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

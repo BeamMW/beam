@@ -110,6 +110,8 @@ namespace beam
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
 		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
 		static const ID s_InvalidID = 0;
+		static const ID s_BeamID    = 0;
+		static const PeerID s_InvalidOwnerID;
 
 		struct Base
 		{
@@ -124,8 +126,8 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value;
-			ECC::Hash::Value m_Hash; // not serialized
+			ByteBuffer m_Value = {};
+			ECC::Hash::Value m_Hash = Zero; // not serialized
 
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
@@ -134,7 +136,7 @@ namespace beam
 
 		struct Info
 		{
-			AmountBig::Type m_Value;
+			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Metadata m_Metadata;
@@ -209,7 +211,7 @@ namespace beam
 		static Rules& get();
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
-		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
+		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
 		struct {
 			// emission parameters
@@ -240,10 +242,10 @@ namespace beam
 		} DA;
 
 		struct {
-			bool Enabled = false;
+			bool Enabled = true;
 			Amount DepositForList = Coin * 1000;
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
-			Sigma::Cfg m_ProofCfg;
+			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
 		} CA;
 
 		uint32_t MaxRollback = 1440; // 1 day roughly
@@ -262,17 +264,17 @@ namespace beam
 		struct {
 			bool Enabled = true; // past Fork2
 
-			uint32_t NMax = 0x10000; // 64K
-			uint32_t NMin = 0x400; // 1K
+			Sigma::Cfg m_ProofMax = { 4, 8 }; // 4^8 = 64K
+			Sigma::Cfg m_ProofMin = { 4, 5 }; // 4^5 = 1K
 
-			// Max distance of the specified window from the tip where the prover is allowed to use big N.
-			// For proofs with bigger distance only NMin is supported
+			// Max distance of the specified window from the tip where the prover is allowed to use m_ProofMax.
+			// For proofs with bigger distance only m_ProofMin is supported
 			uint32_t MaxWindowBacklog = 0x10000; // 64K
 			// Hence "big" proofs won't need more than 128K most recent elements
 
 			// max shielded ins/outs per block
-			uint32_t MaxIns = 20;
-			uint32_t MaxOuts = 1000; // basically unlimited
+			uint32_t MaxIns = 20; // input processing is heavy
+			uint32_t MaxOuts = 30; // dust protection
 
 		} Shielded;
 
@@ -522,13 +524,14 @@ namespace beam
 
 	private:
 		struct PackedKA; // Key::ID + Asset::ID
+		bool IsValid2(Height hScheme, ECC::Point::Native& comm, const ECC::Point::Native* pGen) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 	struct ShieldedTxo
 	{
-		struct Serial
+		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded
 			ECC::SignatureGeneralized<2> m_Signature;
@@ -563,7 +566,7 @@ namespace beam
 		ECC::Point m_Commitment;
 		ECC::RangeProof::Confidential m_RangeProof;
 		Asset::Proof::Ptr m_pAsset;
-		Serial m_Serial;
+		Ticket m_Ticket;
 
 		void Prepare(ECC::Oracle&) const;
 		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
@@ -574,6 +577,48 @@ namespace beam
 		struct Viewer;
 		struct Data;
 		struct DataParams; // just a fwd-declaration of Data::Params
+
+		struct BaseKey
+		{
+			Key::Index m_nIdx;
+			bool m_IsCreatedByViewer;
+			ECC::Scalar m_kSerG;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_nIdx
+					& m_IsCreatedByViewer
+					& m_kSerG;
+			}
+		};
+
+		struct User
+		{
+			PeerID m_Sender;
+			ECC::uintBig m_pMessage[2];
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Sender
+					& m_pMessage;
+			}
+		};
+
+		struct Voucher
+		{
+			// single-usage
+			Ticket m_Ticket;
+			ECC::Hash::Value m_SharedSecret;
+			ECC::Signature m_Signature;
+
+			void get_Hash(ECC::Hash::Value&) const;
+			bool IsValid(const PeerID&) const;
+			bool IsValid(const ECC::Point::Native&) const;
+		};
 	};
 
 #define BeamKernelsAll(macro) \
@@ -808,6 +853,9 @@ namespace beam
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
 
+		// Prover/Witness: the 'output' blinding factor and the seed are automatically set
+		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
+
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
@@ -936,6 +984,8 @@ namespace beam
 			Amount m_Kernel; // nested kernels are accounted too
 			Amount m_ShieldedInput;
 			Amount m_ShieldedOutput;
+
+			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
 
 			FeeSettings(); // defaults
 
@@ -1304,4 +1354,20 @@ namespace beam
 
 inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
 	return hp << Cast::Down<ECC::Hash::Value>(pid);
+}
+
+// TODO: review this types, they don't have standard layout
+inline void ZeroObject(beam::CoinID& x)
+{
+	ZeroObjectUnchecked(x);
+}
+
+inline void ZeroObject(beam::Block::SystemState::Full& x)
+{
+	ZeroObjectUnchecked(x);
+}
+
+inline void ZeroObject(beam::Asset::Full& x)
+{
+	ZeroObjectUnchecked(x);
 }

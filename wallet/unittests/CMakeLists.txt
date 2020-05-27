@@ -33,5 +33,9 @@ if (BEAM_LASER_SUPPORT)
     add_test_snippet(laser_test_delete node laser)
 endif()
 
+if (BEAM_LELANTUS_SUPPORT)
+    add_test_snippet(lelantus_test lelantus wallet node)
+endif()
+
 #add_executable(offline offline.cpp)
 #target_link_libraries(offline node wallet)

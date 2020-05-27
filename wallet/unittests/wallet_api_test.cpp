@@ -98,8 +98,7 @@ namespace
         WalletApiHandler handler;
         handler.func = func;
 
-        WalletApi api(handler);
-
+        WalletApi api(handler, true);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
@@ -123,7 +122,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -165,11 +164,12 @@ namespace
             void onMessage(const JsonRpcId& id, const GetUtxo& data) override
             {
                 WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -224,9 +224,10 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                //WALLET_CHECK(data.session == 15);
+                WALLET_CHECK(data.session && *data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+                WALLET_CHECK(data.assetId && *data.assetId == 1);
 
                 if(data.from)
                 {
@@ -236,7 +237,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -276,7 +277,7 @@ namespace
         };
 
         WalletApiHandler handler(onError, onSuccess);
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -310,12 +311,13 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
-    void testInvalidIssueJsonRpc(const std::string& msg)
+    template<typename T>
+    void testInvalidAssetJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
         {
@@ -325,44 +327,122 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Issue& data) override
+            void onMessage(const JsonRpcId& id, const T& data) override
             {
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
-    void testIssueJsonRpc(const std::string& msg)
+    template<typename T>
+    void testICJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
             void onInvalidJsonRpc(const json& msg) override
             {
-                WALLET_CHECK(!"invalid issue api json!!!");
+                WALLET_CHECK(!"invalid issue/consume api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Issue& data) override
+            void onMessage(const JsonRpcId& id, const T& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.index > 0);
+                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
                 WALLET_CHECK(data.value > 0);
             }
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
         {
             json res;
-            Issue::Response status;
+            typename T::Response status;
+            status.txId = { 1,2,3 };
+            api.getResponse(12345, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 12345);
+        }
+    }
+
+    void testAIJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid asset info api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const TxAssetInfo& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler, true);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            typename TxAssetInfo::Response status;
+            status.txId = { 3,1,3 };
+            api.getResponse(12345, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 12345);
+        }
+    }
+
+    void testGetAssetInfoJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid GetAssetInfo api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const GetAssetInfo& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.assetId.is_initialized() || data.assetMeta.is_initialized());
+
+                if (data.assetId.is_initialized())
+                {
+                    const auto assetId = *data.assetId;
+                    WALLET_CHECK(assetId > 0);
+                }
+
+                if (data.assetMeta.is_initialized())
+                {
+                    const auto meta = *data.assetMeta;
+                    WALLET_CHECK(!meta.empty());
+                }
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler, true);
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            GetAssetInfo::Response status;
 
             api.getResponse(12345, status, res);
             testResultHeader(res);
@@ -392,7 +472,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -416,7 +496,6 @@ namespace
             void onInvalidJsonRpc(const json& msg) override
             {
                 WALLET_CHECK(!"invalid split api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -424,17 +503,18 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                //WALLET_CHECK(data.session == 123);
+                // WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
                 WALLET_CHECK(data.coins[3] == 50000000000000);
                 WALLET_CHECK(data.fee == 100);
+                WALLET_CHECK(data.assetId && *data.assetId == 1);
             }
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -469,7 +549,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -483,20 +563,19 @@ namespace
             void onInvalidJsonRpc(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
             void onMessage(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
-
                 WALLET_CHECK(*data.filter.status == TxStatus::Completed);
+                WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -534,7 +613,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -564,7 +643,7 @@ namespace
         };
 
         WalletApiHandler handler(valid);
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -604,7 +683,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -644,7 +723,7 @@ namespace
 
         WalletApiHandler handler;
 
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -684,7 +763,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
         
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -733,7 +812,7 @@ namespace
         };
 
         WalletApiHandler handler(value);
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -760,7 +839,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -788,7 +867,7 @@ namespace
         {
         public:
 
-            WalletApiHandler(const std::string value)
+            WalletApiHandler(const std::string& value)
                 : _value(value)
             {}
 
@@ -810,7 +889,7 @@ namespace
         };
 
         WalletApiHandler handler(kToken);
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -852,7 +931,7 @@ namespace
         {
         public:
 
-            WalletApiHandler(const std::string value)
+            WalletApiHandler(const std::string& value)
                 : _value(value)
             {}
 
@@ -874,7 +953,7 @@ namespace
         };
 
         WalletApiHandler handler(kTxId);
-        WalletApi api(handler);
+        WalletApi api(handler, true);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -898,6 +977,386 @@ namespace
         }
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+}
+
+template<typename T>
+void TestICTx(const char* method)
+{
+    const auto exp = [&](std::string str) -> auto {
+        const char* what = "METHOD";
+        const auto index = str.find(what);
+        if (index != std::string::npos) {
+            const std::string mname = std::string("\"") + method + "\"";
+            str.replace(index, strlen(what), mname);
+        }
+        return str;
+    };
+
+    // Invalid asset id
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": -1,
+            "value": 10
+        }
+    })));
+
+    // Invalid meta
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_meta": "",
+            "value": 10
+        }
+    })));
+
+    // missing asset id & meta
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "value": 10
+        }
+    })));
+
+    // Invalid negative value (amount)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value": -1
+        }
+    })));
+
+    // Invalid zero value (amount)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value": 0
+        }
+    })));
+
+    // Invalid too big value (amount)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 1234234200000000000000000000000
+        }
+    })));
+
+    // Missing value (amount)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1
+        }
+    })));
+
+    // Invalid fee
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 100,
+            "fee": 0
+        }
+    })));
+
+    // Bad coins (string instead of array)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "coins": "blah"
+        }
+    })));
+
+    // Bad coins (int instead of string id)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "coins": [22]
+        }
+    })));
+
+    // Bad session
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "index": 1,
+            "value" : 12342342,
+            "session": "blah"
+        }
+    })));
+
+    // Bad txId (not a hex string)
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "txId": 22
+        }
+    })));
+
+    // Bad txId string
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "txId": "22"
+        }
+    })));
+
+    // valid asset_id
+    testICJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342
+        }
+    })));
+
+    // valid meta
+    testICJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_meta": "some meta",
+            "value" : 12342342
+        }
+    })));
+}
+
+void TestGetAssetInfo()
+{
+    // Invalid asset id
+    testInvalidAssetJsonRpc<GetAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_id": -1
+        }
+    }));
+
+    // Invalid meta
+    testInvalidAssetJsonRpc<GetAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_meta": ""
+        }
+    }));
+
+    // missing asset id & meta
+    testInvalidAssetJsonRpc<GetAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+        }
+    }));
+
+    // valid asset_id
+    testGetAssetInfoJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_id": 1
+        }
+    }));
+
+    // valid meta
+    testGetAssetInfoJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+}
+
+void TestAITx()
+{
+    // Invalid asset id
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_id": -1,
+        }
+    }));
+
+    // Invalid meta
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_meta": "",
+        }
+    }));
+
+    // missing asset id & meta
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id"     : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+        }
+    }));
+
+    // Bad txId (not a hex string)
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_id": 1,
+            "txId": 22
+        }
+    }));
+
+    // Bad txId string
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_id": 1,
+            "txId": "22"
+        }
+    }));
+
+    // valid asset_id
+    testAIJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_id": 1
+        }
+    }));
+
+    // valid meta
+    testAIJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+}
+
+void TestAssetsAPI()
+{
+    //
+    // EXPLICITLY ENABLE Confidential assets to perform tests
+    //
+    Rules::get().CA.Enabled = true;
+    Rules::get().UpdateChecksum();
+
+    TestICTx<Issue>("tx_asset_issue");
+    TestICTx<Consume>("tx_asset_consume");
+    TestAITx();
+    TestGetAssetInfo();
+
+    Rules::get().CA.Enabled = false;
+    Rules::get().UpdateChecksum();
 }
 
 int main()
@@ -972,7 +1431,14 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "get_utxo"
+        "method" : "get_utxo",
+        "params":
+        {
+            "filter":
+            {
+                "asset_id": 1
+            }
+        }
     }));
 
     testSendJsonRpc(JSON_CODE(
@@ -983,6 +1449,7 @@ int main()
         "params" : 
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 12342342,
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
@@ -1010,6 +1477,7 @@ int main()
         "params" : 
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1024,12 +1492,13 @@ int main()
         "params" :
         {
             "session" : 15,
+            "asset_id": 1,
             "value" : 1234234200000000000000000000000,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
     }), 
-    [](const json& msg) {}, 
+    [](const json& msg) {},
     [](const JsonRpcId& id, const Send& data)
     {
         WALLET_CHECK(!"The value is invalid!!!");
@@ -1049,162 +1518,17 @@ int main()
         }
     }));
 
-    //
-    // EXPLICITLY ENABLE Confidential assets to perform tests
-    //
-    Rules::get().CA.Enabled = true;
-
-    // Invalid asset index
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
+    // bad asset_id
+    testInvalidSendJsonRpc(JSON_CODE({
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "tx_issue",
+        "method" : "tx_send",
         "params" :
         {
             "session" : 15,
-            "value" : 12342342,
-            "index": -1
-        }
-    }));
-
-    // Invalid negative value (amount)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "session" : 15,
-            "value" : -1
-        }
-    }));
-
-    // Invalid zero value (amount)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "session" : 15,
-            "value" : 0
-        }
-    }));
-
-    // Invalid too big value (amount)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "session" : 15,
-            "value" : 1234234200000000000000000000000
-        }
-    }));
-
-    // Invalid fee
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "session" : 15,
-            "value" : 100,
-            "fee": 0
-        }
-    }));
-
-    // Bad coins (string instead of array)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "session" : 15,
-            "value" : 12342342,
-            "coins": "blah"
-        }
-    }));
-
-    // Bad coins (int instead of string id)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "session" : 15,
-            "value" : 12342342,
-            "coins": [22]
-        }
-    }));
-
-    // Bad session
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "value" : 12342342,
-            "session": "blah"
-        }
-    }));
-
-    // Bad txId (not a hex string)
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "session": 15,
-            "value" : 12342342,
-            "txId": 22
-        }
-    }));
-
-    // Bad txId string
-    testInvalidIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "session": 15,
-            "value" : 12342342,
-            "txId": "22"
-        }
-    }));
-
-    testIssueJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_issue",
-        "params" :
-        {
-            "index": 1,
-            "value" : 12342342
+            "value" : 20,
+            "asset_id": -1,
+            "address" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6"
         }
     }));
 
@@ -1228,7 +1552,8 @@ int main()
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
-            "fee" : 100
+            "fee" : 100,
+            "asset_id": 1
         }
     }));
 
@@ -1254,7 +1579,8 @@ int main()
         {
             "filter" : 
             {
-                "status" : 3
+                "status" : 3,
+                "asset_id": 1
             }
         }
     }));
@@ -1422,6 +1748,8 @@ int main()
             }
         }));
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    TestAssetsAPI();
 
     return WALLET_CHECK_RESULT;
 }

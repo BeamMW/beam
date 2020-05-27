@@ -34,11 +34,12 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
     void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
-    void confirm_asset(const TxID&, const Key::Index, const PeerID&, SubTxID subTxID) override {}
+    void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
+    void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override {}
     void UpdateOnNextTip(const TxID&) override {};
 };
 
@@ -123,7 +124,7 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeBeam, toByteBuffer(p.m_changeBeam), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeAsset, toByteBuffer(p.m_changeAsset), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetOwnerIdx, toByteBuffer(p.m_assetOwnerIdx), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetMetadata, toByteBuffer(p.m_assetMeta), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, toByteBuffer(p.m_peerId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, toByteBuffer(p.m_myId), false);
@@ -161,6 +162,9 @@ public:
     }
 
     void rollbackConfirmedUtxo(Height /*minHeight*/) override
+    {}
+
+    void rollbackAssets(Height /*minHeight*/) override
     {}
 
     void clearCoins() override {}
@@ -273,9 +277,9 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
     return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
-IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, false);
+    auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
     for (int i = 0; i < count; ++i)
     {
@@ -285,9 +289,9 @@ IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBFor
     return db;
 }
 
-IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false, bool generateSeed = false)
 {
-    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, false);
+    return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData, generateSeed);
 }
 
 struct TestGateway : wallet::INegotiatorGateway
@@ -363,7 +367,7 @@ class TestWallet : public Wallet
 {
 public:
     TestWallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
-        : Wallet{ walletDB, std::move(action), std::move(updateCompleted)}
+        : Wallet{ walletDB, true, std::move(action), std::move(updateCompleted)}
         , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
     {
 
@@ -422,7 +426,7 @@ struct TestWalletRig
         Offline
     };
 
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
+    TestWalletRig(IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
     {
@@ -1092,6 +1096,11 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetStateSummary&& msg) override
+        {
+            Send(proto::StateSummary(Zero));
+        }
+
         void OnDisconnect(const DisconnectReason& r) override
         {
             switch (r.m_Type)
@@ -1202,8 +1211,8 @@ public:
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(m_TxCount, 6), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(m_TxCount, 6), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         auto timestamp = GetTime_ms();
@@ -1304,15 +1313,25 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2,
     Treasury::get_ID(*db->get_MasterKdf(), pid, sk);
 
     Treasury::Parameters params;
-    params.m_Bursts = static_cast<uint32_t>(amounts.size());
+    params.m_Bursts = 1U;
     //params.m_Maturity0 = 1;
     params.m_MaturityStep = 1;
 
     Treasury::Entry* plan = treasury.CreatePlan(pid, 0, params);
-
+    beam::Height incubation = 0;
     for (size_t i = 0; i < amounts.size(); ++i)
     {
-        plan->m_Request.m_vGroups[i].m_vCoins.front().m_Value = amounts[i];
+        if (i == 0)
+        {
+            plan->m_Request.m_vGroups.front().m_vCoins.front().m_Value = amounts[i];
+            incubation = plan->m_Request.m_vGroups.front().m_vCoins.front().m_Incubation;
+            continue;
+        }
+
+        auto& c = plan->m_Request.m_vGroups.back().m_vCoins.emplace_back();
+
+        c.m_Incubation = incubation;
+        c.m_Value = amounts[i];
     }
 
     plan->m_pResponse.reset(new Treasury::Response);
