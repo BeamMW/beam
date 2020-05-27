@@ -108,6 +108,7 @@ private:
     void Subscribe();
     void Unsubscribe();
     bool IsInSync();
+    bool IsChannelExpired(const std::unique_ptr<Channel>& channel);
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
