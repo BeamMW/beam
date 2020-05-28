@@ -972,9 +972,6 @@ bool Mediator::IsChannelExpired(const std::unique_ptr<Channel>& channel)
 {
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
-    LOG_DEBUG() << channel->get_LockHeight();
-    LOG_DEBUG() << channel->getLocktime();
-    LOG_DEBUG() << channel->get_LockHeight() + channel->m_Params.m_hLockTime + channel->m_Params.m_hPostLockReserve;
     return tip.m_Height >= channel->get_LockHeight() + channel->m_Params.m_hLockTime + channel->m_Params.m_hPostLockReserve;
 }
 
