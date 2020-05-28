@@ -525,6 +525,7 @@ void Channel::Subscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
+    m_isSubscribed = true;
     LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
 }
 
@@ -533,6 +534,7 @@ void Channel::Unsubscribe()
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
+    m_isSubscribed = false;
     LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
     
 }
@@ -561,6 +563,11 @@ bool Channel::IsUpdateStuck() const
 bool Channel::IsGracefulCloseStuck() const
 {
     return m_gracefulClose && !m_State.m_Terminate && IsUpdateStuck();
+}
+
+bool Channel::IsSubscribed() const
+{
+    return m_isSubscribed;
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)
