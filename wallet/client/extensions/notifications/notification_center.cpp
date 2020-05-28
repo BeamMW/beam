@@ -75,16 +75,6 @@ namespace beam::wallet
             {
                 if (p.second.m_state == Notification::State::Unread)
                 {
-                    if (p.second.m_type == Notification::Type::SoftwareUpdateAvailable)
-                    {
-                        VersionInfo info;
-                        if (fromByteBuffer(p.second.m_content, info) &&
-                            app == VersionInfo::Application::DesktopWallet &&
-                            currentLibVersion < info.m_version)
-                        {
-                            return true;
-                        }
-                    }
                     if (p.second.m_type == Notification::Type::WalletImplUpdateAvailable)
                     {
                         WalletImplVerInfo info;

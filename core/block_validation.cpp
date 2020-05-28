@@ -174,8 +174,6 @@ namespace beam
 				HeightRange hr = r.m_pKernel->m_Height;
 				if (iFork >= 2)
 				{
-					assert(hr.m_Min >= rules.pForks[2].m_Height);
-
 					if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
 						hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
 				}

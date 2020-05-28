@@ -1821,7 +1821,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 	{
 		IBase& v = *pArr[i];
 		v.Set(i, Codes::Role);
-		v.Set(Rules::get().get_LastFork().m_Height, Codes::Scheme);
+		v.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
 	}
 
 	cout << "\nNegotiating: " << szTask << std::endl;

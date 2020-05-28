@@ -97,6 +97,7 @@ public:
     bool IsSafeToClose() const;
     bool IsUpdateStuck() const;
     bool IsGracefulCloseStuck() const;
+    bool IsSubscribed() const;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);
@@ -119,5 +120,6 @@ private:
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
+    bool m_isSubscribed = false;
 };
 }  // namespace beam::wallet::laser

@@ -518,7 +518,7 @@ void Channel::Update()
 	if (!m_State.m_Terminate)
 	{
 		const HeightRange* pHR = pPath->get_HR();
-		if (pHR && ((hTip + m_Params.m_hPostLockReserve + (m_iRole ? kPostLockReserveLag : 0)) > pHR->m_Max))
+		if (pHR && (hTip + (m_iRole ? kPostLockReserveLag : 0)) > (pHR->m_Max - m_Params.m_hPostLockReserve))
 		{
 			m_State.m_Terminate = true;
 			m_pNegCtx.reset();
