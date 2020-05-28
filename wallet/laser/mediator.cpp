@@ -302,8 +302,7 @@ bool Mediator::Serve(const std::string& channelID)
                 return;
             }
 
-            if (channel)
-                channel->Subscribe();
+            channel->Subscribe();
 
         });
         return true;
@@ -853,7 +852,7 @@ void Mediator::UpdateChannels()
         if (state != Lightning::Channel::State::None &&
             state != Lightning::Channel::State::Closed &&
             state != Lightning::Channel::State::OpenFailed &&
-            !IsChannelExpired(channel))
+            channel->IsSubscribed())
         {
             channel->Update();
         }
@@ -973,6 +972,9 @@ bool Mediator::IsChannelExpired(const std::unique_ptr<Channel>& channel)
 {
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
+    LOG_DEBUG() << channel->get_LockHeight();
+    LOG_DEBUG() << channel->getLocktime();
+    LOG_DEBUG() << channel->get_LockHeight() + channel->m_Params.m_hLockTime + channel->m_Params.m_hPostLockReserve;
     return tip.m_Height >= channel->get_LockHeight() + channel->m_Params.m_hLockTime + channel->m_Params.m_hPostLockReserve;
 }
 
