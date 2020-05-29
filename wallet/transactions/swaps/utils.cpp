@@ -21,6 +21,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 
 namespace beam::wallet
 {
@@ -162,6 +163,26 @@ void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
         auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
     }
+
+    {
+        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+        dogecoinSettingsProvider->Initialize();
+
+        // qtumSettingsProvider stored in qtumBridgeCreator
+        auto dogecoinBridgeCreator = [settingsProvider = dogecoinSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<dogecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<dogecoin::DogecoinCore014>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto dogecoinSecondSideFactory = wallet::MakeSecondSideFactory<DogecoinSide, dogecoin::Electrum, dogecoin::ISettingsProvider>(dogecoinBridgeCreator, *dogecoinSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dogecoin, dogecoinSecondSideFactory);
+    }
 }
 
 Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
@@ -207,6 +228,19 @@ Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 
         return qtumSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Dogecoin:
+    {
+        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+        dogecoinSettingsProvider->Initialize();
+
+        auto dogecoinSettings = dogecoinSettingsProvider->GetSettings();
+        if (!dogecoinSettings.IsInitialized())
+        {
+            throw std::runtime_error("Dogecoin settings should be initialized.");
+        }
+
+        return dogecoinSettings.GetFeeRate();
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -225,6 +259,8 @@ bool IsSwapAmountValid(
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Dogecoin:
+        return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }
