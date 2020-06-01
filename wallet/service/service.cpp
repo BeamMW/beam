@@ -149,6 +149,14 @@ namespace beam::wallet
         getHandler().onMessage(id, message);
     }
 
+    void WalletServiceApi::onChangePasswordMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "new_pass", id);
+        ChangePassword message;
+        message.newPassword = params["new_pass"].get<std::string>();
+        getHandler().onMessage(id, message);
+    }
+
     void WalletServiceApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
     {
         msg = json
@@ -201,6 +209,16 @@ namespace beam::wallet
                     {"change_str", std::to_string(res.change)} // string representation 
                 }
             }
+        };
+    }
+
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const ChangePassword::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "done"}
         };
     }
 }
@@ -791,6 +809,15 @@ namespace
                 }
                 Amount change = (sum > data.amount) ? (sum - data.amount) : 0UL;
                 doResponse(id, CalcChange::Response{change});
+            }
+
+            void onMessage(const JsonRpcId& id, const ChangePassword& data) override
+            {
+                LOG_DEBUG() << "ChangePassword(id = " << id << ")";
+
+                _walletDB->changePassword(data.newPassword);
+
+                doResponse(id, ChangePassword::Response{ });
             }
 
             static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)

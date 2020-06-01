@@ -27,6 +27,7 @@ namespace beam::wallet
     macro(Ping,             "ping",             API_READ_ACCESS)    \
     macro(Release,          "release",          API_READ_ACCESS)    \
     macro(CalcChange,       "calc_change",      API_READ_ACCESS)    \
+    macro(ChangePassword,   "change_password",  API_WRITE_ACCESS)   \
     
 
     struct CreateWallet
@@ -68,6 +69,14 @@ namespace beam::wallet
         struct Response 
         {
             Amount change;
+        };
+    };
+
+    struct ChangePassword
+    {
+        std::string newPassword;
+        struct Response
+        {
         };
     };
 
