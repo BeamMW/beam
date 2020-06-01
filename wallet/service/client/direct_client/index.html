@@ -293,7 +293,7 @@
 
 						var ownID = data.result[0].own_id_str;
 						var identity = keykeeper.getIdentity(ownID)
-						var token = keykeeper.getSendToken(data.result[0].address, data.result[0].identity, 0)
+						var token = keykeeper.getSendToken(data.result[0].address, data.result[0].identity, "")
 
 						$('#wallet-panel .token').text(token)
 						$('#wallet-panel .ownID').text(ownID)

@@ -587,4 +587,4 @@ namespace beam::wallet
     WebSocketServer::~WebSocketServer()
     {
     }
-    }
+}

@@ -141,6 +141,14 @@ namespace beam::wallet
         getHandler().onMessage(id, Release{});
     }
 
+    void WalletServiceApi::onCalcChangeMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        ParameterReader reader(id, params);
+        CalcChange message;
+        message.amount = reader.readAmount("amount");
+        getHandler().onMessage(id, message);
+    }
+
     void WalletServiceApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
     {
         msg = json
@@ -178,6 +186,21 @@ namespace beam::wallet
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", "done"}
+        };
+    }
+
+    void WalletServiceApi::getResponse(const JsonRpcId& id, const CalcChange::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", 
+                {
+                    {"change", res.change},
+                    {"change_str", std::to_string(res.change)} // string representation 
+                }
+            }
         };
     }
 }
@@ -250,7 +273,7 @@ namespace
         };
 
         class WasmKeyKeeperProxy 
-            : public PrivateKeyKeeper_AsyncNotify
+            : public PrivateKeyKeeper_WithMarshaller
             , public std::enable_shared_from_this<WasmKeyKeeperProxy>
         {
         public:
@@ -269,7 +292,7 @@ namespace
                     x.m_pPKdf = _ownerKdf;
                     return Status::Success;
                 }
-                return PrivateKeyKeeper_AsyncNotify::InvokeSync(x);
+                return PrivateKeyKeeper_WithMarshaller::InvokeSync(x);
             }
 
             void InvokeAsync(Method::get_Kdf& x, const Handler::Ptr& h) override
@@ -514,8 +537,26 @@ namespace
                 assert(_sendFunc);
             }
 
-            virtual ~ServiceApiConnection()
+            virtual ~ServiceApiConnection() noexcept
             {
+                try
+                {
+                    // _walletDB and _wallet should be destroyed in the context of _reactor
+                    if (_walletDB || _wallet)
+                    {
+                        auto holder = std::make_shared<io::AsyncEvent::Ptr>();
+                        *holder = io::AsyncEvent::create(*_reactor, 
+                            [holder, walletDB = std::move(_walletDB), wallet = std::move(_wallet)]() mutable
+                            {
+                                holder.reset();
+                            });
+                        (*holder)->post();
+                    }
+                }
+                catch (...)
+                {
+
+                }
             }
 
             // IWalletData methods
@@ -736,6 +777,20 @@ namespace
             {
                 LOG_DEBUG() << "Release(id = " << id << ")";
                 doResponse(id, Release::Response{});
+            }
+
+            void onMessage(const JsonRpcId& id, const CalcChange& data) override
+            {
+                LOG_DEBUG() << "CalcChange(id = " << id << ")";
+
+                auto coins = _walletDB->selectCoins(data.amount, Zero);
+                Amount sum = 0;
+                for (auto& c : coins)
+                {
+                    sum += c.m_ID.m_Value;
+                }
+                Amount change = (sum > data.amount) ? (sum - data.amount) : 0UL;
+                doResponse(id, CalcChange::Response{change});
             }
 
             static std::string generateWalletID(Key::IPKdf::Ptr ownerKdf)

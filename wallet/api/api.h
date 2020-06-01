@@ -554,6 +554,18 @@ namespace beam::wallet
         static const char* getErrorMessage(ApiError code);
         static bool existsJsonParam(const json& params, const std::string& name);
         static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
+        static void throwParameterAbsence(const JsonRpcId& id, const std::string& name);
+
+        class ParameterReader
+        {
+        public:
+            ParameterReader(const JsonRpcId& id, const json& params);
+            Amount readAmount(const std::string& name, bool isMandatory = true, Amount defaultValue = 0);
+            boost::optional<TxID> readTxId(const std::string& name = "txId", bool isMandatory = true);
+        private:
+            const JsonRpcId& m_id;
+            const json& m_params;
+        };
 
     protected:
         IApiHandler& _handler;

@@ -26,6 +26,8 @@ namespace beam::wallet
     macro(OpenWallet,       "open_wallet",      API_WRITE_ACCESS)   \
     macro(Ping,             "ping",             API_READ_ACCESS)    \
     macro(Release,          "release",          API_READ_ACCESS)    \
+    macro(CalcChange,       "calc_change",      API_READ_ACCESS)    \
+    
 
     struct CreateWallet
     {
@@ -57,6 +59,16 @@ namespace beam::wallet
     struct Release
     {
         struct Response {};
+    };
+
+    struct CalcChange
+    {
+        Amount amount;
+
+        struct Response 
+        {
+            Amount change;
+        };
     };
 
 

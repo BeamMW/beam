@@ -1057,7 +1057,7 @@ namespace beam::wallet
             {
                 // Reconstruct tx with reset parameters and add it to the active list
                 auto pTx = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (pTx->Rollback(sTip.m_Height))
+                if (pTx && pTx->Rollback(sTip.m_Height))
                 {
                     m_ActiveTransactions.emplace(tx.m_txId, pTx);
                     UpdateOnSynced(pTx);
