@@ -123,9 +123,11 @@ namespace beam::wallet
 
     void NotificationCenter::markNotificationAsRead(const ECC::uintBig& notificationID)
     {
+        LOG_DEBUG() << "NotificationCenter::markNotificationAsRead notificationID: " << notificationID;
         auto search = m_cache.find(notificationID);
         if (search != m_cache.cend() && search->second.m_state == Notification::State::Unread)
         {
+            LOG_DEBUG() << "search->second.m_state = Notification::State::Read";
             search->second.m_state = Notification::State::Read;
             updateNotification(search->second);
         }
