@@ -432,7 +432,6 @@ struct Context
     Context()
         :m_Network(m_FlyClient)
     {
-        m_Exec.m_Threads = std::thread::hardware_concurrency();
     }
 
     struct Cfg
@@ -452,20 +451,7 @@ struct Context
 
     } m_Cfg;
 
-    struct Exec
-        :public beam::ExecutorMT
-    {
-        uint32_t m_Threads;
-
-        virtual uint32_t get_Threads() override { return m_Threads; }
-
-        virtual void RunThread(uint32_t iThread) override
-        {
-            ExecutorMT::Context ctx;
-            ctx.m_iThread = iThread;
-            RunThreadCtx(ctx);
-        }
-    } m_Exec;
+    beam::ExecutorMT m_Exec;
 
 
     void OnRolledBack()
