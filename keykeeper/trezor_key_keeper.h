@@ -38,7 +38,7 @@ namespace beam::wallet
         Status::Type InvokeSync(Method::get_NumSlots& m) override;
 
 #define THE_MACRO(method) \
-		void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
+        void InvokeAsync(Method::method& m, const Handler::Ptr& pHandler) override;
 
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
@@ -84,5 +84,10 @@ namespace beam::wallet
 
         struct CreateOutputCtx;
         void PushOut1(Task::Ptr& p);
+
+        void PushHandler(const Handler::Ptr& handler);
+        void PopHandler();
+
+        std::queue<Handler::Ptr> m_Handlers;
     };
 }
