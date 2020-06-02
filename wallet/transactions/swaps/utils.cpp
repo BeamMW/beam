@@ -21,6 +21,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 
 namespace beam::wallet
 {
@@ -162,6 +163,26 @@ void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
         auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
     }
+
+    {
+        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+        bchSettingsProvider->Initialize();
+
+        // bchSettingsProvider stored in bchBridgeCreator
+        auto bchBridgeCreator = [settingsProvider = bchSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<bitcoin_cash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<bitcoin_cash::BitcoinCashCore>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto bchSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinCashSide, bitcoin_cash::Electrum, bitcoin_cash::ISettingsProvider>(bchBridgeCreator, *bchSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin_Cash, bchSecondSideFactory);
+    }
 }
 
 Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
@@ -207,6 +228,19 @@ Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 
         return qtumSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Bitcoin_Cash:
+    {
+        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+        bchSettingsProvider->Initialize();
+
+        auto bchSettings = bchSettingsProvider->GetSettings();
+        if (!bchSettings.IsInitialized())
+        {
+            throw std::runtime_error("Bitcoin Cash settings should be initialized.");
+        }
+
+        return bchSettings.GetFeeRate();
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -225,6 +259,8 @@ bool IsSwapAmountValid(
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Bitcoin_Cash:
+        return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }

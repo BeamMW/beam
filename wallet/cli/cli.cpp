@@ -27,6 +27,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2020,6 +2021,10 @@ namespace
             {
                 return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
             }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+            {
+                return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>(vm, walletDB);
+            }
             default:
             {
                 throw std::runtime_error("Unsupported coin for swap");
@@ -2054,6 +2059,11 @@ namespace
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
                 ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+            {
+                ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, "bch");
                 break;
             }
             default:
@@ -2223,6 +2233,22 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = qtumSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Bitcoin_Cash)
+        {
+            auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+            bchSettingsProvider->Initialize();
+            auto bchSettings = bchSettingsProvider->GetSettings();
+            if (!bchSettings.IsInitialized())
+            {
+                throw std::runtime_error("Bitcoin Cash settings should be initialized.");
+            }
+
+            if (!BitcoinCashSide::CheckAmount(*swapAmount, bchSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = bchSettings.GetFeeRate();
         }
         else
         {
