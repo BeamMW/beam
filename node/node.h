@@ -219,7 +219,6 @@ private:
 		struct MyExecutorMT
 			:public ExecutorMT
 		{
-			virtual uint32_t get_Threads() override;
 			virtual void RunThread(uint32_t) override;
 
 			~MyExecutorMT() { Stop(); }

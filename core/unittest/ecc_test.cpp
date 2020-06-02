@@ -1834,22 +1834,8 @@ void TestLelantus(bool bWithAsset)
 
 	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
 	{
-		struct MyExec
-			:public beam::ExecutorMT
-		{
-			uint32_t m_Threads;
-
-			virtual uint32_t get_Threads() override { return m_Threads; }
-
-			virtual void RunThread(uint32_t iThread) override
-			{
-				ExecutorMT::Context ctx;
-				ctx.m_iThread = iThread;
-				RunThreadCtx(ctx);
-			}
-		} ex;
-
-		ex.m_Threads = 1 << iCycle;
+		beam::ExecutorMT ex;
+		ex.set_Threads(1 << iCycle);
 
 		beam::Executor::Scope scope(ex);
 
@@ -1861,7 +1847,7 @@ void TestLelantus(bool bWithAsset)
 		p.Generate(Zero, oracle, &hGen);
 
 		if (!bWithAsset)
-			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.m_Threads);
+			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.get_Threads());
 
 		// serialization
 		beam::Serializer ser_;
