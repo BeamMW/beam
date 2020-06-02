@@ -1028,6 +1028,7 @@ namespace beam::wallet
     
     void WalletClient::getNotifications()
     {
+        LOG_DEBUG() << "WalletClient::getNotifications";
         onNotificationsChanged(ChangeAction::Reset, m_notificationCenter->getNotifications());
     }
 
