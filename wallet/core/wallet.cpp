@@ -161,22 +161,38 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // Rescan the blockchain for UTXOs
+    // Rescan the blockchain for UTXOs and shielded coins
     void Wallet::Rescan()
     {
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
         std::vector<Coin> ocoins;
+        // do the same thing with shielded coins which are in progress
+        std::vector<ShieldedCoin> shieldedCoins;
         for (const auto& tx : m_ActiveTransactions)
         {
             const auto& txocoins = m_WalletDB->getCoinsCreatedByTx(tx.first);
             ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
+            auto shieldedCoin = m_WalletDB->getShieldedCoin(tx.first);
+
+            // save newly created coins only to be able to accomplish the transaction,
+            // all the others should be able to be restored from blockchain
+            if (shieldedCoin && shieldedCoin->m_createTxId && *shieldedCoin->m_createTxId == tx.first)
+            {
+                shieldedCoins.push_back(*shieldedCoin);
+            }
         }
 
         m_WalletDB->clearCoins();
+        m_WalletDB->clearShieldedCoins();
 
         // Restore Incoming coins of active transactions
         m_WalletDB->saveCoins(ocoins);
+        // Restore shielded coins
+        for (const auto& sc : shieldedCoins)
+        {
+            m_WalletDB->saveShieldedCoin(sc);
+        }
 
         storage::setVar(*m_WalletDB, s_szNextEvt, 0);
         RequestEvents();

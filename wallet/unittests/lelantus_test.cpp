@@ -660,6 +660,10 @@ void TestShieldedUTXORollback()
     WALLET_CHECK(coins.size() == 1);
     WALLET_CHECK(coins[0].m_spentHeight == MaxHeight);
     WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
+
+    db->clearShieldedCoins();
+    coins = db->getShieldedCoins(Asset::s_BeamID);
+    WALLET_CHECK(coins.empty());
 }
 
 void TestPushTxRollbackByLowFee()

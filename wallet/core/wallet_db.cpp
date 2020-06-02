@@ -2764,6 +2764,13 @@ namespace beam::wallet
         return {};
     }
 
+    void WalletDB::clearShieldedCoins()
+    {
+        sqlite::Statement stm(this, "DELETE FROM " SHIELDED_COINS_NAME ";");
+        stm.step();
+        notifyShieldedCoinsChanged(ChangeAction::Reset, {});
+    }
+
     void WalletDB::saveShieldedCoin(const ShieldedCoin& shieldedCoin)
     {
         saveShieldedCoinRaw(shieldedCoin);

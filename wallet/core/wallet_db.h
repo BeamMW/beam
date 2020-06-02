@@ -405,6 +405,7 @@ namespace beam::wallet
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
+        virtual void clearShieldedCoins() = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
 
         // Rollback shielded UTXO set to known height (used in rollback scenario)
@@ -554,6 +555,7 @@ namespace beam::wallet
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
+        void clearShieldedCoins() override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
