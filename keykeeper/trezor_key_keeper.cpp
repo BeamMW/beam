@@ -256,6 +256,10 @@ namespace beam::wallet
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
         PushHandler(h);
+        if (m.m_Root)
+        {
+            m.m_iChild = 0; // with another value we will get "Firmware error"
+        }
         m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, 
             [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
