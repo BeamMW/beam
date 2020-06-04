@@ -18,9 +18,13 @@
 #include "utility/io/asyncevent.h"
 
 #include <boost/beast/core.hpp>
+#include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
+#include <boost/beast/websocket/ssl.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/http.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/asio/strand.hpp>
 
 #include <thread>
 #include <mutex>
@@ -32,6 +36,7 @@ using tcp = boost::asio::ip::tcp;               // from <boost/asio/ip/tcp.hpp>
 namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
 namespace beast = boost::beast;                 // from <boost/beast.hpp>
 namespace http = beast::http;                   // from <boost/beast/http.hpp>
+namespace ssl = boost::asio::ssl;               // from <boost/asio/ssl.hpp>
 
 namespace beam::wallet
 {
@@ -52,8 +57,8 @@ namespace beam::wallet
         {
         public:
             // Take ownership of the socket
-            explicit Session(tcp::socket socket, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator)
-                : m_webSocket(std::move(socket))
+            explicit Session(tcp::socket socket, ssl::context& sslContext, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator)
+                : m_webSocket(std::move(socket), sslContext)
                 , m_newDataEvent(io::AsyncEvent::create(*reactor, [this]() { process_new_data(); }))
                 , m_handler(creator([this](const auto& msg) { do_write(msg); }))
 
@@ -69,6 +74,27 @@ namespace beam::wallet
             // Start the asynchronous operation
             void run()
             {
+                // Set the timeout.
+                beast::get_lowest_layer(m_webSocket).expires_after(std::chrono::seconds(30));
+
+                // Perform the SSL handshake
+                m_webSocket.next_layer().async_handshake(
+                    ssl::stream_base::server,
+                    [sp = shared_from_this()](boost::system::error_code ec)
+                {
+                    sp->on_handshake(ec);
+                });
+            }
+
+            void on_handshake(beast::error_code ec)
+            {
+                if (ec)
+                    return fail(ec, "handshake");
+
+                // Turn off the timeout on the tcp_stream, because
+                // the websocket stream has its own timeout system.
+                beast::get_lowest_layer(m_webSocket).expires_never();
+
                 // Accept the websocket handshake
                 m_webSocket.async_accept(
                     [sp = shared_from_this()](boost::system::error_code ec)
@@ -227,7 +253,7 @@ namespace beam::wallet
             }
 
         private:
-            websocket::stream<tcp::socket> m_webSocket;
+            websocket::stream < beast::ssl_stream<beast::tcp_stream>> m_webSocket;
             boost::beast::multi_buffer m_buffer;
             io::AsyncEvent::Ptr m_newDataEvent;
             WebSocketServer::IHandler::Ptr m_handler;
@@ -334,15 +360,17 @@ namespace beam::wallet
             io::Reactor::Ptr m_reactor;
             WebSocketServer::HandlerCreator& m_handlerCreator;
             std::string m_allowedOrigin;
+            ssl::context& m_sslContext;
 
         public:
             // Take ownership of the socket
-            HttpSession(tcp::socket&& socket, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
+            HttpSession(tcp::socket&& socket, ssl::context& sslContext, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
                 : m_socket(std::move(socket))
                 , m_queue(*this)
                 , m_reactor(reactor)
                 , m_handlerCreator(creator)
                 , m_allowedOrigin(allowedOrigin)
+                , m_sslContext(sslContext)
             {
             }
 
@@ -399,7 +427,7 @@ namespace beam::wallet
 
                 // Create a websocket session, transferring ownership
                 // of both the socket and the HTTP request.
-                std::make_shared<Session>(std::move(m_socket), m_reactor, m_handlerCreator)->do_accept(std::move(m_request));
+                std::make_shared<Session>(std::move(m_socket), m_sslContext, m_reactor, m_handlerCreator)->do_accept(std::move(m_request));
                 return;
             }
 
@@ -439,12 +467,13 @@ namespace beam::wallet
         class Listener : public std::enable_shared_from_this<Listener>
         {
         public:
-            Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
+            Listener(boost::asio::io_context& ioc, ssl::context& sslContext, tcp::endpoint endpoint, io::Reactor::Ptr reactor, WebSocketServer::HandlerCreator& creator, const std::string& allowedOrigin)
                 : m_acceptor(ioc)
                 , m_socket(ioc)
                 , m_reactor(reactor)
                 , m_handlerCreator(creator)
                 , m_allowedOrigin(allowedOrigin)
+                , m_sslContext(sslContext)
             {
                 boost::system::error_code ec;
 
@@ -508,12 +537,12 @@ namespace beam::wallet
                     if (m_allowedOrigin.empty())
                     {
                         // Create the Session and run it
-                        std::make_shared<Session>(std::move(m_socket), m_reactor, m_handlerCreator)->run();
+                        std::make_shared<Session>(std::move(m_socket), m_sslContext, m_reactor, m_handlerCreator)->run();
                     }
                     else
                     {
                         // Create the HttpSession and run it to handle Origin field
-                        std::make_shared<HttpSession>(std::move(m_socket), m_reactor, m_handlerCreator, m_allowedOrigin)->run();
+                        std::make_shared<HttpSession>(std::move(m_socket), m_sslContext, m_reactor, m_handlerCreator, m_allowedOrigin)->run();
                     }
                 }
 
@@ -527,6 +556,7 @@ namespace beam::wallet
             io::Reactor::Ptr m_reactor;
             WebSocketServer::HandlerCreator& m_handlerCreator;
             std::string m_allowedOrigin;
+            ssl::context& m_sslContext;
         };
         }
 
@@ -538,7 +568,13 @@ namespace beam::wallet
             , m_handlerCreator(std::move(creator))
             , m_startAction(startAction)
             , m_allowedOrigin(allowedOrigin)
+            , m_sslContext{ ssl::context::tlsv12 }
         {
+            m_sslContext.set_options(boost::asio::ssl::context::default_workarounds
+                                   | boost::asio::ssl::context::no_sslv2
+                                   | boost::asio::ssl::context::no_sslv3
+                                   | boost::asio::ssl::context::no_tlsv1
+                                   | boost::asio::ssl::context::single_dh_use);
             start(port);
         }
 
@@ -558,7 +594,7 @@ namespace beam::wallet
 
         void iocThreadFunc(uint16_t port)
         {
-            std::make_shared<Listener>(m_ioc, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, m_reactor, m_handlerCreator, m_allowedOrigin)->run();
+            std::make_shared<Listener>(m_ioc, m_sslContext, tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port }, m_reactor, m_handlerCreator, m_allowedOrigin)->run();
             if (m_startAction)
             {
                 m_startAction();
@@ -577,6 +613,7 @@ namespace beam::wallet
         HandlerCreator m_handlerCreator;
         StartAction m_startAction;
         std::string m_allowedOrigin;
+        ssl::context m_sslContext;
     };
 
     WebSocketServer::WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction, const std::string& allowedOrigin)

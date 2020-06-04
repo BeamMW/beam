@@ -15,7 +15,7 @@ add_executable(${TARGET_NAME}
     service.cpp
     pipe.cpp
     utils.cpp
-        node_connection.cpp
+    node_connection.cpp
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
@@ -26,7 +26,8 @@ if(MSVC)
     # const_buffer(const mutable_buffer& b) BOOST_ASIO_NOEXCEPT
     #    : data_(b.data()), 
     target_compile_options(websocket PRIVATE "/wd4702")
-    target_compile_options(${TARGET_NAME} PRIVATE /bigobj)
+    target_compile_options(websocket PRIVATE "/bigobj")
+    target_compile_options(${TARGET_NAME} PRIVATE "/bigobj")
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4996")
 endif()
 
