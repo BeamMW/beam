@@ -269,6 +269,8 @@ private:
 		uint32_t m_nCount;
 		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
+		Height m_h0; // those 2 are fast-sync params at the moment of task assignment
+		Height m_hTxoLo;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -510,6 +512,7 @@ private:
 		bool ShouldAssignTasks();
 		bool ShouldFinalizeMining();
 		Task& get_FirstTask();
+		bool ShouldAcceptBodyPack();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
