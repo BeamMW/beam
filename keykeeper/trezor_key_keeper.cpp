@@ -260,7 +260,7 @@ namespace beam::wallet
         {
             m.m_iChild = 0; // with another value we will get "Firmware error"
         }
-        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, 
+        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, false, 
             [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             PopHandler();
@@ -315,7 +315,7 @@ namespace beam::wallet
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
         PushHandler(h);
-        m_DeviceManager->call_BeamGetNumSlots(true, 
+        m_DeviceManager->call_BeamGetNumSlots(false, 
             [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             PopHandler();
@@ -384,7 +384,7 @@ namespace beam::wallet
         };
 
         // TaskFin
-        virtual void Execute(Task::Ptr&) override;
+        void Execute(Task::Ptr&) override;
     };
 
     void TrezorKeyKeeperProxy::CreateOutputCtx::Proceed1(Ptr& p)
@@ -579,7 +579,7 @@ namespace beam::wallet
         txMutualInfo.m_PaymentProofSignature.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
 
         BeamCrypto_TxSenderParams txSenderParams;
-        txSenderParams.m_iSlot = m.m_Slot;
+        txSenderParams.m_iSlot = m.m_Slot + 1; // on trezor resetrved nonce slot 0
         txSenderParams.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
 
         PushHandler(h);
