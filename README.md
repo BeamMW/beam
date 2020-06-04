@@ -10,7 +10,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 
 [Download latest version](http://beam.mw/downloads)
-**Double Doppler 4.0**
+**Eager Electron 5.0**
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -104,6 +104,10 @@ Here is the list of Beam related projects created by our community members but N
 #### Double Doppler 4.0 (December 2019)
 - Atomic Swaps desktop wallet support
 - Sync mechanism improvements
+
+#### Eager Electron 5.0 (month 2020)
+-
+-
 
 
 See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
