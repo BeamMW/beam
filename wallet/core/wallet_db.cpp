@@ -684,6 +684,7 @@ namespace beam::wallet
 
             void get(int col, Block::SystemState::Full& s)
             {
+                LOG_DEBUG() << "Statement::get Block::SystemState::Full " << sizeof(s);
                 // read/write as a blob, skip serialization
                 getBlobStrict(col, &s, sizeof(s));
             }
@@ -4087,6 +4088,7 @@ namespace beam::wallet
 
     void WalletDB::History::AddStates(const Block::SystemState::Full* pS, size_t nCount)
     {
+        LOG_DEBUG() << "WalletDB::History::AddStates Block::SystemState::Full " << sizeof(*pS);
         const char* req = "INSERT OR REPLACE INTO " TblStates " (" TblStates_Height "," TblStates_Hdr ") VALUES(?,?)";
         sqlite::Statement stm(&get_ParentObj(), req);
 
