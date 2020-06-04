@@ -68,31 +68,9 @@ namespace beam::wallet
     }
 
     size_t NotificationCenter::getUnreadCount(
-        VersionInfo::Application app, const Version& currentLibVersion, uint32_t currentClientRevision) const
+        std::function<size_t(Cache::const_iterator, Cache::const_iterator)> counter) const
     {
-        return std::count_if(m_cache.begin(), m_cache.end(),
-            [app, &currentLibVersion, &currentClientRevision](const auto& p)
-            {
-                if (p.second.m_state == Notification::State::Unread)
-                {
-                    if (p.second.m_type == Notification::Type::WalletImplUpdateAvailable)
-                    {
-                        WalletImplVerInfo info;
-                        if (fromByteBuffer(p.second.m_content, info) &&
-                            app == VersionInfo::Application::DesktopWallet &&
-                            (currentLibVersion < info.m_version ||
-                             (currentLibVersion == info.m_version && currentClientRevision < info.m_UIrevision)))
-                        {
-                            return true;
-                        }
-                    }
-                    if (p.second.m_type == Notification::Type::TransactionFailed)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            });
+        return counter(m_cache.begin(), m_cache.end());
     }
 
     void NotificationCenter::createNotification(const Notification& notification)
