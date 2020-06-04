@@ -22,7 +22,7 @@ namespace beam::wallet
     {
         enum class Type : uint32_t
         {
-            SoftwareUpdateAvailable,
+            SoftwareUpdateAvailable,  // deprecated
             AddressStatusChanged,
             WalletImplUpdateAvailable,
             BeamNews,

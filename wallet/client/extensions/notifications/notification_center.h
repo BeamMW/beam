@@ -30,6 +30,7 @@ namespace beam::wallet
     // TODO dh unittests of address notifications
 
     public:
+        using Cache = std::unordered_map<ECC::uintBig, Notification>;
         NotificationCenter(
             IWalletDB& storage, const std::map<Notification::Type,bool>& activeNotifications, io::Reactor::Ptr reactor);
 
@@ -38,8 +39,8 @@ namespace beam::wallet
         void deleteNotification(const ECC::uintBig& notificationID);
 
         void switchOnOffNotifications(Notification::Type, bool);
-        size_t getUnreadCount(
-            VersionInfo::Application app, const Version& currentLibVersion, uint32_t currentClientRevision) const;
+        size_t NotificationCenter::getUnreadCount(
+            std::function<size_t(Cache::const_iterator, Cache::const_iterator)> counter) const;
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);
@@ -64,7 +65,7 @@ namespace beam::wallet
 
         IWalletDB& m_storage;
         std::map<Notification::Type, bool> m_activeNotifications;
-        std::unordered_map<ECC::uintBig, Notification> m_cache;
+        Cache m_cache;
         std::vector<INotificationsObserver*> m_subscribers;
 
         std::vector<WalletAddress> m_myAddresses;
