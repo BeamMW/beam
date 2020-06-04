@@ -401,6 +401,9 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 		t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
 		m_nTasksPackBody += t.m_nCount;
+
+        t.m_h0 = m_Processor.m_SyncData.m_h0;
+        t.m_hTxoLo = m_Processor.m_SyncData.m_TxoLo;
 	}
 	else
 	{
@@ -1919,6 +1922,13 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 	return true;
 }
 
+bool Node::Peer::ShouldAcceptBodyPack()
+{
+    Task& t = get_FirstTask();
+    const NodeProcessor::SyncData& d = m_This.m_Processor.m_SyncData; // alias
+    return (t.m_h0 == d.m_h0) && (t.m_hTxoLo == d.m_TxoLo);
+}
+
 void Node::Peer::OnMsg(proto::Body&& msg)
 {
 	Task& t = get_FirstTask();
@@ -1934,7 +1944,9 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	Processor& p = m_This.m_Processor; // alias
 
 	NodeProcessor::DataStatus::Enum eStatus = h ?
-		p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+        ShouldAcceptBodyPack() ?
+		    p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+            NodeProcessor::DataStatus::Rejected :
 		p.OnTreasury(msg.m_Body.m_Eternal);
 
 	p.TryGoUpAsync();
@@ -1967,7 +1979,7 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 	ModifyRatingWrtData(nSize);
 
 	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
-	if (!msg.m_Bodies.empty())
+	if (!msg.m_Bodies.empty() && ShouldAcceptBodyPack())
 	{
 		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrg, hCountExtra);
 		if (pPtr)
