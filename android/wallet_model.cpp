@@ -567,7 +567,7 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
 
     for (const auto& notification : notifications)
     {
-        LOG_DEBUG() << "notification.m_type: " << notification.m_type;
+        LOG_DEBUG() << "notification.m_type: " << static_cast<uint32_t>(notification.m_type);
         switch(notification.m_type)
         {
             case Notification::Type::SoftwareUpdateAvailable:
