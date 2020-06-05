@@ -2103,6 +2103,60 @@ namespace beam::wallet
 
                 return true;
             }
+
+            typedef std::map<ECC::Point, ShieldedTxo::BaseKey> ShieldedSpendKeyMap;
+            ShieldedSpendKeyMap m_mapShielded;
+
+            virtual bool OnAssetRecognized(Asset::Full&) override
+            {
+                // TODO
+                return true;
+            }
+
+            virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index nIdx) override
+            {
+                ShieldedCoin sc;
+
+                sc.m_Key.m_nIdx = nIdx;
+                sc.m_Key.m_IsCreatedByViewer = pars.m_Ticket.m_IsCreatedByViewer;
+                sc.m_Key.m_kSerG = pars.m_Ticket.m_pK[0];
+
+                sc.m_User = pars.m_Output.m_User;
+                sc.m_ID = dout.m_ID;
+                sc.m_assetID = pars.m_Output.m_AssetID;
+                sc.m_value = pars.m_Output.m_Value;
+                sc.m_confirmHeight = dout.m_Height;
+                sc.m_spentHeight = MaxHeight;
+
+                m_This.saveShieldedCoin(sc);
+
+                LOG_INFO() << "Shielded output, ID: " << dout.m_ID << " Confirmed, Height=" << dout.m_Height;
+
+                m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_Key;
+
+                return true;
+            }
+
+            virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& dinp)
+            {
+                ShieldedSpendKeyMap::iterator it = m_mapShielded.find(dinp.m_SpendPk);
+                if (m_mapShielded.end() != it)
+                {
+                    auto shieldedCoin = m_This.getShieldedCoin(it->second);
+                    if (shieldedCoin)
+                    {
+                        shieldedCoin->m_spentHeight = dinp.m_Height;
+                        m_This.saveShieldedCoin(*shieldedCoin);
+
+                        LOG_INFO() << "Shielded input, ID: " << shieldedCoin->m_ID << " Spent, Height=" << dinp.m_Height;
+                    }
+
+                    m_mapShielded.erase(it);
+                }
+
+                return true;
+            }
+
         };
 
         MyParser p(*this, prog);
