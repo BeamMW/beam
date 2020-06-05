@@ -18,7 +18,6 @@
 #include "core/block_rw.h"
 //#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
-#include "extensions/news_channels/updates_provider.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 
@@ -402,18 +401,13 @@ namespace beam::wallet
                 }
 
                 // Other content providers using broadcast messages
-                auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
                 auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
                 auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
                     *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
-                m_updatesProvider = updatesProvider;
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
-                using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
-                auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(
-                    m_notificationCenter.get()), updatesProvider);
                 auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
                     m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(

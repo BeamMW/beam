@@ -163,23 +163,27 @@ namespace
 
     void callSoftwareUpdateNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
     {
-        VersionInfo versionInfo;
+        WalletImplVerInfo walletVersionInfo;
 
-        if (fromByteBuffer(notification.m_content, versionInfo))
+        if (fromByteBuffer(notification.m_content, walletVersionInfo))
         {
             jobject jNotificationInfo = fillNotificationInfo(env, notification);
 
             jobject jVersionInfo = env->AllocObject(VersionInfoClass);
             {
-                setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(versionInfo.m_application));
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", versionInfo.m_version.m_major);
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", versionInfo.m_version.m_minor);
-                setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", versionInfo.m_version.m_revision);
+                walletVersionInfo.
+                setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(walletVersionInfo.m_application));
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", walletVersionInfo.m_version.m_major);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", walletVersionInfo.m_version.m_minor);
+                setLongField(env, VersionInfoClass, jVersionInfo, "versionRevision", walletVersionInfo.m_UIrevision);
             }
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
+            if (walletVersionInfo.m_application == VersionInfo::Application::AndroidWallet)
+            {
+                jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
 
-            env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
+                env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
+            }
 
             env->DeleteLocalRef(jNotificationInfo);
             env->DeleteLocalRef(jVersionInfo);
@@ -569,8 +573,10 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
         switch(notification.m_type)
         {
             case Notification::Type::SoftwareUpdateAvailable:
-                callSoftwareUpdateNotification(env, notification, action);
-                break;
+                 break;
+            case Notification::Type::WalletImplUpdateAvailable:
+                 callSoftwareUpdateNotification(env, notification, action);
+                 break;
             case Notification::Type::AddressStatusChanged:
                 callAddressStatusNotification(env, notification, action);
                 break;
