@@ -107,8 +107,8 @@ namespace beam::wallet
         return trezor;
     }
 
-    IPrivateKeyKeeper2::Ptr HWWallet::getKeyKeeper(const std::string& device)
+    IPrivateKeyKeeper2::Ptr HWWallet::getKeyKeeper(const std::string& device, const IHandler::Ptr& uiHandler)
     {
-        return std::make_shared<TrezorKeyKeeperProxy>(getTrezor(std::make_shared<Client>(), device));
+        return std::make_shared<TrezorKeyKeeperProxy>(getTrezor(std::make_shared<Client>(), device), uiHandler);
     }
 }

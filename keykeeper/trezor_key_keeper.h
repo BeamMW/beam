@@ -31,7 +31,7 @@ namespace beam::wallet
     {
         using MessageHandler = std::function<void()>;
     public:
-        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager);
+        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, HWWallet::IHandler::Ptr uiHandler = {});
         virtual ~TrezorKeyKeeperProxy() = default;
     private:
         Status::Type InvokeSync(Method::get_Kdf& m) override;
@@ -87,7 +87,10 @@ namespace beam::wallet
 
         void PushHandler(const Handler::Ptr& handler);
         void PopHandler();
+        void ShowUI();
+        void HideUI();
 
         std::queue<Handler::Ptr> m_Handlers;
+        HWWallet::IHandler::Ptr m_UIHandler;
     };
 }

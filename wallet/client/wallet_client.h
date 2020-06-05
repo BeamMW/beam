@@ -64,7 +64,7 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
-        , private IPrivateKeyKeeper::Handler
+        //, private IPrivateKeyKeeper::Handler
         , private INodeConnectionObserver
         , private IExchangeRateObserver
         , private INotificationsObserver
