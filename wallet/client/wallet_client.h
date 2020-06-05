@@ -129,9 +129,7 @@ namespace beam::wallet
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
-        void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {
-            LOG_DEBUG() << "WalletClient::onNotificationsChanged";
-        }
+        void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
         
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}

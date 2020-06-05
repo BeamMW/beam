@@ -180,7 +180,6 @@ namespace
             if (walletVersionInfo.m_application == VersionInfo::Application::AndroidWallet)
             {
                 jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNewVersionNotification", "(IL" BEAM_JAVA_PATH "/entities/dto/NotificationDTO;L" BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO;)V");
-
                 env->CallStaticVoidMethod(WalletListenerClass, callback, action, jNotificationInfo, jVersionInfo);
             }
 
@@ -566,18 +565,16 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
     LOG_DEBUG() << "onNotificationsChanged";
 
     JNIEnv* env = Android_JNI_getEnv();
-    LOG_DEBUG() << "onNotificationsChanged notifications count: " << notifications.size();
 
     for (const auto& notification : notifications)
     {
-        LOG_DEBUG() << "notification.m_type: " << static_cast<uint32_t>(notification.m_type);
         switch(notification.m_type)
         {
             case Notification::Type::SoftwareUpdateAvailable:
-                 break;
+                break;
             case Notification::Type::WalletImplUpdateAvailable:
-                 callSoftwareUpdateNotification(env, notification, action);
-                 break;
+                callSoftwareUpdateNotification(env, notification, action);
+                break;
             case Notification::Type::AddressStatusChanged:
                 callAddressStatusNotification(env, notification, action);
                 break;

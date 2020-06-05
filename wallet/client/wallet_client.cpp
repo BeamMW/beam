@@ -362,7 +362,6 @@ namespace beam::wallet
                     MyNotificationsObserver(WalletClient& client) : m_client(client) {}
                     void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
                     {
-                        LOG_DEBUG() << "MyNotificationsObserver::onNotificationsChanged";
                         m_client.updateNotifications();
                         static_cast<INotificationsObserver&>(m_client).onNotificationsChanged(action, items);
                     }
@@ -1144,7 +1143,6 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-        LOG_DEBUG() << "WalletClient::updateNotifications";
         size_t count = m_notificationCenter->getUnreadCount(
             [this] (NotificationCenter::Cache::const_iterator first, NotificationCenter::Cache::const_iterator last)
             {
