@@ -563,9 +563,11 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
     LOG_DEBUG() << "onNotificationsChanged";
 
     JNIEnv* env = Android_JNI_getEnv();
+    LOG_DEBUG() << "onNotificationsChanged notifications count: " << notifications.size();
 
     for (const auto& notification : notifications)
     {
+        LOG_DEBUG() << "notification.m_type: " << notification.m_type;
         switch(notification.m_type)
         {
             case Notification::Type::SoftwareUpdateAvailable:
