@@ -2137,7 +2137,7 @@ namespace beam::wallet
                 return true;
             }
 
-            virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& dinp)
+            virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& dinp) override
             {
                 ShieldedSpendKeyMap::iterator it = m_mapShielded.find(dinp.m_SpendPk);
                 if (m_mapShielded.end() != it)
