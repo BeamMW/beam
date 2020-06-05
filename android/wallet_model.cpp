@@ -171,7 +171,6 @@ namespace
 
             jobject jVersionInfo = env->AllocObject(VersionInfoClass);
             {
-                walletVersionInfo.
                 setIntField(env, VersionInfoClass, jVersionInfo, "application", beam::underlying_cast(walletVersionInfo.m_application));
                 setLongField(env, VersionInfoClass, jVersionInfo, "versionMajor", walletVersionInfo.m_version.m_major);
                 setLongField(env, VersionInfoClass, jVersionInfo, "versionMinor", walletVersionInfo.m_version.m_minor);
