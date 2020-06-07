@@ -96,6 +96,11 @@ protected:
 #endif
     }
 
+    virtual std::string estimateSmartFee()
+    {
+        return R"( {"result":{"blocks":3,"feerate":0.0004},"error":null,"id":null})";
+    }
+
 private:
 
     void onStreamAccepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -197,6 +202,8 @@ private:
             return getBlockCount();
         else if (j["method"] == "getblockhash")
             return getGenesisBlockHash();
+        else if (j["method"] == "estimatesmartfee")
+            return estimateSmartFee();
         return "";
     }
 

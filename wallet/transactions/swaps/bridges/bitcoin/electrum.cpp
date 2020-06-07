@@ -507,6 +507,29 @@ namespace beam::bitcoin
             });
     }
 
+    void Electrum::estimateFee(int blockAmount, std::function<void(const Error&, Amount)> callback)
+    {
+        sendRequest("blockchain.estimatefee", std::to_string(blockAmount), [callback](IBridge::Error error, const json& result, uint64_t)
+        {
+            Amount feeRate = 0;
+
+            if (error.m_type == IBridge::None)
+            {
+                try
+                {
+                    feeRate = btc_to_satoshi(result.get<double>());
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+            callback(error, feeRate);
+            return false;
+        });
+    }
+
     void Electrum::listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback)
     {
         LOG_DEBUG() << "listunstpent command";
