@@ -224,9 +224,9 @@ namespace beam::wallet
         {
             // kernel
             assert(m.m_pKernel);
-            m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
-            m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
-            m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
+            //m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
+            //m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
+            //m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
 
             Ecc2BC(m.m_pKernel->m_Commitment) = tx2.m_Krn.m_Commitment;
             Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = tx2.m_Krn.m_Signature.m_NoncePub;
@@ -699,9 +699,11 @@ namespace beam::wallet
         TxImport(txCommon, m, v);
 
         PushHandler(h);
+        ShowUI();
         m_DeviceManager->call_BeamSignTransactionSplit(txCommon,
             [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
+            HideUI();
             PopHandler();
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
             TxExport(m, txCommon);
