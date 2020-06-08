@@ -21,18 +21,6 @@ namespace beam::wallet
 {
     using WalletIDKey = uint64_t;
 
-    struct IPrivateKeyKeeper
-    {
-        struct Handler
-        {
-            using Ptr = Handler*;
-
-            virtual void onShowKeyKeeperMessage() = 0;
-            virtual void onHideKeyKeeperMessage() = 0;
-            virtual void onShowKeyKeeperError(const std::string&) = 0;
-        };
-    };
-
     //
     // Interface to master key storage. HW wallet etc.
     // Only public info should cross its boundary.

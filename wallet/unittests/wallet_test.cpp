@@ -1554,11 +1554,6 @@ namespace
         {
             stopReactor();
         }
-
-        ///
-        void onShowKeyKeeperMessage() override {}
-        void onHideKeyKeeperMessage() override {}
-        void onShowKeyKeeperError(const std::string&) override {}
     };
 
     void TestClient()

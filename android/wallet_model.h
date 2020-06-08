@@ -52,9 +52,6 @@ private:
     void onNoDeviceConnected() override {}
     void onImportDataFromJson(bool isOk) override;
     void onExportDataToJson(const std::string& data) override;
-    void onShowKeyKeeperMessage() override {}
-    void onHideKeyKeeperMessage() override {}
-    void onShowKeyKeeperError(const std::string&) override {}
     void onPostFunctionToClientContext(MessageFunction&& func) override {};
     void onExportTxHistoryToCsv(const std::string& data) override {};
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
