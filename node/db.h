@@ -49,7 +49,7 @@ public:
 			SyncTarget, // deprecated
 			Deprecated_2,
 			Treasury,
-			DummyID, // hash of keys used to create UTXOs (owner key, dummy key)
+			EventsOwnerID, // hash of keys used to scan and record events
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
@@ -59,6 +59,7 @@ public:
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
+			EventsSerif, // pseudo-random, reset each time the events are rescanned.
 		};
 	};
 

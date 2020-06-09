@@ -991,15 +991,24 @@ void Node::RefreshOwnedUtxos()
 	hp >> hv0;
 
 	Blob blob(hv1);
-	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
+	m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
 
-	if (hv0 == hv1)
-		return; // unchanged
+    bool bChanged = (hv0 != hv1);
+    if (bChanged)
+    {
+        // changed
+        m_Processor.RescanOwnedTxos();
 
-	m_Processor.RescanOwnedTxos();
+        blob = Blob(hv0);
+        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
+    }
 
-	blob = Blob(hv0);
-	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
+    if (bChanged || !m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+    {
+        hv0 = NextNonce();
+        blob = Blob(hv0);
+        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsSerif, nullptr, &blob);
+    }
 }
 
 bool Node::Bbs::IsInLimits() const
