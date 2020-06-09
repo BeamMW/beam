@@ -3374,7 +3374,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-            nCount++;
+            nCount++;   
 		}
 
         ser.swap_buf(msgOut.m_Events);
@@ -3382,7 +3382,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension4 & m_LoginFlags)
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 15)
     {
         Send(msgOut);
     }
