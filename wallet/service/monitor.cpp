@@ -153,7 +153,7 @@ namespace
             addr->m_ExpirationTime = expirationTime;
             m_Channels.insert(*addr);
             m_Addresses.insert(*addr);
-            LOG_INFO() << "Subscribed to " << std::to_string(address);
+            LOG_DEBUG() << "Subscribed to " << std::to_string(address);
 
             startExpirationTimer();
         }
@@ -164,11 +164,11 @@ namespace
             if (it != m_Addresses.end())
             {
                 DeleteAddress(&(*it));
-                LOG_INFO() << "Unsubscribed from " << std::to_string(address);
+                LOG_DEBUG() << "Unsubscribed from " << std::to_string(address);
             }
             else
             {
-                LOG_WARNING() << "There is no subscription to " << std::to_string(address);
+                LOG_WARNING() << "unSubscribe unsuccessful: there is no subscription to " << std::to_string(address);
             }
         }
 
@@ -263,7 +263,7 @@ namespace
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
-            LOG_INFO() << "new bbs message on channel: " << msg.m_Channel;
+            LOG_DEBUG() << "new bbs message on channel: " << msg.m_Channel;
 
             auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
             if (m_BbsTimestamps.end() != itBbs)
@@ -301,9 +301,9 @@ namespace
                     der& msgWallet;
                     bValid = true;
                 }
-                catch (const std::exception&)
+                catch (const std::exception& ex)
                 {
-                    LOG_WARNING() << "BBS deserialization failed";
+                    LOG_WARNING() << "BBS deserialization failed: " << ex.what();
                 }
 
                 if (bValid)
@@ -376,9 +376,7 @@ namespace
 
     };
 
-    static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 60 * 60; // 3 hours
-
-    class MonitorApiHandler 
+    class MonitorApiHandler
         : public ISbbsMonitorApiHandler
         , public WebSocketServer::IHandler
         , public IMonitorConnectionHandler
@@ -402,7 +400,6 @@ namespace
             LOG_DEBUG() << "Subscribe(id = " << id << ")";
 
             m_monitor.subscribe(data.address, data.privateKey, data.expires);
-
             doResponse(id, Subscribe::Response{});
         }
 
@@ -411,7 +408,6 @@ namespace
             LOG_DEBUG() << "UnSubscribe(id = " << id << ")";
 
             m_monitor.unSubscribe(data.address);
-
             doResponse(id, UnSubscribe::Response{});
         }
 
@@ -533,7 +529,7 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             Nonnegative<uint32_t> pollPeriod_ms;
             uint32_t logCleanupPeriod;
-            bool withPipes = false;
+            bool withPipes;
         } options;
 
         io::Address nodeAddress;
@@ -592,7 +588,9 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
+        const unsigned LOG_ROTATION_PERIOD_SEC = 12 * 60 * 60; // in seconds, 12 hours
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, beam::wallet::days2sec(options.logCleanupPeriod));
+        LOG_INFO() << "Log rotation: " <<  beam::wallet::sec2readable(LOG_ROTATION_PERIOD_SEC) << ". Log cleanup: " << options.logCleanupPeriod << " days.";
         LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
         
         Monitor monitor;
@@ -608,7 +606,7 @@ int main(int argc, char* argv[])
         Server server(monitor, reactor, options.port, options.withPipes);
         reactor->run();
 
-        LOG_INFO() << "Done";
+        LOG_INFO() << "Beam Wallet SBBS Monitor. Done.";
     }
     catch (const std::exception & e)
     {

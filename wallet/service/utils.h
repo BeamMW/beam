@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
+#include <string>
 
 namespace beam::wallet {
     unsigned days2sec(unsigned days);
+    std::string sec2readable(unsigned sec);
 }
 
