@@ -87,6 +87,7 @@ namespace proto {
         virtual void get_OwnerKdf(Key::IPKdf::Ptr&) {} // get the owner kdf. Optional
 		virtual Block::SystemState::IHistory& get_History() = 0;
 		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
+		virtual void OnEventsSerif(const ECC::Hash::Value&, Height) {}
 
 		struct IBbsReceiver
 		{
@@ -216,6 +217,7 @@ namespace proto {
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
 				virtual void OnMsg(proto::BbsMsg&& msg) override;
+				virtual void OnMsg(proto::EventsSerif&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
 				bool IsSupported(Request##type&); \

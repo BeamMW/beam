@@ -164,6 +164,8 @@ namespace beam::wallet
     // Rescan the blockchain for UTXOs
     void Wallet::Rescan()
     {
+        AbortEvents();
+
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
         std::vector<Coin> ocoins;
@@ -1070,6 +1072,44 @@ namespace beam::wallet
         {
             SetEventsHeight(sTip.m_Height);
         }
+    }
+
+    void Wallet::OnEventsSerif(const Hash::Value& hv, Height h)
+    {
+        static const char szEvtSerif[] = "EventsSerif";
+
+        HeightHash hh;
+        if (!storage::getVar(*m_WalletDB, szEvtSerif, hh))
+        {
+            hh.m_Hash = Zero;
+
+            Block::SystemState::Full sTip;
+            get_tip(sTip);
+
+            bool bWasFullySynced = (sTip.m_Height + 1 == GetEventsHeightNext());
+            hh.m_Height = bWasFullySynced ? sTip.m_Height : MaxHeight;
+        }
+
+        bool bMustRescan = (hh.m_Hash != hv);
+        if (bMustRescan)
+        {
+            // Node Serif has changed (either connected to different node, or it rescanned the blockchain). The events stream may not be consistent with ours.
+            Height h0 = GetEventsHeightNext();
+            if (!h0)
+                bMustRescan = false; // nothing to rescan atm
+            else
+            {
+                if (h0 > hh.m_Height)
+                {
+                    // Our events are consistent and full up to height h0-1.
+                    bMustRescan = (h >= h0);
+                }
+            }
+        }
+
+        if (bMustRescan)
+            Rescan();
+
     }
 
     void Wallet::OnNewTip()

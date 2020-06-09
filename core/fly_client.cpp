@@ -915,5 +915,14 @@ void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)
     }
 }
 
+void FlyClient::NetworkStd::Connection::OnMsg(EventsSerif&& msg)
+{
+    if (!(Flags::Owned & m_Flags))
+        ThrowUnexpected();
+
+    // TODO: handle complex situation, where multiple owned nodes are connected
+    m_This.m_Client.OnEventsSerif(msg.m_Value, msg.m_Height);
+}
+
 } // namespace proto
 } // namespace beam
