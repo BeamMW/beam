@@ -1090,8 +1090,9 @@ namespace beam::wallet
             hh.m_Height = bWasFullySynced ? sTip.m_Height : MaxHeight;
         }
 
-        bool bMustRescan = (hh.m_Hash != hv);
-        if (bMustRescan)
+        bool bHashChanged = (hh.m_Hash != hv);
+        bool bMustRescan = bHashChanged;
+        if (bHashChanged)
         {
             // Node Serif has changed (either connected to different node, or it rescanned the blockchain). The events stream may not be consistent with ours.
             Height h0 = GetEventsHeightNext();
@@ -1105,6 +1106,14 @@ namespace beam::wallet
                     bMustRescan = (h >= h0);
                 }
             }
+
+            hh.m_Hash = hv;
+        }
+
+        if (bHashChanged || (h != hh.m_Height))
+        {
+            hh.m_Height = h;
+            storage::setVar(*m_WalletDB, szEvtSerif, hh);
         }
 
         if (bMustRescan)
