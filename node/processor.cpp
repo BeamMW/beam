@@ -1595,6 +1595,13 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 		ZeroObject(m_SyncData);
 		SaveSyncData();
+
+		// update Events serif
+		ECC::Hash::Value hv;
+		Blob blob(hv);
+		if (m_DB.ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+			m_DB.ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
+
 	}
 }
 
