@@ -1007,7 +1007,7 @@ void Node::RefreshOwnedUtxos()
     {
         hv0 = NextNonce();
         blob = Blob(hv0);
-        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsSerif, nullptr, &blob);
+        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Processor.m_Extra.m_TxoHi, &blob);
     }
 }
 
@@ -2781,7 +2781,7 @@ void Node::Peer::MaybeSendSerif()
     proto::EventsSerif msg;
 
     Blob blob(msg.m_Value);
-    m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob);
+    m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, &msg.m_Height, &blob);
 
     Send(msg);
     m_Flags |= Flags::SerifSent;
@@ -4410,8 +4410,9 @@ void Node::PrintTxos()
     if (m_Processor.IsFastSync())
         os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
 
-    if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
-        os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+    Height hSerif0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::EventsSerif);
+    if (hSerif0 >= Rules::HeightGenesis)
+        os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )

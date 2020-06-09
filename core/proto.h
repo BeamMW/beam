@@ -221,7 +221,8 @@ namespace proto {
     macro(ByteBuffer, Events)
 
 #define BeamNodeMsg_EventsSerif(macro) \
-    macro(ECC::Hash::Value, Value)
+    macro(ECC::Hash::Value, Value) \
+    macro(Height, Height) \
 
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
