@@ -325,20 +325,23 @@ namespace proto {
 
         struct Extension
         {
-            static const uint32_t Msk = 0xff0;
+            static const uint32_t nShift = 4; // 1st 4 bits are occupied by flags specified above
+            static const uint32_t nBitsLegacy = 4; // 1st 4 bits are set consequently for each new version
+            static const uint32_t nBitsExtra = 8;
+
+            static const uint32_t Msk = ((1 << (nBitsLegacy + nBitsExtra)) - 1) << nShift;
 
             // 1 - Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-            // 3 - Supports large HdrPack, BlockPack with parameters
-            // 7 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
-            static const uint8_t Minimum = 7;
+            // 2 - Supports large HdrPack, BlockPack with parameters
+            // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
+            // 4 - Supports proto::Events (replaces proto::EventsLegacy)
+            // 5 - Supports Events serif
 
-            // 15 - Supports proto::Events (replaces proto::EventsLegacy)
-            // 16 - Supports Events serif
+            static const uint32_t Minimum = 3;
+            static const uint32_t Maximum = 5;
 
-            static const uint8_t Maximum = 16;
-
-            static void set(uint32_t& nFlags, uint8_t nExt);
-            static uint8_t get(uint32_t nFlags);
+            static void set(uint32_t& nFlags, uint32_t nExt);
+            static uint32_t get(uint32_t nFlags);
         };
 	};
 

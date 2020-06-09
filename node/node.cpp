@@ -2793,7 +2793,7 @@ void Node::Peer::MaybeSendSerif()
     if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
         return;
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 16)
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 5)
         return;
 
     proto::EventsSerif msg;
@@ -3429,7 +3429,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 15)
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 4)
     {
         Send(msgOut);
     }

@@ -608,24 +608,33 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	OnConnectedSecure();
 }
 
-void LoginFlags::Extension::set(uint32_t& nFlags, uint8_t nExt)
+void LoginFlags::Extension::set(uint32_t& nFlags, uint32_t nExt)
 {
     assert(!(nFlags & Msk));
 
-    static const uint32_t nShift = 4;
-    static_assert(((Msk >> nShift) << nShift) == Msk); // no bits are lost in shifts
-    static_assert((Msk >> nShift) == static_cast<uint8_t>(-1)); // at correct position
+    if (nExt < nBitsLegacy)
+        nExt = (1 << nExt) - 1;
+    else
+        nExt = ((nExt - nBitsLegacy + 1) << nBitsLegacy) - 1;
 
-    nFlags |= static_cast<uint32_t>(nExt) << nShift;
+    nFlags |= nExt << nShift;
 }
 
-uint8_t LoginFlags::Extension::get(uint32_t nFlags)
+uint32_t LoginFlags::Extension::get(uint32_t nFlags)
 {
-    static const uint32_t nShift = 4;
-    static_assert(((Msk >> nShift) << nShift) == Msk); // no bits are lost in shifts
-    static_assert((Msk >> nShift) == static_cast<uint8_t>(-1)); // at correct position
+    uint32_t val = (Msk & nFlags) >> nShift;
+    
+    const uint32_t nLegacyVal = (1 << nBitsLegacy) - 1;
+    if (nLegacyVal == (val & nLegacyVal))
+        return ((val - nLegacyVal) >> nBitsLegacy) + nBitsLegacy;
 
-    return static_cast<uint8_t>(nFlags >> nShift);
+    // find 1st zero bit
+    uint32_t iBit = 0;
+    for (; iBit < nBitsLegacy - 1; iBit++)
+        if (!(1 & (val >> iBit)))
+            break;
+
+    return iBit;
 }
 
 void NodeConnection::SendLogin()
@@ -750,11 +759,11 @@ void NodeConnection::OnMsg(Login&& msg)
 
 void NodeConnection::OnLoginInternal(Login&& msg)
 {
-    uint8_t nExt = LoginFlags::Extension::get(msg.m_Flags);
+    uint32_t nExt = LoginFlags::Extension::get(msg.m_Flags);
     if (LoginFlags::Extension::Maximum != nExt)
     {
         bool bNewer = (nExt > LoginFlags::Extension::Maximum);
-        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << static_cast<uint32_t>(nExt);
+        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << nExt;
 
         if (nExt < LoginFlags::Extension::Minimum)
             ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
