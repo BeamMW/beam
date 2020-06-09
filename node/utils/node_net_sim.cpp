@@ -1027,6 +1027,7 @@ int main_Guarded(int argc, char* argv[])
     node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
     node.m_Keys.SetSingleKey(pKdf);
+    node.m_Cfg.m_Horizon.SetStdFastSync();
     node.Initialize();
 
     if (!bLocalMode && !node.m_PostStartSynced)
@@ -1055,8 +1056,8 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
-        throw std::runtime_error("Bullet/Fee settings not consistent");
+    Amount nMinInOut = (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));
