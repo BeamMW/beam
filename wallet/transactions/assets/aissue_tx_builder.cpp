@@ -134,7 +134,7 @@ namespace beam::wallet
         tx->m_Offset = m_Offset;
         tx->Normalize();
 
-#ifdef DEBUG
+#ifndef NDEBUG
         beam::Transaction::Context::Params pars;
         beam::Transaction::Context ctx(pars);
         ctx.m_Height.m_Min = m_MinHeight;
