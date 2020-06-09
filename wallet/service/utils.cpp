@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <chrono>
-#include <iomanip>
+#include <sstream>
 #include "utils.h"
 
 namespace beam::wallet {
