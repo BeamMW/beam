@@ -1212,6 +1212,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		}
 	}
 
+    MaybeSendSerif();
+
     if (proto::IDType::Node != msg.m_IDType)
         return;
 
@@ -2657,6 +2659,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 	}
 
     m_LoginFlags = msg.m_Flags;
+    MaybeSendSerif();
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -2765,6 +2768,23 @@ void Node::Peer::BroadcastBbs()
 	}
 
 	m_CursorBbs = wlk.m_ID;
+}
+
+void Node::Peer::MaybeSendSerif()
+{
+    if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
+        return;
+
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 16)
+        return;
+
+    proto::EventsSerif msg;
+
+    Blob blob(msg.m_Value);
+    m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob);
+
+    Send(msg);
+    m_Flags |= Flags::SerifSent;
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)

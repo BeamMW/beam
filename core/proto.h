@@ -220,6 +220,9 @@ namespace proto {
 #define BeamNodeMsg_Events(macro) \
     macro(ByteBuffer, Events)
 
+#define BeamNodeMsg_EventsSerif(macro) \
+    macro(ECC::Hash::Value, Value)
+
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
     macro(Amount, Fees)
@@ -293,6 +296,7 @@ namespace proto {
     macro(0x2c, GetEvents) \
     macro(0x2d, EventsLegacy) \
     macro(0x34, Events) \
+    macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
@@ -328,8 +332,9 @@ namespace proto {
             static const uint8_t Minimum = 7;
 
             // 15 - Supports proto::Events (replaces proto::EventsLegacy)
+            // 16 - Supports Events serif
 
-            static const uint8_t Maximum = 15;
+            static const uint8_t Maximum = 16;
 
             static void set(uint32_t& nFlags, uint8_t nExt);
             static uint8_t get(uint32_t nFlags);
