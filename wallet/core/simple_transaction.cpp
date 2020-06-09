@@ -47,11 +47,9 @@ namespace beam::wallet
     {
     }
 
-    BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
-                                                          , IWalletDB::Ptr walletDB
-                                                          , const TxID& txID)
+    BaseTransaction::Ptr SimpleTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID, m_withAssets));
+        return BaseTransaction::Ptr(new SimpleTransaction(context, m_withAssets));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -105,11 +103,8 @@ namespace beam::wallet
         return parameters;
     }
 
-    SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                       , IWalletDB::Ptr walletDB
-                                       , const TxID& txID
-                                       , bool withAssets)
-        : BaseTransaction{ gateway, walletDB, txID }
+    SimpleTransaction::SimpleTransaction(const TxContext& context, bool withAssets)
+        : BaseTransaction{ context }
         , m_withAssets(withAssets)
     {
     }
@@ -165,7 +160,7 @@ namespace beam::wallet
          || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
         {
             // We need key keeper initialized to go on beyond this point
-            if (!m_WalletDB->get_KeyKeeper())
+            if (!GetWalletDB()->get_KeyKeeper())
             {
                 // public wallet
                 return;
@@ -177,7 +172,7 @@ namespace beam::wallet
                 WalletID wid;
                 if (GetParameter(TxParameterID::MyID, wid))
                 {
-                    auto waddr = m_WalletDB->getAddress(wid);
+                    auto waddr = GetWalletDB()->getAddress(wid);
                     if (waddr && waddr->isOwn())
                     {
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
@@ -403,7 +398,7 @@ namespace beam::wallet
         bool printInfo = true;
         if (m_assetCheckState == ACInitial)
         {
-            if (const auto oinfo = m_WalletDB->findAsset(assetId))
+            if (const auto oinfo = GetWalletDB()->findAsset(assetId))
             {
                 SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo));
                 SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
@@ -454,7 +449,7 @@ namespace beam::wallet
                 return AssetCheckResult::Fail;
             }
 
-            const auto currHeight = m_WalletDB->getCurrentHeight();
+            const auto currHeight = GetWalletDB()->getCurrentHeight();
             WalletAsset info(infoFull, acHeight);
 
             if (info.CanRollback(currHeight))
@@ -474,7 +469,7 @@ namespace beam::wallet
             HeightRange hrange = getRange(info);
             if (info.m_Value > AmountBig::Type(0U))
             {
-                m_WalletDB->visitCoins([&](const Coin& coin) -> bool {
+                GetWalletDB()->visitCoins([&](const Coin& coin) -> bool {
                     if (coin.m_ID.m_AssetID != assetId) return true;
                     if (coin.m_confirmHeight > hrange.m_Max) return true;
                     if (coin.m_confirmHeight < hrange.m_Min) return true;
@@ -497,7 +492,7 @@ namespace beam::wallet
 
             if (printInfo)
             {
-                if (const auto& asset = m_WalletDB->findAsset(assetId))
+                if (const auto& asset = GetWalletDB()->findAsset(assetId))
                 {
                     asset->LogInfo(GetTxID(), builder.GetSubTxID());
                 }
@@ -569,11 +564,11 @@ namespace beam::wallet
                 {
                     pc.m_Sender = widPeer.m_Pk;
 
-                    auto waddr = m_WalletDB->getAddress(widMy);
+                    auto waddr = GetWalletDB()->getAddress(widMy);
                     if (waddr && waddr->isOwn())
                     {
                         Scalar::Native sk;
-                        m_WalletDB->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
+                        GetWalletDB()->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
 
                         pc.Sign(sk);
                         msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
@@ -596,7 +591,7 @@ namespace beam::wallet
     bool SimpleTransaction::IsSelfTx() const
     {
         WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
-        auto address = m_WalletDB->getAddress(peerID);
+        auto address = GetWalletDB()->getAddress(peerID);
         return address.is_initialized() && address->isOwn();
     }
 

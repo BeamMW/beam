@@ -158,9 +158,7 @@ namespace beam::wallet
             Creator(IWalletDB::Ptr walletDB);
             void RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory);
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                      , IWalletDB::Ptr walletDB
-                                      , const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
 
             SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
@@ -169,9 +167,7 @@ namespace beam::wallet
             IWalletDB::Ptr m_walletDB;
         };
 
-        AtomicSwapTransaction(INegotiatorGateway& gateway
-                            , WalletDB::Ptr walletDB
-                            , const TxID& txID
+        AtomicSwapTransaction(const TxContext& context
                             , ISecondSideProvider& secondSideProvider);
 
         bool CanCancel() const override;

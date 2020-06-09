@@ -76,6 +76,44 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
 
+        class TxContext
+        {
+        public:
+            TxContext(INegotiatorGateway& gateway, IWalletDB::Ptr db, const TxID& txID, SubTxID subTxID = kDefaultSubTxID)
+                : m_Gateway(gateway)
+                , m_WalletDB(db)
+                , m_TxID(txID)
+                , m_SubTxID(subTxID)
+            {
+
+            }
+
+            INegotiatorGateway& GetGateway() const
+            {
+                return m_Gateway;
+            }
+
+            IWalletDB::Ptr GetWalletDB() const
+            {
+                return m_WalletDB;
+            }
+
+            const TxID& GetTxID() const
+            {
+                return m_TxID;
+            }
+
+            SubTxID GetSubTxID() const
+            {
+                return m_SubTxID;
+            }
+        private:
+            INegotiatorGateway& m_Gateway;
+            IWalletDB::Ptr m_WalletDB;
+            TxID m_TxID;
+            SubTxID m_SubTxID;
+        };
+
         class Creator
         {
         public:
@@ -83,17 +121,15 @@ namespace beam::wallet
 
             virtual ~Creator() = default;
             
-            // �reates new instance of transaction (virtual constructor)
-            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, const TxID&) = 0;
+            // Creates new instance of transaction (virtual constructor)
+            virtual BaseTransaction::Ptr Create(const TxContext& context) = 0;
             
             // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
             virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
         };
 
-        BaseTransaction(INegotiatorGateway& gateway
-                      , IWalletDB::Ptr walletDB
-                      , const TxID& txID);
-        virtual ~BaseTransaction(){}
+        BaseTransaction(const TxContext& context);
+        virtual ~BaseTransaction() = default;
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -112,7 +148,7 @@ namespace beam::wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
         {
-            return storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
+            return storage::getTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value);
         }
 
         template <typename T>
@@ -138,7 +174,7 @@ namespace beam::wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID = kDefaultSubTxID)
         {
-            return storage::setTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
+            return storage::setTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
@@ -147,7 +183,7 @@ namespace beam::wallet
             SetParameter(TxParameterID::State, state, true, subTxID);
         }
 
-        IWalletDB::Ptr GetWalletDB();
+        IWalletDB::Ptr GetWalletDB() const;
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         Key::IKdf::Ptr get_MasterKdfStrict() const; // throws TxFailureReason::NoMasterKey if no master key
         static void TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type); // throws TxFailureReason::KeyKeeperError on error
@@ -182,11 +218,7 @@ namespace beam::wallet
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
         void SetCompletedTxCoinStatuses(Height proofHeight);
     protected:
-
-        INegotiatorGateway& m_Gateway;
-        IWalletDB::Ptr m_WalletDB;
-
-        TxID m_ID;
+        TxContext m_Context;
         mutable boost::optional<bool> m_IsInitiator;
         io::AsyncEvent::Ptr m_EventToUpdate;
     };

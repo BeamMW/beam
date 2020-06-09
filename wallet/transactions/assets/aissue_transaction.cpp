@@ -26,9 +26,9 @@ namespace beam::wallet
     {
     }
 
-    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetIssueTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetIssueTransaction(_issue, context));
     }
 
     TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -61,10 +61,8 @@ namespace beam::wallet
         return result;
     }
 
-    AssetIssueTransaction::AssetIssueTransaction(bool issue, INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , const TxID& txID)
-        : AssetTransaction{ gateway, std::move(walletDB), txID}
+    AssetIssueTransaction::AssetIssueTransaction(bool issue, const TxContext& context)
+        : AssetTransaction{ context }
         , _issue(issue)
     {
     }
@@ -90,7 +88,7 @@ namespace beam::wallet
             }
 
             UpdateTxDescription(TxStatus::InProgress);
-            if (const auto info = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
+            if (const auto info = GetWalletDB()->findAsset(builder.GetAssetOwnerId()))
             {
                 SetParameter(TxParameterID::AssetID, info->m_ID);
                 SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*info));
@@ -182,7 +180,7 @@ namespace beam::wallet
             }
 
 			SetState(State::Registration);
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             return;
         }
 
@@ -202,11 +200,11 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
+        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn  = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
+            bool bIn  = (coin.m_createTxId == GetTxID());
+            bool bOut = (coin.m_spentTxId == GetTxID());
             if (bIn || bOut)
             {
                 if (bIn)

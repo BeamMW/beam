@@ -15,8 +15,8 @@
 
 // TODO:ASSETS move what you can to base class
 namespace beam::wallet {
-    AssetTransaction::AssetTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : BaseTransaction(gateway, std::move(walletDB), txID)
+    AssetTransaction::AssetTransaction(const TxContext& context)
+        : BaseTransaction(context)
     {
     }
 

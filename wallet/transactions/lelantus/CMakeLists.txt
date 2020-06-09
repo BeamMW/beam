@@ -6,6 +6,7 @@ set(LELANTUS_SRC
     pull_transaction.cpp
     push_tx_builder.cpp
     pull_tx_builder.cpp
+    unlink_transaction.cpp
 )
 
 add_library(lelantus STATIC ${LELANTUS_SRC})

@@ -28,14 +28,14 @@ namespace beam::wallet
             explicit Creator() = default;
 
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
 
             IWalletDB::Ptr _walletDB;
         };
 
     private:
-        AssetInfoTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
+        AssetInfoTransaction(const TxContext& context);
         TxType GetType() const override;
         bool IsInSafety() const override;
 

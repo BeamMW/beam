@@ -1335,19 +1335,12 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, id);
+        return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
     {
-        auto it = m_TxCreators.find(msg.m_Type);
-        if (it == m_TxCreators.end())
-        {
-            LOG_WARNING() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
-            return wallet::BaseTransaction::Ptr();
-        }
-
-        return it->second->Create(*this, m_WalletDB, msg.m_TxID);
+        return ConstructTransaction(msg.m_TxID, msg.m_Type);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -1380,7 +1373,7 @@ namespace beam::wallet
             }
         }
 
-        auto newTx = it->second->Create(*this, m_WalletDB, *parameters.GetTxID());
+        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }

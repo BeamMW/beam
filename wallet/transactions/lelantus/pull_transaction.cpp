@@ -26,11 +26,9 @@ namespace beam::wallet::lelantus
             .SetParameter(TxParameterID::IsSender, false);
     }
 
-    BaseTransaction::Ptr PullTransaction::Creator::Create(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , const TxID& txID)
+    BaseTransaction::Ptr PullTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new PullTransaction(gateway, walletDB, txID, m_withAssets));
+        return BaseTransaction::Ptr(new PullTransaction(context, m_withAssets));
     }
 
     TxParameters PullTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -39,11 +37,9 @@ namespace beam::wallet::lelantus
         return parameters;
     }
 
-    PullTransaction::PullTransaction(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , const TxID& txID
+    PullTransaction::PullTransaction(const TxContext& context
         , bool withAssets)
-        : BaseTransaction(gateway, walletDB, txID)
+        : BaseTransaction(context)
         , m_withAssets(withAssets)
     {
     }

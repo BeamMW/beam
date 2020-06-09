@@ -80,14 +80,10 @@ namespace beam::wallet
 
     const uint32_t BaseTransaction::s_ProtoVersion = 4;
 
-    BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , const TxID& txID)
-        : m_Gateway{ gateway }
-        , m_WalletDB{ walletDB }
-        , m_ID{ txID }
+    BaseTransaction::BaseTransaction(const TxContext& context)
+        : m_Context{ context }
     {
-        assert(walletDB);
+        assert(context.GetWalletDB());
     }
 
     bool BaseTransaction::IsInitiator() const
@@ -131,12 +127,12 @@ namespace beam::wallet
 
     const TxID& BaseTransaction::GetTxID() const
     {
-        return m_ID;
+        return m_Context.GetTxID();
     }
 
     void BaseTransaction::Update()
     {
-        AsyncContextHolder async(m_Gateway);
+        AsyncContextHolder async(m_Context.GetGateway());
         try
         {
             m_EventToUpdate.reset();
@@ -216,12 +212,12 @@ namespace beam::wallet
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
-        m_WalletDB->rollbackTx(GetTxID());
+        m_Context.GetWalletDB()->rollbackTx(GetTxID());
     }
 
     INegotiatorGateway& BaseTransaction::GetGateway() const
     {
-        return m_Gateway;
+        return m_Context.GetGateway();
     }
 
     bool BaseTransaction::CheckExpired()
@@ -333,7 +329,7 @@ namespace beam::wallet
 
         if (bAllocateIfAbsent && (IPrivateKeyKeeper2::Slot::Invalid == iSlot))
         {
-            iSlot = m_WalletDB->SlotAllocate();
+            iSlot = m_Context.GetWalletDB()->SlotAllocate();
             SetParameter(TxParameterID::NonceSlot, iSlot);
         }
 
@@ -345,7 +341,7 @@ namespace beam::wallet
         IPrivateKeyKeeper2::Slot::Type iSlot = GetSlotSafe(false);
         if (IPrivateKeyKeeper2::Slot::Invalid != iSlot)
         {
-            m_WalletDB->SlotFree(iSlot);
+            m_Context.GetWalletDB()->SlotFree(iSlot);
             SetParameter(TxParameterID::NonceSlot, IPrivateKeyKeeper2::Slot::Invalid);
         }
     }
@@ -375,14 +371,14 @@ namespace beam::wallet
         SendTxParameters(move(msg));
     }
 
-    IWalletDB::Ptr BaseTransaction::GetWalletDB()
+    IWalletDB::Ptr BaseTransaction::GetWalletDB() const
     {
-        return m_WalletDB;
+        return m_Context.GetWalletDB();
     }
 
     IPrivateKeyKeeper2::Ptr BaseTransaction::get_KeyKeeperStrict()
     {
-        IPrivateKeyKeeper2::Ptr ret = m_WalletDB->get_KeyKeeper();
+        IPrivateKeyKeeper2::Ptr ret = m_Context.GetWalletDB()->get_KeyKeeper();
         if (!ret)
             throw TransactionFailedException(true, TxFailureReason::NoKeyKeeper);
 
@@ -391,7 +387,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr BaseTransaction::get_MasterKdfStrict() const
     {
-        Key::IKdf::Ptr ret = m_WalletDB->get_MasterKdf();
+        Key::IKdf::Ptr ret = m_Context.GetWalletDB()->get_MasterKdf();
         if (!ret)
             throw TransactionFailedException(true, TxFailureReason::NoMasterKey);
 
@@ -443,8 +439,8 @@ namespace beam::wallet
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_ID);
+            bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_Context.GetTxID());
+            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_Context.GetTxID());
             if (bIn || bOut)
             {
                 if (bIn)

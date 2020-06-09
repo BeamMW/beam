@@ -40,6 +40,7 @@ namespace beam::wallet
         PullTransaction,
         VoucherRequest,
         VoucherResponse,
+        UnlinkFunds,
         ALL
     };
 

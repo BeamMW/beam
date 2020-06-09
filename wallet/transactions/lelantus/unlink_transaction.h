@@ -18,11 +18,12 @@
 
 namespace beam::wallet::lelantus
 {
-    TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreateUnlinkFundsTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
 
-    class PushTxBuilder;
+    class PushTransaction;
+    class PullTransaction;
 
-    class PushTransaction : public BaseTransaction
+    class UnlinkFundsTransaction : public BaseTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
@@ -38,18 +39,29 @@ namespace beam::wallet::lelantus
         };
 
     public:
-        PushTransaction(const TxContext& context
+        UnlinkFundsTransaction(const TxContext& context
             , bool withAssets);
 
     private:
+
+        enum State : uint8_t
+        {
+            Initial,
+            Unlinking,
+            Extration
+        };
+
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
 
+        State GetState() const;
+        void UpdateActiveTransactions();
+        void CreateInitialTransactions();
     private:
-        std::shared_ptr<PushTxBuilder> m_TxBuilder;
-        bool m_waitingShieldedProof = true;
+        //BaseTransaction::Ptr m_PushTransaction;
+        std::vector<BaseTransaction::Ptr> m_ActiveTransactions;
         bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus
