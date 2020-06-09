@@ -754,7 +754,7 @@ void NodeConnection::OnLoginInternal(Login&& msg)
     if (LoginFlags::Extension::Maximum != nExt)
     {
         bool bNewer = (nExt > LoginFlags::Extension::Maximum);
-        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << nExt;
+        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << static_cast<uint32_t>(nExt);
 
         if (nExt < LoginFlags::Extension::Minimum)
             ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
