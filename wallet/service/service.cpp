@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef NDEBUG
 #define LOG_VERBOSE_ENABLED 1
+#endif
+
 #include "utility/logger.h"
 
 #include "service.h"
@@ -952,6 +955,12 @@ int main(int argc, char* argv[])
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
+
+            #ifdef NDEBUG
+            LOG_INFO() << "Log mode: Non-Debug";
+            #else
+            LOG_INFO() << "Log mode: Debug";
+            #endif
             
             if (vm.count(cli::NODE_ADDR) == 0)
             {

@@ -572,6 +572,12 @@ int main(int argc, char* argv[])
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
 
+            #ifdef NDEBUG
+            LOG_INFO() << "Log mode: Non-Debug";
+            #else
+            LOG_INFO() << "Log mode: Debug";
+            #endif
+
             if (vm.count(cli::NODE_ADDR) == 0)
             {
                 LOG_ERROR() << "node address should be specified";
