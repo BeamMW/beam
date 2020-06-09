@@ -618,6 +618,24 @@ void Node::Processor::OnNewState()
 	get_ParentObj().MaybeGenerateRecovery();
 }
 
+void Node::Processor::OnFastSyncSucceeded()
+{
+    // update Events serif
+    ECC::Hash::Value hv;
+    Blob blob(hv);
+    if (!get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+        return; //?!
+
+    get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
+
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    {
+        Peer& peer = *it;
+        peer.m_Flags &= ~Peer::Flags::SerifSent;
+        peer.MaybeSendSerif();
+    }
+}
+
 void Node::MaybeGenerateRecovery()
 {
 	if (!m_PostStartSynced || m_Cfg.m_Recovery.m_sPathOutput.empty() || !m_Cfg.m_Recovery.m_Granularity)

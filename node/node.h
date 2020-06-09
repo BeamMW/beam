@@ -210,6 +210,7 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		void OnModified() override;
+		void OnFastSyncSucceeded() override;
 		void get_ViewerKeys(ViewerKeys&) override;
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;

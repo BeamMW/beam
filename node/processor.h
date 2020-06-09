@@ -326,6 +326,7 @@ public:
 	virtual void OnRolledBack() {}
 	virtual void OnModified() {}
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
+	virtual void OnFastSyncSucceeded() {}
 
 	struct MyExecutor
 		:public Executor
