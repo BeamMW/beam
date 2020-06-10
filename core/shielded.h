@@ -74,7 +74,7 @@ namespace beam
 			ECC::Scalar::Native m_k;
 			User m_User;
 
-			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, bool bHideAssetAlways /* = false */);
+			void Generate(ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&, bool bHideAssetAlways = false);
 			bool Recover(const ShieldedTxo&, const ECC::Hash::Value& hvShared, ECC::Oracle&);
 			void Restore_kG(const ECC::Hash::Value& hvShared); // restores m_k, all other members must be set
 
@@ -94,7 +94,7 @@ namespace beam
 			TicketParams m_Ticket;
 			OutputParams m_Output;
 
-			void GenerateOutp(ShieldedTxo&, ECC::Oracle&, bool bHideAssetAlways /* = false */);
+			void GenerateOutp(ShieldedTxo&, ECC::Oracle&, bool bHideAssetAlways = false);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 		};
 
