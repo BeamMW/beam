@@ -23,6 +23,7 @@
 #include "version.h"
 #include "pipe.h"
 #include "utils.h"
+#include "node_connection.h"
 
 #include <memory>
 #include <unordered_map>
@@ -600,7 +601,7 @@ int main(int argc, char* argv[])
         LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
         
         Monitor monitor;
-        proto::FlyClient::NetworkStd nnet(monitor);
+        MonitorNodeConnection nnet(monitor);
         nnet.m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet.Connect();
  

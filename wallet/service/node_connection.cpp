@@ -23,4 +23,14 @@ namespace beam::wallet {
     {
         LOG_ERROR() << "Node connection failed, reason: " << reason;
     }
+
+    MonitorNodeConnection::MonitorNodeConnection(proto::FlyClient& fc)
+        : proto::FlyClient::NetworkStd(fc)
+    {
+    }
+
+    void MonitorNodeConnection::OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
+    {
+        LOG_ERROR() << "Node connection failed, reason: " << reason;
+    }
 }

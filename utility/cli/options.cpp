@@ -15,6 +15,7 @@
 #include "options.h"
 
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
@@ -572,11 +573,12 @@ namespace beam
 
     bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
-        std::ifstream cfg(szFile);
+        const auto path = boost::filesystem::system_complete(szFile);
+        std::ifstream cfg(path);
         if (!cfg)
             return false;
 
-        LOG_INFO() << "Reading config from " << szFile;
+        LOG_INFO() << "Reading config from " << path;
         po::store(po::parse_config_file(cfg, desc), vm);
         return true;
     }
