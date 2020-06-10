@@ -1098,12 +1098,9 @@ namespace beam::wallet
         if (!storage::getVar(*m_WalletDB, szEvtSerif, hh))
         {
             hh.m_Hash = Zero;
-
-            Block::SystemState::Full sTip;
-            get_tip(sTip);
-
-            bool bWasFullySynced = (sTip.m_Height + 1 == GetEventsHeightNext());
-            hh.m_Height = bWasFullySynced ? sTip.m_Height : MaxHeight;
+            // If this is the 1st time we received the serif - we do NOT assume the wallet was synced ok. It can potentially be already out-of-sync.
+            // Hence once node and wallet are both upgraded from older version - there will always be initial rescan.
+            hh.m_Height = MaxHeight;
         }
 
         bool bHashChanged = (hh.m_Hash != hv);
@@ -1128,6 +1125,8 @@ namespace beam::wallet
 
         if (bHashChanged || (h != hh.m_Height))
         {
+            LOG_INFO() << "Events Serif changed: " << (bHashChanged ? "new Hash, " : "") << "Height=" << h << (bMustRescan ? ", Resyncing" : "");
+
             hh.m_Height = h;
             storage::setVar(*m_WalletDB, szEvtSerif, hh);
         }
