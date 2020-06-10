@@ -352,6 +352,7 @@ private:
 	} m_Dandelion;
 
 	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
@@ -359,7 +360,6 @@ private:
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
-	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
