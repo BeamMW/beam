@@ -18,6 +18,9 @@ set(SWAP_SRC
     bridges/bitcoin_cash/common.cpp
     bridges/bitcoin_cash/bitcoin_cash_core.cpp
     bridges/bitcoin_cash/bitcoin_cash_side.cpp
+    bridges/bitcoin_sv/common.cpp
+    bridges/bitcoin_sv/bitcoin_sv_core.cpp
+    #bridges/bitcoin_sv/bitcoin_sv_side.cpp
     bridges/litecoin/common.cpp
     bridges/litecoin/litecoin_core_016.cpp
     bridges/litecoin/litecoin_core_017.cpp

@@ -28,6 +28,7 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2025,6 +2026,10 @@ namespace
             {
                 return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>(vm, walletDB);
             }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+            {
+                return HandleSwapCoin<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>(vm, walletDB);
+            }
             default:
             {
                 throw std::runtime_error("Unsupported coin for swap");
@@ -2064,6 +2069,11 @@ namespace
             case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
             {
                 ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, "bch");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+            {
+                ShowSwapSettings<bitcoin_sv::SettingsProvider>(walletDB, "bsv");
                 break;
             }
             default:
@@ -2249,6 +2259,22 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = bchSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Bitcoin_SV)
+        {
+            auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
+            bsvSettingsProvider->Initialize();
+            auto bsvSettings = bsvSettingsProvider->GetSettings();
+            if (!bsvSettings.IsInitialized())
+            {
+                throw std::runtime_error("Bitcoin SV settings should be initialized.");
+            }
+
+            if (!BitcoinSVSide::CheckAmount(*swapAmount, bsvSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = bsvSettings.GetFeeRate();
         }
         else
         {

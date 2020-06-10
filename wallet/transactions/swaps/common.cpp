@@ -27,6 +27,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Qtum;
     else if (value == "bch")
         return AtomicSwapCoin::Bitcoin_Cash;
+    else if (value == "bsv")
+        return AtomicSwapCoin::Bitcoin_SV;
 
     return AtomicSwapCoin::Unknown;
 }
@@ -39,6 +41,7 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     case AtomicSwapCoin::Litecoin:
     case AtomicSwapCoin::Qtum:
     case AtomicSwapCoin::Bitcoin_Cash:
+    case AtomicSwapCoin::Bitcoin_SV:
         return libbitcoin::satoshi_per_bitcoin;
     default:
     {
@@ -85,6 +88,8 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "QTUM";
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
         return "BCH";
+    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+        return "BSV";
     default:
         return "";
     }

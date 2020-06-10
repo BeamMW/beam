@@ -46,6 +46,7 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Litecoin,
     Qtum,
     Bitcoin_Cash,
+    Bitcoin_SV,
     Unknown
 };
 
