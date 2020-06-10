@@ -72,6 +72,7 @@ struct Node
 
 		uint32_t m_MaxConcurrentBlocksRequest = 18;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
+		uint32_t m_MaxDeferredTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogEvents = false; // may be insecure. Off by default.
@@ -351,8 +352,28 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
 
-	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
-	uint8_t OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
+	struct TxDeferred
+	{
+		struct Element
+		{
+			Transaction::Ptr m_pTx;
+			PeerID m_Sender;
+			bool m_Fluff;
+		};
+
+		std::list<Element> m_lst;
+		io::Timer::Ptr m_pTimer;
+
+		void SetTimer();
+		void OnTimer();
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
+	} m_TxDeferred;
+
+	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	uint8_t OnTransactionStem(Transaction::Ptr&&);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, const PeerID*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
