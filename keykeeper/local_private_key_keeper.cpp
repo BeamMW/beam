@@ -323,7 +323,7 @@ namespace beam::wallet
     {
         Aggregation aggr(*this);
         if (!aggr.Aggregate(x))
-            return Status::Unspecified;
+            return 5;
 
         assert(x.m_pKernel);
         TxKernelStd& krn = *x.m_pKernel;
@@ -336,27 +336,27 @@ namespace beam::wallet
                 return Status::UserAbort; // conventional transfers must always be signed
 
             if (!vals.Subtract(aggr.m_Outs))
-                return Status::Unspecified; // not sending
+                return 6; // not sending
 
             if (aggr.m_AssetID)
             {
                 if (!vals.m_Asset)
-                    return Status::Unspecified; // asset involved, but no net transfer
+                    return 7; // asset involved, but no net transfer
 
                 if (vals.m_Beam != krn.m_Fee)
-                    return Status::Unspecified; // all beams must be consumed by the fee
+                    return 8; // all beams must be consumed by the fee
             }
             else
             {
                 if (vals.m_Beam <= krn.m_Fee)
-                    return Status::Unspecified;
+                    return 9;
 
                 vals.m_Asset = vals.m_Beam - krn.m_Fee;
             }
         }
 
         if (x.m_Slot >= get_NumSlots())
-            return Status::Unspecified;
+            return 10;
 
         Scalar::Native kNonce;
 
@@ -369,7 +369,7 @@ namespace beam::wallet
         {
             // legacy. We need to verify the payment proof vs externally-specified our ID (usually SBBS address)
             if (IsTrustless())
-                return Status::Unspecified;
+                return 11;
         }
 
         get_Nonce(kNonce, x.m_Slot);
@@ -407,7 +407,7 @@ namespace beam::wallet
             {
                 Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, false);
                 if (Status::Success != res)
-                    return res;
+                    return 12;
             }
 
             x.m_UserAgreement = hv;
@@ -422,7 +422,7 @@ namespace beam::wallet
         }
 
         if (x.m_UserAgreement != hv)
-            return Status::Unspecified; // incorrect user agreement token
+            return 13; // incorrect user agreement token
 
         krn.UpdateID();
 
@@ -437,7 +437,7 @@ namespace beam::wallet
             if (!pc.IsValid(x.m_Peer))
             {
                 LOG_DEBUG() << "Payment proof confimation failed";
-                return Status::Unspecified;
+                return 14;
             }
         }
 
@@ -446,7 +446,7 @@ namespace beam::wallet
             // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
             Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
             if (Status::Success != res)
-                return res;
+                return 15;
         }
 
         Regenerate(x.m_Slot);
