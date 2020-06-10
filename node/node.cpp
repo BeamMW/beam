@@ -2533,7 +2533,7 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
-bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
+uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
@@ -2549,7 +2549,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
         m_Dandelion.Delete(*pElem);
 
 		if (!bValid)
-			return false;
+			return proto::TxStatus::InvalidContext;
 	}
     else
     {
@@ -2570,7 +2570,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
     TxPool::Fluff::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
     if (m_TxPool.m_setTxs.end() != it)
-        return true;
+        return proto::TxStatus::Ok;
 
     const Transaction& tx = *ptx;
 
@@ -2581,7 +2581,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
-		return false; // stupid compiler insists on parentheses here!
+		return nCode; // stupid compiler insists on parentheses here!
 	}
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
@@ -2596,7 +2596,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 
     if (!pNewTxElem)
-		return false;
+		return nCode; // though the tx is dropped, we return status ok.
 
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
@@ -2616,7 +2616,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
         m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-    return true;
+    return nCode;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
