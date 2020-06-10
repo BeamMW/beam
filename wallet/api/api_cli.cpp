@@ -541,7 +541,7 @@ private:
                 peer.u64(),
                 BaseConnection::inbound,
                 BIND_THIS_MEMFN(on_request),
-                10000,
+                1024 * 1024,
                 1024,
                 std::move(newStream)
                 );
@@ -559,7 +559,7 @@ private:
 
         bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
         {
-            if (msg.what != HttpMsgReader::http_message || !msg.msg)
+            if ((msg.what != HttpMsgReader::http_message || !msg.msg) && msg.what != HttpMsgReader::message_too_long)
             {
                 LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
                 _connection->shutdown();
@@ -567,7 +567,11 @@ private:
                 return false;
             }
 
-            if (msg.msg->get_path() != "/api/wallet")
+            if (msg.what == HttpMsgReader::message_too_long)
+            {
+                _keepalive = send(_connection, 413, "Payload Too Large");
+            }
+            else if (msg.msg->get_path() != "/api/wallet")
             {
                 _keepalive = send(_connection, 404, "Not Found");
             }
