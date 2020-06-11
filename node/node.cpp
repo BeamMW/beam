@@ -2094,7 +2094,7 @@ void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, 
     //}
 
     if (m_TxDeferred.m_lst.empty())
-        m_TxDeferred.SetTimer();
+        m_TxDeferred.start();
     else
     {
         while (m_TxDeferred.m_lst.size() > m_Cfg.m_MaxDeferredTransactions)
@@ -2104,24 +2104,18 @@ void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, 
     m_TxDeferred.m_lst.push_back(std::move(txd));
 }
 
-void Node::TxDeferred::OnTimer()
+void Node::TxDeferred::OnSchedule()
 {
-    if (m_lst.empty())
-        return;
-
-    TxDeferred::Element& x = m_lst.front();
-    get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff);
-
-    m_lst.pop_front();
     if (!m_lst.empty())
-        SetTimer();
-}
+    {
+        TxDeferred::Element& x = m_lst.front();
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff);
+        m_lst.pop_front();
+    }
 
-void Node::TxDeferred::SetTimer()
-{
-    if (!m_pTimer)
-        m_pTimer = io::Timer::create(io::Reactor::get_Current());
-    m_pTimer->start(0, false, [this]() { OnTimer(); });
+    if (m_lst.empty())
+        cancel();
+
 }
 
 uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
