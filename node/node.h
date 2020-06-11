@@ -353,6 +353,7 @@ private:
 	} m_Dandelion;
 
 	struct TxDeferred
+		:public io::IdleEvt
 	{
 		struct Element
 		{
@@ -362,10 +363,8 @@ private:
 		};
 
 		std::list<Element> m_lst;
-		io::Timer::Ptr m_pTimer;
 
-		void SetTimer();
-		void OnTimer();
+		virtual void OnSchedule() override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
