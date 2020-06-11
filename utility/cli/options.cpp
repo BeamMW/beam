@@ -573,6 +573,9 @@ namespace beam
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
             macro(std::string, Prehistoric, "Prehistoric hash") \
             macro(std::string, TreasuryChecksum, "Treasury hash, or zero to disable treasury") \
+            macro(uint32_t, Magic.v0, "Fork0 magic number") \
+            macro(uint32_t, Magic.v2, "Fork2 magic number") \
+            macro(bool, Magic.IsTestnet, "magic testnet indicator") \
 
 		#define Fork1 pForks[1].m_Height
 		#define Fork2 pForks[2].m_Height

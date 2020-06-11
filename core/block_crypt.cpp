@@ -1744,10 +1744,12 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(15) // increment this whenever we change something in the protocol
-#ifndef BEAM_TESTNET
-			<< "masternet"
-#endif
+			<< Magic.v0; // increment this whenever we change something in the protocol
+
+		if (!Magic.IsTestnet)
+			oracle << "masternet";
+
+		oracle
 			// out
 			>> pForks[0].m_Hash;
 
@@ -1764,7 +1766,17 @@ namespace beam
 			<< pForks[2].m_Height
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
-			<< uint32_t(2) // increment this whenever we change something in the protocol
+			<< Magic.v2; // increment this whenever we change something in the protocol
+
+		// for historical reasons we didn't include Shielded.MaxIns and Shielded.MaxOuts
+		if ((Shielded.MaxIns != 20) || (Shielded.MaxOuts != 30))
+		{
+			oracle
+				<< Shielded.MaxIns
+				<< Shielded.MaxOuts;
+		}
+
+		oracle
 			<< Shielded.m_ProofMax.n
 			<< Shielded.m_ProofMax.M
 			<< Shielded.m_ProofMin.n
