@@ -322,8 +322,22 @@ namespace beam
             return x;
         }
 
+        template <typename TVar>
+        static void set(TVar& var, const T& value) {
+            var = value;
+        }
+
         static const T& get(const Difficulty& x) {
             return x.m_Packed;
+        }
+
+        static std::string get(ECC::uintBig& x) {
+            return x.str();
+        }
+
+        static void set(ECC::uintBig& var, const std::string& value) {
+            var = Zero;
+            var.Scan(value.c_str());
         }
     };
 
@@ -557,6 +571,8 @@ namespace beam
             macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
             macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
+            macro(std::string, Prehistoric, "Prehistoric hash") \
+            macro(std::string, TreasuryChecksum, "Treasury hash, or zero to disable treasury") \
 
 		#define Fork1 pForks[1].m_Height
 		#define Fork2 pForks[2].m_Height
@@ -612,7 +628,7 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
+        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
     }
