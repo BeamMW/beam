@@ -2589,7 +2589,7 @@ namespace beam::wallet
 
     void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func)
     {
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY Key;"); // the order is not importantt, but at least it should be by indexed field
         while (stm.step())
         {
             ShieldedCoin coin;
