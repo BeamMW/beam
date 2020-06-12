@@ -3468,6 +3468,9 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
+        // we'll send up to s_Max num of events, even to older clients, they won't complain
+        static_assert(proto::Event::s_Max > proto::Event::s_Max0);
+
         Serializer ser;
 
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
