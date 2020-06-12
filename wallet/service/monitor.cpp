@@ -504,9 +504,18 @@ namespace
                     _heartbeatPipe->notifyAlive();
                 });
             }
+
+            std::string name = "SBBS Monitor";
+            LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveInterval());
+            _aliveLogTimer = io::Timer::create(*reactor);
+            _aliveLogTimer->start(getAliveInterval(), true, [&name]() {
+                logAlive(name);
+            });
         }
+
     private:
         io::Timer::Ptr _heartbeatTimer;
+        io::Timer::Ptr _aliveLogTimer;
         std::unique_ptr<Pipe> _heartbeatPipe;
     };
 }

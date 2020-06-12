@@ -14,12 +14,18 @@
 #include <chrono>
 #include <sstream>
 #include "utils.h"
+#include "utility/logger.h"
 
 namespace beam::wallet {
     unsigned days2sec(unsigned days)
     {
         return 60 * 60 * 24 * days;
     }
+
+     std::string msec2readable(unsigned sec)
+     {
+        return sec2readable(sec / 10000);
+     }
 
     std::string sec2readable(unsigned sec)
     {
@@ -65,5 +71,18 @@ namespace beam::wallet {
 
         return stream.str();
     }
-}
 
+    int getAliveInterval()
+    {
+        #ifdef NDEBUG
+        return 1000 * 60; // 1 minute
+        #else
+        return 1000 * 60 * 10; // 10 minutes
+        #endif
+    }
+
+    void logAlive(const std::string& name)
+    {
+        LOG_INFO() << "== Hey! " << name << " is sill alive ==";
+    }
+}
