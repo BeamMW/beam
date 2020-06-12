@@ -244,6 +244,11 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				return;
 		}
 	}
+	else if(get_State() == State::Opening0 && !m_pNegCtx)
+	{
+		m_pOpen->m_hrLimit.m_Max = get_Tip();
+		return;
+	}
 
 	if (!m_pNegCtx)
 		return;

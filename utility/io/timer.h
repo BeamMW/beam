@@ -14,6 +14,7 @@
 
 #pragma once
 #include "reactor.h"
+#include "../common.h" // IMPLEMENT_GET_PARENT_OBJ
 
 namespace beam { namespace io {
 
@@ -38,6 +39,28 @@ private:
     Timer() = default;
 
     Callback _callback;
+};
+
+struct IdleEvt
+{
+    ~IdleEvt() { cancel(); }
+
+    void start();
+    void cancel();
+
+    virtual void OnSchedule() {}
+
+private:
+
+    struct Handle
+        :public uv_idle_t
+    {
+        static void CallbackRaw(uv_idle_t*);
+
+        IMPLEMENT_GET_PARENT_OBJ(IdleEvt, m_Handle)
+    } m_Handle;
+
+    bool m_Set = false;
 };
 
 }} //namespaces

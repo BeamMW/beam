@@ -2054,15 +2054,75 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         ThrowUnexpected(); // our deserialization permits NULL Ptrs.
     // However the transaction body must have already been checked for NULLs
 
-    if (msg.m_Fluff)
-        m_This.OnTransactionFluff(std::move(msg.m_Transaction), this, NULL);
-    else
+    // Change in protocol!
+    // Historically the node replied with proto::Status message for transactions in stem phase only, for fluff phase no reply was necessary.
+    // Now we reply regardless to phase, but ONLY to non-node client (means - FlyClient).
+    // For other cases the tx verification is deferred, until the node is idle.
+    bool bReply = !(Flags::PiRcvd & m_Flags);
+
+    const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
+
+    if (bReply)
     {
         proto::Status msgOut;
-		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
-
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
         Send(msgOut);
     }
+    else
+    {
+        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
+    }
+}
+
+void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+{
+    TxDeferred::Element txd;
+    txd.m_pTx = std::move(pTx);
+    txd.m_Fluff = bFluff;
+
+    if (pSender)
+        txd.m_Sender = *pSender;
+    else
+        txd.m_Sender = Zero;
+
+    //if (m_Cfg.m_LogTxFluff)
+    //{
+    //    Transaction::KeyType key;
+    //    txd.m_pTx->get_Key(key);
+
+    //    LOG_INFO() << "Tx " << key << " deferred";
+    //}
+
+    if (m_TxDeferred.m_lst.empty())
+        m_TxDeferred.start();
+    else
+    {
+        while (m_TxDeferred.m_lst.size() > m_Cfg.m_MaxDeferredTransactions)
+            m_TxDeferred.m_lst.pop_front();
+    }
+
+    m_TxDeferred.m_lst.push_back(std::move(txd));
+}
+
+void Node::TxDeferred::OnSchedule()
+{
+    if (!m_lst.empty())
+    {
+        TxDeferred::Element& x = m_lst.front();
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff);
+        m_lst.pop_front();
+    }
+
+    if (m_lst.empty())
+        cancel();
+
+}
+
+uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+{
+    return bFluff ?
+        OnTransactionFluff(std::move(pTx), pSender, nullptr) :
+        OnTransactionStem(std::move(pTx));
 }
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
@@ -2177,7 +2237,7 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
     return threshold;
 }
 
-uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
+uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
@@ -2533,7 +2593,7 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
-bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
+uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSender, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
@@ -2549,7 +2609,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
         m_Dandelion.Delete(*pElem);
 
 		if (!bValid)
-			return false;
+			return proto::TxStatus::InvalidContext;
 	}
     else
     {
@@ -2570,7 +2630,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
     TxPool::Fluff::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
     if (m_TxPool.m_setTxs.end() != it)
-        return true;
+        return proto::TxStatus::Ok;
 
     const Transaction& tx = *ptx;
 
@@ -2581,7 +2641,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
-		return false; // stupid compiler insists on parentheses here!
+		return nCode; // stupid compiler insists on parentheses here!
 	}
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
@@ -2596,7 +2656,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 
     if (!pNewTxElem)
-		return false;
+		return nCode; // though the tx is dropped, we return status ok.
 
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
@@ -2604,7 +2664,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; it2++)
     {
         Peer& peer = *it2;
-        if (&peer == pPeer)
+        if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
             continue;
         if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions) || peer.IsChocking())
             continue;
@@ -2616,7 +2676,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
         m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-    return true;
+    return nCode;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
