@@ -339,7 +339,7 @@ struct Context
 
             Height hTip = get_ParentObj().m_FlyClient.get_Height();
 
-            if (nCount < proto::Event::s_Max)
+            if (nCount < r.m_Max)
                 m_hEvents = hTip + 1;
             else
             {
@@ -531,6 +531,8 @@ struct Context
 
         if (h < Rules::get().pForks[2].m_Height)
             return;
+
+        std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;
 
         m_TxosMW.HandleTxs(m_setSplit, h);
 

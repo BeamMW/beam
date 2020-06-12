@@ -22,6 +22,16 @@
 namespace beam {
 namespace proto {
 
+	namespace details {
+
+		template <typename T> struct ExtraData {
+		};
+
+		template <> struct ExtraData<proto::Events> {
+			uint32_t m_Max = proto::Event::s_Max;
+		};
+	}
+
 	struct FlyClient
 	{
 #define REQUEST_TYPES_All(macro) \
@@ -67,7 +77,10 @@ namespace proto {
 		};
 
 #define THE_MACRO(type, msgOut, msgIn) \
-		struct Request##type :public Request { \
+		struct Request##type \
+			:public Request \
+			,public details::ExtraData<msgIn> \
+		{ \
 			typedef boost::intrusive_ptr<Request##type> Ptr; \
 			Request##type() :m_Msg(Zero), m_Res(Zero) {} \
 			virtual ~Request##type() {} \

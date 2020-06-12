@@ -335,7 +335,7 @@ namespace proto {
             // 2 - Supports large HdrPack, BlockPack with parameters
             // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
-            // 5 - Supports Events serif
+            // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
 
             static const uint32_t Minimum = 3;
             static const uint32_t Maximum = 5;
@@ -356,7 +356,8 @@ namespace proto {
 
     struct Event
     {
-        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+        static const uint32_t s_Max0 = 64;
+        static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
         macro(1, Utxo) \
