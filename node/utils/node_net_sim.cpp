@@ -339,7 +339,7 @@ struct Context
 
             Height hTip = get_ParentObj().m_FlyClient.get_Height();
 
-            if (nCount < proto::Event::s_Max)
+            if (nCount < r.m_Max)
                 m_hEvents = hTip + 1;
             else
             {
