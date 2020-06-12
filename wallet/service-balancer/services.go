@@ -36,8 +36,10 @@ func NewWalletServices () (* services.Services, error)  {
 }
 
 func NewBbsServices () (* services.Services, error) {
-	var svcsCnt = 1
-	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), svcsCnt)
+	log.Printf("initializing wallet services, CPU count %v, service count %v", runtime.NumCPU(), config.BbsMonitorCnt)
+	if config.BbsMonitorCnt != 1 {
+		log.Fatal("Only 1 bbs monitor is supported at the moment")
+	}
 
 	var cliOptions []string
 	cliOptions = append(cliOptions, "--sync_pipes")
@@ -55,5 +57,6 @@ func NewBbsServices () (* services.Services, error) {
 		NoisyLogs:        config.NoisyLogs,
 		CliOptions:       cliOptions,
 	}
-	return services.NewServices(&cfg, svcsCnt, "bbs")
+
+	return services.NewServices(&cfg, config.BbsMonitorCnt, "bbs")
 }
