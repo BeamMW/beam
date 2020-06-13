@@ -181,6 +181,9 @@ public:
 	NodeProcessor();
 	virtual ~NodeProcessor();
 
+	bool ForbidActiveAt(Height);
+	void ManualRollbackTo(Height);
+
 	struct Horizon {
 
 		// branches behind this are pruned
@@ -236,6 +239,9 @@ public:
 		ECC::Point m_Sigma;
 
 	} m_SyncData;
+
+	Block::SystemState::ID m_sidForbidden;
+	void LogForbiddenState();
 
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
 

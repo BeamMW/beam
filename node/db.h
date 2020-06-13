@@ -60,6 +60,7 @@ public:
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
 			EventsSerif, // pseudo-random, reset each time the events are rescanned.
+			ForbiddenState,
 		};
 	};
 
