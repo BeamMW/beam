@@ -66,6 +66,7 @@ namespace beam
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
         extern const char* PRINT_TXO;
+        extern const char* MANUAL_ROLLBACK;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;

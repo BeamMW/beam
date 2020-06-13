@@ -383,6 +383,17 @@ int main_impl(int argc, char* argv[])
 						});
 					}
 
+					if (vm.count(cli::MANUAL_ROLLBACK))
+					{
+						Height h = vm[cli::MANUAL_ROLLBACK].as<Height>();
+						if (h >= Rules::HeightGenesis)
+							node.get_Processor().ManualRollbackTo(h);
+						else
+							node.get_Processor().ForbidActiveAt(0);
+
+						node.RefreshCongestions();
+					}
+
 					reactor->run();
 				}
 			}
