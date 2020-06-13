@@ -177,12 +177,11 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_Vacuum)
 		Vacuum();
 
-	blob.p = &m_sidForbidden;
-	blob.n = sizeof(m_sidForbidden);
-	if (m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, nullptr, &blob))
+	blob = m_sidForbidden.m_Hash;
+	if (m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob))
 		LogForbiddenState();
 	else
-		ZeroObject(m_sidForbidden);
+		ResetForbiddenStateVar();
 
 	TryGoUp();
 }
@@ -285,6 +284,12 @@ void NodeProcessor::LogSyncData()
 void NodeProcessor::LogForbiddenState()
 {
 	LOG_INFO() << "Forbidden state: " << m_sidForbidden;
+}
+
+void NodeProcessor::ResetForbiddenStateVar()
+{
+	m_sidForbidden.m_Height = MaxHeight; // don't set it to 0, it may interfer with treasury in RequestData()
+	m_sidForbidden.m_Hash = Zero;
 }
 
 void NodeProcessor::SaveSyncData()
@@ -728,14 +733,17 @@ Height NodeProcessor::get_LowestReturnHeight()
 
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
-	if (id.m_Height >= get_LowestReturnHeight())
-	{
-		RequestData(id, bBlock, sidTrg);
+	if (id.m_Height < get_LowestReturnHeight()) {
+		LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
+		return;
 	}
-	else
-	{
-		LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
+
+	if (id == m_sidForbidden) {
+		LOG_WARNING() << id << " State forbidden";
+		return;
 	}
+
+	RequestData(id, bBlock, sidTrg);
 }
 
 struct NodeProcessor::MultiSigmaContext
@@ -2141,6 +2149,17 @@ struct NodeProcessor::KrnFlyMmr
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
+	if (s.m_Height == m_sidForbidden.m_Height)
+	{
+		Merkle::Hash hv;
+		s.get_Hash(hv);
+		if (hv == m_sidForbidden.m_Hash)
+		{
+			LOG_WARNING() << LogSid(m_DB, sid) << " Forbidden";
+			return false;
+		}
+	}
+
 	ByteBuffer bbP, bbE;
 	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
 
@@ -3713,14 +3732,15 @@ bool NodeProcessor::ForbidActiveAt(Height h)
 		sid.m_Row = FindActiveAtStrict(sid.m_Height);
 		m_DB.get_StateID(sid, m_sidForbidden);
 
-		Blob blob(&m_sidForbidden, sizeof(m_sidForbidden));
-		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, &blob);
+		Blob blob = m_sidForbidden.m_Hash;
+		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob);
 		LogForbiddenState();
 	}
 	else
 	{
 		LOG_INFO() << "Forbidden state reset";
 		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, nullptr);
+		ResetForbiddenStateVar();
 	}
 
 	return true;
