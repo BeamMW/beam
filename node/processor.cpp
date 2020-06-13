@@ -177,6 +177,13 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_Vacuum)
 		Vacuum();
 
+	blob.p = &m_sidForbidden;
+	blob.n = sizeof(m_sidForbidden);
+	if (m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, nullptr, &blob))
+		LogForbiddenState();
+	else
+		ZeroObject(m_sidForbidden);
+
 	TryGoUp();
 }
 
@@ -273,6 +280,11 @@ void NodeProcessor::LogSyncData()
 		return;
 
 	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
+}
+
+void NodeProcessor::LogForbiddenState()
+{
+	LOG_INFO() << "Forbidden state: " << m_sidForbidden;
 }
 
 void NodeProcessor::SaveSyncData()
@@ -3682,6 +3694,70 @@ void NodeProcessor::RollbackTo(Height h)
 		OnCorrupted();
 
 	OnRolledBack();
+}
+
+bool NodeProcessor::ForbidActiveAt(Height h)
+{
+	if (h >= Rules::HeightGenesis)
+	{
+		if (m_Cursor.m_Sid.m_Height < h)
+		{
+			LOG_WARNING() << "Can't forbid a state above cursor";
+			return false;
+		}
+
+		NodeDB::StateID sid;
+		sid.m_Height = h;
+		sid.m_Row = FindActiveAtStrict(sid.m_Height);
+		m_DB.get_StateID(sid, m_sidForbidden);
+
+		Blob blob(&m_sidForbidden, sizeof(m_sidForbidden));
+		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, &blob);
+		LogForbiddenState();
+	}
+	else
+	{
+		LOG_INFO() << "Forbidden state reset";
+		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, nullptr);
+	}
+
+	return true;
+}
+
+void NodeProcessor::ManualRollbackTo(Height h)
+{
+	LOG_INFO() << "Manual rollback to " << h << "...";
+
+	bool bChanged = false;
+
+	if (IsFastSync() && (m_SyncData.m_Target.m_Height > h))
+	{
+		LOG_INFO() << "Fast-sync abort...";
+
+		RollbackTo(m_SyncData.m_h0);
+		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
+
+		ZeroObject(m_SyncData);
+		SaveSyncData();
+
+		bChanged = true;
+	}
+
+	if (h < m_Extra.m_TxoHi)
+	{
+		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
+		h = m_Extra.m_TxoHi;
+	}
+
+	if (m_Cursor.m_ID.m_Height > h)
+	{
+		ForbidActiveAt(h + 1);
+		RollbackTo(h);
+		bChanged = true;
+	}
+
+	if (bChanged)
+		OnNewState();
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
