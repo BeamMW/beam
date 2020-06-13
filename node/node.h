@@ -84,8 +84,13 @@ struct Node
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
-		Height m_MaxAutoRollback = 60; // artificial restriction on how much the node will rollback automatically
-		// in either case it's no more than Rules::MaxRollback
+		struct RollbackLimit
+		{
+			Height m_Max = 60; // artificial restriction on how much the node will rollback automatically
+			uint32_t m_TimeoutSinceTip_s = 3600; // further rollback is possible after this timeout since the current tip
+			// in either case it's no more than Rules::MaxRollback
+
+		} m_RollbackLimit;
 
 		struct Bbs
 		{

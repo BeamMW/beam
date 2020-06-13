@@ -781,9 +781,14 @@ void Node::Processor::get_ViewerKeys(ViewerKeys& vk)
 
 Height Node::Processor::get_MaxAutoRollback()
 {
-    return std::min(
-        NodeProcessor::get_MaxAutoRollback(),
-        get_ParentObj().m_Cfg.m_MaxAutoRollback);
+    Height h = NodeProcessor::get_MaxAutoRollback();
+    if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+    {
+        Timestamp ts_s = getTimestamp();
+        if (ts_s < m_Cursor.m_Full.m_TimeStamp + get_ParentObj().m_Cfg.m_RollbackLimit.m_TimeoutSinceTip_s)
+            std::setmin(h, get_ParentObj().m_Cfg.m_RollbackLimit.m_Max);
+    }
+    return h;
 }
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
