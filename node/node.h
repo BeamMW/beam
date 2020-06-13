@@ -84,6 +84,9 @@ struct Node
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
+		Height m_MaxAutoRollback = 60; // artificial restriction on how much the node will rollback automatically
+		// in either case it's no more than Rules::MaxRollback
+
 		struct Bbs
 		{
 			uint32_t m_MessageTimeout_s = 3600 * 12; // 1/2 day
@@ -216,6 +219,7 @@ private:
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
+		Height get_MaxAutoRollback() override;
 		void Stop();
 
 		struct MyExecutorMT

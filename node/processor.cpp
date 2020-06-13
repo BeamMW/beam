@@ -693,12 +693,17 @@ const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height
 	return nullptr;
 }
 
-Height NodeProcessor::get_LowestReturnHeight() const
+Height NodeProcessor::get_MaxAutoRollback()
+{
+	return Rules::get().MaxRollback;
+}
+
+Height NodeProcessor::get_LowestReturnHeight()
 {
 	Height hRet = m_Extra.m_TxoHi;
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
-	Height hMaxRollback = Rules::get().MaxRollback;
+	Height hMaxRollback = get_MaxAutoRollback();
 
 	if (h0 > hMaxRollback)
 	{

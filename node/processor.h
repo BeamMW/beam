@@ -316,7 +316,7 @@ public:
 	void OnFastSyncOver(MultiblockContext&, bool& bContextFail);
 
 	// Lowest height to which it's possible to rollback.
-	Height get_LowestReturnHeight() const;
+	Height get_LowestReturnHeight();
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -327,6 +327,7 @@ public:
 	virtual void OnModified() {}
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
+	virtual Height get_MaxAutoRollback();
 
 	struct MyExecutor
 		:public Executor
