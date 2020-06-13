@@ -201,6 +201,8 @@ struct Node
 	bool GenerateRecoveryInfo(const char*);
 	void PrintTxos();
 
+	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
+
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
 private:
@@ -606,8 +608,6 @@ private:
 	PeerID m_MyPublicID;
 
 	Peer* AllocPeer(const beam::io::Address&);
-
-	void RefreshCongestions();
 
 	struct Server
 		:public proto::NodeConnection::Server
