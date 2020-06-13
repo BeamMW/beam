@@ -242,6 +242,7 @@ public:
 
 	Block::SystemState::ID m_sidForbidden;
 	void LogForbiddenState();
+	void ResetForbiddenStateVar();
 
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
 
