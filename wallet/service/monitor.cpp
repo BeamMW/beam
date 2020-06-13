@@ -508,7 +508,7 @@ namespace
             std::string name = "SBBS Monitor";
             LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveInterval());
             _aliveLogTimer = io::Timer::create(*reactor);
-            _aliveLogTimer->start(getAliveInterval(), true, [&name]() {
+            _aliveLogTimer->start(getAliveInterval(), true, [name]() {
                 logAlive(name);
             });
         }
