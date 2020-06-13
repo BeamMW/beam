@@ -1269,8 +1269,10 @@ struct NodeProcessor::MultiblockContext
 			nTasks = ex.Flush(nTasks - 1);
 		}
 
-		m_InProgress.m_Max++;
-		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
+		// The following won't hold if some blocks in the current range were already verified in the past, and omitted from the current verification
+		//		m_InProgress.m_Max++;
+		//		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
+		m_InProgress.m_Max = pShared->m_Ctx.m_Height.m_Min;
 
 		bool bFull = (pShared->m_Ctx.m_Height.m_Min > m_This.m_SyncData.m_Target.m_Height);
 
