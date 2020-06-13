@@ -717,7 +717,7 @@ Height NodeProcessor::get_MaxAutoRollback()
 
 Height NodeProcessor::get_LowestReturnHeight()
 {
-	Height hRet = m_Extra.m_TxoHi;
+	Height hRet = std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
 	Height hMaxRollback = get_MaxAutoRollback();
