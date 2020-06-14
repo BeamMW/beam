@@ -552,11 +552,9 @@ void Node::Processor::FlushInsanePeers()
 void Node::Processor::DeleteOutdated()
 {
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		if (!x.m_pValue)
-			continue;
 		Transaction& tx = *x.m_pValue;
 
 		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
@@ -688,10 +686,10 @@ void Node::Processor::OnRolledBack()
 
 	// Delete shielded txs which referenced shielded outputs which were reverted
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		if (x.m_pValue && !IsShieldedInPool(*x.m_pValue))
+        if (!IsShieldedInPool(*x.m_pValue))
 			txp.Delete(x);
 	}
 
