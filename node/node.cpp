@@ -559,7 +559,7 @@ void Node::Processor::DeleteOutdated()
 			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Threshold.m_Height, true))
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
 			txp.Delete(x);
 	}
 }

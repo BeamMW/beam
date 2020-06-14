@@ -55,15 +55,7 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			struct Threshold
-				:public boost::intrusive::set_base_hook<>
-			{
-				HeightRange m_Height;
-
-				bool operator < (const Threshold& t) const { return m_Height.m_Max < t.m_Height.m_Max; }
-
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
-			} m_Threshold;
+			HeightRange m_Height;
 
 			struct Queue
 				:public boost::intrusive::list_base_hook<>
@@ -75,12 +67,10 @@ struct TxPool
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
 		typedef boost::intrusive::list<Element::Queue> Queue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
-		ThresholdSet m_setThreshold;
 		Queue m_Queue;
 
 		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);

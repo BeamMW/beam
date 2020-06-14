@@ -48,12 +48,11 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Threshold.m_Height	= ctx.m_Height;
+	p->m_Height	= ctx.m_Height;
 	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
-	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
 
@@ -68,7 +67,6 @@ void TxPool::Fluff::Delete(Element& x)
 	assert(x.m_pValue);
 	x.m_pValue.reset();
 
-	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
 	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
 
@@ -88,8 +86,8 @@ void TxPool::Fluff::Release(Element& x)
 
 void TxPool::Fluff::Clear()
 {
-	while (!m_setThreshold.empty())
-		Delete(m_setThreshold.begin()->get_ParentObj());
+	while (!m_setTxs.empty())
+		Delete(m_setTxs.begin()->get_ParentObj());
 }
 
 /////////////////////////////
