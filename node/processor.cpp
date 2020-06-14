@@ -4292,7 +4292,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		}
 
 		if (bDelete)
-			bc.m_TxPool.Delete(x); // isn't available in this context
+			bc.m_TxPool.SetOutdated(x, h); // isn't available in this context
 	}
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
