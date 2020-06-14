@@ -19,7 +19,7 @@ namespace beam::wallet {
     std::string sec2readable(unsigned sec);
     std::string msec2readable(unsigned sec);
 
-    int getAliveInterval();
+    unsigned getAliveInterval();
     void logAlive(const std::string& name);
 }
 
