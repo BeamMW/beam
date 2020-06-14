@@ -86,8 +86,8 @@ void TxPool::Fluff::Release(Element& x)
 
 void TxPool::Fluff::Clear()
 {
-	while (!m_setTxs.empty())
-		Delete(m_setTxs.begin()->get_ParentObj());
+	while (!m_setProfit.empty())
+		Delete_(m_setProfit.begin()->get_ParentObj());
 }
 
 /////////////////////////////
