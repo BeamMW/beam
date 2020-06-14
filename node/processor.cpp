@@ -4269,7 +4269,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		bool bDelete = !x.m_Threshold.m_Height.IsInRange(bic.m_Height);
+		bool bDelete = !x.m_Height.IsInRange(bic.m_Height);
 		if (!bDelete)
 		{
 			assert(!bic.m_LimitExceeded);
