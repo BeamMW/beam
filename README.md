@@ -26,7 +26,7 @@ PLEASE MAKE SURE TO UPDATE YOUR NODES AND WALLETS before that date.
 
 ### CONTRIBUTE
 
-Read the [Contribution Guide]
+Read the [Contribution Guide](https://github.com/BeamMW/beam/wiki/Contribution-Guidelines)
 
 ### GET STARTED
 
