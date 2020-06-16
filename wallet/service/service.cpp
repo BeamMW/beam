@@ -276,13 +276,11 @@ namespace
     private:
         struct WalletInfo
         {
-            std::string ownerKey;
             std::weak_ptr<Wallet> wallet;
             std::weak_ptr<IWalletDB> walletDB;
 
-            WalletInfo(const std::string& ownerKey, Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
-                : ownerKey(ownerKey)
-                , wallet(wallet)
+            WalletInfo(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
+                : wallet(wallet)
                 , walletDB(walletDB)
             {}
             WalletInfo() = default;
@@ -690,7 +688,7 @@ namespace
 
                         if (walletDB)
                         {
-                            _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
+                            _walletMap[dbName] = WalletInfo({}, walletDB);
                             // generate default address
                             WalletAddress address;
                             walletDB->createAddress(address);
@@ -712,33 +710,28 @@ namespace
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
             {
+                LOG_DEBUG() << "OpenWallet(id = " << id << ")";
+
                 try
                 {
-                    LOG_DEBUG() << "OpenWallet(id = " << id << ")";
+                    const auto openWallet = [&]() {
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
+                    };
 
                     auto it = _walletMap.find(data.id);
                     if (it == _walletMap.end())
                     {
-                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
-                                                   createKeyKeeperFromDB(data.id, data.pass));
-                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
-
-                        Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
-                        KeyString ks;
-                        ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
-                        ks.m_sMeta = std::to_string(0);
-                        ks.ExportP(*pKey);
-                        _walletMap[data.id].ownerKey = ks.m_sRes;
-
-                    } else if (auto wdb = it->second.walletDB.lock(); wdb)
+                        openWallet();
+                    }
+                    else if (auto wdb = it->second.walletDB.lock(); wdb)
                     {
                         _walletDB = wdb;
                         _wallet = it->second.wallet.lock();
-                    } else
+                    }
+                    else
                     {
-                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
-                                                   createKeyKeeper(data.pass, it->second.ownerKey));
-                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
+                        openWallet();
                     }
 
                     if (!_walletDB)
