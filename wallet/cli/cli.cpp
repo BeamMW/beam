@@ -1827,7 +1827,8 @@ namespace
     bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) ||
-            vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
+            vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY) ||
+            vm.count(cli::RECEIVING_ADDRESSES) || vm.count(cli::CHANGE_ADDRESSES))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
 
@@ -1861,6 +1862,16 @@ namespace
                 {
                     throw std::runtime_error("electrum address should be specified");
                 }
+            }
+
+            if (vm.count(cli::RECEIVING_ADDRESSES))
+            {
+                electrumSettings.m_receivingAddressAmount = vm[cli::RECEIVING_ADDRESSES].as<Positive<uint32_t>>().value;
+            }
+
+            if (vm.count(cli::CHANGE_ADDRESSES))
+            {
+                electrumSettings.m_changeAddressAmount = vm[cli::CHANGE_ADDRESSES].as<Positive<uint32_t>>().value;
             }
 
             if (vm.count(cli::ELECTRUM_SEED))
@@ -2089,6 +2100,9 @@ namespace
                 {
                     stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
                 }
+
+                stream << "Amount of receiving addresses: " << settings.GetElectrumConnectionOptions().m_receivingAddressAmount << '\n';
+                stream << "Amount of change addresses: " << settings.GetElectrumConnectionOptions().m_changeAddressAmount << '\n';
             }
             stream << "Fee rate: " << settings.GetFeeRate() << '\n';
             stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
