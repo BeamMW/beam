@@ -427,6 +427,8 @@ namespace beam::wallet
                 nodeNetworkSubscriber.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
+
+                m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
             }
             catch (const runtime_error& ex)
             {
