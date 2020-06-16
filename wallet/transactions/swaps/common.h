@@ -22,6 +22,9 @@ constexpr Height kBeamLockTimeInBlocks = 6 * 60;  // 6h
 constexpr Height kMaxSentTimeOfBeamRedeemInBlocks = kBeamLockTimeInBlocks - 60;  // 6h - 1h
 constexpr Height kBeamLockTxLifetimeMax = 4 * 60;   // 4h
 
+constexpr uint32_t kSwapProtoVersion = 5;
+constexpr uint32_t kSwapSegwitSupportMinProtoVersion = 5;
+
 enum SubTxIndex : SubTxID
 {
     BEAM_LOCK_TX = 2,

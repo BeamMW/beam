@@ -803,8 +803,6 @@ namespace beam::wallet
                 m_SwapWithdrawRawTx = FillWithdrawTxInput(subTxID);
             }
 
-            LOG_DEBUG() << "m_SwapWithdrawRawTx: " << *m_SwapWithdrawRawTx;
-
             m_tx.SetParameter(TxParameterID::AtomicSwapExternalTx, *m_SwapWithdrawRawTx, subTxID);
             m_tx.SetState(SwapTxState::Constructed, subTxID);
         }
@@ -931,8 +929,9 @@ namespace beam::wallet
 
     bool BitcoinSide::CanUseSegwit() const
     {
-        // TODO: Should verify TX's version for backward compatibility?
-        return IsSegwitSupported();
+        auto peerProtoVersion = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::PeerProtoVersion);
+
+        return IsSegwitSupported() && peerProtoVersion >= kSwapSegwitSupportMinProtoVersion;
     }
 
     void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& /*error*/, const std::string& hexScript, Amount amount, uint32_t confirmations)
