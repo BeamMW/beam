@@ -137,13 +137,13 @@ func (c *Counters) CountBBSDrop() {
 	atomic.AddInt64(&c.BbsDrops30, 1)
 }
 
-func (c *Counters) CountWSDrop(epoints int, clients int) {
+func (c *Counters) CountWSDrop(epoints int64, clients int64) {
 	atomic.AddInt64(&c.WSDrops, 1)
 	atomic.AddInt64(&c.WSDrops30, 1)
-	atomic.AddInt64(&c.EPoitDrops, int64(epoints))
-	atomic.AddInt64(&c.EPoitDrops30, int64(epoints))
-	atomic.AddInt64(&c.EPClientDrops, int64(clients))
-	atomic.AddInt64(&c.EPClientDrops30, int64(clients))
+	atomic.AddInt64(&c.EPoitDrops, epoints)
+	atomic.AddInt64(&c.EPoitDrops30, epoints)
+	atomic.AddInt64(&c.EPClientDrops, clients)
+	atomic.AddInt64(&c.EPClientDrops30, clients)
 }
 
 func (c *Counters) CountBbsMessage() {
@@ -161,7 +161,7 @@ func (c* Counters) CountBbsError() {
 	atomic.AddInt64(&c.BbsError30, 1)
 }
 
-func (c* Counters) Reset() {
+func (c* Counters) Reset30() {
 	atomic.StoreInt64(&c.Login30, 0)
 	atomic.StoreInt64(&c.Logout30, 0)
 	atomic.StoreInt64(&c.Subscribe30, 0)
@@ -191,7 +191,7 @@ func startCounters () {
 		ticker := time.NewTicker(30 * time.Minute)
 		for {
 			<- ticker.C
-			counters.Reset()
+			counters.Reset30()
 		}
 	}()
 }

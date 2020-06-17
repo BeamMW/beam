@@ -61,5 +61,35 @@ void Timer::cancel() {
     _callback = []{};
 }
 
+
+
+
+void IdleEvt::cancel()
+{
+    if (m_Set)
+    {
+        m_Set = false;
+        uv_idle_stop(&m_Handle);
+        uv_close(reinterpret_cast<uv_handle_t*>(&Cast::Down<uv_idle_t>(m_Handle)), nullptr);
+    }
+}
+
+void IdleEvt::start()
+{
+    if (!m_Set)
+    {
+        m_Set = true;
+        uv_idle_init(&Reactor::get_Current().get_UvLoop(), &m_Handle);
+        uv_idle_start(&m_Handle, Handle::CallbackRaw);
+    }
+}
+
+void IdleEvt::Handle::CallbackRaw(uv_idle_t* p)
+{
+    static_cast<Handle*>(p)->get_ParentObj().OnSchedule();
+}
+
+
+
 }} //namespaces
 

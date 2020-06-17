@@ -24,6 +24,7 @@ type Config struct {
 	BbsMonitorPath			string
 	BbsMonitorFirstPort     int
 	BbsMonitorLastPort      int
+	BbsMonitorCnt           int
 	SerivcePublicAddress    string
 	ListenAddress           string
 	PushContactMail			string
@@ -38,6 +39,7 @@ type Config struct {
 	DatabasePath            string
 	APISecret               string
 	AllowedOrigin           string
+	ActiviyLogInterval      time.Duration
 }
 
 var config = Config{
@@ -141,7 +143,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 
 	if cfg.WalletServiceCnt == 0 {
 		if cfg.Debug {
-			cfg.WalletServiceCnt = 2
+			cfg.WalletServiceCnt = 1
 		} else {
 			cfg.WalletServiceCnt = runtime.NumCPU() - 2
 			if cfg.WalletServiceCnt == 0 {
@@ -159,6 +161,24 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 			log.Printf("NoisyLogs set to true in config in RELEASE mode, forced to false")
 			cfg.NoisyLogs = false
 		}
+	}
+
+	if cfg.ActiviyLogInterval == 0 {
+		if cfg.Debug {
+			cfg.ActiviyLogInterval = time.Duration(1 * time.Minute)
+		} else {
+			cfg.ActiviyLogInterval = time.Duration(10 * time.Minute)
+		}
+	}
+	log.Printf("Activity log interval %v", cfg.ActiviyLogInterval)
+
+	if cfg.BbsMonitorCnt == 0 {
+		cfg.BbsMonitorCnt = 1
+	}
+
+	if cfg.BbsMonitorCnt != 1 {
+		log.Printf("WARNING: %d bbs monitors requests, currenlty only 1 is supported. Resetting to 1.", cfg.BbsMonitorCnt)
+		cfg.BbsMonitorCnt = 1
 	}
 
 	log.Printf("starting in %v mode", mode)

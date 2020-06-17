@@ -107,6 +107,8 @@ func main () {
 		log.Printf(wsGenericError, err)
 	})
 
+	startActivityLog()
+
 	log.Println(config.ListenAddress, "Go!")
 	if err := http.ListenAndServe(config.ListenAddress, nil); err != nil {
 		log.Fatalf("Failed to start server %v", err)

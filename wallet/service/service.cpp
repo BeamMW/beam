@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef NDEBUG
 #define LOG_VERBOSE_ENABLED 1
+#endif
+
 #include "utility/logger.h"
 
 #include "service.h"
@@ -49,8 +52,6 @@
 #include "node_connection.h"
 
 using json = nlohmann::json;
-
-static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
 using namespace beam;
@@ -258,22 +259,28 @@ namespace
                     _heartbeatPipe->notifyAlive();
                 });
             }
+
+            std::string name = "WalletService";
+            LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveInterval());
+            _aliveLogTimer = io::Timer::create(*reactor);
+            _aliveLogTimer->start(getAliveInterval(), true, [name]() {
+                logAlive(name);
+            });
         }
 
     private:
         io::Timer::Ptr _heartbeatTimer;
+        io::Timer::Ptr _aliveLogTimer;
         std::unique_ptr<Pipe> _heartbeatPipe;
 
     private:
         struct WalletInfo
         {
-            std::string ownerKey;
             std::weak_ptr<Wallet> wallet;
             std::weak_ptr<IWalletDB> walletDB;
 
-            WalletInfo(const std::string& ownerKey, Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
-                : ownerKey(ownerKey)
-                , wallet(wallet)
+            WalletInfo(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
+                : wallet(wallet)
                 , walletDB(walletDB)
             {}
             WalletInfo() = default;
@@ -681,7 +688,7 @@ namespace
 
                         if (walletDB)
                         {
-                            _walletMap[dbName] = WalletInfo(data.ownerKey, {}, walletDB);
+                            _walletMap[dbName] = WalletInfo({}, walletDB);
                             // generate default address
                             WalletAddress address;
                             walletDB->createAddress(address);
@@ -703,33 +710,28 @@ namespace
 
             void onMessage(const JsonRpcId& id, const OpenWallet& data) override
             {
+                LOG_DEBUG() << "OpenWallet(id = " << id << ")";
+
                 try
                 {
-                    LOG_DEBUG() << "OpenWallet(id = " << id << ")";
+                    const auto openWallet = [&]() {
+                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass), createKeyKeeperFromDB(data.id, data.pass));
+                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
+                    };
 
                     auto it = _walletMap.find(data.id);
                     if (it == _walletMap.end())
                     {
-                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
-                                                   createKeyKeeperFromDB(data.id, data.pass));
-                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
-
-                        Key::IPKdf::Ptr pKey = _walletDB->get_OwnerKdf();
-                        KeyString ks;
-                        ks.SetPassword(Blob(data.pass.data(), static_cast<uint32_t>(data.pass.size())));
-                        ks.m_sMeta = std::to_string(0);
-                        ks.ExportP(*pKey);
-                        _walletMap[data.id].ownerKey = ks.m_sRes;
-
-                    } else if (auto wdb = it->second.walletDB.lock(); wdb)
+                        openWallet();
+                    }
+                    else if (auto wdb = it->second.walletDB.lock(); wdb)
                     {
                         _walletDB = wdb;
                         _wallet = it->second.wallet.lock();
-                    } else
+                    }
+                    else
                     {
-                        _walletDB = WalletDB::open(makeDBPath(data.id), SecString(data.pass),
-                                                   createKeyKeeper(data.pass, it->second.ownerKey));
-                        _wallet = std::make_shared<Wallet>(_walletDB, _withAssets);
+                        openWallet();
                     }
 
                     if (!_walletDB)
@@ -741,7 +743,7 @@ namespace
                     _walletMap[data.id].walletDB = _walletDB;
                     _walletMap[data.id].wallet = _wallet;
 
-                    LOG_INFO() << "wallet sucessfully opened...";
+                    LOG_DEBUG() << "wallet sucessfully opened...";
 
                     _wallet->ResumeAllTransactions();
 
@@ -954,6 +956,12 @@ int main(int argc, char* argv[])
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
+
+            #ifdef NDEBUG
+            LOG_INFO() << "Log mode: Non-Debug";
+            #else
+            LOG_INFO() << "Log mode: Debug";
+            #endif
             
             if (vm.count(cli::NODE_ADDR) == 0)
             {
@@ -972,9 +980,11 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, beam::wallet::days2sec(options.logCleanupPeriod));
-
+        const unsigned LOG_ROTATION_PERIOD_SEC = 12 * 60 * 60; // in seconds, 12 hours
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, beam::wallet::days2sec(options.logCleanupPeriod));
+        LOG_INFO() << "Log rotation: " <<  beam::wallet::sec2readable(LOG_ROTATION_PERIOD_SEC) << ". Log cleanup: " << options.logCleanupPeriod << " days.";
         LOG_INFO() << "Starting server on port " << options.port << ", sync pipes " << options.withPipes;
+
         WalletApiServer server(reactor, options.withAssets, node_addr, options.port, options.allowedOrigin, options.withPipes);
         reactor->run();
 

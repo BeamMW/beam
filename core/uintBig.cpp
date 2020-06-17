@@ -22,6 +22,17 @@ namespace beam {
 		return v + ((v < 10) ? '0' : ('a' - 10));
 	}
 
+	uint8_t Ch2Hex(uint8_t c)
+	{
+		if (c >= 'a' && c <= 'f')
+			return 0xa + (c - 'a');
+
+		if (c >= 'A' && c <= 'F')
+			return 0xa + (c - 'A');
+
+		return c - '0';
+	}
+
 	std::string uintBigImpl::_Str(const uint8_t* pDst, uint32_t nDst)
     {
 	    std::vector<char> buffer(nDst * 2 + 1);
@@ -50,6 +61,24 @@ namespace beam {
 		}
 
 		sz[nDst << 1] = 0;
+	}
+
+	uint32_t uintBigImpl::_Scan(uint8_t* pDst, const char* sz, uint32_t nTxtLen)
+	{
+		uint32_t ret = 0;
+		for (; ret < nTxtLen; ret++)
+		{
+			uint8_t x = Ch2Hex(sz[ret]);
+			if (x > 0xf)
+				break;
+
+			if (1 & ret)
+				*pDst++ |= x;
+			else
+				*pDst = (x << 4);
+		}
+
+		return ret;
 	}
 
 	void uintBigImpl::_Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)

@@ -167,6 +167,7 @@ namespace beam::wallet
         void get_OwnerKdf(Key::IPKdf::Ptr&) override;
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
+        void OnEventsSerif(const ECC::Hash::Value&, Height) override;
 
         struct RequestHandler
             : public proto::FlyClient::Request::IHandler

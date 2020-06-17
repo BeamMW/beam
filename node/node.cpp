@@ -552,15 +552,31 @@ void Node::Processor::FlushInsanePeers()
 void Node::Processor::DeleteOutdated()
 {
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+
+    Height h = get_ParentObj().m_Cfg.m_RollbackLimit.m_Max;
+    std::setmin(h, Rules::get().MaxRollback);
+
+    if (m_Cursor.m_ID.m_Height > h)
+    {
+        h = m_Cursor.m_ID.m_Height - h;
+
+        while (!txp.m_setOutdated.empty())
+        {
+            TxPool::Fluff::Element& x = txp.m_setOutdated.begin()->get_ParentObj();
+            if (x.m_Outdated.m_Height > h)
+                break;
+
+            txp.Delete(x);
+        }
+    }
+
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		if (!x.m_pValue)
-			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Threshold.m_Height, true))
-			txp.Delete(x);
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
+			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
 	}
 }
 
@@ -618,6 +634,24 @@ void Node::Processor::OnNewState()
 	get_ParentObj().MaybeGenerateRecovery();
 }
 
+void Node::Processor::OnFastSyncSucceeded()
+{
+    // update Events serif
+    ECC::Hash::Value hv;
+    Blob blob(hv);
+    if (!get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+        return; //?!
+
+    get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
+
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    {
+        Peer& peer = *it;
+        peer.m_Flags &= ~Peer::Flags::SerifSent;
+        peer.MaybeSendSerif();
+    }
+}
+
 void Node::MaybeGenerateRecovery()
 {
 	if (!m_PostStartSynced || m_Cfg.m_Recovery.m_sPathOutput.empty() || !m_Cfg.m_Recovery.m_Granularity)
@@ -668,13 +702,25 @@ void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
 
-	// Delete shielded txs which referenced shielded outputs which were reverted
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+    while (!txp.m_setOutdated.empty())
+    {
+        TxPool::Fluff::Element& x = txp.m_setOutdated.rbegin()->get_ParentObj();
+        if (x.m_Outdated.m_Height <= m_Cursor.m_ID.m_Height)
+            break;
+
+        txp.SetOutdated(x, MaxHeight); // may be deferred by the next loop
+    }
+
+	// Shielded txs that referenced shielded outputs which were reverted - must be reprocessed
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		if (x.m_pValue && !IsShieldedInPool(*x.m_pValue))
-			txp.Delete(x);
+        if (!IsShieldedInPool(*x.m_pValue))
+        {
+            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, true);
+            get_ParentObj().m_TxPool.DeleteEmpty(x);
+        }
 	}
 
 	TxPool::Stem& txps = get_ParentObj().m_Dandelion;
@@ -759,6 +805,18 @@ void Node::Processor::get_ViewerKeys(ViewerKeys& vk)
     vk.m_nSh = static_cast<Key::Index>(get_ParentObj().m_Keys.m_vSh.size());
     if (vk.m_nSh)
         vk.m_pSh = &get_ParentObj().m_Keys.m_vSh.front();
+}
+
+Height Node::Processor::get_MaxAutoRollback()
+{
+    Height h = NodeProcessor::get_MaxAutoRollback();
+    if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+    {
+        Timestamp ts_s = getTimestamp();
+        if (ts_s < m_Cursor.m_Full.m_TimeStamp + get_ParentObj().m_Cfg.m_RollbackLimit.m_TimeoutSinceTip_s)
+            std::setmin(h, get_ParentObj().m_Cfg.m_RollbackLimit.m_Max);
+    }
+    return h;
 }
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
@@ -991,15 +1049,24 @@ void Node::RefreshOwnedUtxos()
 	hp >> hv0;
 
 	Blob blob(hv1);
-	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
+	m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
 
-	if (hv0 == hv1)
-		return; // unchanged
+    bool bChanged = (hv0 != hv1);
+    if (bChanged)
+    {
+        // changed
+        m_Processor.RescanOwnedTxos();
 
-	m_Processor.RescanOwnedTxos();
+        blob = Blob(hv0);
+        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
+    }
 
-	blob = Blob(hv0);
-	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
+    if (bChanged || !m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+    {
+        hv0 = NextNonce();
+        blob = Blob(hv0);
+        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Processor.m_Extra.m_TxoHi, &blob);
+    }
 }
 
 bool Node::Bbs::IsInLimits() const
@@ -1202,6 +1269,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
 		}
 	}
+
+    MaybeSendSerif();
 
     if (proto::IDType::Node != msg.m_IDType)
         return;
@@ -2025,15 +2094,75 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         ThrowUnexpected(); // our deserialization permits NULL Ptrs.
     // However the transaction body must have already been checked for NULLs
 
-    if (msg.m_Fluff)
-        m_This.OnTransactionFluff(std::move(msg.m_Transaction), this, NULL);
-    else
+    // Change in protocol!
+    // Historically the node replied with proto::Status message for transactions in stem phase only, for fluff phase no reply was necessary.
+    // Now we reply regardless to phase, but ONLY to non-node client (means - FlyClient).
+    // For other cases the tx verification is deferred, until the node is idle.
+    bool bReply = !(Flags::PiRcvd & m_Flags);
+
+    const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
+
+    if (bReply)
     {
         proto::Status msgOut;
-		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
-
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
         Send(msgOut);
     }
+    else
+    {
+        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
+    }
+}
+
+void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+{
+    TxDeferred::Element txd;
+    txd.m_pTx = std::move(pTx);
+    txd.m_Fluff = bFluff;
+
+    if (pSender)
+        txd.m_Sender = *pSender;
+    else
+        txd.m_Sender = Zero;
+
+    //if (m_Cfg.m_LogTxFluff)
+    //{
+    //    Transaction::KeyType key;
+    //    txd.m_pTx->get_Key(key);
+
+    //    LOG_INFO() << "Tx " << key << " deferred";
+    //}
+
+    if (m_TxDeferred.m_lst.empty())
+        m_TxDeferred.start();
+    else
+    {
+        while (m_TxDeferred.m_lst.size() > m_Cfg.m_MaxDeferredTransactions)
+            m_TxDeferred.m_lst.pop_front();
+    }
+
+    m_TxDeferred.m_lst.push_back(std::move(txd));
+}
+
+void Node::TxDeferred::OnSchedule()
+{
+    if (!m_lst.empty())
+    {
+        TxDeferred::Element& x = m_lst.front();
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff);
+        m_lst.pop_front();
+    }
+
+    if (m_lst.empty())
+        cancel();
+
+}
+
+uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+{
+    return bFluff ?
+        OnTransactionFluff(std::move(pTx), pSender, nullptr) :
+        OnTransactionStem(std::move(pTx));
 }
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
@@ -2148,7 +2277,7 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
     return threshold;
 }
 
-uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
+uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
@@ -2504,7 +2633,7 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
-bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
+uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSender, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
@@ -2520,7 +2649,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
         m_Dandelion.Delete(*pElem);
 
 		if (!bValid)
-			return false;
+			return proto::TxStatus::InvalidContext;
 	}
     else
     {
@@ -2541,7 +2670,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
     TxPool::Fluff::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
     if (m_TxPool.m_setTxs.end() != it)
-        return true;
+        return proto::TxStatus::Ok;
 
     const Transaction& tx = *ptx;
 
@@ -2552,14 +2681,17 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
-		return false; // stupid compiler insists on parentheses here!
+		return nCode; // stupid compiler insists on parentheses here!
 	}
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
 
-	while (m_TxPool.m_setProfit.size() > m_Cfg.m_MaxPoolTransactions)
+	while (m_TxPool.m_setProfit.size() + m_TxPool.m_setOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{
-		TxPool::Fluff::Element& txDel = m_TxPool.m_setProfit.rbegin()->get_ParentObj();
+        TxPool::Fluff::Element& txDel = m_TxPool.m_setOutdated.empty() ?
+            m_TxPool.m_setProfit.rbegin()->get_ParentObj() :
+            m_TxPool.m_setOutdated.begin()->get_ParentObj();
+
 		if (&txDel == pNewTxElem)
 			pNewTxElem = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
 
@@ -2567,7 +2699,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 
     if (!pNewTxElem)
-		return false;
+		return nCode; // though the tx is dropped, we return status ok.
 
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
@@ -2575,7 +2707,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; it2++)
     {
         Peer& peer = *it2;
-        if (&peer == pPeer)
+        if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
             continue;
         if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions) || peer.IsChocking())
             continue;
@@ -2587,7 +2719,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
         m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-    return true;
+    return nCode;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
@@ -2648,6 +2780,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 	}
 
     m_LoginFlags = msg.m_Flags;
+    MaybeSendSerif();
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -2716,7 +2849,7 @@ void Node::Peer::BroadcastTxs()
 
 		SetTxCursor(&itNext->get_ParentObj());
 
-		if (!m_pCursorTx->m_pValue)
+		if (!m_pCursorTx->m_pValue || m_pCursorTx->IsOutdated())
 			continue; // already deleted
 
 		proto::HaveTransaction msgOut;
@@ -2756,6 +2889,23 @@ void Node::Peer::BroadcastBbs()
 	}
 
 	m_CursorBbs = wlk.m_ID;
+}
+
+void Node::Peer::MaybeSendSerif()
+{
+    if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
+        return;
+
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 5)
+        return;
+
+    proto::EventsSerif msg;
+
+    Blob blob(msg.m_Value);
+    m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, &msg.m_Height, &blob);
+
+    Send(msg);
+    m_Flags |= Flags::SerifSent;
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -3361,6 +3511,9 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
+        // we'll send up to s_Max num of events, even to older clients, they won't complain
+        static_assert(proto::Event::s_Max > proto::Event::s_Max0);
+
         Serializer ser;
 
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
@@ -3374,7 +3527,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-            nCount++;
+            nCount++;   
 		}
 
         ser.swap_buf(msgOut.m_Events);
@@ -3382,7 +3535,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension4 & m_LoginFlags)
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 4)
     {
         Send(msgOut);
     }
@@ -4381,8 +4534,9 @@ void Node::PrintTxos()
     if (m_Processor.IsFastSync())
         os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
 
-    if (m_Processor.m_Extra.m_TxoHi >= Rules::HeightGenesis)
-        os << "Note: Cut-through up to Height=" << m_Processor.m_Extra.m_TxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+    Height hSerif0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::EventsSerif);
+    if (hSerif0 >= Rules::HeightGenesis)
+        os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )

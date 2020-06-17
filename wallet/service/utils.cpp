@@ -11,12 +11,74 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <chrono>
+#include <sstream>
 #include "utils.h"
+#include "utility/logger.h"
 
 namespace beam::wallet {
     unsigned days2sec(unsigned days)
     {
         return 60 * 60 * 24 * days;
     }
-}
 
+     std::string msec2readable(unsigned sec)
+     {
+        return sec2readable(sec / 10000);
+     }
+
+    std::string sec2readable(unsigned sec)
+    {
+        using namespace std;
+        using namespace std::chrono;
+        typedef duration<int, ratio<60 * 60 * 24>> days;
+
+        seconds secs(sec);
+        std::ostringstream stream;
+
+        auto d = duration_cast<days>(secs);
+        secs -= d;
+
+        auto h = duration_cast<hours>(secs);
+        secs -= h;
+
+        auto m = duration_cast<minutes>(secs);
+        secs -= m;
+
+        if (d.count())
+        {
+            stream << d.count() << " days";
+        }
+
+        if (h.count())
+        {
+            if (stream.str().length()) stream << " ";
+            stream << h.count() << " hours";
+        }
+
+
+        if (m.count())
+        {
+            if (stream.str().length()) stream << " ";
+            stream << m.count() << " minutes";
+        }
+
+        if (secs.count())
+        {
+            if (stream.str().length()) stream << " ";
+            stream << secs.count() << " seconds";
+        }
+
+        return stream.str();
+    }
+
+    unsigned getAliveInterval()
+    {
+        return 1000 * 60; // 1 minute
+    }
+
+    void logAlive(const std::string& name)
+    {
+        LOG_INFO() << "== Hey! " << name << " is sill alive ==";
+    }
+}

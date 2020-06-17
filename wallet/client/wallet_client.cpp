@@ -427,6 +427,8 @@ namespace beam::wallet
                 nodeNetworkSubscriber.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
+
+                m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
             }
             catch (const runtime_error& ex)
             {
@@ -497,9 +499,13 @@ namespace beam::wallet
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
-        // TODO: refactor this
-        // We should call getStatus to update balances
-        onStatus(getStatus());
+        m_DeferredBalanceUpdate.start();
+    }
+
+    void WalletClient::DeferredBalanceUpdate::OnSchedule()
+    {
+        cancel();
+        get_ParentObj().onStatus(get_ParentObj().getStatus());
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)

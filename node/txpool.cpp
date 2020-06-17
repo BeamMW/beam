@@ -48,14 +48,14 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Threshold.m_Height	= ctx.m_Height;
+	p->m_Height	= ctx.m_Height;
 	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
+	p->m_Outdated.m_Height = MaxHeight;
+	assert(!p->IsOutdated());
 
-	m_setThreshold.insert(p->m_Threshold);
-	m_setProfit.insert(p->m_Profit);
-	m_setTxs.insert(p->m_Tx);
+	InternalInsert(*p);
 
 	p->m_Queue.m_Refs = 1;
 	m_Queue.push_back(p->m_Queue);
@@ -63,15 +63,46 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	return p;
 }
 
+void TxPool::Fluff::SetOutdated(Element& x, Height h)
+{
+	InternalErase(x);
+	x.m_Outdated.m_Height = h;
+	InternalInsert(x);
+}
+
+void TxPool::Fluff::InternalInsert(Element& x)
+{
+	if (x.IsOutdated())
+		m_setOutdated.insert(x.m_Outdated);
+	else
+	{
+		m_setTxs.insert(x.m_Tx);
+		m_setProfit.insert(x.m_Profit);
+	}
+}
+
+void TxPool::Fluff::InternalErase(Element& x)
+{
+	if (x.IsOutdated())
+		m_setOutdated.erase(OutdatedSet::s_iterator_to(x.m_Outdated));
+	else
+	{
+		m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+	}
+}
+
 void TxPool::Fluff::Delete(Element& x)
 {
 	assert(x.m_pValue);
 	x.m_pValue.reset();
+	DeleteEmpty(x);
+}
 
-	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
-	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-
+void TxPool::Fluff::DeleteEmpty(Element& x)
+{
+	assert(!x.m_pValue);
+	InternalErase(x);
 	Release(x);
 }
 
@@ -88,8 +119,11 @@ void TxPool::Fluff::Release(Element& x)
 
 void TxPool::Fluff::Clear()
 {
-	while (!m_setThreshold.empty())
-		Delete(m_setThreshold.begin()->get_ParentObj());
+	while (!m_setProfit.empty())
+		Delete(m_setProfit.begin()->get_ParentObj());
+
+	while (!m_setOutdated.empty())
+		Delete(m_setOutdated.begin()->get_ParentObj());
 }
 
 /////////////////////////////

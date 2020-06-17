@@ -220,6 +220,10 @@ namespace proto {
 #define BeamNodeMsg_Events(macro) \
     macro(ByteBuffer, Events)
 
+#define BeamNodeMsg_EventsSerif(macro) \
+    macro(ECC::Hash::Value, Value) \
+    macro(Height, Height) \
+
 #define BeamNodeMsg_GetBlockFinalization(macro) \
     macro(Height, Height) \
     macro(Amount, Fees)
@@ -293,6 +297,7 @@ namespace proto {
     macro(0x2c, GetEvents) \
     macro(0x2d, EventsLegacy) \
     macro(0x34, Events) \
+    macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
@@ -317,21 +322,27 @@ namespace proto {
         static const uint32_t Bbs                    = 0x2; // I'm spreading bbs messages
         static const uint32_t SendPeers              = 0x4; // Please send me periodically peers recommendations
         static const uint32_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
-        static const uint32_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-        static const uint32_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-        static const uint32_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
-        static const uint32_t Extension4             = 0x80; // Supports proto::Events (replaces proto::EventsLegacy)
-	    static const uint32_t Recognized             = 0xff;
 
+        struct Extension
+        {
+            static const uint32_t nShift = 4; // 1st 4 bits are occupied by flags specified above
+            static const uint32_t nBitsLegacy = 4; // 1st 4 bits are set consequently for each new version
+            static const uint32_t nBitsExtra = 8;
 
-		static const uint32_t ExtensionsBeforeHF1 =
-			Extension1 |
-			Extension2 |
-			Extension3;
+            static const uint32_t Msk = ((1 << (nBitsLegacy + nBitsExtra)) - 1) << nShift;
 
-		static const uint32_t ExtensionsAll =
-			ExtensionsBeforeHF1 |
-            Extension4;
+            // 1 - Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
+            // 2 - Supports large HdrPack, BlockPack with parameters
+            // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
+            // 4 - Supports proto::Events (replaces proto::EventsLegacy)
+            // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
+
+            static const uint32_t Minimum = 3;
+            static const uint32_t Maximum = 5;
+
+            static void set(uint32_t& nFlags, uint32_t nExt);
+            static uint32_t get(uint32_t nFlags);
+        };
 	};
 
     struct IDType
@@ -345,7 +356,8 @@ namespace proto {
 
     struct Event
     {
-        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+        static const uint32_t s_Max0 = 64;
+        static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
         macro(1, Utxo) \

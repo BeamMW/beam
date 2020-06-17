@@ -2430,7 +2430,7 @@ namespace
         CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
-            LOG_ERROR() << kErrorConnectionFailed;
+            LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
         };
     };
 

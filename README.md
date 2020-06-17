@@ -8,9 +8,12 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 ### ANNOUNCEMENTS
 
+Beam is going to perform its second planned hard fork on block 777,777 (approx. 28th of June 2020)
+
+PLEASE MAKE SURE TO UPDATE YOUR NODES AND WALLETS before that date.
 
 [Download latest version](http://beam.mw/downloads)
-**Double Doppler 4.0**
+**Eager Electron 5.0**
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -21,6 +24,9 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 [twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
+### CONTRIBUTE
+
+Read the [Contribution Guide](https://github.com/BeamMW/beam/wiki/Contribution-Guidelines)
 
 ### GET STARTED
 
@@ -43,6 +49,12 @@ shanghai-node.mainnet.beam.mw:8100
 
 Latest documentation is here: https://documentation.beam.mw
 
+### BUILD FROM SOURCE
+
+[Building Instructions](https://github.com/BeamMW/beam/wiki/How-to-build)
+
+
+
 Things that make BEAM special include:
 
 * Users have complete control over privacy - a user decides which information will be available and to which parties, having complete control over his personal data in accordance to his will and applicable laws.
@@ -63,7 +75,7 @@ years.
 
 ### Roadmap
 
-See Beam roadmap for 2019 on https://beam.mw
+See Beam Roadmap for 2020 on https://beam.mw
 
 ### Community projects
 
@@ -72,7 +84,8 @@ Here is the list of Beam related projects created by our community members but N
 * [Beam Pay](https://github.com/vsnation/BeamPay) - a payment processor that allows for easy integration with your online store
 * [Beam Wallet Java API](https://github.com/beamfan/java-beam-api) - A Java library for the Beam cryptocurrency Wallet API.
 
-### Current status
+
+### Current development status
 
 #### Mainnet(January 3rd 2019)
 
@@ -105,8 +118,12 @@ Here is the list of Beam related projects created by our community members but N
 - Atomic Swaps desktop wallet support
 - Sync mechanism improvements
 
+#### Eager Electron 5.0 (May 2020)
+- Confidential Assets
+- One side payments
+- UTXO Unlinking using Lelantus MW
 
-See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
+
 
 # Build status
 [![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
