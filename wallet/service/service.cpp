@@ -953,7 +953,7 @@ int main(int argc, char* argv[])
 
             getRulesOptions(vm);
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+            LOG_INFO() << "Beam Wallet API Service" << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             LOG_INFO() << "Current folder is " << boost::filesystem::current_path().string();
 
