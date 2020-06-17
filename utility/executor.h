@@ -73,16 +73,22 @@ namespace beam
 	struct ExecutorMT
 		:public Executor
 	{
+		virtual uint32_t get_Threads() override;
 		virtual void Push(TaskAsync::Ptr&&) override;
 		virtual uint32_t Flush(uint32_t nMaxTasks) override;
 		virtual void ExecAll(TaskSync&) override;
 
+		ExecutorMT();
 		~ExecutorMT() { Stop(); }
 		void Stop();
 
+		void set_Threads(uint32_t);
+
 	protected:
 
-		virtual void RunThread(uint32_t) = 0; // override this, create the appropriate context, and call the next
+		uint32_t m_Threads; // set at c'tor to num of cores.
+
+		virtual void RunThread(uint32_t); // optionally override this, create the appropriate context, and call the next
 		void RunThreadCtx(Context&);
 
 	private:

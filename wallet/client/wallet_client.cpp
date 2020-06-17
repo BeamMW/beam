@@ -18,7 +18,6 @@
 #include "core/block_rw.h"
 //#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
-#include "extensions/news_channels/updates_provider.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 
@@ -402,18 +401,13 @@ namespace beam::wallet
                 }
 
                 // Other content providers using broadcast messages
-                auto updatesProvider = make_shared<AppUpdateInfoProvider>(*broadcastRouter, *broadcastValidator);
                 auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
                 auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
                     *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
-                m_updatesProvider = updatesProvider;
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
-                using NewsSubscriber = ScopedSubscriber<INewsObserver, AppUpdateInfoProvider>;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
-                auto newsSubscriber = make_unique<NewsSubscriber>(static_cast<INewsObserver*>(
-                    m_notificationCenter.get()), updatesProvider);
                 auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
                     m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
@@ -433,6 +427,8 @@ namespace beam::wallet
                 nodeNetworkSubscriber.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
+
+                m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
             }
             catch (const runtime_error& ex)
             {
@@ -503,9 +499,13 @@ namespace beam::wallet
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
-        // TODO: refactor this
-        // We should call getStatus to update balances
-        onStatus(getStatus());
+        m_DeferredBalanceUpdate.start();
+    }
+
+    void WalletClient::DeferredBalanceUpdate::OnSchedule()
+    {
+        cancel();
+        get_ParentObj().onStatus(get_ParentObj().getStatus());
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
@@ -1149,9 +1149,35 @@ namespace beam::wallet
 
     void WalletClient::updateNotifications()
     {
-
         size_t count = m_notificationCenter->getUnreadCount(
-            VersionInfo::Application::DesktopWallet, getLibVersion(), getClientRevision());
+            [this] (NotificationCenter::Cache::const_iterator first, NotificationCenter::Cache::const_iterator last)
+            {
+                auto currentLibVersion = getLibVersion();
+                auto currentClientRevision = getClientRevision();
+                return std::count_if(first, last,
+                    [&currentLibVersion, &currentClientRevision](const auto& p)
+                    {
+                        if (p.second.m_state == Notification::State::Unread)
+                        {
+                            if (p.second.m_type == Notification::Type::WalletImplUpdateAvailable)
+                            {
+                                WalletImplVerInfo info;
+                                if (fromByteBuffer(p.second.m_content, info) &&
+                                    VersionInfo::Application::DesktopWallet == info.m_application &&
+                                    (currentLibVersion < info.m_version ||
+                                    (currentLibVersion == info.m_version && currentClientRevision < info.m_UIrevision)))
+                                {
+                                    return true;
+                                }
+                            }
+                            if (p.second.m_type == Notification::Type::TransactionFailed)
+                            {
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+            });
         postFunctionToClientContext([this, count]()
         {
             m_unreadNotificationsCount = count;

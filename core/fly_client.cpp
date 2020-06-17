@@ -756,6 +756,10 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 {
+    req.m_Max = (LoginFlags::Extension::get(m_LoginFlags) >= 5) ?
+        proto::Event::s_Max :
+        proto::Event::s_Max0;
+
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
@@ -913,6 +917,15 @@ void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)
         assert(it->second.first);
         it->second.first->OnMsg(std::move(msg));
     }
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(EventsSerif&& msg)
+{
+    if (!(Flags::Owned & m_Flags))
+        ThrowUnexpected();
+
+    // TODO: handle complex situation, where multiple owned nodes are connected
+    m_This.m_Client.OnEventsSerif(msg.m_Value, msg.m_Height);
 }
 
 } // namespace proto

@@ -15,6 +15,7 @@
 #include "pull_tx_builder.h"
 
 #include "core/shielded.h"
+#include "utility/executor.h"
 
 #include <random>
 
@@ -176,7 +177,12 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_V = IsAssetTx() ? GetAmount() : GetAmount() + GetFee();
             }
 
-            pKrn->Sign(prover, GetAssetId());
+            {
+                ExecutorMT exec;
+                Executor::Scope scope(exec);
+                pKrn->Sign(prover, GetAssetId());
+            }
+
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
 
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"

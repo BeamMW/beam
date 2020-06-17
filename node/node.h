@@ -72,6 +72,7 @@ struct Node
 
 		uint32_t m_MaxConcurrentBlocksRequest = 18;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
+		uint32_t m_MaxDeferredTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogEvents = false; // may be insecure. Off by default.
@@ -82,6 +83,14 @@ struct Node
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
+
+		struct RollbackLimit
+		{
+			Height m_Max = 60; // artificial restriction on how much the node will rollback automatically
+			uint32_t m_TimeoutSinceTip_s = 3600; // further rollback is possible after this timeout since the current tip
+			// in either case it's no more than Rules::MaxRollback
+
+		} m_RollbackLimit;
 
 		struct Bbs
 		{
@@ -197,6 +206,8 @@ struct Node
 	bool GenerateRecoveryInfo(const char*);
 	void PrintTxos();
 
+	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
+
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
 private:
@@ -210,16 +221,17 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		void OnModified() override;
+		void OnFastSyncSucceeded() override;
 		void get_ViewerKeys(ViewerKeys&) override;
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
+		Height get_MaxAutoRollback() override;
 		void Stop();
 
 		struct MyExecutorMT
 			:public ExecutorMT
 		{
-			virtual uint32_t get_Threads() override;
 			virtual void RunThread(uint32_t) override;
 
 			~MyExecutorMT() { Stop(); }
@@ -270,6 +282,8 @@ private:
 		uint32_t m_nCount;
 		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
+		Height m_h0; // those 2 are fast-sync params at the moment of task assignment
+		Height m_hTxoLo;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -349,7 +363,27 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
 
-	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	struct TxDeferred
+		:public io::IdleEvt
+	{
+		struct Element
+		{
+			Transaction::Ptr m_pTx;
+			PeerID m_Sender;
+			bool m_Fluff;
+		};
+
+		std::list<Element> m_lst;
+
+		virtual void OnSchedule() override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
+	} m_TxDeferred;
+
+	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	uint8_t OnTransactionStem(Transaction::Ptr&&);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, const PeerID*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
@@ -357,7 +391,6 @@ private:
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
-	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
@@ -463,6 +496,7 @@ private:
 			static const uint16_t PiRcvd		= 0x002;
 			static const uint16_t Owner			= 0x004;
 			static const uint16_t Probe			= 0x008;
+			static const uint16_t SerifSent		= 0x010;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
@@ -503,6 +537,7 @@ private:
 		void BroadcastTxs();
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
+		void MaybeSendSerif();
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
@@ -511,6 +546,7 @@ private:
 		bool ShouldAssignTasks();
 		bool ShouldFinalizeMining();
 		Task& get_FirstTask();
+		bool ShouldAcceptBodyPack();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
@@ -577,8 +613,6 @@ private:
 	PeerID m_MyPublicID;
 
 	Peer* AllocPeer(const beam::io::Address&);
-
-	void RefreshCongestions();
 
 	struct Server
 		:public proto::NodeConnection::Server

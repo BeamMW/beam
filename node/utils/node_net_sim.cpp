@@ -339,7 +339,7 @@ struct Context
 
             Height hTip = get_ParentObj().m_FlyClient.get_Height();
 
-            if (nCount < proto::Event::s_Max)
+            if (nCount < r.m_Max)
                 m_hEvents = hTip + 1;
             else
             {
@@ -432,7 +432,6 @@ struct Context
     Context()
         :m_Network(m_FlyClient)
     {
-        m_Exec.m_Threads = std::thread::hardware_concurrency();
     }
 
     struct Cfg
@@ -452,20 +451,7 @@ struct Context
 
     } m_Cfg;
 
-    struct Exec
-        :public beam::ExecutorMT
-    {
-        uint32_t m_Threads;
-
-        virtual uint32_t get_Threads() override { return m_Threads; }
-
-        virtual void RunThread(uint32_t iThread) override
-        {
-            ExecutorMT::Context ctx;
-            ctx.m_iThread = iThread;
-            RunThreadCtx(ctx);
-        }
-    } m_Exec;
+    beam::ExecutorMT m_Exec;
 
 
     void OnRolledBack()
@@ -545,6 +531,8 @@ struct Context
 
         if (h < Rules::get().pForks[2].m_Height)
             return;
+
+        std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;
 
         m_TxosMW.HandleTxs(m_setSplit, h);
 
@@ -749,7 +737,7 @@ struct Context
         ECC::GenRandom(nonce);
         sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
-        sdp.GenerateOutp(pKrn->m_Txo, oracle);
+        sdp.GenerateOutp(pKrn->m_Txo, oracle, true);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;
@@ -873,7 +861,7 @@ struct Context
 
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, 0);
+            pKrn->Sign(p, 0, true);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));
@@ -1041,6 +1029,7 @@ int main_Guarded(int argc, char* argv[])
     node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
     node.m_Keys.SetSingleKey(pKdf);
+    node.m_Cfg.m_Horizon.SetStdFastSync();
     node.Initialize();
 
     if (!bLocalMode && !node.m_PostStartSynced)
@@ -1069,8 +1058,8 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
-        throw std::runtime_error("Bullet/Fee settings not consistent");
+    Amount nMinInOut = (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));

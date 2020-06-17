@@ -2649,6 +2649,11 @@ namespace beam
 
 		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 		node.PrintTxos();
+
+		NodeProcessor& proc = node.get_Processor();
+		proc.ManualRollbackTo(3);
+		verify_test(proc.m_Cursor.m_ID.m_Height >= 3); // it won't necessarily reach 3
+		verify_test(proc.m_sidForbidden.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
 	}
 
 

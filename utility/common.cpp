@@ -136,6 +136,22 @@ namespace beam
 		return static_cast<uint32_t>(val);
 	}
 
+	ExecutorMT::ExecutorMT()
+	{
+		m_Threads = std::thread::hardware_concurrency();
+	}
+
+	void ExecutorMT::set_Threads(uint32_t nThreads)
+	{
+		Stop();
+		m_Threads = nThreads;
+	}
+
+	uint32_t ExecutorMT::get_Threads()
+	{
+		return m_Threads;
+	}
+
 	void ExecutorMT::InitSafe()
 	{
 		if (!m_vThreads.empty())
@@ -225,6 +241,13 @@ namespace beam
 			TaskAsync::Ptr pGuard(&m_queTasks.front());
 			m_queTasks.pop_front();
 		}
+	}
+
+	void ExecutorMT::RunThread(uint32_t iThread)
+	{
+		Context ctx;
+		ctx.m_iThread = iThread;
+		RunThreadCtx(ctx);
 	}
 
 	void ExecutorMT::RunThreadCtx(Context& ctx)

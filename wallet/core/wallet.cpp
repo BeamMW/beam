@@ -164,6 +164,8 @@ namespace beam::wallet
     // Rescan the blockchain for UTXOs
     void Wallet::Rescan()
     {
+        AbortEvents();
+
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
         std::vector<Coin> ocoins;
@@ -919,7 +921,7 @@ namespace beam::wallet
         
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
 
-        if (nCount < proto::Event::s_Max)
+        if (nCount < r.m_Max)
         {
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);
@@ -1057,7 +1059,7 @@ namespace beam::wallet
             {
                 // Reconstruct tx with reset parameters and add it to the active list
                 auto pTx = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (pTx->Rollback(sTip.m_Height))
+                if (pTx && pTx->Rollback(sTip.m_Height))
                 {
                     m_ActiveTransactions.emplace(tx.m_txId, pTx);
                     UpdateOnSynced(pTx);
@@ -1070,6 +1072,52 @@ namespace beam::wallet
         {
             SetEventsHeight(sTip.m_Height);
         }
+    }
+
+    void Wallet::OnEventsSerif(const Hash::Value& hv, Height h)
+    {
+        static const char szEvtSerif[] = "EventsSerif";
+
+        HeightHash hh;
+        if (!storage::getVar(*m_WalletDB, szEvtSerif, hh))
+        {
+            hh.m_Hash = Zero;
+            // If this is the 1st time we received the serif - we do NOT assume the wallet was synced ok. It can potentially be already out-of-sync.
+            // Hence once node and wallet are both upgraded from older version - there will always be initial rescan.
+            hh.m_Height = MaxHeight;
+        }
+
+        bool bHashChanged = (hh.m_Hash != hv);
+        bool bMustRescan = bHashChanged;
+        if (bHashChanged)
+        {
+            // Node Serif has changed (either connected to different node, or it rescanned the blockchain). The events stream may not be consistent with ours.
+            Height h0 = GetEventsHeightNext();
+            if (!h0)
+                bMustRescan = false; // nothing to rescan atm
+            else
+            {
+                if (h0 > hh.m_Height)
+                {
+                    // Our events are consistent and full up to height h0-1.
+                    bMustRescan = (h >= h0);
+                }
+            }
+
+            hh.m_Hash = hv;
+        }
+
+        if (bHashChanged || (h != hh.m_Height))
+        {
+            LOG_INFO() << "Events Serif changed: " << (bHashChanged ? "new Hash, " : "") << "Height=" << h << (bMustRescan ? ", Resyncing" : "");
+
+            hh.m_Height = h;
+            storage::setVar(*m_WalletDB, szEvtSerif, hh);
+        }
+
+        if (bMustRescan)
+            Rescan();
+
     }
 
     void Wallet::OnNewTip()

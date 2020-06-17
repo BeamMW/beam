@@ -73,24 +73,53 @@ bool parseUpdateInfo(const std::string& versionString, const std::string& typeSt
 bool parseWalletUpdateInfo(const std::string& versionString, const std::string& typeString, WalletImplVerInfo& walletVersionInfo)
 {
     VersionInfo::Application appType = VersionInfo::from_string(typeString);
-    if (appType != VersionInfo::Application::DesktopWallet) return false;
+    if (appType == VersionInfo::Application::Unknown) return false;
 
-    auto lastDot = versionString.find_last_of(".");
-    if (lastDot == std::string::npos) return false;
+    Version libVersion = {0,0,0};
+    uint32_t uiRevision = 0;
+    if (appType == VersionInfo::Application::DesktopWallet)
+    {
+        auto lastDot = versionString.find_last_of(".");
+        if (lastDot == std::string::npos) return false;
+        if (bool res = libVersion.from_string(versionString.substr(0, lastDot)); !res) return false;
+        auto uiRevisionStr = versionString.substr(lastDot + 1, versionString.length());
 
-    Version libVersion;
-    if (bool res = libVersion.from_string(versionString.substr(0, lastDot)); !res) return false;
-
-    auto uiRevisionStr = versionString.substr(lastDot + 1, versionString.length());
-    size_t processed = 0;
-    uint32_t uiRevision = std::stoul(uiRevisionStr, &processed);
-    if (processed != uiRevisionStr.length()) return false;
+        size_t processed = 0;
+        uiRevision = std::stoul(uiRevisionStr, &processed);
+        if (processed != uiRevisionStr.length()) return false;
+    }
+    else if (appType == VersionInfo::Application::AndroidWallet ||
+             appType == VersionInfo::Application::IOSWallet)
+    {
+        if (bool res = libVersion.from_string(versionString); !res) return false;
+        uiRevision = libVersion.m_revision;
+        libVersion.m_revision = 0;
+    }
+    else
+    {
+        return false;
+    }
 
     walletVersionInfo.m_application = appType;
     walletVersionInfo.m_version = libVersion;
     walletVersionInfo.m_UIrevision = uiRevision;
     walletVersionInfo.m_title = "New version";
-    walletVersionInfo.m_message = "Beam Wallet UI " + versionString;
+
+    switch (appType)
+    {
+        case VersionInfo::Application::DesktopWallet:
+            walletVersionInfo.m_message = "Beam Wallet UI " + versionString;
+            break;
+        case VersionInfo::Application::AndroidWallet:
+            walletVersionInfo.m_message = "Android Wallet " + versionString;
+            break;
+        case VersionInfo::Application::IOSWallet:
+            walletVersionInfo.m_message = "IOS Wallet " + versionString;
+            break;
+        default:
+            assert(false);
+    }
+    
     return true;
 }
 
@@ -327,7 +356,9 @@ namespace
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(rawMessage, key);
             broadcastRouter.sendMessage(contentType, msg);
 
-            if (contentType == BroadcastContentType::WalletUpdates)
+            // broadcast for 4.2 desktop ui // deprecated
+            if (contentType == BroadcastContentType::WalletUpdates &&
+                walletVersionInfo.m_application == VersionInfo::Application::DesktopWallet)
             {
                 VersionInfo versionInfo;
                 versionInfo.m_application = walletVersionInfo.m_application;
@@ -376,7 +407,7 @@ int main_impl(int argc, char* argv[])
             messageDesc.add_options()
                 (cli::PRIVATE_KEY, po::value<std::string>(&options.privateKey), "private key to sign message")
                 (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
-                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x.x'")
+                (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x.x' for desktop or 'x.x.x' for IOS and Android")
                 (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
                 (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")

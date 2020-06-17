@@ -608,10 +608,39 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	OnConnectedSecure();
 }
 
+void LoginFlags::Extension::set(uint32_t& nFlags, uint32_t nExt)
+{
+    assert(!(nFlags & Msk));
+
+    if (nExt < nBitsLegacy)
+        nExt = (1 << nExt) - 1;
+    else
+        nExt = ((nExt - nBitsLegacy + 1) << nBitsLegacy) - 1;
+
+    nFlags |= nExt << nShift;
+}
+
+uint32_t LoginFlags::Extension::get(uint32_t nFlags)
+{
+    uint32_t val = (Msk & nFlags) >> nShift;
+    
+    const uint32_t nLegacyVal = (1 << nBitsLegacy) - 1;
+    if (nLegacyVal == (val & nLegacyVal))
+        return ((val - nLegacyVal) >> nBitsLegacy) + nBitsLegacy;
+
+    // find 1st zero bit
+    uint32_t iBit = 0;
+    for (; iBit < nBitsLegacy - 1; iBit++)
+        if (!(1 & (val >> iBit)))
+            break;
+
+    return iBit;
+}
+
 void NodeConnection::SendLogin()
 {
 	Login msg;
-	msg.m_Flags = LoginFlags::ExtensionsAll;
+    LoginFlags::Extension::set(msg.m_Flags, LoginFlags::Extension::Maximum);
 	SetupLogin(msg);
 
 	const Rules& r = Rules::get();
@@ -730,23 +759,15 @@ void NodeConnection::OnMsg(Login&& msg)
 
 void NodeConnection::OnLoginInternal(Login&& msg)
 {
-	if (LoginFlags::ExtensionsBeforeHF1 != (LoginFlags::ExtensionsBeforeHF1 & msg.m_Flags))
-	{
-		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses legacy protocol";
-		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
-	}
+    uint32_t nExt = LoginFlags::Extension::get(msg.m_Flags);
+    if (LoginFlags::Extension::Maximum != nExt)
+    {
+        bool bNewer = (nExt > LoginFlags::Extension::Maximum);
+        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << nExt;
 
-	if ((~LoginFlags::Recognized) & msg.m_Flags) {
-		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
-	}
-	else
-	{
-		const uint32_t nMask = LoginFlags::ExtensionsAll;
-		uint32_t nFlags2 = nMask & msg.m_Flags;
-		if (nFlags2 != nMask) {
-			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
-		}
-	}
+        if (nExt < LoginFlags::Extension::Minimum)
+            ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+    }
 
 	OnLogin(std::move(msg));
 }

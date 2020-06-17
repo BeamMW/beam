@@ -29,9 +29,9 @@ public class NotificationDTO
 
     public enum Type    // used to point Notification::Type in Wallet::switchOnOffNotifications()
     {
-        SoftwareUpdateAvailable, // 0
+        Unused, // 0
         AddressStatusChanged,
-        Unused,
+        WalletImplUpdateAvailable,
         BeamNews,
         TransactionFailed,
         TransactionCompleted

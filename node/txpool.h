@@ -55,15 +55,16 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			struct Threshold
+			HeightRange m_Height;
+
+			struct Outdated
 				:public boost::intrusive::set_base_hook<>
 			{
-				HeightRange m_Height;
+				Height m_Height;
 
-				bool operator < (const Threshold& t) const { return m_Height.m_Max < t.m_Height.m_Max; }
-
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
-			} m_Threshold;
+				bool operator < (const Outdated& t) const { return m_Height < t.m_Height; }
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Outdated)
+			} m_Outdated;
 
 			struct Queue
 				:public boost::intrusive::list_base_hook<>
@@ -71,24 +72,32 @@ struct TxPool
 				uint32_t m_Refs = 0;
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Queue)
 			} m_Queue;
+
+			bool IsOutdated() const { return MaxHeight != m_Outdated.m_Height; }
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
+		typedef boost::intrusive::multiset<Element::Outdated> OutdatedSet;
 		typedef boost::intrusive::list<Element::Queue> Queue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
-		ThresholdSet m_setThreshold;
+		OutdatedSet m_setOutdated;
 		Queue m_Queue;
 
 		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		void SetOutdated(Element&, Height);
 		void Delete(Element&);
+		void DeleteEmpty(Element&);
 		void Release(Element&);
 		void Clear();
 
 		~Fluff() { Clear(); }
+
+	private:
+		void InternalInsert(Element&);
+		void InternalErase(Element&);
 	};
 
 	struct Stem
