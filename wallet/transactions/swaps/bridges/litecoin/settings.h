@@ -30,10 +30,11 @@ namespace beam::litecoin
         {
             constexpr double kLTCBlocksPerHour = 24;
             constexpr uint32_t kLTCDefaultLockTimeInBlocks = 12 * 24;  // 12h
-            constexpr Amount kLtcMinFeeRate = 90000;
+            constexpr Amount kLtcMinFeeRate = 1000;
 
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
             SetFeeRate(kLtcMinFeeRate);
+            SetMinFeeRate(kLtcMinFeeRate);
             SetBlocksPerHour(kLTCBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
