@@ -2033,7 +2033,7 @@ namespace
         if (vm.count(cli::SWAP_FEERATE))
         {
             Amount feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-            if (feeRate <= settings.GetMinFeeRate())
+            if (feeRate < settings.GetMinFeeRate())
             {
                 ostringstream stream;
                 stream << "Error: you set fee rate less than minimun. For " << swapCoin << " it should be > " << settings.GetMinFeeRate();
