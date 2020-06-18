@@ -716,8 +716,12 @@ struct Context
         Transaction::Ptr pTx = std::make_shared<Transaction>();
         HeightRange hr(h, h + 10);
 
+        bool bShouldEmbed = 0 != (1 & txo.m_ID.m_Value.m_Idx); // just random. In reality wrapper is needed for sending to 3rd-party
+
         TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
-        pKrn->m_Height = hr;
+        pKrn->m_CanEmbed = bShouldEmbed;
+        if (!bShouldEmbed)
+            pKrn->m_Height = hr;
 
         pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
 
@@ -729,6 +733,8 @@ struct Context
         ZeroObject(sdp.m_Output.m_User);
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
+        if (bShouldEmbed)
+            sdp.m_Output.m_Value -= m_Cfg.m_Fees.m_Kernel;
 
         ShieldedTxo::Viewer v;
         v.FromOwner(*m_pKdf, 0);
@@ -744,13 +750,40 @@ struct Context
         //if (!pKrn->IsValid(hr.m_Min, pt))
         //    __debugbreak();
 
-        pTx->m_vKernels.push_back(std::move(pKrn));
         ECC::Scalar::Native kOffs = -sdp.m_Output.m_k;
+
+        if (bShouldEmbed)
+        {
+            ECC::Scalar::Native kOuter;
+            m_pKdf->DeriveKey(kOuter, pKrn->m_Internal.m_ID);
+
+            TxKernelStd::Ptr pKrnOuter = std::make_unique<TxKernelStd>();
+            pKrnOuter->m_Height = hr;
+            pKrnOuter->m_Fee = m_Cfg.m_Fees.m_Kernel;
+
+            pKrnOuter->m_vNested.push_back(std::move(pKrn));
+
+            pKrnOuter->Sign(kOuter);
+            kOffs += -kOuter;
+
+            pTx->m_vKernels.push_back(std::move(pKrnOuter));
+        }
+        else
+            pTx->m_vKernels.push_back(std::move(pKrn));
 
         AddInp(*pTx, kOffs, txo, hr.m_Max);
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
+
+        //{
+        //    Transaction::Context::Params pars;
+        //    Transaction::Context ctx(pars);
+        //    ctx.m_Height.m_Min = h;
+
+        //    if (!pTx->IsValid(ctx))
+        //        __debugbreak();
+        //}
 
         SendTx(std::move(pTx));
     }
@@ -1058,7 +1091,7 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    Amount nMinInOut = (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel * 3 + ctx.m_Cfg.m_Fees.m_Output * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
     std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;
