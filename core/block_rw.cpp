@@ -432,7 +432,7 @@ namespace beam
 		v.m_Height = m_Tip.m_Height;
 
 		Merkle::Hash hv;
-		v.get_Live(hv);
+		BEAM_VERIFY(v.get_Live(hv));
 
 		if (!(m_Cwp.m_hvRootLive == hv))
 			ThrowBadData();
