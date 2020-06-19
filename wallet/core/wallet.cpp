@@ -235,6 +235,14 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::VisitActiveTransaction(const TxVisitor& visitor)
+    {
+        for(const auto& it: m_ActiveTransactions)
+        {
+            visitor(it.first, it.second);
+        }
+    }
+
     void Wallet::ResumeAllTransactions()
     {
         auto txs = m_WalletDB->getTxHistory(TxType::ALL);

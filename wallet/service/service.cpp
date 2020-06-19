@@ -117,17 +117,26 @@ namespace beam::wallet
     {
         OpenWallet openWallet;
 
-        if (existsJsonParam(params, "pass"))
+        const char* jsonId = "id";
+        const char* jsonPass = "pass";
+        const char* jsonKeeper = "fresh_wasm_keeper";
+
+        if (existsJsonParam(params, jsonPass))
         {
-            openWallet.pass = params["pass"].get<std::string>();
+            openWallet.pass = params[jsonPass].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'pass' parameter must be specified.", id };
 
-        if (existsJsonParam(params, "id"))
+        if (existsJsonParam(params, jsonId))
         {
-            openWallet.id = params["id"].get<std::string>();
+            openWallet.id = params[jsonId].get<std::string>();
         }
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
+
+        if (existsJsonParam(params, jsonKeeper))
+        {
+            openWallet.freshWasmKeeper = params[jsonKeeper].get<bool>();
+        }
 
         getHandler().onMessage(id, openWallet);
     }
@@ -742,10 +751,25 @@ namespace
 
                     _walletMap[data.id].walletDB = _walletDB;
                     _walletMap[data.id].wallet = _wallet;
-
                     LOG_DEBUG() << "wallet sucessfully opened...";
 
                     _wallet->ResumeAllTransactions();
+                    if (data.freshWasmKeeper) {
+                        _wallet->VisitActiveTransaction([&](const TxID& txid, BaseTransaction::Ptr tx) {
+                           if (tx->GetType() == TxType::Simple)
+                           {
+                               SimpleTransaction::State state;
+                               if (tx->GetParameter(TxParameterID::State, state))
+                               {
+                                   if (state < SimpleTransaction::State::Registration)
+                                   {
+                                       LOG_DEBUG() << "Fresh keykeeper transaction cancel, txid " << txid << " , state " << state;
+                                       _wallet->CancelTransaction(txid);
+                                   }
+                               }
+                           }
+                        });
+                    }
 
                     auto nnet = std::make_shared<ServiceNodeConnection>(*_wallet);
                     nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;

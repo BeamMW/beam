@@ -103,6 +103,7 @@ namespace beam::wallet
         // Type definitions for callback functors
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
+        using TxVisitor = std::function<void (const TxID&, BaseTransaction::Ptr)>;
 
         Wallet(IWalletDB::Ptr walletDB, bool withAssets, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
@@ -123,6 +124,7 @@ namespace beam::wallet
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
         void ResumeAllTransactions();
+        void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
 
