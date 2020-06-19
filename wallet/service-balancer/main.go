@@ -58,7 +58,6 @@ func main () {
 	//
 	// JsonRPCv2.0 over WebSockets
 	//
-	var wsGenericError = "websocket server processing error, %v"
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
 		if err := checkOrigin(r); err != nil {
 			counters.CountWReject()
@@ -68,7 +67,7 @@ func main () {
 		}
 		counters.CountWUpgrade()
 		if err := m.HandleRequest(w, r); err != nil {
-			log.Printf(wsGenericError, err)
+			log.Printf("websocket handle request error, %v", err)
 		}
 	})
 
@@ -76,7 +75,7 @@ func main () {
 		go func() {
 			if resp := jsonRpcProcessWallet(session, msg); resp != nil {
 				if err := session.Write(resp); err != nil {
-					log.Printf(wsGenericError, err)
+					log.Printf("websocket jsonRpcProcessWallet error, %v", err)
 				}
 			}
 		} ()
@@ -92,19 +91,21 @@ func main () {
 	m.HandleDisconnect(func(session *melody.Session) {
 		counters.CountWDisconnect()
 		if err := onWalletDisconnect(session); err != nil {
-			log.Printf(wsGenericError, err)
+			log.Printf("websocket onWalletDisconnect error, %v", err)
 		}
 	})
 
 	m.HandlePong(func(session *melody.Session) {
 		if err := onWalletPong(session); err != nil {
-			log.Printf(wsGenericError, err)
+			log.Printf("websocket onWalletPong error, %v", err)
 		}
 	})
 
 	m.HandleError(func(session *melody.Session, err error) {
 		counters.CountWError()
-		log.Printf(wsGenericError, err)
+		if config.Debug {
+			log.Printf("websocket error, %v", err)
+		}
 	})
 
 	startActivityLog()
