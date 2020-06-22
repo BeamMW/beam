@@ -784,6 +784,8 @@ namespace beam::wallet
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
                 AmountBig::Type Shielded = 0U;
+                AmountBig::Type Linked = 0U;
+                AmountBig::Type Unlinked = 0U;
                 Height MinCoinHeight = 0;
             };
 

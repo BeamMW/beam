@@ -4312,6 +4312,7 @@ namespace beam::wallet
                 case Coin::Status::Available:
                     totals.Avail += value;
                     totals.Unspent += value;
+                    c.m_isUnlinked ? totals.Unlinked += value : totals.Linked += value;
                     switch (c.m_ID.m_Type)
                     {
                     case Key::Type::Coinbase:

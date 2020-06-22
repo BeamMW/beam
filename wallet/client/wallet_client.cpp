@@ -1072,6 +1072,8 @@ namespace beam::wallet
         status.receiving         = AmountBig::get_Lo(totals.Incoming);
         status.sending           = AmountBig::get_Lo(totals.Outgoing);
         status.maturing          = AmountBig::get_Lo(totals.Maturing);
+        status.linked            = AmountBig::get_Lo(totals.Linked);
+        status.unlinked          = AmountBig::get_Lo(totals.Unlinked);
         status.update.lastTime   = m_walletDB->getLastUpdateTime();
 
         ZeroObject(status.stateID);
