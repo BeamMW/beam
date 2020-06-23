@@ -1074,6 +1074,7 @@ namespace beam::wallet
         status.maturing          = AmountBig::get_Lo(totals.Maturing);
         status.linked            = AmountBig::get_Lo(totals.Linked);
         status.unlinked          = AmountBig::get_Lo(totals.Unlinked);
+        status.shielded          = AmountBig::get_Lo(totals.Shielded);
         status.update.lastTime   = m_walletDB->getLastUpdateTime();
 
         ZeroObject(status.stateID);

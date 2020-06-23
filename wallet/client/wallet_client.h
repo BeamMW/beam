@@ -48,6 +48,7 @@ namespace beam::wallet
         Amount maturing = 0;
         Amount linked = 0;
         Amount unlinked = 0;
+        Amount shielded = 0;
 
         struct
         {
