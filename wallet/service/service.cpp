@@ -34,6 +34,7 @@
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
+#include "wallet/core/common.h"
 #include "wallet/api/api_handler.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/simple_transaction.h"
@@ -119,7 +120,7 @@ namespace beam::wallet
 
         const char* jsonId = "id";
         const char* jsonPass = "pass";
-        const char* jsonKeeper = "fresh_wasm_keeper";
+        const char* jsonKeeper = "fresh_keeper";
 
         if (existsJsonParam(params, jsonPass))
         {
@@ -135,7 +136,7 @@ namespace beam::wallet
 
         if (existsJsonParam(params, jsonKeeper))
         {
-            openWallet.freshWasmKeeper = params[jsonKeeper].get<bool>();
+            openWallet.freshKeeper = params[jsonKeeper].get<bool>();
         }
 
         getHandler().onMessage(id, openWallet);
@@ -751,10 +752,11 @@ namespace
 
                     _walletMap[data.id].walletDB = _walletDB;
                     _walletMap[data.id].wallet = _wallet;
-                    LOG_DEBUG() << "wallet sucessfully opened...";
+                    LOG_DEBUG() << "Wallet sucessfully opened, wallet id " << data.id;
 
                     _wallet->ResumeAllTransactions();
-                    if (data.freshWasmKeeper) {
+                    if (data.freshKeeper) {
+                        // We won't be able to sign, nonces are regenerated
                         _wallet->VisitActiveTransaction([&](const TxID& txid, BaseTransaction::Ptr tx) {
                            if (tx->GetType() == TxType::Simple)
                            {
