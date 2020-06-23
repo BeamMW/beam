@@ -761,6 +761,8 @@ namespace beam::wallet
     std::string ConvertTokenToJson(const std::string& token);
     std::string ConvertJsonToToken(const std::string& json);
 
+    // add timestamp to the file name
+    std::string TimestampFile(const std::string& fileName);
 }    // beam::wallet
 
 namespace beam

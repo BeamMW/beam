@@ -1291,7 +1291,22 @@ namespace beam::wallet
         {
         }
         return {};
-
     }
 
+    std::string TimestampFile(const std::string& fileName)
+    {
+        size_t dotPos = fileName.find_last_of('.');
+
+        stringstream ss;
+        ss << fileName.substr(0, dotPos);
+        ss << getTimestamp();
+
+        if (dotPos != string::npos)
+        {
+            ss << fileName.substr(dotPos);
+        }
+
+        string timestampedPath = ss.str();
+        return timestampedPath;
+    }
 }  // namespace beam::wallet
