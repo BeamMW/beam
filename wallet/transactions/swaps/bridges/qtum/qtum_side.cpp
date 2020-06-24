@@ -44,4 +44,9 @@ namespace beam::wallet
     {
         return kQtumLockTxEstimatedTimeInBeamBlocks;
     }
+
+    bool QtumSide::IsSegwitSupported() const
+    {
+        return false;
+    }
 }

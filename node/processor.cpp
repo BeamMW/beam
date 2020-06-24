@@ -177,6 +177,12 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_Vacuum)
 		Vacuum();
 
+	blob = m_sidForbidden.m_Hash;
+	if (m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob))
+		LogForbiddenState();
+	else
+		ResetForbiddenStateVar();
+
 	TryGoUp();
 }
 
@@ -273,6 +279,17 @@ void NodeProcessor::LogSyncData()
 		return;
 
 	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
+}
+
+void NodeProcessor::LogForbiddenState()
+{
+	LOG_INFO() << "Forbidden state: " << m_sidForbidden;
+}
+
+void NodeProcessor::ResetForbiddenStateVar()
+{
+	m_sidForbidden.m_Height = MaxHeight; // don't set it to 0, it may interfer with treasury in RequestData()
+	m_sidForbidden.m_Hash = Zero;
 }
 
 void NodeProcessor::SaveSyncData()
@@ -693,12 +710,17 @@ const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height
 	return nullptr;
 }
 
-Height NodeProcessor::get_LowestReturnHeight() const
+Height NodeProcessor::get_MaxAutoRollback()
 {
-	Height hRet = m_Extra.m_TxoHi;
+	return Rules::get().MaxRollback;
+}
+
+Height NodeProcessor::get_LowestReturnHeight()
+{
+	Height hRet = std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
-	Height hMaxRollback = Rules::get().MaxRollback;
+	Height hMaxRollback = get_MaxAutoRollback();
 
 	if (h0 > hMaxRollback)
 	{
@@ -711,14 +733,17 @@ Height NodeProcessor::get_LowestReturnHeight() const
 
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
-	if (id.m_Height >= get_LowestReturnHeight())
-	{
-		RequestData(id, bBlock, sidTrg);
+	if (id.m_Height < get_LowestReturnHeight()) {
+		LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
+		return;
 	}
-	else
-	{
-		LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
+
+	if (id == m_sidForbidden) {
+		LOG_WARNING() << id << " State forbidden";
+		return;
 	}
+
+	RequestData(id, bBlock, sidTrg);
 }
 
 struct NodeProcessor::MultiSigmaContext
@@ -1252,8 +1277,10 @@ struct NodeProcessor::MultiblockContext
 			nTasks = ex.Flush(nTasks - 1);
 		}
 
-		m_InProgress.m_Max++;
-		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
+		// The following won't hold if some blocks in the current range were already verified in the past, and omitted from the current verification
+		//		m_InProgress.m_Max++;
+		//		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
+		m_InProgress.m_Max = pShared->m_Ctx.m_Height.m_Min;
 
 		bool bFull = (pShared->m_Ctx.m_Height.m_Min > m_This.m_SyncData.m_Target.m_Height);
 
@@ -1595,6 +1622,8 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 		ZeroObject(m_SyncData);
 		SaveSyncData();
+
+		OnFastSyncSucceeded();
 	}
 }
 
@@ -2120,6 +2149,17 @@ struct NodeProcessor::KrnFlyMmr
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
+	if (s.m_Height == m_sidForbidden.m_Height)
+	{
+		Merkle::Hash hv;
+		s.get_Hash(hv);
+		if (hv == m_sidForbidden.m_Hash)
+		{
+			LOG_WARNING() << LogSid(m_DB, sid) << " Forbidden";
+			return false;
+		}
+	}
+
 	ByteBuffer bbP, bbE;
 	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
 
@@ -3677,6 +3717,71 @@ void NodeProcessor::RollbackTo(Height h)
 	OnRolledBack();
 }
 
+bool NodeProcessor::ForbidActiveAt(Height h)
+{
+	if (h >= Rules::HeightGenesis)
+	{
+		if (m_Cursor.m_Sid.m_Height < h)
+		{
+			LOG_WARNING() << "Can't forbid a state above cursor";
+			return false;
+		}
+
+		NodeDB::StateID sid;
+		sid.m_Height = h;
+		sid.m_Row = FindActiveAtStrict(sid.m_Height);
+		m_DB.get_StateID(sid, m_sidForbidden);
+
+		Blob blob = m_sidForbidden.m_Hash;
+		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob);
+		LogForbiddenState();
+	}
+	else
+	{
+		LOG_INFO() << "Forbidden state reset";
+		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, nullptr);
+		ResetForbiddenStateVar();
+	}
+
+	return true;
+}
+
+void NodeProcessor::ManualRollbackTo(Height h)
+{
+	LOG_INFO() << "Manual rollback to " << h << "...";
+
+	bool bChanged = false;
+
+	if (IsFastSync() && (m_SyncData.m_Target.m_Height > h))
+	{
+		LOG_INFO() << "Fast-sync abort...";
+
+		RollbackTo(m_SyncData.m_h0);
+		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
+
+		ZeroObject(m_SyncData);
+		SaveSyncData();
+
+		bChanged = true;
+	}
+
+	if (h < m_Extra.m_TxoHi)
+	{
+		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
+		h = m_Extra.m_TxoHi;
+	}
+
+	if (m_Cursor.m_ID.m_Height > h)
+	{
+		ForbidActiveAt(h + 1);
+		RollbackTo(h);
+		bChanged = true;
+	}
+
+	if (bChanged)
+		OnNewState();
+}
+
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
 	s.get_ID(id);
@@ -4164,7 +4269,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		bool bDelete = !x.m_Threshold.m_Height.IsInRange(bic.m_Height);
+		bool bDelete = !x.m_Height.IsInRange(bic.m_Height);
 		if (!bDelete)
 		{
 			assert(!bic.m_LimitExceeded);
@@ -4187,7 +4292,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		}
 
 		if (bDelete)
-			bc.m_TxPool.Delete(x); // isn't available in this context
+			bc.m_TxPool.SetOutdated(x, h); // isn't available in this context
 	}
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;

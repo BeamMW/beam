@@ -64,11 +64,14 @@ namespace beam::wallet::lelantus
         // TODO: add ShieldedMessage if needed
         // op.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
 
+        bool bSendingToSelf = false;
+
         ShieldedVoucherList vouchers;
         if (!m_Tx.GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
         {
             if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
             {
+                bSendingToSelf = true;
                 // no voucher - means we're sending to ourselves. Create our voucher
                 ShieldedTxo::Voucher& voucher = vouchers.emplace_back();
                 ShieldedTxo::Viewer viewer;
@@ -107,25 +110,57 @@ namespace beam::wallet::lelantus
         const ShieldedTxo::Voucher& voucher = vouchers.back();
         op.Restore_kG(voucher.m_SharedSecret);
 
-        TxKernelShieldedOutput::Ptr pKrn;
+        ECC::Scalar::Native kWrap;
+
+        if (!bSendingToSelf)
+        {
+            ECC::Hash::Value hv;
+            ECC::Hash::Processor()
+                << "so.wrap"
+                << voucher.m_SharedSecret
+                >> hv;
+
+            pMasterKdf->DeriveKey(kWrap, hv);
+            offset -= kWrap;
+        }
+
+        TxKernel::Ptr pKrn;
         if (!m_Tx.GetParameter(TxParameterID::Kernel, pKrn) || !pKrn)
         {
-            pKrn = std::make_unique<TxKernelShieldedOutput>();
-            pKrn->m_Height.m_Min = GetMinHeight();
-            pKrn->m_Height.m_Max = GetMaxHeight();
-            pKrn->m_Fee = GetFee();
+            HeightRange hr = { GetMinHeight(), GetMaxHeight() };
 
-            pKrn->UpdateMsg();
+            TxKernelShieldedOutput::Ptr pKrnOut = std::make_unique<TxKernelShieldedOutput>();
+            pKrnOut->m_CanEmbed = !bSendingToSelf;
+            if (bSendingToSelf)
+                pKrnOut->m_Height = hr;
+
+            pKrnOut->m_Fee = GetFee();
+
+            pKrnOut->UpdateMsg();
             ECC::Oracle oracle;
-            oracle << pKrn->m_Msg;
+            oracle << pKrnOut->m_Msg;
 
-            pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
-            op.Generate(pKrn->m_Txo, voucher.m_SharedSecret, oracle);
+            pKrnOut->m_Txo.m_Ticket = voucher.m_Ticket;
+            op.Generate(pKrnOut->m_Txo, voucher.m_SharedSecret, oracle);
 
             m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, voucher.m_Ticket.m_SerialPub);
 
             // save Kernel and KernelID
-            pKrn->MsgToID();
+            pKrnOut->MsgToID();
+
+            if (!bSendingToSelf)
+            {
+                TxKernelStd::Ptr pKrnWrap = std::make_unique<TxKernelStd>();
+                pKrnWrap->m_Height = hr;
+                pKrnWrap->m_vNested.push_back(std::move(pKrnOut));
+                pKrnWrap->Sign(kWrap);
+
+                pKrn = std::move(pKrnWrap);
+            }
+            else
+                pKrn = std::move(pKrnOut);
+
+
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);
             m_Tx.SetParameter(TxParameterID::Kernel, pKrn);
 

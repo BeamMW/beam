@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 )
+
 //
 // Services collection
 //
@@ -60,9 +62,48 @@ func (svcs* Services) GetAt(index int) (*service, error) {
 	return svcs.all[index], nil
 }
 
-func (svcs* Services) GetNext() (int, *service, error) {
-	svcs.allMutex.Lock()
-	defer svcs.allMutex.Unlock()
+func (svcs* Services) getNextByUsage(lock bool) (int, *service, error) {
+	if lock {
+		svcs.allMutex.Lock()
+		defer svcs.allMutex.Unlock()
+	}
+
+	var invalidIdx     = -1
+	var svcIdx         = invalidIdx
+	var minUsage int64 = math.MaxInt64
+
+	for idx, service := range svcs.all {
+		if service == nil || service.command == nil || service.command.Process == nil {
+			continue
+		}
+
+		pid := service.command.Process.Pid
+		usage, err := getPIDUsage(pid)
+		if err != nil {
+			log.Printf("Failed to get %v rusage, %v", pid, err)
+			continue
+		}
+
+		if usage < minUsage {
+			svcIdx = idx
+			minUsage = usage
+		}
+	}
+
+	if svcIdx == invalidIdx {
+		// This is really bad and MUST never happen in normal flow
+		return 0, nil, errors.New("unable to find service")
+	}
+
+	svcs.nextIdx = svcIdx + 1
+	return svcIdx, svcs.all[svcIdx], nil
+}
+
+func (svcs* Services) getNextByIndex(lock bool) (int, *service, error) {
+	if lock {
+		svcs.allMutex.Lock()
+		defer svcs.allMutex.Unlock()
+	}
 
 	var initialIdx = svcs.nextIdx
 	var svcIdx     = svcs.nextIdx
@@ -87,6 +128,17 @@ func (svcs* Services) GetNext() (int, *service, error) {
 
 		return svcIdx, service, nil
 	}
+}
+
+func (svcs* Services) GetNext() (int, *service, error) {
+	svcs.allMutex.Lock()
+	defer svcs.allMutex.Unlock()
+
+	if idx, svc, err := svcs.getNextByUsage(false); err == nil {
+		return idx, svc, nil
+	}
+
+	return svcs.getNextByIndex(false)
 }
 
 func (svcs *Services) ShutdownAll () {

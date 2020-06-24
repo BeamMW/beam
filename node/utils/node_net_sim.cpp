@@ -339,7 +339,7 @@ struct Context
 
             Height hTip = get_ParentObj().m_FlyClient.get_Height();
 
-            if (nCount < proto::Event::s_Max)
+            if (nCount < r.m_Max)
                 m_hEvents = hTip + 1;
             else
             {
@@ -532,6 +532,8 @@ struct Context
         if (h < Rules::get().pForks[2].m_Height)
             return;
 
+        std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;
+
         m_TxosMW.HandleTxs(m_setSplit, h);
 
         uint32_t nDone = m_TxosMW.HandleTxs(m_setTxsOut, h);
@@ -714,8 +716,12 @@ struct Context
         Transaction::Ptr pTx = std::make_shared<Transaction>();
         HeightRange hr(h, h + 10);
 
+        bool bShouldEmbed = 0 != (1 & txo.m_ID.m_Value.m_Idx); // just random. In reality wrapper is needed for sending to 3rd-party
+
         TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
-        pKrn->m_Height = hr;
+        pKrn->m_CanEmbed = bShouldEmbed;
+        if (!bShouldEmbed)
+            pKrn->m_Height = hr;
 
         pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
 
@@ -727,6 +733,8 @@ struct Context
         ZeroObject(sdp.m_Output.m_User);
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
+        if (bShouldEmbed)
+            sdp.m_Output.m_Value -= m_Cfg.m_Fees.m_Kernel;
 
         ShieldedTxo::Viewer v;
         v.FromOwner(*m_pKdf, 0);
@@ -735,20 +743,47 @@ struct Context
         ECC::GenRandom(nonce);
         sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
-        sdp.GenerateOutp(pKrn->m_Txo, oracle);
+        sdp.GenerateOutp(pKrn->m_Txo, oracle, true);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;
         //if (!pKrn->IsValid(hr.m_Min, pt))
         //    __debugbreak();
 
-        pTx->m_vKernels.push_back(std::move(pKrn));
         ECC::Scalar::Native kOffs = -sdp.m_Output.m_k;
+
+        if (bShouldEmbed)
+        {
+            ECC::Scalar::Native kOuter;
+            m_pKdf->DeriveKey(kOuter, pKrn->m_Internal.m_ID);
+
+            TxKernelStd::Ptr pKrnOuter = std::make_unique<TxKernelStd>();
+            pKrnOuter->m_Height = hr;
+            pKrnOuter->m_Fee = m_Cfg.m_Fees.m_Kernel;
+
+            pKrnOuter->m_vNested.push_back(std::move(pKrn));
+
+            pKrnOuter->Sign(kOuter);
+            kOffs += -kOuter;
+
+            pTx->m_vKernels.push_back(std::move(pKrnOuter));
+        }
+        else
+            pTx->m_vKernels.push_back(std::move(pKrn));
 
         AddInp(*pTx, kOffs, txo, hr.m_Max);
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
+
+        //{
+        //    Transaction::Context::Params pars;
+        //    Transaction::Context ctx(pars);
+        //    ctx.m_Height.m_Min = h;
+
+        //    if (!pTx->IsValid(ctx))
+        //        __debugbreak();
+        //}
 
         SendTx(std::move(pTx));
     }
@@ -859,7 +894,7 @@ struct Context
 
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, 0);
+            pKrn->Sign(p, 0, true);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));
@@ -1027,6 +1062,7 @@ int main_Guarded(int argc, char* argv[])
     node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
     node.m_Keys.SetSingleKey(pKdf);
+    node.m_Cfg.m_Horizon.SetStdFastSync();
     node.Initialize();
 
     if (!bLocalMode && !node.m_PostStartSynced)
@@ -1055,8 +1091,8 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    if (ctx.m_Cfg.m_BulletValue < (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput)
-        throw std::runtime_error("Bullet/Fee settings not consistent");
+    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel * 3 + ctx.m_Cfg.m_Fees.m_Output * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;
     ctx.m_Network.m_Cfg.m_vNodes.push_back(io::Address(INADDR_LOOPBACK, g_LocalNodePort));

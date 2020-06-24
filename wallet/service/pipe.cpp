@@ -27,7 +27,7 @@ namespace beam::wallet {
         _file = fdopen(_fd, "w");
         if (_file == nullptr)
         {
-            LOG_WARNING() << "Failed to open sync pipe";
+            LOG_ERROR() << "Failed to open sync pipe";
         }
         else
         {
@@ -57,12 +57,12 @@ namespace beam::wallet {
 
         if (wsize != fwrite(message.c_str(), charSize, chars, _file))
         {
-            LOG_WARNING() << "Failed to write sync pipe, message: " << message;
+            LOG_ERROR() << "Failed to write sync pipe, message: " << message;
         }
         else
         {
             fflush(_file);
-            //LOG_INFO() << "Sync pipe " << _fd << ": " << message << ", " << wsize << " bytes";
+            LOG_DEBUG() << "Sync pipe " << _fd << ": " << message << ", " << wsize << " bytes";
         }
     }
 

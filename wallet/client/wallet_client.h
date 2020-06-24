@@ -46,6 +46,9 @@ namespace beam::wallet
         Amount receivingChange = 0;
         Amount sending = 0;
         Amount maturing = 0;
+        Amount linked = 0;
+        Amount unlinked = 0;
+        Amount shielded = 0;
 
         struct
         {
@@ -99,6 +102,13 @@ namespace beam::wallet
 
         // use this function to post function call to client's main loop
         void postFunctionToClientContext(MessageFunction&& func);
+
+        struct DeferredBalanceUpdate
+            :public io::IdleEvt
+        {
+            virtual void OnSchedule() override;
+            IMPLEMENT_GET_PARENT_OBJ(WalletClient, m_DeferredBalanceUpdate)
+        } m_DeferredBalanceUpdate;
 
         // Callbacks
         virtual void onStatus(const WalletStatus& status) {}

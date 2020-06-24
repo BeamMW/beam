@@ -45,6 +45,7 @@ namespace beam::wallet
     {
         std::string id;
         std::string pass;
+        bool freshKeeper = true;
 
         struct Response
         {

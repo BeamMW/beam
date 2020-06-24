@@ -50,7 +50,7 @@ func wallletServicesGet(wid string) (string, error) {
 	//
 	// Since balancer is concurrent new endpoint might be added by another
 	// thread between epoints.Get and epoints.Add. Add() handles this case
-	// and returns existing endpoint is necessary. This situation should
+	// and returns existing endpoint if necessary. This situation should
 	// be very rare though possible
 	//
 	svcIdx, service, err := walletServices.GetNext()

@@ -16,8 +16,8 @@ import (
 
 type WalletStats struct {
 	services.ServiceStats
-	EndpointsCnt int
-	ClientsCnt int
+	EndpointsCnt int64
+	ClientsCnt int64
 }
 
 type DiskStatus struct {
@@ -33,23 +33,69 @@ type DBStatus struct {
 }
 
 type statusRes struct {
-	GoMemory          runtime.MemStats
-	SysInfo			  *sysinfo.SI
-	DBDiskTotal       uint64
-	DBDiskFree        uint64
-	GC                debug.GCStats
-	NumCPU            int
-	NumGos            int
-	MaxWalletServices int
-	MaxBbsServices    int
-	WalletServices    []*WalletStats
-	BbsServices       []*services.ServiceStats
-	Config            *Config
-	Counters          Counters
-	WalletSockets     int64
-	DBSize            DBStatus
-	DBDiskUsage       DiskStatus
-	SelfDiskUsage     DiskStatus
+	GoMemory            runtime.MemStats
+	SysInfo			    *sysinfo.SI
+	DBDiskTotal         uint64
+	DBDiskFree          uint64
+	GC                  debug.GCStats
+	NumCPU              int
+	NumGos              int
+	MaxWalletServices   int
+	AliveWalletServices int
+	MaxBbsServices      int
+	AliveBbsServices    int
+	WalletServices      []*WalletStats
+	BbsServices         []*services.ServiceStats
+	Config              *Config
+	Counters            Counters
+	WalletSockets       int64
+	DBSize              DBStatus
+	DBDiskUsage         DiskStatus
+	SelfDiskUsage       DiskStatus
+}
+
+func collectStatus(fast bool) (status statusRes) {
+	status.NumCPU = runtime.NumCPU()
+	status.NumGos = runtime.NumGoroutine()
+
+	counters.CopyTo(&status.Counters)
+	status.WalletSockets = status.Counters.WConnect - status.Counters.WDisconnect
+
+	if !fast {
+		status.Config = &config
+		// Do not expose sensitive info
+		status.Config.VAPIDPrivate = "--not exposed--"
+
+		runtime.ReadMemStats(&status.GoMemory)
+		status.SysInfo = sysinfo.Get()
+		debug.ReadGCStats(&status.GC)
+
+		status.DBSize        = DBSize(config.DatabasePath)
+		status.DBDiskUsage   = DiskUsage(config.DatabasePath)
+		status.SelfDiskUsage = DiskUsage("./")
+	}
+
+	wstats := walletServices.GetStats()
+	if len(wstats) != 0 {
+		status.WalletServices = make([]*WalletStats, len(wstats))
+		for i, stat := range wstats {
+			full := WalletStats{}
+			full.Port = stat.Port
+			full.Pid = stat.Pid
+			full.Args = stat.Args
+			full.ProcessState = stat.ProcessState
+			full.EndpointsCnt, full.ClientsCnt = epoints.GetSvcCounts(i)
+			status.WalletServices[i] = &full
+		}
+	}
+
+	status.BbsServices         = sbbsServices.GetStats()
+	status.MaxWalletServices   = config.WalletServiceCnt
+	status.AliveWalletServices = len(status.WalletServices)
+	status.MaxBbsServices      = config.BbsMonitorCnt
+	status.AliveBbsServices    = len(status.BbsServices)
+
+	return
 }
 
 func statusRequest (r *http.Request)(interface{}, error) {
@@ -63,43 +109,7 @@ func statusRequest (r *http.Request)(interface{}, error) {
 		}
 	}
 
-	res := &statusRes {
-		NumCPU:     runtime.NumCPU(),
-		NumGos:     runtime.NumGoroutine(),
-		Config:     &config,
-	}
-
-	// Do not expose sensitive info
-	res.Config.VAPIDPrivate = "--not exposed--"
-	counters.CopyTo(&res.Counters)
-	res.WalletSockets = res.Counters.WConnect - res.Counters.WDisconnect
-
-	runtime.ReadMemStats(&res.GoMemory)
-	res.SysInfo = sysinfo.Get()
-	debug.ReadGCStats(&res.GC)
-
-	wstats := walletServices.GetStats()
-	if len(wstats) != 0 {
-		res.WalletServices = make([]*WalletStats, len(wstats))
-		for i, stat := range wstats {
-			full := WalletStats{}
-			full.Port = stat.Port
-			full.Pid = stat.Pid
-			full.Args = stat.Args
-			full.ProcessState = stat.ProcessState
-			full.EndpointsCnt, full.ClientsCnt = epoints.GetSvcCounts(i)
-			res.WalletServices[i] = &full
-		}
-	}
-
-	res.BbsServices       = sbbsServices.GetStats()
-	res.MaxWalletServices = len(res.WalletServices)
-	res.MaxBbsServices    = len(res.BbsServices)
-	res.DBSize            = DBSize(config.DatabasePath)
-	res.DBDiskUsage       = DiskUsage(config.DatabasePath)
-	res.SelfDiskUsage     = DiskUsage("./")
-
-	return res, nil
+	return collectStatus(false), nil
 }
 
 const (

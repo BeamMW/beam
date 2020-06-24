@@ -1613,21 +1613,15 @@ namespace
 
     bool SaveExportedData(const ByteBuffer& data, const std::string& path)
     {
-        size_t dotPos = path.find_last_of('.');
-        stringstream ss;
-        ss << path.substr(0, dotPos);
-        ss << getTimestamp();
-        if (dotPos != string::npos)
-        {
-            ss << path.substr(dotPos);
-        }
-        string timestampedPath = ss.str();
+        const auto timestampedPath = TimestampFile(path);
+
         FStream f;
         if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
             LOG_INFO() << kDataExportedMessage;
             return true;
         }
+
         LOG_ERROR() << kErrorExportDataFail;
         return false;
     }
@@ -1953,7 +1947,7 @@ namespace
     }
 
     template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const char* swapCoin)
     {
         SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
@@ -2032,6 +2026,13 @@ namespace
 
         if (vm.count(cli::SWAP_FEERATE))
         {
+            Amount feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+            if (feeRate < settings.GetMinFeeRate())
+            {
+                ostringstream stream;
+                stream << "Error: you set fee rate less than minimun. For " << swapCoin << " it should be > " << settings.GetMinFeeRate();
+                throw std::runtime_error(stream.str());
+            }
             settings.SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
             isChanged = true;
         }
@@ -2133,15 +2134,18 @@ namespace
             {
             case beam::wallet::AtomicSwapCoin::Bitcoin:
             {
-                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
+                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinBTC);
             }
             case beam::wallet::AtomicSwapCoin::Litecoin:
             {
-                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
+                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinLTC);
             }
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
-                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
+                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinQTUM);
             }
             default:
             {
@@ -2430,7 +2434,7 @@ namespace
         CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
-            LOG_ERROR() << kErrorConnectionFailed;
+            LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
         };
     };
 

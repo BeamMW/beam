@@ -255,7 +255,7 @@ namespace beam::wallet
     {
     public:
         explicit CannotGenerateSecretException()
-            : std::runtime_error("")
+            : std::runtime_error("CannotGenerateSecretException")
         {
         }
 
@@ -265,7 +265,7 @@ namespace beam::wallet
     {
     public:
         explicit DatabaseException(const std::string& message)
-            : std::runtime_error(message)
+            : std::runtime_error(message.length() ? message : "DatabaseException")
         {
         }
     };
@@ -784,6 +784,8 @@ namespace beam::wallet
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
                 AmountBig::Type Shielded = 0U;
+                AmountBig::Type Linked = 0U;
+                AmountBig::Type Unlinked = 0U;
                 Height MinCoinHeight = 0;
             };
 

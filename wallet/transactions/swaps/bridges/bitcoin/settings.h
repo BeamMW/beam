@@ -139,6 +139,7 @@ namespace beam::bitcoin
         virtual ElectrumSettings GetElectrumConnectionOptions() const = 0;
         virtual bool IsElectrumActivated() const = 0;
         virtual Amount GetFeeRate() const = 0;
+        virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
         virtual uint32_t GetLockTimeInBlocks() const = 0;
         virtual bool IsInitialized() const = 0;
@@ -162,6 +163,7 @@ namespace beam::bitcoin
         ElectrumSettings GetElectrumConnectionOptions() const override;
         bool IsElectrumActivated() const override;
         Amount GetFeeRate() const override;
+        Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
         uint32_t GetLockTimeInBlocks() const override;
         bool IsInitialized() const override;
@@ -174,6 +176,7 @@ namespace beam::bitcoin
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
         void SetFeeRate(Amount feeRate);
+        void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void ChangeConnectionType(ConnectionType type);
@@ -187,6 +190,7 @@ namespace beam::bitcoin
         ConnectionType m_connectionType = ConnectionType::None;
         Amount m_feeRate = 90000;
         // They are not stored in DB
+        Amount m_minFeeRate = 1000;
         uint16_t m_txMinConfirmations = 6;
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;

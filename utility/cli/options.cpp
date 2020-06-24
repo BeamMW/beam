@@ -15,6 +15,7 @@
 #include "options.h"
 
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
@@ -165,6 +166,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* PRINT_TXO = "print_txo";
+        const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -321,8 +323,22 @@ namespace beam
             return x;
         }
 
+        template <typename TVar>
+        static void set(TVar& var, const T& value) {
+            var = value;
+        }
+
         static const T& get(const Difficulty& x) {
             return x.m_Packed;
+        }
+
+        static std::string get(ECC::uintBig& x) {
+            return x.str();
+        }
+
+        static void set(ECC::uintBig& var, const std::string& value) {
+            var = Zero;
+            var.Scan(value.c_str());
         }
     };
 
@@ -354,6 +370,7 @@ namespace beam
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
+            (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
@@ -556,6 +573,11 @@ namespace beam
             macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
             macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
+            macro(std::string, Prehistoric, "Prehistoric hash") \
+            macro(std::string, TreasuryChecksum, "Treasury hash, or zero to disable treasury") \
+            macro(uint32_t, Magic.v0, "Fork0 magic number") \
+            macro(uint32_t, Magic.v2, "Fork2 magic number") \
+            macro(bool, Magic.IsTestnet, "magic testnet indicator") \
 
 		#define Fork1 pForks[1].m_Height
 		#define Fork2 pForks[2].m_Height
@@ -572,11 +594,12 @@ namespace beam
 
     bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
-        std::ifstream cfg(szFile);
+        const auto fullPath = boost::filesystem::system_complete(szFile).string();
+        std::ifstream cfg(fullPath);
         if (!cfg)
             return false;
 
-        LOG_INFO() << "Reading config from " << szFile;
+        LOG_INFO() << "Reading config from " << fullPath;
         po::store(po::parse_config_file(cfg, desc), vm);
         return true;
     }
@@ -610,7 +633,7 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
+        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
     }

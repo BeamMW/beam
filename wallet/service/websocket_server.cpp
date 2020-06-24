@@ -135,7 +135,6 @@ namespace beam::wallet
                     if (data.size())
                     {
                         // LOG_DEBUG() << "data from a client:" << data;
-
                         process_data_async(std::move(data));
                     }
                 }

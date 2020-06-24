@@ -22,4 +22,11 @@ namespace beam::wallet {
         ServiceNodeConnection(proto::FlyClient& fc);
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override;
     };
+
+    struct MonitorNodeConnection final: public proto::FlyClient::NetworkStd
+    {
+    public:
+        MonitorNodeConnection(proto::FlyClient& fc);
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override;
+    };
 }

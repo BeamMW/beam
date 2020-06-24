@@ -1565,7 +1565,7 @@ namespace beam::wallet
 
         // send invitation
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+        msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion)
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::AtomicSwapExternalLockTime, swapLockTime)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
@@ -1593,7 +1593,7 @@ namespace beam::wallet
         auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+        msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion)
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
@@ -1613,7 +1613,7 @@ namespace beam::wallet
         auto bulletProof = lockBuilder.GetSharedProof();
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+        msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())

@@ -7,8 +7,14 @@ import (
 	"time"
 )
 
+//
+// Endpoint is where wallet should connect after login to balancer
+// to communicate with the wallet service. Each walletId is associated
+// with the endpoint. There might be many clients (wallets) for a single
+// walletId. Balancer ensures that they all use the same wallet service.
+//
 type Endpoint struct {
-	clientsCnt   int32
+	clientsCnt   int64
 	service      int
 	address      string
 	WalletAlive  chan bool
@@ -17,22 +23,21 @@ type Endpoint struct {
 }
 
 func (epoint *Endpoint) Use() (service int, address string) {
-	atomic.AddInt32(&epoint.clientsCnt, 1)
+	atomic.AddInt64(&epoint.clientsCnt, 1)
 	epoint.WalletAlive <- true
 	return epoint.service, epoint.address
 }
 
 func (epoint *Endpoint) Release(wid string) int {
-	cnt := atomic.AddInt32(&epoint.clientsCnt, -1)
+	cnt := atomic.AddInt64(&epoint.clientsCnt, -1)
 	if cnt < 0 {
 		log.Fatalf("wallet %v, negative clients count on endpoint, ccnt %v", wid, cnt)
 	}
 	return int(cnt)
 }
 
-func (epoint *Endpoint) GetClientsCnt() int {
-	cnt := atomic.LoadInt32(&epoint.clientsCnt)
-	return int(cnt)
+func (epoint *Endpoint) GetClientsCnt() int64 {
+	return atomic.LoadInt64(&epoint.clientsCnt)
 }
 
 func (epoint *Endpoint) GetServiceIdx() int {
@@ -44,21 +49,21 @@ type Endpoints struct {
 	mutex sync.Mutex
 }
 
-func (eps* Endpoints) GetSvcCounts(svcidx int) (epcnt int, clientscnt int) {
+func (eps* Endpoints) GetSvcCounts(svcidx int) (epcnt int64, clientscnt int64) {
 	eps.mutex.Lock()
 	defer eps.mutex.Unlock()
 
 	for _, val := range eps.all {
 		if val.service == svcidx {
 			epcnt++
-			clientscnt += int(val.clientsCnt)
+			clientscnt += val.clientsCnt
 		}
 	}
 
 	return
 }
 
-func (points *Endpoints) DropServiceEndpoints (svcIdx int) (pointsCnt int, clientsCnt int) {
+func (points *Endpoints) DropServiceEndpoints (svcIdx int) (pointsCnt int64, clientsCnt int64) {
 	points.mutex.Lock()
 	defer points.mutex.Unlock()
 
