@@ -31,8 +31,8 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void OnAsyncStarted() override {}
     void OnAsyncFinished() override {}
     void on_tx_completed(const TxID&) override {}
+    void on_tx_failed(const TxID&) override {}
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
-    void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
@@ -301,14 +301,14 @@ struct TestGateway : wallet::INegotiatorGateway
         cout << __FUNCTION__ << "\n";
     }
 
+    void on_tx_failed(const TxID&) override
+    {
+        cout << __FUNCTION__ << "\n";
+    }
+
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override
     {
         cout << "sent tx registration request\n";
-    }
-
-    void confirm_outputs(const vector<Coin>&) override
-    {
-        cout << "confirm outputs\n";
     }
 
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID) override

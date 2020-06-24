@@ -821,7 +821,7 @@ namespace beam::wallet
 
                 RollbackTx();
 
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
             case State::Failed:
@@ -848,7 +848,7 @@ namespace beam::wallet
                     LOG_ERROR() << GetTxID() << " Transaction failed.";
                 }
                 UpdateTxDescription(TxStatus::Failed);
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
 
@@ -856,7 +856,7 @@ namespace beam::wallet
             {
                 LOG_INFO() << GetTxID() << " Swap has not succeeded.";
                 UpdateTxDescription(TxStatus::Failed);
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
 

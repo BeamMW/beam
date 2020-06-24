@@ -311,12 +311,9 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the INegotiatorGateway::confirm_outputs
-    // TODO: Not used anywhere, consider removing
-    void Wallet::confirm_outputs(const vector<Coin>& coins)
+    void Wallet::on_tx_failed(const TxID& txID)
     {
-        for (auto& coin : coins)
-            getUtxoProof(coin);
+        on_tx_completed(txID);
     }
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -503,7 +500,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    void Wallet::get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
         pVal->m_callback = std::move(callback);

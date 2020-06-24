@@ -25,6 +25,21 @@
 #include <numeric>
 #include "utility/logger.h"
 
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const wallet::BaseTransaction::TxContext& context)
+    {
+        std::stringstream ss;
+        ss << "[" << std::to_string(context.GetTxID()) << "]";
+        if (context.GetSubTxID() != wallet::kDefaultSubTxID)
+        {
+            ss << "[" << std::to_string(context.GetSubTxID()) << "]";
+        }
+        os << ss.str();
+        return os;
+    }
+}
+
 namespace beam::wallet
 {
     using namespace ECC;
@@ -150,7 +165,7 @@ namespace beam::wallet
         {
             if (ex.what() && strlen(ex.what()))
             {
-                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+                LOG_ERROR() << m_Context << " exception msg: " << ex.what();
             }
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
@@ -158,7 +173,7 @@ namespace beam::wallet
         {
             if (ex.what() && strlen(ex.what()))
             {
-                LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+                LOG_ERROR() << m_Context << " exception msg: " << ex.what();
             }
             OnFailed(TxFailureReason::Unknown);
         }
@@ -187,11 +202,11 @@ namespace beam::wallet
             }
             UpdateTxDescription(TxStatus::Canceled);
             RollbackTx();
-            GetGateway().on_tx_completed(GetTxID());
+            GetGateway().on_tx_failed(GetTxID());
         }
         else
         {
-            LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(s);
+            LOG_INFO() << m_Context << " You cannot cancel transaction in state: " << static_cast<int>(s);
         }
     }
 
@@ -211,13 +226,18 @@ namespace beam::wallet
 
     void BaseTransaction::RollbackTx()
     {
-        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
+        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         m_Context.GetWalletDB()->rollbackTx(GetTxID());
     }
 
     INegotiatorGateway& BaseTransaction::GetGateway() const
     {
         return m_Context.GetGateway();
+    }
+
+    SubTxID BaseTransaction::GetSubTxID() const
+    {
+        return m_Context.GetSubTxID();
     }
 
     bool BaseTransaction::CheckExpired()
@@ -247,7 +267,7 @@ namespace beam::wallet
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
             {
-                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
                 return true;
             }
@@ -259,7 +279,7 @@ namespace beam::wallet
             {
                 if (lastUnconfirmedHeight >= maxHeight)
                 {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
+                    LOG_INFO() << m_Context << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
                     OnFailed(TxFailureReason::TransactionExpired);
                     return true;
                 }
@@ -286,7 +306,7 @@ namespace beam::wallet
     void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
     {
         UpdateTxDescription(TxStatus::Registering);
-        GetGateway().confirm_kernel(GetTxID(), kernelID);
+        GetGateway().confirm_kernel(GetTxID(), kernelID, m_Context.GetSubTxID());
     }
 
     void BaseTransaction::UpdateOnNextTip()
@@ -296,19 +316,19 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
-        LOG_INFO() << GetTxID() << " Transaction completed";
+        LOG_INFO() << m_Context << " Transaction completed";
         UpdateTxDescription(TxStatus::Completed);
         GetGateway().on_tx_completed(GetTxID());
     }
 
     void BaseTransaction::UpdateTxDescription(TxStatus s)
     {
-        SetParameter(TxParameterID::Status, s, true);
+        SetParameter(TxParameterID::Status, s, true, m_Context.GetSubTxID());
     }
 
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
-        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
+        LOG_ERROR() << m_Context << " Failed. " << GetFailureMessage(reason);
 
         if (notify)
         {
@@ -319,7 +339,7 @@ namespace beam::wallet
         UpdateTxDescription((reason == TxFailureReason::Canceled) ? TxStatus::Canceled : TxStatus::Failed);
         RollbackTx();
 
-        GetGateway().on_tx_completed(GetTxID());
+        GetGateway().on_tx_failed(GetTxID());
     }
 
     IPrivateKeyKeeper2::Slot::Type BaseTransaction::GetSlotSafe(bool bAllocateIfAbsent)

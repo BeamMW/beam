@@ -1155,7 +1155,7 @@ namespace
         const auto displayCoins = [&](const std::vector<ShieldedCoin>& coins) {
             for (const auto& c : coins)
             {
-                TxoID anonymitySetForCoin = lastKnownShieldedOuts && (lastKnownShieldedOuts > c.m_ID) ? lastKnownShieldedOuts - c.m_ID : 0;
+                TxoID anonymitySetForCoin = c.GetAnonymitySet(lastKnownShieldedOuts);
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
                     % boost::io::group(left, setw(columnWidths[0]),  c.m_ID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_ID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)

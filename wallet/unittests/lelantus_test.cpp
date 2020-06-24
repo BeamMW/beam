@@ -17,6 +17,7 @@
 #include "wallet/core/wallet.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "wallet/transactions/lelantus/pull_transaction.h"
+#include "wallet/transactions/lelantus/unlink_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/simple_transaction.h"
 #include "core/unittest/mini_blockchain.h"
@@ -81,6 +82,89 @@ namespace
         node.Initialize();
         node.m_PostStartSynced = true;
     }
+}
+
+void TestUnlinkTx()
+{
+    cout << "\nTesting unlink funds transaction (push + pull)...\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    // save defaults
+    ScopedGlobalRules rules;
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
+
+    const int PushTxCount = 64;
+    int completedCount = PushTxCount + 1;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    std::vector<Amount> amounts(PushTxCount, Amount(8000000000));
+    amounts.push_back(Amount(50000000));
+
+    auto binaryTreasury = createTreasury(senderWalletDB, amounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(true);
+    sender.m_Wallet.RegisterTransactionType(TxType::UnlinkFunds, std::static_pointer_cast<BaseTransaction::Creator>(unlinkTxCreator));
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(true);
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, Amount(38000000))
+                    .SetParameter(TxParameterID::Fee, Amount(12000000));
+
+                sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == 20)
+            {
+                // fill the pool
+                for (int i = 0; i < PushTxCount; ++i)
+                {
+                    auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, Amount(18000000))
+                        .SetParameter(TxParameterID::Fee, Amount(12000000));
+
+                    sender.m_Wallet.StartTransaction(parameters);
+                }
+            }
+            else if (cursor.m_Sid.m_Height == 70)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+    auto it = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {return  tx.m_txType == TxType::UnlinkFunds; });
+    WALLET_CHECK(it != txHistory.end());
+    const auto& tx = *it;
+    WALLET_CHECK(tx.m_txType == TxType::UnlinkFunds);
+    WALLET_CHECK(tx.m_status == TxStatus::Completed);
+    auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
+    WALLET_CHECK(coins.size() == 1);
+    auto& coin = coins[0];
+    WALLET_CHECK(coin.m_isUnlinked);
+    WALLET_CHECK(coin.m_ID.m_Value == 26000000);
 }
 
 void TestSimpleTx()
@@ -984,6 +1068,9 @@ int main()
     Height fork2Height = 12;
     Rules::get().pForks[1].m_Height = fork1Height;
     Rules::get().pForks[2].m_Height = fork2Height;
+
+
+    TestUnlinkTx();
 
     TestSimpleTx();
     TestDirectAnonymousPayment();

@@ -44,11 +44,18 @@ namespace beam::wallet::lelantus
 
     private:
 
-        enum State : uint8_t
+        enum struct State : uint8_t
         {
             Initial,
+            Insertion,
             Unlinking,
-            Extration
+            Extraction
+        };
+
+        struct SubTxIndex
+        {
+            static constexpr SubTxID PUSH_TX = 2;
+            static constexpr SubTxID PULL_TX = 3;
         };
 
         TxType GetType() const override;
@@ -58,10 +65,12 @@ namespace beam::wallet::lelantus
 
         State GetState() const;
         void UpdateActiveTransactions();
-        void CreateInitialTransactions();
+        void CreateInsertTransaction();
+        bool CheckAnonymitySet() const;
+        void CreateExtractTransaction();
     private:
-        //BaseTransaction::Ptr m_PushTransaction;
-        std::vector<BaseTransaction::Ptr> m_ActiveTransactions;
+        BaseTransaction::Ptr m_ActiveTransaction;
+        std::unique_ptr<INegotiatorGateway> m_ActiveGateway;
         bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

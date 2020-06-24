@@ -34,7 +34,7 @@ namespace beam::wallet
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
-        
+
         // Type of transaction
         virtual TxType GetType() const = 0;
 
@@ -45,7 +45,7 @@ namespace beam::wallet
 
         // Cancel active transaction
         virtual void Cancel() = 0;
-        
+
         // Rollback transation state up to give height
         virtual bool Rollback(Height height) = 0;
 
@@ -71,7 +71,7 @@ namespace beam::wallet
     // State machine for managing per transaction negotiations between wallets
     // 
     class BaseTransaction : public ITransaction
-                          , public std::enable_shared_from_this<ITransaction>
+        , public std::enable_shared_from_this<ITransaction>
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
@@ -84,6 +84,12 @@ namespace beam::wallet
                 , m_WalletDB(db)
                 , m_TxID(txID)
                 , m_SubTxID(subTxID)
+            {
+
+            }
+
+            TxContext(const TxContext& parentContext, INegotiatorGateway& gateway, SubTxID subTxID = kDefaultSubTxID)
+                : TxContext(gateway, parentContext.m_WalletDB, parentContext.m_TxID, (subTxID == kDefaultSubTxID) ? parentContext.m_SubTxID : subTxID)
             {
 
             }
@@ -120,10 +126,10 @@ namespace beam::wallet
             using Ptr = std::shared_ptr<Creator>;
 
             virtual ~Creator() = default;
-            
+
             // Creates new instance of transaction (virtual constructor)
             virtual BaseTransaction::Ptr Create(const TxContext& context) = 0;
-            
+
             // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
             virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
         };
@@ -146,41 +152,81 @@ namespace beam::wallet
         }
 
         template <typename T>
-        bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
+        bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID) const
         {
             return storage::getTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value);
         }
 
         template <typename T>
-        T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
+        bool GetParameter(TxParameterID paramID, T& value) const
+        {
+            return GetParameter(paramID, value, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID) const
         {
             T value{};
-			
+
             if (!GetParameter(paramID, value, subTxID))
             {
-                LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
+                LOG_ERROR() << m_Context << " Failed to get parameter: " << (int)paramID;
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID = kDefaultSubTxID)
+        T GetMandatoryParameter(TxParameterID paramID) const
+        {
+            return GetMandatoryParameter<T>(paramID, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID)
         {
             bool shouldNotifyAboutChanges = ShouldNotifyAboutChanges(paramID);
             return SetParameter(paramID, value, shouldNotifyAboutChanges, subTxID);
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID = kDefaultSubTxID)
+        bool SetParameter(TxParameterID paramID, const T& value)
+        {
+            return SetParameter(paramID, value, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID)
         {
             return storage::setTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
-        void SetState(T state, SubTxID subTxID = kDefaultSubTxID)
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return SetParameter(paramID, value, shouldNotifyAboutChanges, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        void CopyParameter(TxParameterID paramID, BaseTransaction& tx)
+        {
+            T value;
+            if (GetParameter(paramID, value))
+            {
+                tx.SetParameter(paramID, value);
+            }
+        }
+
+        template <typename T>
+        void SetState(T state, SubTxID subTxID)
         {
             SetParameter(TxParameterID::State, state, true, subTxID);
+        }
+
+        template <typename T>
+        void SetState(T state)
+        {
+            SetParameter(TxParameterID::State, state, true, m_Context.GetSubTxID());
         }
 
         IWalletDB::Ptr GetWalletDB() const;
@@ -195,6 +241,7 @@ namespace beam::wallet
         void UpdateAsync();
         void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
+        SubTxID GetSubTxID() const;
 
         IPrivateKeyKeeper2::Slot::Type GetSlotSafe(bool bAllocateIfAbsent);
         void FreeSlotSafe();
@@ -203,7 +250,7 @@ namespace beam::wallet
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
     protected:
-        
+
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
@@ -222,4 +269,10 @@ namespace beam::wallet
         mutable boost::optional<bool> m_IsInitiator;
         io::AsyncEvent::Ptr m_EventToUpdate;
     };
+
+}
+
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const wallet::BaseTransaction::TxContext& context);
 }

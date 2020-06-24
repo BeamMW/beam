@@ -73,7 +73,7 @@ namespace beam::wallet::lelantus
 
             const bool isAsset = m_TxBuilder->IsAssetTx();
             LOG_INFO()
-                 << GetTxID() << " Sending to shielded pool "
+                 << m_Context << " Sending to shielded pool "
                  << PrintableAmount(m_TxBuilder->GetAmount(), false, isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                  << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
@@ -118,7 +118,7 @@ namespace beam::wallet::lelantus
                 return;
             }
 
-            GetGateway().register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction, GetSubTxID());
             return;
         }
 
@@ -208,7 +208,7 @@ namespace beam::wallet::lelantus
     
     void PushTransaction::RollbackTx()
     {
-        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
+        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         GetWalletDB()->rollbackTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
     }
