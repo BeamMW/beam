@@ -513,28 +513,58 @@ namespace beam::wallet
 
     /////////////////////////
     // LocalPrivateKeyKeeperStd
-    void LocalPrivateKeyKeeperStd::State::Generate()
-    {
-        for (Slot::Type i = 0; i < s_Slots; i++)
-            Regenerate(i);
-    }
-
     IPrivateKeyKeeper2::Slot::Type LocalPrivateKeyKeeperStd::get_NumSlots()
     {
         return s_Slots;
     }
 
-    void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, Slot::Type iSlot)
+    ECC::Hash::Value* LocalPrivateKeyKeeperStd::State::get_At(Slot::Type iSlot, bool& bAlloc)
     {
         assert(iSlot < s_Slots);
-        m_pKdf->DeriveKey(ret, m_State.m_pSlot[iSlot]);
+
+        UsedMap::iterator it = m_Used.find(iSlot);
+        if (m_Used.end() != it)
+        {
+            bAlloc = false;
+            return &it->second;
+        }
+
+        if (!bAlloc)
+            return nullptr;
+
+        return &m_Used[iSlot];
+    }
+
+    ECC::Hash::Value& LocalPrivateKeyKeeperStd::State::get_AtReady(Slot::Type iSlot)
+    {
+        bool bAlloc = true;
+        ECC::Hash::Value* pVal = get_At(iSlot, bAlloc);
+        assert(pVal);
+
+        if (bAlloc)
+            Regenerate(*pVal);
+
+        return *pVal;
+    }
+
+    void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, Slot::Type iSlot)
+    {
+        m_pKdf->DeriveKey(ret, m_State.get_AtReady(iSlot));
+    }
+
+    void LocalPrivateKeyKeeperStd::State::Regenerate(ECC::Hash::Value& hv)
+    {
+        Hash::Processor() << m_hvLast >> m_hvLast;
+        hv = m_hvLast;
     }
 
     void LocalPrivateKeyKeeperStd::State::Regenerate(Slot::Type iSlot)
     {
-        assert(iSlot < s_Slots);
-        Hash::Processor() << m_hvLast >> m_hvLast;
-        m_pSlot[iSlot] = m_hvLast;
+        // Don't just erase this slot, because the user of our class may depend on occupied slots map
+        bool bAlloc = false;
+        ECC::Hash::Value* pVal = get_At(iSlot, bAlloc);
+        if (pVal)
+            Regenerate(*pVal);
     }
 
     void LocalPrivateKeyKeeperStd::Regenerate(Slot::Type iSlot)

@@ -1373,8 +1373,7 @@ namespace beam::wallet
         {
             static const char s_szDbName[];
 
-            typedef std::map<IPrivateKeyKeeper2::Slot::Type, ECC::Hash::Value> UsedMap;
-            UsedMap m_Used;
+            State::UsedMap m_Used;
 
             template <typename Archive>
             void serialize(Archive& ar)
@@ -1401,6 +1400,32 @@ namespace beam::wallet
                 db.setVarRaw(s_szDbName, ser.buffer().first, ser.buffer().second);
             }
         };
+
+        class UsedSlotsWrk
+            :public UsedSlots
+        {
+            LocalKeyKeeper* m_pLocal;
+
+            void SwapSafe()
+            {
+                if (m_pLocal)
+                    m_pLocal->m_State.m_Used.swap(m_Used);
+            }
+
+        public:
+
+            UsedSlotsWrk(LocalKeyKeeper* pLocal)
+                :m_pLocal(pLocal)
+            {
+                SwapSafe();
+            }
+
+            ~UsedSlotsWrk()
+            {
+                SwapSafe();
+            }
+        };
+
     };
 
     const char WalletDB::LocalKeyKeeper::UsedSlots::s_szDbName[] = "KeyKeeperSlots";
@@ -1504,14 +1529,10 @@ namespace beam::wallet
         if (m_pLocalKeyKeeper)
         {
             ECC::GenRandom(m_pLocalKeyKeeper->m_State.m_hvLast);
-            m_pLocalKeyKeeper->m_State.Generate();
 
             if (bKeep)
-            {
                 // restore used slots
-                for (LocalKeyKeeper::UsedSlots::UsedMap::value_type val : us.m_Used)
-                    m_pLocalKeyKeeper->m_State.m_pSlot[val.first] = val.second;
-            }
+                m_pLocalKeyKeeper->m_State.m_Used.swap(us.m_Used);
         }
     }
 
@@ -1956,8 +1977,9 @@ namespace beam::wallet
 
         if (m_pKeyKeeper)
         {
-            LocalKeyKeeper::UsedSlots us;
-            us.Load(*this);
+            LocalKeyKeeper::UsedSlotsWrk us(m_pLocalKeyKeeper);
+            if (!m_pLocalKeyKeeper)
+                us.Load(*this);
 
             assert(us.m_Used.size() <= m_KeyKeeperSlots);
             if (us.m_Used.size() < m_KeyKeeperSlots)
@@ -1971,14 +1993,14 @@ namespace beam::wallet
                     {
                         // find free from the beginning
                         iSlot = 0;
-                        for (LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; ++it)
+                        for (LocalKeyKeeper::State::UsedMap::iterator it = us.m_Used.begin(); it->first == iSlot; ++it)
                             iSlot++;
                     }
                 }
 
                 ECC::Hash::Value& hv = us.m_Used[iSlot];
                 if (m_pLocalKeyKeeper)
-                    hv = m_pLocalKeyKeeper->m_State.m_pSlot[iSlot];
+                    m_pLocalKeyKeeper->m_State.Regenerate(hv);
                 else
                     hv = Zero;
             }
@@ -1993,10 +2015,11 @@ namespace beam::wallet
     {
         if (m_pKeyKeeper && (IPrivateKeyKeeper2::Slot::Invalid != iSlot))
         {
-            LocalKeyKeeper::UsedSlots us;
-            us.Load(*this);
+            LocalKeyKeeper::UsedSlotsWrk us(m_pLocalKeyKeeper);
+            if (!m_pLocalKeyKeeper)
+                us.Load(*this);
 
-            LocalKeyKeeper::UsedSlots::UsedMap::iterator it = us.m_Used.find(iSlot);
+            LocalKeyKeeper::State::UsedMap::iterator it = us.m_Used.find(iSlot);
             if (us.m_Used.end() != it)
             {
                 us.m_Used.erase(it);

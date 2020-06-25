@@ -2180,7 +2180,6 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
         {
             p.m_pKk = std::make_shared<MyKeeKeeper>(pKdf);
             Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.m_hvLast = 334U + i;
-            Cast::Up<MyKeeKeeper>(*p.m_pKk).m_State.Generate();
         }
         else
         {
