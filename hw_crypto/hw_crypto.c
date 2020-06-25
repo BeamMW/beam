@@ -465,15 +465,20 @@ void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator* p)
 	secp256k1_hmac_sha256_finalize(&hmac, p->m_Okm.m_pVal);
 }
 
+static int ScalarImportNnz(secp256k1_scalar* pS, const uint8_t* p)
+{
+	int overflow;
+	secp256k1_scalar_set_b32(pS, p, &overflow);
+
+	return !(overflow || secp256k1_scalar_is_zero(pS));
+}
+
 void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k1_scalar* pS)
 {
 	while (1)
 	{
 		BeamCrypto_NonceGenerator_NextOkm(p);
-
-		int overflow;
-		secp256k1_scalar_set_b32(pS, p->m_Okm.m_pVal, &overflow);
-		if (!overflow)
+		if (ScalarImportNnz(pS, p->m_Okm.m_pVal))
 			break;
 	}
 }
@@ -649,9 +654,7 @@ void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle* p, secp256k1_scalar* pS)
 		BeamCrypto_UintBig hash;
 		BeamCrypto_Oracle_NextHash(p, &hash);
 
-		int overflow;
-		secp256k1_scalar_set_b32(pS, hash.m_pVal, &overflow);
-		if (!overflow)
+		if (ScalarImportNnz(pS, hash.m_pVal))
 			break;
 	}
 }
