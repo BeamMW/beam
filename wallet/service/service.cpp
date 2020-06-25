@@ -16,8 +16,6 @@
 #define LOG_VERBOSE_ENABLED 1
 #endif
 
-#include "utility/logger.h"
-
 #include "service.h"
 
 #include <boost/program_options.hpp>
@@ -32,6 +30,7 @@
 #include "utility/io/timer.h"
 #include "utility/io/json_serializer.h"
 #include "utility/string_helpers.h"
+#include "utility/logger.h"
 #include "utility/log_rotation.h"
 
 #include "wallet/core/common.h"
