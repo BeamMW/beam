@@ -58,7 +58,13 @@ func wallletServicesGet(wid string) (string, error) {
 		return "", fmt.Errorf("wallet %v, %v", wid, err)
 	}
 
-	var address = config.SerivcePublicAddress + ":" + strconv.Itoa(service.Port)
+	var address string
+	if config.ReturnRawSvcPort {
+		address = config.SerivcePublicAddress + ":" + strconv.Itoa(service.Port)
+	} else {
+		address = config.SerivcePublicAddress + "?service=" + strconv.Itoa(service.Port)
+	}
+
 	epoints.Add(wid, svcIdx, address)
 
 	if config.Debug {
