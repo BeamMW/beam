@@ -320,8 +320,8 @@ private:
     struct MyKeyKeeper
         : public LocalPrivateKeyKeeperStd
     {
-        MyKeyKeeper((const Key::IKdf::Ptr& pKdf)
-            : LocalPrivateKeyKeeper2(pKdf)
+        MyKeyKeeper(const Key::IKdf::Ptr& pKdf)
+            : LocalPrivateKeyKeeperStd(pKdf)
         {
             // WASM key keeper doesn't save and doesn't keep slot values
             ECC::GenRandom(m_State.m_hvLast);
