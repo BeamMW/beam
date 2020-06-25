@@ -145,9 +145,18 @@ namespace beam::wallet::lelantus
         switch(state)
         {
         case State::Initial:
-            CreateInsertTransaction();
-            UpdateActiveTransactions();
-            SetState(State::Insertion);
+            {
+                auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
+                auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
+                if (amount <= fee)
+                {
+                    LOG_ERROR() << m_Context << "Cannot extract shielded coin, fee is to big.";
+                    throw TransactionFailedException(false, TxFailureReason::ExtractFeeTooBig);
+                }
+                CreateInsertTransaction();
+                UpdateActiveTransactions();
+                SetState(State::Insertion);
+            }
             break;
         case State::Insertion:
         case State::Extraction:
@@ -224,11 +233,6 @@ namespace beam::wallet::lelantus
     bool UnlinkFundsTransaction::CheckAnonymitySet() const
     {
         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-        //if (!coin)
-        //{
-        //  OnFailed(TxFailureReason::Unknown);
-        //  return;
-        //}
         TxoID lastKnownShieldedOuts = 0;
         storage::getVar(*GetWalletDB(), kStateSummaryShieldedOutsDBPath, lastKnownShieldedOuts);
         auto targetAnonymitySet = Rules::get().Shielded.m_ProofMax.get_N();
@@ -253,20 +257,8 @@ namespace beam::wallet::lelantus
 
         auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
         auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        if (amount <= fee)
-        {
-            LOG_ERROR() << m_Context << "Cannot extract shielded coin, fee is to big.";
-            OnFailed(TxFailureReason::Unknown);
-            return;
-        }
-
         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-        if (!coin)
-        {
-            OnFailed(TxFailureReason::Unknown);
-            return;
-        }
-
+        assert(coin);
         assert(!m_ActiveTransaction);
         m_ActiveGateway = std::make_unique<PullTxGateway>(*this);
         auto tx = baseCreator.Create(TxContext(m_Context, *m_ActiveGateway, SubTxIndex::PULL_TX));
@@ -274,10 +266,6 @@ namespace beam::wallet::lelantus
         tx->SetParameter(TxParameterID::Amount, amount - fee);
         CopyParameter<Amount>(TxParameterID::Fee, *tx);
         tx->SetParameter(TxParameterID::ShieldedOutputId, coin->m_ID);
-//        CopyParameter<Height>(TxParameterID::MinHeight, *tx);
-  //      CopyParameter<Height>(TxParameterID::MaxHeight, *tx);
-    //    CopyParameter<Height>(TxParameterID::Lifetime, *tx);
-      //  CopyParameter<WalletID>(TxParameterID::MyID, *tx);
         m_ActiveTransaction = tx;
     }
 } // namespace beam::wallet::lelantus
