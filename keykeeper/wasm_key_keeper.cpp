@@ -325,7 +325,6 @@ private:
         {
             // WASM key keeper doesn't save and doesn't keep slot values
             ECC::GenRandom(m_State.m_hvLast);
-            m_State.Generate();
         }
 
         virtual void Regenerate(Slot::Type iSlot) override
