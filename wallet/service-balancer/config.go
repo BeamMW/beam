@@ -26,6 +26,7 @@ type Config struct {
 	BbsMonitorLastPort      int
 	BbsMonitorCnt           int
 	SerivcePublicAddress    string
+	ReturnRawSvcPort        bool // if true login returns SerivcePublicAddress:port, on false SerivcePublicAddress?service=port
 	ListenAddress           string
 	PushContactMail			string
 	Debug				    bool
@@ -43,8 +44,8 @@ type Config struct {
 }
 
 var config = Config{
-	NoisyLogs:     false,
-	Debug:         true,
+	NoisyLogs:        false,
+	Debug:            true,
 }
 
 func loadConfig (m *melody.Melody) error {
