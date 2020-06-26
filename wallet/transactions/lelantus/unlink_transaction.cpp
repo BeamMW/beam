@@ -33,12 +33,12 @@ namespace beam::wallet::lelantus
 
             void OnAsyncStarted() override
             {
-                //m_Root.GetGateway().OnAsyncStarted();
+                m_Root.GetGateway().OnAsyncStarted();
             }
             
             void OnAsyncFinished() override
             {
-               // m_Root.GetGateway().OnAsyncFinished();
+                m_Root.GetGateway().OnAsyncFinished();
             }
 
             /*void on_tx_completed(const TxID&) override
