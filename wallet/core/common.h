@@ -166,8 +166,9 @@ namespace beam::wallet
     MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet") \
     MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
-    MACRO(ExtractFeeTooBig,              46, "Cannot extract shielded coin, fee is to big.") \
-    MACRO(Count,                         47, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
+    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
+    MACRO(Count,                         48, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {

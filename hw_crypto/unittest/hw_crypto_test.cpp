@@ -43,7 +43,7 @@ extern "C"
 
 	void BeamCrypto_KeyKeeper_ReadSlot(uint32_t iSlot, BeamCrypto_UintBig* p)
 	{
-		memcpy(p->m_pVal, g_pHwEmuNonces->m_pSlot[iSlot].m_pData, BeamCrypto_nBytes);
+		memcpy(p->m_pVal, g_pHwEmuNonces->get_AtReady(iSlot).m_pData, BeamCrypto_nBytes);
 	}
 
 
@@ -941,12 +941,11 @@ struct KeyKeeperWrap
 		:m_kkStd(get_KdfFromSeed(hv))
 	{
 		SetRandom(m_kkStd.m_State.m_hvLast);
-		m_kkStd.m_State.Generate();
 
 		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
-		m_Nonces = m_kkStd.m_State; // copy 
+		m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);

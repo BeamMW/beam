@@ -325,7 +325,14 @@ private:
         {
             // WASM key keeper doesn't save and doesn't keep slot values
             ECC::GenRandom(m_State.m_hvLast);
-            m_State.Generate();
+        }
+
+        virtual void Regenerate(Slot::Type iSlot) override
+        {
+            // instead of regenerating the slot - just delete it
+            State::UsedMap::iterator it = m_State.m_Used.find(iSlot);
+            if (m_State.m_Used.end() != it)
+                m_State.m_Used.erase(it);
         }
 
         bool IsTrustless() override { return true; }

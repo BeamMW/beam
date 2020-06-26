@@ -349,7 +349,11 @@ namespace beam::wallet
 
         if (bAllocateIfAbsent && (IPrivateKeyKeeper2::Slot::Invalid == iSlot))
         {
-            iSlot = m_Context.GetWalletDB()->SlotAllocate();
+            iSlot = GetWalletDB()->SlotAllocate();
+
+            if (IPrivateKeyKeeper2::Slot::Invalid == iSlot)
+                throw TransactionFailedException(true, TxFailureReason::KeyKeeperNoSlots);
+
             SetParameter(TxParameterID::NonceSlot, iSlot);
         }
 
