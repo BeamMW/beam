@@ -1142,7 +1142,7 @@ int main()
     Rules::get().pForks[2].m_Height = fork2Height;
 
 
-    //TestUnlinkTx();
+    TestUnlinkTx();
     TestCancelUnlinkTx();
 
     TestSimpleTx();
