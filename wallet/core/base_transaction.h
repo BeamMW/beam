@@ -13,15 +13,13 @@
 // limitations under the License.
 
 #pragma once
-
 #include "common.h"
 #include "wallet_db.h"
 
 #include <boost/optional.hpp>
-#include "utility/logger.h"
+
 #include "private_key_keeper.h"
 
-#include <condition_variable>
 #include <memory>
 
 namespace beam::wallet
@@ -170,7 +168,7 @@ namespace beam::wallet
 
             if (!GetParameter(paramID, value, subTxID))
             {
-                LOG_ERROR() << m_Context << " Failed to get parameter: " << (int)paramID;
+                LogFailedParameter(paramID, subTxID);
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
@@ -264,6 +262,7 @@ namespace beam::wallet
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
         void SetCompletedTxCoinStatuses(Height proofHeight);
+        void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
     protected:
         TxContext m_Context;
         mutable boost::optional<bool> m_IsInitiator;

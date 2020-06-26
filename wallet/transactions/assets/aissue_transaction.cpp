@@ -200,26 +200,7 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            bool bIn  = (coin.m_createTxId == GetTxID());
-            bool bOut = (coin.m_spentTxId == GetTxID());
-            if (bIn || bOut)
-            {
-                if (bIn)
-                {
-                    std::setmin(coin.m_confirmHeight, hProof);
-                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-                }
-                if (bOut)
-                {
-                    std::setmin(coin.m_spentHeight, hProof);
-                }
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
     }
 

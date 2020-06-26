@@ -18,9 +18,7 @@
 #include "wallet_db.h"
 #include "base_transaction.h"
 
-#include <condition_variable>
 #include <boost/optional.hpp>
-#include "utility/logger.h"
 
 namespace beam::wallet
 {

@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "core/block_crypt.h"
+#include "utility/logger.h"
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"

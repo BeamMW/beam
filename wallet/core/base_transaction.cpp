@@ -459,8 +459,8 @@ namespace beam::wallet
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            bool bIn = (coin.m_createTxId && *coin.m_createTxId == m_Context.GetTxID());
-            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == m_Context.GetTxID());
+            bool bIn = (coin.m_createTxId && *coin.m_createTxId == GetTxID());
+            bool bOut = (coin.m_spentTxId && *coin.m_spentTxId == GetTxID());
             if (bIn || bOut)
             {
                 if (bIn)
@@ -476,5 +476,10 @@ namespace beam::wallet
         }
 
         GetWalletDB()->saveCoins(modified);
+    }
+
+    void BaseTransaction::LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const
+    {
+        LOG_ERROR() << GetTxID() << "[" << subTxID << "] Failed to get parameter: " << (int)paramID;
     }
 }
