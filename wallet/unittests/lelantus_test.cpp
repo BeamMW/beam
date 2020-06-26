@@ -167,6 +167,78 @@ void TestUnlinkTx()
     WALLET_CHECK(coin.m_ID.m_Value == 26000000);
 }
 
+void TestCancelUnlinkTx()
+{
+    cout << "\nTesting unlink funds transaction cancellation...\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    // save defaults
+    ScopedGlobalRules rules;
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
+
+    int completedCount = 1;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(true);
+    sender.m_Wallet.RegisterTransactionType(TxType::UnlinkFunds, std::static_pointer_cast<BaseTransaction::Creator>(unlinkTxCreator));
+
+    auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(true);
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
+    TxID txID = {0};
+    Node node;
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            {
+                auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, Amount(38000000))
+                    .SetParameter(TxParameterID::Fee, Amount(12000000));
+
+                txID = sender.m_Wallet.StartTransaction(parameters);
+            }
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 4)
+            {
+                sender.m_Wallet.CancelTransaction(txID);
+            }
+            else if (cursor.m_Sid.m_Height == 70)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+    auto it = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {return  tx.m_txType == TxType::UnlinkFunds; });
+    WALLET_CHECK(it != txHistory.end());
+    const auto& tx = *it;
+    WALLET_CHECK(tx.m_txType == TxType::UnlinkFunds);
+    WALLET_CHECK(tx.m_status == TxStatus::Completed);
+    auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
+    WALLET_CHECK(coins.size() == 1);
+    auto& coin = coins[0];
+    WALLET_CHECK(coin.m_isUnlinked);
+    WALLET_CHECK(coin.m_ID.m_Value == 26000000);
+}
+
 void TestSimpleTx()
 {
     cout << "\nTest simple lelantus tx's: 2 pushTx and 2 pullTx\n";
@@ -1070,7 +1142,8 @@ int main()
     Rules::get().pForks[2].m_Height = fork2Height;
 
 
-    TestUnlinkTx();
+    //TestUnlinkTx();
+    TestCancelUnlinkTx();
 
     TestSimpleTx();
     TestDirectAnonymousPayment();

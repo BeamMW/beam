@@ -33,12 +33,12 @@ namespace beam::wallet::lelantus
 
             void OnAsyncStarted() override
             {
-                m_Root.GetGateway().OnAsyncStarted();
+                //m_Root.GetGateway().OnAsyncStarted();
             }
             
             void OnAsyncFinished() override
             {
-                m_Root.GetGateway().OnAsyncFinished();
+               // m_Root.GetGateway().OnAsyncFinished();
             }
 
             /*void on_tx_completed(const TxID&) override
@@ -134,6 +134,37 @@ namespace beam::wallet::lelantus
         return TxType::UnlinkFunds;
     }
 
+    void UnlinkFundsTransaction::Cancel() 
+    {
+        LOG_INFO() << "Canceling unlink transaction";
+        auto state = GetState();
+        switch (state)
+        {
+        case State::Initial:
+            CompleteTx();
+            break;
+        case State::Insertion:
+            if (m_ActiveTransaction->CanCancel())
+            {
+                m_ActiveTransaction->Cancel();
+            }
+            else
+            {
+                SetState(State::Cancellation);
+            }
+            break;
+        case State::BeforeExtraction:
+        case State::Cancellation:
+        case State::Extraction:
+            break;
+        case State::Unlinking:
+            SetState(State::BeforeExtraction);
+            UpdateAsync();
+            break;
+        }
+        
+    }
+
     bool UnlinkFundsTransaction::IsInSafety() const
     {
         return true;
@@ -154,20 +185,26 @@ namespace beam::wallet::lelantus
                     throw TransactionFailedException(false, TxFailureReason::ExtractFeeTooBig);
                 }
                 CreateInsertTransaction();
+                UpdateTxDescription(TxStatus::InProgress);
                 UpdateActiveTransactions();
                 SetState(State::Insertion);
             }
             break;
         case State::Insertion:
         case State::Extraction:
+        case State::Cancellation:
             UpdateActiveTransactions();
+            break;
+        case State::BeforeExtraction:
+            CreateExtractTransaction();
+            UpdateActiveTransactions();
+            SetState(State::Extraction);
             break;
         case State::Unlinking:
             if (CheckAnonymitySet())
             {
-                CreateExtractTransaction();
-                UpdateActiveTransactions();
-                SetState(State::Extraction);
+                SetState(State::BeforeExtraction);
+                UpdateAsync();
             }
             else
             {
@@ -177,13 +214,6 @@ namespace beam::wallet::lelantus
         }
     }
     
-    void UnlinkFundsTransaction::RollbackTx()
-    {
-        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
-        GetWalletDB()->rollbackTx(GetTxID());
-        GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
-    }
-
     UnlinkFundsTransaction::State UnlinkFundsTransaction::GetState() const
     {
         State state = State::Initial;
@@ -209,8 +239,21 @@ namespace beam::wallet::lelantus
             using UnlinkTxBaseGateway::UnlinkTxBaseGateway;
             void on_tx_completed(const TxID&) override
             {
-                m_Root.SetState(State::Unlinking);
-                m_Root.UpdateOnNextTip();
+                State state = m_Root.GetState();
+                switch (state)
+                {
+                case State::Insertion:
+                    m_Root.SetState(State::Unlinking);
+                    m_Root.UpdateOnNextTip();
+                    break;
+                case State::Cancellation:
+                    m_Root.SetState(State::BeforeExtraction);
+                    m_Root.UpdateAsync();
+                    break;
+                default:
+                    LOG_ERROR() << "Unexpected state: " << int(state);
+                    throw TransactionFailedException(false, TxFailureReason::Unknown);
+                }
 
                 m_Root.m_ActiveTransaction->FreeResources();
                 m_Root.m_ActiveTransaction.reset();

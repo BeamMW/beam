@@ -49,7 +49,9 @@ namespace beam::wallet::lelantus
             Initial,
             Insertion,
             Unlinking,
-            Extraction
+            Extraction,
+            Cancellation,
+            BeforeExtraction
         };
 
         struct SubTxIndex
@@ -59,9 +61,9 @@ namespace beam::wallet::lelantus
         };
 
         TxType GetType() const override;
+        void Cancel() override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
-        void RollbackTx() override;
 
         State GetState() const;
         void UpdateActiveTransactions();
