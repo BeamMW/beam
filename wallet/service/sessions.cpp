@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "sessions.h"
 #include "utility/logger.h"
+//#include <boost/beast/core/make_printable.hpp>
 
 namespace beam::wallet {
     void fail(boost::system::error_code ec, char const* what)
@@ -95,7 +96,7 @@ namespace beam::wallet {
             std::ostringstream os;
 
 # if (BOOST_VERSION/100 % 1000) >= 70
-            os << boost::beast::make_printable(m_buffer.data());
+            os << boost::beast::make_printable(_buffer.data());
 # else
             os << boost::beast::buffers(_buffer.data());
 # endif
