@@ -26,9 +26,11 @@ namespace beam::wallet {
     public:
         using SendFunc = std::function<void (const std::string&)>;
 
-        struct ClientHandler {
+        struct ClientHandler
+        {
             using Ptr = std::unique_ptr<ClientHandler>;
             virtual void onWSDataReceived(const std::string&) = 0;
+            virtual ~ClientHandler() = default;
         };
 
         WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, std::string allowedOrigin = std::string());
