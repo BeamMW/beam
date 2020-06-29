@@ -170,6 +170,11 @@ public:
 			AssetGet,
 			AssetSetVal,
 
+			AssetEvtsInsert,
+			AssetEvtsEnumBwd,
+			AssetEvtsGet,
+			AssetEvtsDeleteFrom,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -585,6 +590,27 @@ public:
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
 
+	struct AssetEvt
+	{
+		Asset::ID m_ID;
+		Height m_Height;
+		uint32_t m_Index;
+		Blob m_Body;
+	};
+
+	struct WalkerAssetEvt
+		:public AssetEvt
+	{
+		Recordset m_Rs;
+
+		bool MoveNext();
+	};
+
+	void AssetEvtsInsert(const AssetEvt&);
+	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
+	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint32_t);
+	void AssetEvtsDeleteFrom(Height);
+
 private:
 
 	sqlite3* m_pDb;
@@ -609,6 +635,7 @@ private:
 
 	void Create();
 	void CreateTables20();
+	void CreateTables21();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

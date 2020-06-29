@@ -99,6 +99,12 @@ namespace beam {
 #define TblAssets_Data			"MetaData"
 #define TblAssets_LockHeight	"LockHeight"
 
+#define TblAssetEvts			"AssetsEvents"
+#define TblAssetEvts_ID			"ID"
+#define TblAssetEvts_Height		"Height"
+#define TblAssetEvts_Index		"Seq"
+#define TblAssetEvts_Data		"Data"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -334,7 +340,8 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 21;
+	const uint64_t nVersionTop = 22;
+
 
 	Transaction t(*this);
 
@@ -366,6 +373,10 @@ void NodeDB::Open(const char* szPath)
 
 			LOG_INFO() << "DB migrate from" << 20;
 			MigrateFrom20();
+			// no break;
+
+		case 21:
+			CreateTables21();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
@@ -487,6 +498,7 @@ void NodeDB::Create()
 		"[" TblTxo_SpendHeight		"] INTEGER)");
 
 	CreateTables20();
+	CreateTables21();
 }
 
 void NodeDB::CreateTables20()
@@ -507,6 +519,18 @@ void NodeDB::CreateTables20()
 		"[" TblAssets_Value			"] BLOB)");
 
 	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
+}
+
+void NodeDB::CreateTables21()
+{
+	ExecQuick("CREATE TABLE [" TblAssetEvts "] ("
+		"[" TblAssetEvts_ID			"] INTEGER NOT NULL,"
+		"[" TblAssetEvts_Height		"] INTEGER NOT NULL,"
+		"[" TblAssetEvts_Index		"] INTEGER NOT NULL,"
+		"[" TblAssetEvts_Data		"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_1" "] ON [" TblAssetEvts "] ([" TblAssetEvts_ID "],[" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
+	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_2" "] ON [" TblAssetEvts "] ([" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2645,6 +2669,51 @@ void NodeDB::MigrateFrom20()
 		smmr.Append(hv);
 
 	}
+}
+
+bool NodeDB::WalkerAssetEvt::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Height);
+	m_Rs.get(2, m_Index);
+	m_Rs.get(3, m_Body);
+
+	return true;
+}
+
+void NodeDB::AssetEvtsInsert(const AssetEvt& x)
+{
+	Recordset rs(*this, Query::AssetEvtsInsert, "INSERT INTO " TblAssetEvts " (" TblAssetEvts_ID "," TblAssetEvts_Height "," TblAssetEvts_Index "," TblAssetEvts_Data ") VALUES(?,?,?,?)");
+	rs.put(0, x.m_ID);
+	rs.put(1, x.m_Height);
+	rs.put(2, x.m_Index);
+	rs.put(3, x.m_Body);
+	rs.Step();
+}
+
+void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
+{
+	wlk.m_Rs.Reset(*this, Query::AssetEvtsEnumBwd, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_ID "=? AND " TblAssetEvts_Height "<=? ORDER BY " TblAssetEvts_Height " DESC," TblAssetEvts_Index " DESC");
+	wlk.m_Rs.put(0, id);
+	wlk.m_Rs.put(1, h);
+}
+
+void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint32_t nIdx)
+{
+	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");
+	wlk.m_Rs.put(0, h);
+	wlk.m_Rs.put(1, nIdx);
+	wlk.m_Rs.StepStrict();
+}
+
+void NodeDB::AssetEvtsDeleteFrom(Height h)
+{
+	Recordset rs(*this, Query::AssetEvtsDeleteFrom, "DELETE FROM " TblAssetEvts " WHERE " TblAssetEvts_Height ">=?");
+	rs.put(0, h);
+	rs.Step();
 }
 
 } // namespace beam
