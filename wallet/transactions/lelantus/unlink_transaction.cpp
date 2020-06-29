@@ -138,8 +138,9 @@ namespace beam::wallet::lelantus
     {
         if (m_ActiveTransaction)
         {
-            m_ActiveTransaction->Rollback(height);
+            return m_ActiveTransaction->Rollback(height);
         }
+        return false;
     }
 
     void UnlinkFundsTransaction::Cancel() 
