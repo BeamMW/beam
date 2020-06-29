@@ -76,7 +76,6 @@ namespace beam::wallet
 
         } m_State;
 
-        using LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2;
         LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots = s_DefNumSlots);
 
     protected:
