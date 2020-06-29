@@ -1942,6 +1942,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
+	uint32_t m_nKrnIdx = 0;
 	bool m_Fwd;
 	bool m_ValidateOnly = false; // don't make changes to state
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
@@ -3408,7 +3409,12 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		}
 	}
 	else
+	{
 		n = v.m_vNested.size();
+
+		assert(bic.m_nKrnIdx);
+		bic.m_nKrnIdx--;
+	}
 
 	if (bOk)
 	{
@@ -3425,7 +3431,12 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		}
 	}
 
-	if (!bOk)
+	if (bOk)
+	{
+		if (bic.m_Fwd)
+			bic.m_nKrnIdx++;
+	}
+	else
 	{
 		if (!bic.m_Fwd)
 			OnCorrupted();
@@ -3699,6 +3710,7 @@ void NodeProcessor::RollbackTo(Height h)
 		bic.m_pRollback = &bbR;
 		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
+		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 		assert(bbR.empty());
 	}
@@ -4647,6 +4659,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		der.reset(bbE);
 		der & txve;
 
+		wlkKrn.m_nKrnIdx = 0;
 		if (!wlkKrn.Process(txve.m_vKernels))
 			return false;
 	}

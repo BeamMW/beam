@@ -694,6 +694,8 @@ namespace beam
 
 		struct IWalker
 		{
+			uint32_t m_nKrnIdx = 0;
+
 			virtual bool OnKrn(const TxKernel&) = 0;
 
 			bool Process(const std::vector<TxKernel::Ptr>&);

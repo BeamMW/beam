@@ -893,9 +893,14 @@ namespace beam
 
 	bool TxKernel::IWalker::Process(const TxKernel& krn)
 	{
-		return
+		bool bRet = 
 			Process(krn.m_vNested) &&
 			OnKrn(krn);
+
+		if (bRet)
+			m_nKrnIdx++;
+
+		return bRet;
 	}
 
 	void TxKernelNonStd::UpdateID()
