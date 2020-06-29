@@ -825,7 +825,7 @@ namespace beam::wallet
     {
         libbitcoin::data_chunk tx_data;
         libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
-        libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
+        libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data, true, true);
 
         auto addressVersion = GetAddressVersion();
         bool quickRefund = IsQuickRefundAvailable();
