@@ -53,6 +53,7 @@ add_executable(${MONITOR_TARGET_NAME}
         pipe.cpp
         utils.cpp
         node_connection.cpp
+        sessions.cpp
         )
 
 target_include_directories(${MONITOR_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

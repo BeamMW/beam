@@ -71,7 +71,7 @@ namespace beam::wallet {
     {
     }
 
-    ServiceClientHandler::~ServiceClientHandler()
+    ServiceClientHandler::~ServiceClientHandler() noexcept
     {
         try
         {

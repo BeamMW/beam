@@ -377,21 +377,21 @@ namespace
 
     };
 
-    class MonitorApiHandler
+    class MonitorClientHandler
         : public ISbbsMonitorApiHandler
-        , public WebSocketServer::IHandler
         , public IMonitorConnectionHandler
+        , public WebSocketServer::ClientHandler
     {
     public:
-        MonitorApiHandler(Monitor& monitor, WebSocketServer::SendMessageFunc&& func)
+        MonitorClientHandler(Monitor& monitor, WebSocketServer::SendFunc sendFunc)
             : m_monitor(monitor)
             , m_api(*this)
-            , m_sendFunc(std::move(func))
+            , m_sendFunc(sendFunc)
         {
             m_monitor.setHandler(this);
         }
 
-        ~MonitorApiHandler()
+        ~MonitorClientHandler()
         {
             m_monitor.setHandler(nullptr);
         }
@@ -429,7 +429,7 @@ namespace
             sendAsync(msg);
         }
 
-        void processData(const std::string& data) override
+        void onWSDataReceived(const std::string& data) override
         {
             try
             {
@@ -473,50 +473,61 @@ namespace
                 m_sendFunc(msg.dump());
             }
         }
+
         Monitor& m_monitor;
         SbbsMonitorApi m_api;
-        WebSocketServer::SendMessageFunc m_sendFunc;
+        WebSocketServer::SendFunc m_sendFunc;
         int m_requests = 0;
     };
 
-    class Server : public wallet::WebSocketServer
+    class Server
+            : public wallet::WebSocketServer
     {
     public:
         Server(Monitor& monitor, io::Reactor::Ptr reactor, uint16_t port, bool withPipes)
-            : WebSocketServer(reactor, port,
-            [&monitor](auto&& func)->IHandler::Ptr {
-                return std::make_unique<MonitorApiHandler>(monitor, std::move(func));
-            },
-            [withPipes] () {
-                if (withPipes)
-                {
-                    Pipe syncPipe(Pipe::SyncFileDescriptor);
-                    syncPipe.notifyListening();
-                }
-            })
+            : WebSocketServer(reactor, port, "")
+            , _monitor(monitor)
+            , _reactor(std::move(reactor))
+            , _withPipes (withPipes)
         {
-            if (withPipes)
-            {
-                _heartbeatPipe  = std::make_unique<Pipe>(Pipe::HeartbeatFileDescriptor);
-                _heartbeatTimer = io::Timer::create(*reactor);
-                _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this]() {
-                    assert(_heartbeatPipe != nullptr);
-                    _heartbeatPipe->notifyAlive();
-                });
-            }
-
             std::string name = "SBBS Monitor";
             LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveInterval());
-            _aliveLogTimer = io::Timer::create(*reactor);
+            _aliveLogTimer = io::Timer::create(*_reactor);
             _aliveLogTimer->start(getAliveInterval(), true, [name]() {
                 logAlive(name);
             });
         }
 
+        ~Server() = default;
+
     private:
+        void onWSStart() override
+        {
+            if (_withPipes)
+            {
+                Pipe syncPipe(Pipe::SyncFileDescriptor);
+                syncPipe.notifyListening();
+
+                _heartbeatPipe = std::make_unique<Pipe>(Pipe::HeartbeatFileDescriptor);
+                _heartbeatTimer = io::Timer::create(*_reactor);
+                _heartbeatTimer->start(Pipe::HeartbeatInterval, true, [this]() {
+                    assert(_heartbeatPipe != nullptr);
+                    _heartbeatPipe->notifyAlive();
+                });
+            }
+        }
+
+        WebSocketServer::ClientHandler::Ptr onNewWSClient(WebSocketServer::SendFunc wsSend) override
+        {
+            return std::make_unique<MonitorClientHandler>(_monitor, wsSend);
+        }
+
+        Monitor& _monitor;
         io::Timer::Ptr _heartbeatTimer;
         io::Timer::Ptr _aliveLogTimer;
         std::unique_ptr<Pipe> _heartbeatPipe;
+        io::Reactor::Ptr _reactor;
+        bool _withPipes;
     };
 }
 
