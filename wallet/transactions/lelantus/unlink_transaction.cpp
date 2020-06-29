@@ -134,6 +134,14 @@ namespace beam::wallet::lelantus
         return TxType::UnlinkFunds;
     }
 
+    bool UnlinkFundsTransaction::Rollback(Height height)
+    {
+        if (m_ActiveTransaction)
+        {
+            m_ActiveTransaction->Rollback(height);
+        }
+    }
+
     void UnlinkFundsTransaction::Cancel() 
     {
         LOG_INFO() << "Canceling unlink transaction";
@@ -168,6 +176,11 @@ namespace beam::wallet::lelantus
     bool UnlinkFundsTransaction::IsInSafety() const
     {
         return true;
+    }
+
+    void UnlinkFundsTransaction::RollbackTx()
+    {
+
     }
 
     void UnlinkFundsTransaction::UpdateImpl()
@@ -276,12 +289,7 @@ namespace beam::wallet::lelantus
     bool UnlinkFundsTransaction::CheckAnonymitySet() const
     {
         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-        TxoID lastKnownShieldedOuts = 0;
-        storage::getVar(*GetWalletDB(), kStateSummaryShieldedOutsDBPath, lastKnownShieldedOuts);
-        auto targetAnonymitySet = Rules::get().Shielded.m_ProofMax.get_N();
-        
-        auto coinAnonymitySet = coin->GetAnonymitySet(lastKnownShieldedOuts);
-        return (coinAnonymitySet >= targetAnonymitySet);
+        return storage::IsShieldedCoinUnlinked(*GetWalletDB(), *coin);
     }
 
     void UnlinkFundsTransaction::CreateExtractTransaction()

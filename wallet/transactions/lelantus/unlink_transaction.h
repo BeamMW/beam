@@ -61,8 +61,10 @@ namespace beam::wallet::lelantus
         };
 
         TxType GetType() const override;
+        bool Rollback(Height height) override;
         void Cancel() override;
         bool IsInSafety() const override;
+        void RollbackTx() override;
         void UpdateImpl() override;
 
         State GetState() const;

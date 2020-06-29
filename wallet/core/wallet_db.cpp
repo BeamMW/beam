@@ -5105,6 +5105,16 @@ namespace beam::wallet
                 });
             return myAddrIt != myAddresses.end();
         }
+
+        bool IsShieldedCoinUnlinked(const IWalletDB& db, const ShieldedCoin& coin)
+        {
+            TxoID lastKnownShieldedOuts = 0;
+            storage::getVar(db, kStateSummaryShieldedOutsDBPath, lastKnownShieldedOuts);
+            auto targetAnonymitySet = Rules::get().Shielded.m_ProofMax.get_N();
+
+            auto coinAnonymitySet = coin.GetAnonymitySet(lastKnownShieldedOuts);
+            return (coinAnonymitySet >= targetAnonymitySet);
+        }
     }
 
     ////////////////////////

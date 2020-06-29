@@ -911,5 +911,7 @@ namespace beam::wallet
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
+
+        bool IsShieldedCoinUnlinked(const IWalletDB& db, const ShieldedCoin& coin);
     }  // namespace storage
 }  // namespace beam::wallet

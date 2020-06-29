@@ -72,13 +72,14 @@ namespace beam::wallet::lelantus
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            for (const auto& amount : m_TxBuilder->GetAmountList())
-            {
-                m_TxBuilder->GenerateUnlinkedCoin(amount);
-            }
-
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
+
+            bool isUnlinked = storage::IsShieldedCoinUnlinked(*GetWalletDB(), *shieldedCoin);
+            for (const auto& amount : m_TxBuilder->GetAmountList())
+            {
+                m_TxBuilder->GenerateCoin(amount, isUnlinked);
+            }
 
             const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
             const auto nthName  = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
