@@ -239,7 +239,7 @@ namespace beam::wallet {
                 _wallet->VisitActiveTransaction([&](const TxID& txid, BaseTransaction::Ptr tx) {
                    if (tx->GetType() == TxType::Simple)
                    {
-                       SimpleTransaction::State state;
+                       SimpleTransaction::State state = SimpleTransaction::State::Initial;
                        if (tx->GetParameter(TxParameterID::State, state))
                        {
                            if (state < SimpleTransaction::State::Registration)
