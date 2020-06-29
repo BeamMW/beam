@@ -15,7 +15,11 @@ add_executable(${TARGET_NAME}
     service.cpp
     pipe.cpp
     utils.cpp
-        node_connection.cpp
+    node_connection.cpp
+    keykeeper_proxy.cpp
+    sessions.cpp
+    service_client.cpp
+    service_api.cpp
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)

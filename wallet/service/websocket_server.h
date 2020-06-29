@@ -11,38 +11,37 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "utility/io/reactor.h"
 #include <functional>
 #include <string>
 #include <memory>
+#include <thread>
+#include <boost/asio/ip/tcp.hpp>
+#include "utility/io/reactor.h"
 
-namespace beam::wallet
-{
+namespace beam::wallet {
     class WebSocketServer
     {
     public:
+        using SendFunc = std::function<void (const std::string&)>;
 
-        class IHandler
-        {
-        public:
-            using Ptr = std::unique_ptr<IHandler>;
-            virtual ~IHandler() {};
-            virtual void processData(const std::string&) {};
+        struct ClientHandler {
+            using Ptr = std::unique_ptr<ClientHandler>;
+            virtual void onWSDataReceived(const std::string&) = 0;
         };
 
-        using SendMessageFunc = std::function<void(const std::string&)>;
-        using HandlerCreator = std::function<IHandler::Ptr (SendMessageFunc&&)>;
-        using StartAction = std::function<void()>;
-
-        WebSocketServer(beam::io::Reactor::Ptr reactor, uint16_t port, HandlerCreator&& creator, StartAction&& startAction = {}, const std::string& allowedOrigin = "");
+        WebSocketServer(io::Reactor::Ptr reactor, uint16_t port, std::string allowedOrigin = std::string());
         ~WebSocketServer();
 
+    protected:
+        virtual void onWSStart() = 0;
+        virtual ClientHandler::Ptr onNewWSClient(SendFunc) = 0;
+        io::Reactor::Ptr _reactor;
+
     private:
-        struct WebSocketServerImpl;
-        std::unique_ptr<WebSocketServerImpl> m_impl;
+        boost::asio::io_context _ioc;
+        std::shared_ptr<std::thread> _iocThread;
+        std::string _allowedOrigin;
     };
 }
-

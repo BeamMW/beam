@@ -45,6 +45,7 @@ namespace beam::wallet
     macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
     macro(-32012, DatabaseError,             "Database error")                   \
     macro(-32013, DatabaseNotFound,          "Database not found")               \
+    macro(-32014, ThrottleError,             "Requests limit exceeded")
 
     enum ApiError
     {

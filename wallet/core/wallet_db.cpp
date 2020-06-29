@@ -1326,7 +1326,7 @@ namespace beam::wallet
         if (isInitialized(path))
         {
             LOG_ERROR() << path << " already exists.";
-            throw DatabaseException("");
+            throw DatabaseException("Database already exists");
         }
 
         sqlite3* db = nullptr;
