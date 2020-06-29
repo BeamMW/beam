@@ -505,6 +505,11 @@ public:
 	{
 	};
 
+	struct AssetDataPacked {
+		uintBigFor<Amount>::Type m_Amount;
+		uintBigFor<Height>::Type m_LockHeight;
+	};
+
 #pragma pack (pop)
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}

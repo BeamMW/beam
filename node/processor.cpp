@@ -1950,6 +1950,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_UpdateMmrs = true;
 	bool m_StoreShieldedOutput = false;
 	bool m_LimitExceeded = false;
+	bool m_AddAssetsEvts = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2235,6 +2236,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	bic.m_pRollback = &bbP;
 
 	bic.m_StoreShieldedOutput = true;
+	bic.m_AddAssetsEvts = true;
 
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
@@ -2357,6 +2359,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 
 		m_RecentStates.Push(sid.m_Row, s);
+	}
+	else
+	{
+		m_DB.AssetEvtsDeleteFrom(sid.m_Height);
 	}
 
 	return bOk;
@@ -2818,6 +2824,20 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 		BlockInterpretCtx::Ser ser(bic);
 		ser & ai.m_ID;
+
+		if (bic.m_AddAssetsEvts)
+		{
+			NodeDB::AssetEvt evt;
+			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
+			evt.m_Height = bic.m_Height;
+			evt.m_Index = bic.m_nKrnIdx;
+
+			uint8_t dummy = 0;
+			evt.m_Body.p = &dummy;
+			evt.m_Body.n = sizeof(dummy);
+
+			m_DB.AssetEvtsInsert(evt);
+		}
 	}
 	else
 	{
@@ -2868,6 +2888,16 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 			ser
 				& ai.m_Metadata
 				& ai.m_LockHeight;
+
+			if (bic.m_AddAssetsEvts)
+			{
+				NodeDB::AssetEvt evt;
+				evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
+				evt.m_Height = bic.m_Height;
+				evt.m_Index = bic.m_nKrnIdx;
+				ZeroObject(evt.m_Body);
+				m_DB.AssetEvtsInsert(evt);
+			}
 		}
 	}
 	else
@@ -2969,6 +2999,23 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 		ai.get_Hash(hv);
 
 		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+
+		if (bic.m_Fwd && bic.m_AddAssetsEvts)
+		{
+			AssetDataPacked adp;
+			adp.m_Amount = ai.m_Value;
+			adp.m_LockHeight = ai.m_LockHeight;
+
+			NodeDB::AssetEvt evt;
+			evt.m_ID = krn.m_AssetID;
+			evt.m_Height = bic.m_Height;
+			evt.m_Index = bic.m_nKrnIdx;
+			evt.m_Body.p = &adp;
+			evt.m_Body.n = sizeof(adp);
+
+			m_DB.AssetEvtsInsert(evt);
+		}
+
 	}
 
 	return true;
@@ -3689,6 +3736,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_DB.TxoDelFrom(id0);
 	m_DB.DeleteEventsFrom(h + 1);
+	m_DB.AssetEvtsDeleteFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
