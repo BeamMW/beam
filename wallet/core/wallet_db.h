@@ -228,6 +228,12 @@ namespace beam::wallet
             return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight && !m_spentTxId;
         }
 
+        TxoID GetAnonymitySet(TxoID lastKnownShieldedOuts) const
+        {
+            // TODO: review this
+            return lastKnownShieldedOuts && (lastKnownShieldedOuts > m_ID) ? lastKnownShieldedOuts - m_ID : 0;
+        }
+
         ShieldedTxo::BaseKey m_Key;
         ShieldedTxo::User m_User;
 

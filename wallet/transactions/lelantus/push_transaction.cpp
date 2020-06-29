@@ -25,11 +25,9 @@ namespace beam::wallet::lelantus
             .SetParameter(TxParameterID::MyID, myID);
     }
 
-    BaseTransaction::Ptr PushTransaction::Creator::Create(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , const TxID& txID)
+    BaseTransaction::Ptr PushTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new PushTransaction(gateway, walletDB, txID, m_withAssets));
+        return BaseTransaction::Ptr(new PushTransaction(context, m_withAssets));
     }
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -38,11 +36,9 @@ namespace beam::wallet::lelantus
         return parameters;
     }
 
-    PushTransaction::PushTransaction(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , const TxID& txID
+    PushTransaction::PushTransaction(const TxContext& context
         , bool withAssets)
-        : BaseTransaction(gateway, walletDB, txID)
+        : BaseTransaction(context)
         , m_withAssets(withAssets)
     {
     }
@@ -77,7 +73,7 @@ namespace beam::wallet::lelantus
 
             const bool isAsset = m_TxBuilder->IsAssetTx();
             LOG_INFO()
-                 << GetTxID() << " Sending to shielded pool "
+                 << m_Context << " Sending to shielded pool "
                  << PrintableAmount(m_TxBuilder->GetAmount(), false, isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                  << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
@@ -122,7 +118,7 @@ namespace beam::wallet::lelantus
                 return;
             }
 
-            GetGateway().register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction, GetSubTxID());
             return;
         }
 
@@ -212,7 +208,7 @@ namespace beam::wallet::lelantus
     
     void PushTransaction::RollbackTx()
     {
-        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
+        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         GetWalletDB()->rollbackTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
     }

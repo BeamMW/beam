@@ -21,10 +21,9 @@
 
 namespace beam::wallet
 {
-    BaseTransaction::Ptr AssetUnregisterTransaction::Creator::Create(INegotiatorGateway& gateway,
-            IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetUnregisterTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AssetUnregisterTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetUnregisterTransaction(context));
     }
 
     TxParameters AssetUnregisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -57,10 +56,8 @@ namespace beam::wallet
         return result;
     }
 
-    AssetUnregisterTransaction::AssetUnregisterTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , const TxID& txID)
-        : AssetTransaction(gateway, std::move(walletDB), txID)
+    AssetUnregisterTransaction::AssetUnregisterTransaction(const TxContext& context)
+        : AssetTransaction(context)
     {
     }
 
@@ -158,7 +155,7 @@ namespace beam::wallet
                 //
                 // Last burn to 0 should not be able to roll back
                 //
-                if (info.CanRollback(m_WalletDB->getCurrentHeight()))
+                if (info.CanRollback(GetWalletDB()->getCurrentHeight()))
                 {
                     OnFailed(TxFailureReason::AssetLocked, true);
                     return;
@@ -196,7 +193,7 @@ namespace beam::wallet
                 return;
             }
 
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             SetState(State::Registration);
             return;
         }
@@ -217,8 +214,8 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        m_WalletDB->dropAsset(_builder->GetAssetOwnerId());
-        std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
+        GetWalletDB()->dropAsset(_builder->GetAssetOwnerId());
+        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
            std::setmin(coin.m_confirmHeight, hProof);

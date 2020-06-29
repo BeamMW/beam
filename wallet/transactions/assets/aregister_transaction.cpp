@@ -21,9 +21,9 @@
 
 namespace beam::wallet
 {
-    BaseTransaction::Ptr AssetRegisterTransaction::Creator::Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetRegisterTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AssetRegisterTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetRegisterTransaction(context));
     }
 
     TxParameters AssetRegisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -56,8 +56,8 @@ namespace beam::wallet
         return result;
     }
 
-    AssetRegisterTransaction::AssetRegisterTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : AssetTransaction(gateway, std::move(walletDB), txID)
+    AssetRegisterTransaction::AssetRegisterTransaction(const TxContext& context)
+        : AssetTransaction(context)
     {
     }
 
@@ -91,7 +91,7 @@ namespace beam::wallet
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
-            if(const auto ainfo = m_WalletDB->findAsset(builder.GetAssetOwnerId()))
+            if(const auto ainfo = GetWalletDB()->findAsset(builder.GetAssetOwnerId()))
             {
                 OnFailed(TxFailureReason::AssetExists);
                 return;
@@ -109,7 +109,7 @@ namespace beam::wallet
             }
 
 			SetState(State::Registration);
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             return;
         }
 
@@ -176,15 +176,15 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        std::vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
+        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
-            if (coin.m_createTxId == m_ID)
+            if (coin.m_createTxId == GetTxID())
             {
                 std::setmin(coin.m_confirmHeight, kpHeight);
                 coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
-            if (coin.m_spentTxId == m_ID)
+            if (coin.m_spentTxId == GetTxID())
             {
                 std::setmin(coin.m_spentHeight, kpHeight);
             }

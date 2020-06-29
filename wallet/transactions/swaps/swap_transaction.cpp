@@ -286,11 +286,9 @@ namespace beam::wallet
         m_factories.emplace(coinType, factory);
     }
 
-    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
-                                                              , IWalletDB::Ptr walletDB
-                                                              , const TxID& txID)
+    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, txID, *this));
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(context, *this));
     }
 
     SecondSide::Ptr AtomicSwapTransaction::Creator::GetSecondSide(BaseTransaction& tx)
@@ -320,11 +318,9 @@ namespace beam::wallet
         return parameters;
     }
 
-    AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
-                                               , IWalletDB::Ptr walletDB
-                                               , const TxID& txID
+    AtomicSwapTransaction::AtomicSwapTransaction(const TxContext& context
                                                , ISecondSideProvider& secondSideProvider)
-        : BaseTransaction(gateway, walletDB, txID)
+        : BaseTransaction(context)
         , m_secondSide(secondSideProvider, *this)
     {
     }
@@ -678,7 +674,7 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
-                m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+                GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
 
                 if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundAvailable())
                 {
@@ -825,14 +821,14 @@ namespace beam::wallet
 
                 RollbackTx();
 
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
             case State::Failed:
             {
                 if (isBeamOwner)
                 {
-                    m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+                    GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
                 }
 
                 TxFailureReason reason = TxFailureReason::Unknown;
@@ -852,7 +848,7 @@ namespace beam::wallet
                     LOG_ERROR() << GetTxID() << " Transaction failed.";
                 }
                 UpdateTxDescription(TxStatus::Failed);
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
 
@@ -860,7 +856,7 @@ namespace beam::wallet
             {
                 LOG_INFO() << GetTxID() << " Swap has not succeeded.";
                 UpdateTxDescription(TxStatus::Failed);
-                GetGateway().on_tx_completed(GetTxID());
+                GetGateway().on_tx_failed(GetTxID());
                 break;
             }
 

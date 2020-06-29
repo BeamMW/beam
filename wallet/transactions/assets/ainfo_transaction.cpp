@@ -20,10 +20,9 @@
 
 namespace beam::wallet
 {
-    BaseTransaction::Ptr AssetInfoTransaction::Creator::Create(INegotiatorGateway& gateway,
-            IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetInfoTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AssetInfoTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetInfoTransaction(context));
     }
 
     TxParameters AssetInfoTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -57,10 +56,8 @@ namespace beam::wallet
         return result;
     }
 
-    AssetInfoTransaction::AssetInfoTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , const TxID& txID)
-        : AssetTransaction(gateway, std::move(walletDB), txID)
+    AssetInfoTransaction::AssetInfoTransaction(const TxContext& context)
+        : AssetTransaction(context)
     {
     }
 
@@ -137,7 +134,7 @@ namespace beam::wallet
                 auto masterKdf = get_MasterKdfStrict();
                 if (beam::wallet::GetAssetOwnerID(masterKdf, strMeta) == info.m_Owner)
                 {
-                    m_WalletDB->markAssetOwned(info.m_ID);
+                    GetWalletDB()->markAssetOwned(info.m_ID);
                     LOG_INFO() << GetTxID() << " You own this asset";
                 }
             }

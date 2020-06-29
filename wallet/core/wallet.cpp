@@ -311,12 +311,9 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the INegotiatorGateway::confirm_outputs
-    // TODO: Not used anywhere, consider removing
-    void Wallet::confirm_outputs(const vector<Coin>& coins)
+    void Wallet::on_tx_failed(const TxID& txID)
     {
-        for (auto& coin : coins)
-            getUtxoProof(coin);
+        on_tx_completed(txID);
     }
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -503,7 +500,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    void Wallet::get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
         pVal->m_callback = std::move(callback);
@@ -1391,19 +1388,12 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, id);
+        return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
     {
-        auto it = m_TxCreators.find(msg.m_Type);
-        if (it == m_TxCreators.end())
-        {
-            LOG_WARNING() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
-            return wallet::BaseTransaction::Ptr();
-        }
-
-        return it->second->Create(*this, m_WalletDB, msg.m_TxID);
+        return ConstructTransaction(msg.m_TxID, msg.m_Type);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -1436,7 +1426,7 @@ namespace beam::wallet
             }
         }
 
-        auto newTx = it->second->Create(*this, m_WalletDB, *parameters.GetTxID());
+        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }

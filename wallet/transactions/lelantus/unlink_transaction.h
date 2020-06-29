@@ -18,11 +18,12 @@
 
 namespace beam::wallet::lelantus
 {
-    TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreateUnlinkFundsTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
 
-    class PushTxBuilder;
+    class PushTransaction;
+    class PullTransaction;
 
-    class PushTransaction : public BaseTransaction
+    class UnlinkFundsTransaction : public BaseTransaction
     {
     public:
         class Creator : public BaseTransaction::Creator
@@ -38,18 +39,40 @@ namespace beam::wallet::lelantus
         };
 
     public:
-        PushTransaction(const TxContext& context
+        UnlinkFundsTransaction(const TxContext& context
             , bool withAssets);
 
     private:
+
+        enum struct State : uint8_t
+        {
+            Initial,
+            Insertion,
+            Unlinking,
+            Extraction,
+            Cancellation,
+            BeforeExtraction
+        };
+
+        struct SubTxIndex
+        {
+            static constexpr SubTxID PUSH_TX = 2;
+            static constexpr SubTxID PULL_TX = 3;
+        };
+
         TxType GetType() const override;
+        void Cancel() override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
-        void RollbackTx() override;
 
+        State GetState() const;
+        void UpdateActiveTransactions();
+        void CreateInsertTransaction();
+        bool CheckAnonymitySet() const;
+        void CreateExtractTransaction();
     private:
-        std::shared_ptr<PushTxBuilder> m_TxBuilder;
-        bool m_waitingShieldedProof = true;
+        BaseTransaction::Ptr m_ActiveTransaction;
+        std::unique_ptr<INegotiatorGateway> m_ActiveGateway;
         bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

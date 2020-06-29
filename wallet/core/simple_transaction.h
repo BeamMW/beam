@@ -18,9 +18,7 @@
 #include "wallet_db.h"
 #include "base_transaction.h"
 
-#include <condition_variable>
 #include <boost/optional.hpp>
-#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -50,19 +48,14 @@ namespace beam::wallet
         public:
             Creator(IWalletDB::Ptr walletDB, bool withAssets);
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                      , IWalletDB::Ptr walletDB
-                                      , const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         private:
             IWalletDB::Ptr m_WalletDB;
             bool m_withAssets;
         };
     private:
-        SimpleTransaction(INegotiatorGateway& gateway
-                        , IWalletDB::Ptr walletDB
-                        , const TxID& txID
-                        , bool withAssets);
+        SimpleTransaction(const TxContext& context, bool withAssets);
     private:
         TxType GetType() const override;
         bool IsInSafety() const override;

@@ -18,7 +18,7 @@
 namespace beam::wallet::lelantus
 {
     BaseLelantusTxBuilder::BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
-        : BaseTxBuilder(tx, kDefaultSubTxID, amount, fee)
+        : BaseTxBuilder(tx, tx.GetSubTxID(), amount, fee)
         , m_withAssets(withAssets)
     {
     }
