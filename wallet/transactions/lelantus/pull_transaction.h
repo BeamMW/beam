@@ -38,16 +38,13 @@ namespace beam::wallet::lelantus
         };
 
     public:
-        PullTransaction(const TxContext& context
-                        , bool withAssets);
+        PullTransaction(const TxContext& context, bool withAssets);
 
     private:
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
-
-        bool GetShieldedList();
 
     private:
         std::shared_ptr<PullTxBuilder> m_TxBuilder;
