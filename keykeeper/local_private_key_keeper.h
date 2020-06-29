@@ -60,8 +60,7 @@ namespace beam::wallet
         : public LocalPrivateKeyKeeper2
     {
     public:
-
-        static const Slot::Type s_Slots = 10 * 1024 * 1024; // practically unlimited
+        static const Slot::Type s_DefNumSlots = 10 * 1024 * 1024;  // practically unlimited slots
 
         struct State
         {
@@ -78,12 +77,14 @@ namespace beam::wallet
         } m_State;
 
         using LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2;
+        LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots = s_DefNumSlots);
 
     protected:
-
         virtual Slot::Type get_NumSlots() override;
         virtual void get_Nonce(ECC::Scalar::Native&, Slot::Type) override;
         virtual void Regenerate(Slot::Type) override;
 
+    private:
+        Slot::Type m_numSlots;
     };
 }

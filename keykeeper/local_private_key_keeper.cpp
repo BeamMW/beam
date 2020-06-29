@@ -513,15 +513,19 @@ namespace beam::wallet
 
     /////////////////////////
     // LocalPrivateKeyKeeperStd
+    LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots)
+        : LocalPrivateKeyKeeper2(pkdf)
+        , m_numSlots(numSlots)
+    {
+    }
+
     IPrivateKeyKeeper2::Slot::Type LocalPrivateKeyKeeperStd::get_NumSlots()
     {
-        return s_Slots;
+        return m_numSlots;
     }
 
     ECC::Hash::Value* LocalPrivateKeyKeeperStd::State::get_At(Slot::Type iSlot, bool& bAlloc)
     {
-        assert(iSlot < s_Slots);
-
         UsedMap::iterator it = m_Used.find(iSlot);
         if (m_Used.end() != it)
         {

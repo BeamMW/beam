@@ -38,7 +38,7 @@ extern "C"
 	wallet::LocalPrivateKeyKeeperStd::State* g_pHwEmuNonces = nullptr;
 
 	uint32_t BeamCrypto_KeyKeeper_getNumSlots() {
-		return wallet::LocalPrivateKeyKeeperStd::s_Slots;
+		return wallet::LocalPrivateKeyKeeperStd::s_DefNumSlots;
 	}
 
 	void BeamCrypto_KeyKeeper_ReadSlot(uint32_t iSlot, BeamCrypto_UintBig* p)
