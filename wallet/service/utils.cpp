@@ -72,9 +72,13 @@ namespace beam::wallet {
         return stream.str();
     }
 
-    unsigned getAliveInterval()
+    unsigned getAliveLogInterval()
     {
-        return 1000 * 60; // 1 minute
+        #ifndef NDEBUG
+        return 1000 * 60 * 5; // 5 minutes
+        #else
+        return 1000 * 60 * 1; // 1 minute
+        #endif
     }
 
     void logAlive(const std::string& name)

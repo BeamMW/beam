@@ -19,7 +19,7 @@
 namespace beam::wallet {
      const int Pipe::SyncFileDescriptor      = 3;
      const int Pipe::HeartbeatFileDescriptor = 4;
-     const int Pipe::HeartbeatInterval       = 5000;
+     const int Pipe::HeartbeatInterval       = 5000; // every 5 seconds
 
     Pipe::Pipe(int fd):
         _fd(fd)

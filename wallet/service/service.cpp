@@ -45,9 +45,9 @@ namespace
                 , _reactor(std::move(reactor))
         {
             std::string name = "WalletService";
-            LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveInterval());
+            LOG_INFO() << name << " alive log interval: " << msec2readable(getAliveLogInterval());
             _aliveLogTimer = io::Timer::create(*_reactor);
-            _aliveLogTimer->start(getAliveInterval(), true, [name]() {
+            _aliveLogTimer->start(getAliveLogInterval(), true, [name]() {
                 logAlive(name);
             });
         }

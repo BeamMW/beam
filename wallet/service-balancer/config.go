@@ -127,7 +127,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	}
 
 	if cfg.ServiceLaunchTimeout == 0 {
-		cfg.ServiceLaunchTimeout = 5  * time.Second
+		cfg.ServiceLaunchTimeout = 10  * time.Second
 	}
 
 	if cfg.ServiceAliveTimeout == 0 {
@@ -135,7 +135,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	}
 
 	if cfg.ServiceHeartbeatTimeout == 0 {
-		cfg.ServiceHeartbeatTimeout = 10 * time.Second
+		cfg.ServiceHeartbeatTimeout = 11 * time.Second // wait for 2 heartbeats via pipe + 1 second
 	}
 
 	if len(cfg.DatabasePath) == 0 {
