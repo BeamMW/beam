@@ -18,11 +18,12 @@ func collectActivityLog () string {
 		svcClients += svc.ClientsCnt
 	}
 
-	return fmt.Sprintf("WalletServices: \n\tMax: %v\n\tAlive: %v\n\tDrops %v\n\tEpoints: %v\n\tClients: %v\nMonitors:\n\tMax %v\n\tAlive: %v\n\tDrops: %v",
+	return fmt.Sprintf("WalletServices: \n\tMax: %v\n\tAlive: %v\n\tDrops: %v\n\tEpoints: %v\n\tClients: %v\nMonitors:\n\tShould run: %v\n\tMax: %v\n\tAlive: %v\n\tDrops: %v",
 						status.MaxWalletServices, status.AliveWalletServices,
 						humanize.Comma(status.Counters.WSDrops),
 						humanize.Comma(svcEpoints),
 						humanize.Comma(svcClients),
+						config.ShouldLaunchBBSMonitor(),
 						status.MaxBbsServices, status.AliveBbsServices,
 						humanize.Comma(status.Counters.BbsDrops),
 	                  )

@@ -89,7 +89,10 @@ func collectStatus(fast bool) (status statusRes) {
 		}
 	}
 
-	status.BbsServices         = sbbsServices.GetStats()
+	if sbbsServices != nil {
+		status.BbsServices = sbbsServices.GetStats()
+	}
+
 	status.MaxWalletServices   = config.WalletServiceCnt
 	status.AliveWalletServices = len(status.WalletServices)
 	status.MaxBbsServices      = config.BbsMonitorCnt

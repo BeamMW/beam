@@ -37,8 +37,12 @@ func main () {
 		log.Fatal(err)
 	}
 
-	if err := sbbsMonitorInitialize(); err != nil {
-		log.Fatal(err)
+	if config.ShouldLaunchBBSMonitor() {
+		if err := sbbsMonitorInitialize(); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Println("WARNING: BBS Monitor is not launched. VAPIDPublic or VAPIDPrivate or PushContactMail is not provided")
 	}
 
 	if err := walletServicesInitialize(m); err != nil {

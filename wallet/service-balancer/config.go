@@ -166,7 +166,7 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 
 	if cfg.ActivityLogInterval == 0 {
 		if cfg.Debug {
-			cfg.ActivityLogInterval = time.Duration(1 * time.Minute)
+			cfg.ActivityLogInterval = time.Duration(5 * time.Second) //(1 * time.Minute)
 		} else {
 			cfg.ActivityLogInterval = time.Duration(10 * time.Minute)
 		}
@@ -182,6 +182,14 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 		cfg.BbsMonitorCnt = 1
 	}
 
+	if len(cfg.APISecret) == 0 {
+		log.Println("Warning: APISecret is not provided. Balancer stats via /stats?secret=APISecret would be inaccessible")
+	}
+
 	log.Printf("starting in %v mode", mode)
 	return nil
+}
+
+func (cfg* Config) ShouldLaunchBBSMonitor () bool {
+	return len(cfg.VAPIDPublic) > 0 && len(cfg.VAPIDPrivate) > 0 && len(cfg.PushContactMail) > 0
 }
