@@ -60,9 +60,9 @@ func wallletServicesGet(wid string) (string, error) {
 
 	var address string
 	if config.ReturnRawSvcPort {
-		address = config.SerivcePublicAddress + ":" + strconv.Itoa(service.Port)
+		address = config.ServicePublicAddress + ":" + strconv.Itoa(service.Port)
 	} else {
-		address = config.SerivcePublicAddress + "?service=" + strconv.Itoa(service.Port)
+		address = config.ServicePublicAddress + "?service=" + strconv.Itoa(service.Port)
 	}
 
 	epoints.Add(wid, svcIdx, address)

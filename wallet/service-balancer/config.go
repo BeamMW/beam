@@ -25,8 +25,8 @@ type Config struct {
 	BbsMonitorFirstPort     int
 	BbsMonitorLastPort      int
 	BbsMonitorCnt           int
-	SerivcePublicAddress    string
-	ReturnRawSvcPort        bool // if true login returns SerivcePublicAddress:port, on false SerivcePublicAddress?service=port
+	ServicePublicAddress    string
+	ReturnRawSvcPort        bool // if true login returns ServicePublicAddress:port, on false ServicePublicAddress?service=port
 	ListenAddress           string
 	PushContactMail			string
 	Debug				    bool
@@ -40,7 +40,7 @@ type Config struct {
 	DatabasePath            string
 	APISecret               string
 	AllowedOrigin           string
-	ActiviyLogInterval      time.Duration
+	ActivityLogInterval     time.Duration
 }
 
 var config = Config{
@@ -89,10 +89,10 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 	if  cfg.WalletServiceLastPort <= 0 ||
 		cfg.WalletServiceFirstPort > cfg.WalletServiceLastPort ||
 		cfg.WalletServiceFirstPort + runtime.NumCPU() > cfg.WalletServiceLastPort {
-		return errors.New("config, invalid wallet serivce last port")
+		return errors.New("config, invalid wallet service last port")
 	}
 
-	if len(cfg.SerivcePublicAddress) == 0 {
+	if len(cfg.ServicePublicAddress) == 0 {
 		return errors.New("config, missing public address")
 	}
 
@@ -164,14 +164,14 @@ func (cfg* Config) Read(fname string, m *melody.Melody) error {
 		}
 	}
 
-	if cfg.ActiviyLogInterval == 0 {
+	if cfg.ActivityLogInterval == 0 {
 		if cfg.Debug {
-			cfg.ActiviyLogInterval = time.Duration(1 * time.Minute)
+			cfg.ActivityLogInterval = time.Duration(1 * time.Minute)
 		} else {
-			cfg.ActiviyLogInterval = time.Duration(10 * time.Minute)
+			cfg.ActivityLogInterval = time.Duration(10 * time.Minute)
 		}
 	}
-	log.Printf("Activity log interval %v", cfg.ActiviyLogInterval)
+	log.Printf("Activity log interval %v", cfg.ActivityLogInterval)
 
 	if cfg.BbsMonitorCnt == 0 {
 		cfg.BbsMonitorCnt = 1

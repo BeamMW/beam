@@ -33,7 +33,7 @@ func startActivityLog () {
 		log.Printf("[====  Activity report  ====]\n%s\n[===========================]\n", collectActivityLog())
 	}
 	printActivity()
-	ticker := time.NewTicker(config.ActiviyLogInterval)
+	ticker := time.NewTicker(config.ActivityLogInterval)
 	go func() {
 		for {
 			<- ticker.C
