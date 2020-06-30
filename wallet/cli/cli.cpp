@@ -2419,15 +2419,6 @@ namespace
         return wallet.StartTransaction(*swapTxParameters);
     }
 
-    void RegisterLelantusTxCreators(Wallet& wallet, bool withAssets)
-    {
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(withAssets);
-        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>(withAssets);
-
-        wallet.RegisterTransactionType(TxType::PushTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pushTxCreator));
-        wallet.RegisterTransactionType(TxType::PullTransaction, std::static_pointer_cast<BaseTransaction::Creator>(pullTxCreator));
-    }
-
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
     public:
@@ -2753,7 +2744,7 @@ namespace
             wallet::AsyncContextHolder holder(wallet);
 
 #ifdef BEAM_LELANTUS_SUPPORT
-            RegisterLelantusTxCreators(wallet, withAssets);
+            lelantus::RegisterCreators(wallet, withAssets);
 #endif
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             RegisterSwapTxCreators(wallet, walletDB);

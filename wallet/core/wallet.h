@@ -116,6 +116,12 @@ namespace beam::wallet
         void Rescan();
 
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
+
+        template<typename T>
+        void RegisterTransactionType(TxType type, std::shared_ptr<T> creator)
+        {
+            RegisterTransactionType(type, std::static_pointer_cast<BaseTransaction::Creator>(creator));
+        }
         TxID StartTransaction(const TxParameters& parameters);
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
