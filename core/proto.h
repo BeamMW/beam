@@ -333,9 +333,10 @@ namespace proto {
             // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
+            // 6 - Newer Event::AssetCtl
 
             static const uint32_t Minimum = 4;
-            static const uint32_t Maximum = 5;
+            static const uint32_t Maximum = 6;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);

@@ -3511,6 +3511,9 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
+        bool bSkipAssets = (proto::LoginFlags::Extension::get(m_LoginFlags) < 6);
+        static_assert(proto::LoginFlags::Extension::Minimum < 6); // remove this logic when older protocol won't be supported
+
         // we'll send up to s_Max num of events, even to older clients, they won't complain
         static_assert(proto::Event::s_Max > proto::Event::s_Max0);
 
@@ -3523,6 +3526,17 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
+
+            if (bSkipAssets)
+            {
+                Deserializer der;
+                der.reset(wlk.m_Body.p, wlk.m_Body.n);
+
+                proto::Event::Type::Enum eType;
+                der & eType;
+                if (proto::Event::Type::AssetCtl == eType)
+                    continue; // skip
+            }
 
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
