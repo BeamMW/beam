@@ -1769,13 +1769,13 @@ void NodeDB::DeleteEventsFrom(Height h)
 
 void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 {
-	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
+	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY " TblEvents_Height " ASC," TblEvents_Body " ASC");
 	x.m_Rs.put(0, hMin);
 }
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=? ORDER BY rowid DESC");
+	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=? ORDER BY " TblEvents_Height " DESC," TblEvents_Body " DESC");
 	x.m_Rs.put(0, key);
 }
 
@@ -2716,7 +2716,8 @@ void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint32_t nIdx)
 	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");
 	wlk.m_Rs.put(0, h);
 	wlk.m_Rs.put(1, nIdx);
-	wlk.m_Rs.StepStrict();
+	if (!wlk.MoveNext())
+		ThrowInconsistent();
 }
 
 void NodeDB::AssetEvtsDeleteFrom(Height h)
