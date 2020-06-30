@@ -376,8 +376,8 @@ namespace proto {
         macro(ShieldedTxo::User, User)
 
 #define BeamEvent_AssetCtl(macro) \
+        macro(Asset::Full, Info) \
         macro(uint8_t, Flags) \
-        macro(Asset::Metadata, Metadata) \
         macro(AmountSigned, EmissionChange)
 
         struct Type {

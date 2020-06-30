@@ -2579,10 +2579,18 @@ void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t n
 	// recognized!
 	proto::Event::AssetCtl evt;
 
-	evt.m_EmissionChange = 0; // no change upon creation
 	evt.m_Flags = proto::Event::Flags::Add;
+	evt.m_EmissionChange = 0; // no change upon creation
 
-	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Metadata.m_Value);
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	assert(wlk.m_ID > Asset::s_MaxCount);
+
+	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
+	evt.m_Info.m_LockHeight = h;
+	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
+	evt.m_Info.m_Owner = v.m_Owner;
+	evt.m_Info.m_Value = Zero;
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
@@ -2595,6 +2603,19 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKr
 
 	evt.m_Flags = 0;
 	evt.m_EmissionChange = v.m_Value;
+
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	assert(wlk.m_ID == evt.m_Info.m_ID);
+
+	AssetDataPacked adp;
+	if (sizeof(adp) != wlk.m_Body.n)
+		OnCorrupted();
+	memcpy(&adp, wlk.m_Body.p, sizeof(adp));
+
+	evt.m_Info.m_Value = adp.m_Amount;
+	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
+
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
@@ -2605,6 +2626,11 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t 
 		return;
 
 	evt.m_Flags = proto::Event::Flags::Delete;
+	evt.m_EmissionChange = 0;
+
+	evt.m_Info.m_Owner = v.m_Owner;
+	evt.m_Info.m_Value = Zero;
+
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 

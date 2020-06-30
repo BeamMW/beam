@@ -1034,7 +1034,7 @@ void Event::AssetCtl::Dump(std::ostringstream& os) const
     if (Flags::Delete & m_Flags)
         os << '-';
 
-    os << "Asset MetaHash=" << m_Metadata.m_Hash;
+    os << "Asset MetaHash=" << m_Info.m_Metadata.m_Hash << ", ID=" << m_Info.m_ID << ", Value=" << AmountBig::get_Lo(m_Info.m_Value) << ", LockHeight=" << m_Info.m_LockHeight;
 
     if (m_EmissionChange)
         os << ", Emit " << m_EmissionChange;
