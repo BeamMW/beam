@@ -169,6 +169,15 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_Horizon.Normalize();
 
+	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
+	if (NodeDB::Flags1::PendingMigrate21 & nFlags1)
+	{
+		Migrate21();
+
+		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingMigrate21);
+		CommitDB();
+	}
+
 	if (PruneOld() && !sp.m_Vacuum)
 	{
 		LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
@@ -202,6 +211,11 @@ void NodeProcessor::InitializeUtxos(const char* sz)
 	LOG_INFO() << "Rebuilding UTXO image...";
 	InitializeUtxos();
 
+	TestDefinitionStrict();
+}
+
+void NodeProcessor::TestDefinitionStrict()
+{
 	if (!TestDefinition())
 	{
 		LOG_ERROR() << "Definition mismatch";
@@ -5062,6 +5076,58 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 	Entry& e = get_FromTail(0);
 	e.m_RowID = rowID;
 	e.m_State = s;
+}
+
+void NodeProcessor::Migrate21()
+{
+	LOG_INFO() << "Migrating asset tables...";
+
+	// Delete all asset info, and replay only the relevant kernels
+
+	while (m_Mmr.m_Assets.m_Count)
+		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count));
+
+	struct KrnWalkerAssetsMigrate
+		:public IKrnWalker
+	{
+		NodeProcessor& m_This;
+		KrnWalkerAssetsMigrate(NodeProcessor& p) :m_This(p) {}
+
+		ByteBuffer m_Rollback;
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			switch (krn.get_Subtype())
+			{
+			case TxKernel::Subtype::AssetCreate:
+			case TxKernel::Subtype::AssetEmit:
+			case TxKernel::Subtype::AssetDestroy:
+				break;
+			default:
+				return true;
+			}
+
+			BlockInterpretCtx bic(m_Height, true);
+			bic.m_nKrnIdx = m_nKrnIdx;
+			bic.m_AlreadyValidated = true;
+			bic.m_SaveKid = false;
+			bic.m_AddAssetsEvts = true;
+			bic.EnsureAssetsUsed(m_This.get_DB());
+			bic.SetAssetHi(m_This);
+			bic.m_pRollback = &m_Rollback;
+			m_Rollback.clear();
+
+			if (!m_This.HandleKernelTypeAny(krn, bic))
+				OnCorrupted();
+
+			return true;
+		}
+
+	} wlk(*this);
+
+	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
+
+	TestDefinitionStrict();
 }
 
 } // namespace beam

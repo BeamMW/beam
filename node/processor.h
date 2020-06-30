@@ -50,8 +50,10 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
+	void Migrate21();
 	void InitializeUtxos();
 	bool TestDefinition();
+	void TestDefinitionStrict();
 	void CommitUtxosAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 

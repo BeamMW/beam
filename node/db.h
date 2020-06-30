@@ -61,7 +61,12 @@ public:
 			AssetsCountUsed, // num of 'live' assets
 			EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
+			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
 		};
+	};
+
+	struct Flags1 {
+		static const uint64_t PendingMigrate21 = 1;
 	};
 
 	struct Query

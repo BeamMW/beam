@@ -377,6 +377,7 @@ void NodeDB::Open(const char* szPath)
 
 		case 21:
 			CreateTables21();
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate21);
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
