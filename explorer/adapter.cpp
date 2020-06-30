@@ -436,6 +436,35 @@ private:
                 );
             }
 
+            json assets = json::array();
+            Asset::Full ai;
+            for (ai.m_ID = 1; ; ai.m_ID++)
+            {
+                int ret = _nodeBackend.get_AssetAt(ai, height);
+                if (!ret)
+                    break;
+
+                if (ret > 0)
+                {
+                    // convert metadata to string
+                    std::string sMetadata;
+                    const ByteBuffer& bb = ai.m_Metadata.m_Value; // alias
+                    if (!bb.empty())
+                        sMetadata.assign((char*) &bb.front(), bb.size());
+
+                    assets.push_back(
+                        json{
+                            {"id", ai.m_ID},
+                            {"metadata", sMetadata},
+                            {"owner", hash_to_hex(buf, ai.m_Owner)},
+                            {"value_lo", AmountBig::get_Lo(ai.m_Value)},
+                            {"value_hi", AmountBig::get_Hi(ai.m_Value)},
+                            {"lock_height",  ai.m_LockHeight}
+                        }
+                    );
+                }
+            }
+
             out = json{
                 {"found",      true},
                 {"timestamp",  blockState.m_TimeStamp},
@@ -445,6 +474,7 @@ private:
                 {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
                 {"subsidy",    Rules::get_Emission(blockState.m_Height)},
+                {"assets",     assets},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels}
