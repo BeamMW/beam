@@ -2755,7 +2755,7 @@ Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInter
 }
 
 
-bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
 	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
 	{
@@ -2801,7 +2801,7 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
 	}
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -2871,7 +2871,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -2950,7 +2950,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 
 
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
 		return true;
@@ -3040,7 +3040,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
 	const ECC::Point& key = krn.m_Txo.m_Ticket.m_SerialPub;
 	Blob blobKey(&key, sizeof(key));
@@ -3133,7 +3133,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
 	ECC::Point key = krn.m_SpendProof.m_SpendPk;
 	key.m_Y |= 2;
@@ -3483,19 +3483,7 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 	}
 
 	if (bOk)
-	{
-		switch (v.get_Subtype())
-		{
-#define THE_MACRO(id, name) \
-		case TxKernel::Subtype::name: \
-			bOk = HandleKernel(Cast::Up<TxKernel##name>(v), bic); \
-			break;
-
-		BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
-
-		}
-	}
+		bOk = HandleKernelTypeAny(v, bic);
 
 	if (bOk)
 	{
@@ -3521,6 +3509,22 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		bic.m_Fwd = true; // restore it back
 
 	return bOk;
+}
+
+bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& bic)
+{
+	switch (krn.get_Subtype())
+	{
+#define THE_MACRO(id, name) \
+	case TxKernel::Subtype::name: \
+		return HandleKernelType(Cast::Up<TxKernel##name>(krn), bic); \
+
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+	}
+
+	assert(false); // should not happen!
+	return true;
 }
 
 bool NodeProcessor::IsShieldedInPool(const Transaction& tx)

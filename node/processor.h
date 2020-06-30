@@ -82,8 +82,9 @@ class NodeProcessor
 	void InternalAssetDel(Asset::ID);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
+	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
 
-#define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
+#define THE_MACRO(id, name) bool HandleKernelType(const TxKernel##name&, BlockInterpretCtx&);
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
