@@ -45,6 +45,7 @@
 //lelantus
 #include "wallet/transactions/lelantus/pull_transaction.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
+#include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
