@@ -1750,6 +1750,8 @@ void NodeDB::MoveFwd(const StateID& sid)
 
 void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 {
+	assert(b.n >= sizeof(EventIndexType));
+
 	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
 	rs.put(0, h);
 	rs.put(1, b);
@@ -1787,6 +1789,14 @@ bool NodeDB::WalkerEvent::MoveNext()
 		ZeroObject(m_Key);
 	else
 		m_Rs.get(2, m_Key);
+
+	if (m_Body.n < m_Index.nBytes)
+		ThrowInconsistent();
+
+	memcpy(m_Index.m_pData, m_Body.p, m_Index.nBytes);
+	((const uint8_t*&) m_Body.p) += m_Index.nBytes;
+	m_Body.n -= m_Index.nBytes;
+
 	return true;
 }
 

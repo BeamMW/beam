@@ -377,12 +377,14 @@ public:
 
 	void assert_valid(); // diagnostic, for tests only
 
-	void InsertEvent(Height, const Blob&, const Blob& key);
+	typedef uint32_t EventIndexType;
+	void InsertEvent(Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
 	void DeleteEventsFrom(Height);
 
 	struct WalkerEvent {
 		Recordset m_Rs;
 		Height m_Height;
+		uintBigFor<EventIndexType>::Type m_Index;
 		Blob m_Body;
 		Blob m_Key;
 

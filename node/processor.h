@@ -73,11 +73,10 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
-	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height);
-	void Recognize(const TxKernelAssetCreate&, Height);
-	void Recognize(const TxKernelAssetDestroy&, Height);
-	void Recognize(const TxKernelAssetEmit&, Height);
+
+#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
 
 	void InternalAssetAdd(Asset::Full&);
 	void InternalAssetDel(Asset::ID);
@@ -485,6 +484,12 @@ public:
 
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
+
+		typedef NodeDB::EventIndexType IndexType;
+
+		static const IndexType s_IdxInput = 0;
+		static const IndexType s_IdxOutput = 1;
+		static const IndexType s_IdxKernel = 2;
 	};
 
 	struct ShieldedBase
@@ -536,13 +541,13 @@ private:
 	bool FindEvent(const TKey&, TEvt&);
 
 	template <typename TEvt, typename TKey>
-	void AddEvent(Height, const TEvt&, const TKey&);
+	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
 
 	template <typename TEvt>
-	void AddEvent(Height, const TEvt&);
+	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
 
 	template <typename TEvt>
-	void AddEventInternal(Height, const TEvt&, const Blob& key);
+	void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
 };
 
 struct LogSid
