@@ -214,9 +214,6 @@ namespace proto {
 #define BeamNodeMsg_GetEvents(macro) \
     macro(Height, HeightMin)
 
-#define BeamNodeMsg_EventsLegacy(macro) \
-    macro(std::vector<Event::Legacy>, Events)
-
 #define BeamNodeMsg_Events(macro) \
     macro(ByteBuffer, Events)
 
@@ -295,7 +292,7 @@ namespace proto {
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
-    macro(0x2d, EventsLegacy) \
+    /* macro(0x2d, EventsLegacy) Deprecated */ \
     macro(0x34, Events) \
     macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
@@ -337,7 +334,7 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
 
-            static const uint32_t Minimum = 3;
+            static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 5;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
@@ -444,36 +441,6 @@ namespace proto {
         {
             Height m_Height;
             uint32_t Proceed(const Blob&);
-        };
-
-        // remove the following after Fork2
-        struct Legacy
-        {
-            Key::ID m_Kid;
-            Amount m_Value;
-            ECC::Point m_Commitment;
-
-            Height m_Height;
-            Height m_Maturity;
-
-            uint8_t m_Flags;
-
-            template <typename Archive>
-            void serialize(Archive& ar)
-            {
-                ECC::uintBig dummy(Zero);
-                ar
-                    & m_Commitment
-                    & m_Kid
-                    & m_Value
-                    & dummy
-                    & m_Height
-                    & m_Maturity
-                    & m_Flags;
-            }
-
-            void Import(const Utxo&);
-            void Export(Utxo&) const;
         };
 
     };
@@ -738,7 +705,6 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
-        virtual void OnMsg(EventsLegacy&&) override; // auto-convert
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

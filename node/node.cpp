@@ -3535,37 +3535,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 4)
-    {
-        Send(msgOut);
-    }
-    else
-    {
-        // legacy client
-        struct MyParser
-            :public proto::Event::IGroupParser
-        {
-            proto::EventsLegacy m_msgOut;
-
-            virtual void OnEvent(proto::Event::Base& evt_) override
-            {
-                if (proto::Event::Type::Utxo != evt_.get_Type())
-                    return; // ignore
-                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
-
-                m_msgOut.m_Events.emplace_back();
-                proto::Event::Legacy& evt1 = m_msgOut.m_Events.back();
-
-                evt1.Import(evt);
-                evt1.m_Height = m_Height;
-            }
-
-        } parser;
-
-        parser.Proceed(msgOut.m_Events);
-
-        Send(parser.m_msgOut);
-    }
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
