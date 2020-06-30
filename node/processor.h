@@ -253,6 +253,8 @@ public:
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
 
+	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
+
 	struct DataStatus {
 		enum Enum {
 			Accepted,
@@ -516,6 +518,8 @@ public:
 	struct AssetDataPacked {
 		AmountBig::Type m_Amount;
 		uintBigFor<Height>::Type m_LockHeight;
+
+		void set_Strict(const Blob&);
 	};
 
 #pragma pack (pop)

@@ -2609,6 +2609,13 @@ void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t n
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
 
+void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
+{
+	if (sizeof(*this) != blob.n)
+		OnCorrupted();
+	memcpy(this, blob.p, sizeof(*this));
+}
+
 void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
@@ -2623,9 +2630,7 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKr
 	assert(wlk.m_ID == evt.m_Info.m_ID);
 
 	AssetDataPacked adp;
-	if (sizeof(adp) != wlk.m_Body.n)
-		OnCorrupted();
-	memcpy(&adp, wlk.m_Body.p, sizeof(adp));
+	adp.set_Strict(wlk.m_Body);
 
 	evt.m_Info.m_Value = adp.m_Amount;
 	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
@@ -5128,6 +5133,65 @@ void NodeProcessor::Migrate21()
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
 
 	TestDefinitionStrict();
+}
+
+int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
+{
+	assert(h <= m_Cursor.m_ID.m_Height);
+
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h);
+	if (!wlk.MoveNext())
+		return 0;
+
+	if (!wlk.m_Body.n)
+		return -1;
+
+	struct MyLocator1
+		:public IKrnWalker
+	{
+		Asset::Full* m_pDst;
+		uint32_t m_Target;
+
+		virtual bool OnKrn(const TxKernel& krn_) override
+		{
+			if (m_Target == m_nKrnIdx)
+			{
+				if (TxKernel::Subtype::AssetCreate != krn_.get_Subtype())
+					OnCorrupted();
+				const TxKernelAssetCreate& krn = Cast::Up<TxKernelAssetCreate>(krn_);
+
+				m_pDst->m_Owner = krn.m_Owner;
+				m_pDst->m_Metadata.m_Value.swap(Cast::NotConst(krn.m_MetaData.m_Value));
+				m_pDst->m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
+			}
+			return true;
+		}
+
+	} loc;
+	loc.m_pDst = &ai;
+	loc.m_Target = wlk.m_Index;
+
+	EnumKernels(loc, wlk.m_Height);
+
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);
+	if (wlk.MoveNext())
+	{
+		AssetDataPacked adp;
+		adp.set_Strict(wlk.m_Body);
+
+		ai.m_Value = adp.m_Amount;
+		adp.m_LockHeight.Export(ai.m_LockHeight);
+
+	}
+	else
+	{
+		// wasn't ever emitted
+		ai.m_LockHeight = wlk.m_Height;
+		ai.m_Value = Zero;
+	}
+
+	return 1;
 }
 
 } // namespace beam
