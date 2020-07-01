@@ -237,6 +237,22 @@ private:
             }
         };
 
+        static std::string get(const Asset::Metadata& md)
+        {
+            std::string sMetadata;
+            const ByteBuffer& bb = md.m_Value; // alias
+            sMetadata.reserve(bb.size());
+            for (size_t i = 0; i < bb.size(); i++)
+            {
+                char ch = bb[i];
+                if ((ch < 32) || (ch > 126))
+                    ch = '?';
+                sMetadata.push_back(ch);
+            }
+
+            return sMetadata;
+        }
+
         static std::string get(const Output& outp, Height h, Height hMaturity)
         {
             Writer w;
@@ -446,16 +462,11 @@ private:
 
                 if (ret > 0)
                 {
-                    // convert metadata to string
-                    std::string sMetadata;
-                    const ByteBuffer& bb = ai.m_Metadata.m_Value; // alias
-                    if (!bb.empty())
-                        sMetadata.assign((char*) &bb.front(), bb.size());
-
                     assets.push_back(
                         json{
                             {"id", ai.m_ID},
-                            {"metadata", sMetadata},
+                            {"metadata", ExtraInfo::get(ai.m_Metadata)},
+                            {"metahash", hash_to_hex(buf, ai.m_Metadata.m_Hash)},
                             {"owner", hash_to_hex(buf, ai.m_Owner)},
                             {"value_lo", AmountBig::get_Lo(ai.m_Value)},
                             {"value_hi", AmountBig::get_Hi(ai.m_Value)},
