@@ -44,9 +44,9 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/api/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/api/wallet-api.cfg
 
-    # 7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%.exe
+#    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%.exe
 
-    # 7z a c:/projects/beam/beam/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%.exe
+#    7z a c:/projects/beam/beam/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%.exe
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
 
@@ -62,9 +62,9 @@ after_build:
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    # copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+#    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    # copy c:\projects\beam\beam\%BUILD_CONFIG%\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+#    copy c:\projects\beam\beam\%BUILD_CONFIG%\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
