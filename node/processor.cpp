@@ -169,6 +169,15 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_Horizon.Normalize();
 
+	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
+	if (NodeDB::Flags1::PendingMigrate21 & nFlags1)
+	{
+		Migrate21();
+
+		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingMigrate21);
+		CommitDB();
+	}
+
 	if (PruneOld() && !sp.m_Vacuum)
 	{
 		LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
@@ -202,6 +211,11 @@ void NodeProcessor::InitializeUtxos(const char* sz)
 	LOG_INFO() << "Rebuilding UTXO image...";
 	InitializeUtxos();
 
+	TestDefinitionStrict();
+}
+
+void NodeProcessor::TestDefinitionStrict()
+{
 	if (!TestDefinition())
 	{
 		LOG_ERROR() << "Definition mismatch";
@@ -1942,6 +1956,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
+	uint32_t m_nKrnIdx = 0;
 	bool m_Fwd;
 	bool m_ValidateOnly = false; // don't make changes to state
 	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
@@ -1949,6 +1964,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_UpdateMmrs = true;
 	bool m_StoreShieldedOutput = false;
 	bool m_LimitExceeded = false;
+	bool m_AddAssetsEvts = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2234,6 +2250,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	bic.m_pRollback = &bbP;
 
 	bic.m_StoreShieldedOutput = true;
+	bic.m_AddAssetsEvts = true;
 
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
@@ -2357,6 +2374,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		m_RecentStates.Push(sid.m_Row, s);
 	}
+	else
+	{
+		m_DB.AssetEvtsDeleteFrom(sid.m_Height);
+	}
 
 	return bOk;
 }
@@ -2401,9 +2422,10 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEventInternal(Height h, const TEvt& evt, const Blob& key)
+void NodeProcessor::AddEventInternal(Height h, EventKey::IndexType nIdx, const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
+	ser & uintBigFrom(nIdx);
 	ser & TEvt::s_Type;
 	ser & evt;
 
@@ -2412,15 +2434,15 @@ void NodeProcessor::AddEventInternal(Height h, const TEvt& evt, const Blob& key)
 }
 
 template <typename TEvt, typename TKey>
-void NodeProcessor::AddEvent(Height h, const TEvt& evt, const TKey& key)
+void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt, const TKey& key)
 {
-	AddEventInternal(h, evt, Blob(&key, sizeof(key)));
+	AddEventInternal(h, nIdx, evt, Blob(&key, sizeof(key)));
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEvent(Height h, const TEvt& evt)
+void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt)
 {
-	AddEventInternal(h, evt, Blob(nullptr, 0));
+	AddEventInternal(h, nIdx, evt, Blob(nullptr, 0));
 }
 
 void NodeProcessor::Recognize(const Input& x, Height h)
@@ -2436,10 +2458,14 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, evt);
+	AddEvent(h, EventKey::s_IdxInput, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
+void NodeProcessor::Recognize(const TxKernelStd&, Height, uint32_t)
+{
+}
+
+void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t nKrnIdx)
 {
 	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
@@ -2450,7 +2476,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, evt);
+	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -2473,25 +2499,13 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
 	{
-	case TxKernel::Subtype::ShieldedInput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedInput>(krn), m_Height);
+#define THE_MACRO(id, name) \
+	case TxKernel::Subtype::name: \
+		m_Proc.Recognize(Cast::Up<TxKernel##name>(krn), m_Height, m_nKrnIdx); \
 		break;
 
-	case TxKernel::Subtype::ShieldedOutput:
-		m_Proc.Recognize(Cast::Up<TxKernelShieldedOutput>(krn), m_Height);
-		break;
-
-	case TxKernel::Subtype::AssetCreate:
-		m_Proc.Recognize(Cast::Up<TxKernelAssetCreate>(krn), m_Height);
-		break;
-
-	case TxKernel::Subtype::AssetDestroy:
-		m_Proc.Recognize(Cast::Up<TxKernelAssetDestroy>(krn), m_Height);
-		break;
-
-	case TxKernel::Subtype::AssetEmit:
-		m_Proc.Recognize(Cast::Up<TxKernelAssetEmit>(krn), m_Height);
-		break;
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
 
 	default:
 		break; // suppress warning
@@ -2500,7 +2514,7 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
+void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_t nKrnIdx)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
@@ -2535,7 +2549,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h)
 		EventKey::Shielded key = sp.m_SpendPk;
 		key.m_Y |= EventKey::s_FlagShielded;
 
-		AddEvent(h, evt, key);
+		AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 		break;
 	}
 }
@@ -2561,10 +2575,10 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	evt.m_Maturity = x.get_MinMaturity(h);
 
 	const EventKey::Utxo& key = x.m_Commitment;
-	AddEvent(h, evt, key);
+	AddEvent(h, EventKey::s_IdxOutput, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h)
+void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
 {
 	ViewerKeys vk;
 	get_ViewerKeys(vk);
@@ -2579,15 +2593,30 @@ void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h)
 	// recognized!
 	proto::Event::AssetCtl evt;
 
-	evt.m_EmissionChange = 0; // no change upon creation
 	evt.m_Flags = proto::Event::Flags::Add;
+	evt.m_EmissionChange = 0; // no change upon creation
 
-	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Metadata.m_Value);
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	assert(wlk.m_ID > Asset::s_MaxCount);
 
-	AddEvent(h, evt, key);
+	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
+	evt.m_Info.m_LockHeight = h;
+	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
+	evt.m_Info.m_Owner = v.m_Owner;
+	evt.m_Info.m_Value = Zero;
+
+	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h)
+void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
+{
+	if (sizeof(*this) != blob.n)
+		OnCorrupted();
+	memcpy(this, blob.p, sizeof(*this));
+}
+
+void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
@@ -2595,17 +2624,33 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h)
 
 	evt.m_Flags = 0;
 	evt.m_EmissionChange = v.m_Value;
-	AddEvent(h, evt);
+
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	assert(wlk.m_ID == evt.m_Info.m_ID);
+
+	AssetDataPacked adp;
+	adp.set_Strict(wlk.m_Body);
+
+	evt.m_Info.m_Value = adp.m_Amount;
+	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
+
+	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h)
+void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
 		return;
 
 	evt.m_Flags = proto::Event::Flags::Delete;
-	AddEvent(h, evt);
+	evt.m_EmissionChange = 0;
+
+	evt.m_Info.m_Owner = v.m_Owner;
+	evt.m_Info.m_Value = Zero;
+
+	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
 void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
@@ -2650,7 +2695,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.AddEvent(hCreate, evt, key);
+			m_This.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
 
 			m_Total++;
 
@@ -2659,7 +2704,7 @@ void NodeProcessor::RescanOwnedTxos()
 			else
 			{
 				evt.m_Flags = 0;
-				m_This.AddEvent(wlk.m_SpendHeight, evt);
+				m_This.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
 			}
 
 			return true;
@@ -2729,7 +2774,7 @@ Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInter
 }
 
 
-bool NodeProcessor::HandleKernel(const TxKernelStd& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& bic)
 {
 	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
 	{
@@ -2775,7 +2820,7 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
 	}
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -2817,6 +2862,20 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 
 		BlockInterpretCtx::Ser ser(bic);
 		ser & ai.m_ID;
+
+		if (bic.m_AddAssetsEvts)
+		{
+			NodeDB::AssetEvt evt;
+			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
+			evt.m_Height = bic.m_Height;
+			evt.m_Index = bic.m_nKrnIdx;
+
+			uint8_t dummy = 0;
+			evt.m_Body.p = &dummy;
+			evt.m_Body.n = sizeof(dummy);
+
+			m_DB.AssetEvtsInsert(evt);
+		}
 	}
 	else
 	{
@@ -2831,7 +2890,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetCreate& krn, BlockInterpretC
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -2867,6 +2926,16 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 			ser
 				& ai.m_Metadata
 				& ai.m_LockHeight;
+
+			if (bic.m_AddAssetsEvts)
+			{
+				NodeDB::AssetEvt evt;
+				evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
+				evt.m_Height = bic.m_Height;
+				evt.m_Index = bic.m_nKrnIdx;
+				ZeroObject(evt.m_Body);
+				m_DB.AssetEvtsInsert(evt);
+			}
 		}
 	}
 	else
@@ -2900,7 +2969,7 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetDestroy& krn, BlockInterpret
 
 
 
-bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
 	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
 		return true;
@@ -2968,12 +3037,29 @@ bool NodeProcessor::HandleKernel(const TxKernelAssetEmit& krn, BlockInterpretCtx
 		ai.get_Hash(hv);
 
 		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+
+		if (bic.m_Fwd && bic.m_AddAssetsEvts)
+		{
+			AssetDataPacked adp;
+			adp.m_Amount = ai.m_Value;
+			adp.m_LockHeight = ai.m_LockHeight;
+
+			NodeDB::AssetEvt evt;
+			evt.m_ID = krn.m_AssetID;
+			evt.m_Height = bic.m_Height;
+			evt.m_Index = bic.m_nKrnIdx;
+			evt.m_Body.p = &adp;
+			evt.m_Body.n = sizeof(adp);
+
+			m_DB.AssetEvtsInsert(evt);
+		}
+
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
 {
 	const ECC::Point& key = krn.m_Txo.m_Ticket.m_SerialPub;
 	Blob blobKey(&key, sizeof(key));
@@ -3066,7 +3152,7 @@ bool NodeProcessor::HandleKernel(const TxKernelShieldedOutput& krn, BlockInterpr
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
 {
 	ECC::Point key = krn.m_SpendProof.m_SpendPk;
 	key.m_Y |= 2;
@@ -3408,24 +3494,22 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		}
 	}
 	else
+	{
 		n = v.m_vNested.size();
+
+		assert(bic.m_nKrnIdx);
+		bic.m_nKrnIdx--;
+	}
+
+	if (bOk)
+		bOk = HandleKernelTypeAny(v, bic);
 
 	if (bOk)
 	{
-		switch (v.get_Subtype())
-		{
-#define THE_MACRO(id, name) \
-		case TxKernel::Subtype::name: \
-			bOk = HandleKernel(Cast::Up<TxKernel##name>(v), bic); \
-			break;
-
-		BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
-
-		}
+		if (bic.m_Fwd)
+			bic.m_nKrnIdx++;
 	}
-
-	if (!bOk)
+	else
 	{
 		if (!bic.m_Fwd)
 			OnCorrupted();
@@ -3444,6 +3528,22 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		bic.m_Fwd = true; // restore it back
 
 	return bOk;
+}
+
+bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& bic)
+{
+	switch (krn.get_Subtype())
+	{
+#define THE_MACRO(id, name) \
+	case TxKernel::Subtype::name: \
+		return HandleKernelType(Cast::Up<TxKernel##name>(krn), bic); \
+
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+	}
+
+	assert(false); // should not happen!
+	return true;
 }
 
 bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
@@ -3678,6 +3778,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_DB.TxoDelFrom(id0);
 	m_DB.DeleteEventsFrom(h + 1);
+	m_DB.AssetEvtsDeleteFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
@@ -3699,6 +3800,7 @@ void NodeProcessor::RollbackTo(Height h)
 		bic.m_pRollback = &bbR;
 		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
+		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 		assert(bbR.empty());
 	}
@@ -4647,6 +4749,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		der.reset(bbE);
 		der & txve;
 
+		wlkKrn.m_nKrnIdx = 0;
 		if (!wlkKrn.Process(txve.m_vKernels))
 			return false;
 	}
@@ -4978,6 +5081,117 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 	Entry& e = get_FromTail(0);
 	e.m_RowID = rowID;
 	e.m_State = s;
+}
+
+void NodeProcessor::Migrate21()
+{
+	LOG_INFO() << "Migrating asset tables...";
+
+	// Delete all asset info, and replay only the relevant kernels
+
+	while (m_Mmr.m_Assets.m_Count)
+		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count));
+
+	struct KrnWalkerAssetsMigrate
+		:public IKrnWalker
+	{
+		NodeProcessor& m_This;
+		KrnWalkerAssetsMigrate(NodeProcessor& p) :m_This(p) {}
+
+		ByteBuffer m_Rollback;
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			switch (krn.get_Subtype())
+			{
+			case TxKernel::Subtype::AssetCreate:
+			case TxKernel::Subtype::AssetEmit:
+			case TxKernel::Subtype::AssetDestroy:
+				break;
+			default:
+				return true;
+			}
+
+			BlockInterpretCtx bic(m_Height, true);
+			bic.m_nKrnIdx = m_nKrnIdx;
+			bic.m_AlreadyValidated = true;
+			bic.m_SaveKid = false;
+			bic.m_AddAssetsEvts = true;
+			bic.EnsureAssetsUsed(m_This.get_DB());
+			bic.SetAssetHi(m_This);
+			bic.m_pRollback = &m_Rollback;
+			m_Rollback.clear();
+
+			if (!m_This.HandleKernelTypeAny(krn, bic))
+				OnCorrupted();
+
+			return true;
+		}
+
+	} wlk(*this);
+
+	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
+
+	TestDefinitionStrict();
+}
+
+int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
+{
+	assert(h <= m_Cursor.m_ID.m_Height);
+
+	NodeDB::WalkerAssetEvt wlk;
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h);
+	if (!wlk.MoveNext())
+		return 0;
+
+	if (!wlk.m_Body.n)
+		return -1;
+
+	struct MyLocator1
+		:public IKrnWalker
+	{
+		Asset::Full* m_pDst;
+		uint32_t m_Target;
+
+		virtual bool OnKrn(const TxKernel& krn_) override
+		{
+			if (m_Target == m_nKrnIdx)
+			{
+				if (TxKernel::Subtype::AssetCreate != krn_.get_Subtype())
+					OnCorrupted();
+				const TxKernelAssetCreate& krn = Cast::Up<TxKernelAssetCreate>(krn_);
+
+				m_pDst->m_Owner = krn.m_Owner;
+				m_pDst->m_Metadata.m_Value.swap(Cast::NotConst(krn.m_MetaData.m_Value));
+				m_pDst->m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
+			}
+			return true;
+		}
+
+	} loc;
+	loc.m_pDst = &ai;
+	loc.m_Target = wlk.m_Index;
+
+	EnumKernels(loc, wlk.m_Height);
+
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);
+	if (wlk.MoveNext())
+	{
+		AssetDataPacked adp;
+		adp.set_Strict(wlk.m_Body);
+
+		ai.m_Value = adp.m_Amount;
+		adp.m_LockHeight.Export(ai.m_LockHeight);
+
+	}
+	else
+	{
+		// wasn't ever emitted
+		ai.m_LockHeight = wlk.m_Height;
+		ai.m_Value = Zero;
+	}
+
+	return 1;
 }
 
 } // namespace beam

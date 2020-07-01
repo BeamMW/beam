@@ -1026,7 +1026,7 @@ void Node::InitIDs()
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
-    hp << uint32_t(1); // change this whenever we change the format of the saved events
+    hp << uint32_t(2); // change this whenever we change the format of the saved events
 
 	ECC::Hash::Value hv0, hv1(Zero);
 
@@ -3511,6 +3511,9 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
+        bool bSkipAssets = (proto::LoginFlags::Extension::get(m_LoginFlags) < 6);
+        static_assert(proto::LoginFlags::Extension::Minimum < 6); // remove this logic when older protocol won't be supported
+
         // we'll send up to s_Max num of events, even to older clients, they won't complain
         static_assert(proto::Event::s_Max > proto::Event::s_Max0);
 
@@ -3524,6 +3527,17 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
 
+            if (bSkipAssets)
+            {
+                Deserializer der;
+                der.reset(wlk.m_Body.p, wlk.m_Body.n);
+
+                proto::Event::Type::Enum eType;
+                der & eType;
+                if (proto::Event::Type::AssetCtl == eType)
+                    continue; // skip
+            }
+
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
@@ -3535,37 +3549,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 4)
-    {
-        Send(msgOut);
-    }
-    else
-    {
-        // legacy client
-        struct MyParser
-            :public proto::Event::IGroupParser
-        {
-            proto::EventsLegacy m_msgOut;
-
-            virtual void OnEvent(proto::Event::Base& evt_) override
-            {
-                if (proto::Event::Type::Utxo != evt_.get_Type())
-                    return; // ignore
-                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
-
-                m_msgOut.m_Events.emplace_back();
-                proto::Event::Legacy& evt1 = m_msgOut.m_Events.back();
-
-                evt1.Import(evt);
-                evt1.m_Height = m_Height;
-            }
-
-        } parser;
-
-        parser.Proceed(msgOut.m_Events);
-
-        Send(parser.m_msgOut);
-    }
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)

@@ -44,6 +44,8 @@ namespace beam::bitcoin
             WriteToDb(GetElectrumAddressName(), electrumSettings.m_address);
             WriteToDb(GetSecretWordsName(), electrumSettings.m_secretWords);
             WriteToDb(GetSelectServerAutomatically(), electrumSettings.m_automaticChooseAddress);
+            WriteToDb(GetReceivingAddressesName(), electrumSettings.m_receivingAddressAmount);
+            WriteToDb(GetChangeAddressesName(), electrumSettings.m_changeAddressAmount);
         }
 
         WriteToDb(GetFeeRateName(), settings.GetFeeRate());
@@ -74,6 +76,8 @@ namespace beam::bitcoin
                 ReadFromDB(GetElectrumAddressName(), settings.m_address);
                 ReadFromDB(GetSecretWordsName(), settings.m_secretWords);
                 ReadFromDB(GetSelectServerAutomatically(), settings.m_automaticChooseAddress);
+                ReadFromDB(GetReceivingAddressesName(), settings.m_receivingAddressAmount);
+                ReadFromDB(GetChangeAddressesName(), settings.m_changeAddressAmount);
 
                 m_settings->SetElectrumConnectionOptions(settings);
             }
@@ -163,5 +167,15 @@ namespace beam::bitcoin
     std::string SettingsProvider::GetSelectServerAutomatically() const
     {
         return GetSettingsName() + "_SelectServerAutomatically";
+    }
+
+    std::string SettingsProvider::GetReceivingAddressesName() const
+    {
+        return GetSettingsName() + "_ReceivingAddresses";
+    }
+
+    std::string SettingsProvider::GetChangeAddressesName() const
+    {
+        return GetSettingsName() + "_ChangeAddresses";
     }
 } // namespace beam::bitcoin

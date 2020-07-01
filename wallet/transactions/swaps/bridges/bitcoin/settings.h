@@ -111,7 +111,9 @@ namespace beam::bitcoin
         {
             return m_address == other.m_address
                 && m_secretWords == other.m_secretWords
-                && m_automaticChooseAddress == other.m_automaticChooseAddress;
+                && m_automaticChooseAddress == other.m_automaticChooseAddress
+                && m_receivingAddressAmount == other.m_receivingAddressAmount
+                && m_changeAddressAmount == other.m_changeAddressAmount;
         }
 
         bool operator != (const ElectrumSettings& other) const
