@@ -30,6 +30,7 @@ namespace beam::wallet {
         std::string GetNthUnitName() const;
         std::string GetName() const;
         std::string GetShortName() const;
+        unsigned GetSchemaVersion() const;
 
     private:
         void Parse();
@@ -37,6 +38,7 @@ namespace beam::wallet {
         typedef std::map<std::string, std::string> SMap;
         SMap _values;
         bool _std;
+        bool _parsed;
         std::string _meta;
     };
 

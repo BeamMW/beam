@@ -158,6 +158,19 @@ namespace std
         return EncodeToHex(id);
     }
 
+     unsigned to_unsigned(const std::string& what, bool throws)
+     {
+        try
+        {
+            return boost::lexical_cast<unsigned>(what);
+        }
+        catch(...)
+        {
+            if (throws) throw;
+            return 0;
+        }
+     }
+
 #ifndef EMSCRIPTEN
     string to_string(const beam::AmountBig::Type& amount)
     {

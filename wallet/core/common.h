@@ -805,4 +805,6 @@ namespace std
             return std::hash<ECC::uintBig>{}(key.m_Pk);
         }
     };
+
+    unsigned to_unsigned(const std::string&, bool throws = true);
 }
