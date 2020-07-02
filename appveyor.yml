@@ -76,10 +76,6 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
-    # curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
-
-    # curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
-
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
