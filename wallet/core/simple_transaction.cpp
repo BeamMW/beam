@@ -150,7 +150,7 @@ namespace beam::wallet
 
             if(!m_withAssets)
             {
-                OnFailed(TxFailureReason::AssetsDisabled, true);
+                OnFailed(isSender ? TxFailureReason::AssetsDisabled : TxFailureReason::AssetsDisabledReceiver, true);
                 return;
             }
         }
