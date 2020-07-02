@@ -1888,6 +1888,7 @@ namespace
             {
                 electrumSettings.m_secretWords = bitcoin::createElectrumMnemonic(getEntropy());
 
+                // TODO roman.strilets need to check words
                 auto strSeed = std::accumulate(
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
                     [](std::string a, std::string b)

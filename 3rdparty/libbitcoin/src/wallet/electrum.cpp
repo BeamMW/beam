@@ -145,6 +145,21 @@ static word_list mnemonic_encode(cpp_int entropy, const dictionary& lexicon)
     return mnemonic;
 }
 
+static word_list mnemonic_encode(cpp_int entropy, const dictionary& lexicon, size_t words)
+{
+    word_list mnemonic;
+    const auto size = lexicon.size();
+
+    for (size_t i = 0; i < words; i++)
+    {
+        const cpp_int index = entropy % size;
+        mnemonic.push_back(lexicon[static_cast<size_t>(index)]);
+        entropy /= size;
+    }
+
+    return mnemonic;
+}
+
 static cpp_int mnemonic_decode(const word_list& mnemonic,
     const dictionary& lexicon)
 {
@@ -186,13 +201,13 @@ word_list create_mnemonic(const data_chunk& entropy, seed prefix)
 
     // cpp_int requires hex string for arbitrary precision int construction.
     auto numeric_entropy = cpp_int("0x" + encode_base16(entropy));
+    size_t words = entropy.size() == 16 ? 12 : 24;
 
     do
     {
-        mnemonic = mnemonic_encode(numeric_entropy++, lexicon);
+        mnemonic = mnemonic_encode(numeric_entropy++, lexicon, words);
         BITCOIN_ASSERT(mnemonic_decode(mnemonic, lexicon) == 0);
-    } while (is_old_seed(mnemonic, lexicon) ||
-        !is_new_seed(mnemonic, electrum_prefix));
+    } while (!is_new_seed(mnemonic, electrum_prefix));
 
     return mnemonic;
 }
