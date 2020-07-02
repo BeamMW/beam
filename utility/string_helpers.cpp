@@ -14,13 +14,22 @@
 
 #include "string_helpers.h"
 #include <boost/algorithm/string/split.hpp>
-
+#include <boost/algorithm/string/trim.hpp>
 namespace string_helpers
 {
-	std::vector<std::string> split(const std::string& s, char delim)
+	std::vector<std::string> split(const std::string& s, char delim, bool trimSpaces)
 	{
 		std::vector<std::string> result;
 		boost::split(result, s, [&](char c){return c == delim;});
+		if (trimSpaces) 
+		{
+			for (auto& p : result)
+			{
+				boost::trim(p);
+			}
+		}
+		
+		
 		return result;
 	}
 }
