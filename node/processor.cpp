@@ -4636,8 +4636,6 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 	ByteBuffer bbE;
 	TxVectors::Eternal txve;
 
-	m_Extra.m_ShieldedOutputs = 0;
-
 	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
 	{
 		uint64_t row = FindActiveAtStrict(wlkKrn.m_Height);
