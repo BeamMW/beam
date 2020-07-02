@@ -1823,7 +1823,7 @@ namespace
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) ||
             vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY) ||
-            vm.count(cli::RECEIVING_ADDRESSES) || vm.count(cli::CHANGE_ADDRESSES))
+            vm.count(cli::ADDRESSES_TO_RECEIVE) || vm.count(cli::ADDRESSES_FOR_CHANGE))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
 
@@ -1859,14 +1859,14 @@ namespace
                 }
             }
 
-            if (vm.count(cli::RECEIVING_ADDRESSES))
+            if (vm.count(cli::ADDRESSES_TO_RECEIVE))
             {
-                electrumSettings.m_receivingAddressAmount = vm[cli::RECEIVING_ADDRESSES].as<Positive<uint32_t>>().value;
+                electrumSettings.m_receivingAddressAmount = vm[cli::ADDRESSES_TO_RECEIVE].as<Positive<uint32_t>>().value;
             }
 
-            if (vm.count(cli::CHANGE_ADDRESSES))
+            if (vm.count(cli::ADDRESSES_FOR_CHANGE))
             {
-                electrumSettings.m_changeAddressAmount = vm[cli::CHANGE_ADDRESSES].as<Positive<uint32_t>>().value;
+                electrumSettings.m_changeAddressAmount = vm[cli::ADDRESSES_FOR_CHANGE].as<Positive<uint32_t>>().value;
             }
 
             if (vm.count(cli::ELECTRUM_SEED))

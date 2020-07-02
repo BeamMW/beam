@@ -152,8 +152,8 @@ namespace beam
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
         const char* SELECT_SERVER_AUTOMATICALLY = "select_server_automatically";
         const char* ELECTRUM_ADDR = "electrum_addr";
-        const char* RECEIVING_ADDRESSES = "receiving_addresses";
-        const char* CHANGE_ADDRESSES = "change_addresses";
+        const char* ADDRESSES_TO_RECEIVE = "addresses_to_receive";
+        const char* ADDRESSES_FOR_CHANGE = "addresses_for_change";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -443,8 +443,8 @@ namespace beam
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
             (cli::ELECTRUM_ADDR, po::value<string>(), "set electrum wallet address")
-            (cli::RECEIVING_ADDRESSES, po::value<Positive<uint32_t>>(), "amount of electrum receiving addresses")
-            (cli::CHANGE_ADDRESSES, po::value<Positive<uint32_t>>(), "amount of electrum change addresses")
+            (cli::ADDRESSES_TO_RECEIVE, po::value<Positive<uint32_t>>(), "number of electrum receiving addresses")
+            (cli::ADDRESSES_FOR_CHANGE, po::value<Positive<uint32_t>>(), "number of electrum change addresses")
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of the swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
