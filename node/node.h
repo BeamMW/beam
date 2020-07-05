@@ -223,7 +223,7 @@ private:
 		void OnModified() override;
 		void OnFastSyncSucceeded() override;
 		void get_ViewerKeys(ViewerKeys&) override;
-		void OnEvent(Height, const proto::Event::Base&) override;
+		void OnEvent(const RecognizeCtx&, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		Height get_MaxAutoRollback() override;

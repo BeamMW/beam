@@ -819,12 +819,12 @@ Height Node::Processor::get_MaxAutoRollback()
     return h;
 }
 
-void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
+void Node::Processor::OnEvent(const RecognizeCtx& rctx, const proto::Event::Base& evt)
 {
 	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
         std::ostringstream os;
-        os << "Event Height=" << h << ", ";
+        os << "Event Height=" << rctx.m_Height << ", ";
         evt.Dump(os);
 
         LOG_INFO() << os.str();

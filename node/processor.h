@@ -73,13 +73,6 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 
-	void Recognize(const Input&, Height);
-	void Recognize(const Output&, Height, Key::IPKdf&);
-
-#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
-	BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
-
 	void InternalAssetAdd(Asset::Full&);
 	void InternalAssetDel(Asset::ID);
 
@@ -524,7 +517,12 @@ public:
 
 #pragma pack (pop)
 
-	virtual void OnEvent(Height, const proto::Event::Base&) {}
+	struct RecognizeCtx {
+		Height m_Height;
+		uint32_t m_Idx;
+	};
+
+	virtual void OnEvent(const RecognizeCtx&, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);
@@ -545,16 +543,25 @@ private:
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 
 	template <typename TKey, typename TEvt>
-	bool FindEvent(const TKey&, TEvt&);
+	bool FindEvent(const RecognizeCtx&, const TKey&, TEvt&);
 
 	template <typename TEvt, typename TKey>
-	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
+	void AddEvent(const RecognizeCtx&, const TEvt&, const TKey&);
 
 	template <typename TEvt>
-	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
+	void AddEvent(const RecognizeCtx&, const TEvt&);
 
 	template <typename TEvt>
-	void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
+	void AddEventInternal(const RecognizeCtx&, const TEvt&, const Blob& key);
+
+	void Recognize(const RecognizeCtx&, const Input&);
+	void Recognize(const RecognizeCtx&, const Output&, Key::IPKdf&);
+
+#define THE_MACRO(id, name) void Recognize(const RecognizeCtx&, const TxKernel##name&);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+	void get_AssetEvtStrict(NodeDB::WalkerAssetEvt&, const RecognizeCtx&);
 };
 
 struct LogSid

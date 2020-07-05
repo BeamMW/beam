@@ -2332,16 +2332,21 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		if (!v.empty())
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
+		RecognizeCtx rctx;
+		rctx.m_Height = sid.m_Height;
+		rctx.m_Idx = EventKey::s_IdxInput;
+
 		// recognize all
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			Recognize(*block.m_vInputs[i], sid.m_Height);
+			Recognize(rctx, *block.m_vInputs[i]);
 
 		ViewerKeys vk;
 		get_ViewerKeys(vk);
 		if (vk.m_pMw)
 		{
+			rctx.m_Idx = EventKey::s_IdxOutput;
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(*block.m_vOutputs[i], sid.m_Height, *vk.m_pMw);
+				Recognize(rctx, *block.m_vOutputs[i], *vk.m_pMw);
 		}
 
 		if (!vk.IsEmpty())
@@ -2397,7 +2402,7 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 }
 
 template <typename TKey, typename TEvt>
-bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
+bool NodeProcessor::FindEvent(const RecognizeCtx& rctx, const TKey& key, TEvt& evt)
 {
 	NodeDB::WalkerEvent wlk;
 	m_DB.FindEvents(wlk, Blob(&key, sizeof(key)));
@@ -2422,35 +2427,35 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEventInternal(Height h, EventKey::IndexType nIdx, const TEvt& evt, const Blob& key)
+void NodeProcessor::AddEventInternal(const RecognizeCtx& rctx, const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
-	ser & uintBigFrom(nIdx);
+	ser& uintBigFrom(rctx.m_Idx);
 	ser & TEvt::s_Type;
 	ser & evt;
 
-	m_DB.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
-	OnEvent(h, evt);
+	m_DB.InsertEvent(rctx.m_Height, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
+	OnEvent(rctx, evt);
 }
 
 template <typename TEvt, typename TKey>
-void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt, const TKey& key)
+void NodeProcessor::AddEvent(const RecognizeCtx& rctx, const TEvt& evt, const TKey& key)
 {
-	AddEventInternal(h, nIdx, evt, Blob(&key, sizeof(key)));
+	AddEventInternal(rctx, evt, Blob(&key, sizeof(key)));
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt)
+void NodeProcessor::AddEvent(const RecognizeCtx& rctx, const TEvt& evt)
 {
-	AddEventInternal(h, nIdx, evt, Blob(nullptr, 0));
+	AddEventInternal(rctx, evt, Blob(nullptr, 0));
 }
 
-void NodeProcessor::Recognize(const Input& x, Height h)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const Input& x)
 {
 	const EventKey::Utxo& key = x.m_Commitment;
 	proto::Event::Utxo evt;
 
-	if (!FindEvent(key, evt))
+	if (!FindEvent(rctx, key, evt))
 		return;
 
 	assert(x.m_Internal.m_Maturity); // must've already been validated
@@ -2458,25 +2463,25 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, EventKey::s_IdxInput, evt);
+	AddEvent(rctx, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelStd&, Height, uint32_t)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelStd&)
 {
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelShieldedInput& x)
 {
 	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
 
 	proto::Event::Shielded evt;
-	if (!FindEvent(key, evt))
+	if (!FindEvent(rctx, key, evt))
 		return;
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(rctx, evt);
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -2497,11 +2502,15 @@ bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 
 bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
+	RecognizeCtx rctx;
+	rctx.m_Height = m_Height;
+	rctx.m_Idx = m_nKrnIdx + EventKey::s_IdxKernel;
+
 	switch (krn.get_Subtype())
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		m_Proc.Recognize(Cast::Up<TxKernel##name>(krn), m_Height, m_nKrnIdx); \
+		m_Proc.Recognize(rctx, Cast::Up<TxKernel##name>(krn)); \
 		break;
 
 	BeamKernelsAll(THE_MACRO)
@@ -2514,7 +2523,7 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelShieldedOutput& v)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
@@ -2549,21 +2558,21 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_
 		EventKey::Shielded key = sp.m_SpendPk;
 		key.m_Y |= EventKey::s_FlagShielded;
 
-		AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
+		AddEvent(rctx, evt, key);
 		break;
 	}
 }
 
-void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const Output& x, Key::IPKdf& keyViewer)
 {
 	CoinID cid;
-	if (!x.Recover(h, keyViewer, cid))
+	if (!x.Recover(rctx.m_Height, keyViewer, cid))
 		return;
 
 	// filter-out dummies
 	if (IsDummy(cid))
 	{
-		OnDummy(cid, h);
+		OnDummy(cid, rctx.m_Height);
 		return;
 	}
 
@@ -2572,13 +2581,19 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	evt.m_Flags = proto::Event::Flags::Add;
 	evt.m_Cid = cid;
 	evt.m_Commitment = x.m_Commitment;
-	evt.m_Maturity = x.get_MinMaturity(h);
+	evt.m_Maturity = x.get_MinMaturity(rctx.m_Height);
 
 	const EventKey::Utxo& key = x.m_Commitment;
-	AddEvent(h, EventKey::s_IdxOutput, evt, key);
+	AddEvent(rctx, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::get_AssetEvtStrict(NodeDB::WalkerAssetEvt& wlk, const RecognizeCtx& rctx)
+{
+	assert(rctx.m_Idx >= EventKey::s_IdxKernel);
+	m_DB.AssetEvtsGetStrict(wlk, rctx.m_Height, rctx.m_Idx - EventKey::s_IdxKernel);
+}
+
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelAssetCreate& v)
 {
 	ViewerKeys vk;
 	get_ViewerKeys(vk);
@@ -2597,16 +2612,16 @@ void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t n
 	evt.m_EmissionChange = 0; // no change upon creation
 
 	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	get_AssetEvtStrict(wlk, rctx);
 	assert(wlk.m_ID > Asset::s_MaxCount);
 
 	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
-	evt.m_Info.m_LockHeight = h;
+	evt.m_Info.m_LockHeight = rctx.m_Height;
 	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
+	AddEvent(rctx, evt, key);
 }
 
 void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
@@ -2616,17 +2631,17 @@ void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
 	memcpy(this, blob.p, sizeof(*this));
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelAssetEmit& v)
 {
 	proto::Event::AssetCtl evt;
-	if (!FindEvent(v.m_Owner, evt))
+	if (!FindEvent(rctx, v.m_Owner, evt))
 		return;
 
 	evt.m_Flags = 0;
 	evt.m_EmissionChange = v.m_Value;
 
 	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	get_AssetEvtStrict(wlk, rctx);
 	assert(wlk.m_ID == evt.m_Info.m_ID);
 
 	AssetDataPacked adp;
@@ -2635,13 +2650,13 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKr
 	evt.m_Info.m_Value = adp.m_Amount;
 	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(rctx, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelAssetDestroy& v)
 {
 	proto::Event::AssetCtl evt;
-	if (!FindEvent(v.m_Owner, evt))
+	if (!FindEvent(rctx, v.m_Owner, evt))
 		return;
 
 	evt.m_Flags = proto::Event::Flags::Delete;
@@ -2650,7 +2665,7 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t 
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(rctx, evt);
 }
 
 void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
@@ -2694,8 +2709,12 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Commitment = outp.m_Commitment;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 
+			RecognizeCtx rctx;
+			rctx.m_Height = hCreate;
+			rctx.m_Idx = EventKey::s_IdxOutput;
+
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
+			m_This.AddEvent(rctx, evt, key);
 
 			m_Total++;
 
@@ -2703,8 +2722,11 @@ void NodeProcessor::RescanOwnedTxos()
 				m_Unspent++;
 			else
 			{
+				rctx.m_Height = wlk.m_SpendHeight;
+				rctx.m_Idx = EventKey::s_IdxInput;
+
 				evt.m_Flags = 0;
-				m_This.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
+				m_This.AddEvent(rctx, evt);
 			}
 
 			return true;
