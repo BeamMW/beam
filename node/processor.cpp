@@ -2333,6 +2333,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
 		RecognizeCtx rctx;
+		rctx.m_AccountID = s_AccountDef;
 		rctx.m_Height = sid.m_Height;
 		rctx.m_Idx = EventKey::s_IdxInput;
 
@@ -2405,7 +2406,7 @@ template <typename TKey, typename TEvt>
 bool NodeProcessor::FindEvent(const RecognizeCtx& rctx, const TKey& key, TEvt& evt)
 {
 	NodeDB::WalkerEvent wlk;
-	m_DB.FindEvents(wlk, Blob(&key, sizeof(key)));
+	m_DB.FindEvents(wlk, rctx.m_AccountID, Blob(&key, sizeof(key)));
 
 	Deserializer der;
 	while (true)
@@ -2430,11 +2431,10 @@ template <typename TEvt>
 void NodeProcessor::AddEventInternal(const RecognizeCtx& rctx, const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
-	ser& uintBigFrom(rctx.m_Idx);
 	ser & TEvt::s_Type;
 	ser & evt;
 
-	m_DB.InsertEvent(rctx.m_Height, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
+	m_DB.InsertEvent(rctx.m_AccountID, rctx.m_Height, rctx.m_Idx, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
 	OnEvent(rctx, evt);
 }
 
@@ -2503,6 +2503,7 @@ bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
 	RecognizeCtx rctx;
+	rctx.m_AccountID = m_AccountID;
 	rctx.m_Height = m_Height;
 	rctx.m_Idx = m_nKrnIdx + EventKey::s_IdxKernel;
 
@@ -2680,7 +2681,7 @@ bool NodeProcessor::ViewerKeys::IsEmpty() const
 
 void NodeProcessor::RescanOwnedTxos()
 {
-	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
+	m_DB.DeleteEventsFrom(s_AccountDef, Rules::HeightGenesis - 1);
 
 	struct TxoRecover
 		:public ITxoRecover
@@ -2710,6 +2711,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 
 			RecognizeCtx rctx;
+			rctx.m_AccountID = s_AccountDef;
 			rctx.m_Height = hCreate;
 			rctx.m_Idx = EventKey::s_IdxOutput;
 
@@ -3799,7 +3801,7 @@ void NodeProcessor::RollbackTo(Height h)
 	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
 	m_DB.TxoDelFrom(id0);
-	m_DB.DeleteEventsFrom(h + 1);
+	m_DB.DeleteEventsFrom(s_AccountDef, h + 1); // TODO: other accounts too
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor

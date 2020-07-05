@@ -468,6 +468,8 @@ public:
 		NodeProcessor& m_Proc;
 		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
 
+		uint32_t m_AccountID = s_AccountDef;
+
 		virtual bool OnKrn(const TxKernel& krn) override;
 	};
 
@@ -483,11 +485,9 @@ public:
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
 
-		typedef NodeDB::EventIndexType IndexType;
-
-		static const IndexType s_IdxInput = 0;
-		static const IndexType s_IdxOutput = 1;
-		static const IndexType s_IdxKernel = 2;
+		static const uint32_t s_IdxInput = 0;
+		static const uint32_t s_IdxOutput = 1;
+		static const uint32_t s_IdxKernel = 2;
 	};
 
 	struct ShieldedBase
@@ -520,7 +520,10 @@ public:
 	struct RecognizeCtx {
 		Height m_Height;
 		uint32_t m_Idx;
+		uint32_t m_AccountID;
 	};
+
+	static const uint32_t s_AccountDef = 0;
 
 	virtual void OnEvent(const RecognizeCtx&, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}

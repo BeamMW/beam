@@ -821,7 +821,7 @@ Height Node::Processor::get_MaxAutoRollback()
 
 void Node::Processor::OnEvent(const RecognizeCtx& rctx, const proto::Event::Base& evt)
 {
-	if (get_ParentObj().m_Cfg.m_LogEvents)
+	if (get_ParentObj().m_Cfg.m_LogEvents && (s_AccountDef == rctx.m_AccountID))
 	{
         std::ostringstream os;
         os << "Event Height=" << rctx.m_Height << ", ";
@@ -1026,7 +1026,7 @@ void Node::InitIDs()
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
-    hp << uint32_t(2); // change this whenever we change the format of the saved events
+    hp << uint32_t(3); // change this whenever we change the format of the saved events
 
 	ECC::Hash::Value hv0, hv1(Zero);
 
@@ -3519,7 +3519,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
         Serializer ser;
 
-        for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+        for (db.EnumEvents(wlk, NodeProcessor::s_AccountDef, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
             if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
@@ -4523,7 +4523,7 @@ void Node::PrintTxos()
         os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
     NodeDB::WalkerEvent wlk;
-    for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+    for (m_Processor.get_DB().EnumEvents(wlk, NodeProcessor::s_AccountDef, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
         struct MyParser :public proto::Event::IParser
         {

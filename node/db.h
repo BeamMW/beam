@@ -382,22 +382,20 @@ public:
 
 	void assert_valid(); // diagnostic, for tests only
 
-	typedef uint32_t EventIndexType;
-	void InsertEvent(Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
-	void DeleteEventsFrom(Height);
+	void InsertEvent(uint32_t nAccountID, Height, uint32_t nSeq, const Blob&, const Blob& key);
+	void DeleteEventsFrom(uint32_t nAccountID, Height);
 
 	struct WalkerEvent {
 		Recordset m_Rs;
 		Height m_Height;
-		uintBigFor<EventIndexType>::Type m_Index;
+		uint32_t m_Seq;
 		Blob m_Body;
-		Blob m_Key;
 
 		bool MoveNext();
 	};
 
-	void EnumEvents(WalkerEvent&, Height hMin);
-	void FindEvents(WalkerEvent&, const Blob& key); // in case of duplication the most recently added comes first
+	void EnumEvents(WalkerEvent&, uint32_t nAccountID, Height hMin);
+	void FindEvents(WalkerEvent&, uint32_t nAccountID, const Blob& key); // in case of duplication the most recently added comes first
 
 	struct WalkerPeer
 	{
@@ -643,6 +641,7 @@ private:
 	void Create();
 	void CreateTables20();
 	void CreateTables21();
+	void CreateTables22();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
