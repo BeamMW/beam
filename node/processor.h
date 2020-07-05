@@ -462,13 +462,18 @@ public:
 		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
 	};
 
+	struct RecognizeCtx;
+
 	struct KrnWalkerRecognize
 		:public IKrnWalker
 	{
 		NodeProcessor& m_Proc;
-		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
-
-		uint32_t m_AccountID = s_AccountDef;
+		RecognizeCtx& m_Rctx;
+		KrnWalkerRecognize(NodeProcessor& p, RecognizeCtx& rctx)
+			:m_Proc(p)
+			,m_Rctx(rctx)
+		{
+		}
 
 		virtual bool OnKrn(const TxKernel& krn) override;
 	};
@@ -521,6 +526,7 @@ public:
 		Height m_Height;
 		uint32_t m_Idx;
 		uint32_t m_AccountID;
+		ViewerKeys m_Keys;
 	};
 
 	static const uint32_t s_AccountDef = 0;
@@ -558,7 +564,7 @@ private:
 	void AddEventInternal(const RecognizeCtx&, const TEvt&, const Blob& key);
 
 	void Recognize(const RecognizeCtx&, const Input&);
-	void Recognize(const RecognizeCtx&, const Output&, Key::IPKdf&);
+	void Recognize(const RecognizeCtx&, const Output&);
 
 #define THE_MACRO(id, name) void Recognize(const RecognizeCtx&, const TxKernel##name&);
 	BeamKernelsAll(THE_MACRO)

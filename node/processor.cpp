@@ -2337,22 +2337,22 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		rctx.m_Height = sid.m_Height;
 		rctx.m_Idx = EventKey::s_IdxInput;
 
+		get_ViewerKeys(rctx.m_Keys);
+
 		// recognize all
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			Recognize(rctx, *block.m_vInputs[i]);
 
-		ViewerKeys vk;
-		get_ViewerKeys(vk);
-		if (vk.m_pMw)
+		if (rctx.m_Keys.m_pMw)
 		{
 			rctx.m_Idx = EventKey::s_IdxOutput;
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(rctx, *block.m_vOutputs[i], *vk.m_pMw);
+				Recognize(rctx, *block.m_vOutputs[i]);
 		}
 
-		if (!vk.IsEmpty())
+		if (!rctx.m_Keys.IsEmpty())
 		{
-			KrnWalkerRecognize wlkKrn(*this);
+			KrnWalkerRecognize wlkKrn(*this, rctx);
 			wlkKrn.m_Height = sid.m_Height;
 
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
@@ -2502,16 +2502,14 @@ bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 
 bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
-	RecognizeCtx rctx;
-	rctx.m_AccountID = m_AccountID;
-	rctx.m_Height = m_Height;
-	rctx.m_Idx = m_nKrnIdx + EventKey::s_IdxKernel;
+	m_Rctx.m_Height = m_Height;
+	m_Rctx.m_Idx = m_nKrnIdx + EventKey::s_IdxKernel;
 
 	switch (krn.get_Subtype())
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		m_Proc.Recognize(rctx, Cast::Up<TxKernel##name>(krn)); \
+		m_Proc.Recognize(m_Rctx, Cast::Up<TxKernel##name>(krn)); \
 		break;
 
 	BeamKernelsAll(THE_MACRO)
@@ -2528,15 +2526,12 @@ void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelShieldedOu
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
-	ViewerKeys vk;
-	get_ViewerKeys(vk);
-
-	for (Key::Index nIdx = 0; nIdx < vk.m_nSh; nIdx++)
+	for (Key::Index nIdx = 0; nIdx < rctx.m_Keys.m_nSh; nIdx++)
 	{
 		const ShieldedTxo& txo = v.m_Txo;
 
 		ShieldedTxo::Data::TicketParams sp;
-		if (!sp.Recover(txo.m_Ticket, vk.m_pSh[nIdx]))
+		if (!sp.Recover(txo.m_Ticket, rctx.m_Keys.m_pSh[nIdx]))
 			continue;
 
 		ECC::Oracle oracle;
@@ -2564,10 +2559,13 @@ void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelShieldedOu
 	}
 }
 
-void NodeProcessor::Recognize(const RecognizeCtx& rctx, const Output& x, Key::IPKdf& keyViewer)
+void NodeProcessor::Recognize(const RecognizeCtx& rctx, const Output& x)
 {
+	if (!rctx.m_Keys.m_pMw)
+		return;
+
 	CoinID cid;
-	if (!x.Recover(rctx.m_Height, keyViewer, cid))
+	if (!x.Recover(rctx.m_Height, *rctx.m_Keys.m_pMw, cid))
 		return;
 
 	// filter-out dummies
@@ -2596,13 +2594,11 @@ void NodeProcessor::get_AssetEvtStrict(NodeDB::WalkerAssetEvt& wlk, const Recogn
 
 void NodeProcessor::Recognize(const RecognizeCtx& rctx, const TxKernelAssetCreate& v)
 {
-	ViewerKeys vk;
-	get_ViewerKeys(vk);
-	if (!vk.m_pMw)
+	if (!rctx.m_Keys.m_pMw)
 		return;
 
 	EventKey::AssetCtl key;
-	v.m_MetaData.get_Owner(key, *vk.m_pMw);
+	v.m_MetaData.get_Owner(key, *rctx.m_Keys.m_pMw);
 	if (key != v.m_Owner)
 		return;
 
@@ -2687,12 +2683,14 @@ void NodeProcessor::RescanOwnedTxos()
 		:public ITxoRecover
 	{
 		NodeProcessor& m_This;
+		RecognizeCtx& m_Rctx;
 		uint32_t m_Total = 0;
 		uint32_t m_Unspent = 0;
 
-		TxoRecover(Key::IPKdf& key, NodeProcessor& x)
-			:ITxoRecover(key)
+		TxoRecover(RecognizeCtx& rctx, NodeProcessor& x)
+			:ITxoRecover(*rctx.m_Keys.m_pMw)
 			,m_This(x)
+			,m_Rctx(rctx)
 		{
 		}
 
@@ -2710,13 +2708,11 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Commitment = outp.m_Commitment;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 
-			RecognizeCtx rctx;
-			rctx.m_AccountID = s_AccountDef;
-			rctx.m_Height = hCreate;
-			rctx.m_Idx = EventKey::s_IdxOutput;
+			m_Rctx.m_Height = hCreate;
+			m_Rctx.m_Idx = EventKey::s_IdxOutput;
 
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.AddEvent(rctx, evt, key);
+			m_This.AddEvent(m_Rctx, evt, key);
 
 			m_Total++;
 
@@ -2724,25 +2720,26 @@ void NodeProcessor::RescanOwnedTxos()
 				m_Unspent++;
 			else
 			{
-				rctx.m_Height = wlk.m_SpendHeight;
-				rctx.m_Idx = EventKey::s_IdxInput;
+				m_Rctx.m_Height = wlk.m_SpendHeight;
+				m_Rctx.m_Idx = EventKey::s_IdxInput;
 
 				evt.m_Flags = 0;
-				m_This.AddEvent(rctx, evt);
+				m_This.AddEvent(m_Rctx, evt);
 			}
 
 			return true;
 		}
 	};
 
-	ViewerKeys vk;
-	get_ViewerKeys(vk);
+	RecognizeCtx rctx;
+	rctx.m_AccountID = s_AccountDef;
+	get_ViewerKeys(rctx.m_Keys);
 
-	if (vk.m_pMw)
+	if (rctx.m_Keys.m_pMw)
 	{
 		LOG_INFO() << "Rescanning owned Txos...";
 
-		TxoRecover wlk(*vk.m_pMw, *this);
+		TxoRecover wlk(rctx, *this);
 		EnumTxos(wlk);
 
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
@@ -2752,7 +2749,7 @@ void NodeProcessor::RescanOwnedTxos()
 		LOG_INFO() << "Owned Txos reset";
 	}
 
-	if (!vk.IsEmpty())
+	if (!rctx.m_Keys.IsEmpty())
 	{
 		LOG_INFO() << "Rescanning shielded Txos...";
 
@@ -2763,7 +2760,7 @@ void NodeProcessor::RescanOwnedTxos()
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
-			KrnWalkerRecognize wlkKrn(*this);
+			KrnWalkerRecognize wlkKrn(*this, rctx);
 			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 			assert(m_Extra.m_ShieldedOutputs == nOuts);
