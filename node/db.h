@@ -180,6 +180,11 @@ public:
 			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
+			AccountIns,
+			AccountDel,
+			AccountFind,
+			AccountEnum,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -396,6 +401,29 @@ public:
 
 	void EnumEvents(WalkerEvent&, uint32_t nAccountID, Height hMin);
 	void FindEvents(WalkerEvent&, uint32_t nAccountID, const Blob& key); // in case of duplication the most recently added comes first
+
+	struct WalkerAccount
+	{
+		Recordset m_Rs;
+		uint32_t m_AccountID;
+
+#pragma pack (push, 1)
+		struct Data
+		{
+			uintBigFor<Height>::Type m_Height;
+			uintBigFor<TxoID>::Type m_ShieldedOuts;
+			ECC::uintBig m_Serif;
+		};
+#pragma pack (pop)
+
+		Data m_Data;
+		bool MoveNext();
+	};
+
+	uint32_t AccountIns(const Blob& key, const WalkerAccount::Data&);
+	void AccountDel(uint32_t);
+	bool AccountFind(WalkerAccount&, const Blob& key);
+	void AccountEnum(WalkerAccount&);
 
 	struct WalkerPeer
 	{

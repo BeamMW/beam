@@ -3800,8 +3800,20 @@ void NodeProcessor::RollbackTo(Height h)
 	wlk2.m_pThis = this;
 	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
+	m_DB.DeleteEventsFrom(s_AccountDef, h + 1);
+
+	{
+		NodeDB::WalkerAccount wlk3;
+		for (m_DB.AccountEnum(wlk3); wlk3.MoveNext(); )
+		{
+			Height hAcc;
+			wlk3.m_Data.m_Height.Export(hAcc);
+			if (hAcc > h)
+				m_DB.DeleteEventsFrom(wlk3.m_AccountID, h + 1);
+		}
+	}
+
 	m_DB.TxoDelFrom(id0);
-	m_DB.DeleteEventsFrom(s_AccountDef, h + 1); // TODO: other accounts too
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor

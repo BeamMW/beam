@@ -63,6 +63,11 @@ namespace beam {
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
 
+#define TblAccounts				"Accounts"
+#define TblAccounts_ID			"ID"
+#define TblAccounts_Key			"Key"
+#define TblAccounts_Data		"Data"
+	
 #define TblPeer					"Peers"
 #define TblPeer_Key				"Key"
 #define TblPeer_Rating			"Rating"
@@ -548,6 +553,13 @@ void NodeDB::CreateTables22()
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Height "],[" TblEvents_Seq "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Key "]);");
+
+	ExecQuick("CREATE TABLE [" TblAccounts "] ("
+		"[" TblAccounts_ID		"] INTEGER PRIMARY KEY AUTOINCREMENT,"
+		"[" TblAccounts_Key		"] BLOB NOT NULL,"
+		"[" TblAccounts_Data	"] BLOB NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAccounts "] ON [" TblAccounts "] ([" TblAccounts_Key"]);");
 }
 
 void NodeDB::Vacuum()
@@ -1806,6 +1818,46 @@ bool NodeDB::WalkerEvent::MoveNext()
 	m_Rs.get(0, m_Height);
 	m_Rs.get(1, m_Seq);
 	m_Rs.get(2, m_Body);
+
+	return true;
+}
+
+uint32_t NodeDB::AccountIns(const Blob& key, const WalkerAccount::Data& d)
+{
+	Recordset rs(*this, Query::AccountIns, "INSERT INTO " TblAccounts "(" TblAccounts_Key "," TblAccounts_Data ") VALUES(?,?)");
+	rs.put(0, key);
+	rs.put_As(1, d);
+	rs.Step();
+	TestChanged1Row();
+
+	return static_cast<uint32_t>(sqlite3_last_insert_rowid(m_pDb));
+}
+
+void NodeDB::AccountDel(uint32_t nAccountID)
+{
+	Recordset rs(*this, Query::AccountDel, "DELETE FROM " TblAccounts " WHERE " TblAccounts_ID "=?");
+	rs.put(0, nAccountID);
+	rs.Step();
+	TestChanged1Row();
+}
+
+bool NodeDB::AccountFind(WalkerAccount& wlk, const Blob& key)
+{
+	wlk.m_Rs.Reset(*this, Query::AccountFind, "SELECT " TblAccounts_ID "," TblAccounts_Data " FROM " TblAccounts " WHERE " TblAccounts_Key "=? ORDER BY " TblAccounts_ID);
+	return wlk.MoveNext();
+}
+
+void NodeDB::AccountEnum(WalkerAccount& wlk)
+{
+	wlk.m_Rs.Reset(*this, Query::AccountEnum, "SELECT " TblAccounts_ID "," TblAccounts_Data " FROM " TblAccounts " ORDER BY " TblAccounts_ID);
+}
+
+bool NodeDB::WalkerAccount::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_AccountID);
+	m_Rs.get_As(1, m_Data);
 
 	return true;
 }
