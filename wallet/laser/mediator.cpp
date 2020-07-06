@@ -297,11 +297,17 @@ bool Mediator::Serve(const std::string& channelID)
         m_actionsQueue.emplace_back([this, p_channelID] () {
             auto& channel = m_channels[p_channelID];
 
+            auto channelIdStr = to_hex(p_channelID->m_pData, p_channelID->nBytes);
             if (!channel)
             {
-                LOG_ERROR() << "Unknown channel ID:  " << to_hex(p_channelID->m_pData, p_channelID->nBytes);
+                LOG_ERROR() << "Unknown channel ID:  " << channelIdStr;
                 return;
             }
+
+            LOG_INFO() << "Channel " << channelIdStr <<" valid till: " << channel->get_LockHeight();
+            LOG_INFO() << "Channel " << channelIdStr <<" lock time for one side actions: " << channel->getLocktime();
+            LOG_INFO() << "Channel " << channelIdStr <<" expire after: " 
+                       << channel->get_LockHeight() + channel->getLocktime();
 
             if (channel->get_State() == beam::Lightning::Channel::State::Expired)
             {
