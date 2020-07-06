@@ -252,6 +252,7 @@ namespace beam
     const char kLaserUpdating[] = "Updating";
     const char kLaserClosing[] = "Closing";
     const char kLaserClosed[] = "Closed";
+    const char kLaserExpired[] = "Expired";
     const char kLaserUnknown[] = "Unknown";
     const char kLaserErrorParamsRead[] = "Can't read lightning params";
     const char kLaserErrorMyAmountMissing[] = "My amount is missing.";
@@ -267,6 +268,7 @@ namespace beam
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
+    const char kLaserMessageExpired[] = "Expired : %1%";
     const char kLaserErrorTransferFailed[] = "Transfer to channel : %1% - failed.";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
     const char kLaserMessageUpdateFinished[] = "Update finished: %1%";

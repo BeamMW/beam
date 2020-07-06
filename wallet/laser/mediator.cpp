@@ -31,6 +31,13 @@ inline bool CanBeHandled(int state)
            state != beam::Lightning::Channel::State::Closed;
 }
 
+inline bool CanBeCounted(int state)
+{
+    return state != beam::Lightning::Channel::State::None &&
+           state != beam::Lightning::Channel::State::OpenFailed &&
+           state < beam::Lightning::Channel::State::Closed;
+}
+
 inline bool CanBeClosed(int state)
 {
     return state < beam::Lightning::Channel::State::Closing1 &&
@@ -42,7 +49,8 @@ inline bool CanBeDeleted(int state)
 {
     return state < beam::Lightning::Channel::State::Opening1 ||
            state == beam::Lightning::Channel::State::OpenFailed ||
-           state == beam::Lightning::Channel::State::Closed;
+           state == beam::Lightning::Channel::State::Closed ||
+           state == beam::Lightning::Channel::State::Expired;
 }
 
 const beam::Timestamp kDefaultLaserTolerance = 60 * (beam::Lightning::kMaxBlackoutTime - 1);
@@ -295,10 +303,9 @@ bool Mediator::Serve(const std::string& channelID)
                 return;
             }
 
-            if (IsChannelExpired(channel))
+            if (channel->get_State() == beam::Lightning::Channel::State::Expired)
             {
-                LOG_ERROR() << "Channel ID:  "
-                            << to_hex(p_channelID->m_pData, p_channelID->nBytes) << " lock height expired";
+                ExpireChannel(channel);
                 return;
             }
 
@@ -372,17 +379,16 @@ bool Mediator::Close(const std::string& channelID)
         return false;
     }
 
+    if (channel->get_State() == beam::Lightning::Channel::State::Expired)
+    {
+        ExpireChannel(channel);
+        return false;
+    }
+
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         LOG_ERROR() << "Previous action with channel: " << channelID
                     << " is unfinished. Please, listen this channel till action complete.";
-        return false;
-    }
-
-    if (IsChannelExpired(channel))
-    {
-        LOG_ERROR() << "Channel ID:  "
-                    << to_hex(p_channelID->m_pData, p_channelID->nBytes) << " lock height expired";
         return false;
     }
 
@@ -410,17 +416,17 @@ bool Mediator::GracefulClose(const std::string& channelID)
         return false;
     }
 
+
+    if (channel->get_State() == Lightning::Channel::State::Expired)
+    {
+        ExpireChannel(channel);
+        return false;
+    }
+
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         LOG_ERROR() << "Previous action with channel: " << channelID
                     << " is unfinished. Please, listen this channel till action complete.";
-        return false;
-    }
-
-    if (IsChannelExpired(channel))
-    {
-        LOG_ERROR() << "Channel ID:  "
-                    << to_hex(p_channelID->m_pData, p_channelID->nBytes) << " lock height expired";
         return false;
     }
 
@@ -486,11 +492,11 @@ size_t Mediator::getChannelsCount() const
             m_channels.end(),
             [] (const auto& it) {
         const auto& ch = it.second;
-        return CanBeHandled(ch->get_State());
+        return CanBeCounted(ch->get_State());
     });
 }
 
-const std::unique_ptr<Channel>& Mediator::getChannel(const ChannelIDPtr& p_channelID)
+const Channel::Ptr& Mediator::getChannel(const ChannelIDPtr& p_channelID)
 {
     return m_channels[p_channelID];
 }
@@ -703,7 +709,7 @@ void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
     }
 }
 
-void Mediator::GracefulCloseInternal(const std::unique_ptr<Channel>& channel)
+void Mediator::GracefulCloseInternal(const Channel::Ptr& channel)
 {
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
@@ -787,8 +793,7 @@ ChannelIDPtr Mediator::LoadChannel(const std::string& channelID)
     return p_channelID;
 }
 
-std::unique_ptr<Channel> Mediator::LoadChannelInternal(
-    const ChannelIDPtr& p_channelID)
+Channel::Ptr Mediator::LoadChannelInternal(const ChannelIDPtr& p_channelID)
 {
     TLaserChannelEntity chDBEntity;
     if (!m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity))
@@ -870,7 +875,7 @@ void Mediator::UpdateChannels()
     }
 }
 
-void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& channel)
+void Mediator::UpdateChannelExterior(const Channel::Ptr& channel)
 {
     auto lastState = channel->get_LastState();
     if (!channel->TransformLastState()) return;
@@ -968,12 +973,16 @@ bool Mediator::IsInSync()
     return IsValidTimeStamp(tip.m_TimeStamp, kDefaultLaserTolerance);
 }
 
-bool Mediator::IsChannelExpired(const std::unique_ptr<Channel>& channel)
+void Mediator::ExpireChannel(const Channel::Ptr& channel)
 {
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
-    if (!channel->m_pOpen->m_hOpened) return false;
-    return tip.m_Height >= channel->get_LockHeight() + channel->m_Params.m_hLockTime + channel->m_Params.m_hPostLockReserve;
+    const auto& p_channelID = channel->get_chID();
+    LOG_ERROR() << "Channel ID:  "
+                << to_hex(p_channelID->m_pData, p_channelID->nBytes) << " lock height expired";
+    channel->LogState();
+    channel->UpdateRestorePoint();
+    m_pWalletDB->saveLaserChannel(*channel);
+    for (auto observer : m_observers)
+        observer->OnExpired(p_channelID);
 }
 
 }  // namespace beam::wallet::laser

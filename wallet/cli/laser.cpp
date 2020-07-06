@@ -89,6 +89,17 @@ void LaserObserver::OnTransferFailed(const laser::ChannelIDPtr& chID)
                 % to_hex(chID->m_pData, chID->nBytes);
 }
 
+void LaserObserver::OnExpired(const laser::ChannelIDPtr& chID)
+{
+    if (!m_observable->getChannelsCount())
+    {
+        io::Reactor::get_Current().stop();
+    }
+    LOG_INFO() << boost::format(kLaserMessageExpired)
+               % to_hex(chID->m_pData, chID->nBytes);
+    LaserShow(m_walletDB); 
+}
+
 bool LoadLaserParams(const po::variables_map& vm,
                      Amount* aMy,
                      Amount* aTrg,
@@ -199,6 +210,8 @@ const char* LaserChannelStateStr(int state)
         return kLaserClosing;
     case Lightning::Channel::State::Closed:
         return kLaserClosed;
+    case Lightning::Channel::State::Expired:
+        return kLaserExpired;
     default:
         return kLaserUnknown;
     }

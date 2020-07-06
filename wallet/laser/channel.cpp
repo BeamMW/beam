@@ -513,6 +513,9 @@ void Channel::LogState()
     case beam::Lightning::Channel::State::Closed:
         os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
+    case beam::Lightning::Channel::State::Expired:
+        os << "Expired (you can delete this channel)";
+        break;
     default:
         return;
     }
