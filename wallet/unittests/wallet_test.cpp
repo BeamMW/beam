@@ -311,6 +311,17 @@ namespace
         {
             preselectedIDs.push_back(c.m_ID);
         }
+        
+
+        cout << "An attempt to send from invalid address\n";
+        WALLET_CHECK_THROW(txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(6))
+            .SetParameter(TxParameterID::Fee, Amount(0))
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PreselectedCoins, preselectedIDs)));
+
         sw.start();
 
         txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()

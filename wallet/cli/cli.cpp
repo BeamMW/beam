@@ -3248,7 +3248,7 @@ int main_impl(int argc, char* argv[])
                 return cit->handler(vm);
             }
         }
-        catch (const AddressExpiredException&)
+        catch (const ReceiverAddressExpiredException&)
         {
         }
         catch (const FailToStartSwapException&)

@@ -585,7 +585,7 @@ namespace beam::wallet
             onNewAddressFailed();
             return;
         }
-        catch (const AddressExpiredException&)
+        catch (const ReceiverAddressExpiredException&)
         {
             onCantSendToExpired();
             return;
@@ -625,7 +625,7 @@ namespace beam::wallet
             onNewAddressFailed();
             return;
         }
-        catch (const AddressExpiredException&)
+        catch (const ReceiverAddressExpiredException&)
         {
             onCantSendToExpired();
             return;
@@ -667,7 +667,7 @@ namespace beam::wallet
             onNewAddressFailed();
             return;
         }
-        catch (const AddressExpiredException&)
+        catch (const ReceiverAddressExpiredException&)
         {
             onCantSendToExpired();
             return;

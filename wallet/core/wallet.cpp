@@ -79,6 +79,21 @@ namespace beam::wallet
             walletID.IsValid();
     }
 
+    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    {
+        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+        if (!myID)
+        {
+            throw InvalidTransactionParametersException("No MyID");
+        }
+
+        auto senderAddr = walletDB->getAddress(*myID);
+        if (!senderAddr || !senderAddr->isOwn() || senderAddr->isExpired())
+        {
+            throw SenderInvalidAddressException();
+        }
+    }
+
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
     Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
