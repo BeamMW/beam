@@ -15,6 +15,7 @@
 package com.mw.beam.beamwallet.core;
 
 import  com.mw.beam.beamwallet.core.entities.Wallet;
+import  com.mw.beam.beamwallet.core.entities.WalletAddressDTO;
 
 public class Api
 {

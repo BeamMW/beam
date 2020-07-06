@@ -14,6 +14,7 @@
 
 #include "wallet_model.h"
 #include "utility/logger.h"
+#include "wallet/core/common_utils.h"
 
 #include <jni.h>
 #include "common.h"
@@ -270,6 +271,13 @@ WalletModel::~WalletModel()
 {
     stopReactor();
 }
+
+beam::wallet::WalletAddress WalletModel::generateToken(beam::wallet::IWalletDB::Ptr walletDB) 
+{
+    auto address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+    return address;
+}
+
 
 void WalletModel::onStatus(const WalletStatus& status)
 {
