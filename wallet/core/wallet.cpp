@@ -71,7 +71,7 @@ namespace beam::wallet
 
     // @param SBBS address as string
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
-    bool check_receiver_address(const std::string& addr)
+    bool CheckReceiverAddress(const std::string& addr)
     {
         WalletID walletID;
         return

@@ -104,7 +104,7 @@ extern "C" {
  {
     LOG_DEBUG() << "isAddress()";
     
-    return beam::wallet::check_receiver_address(JString(env, address).value());
+    return beam::wallet::CheckReceiverAddress(JString(env, address).value());
  }
 
  JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
@@ -365,7 +365,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(checkReceiverAddress)(JNIEnv 
 {
     auto str = JString(env, address).value();
 
-    return check_receiver_address(str);
+    return CheckReceiverAddress(str);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)

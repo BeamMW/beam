@@ -1478,6 +1478,10 @@ namespace
             WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
         }
+        { // invalid channel
+            std::string sbbsAddressStr = "b0ca7b4afd7f0000fe6d24e8fd052ef04ff4bb2a230a81c8eeeb0dd0e55af766a91c6513e377fb39";
+            WALLET_CHECK(beam::wallet::CheckReceiverAddress(sbbsAddressStr) == false);
+        }
 
     }
 
