@@ -75,7 +75,11 @@ namespace beam::wallet
 
     void NotificationCenter::createNotification(const Notification& notification)
     {
-        m_cache.insert(std::make_pair(notification.m_ID, notification));
+        auto it = m_cache.insert(std::make_pair(notification.m_ID, notification));
+        if (it.second == false) // we already have such a notification in the cache
+        {
+            return; // ignore
+        }
         m_storage.saveNotification(notification);
 
         if (isNotificationTypeActive(notification.m_type))
