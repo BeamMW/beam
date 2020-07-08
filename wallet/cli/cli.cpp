@@ -1707,6 +1707,11 @@ namespace
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) ||
             vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY))
         {
+            if (!settings.IsSupportedElectrum())
+            {
+                throw std::runtime_error("electrum is not supported");
+            }
+
             auto electrumSettings = settings.GetElectrumConnectionOptions();
 
             if (!electrumSettings.IsInitialized())
