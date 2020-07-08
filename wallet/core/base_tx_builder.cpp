@@ -953,7 +953,8 @@ namespace beam::wallet
 
     void BaseTxBuilder::ResetKernelID()
     {
-        m_Tx.SetParameter(TxParameterID::KernelID, Merkle::Hash{}, m_SubTxID);
+        Merkle::Hash emptyHash = Zero;
+        m_Tx.SetParameter(TxParameterID::KernelID, emptyHash, m_SubTxID);
         m_KernelID.reset();
     }
 
