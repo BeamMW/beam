@@ -73,6 +73,8 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(txDescription.m_kernelID.m_pData, txDescription.m_kernelID.nBytes));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
+        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+
         return tx;
     }
 
