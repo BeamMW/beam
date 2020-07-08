@@ -43,14 +43,34 @@ namespace beam::bitcoin_cash
             electrumSettings.m_nodeAddresses =
             {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                /*"backup.electrum-ltc.org:443",
-                "btc.cihar.com:60002",
-                "electrum-ltc.bysh.me:50002",
-                "electrum.ltc.xurious.com:50002",
-                "ltc.litepay.ch.org:50022"*/
+                "bch.crypto.mldlabs.com:50002",
+                "bch.cyberbits.eu:50002",
+                "bch.disdev.org:50002",
+                "bch.imaginary.cash:50002",
+                "bch.loping.net:50002",
+                "bch.soul-dev.com:50002",
+                "bch0.kister.net:50002",
+                "bch2.electroncash.dk:50002",
+                "bitcoincash.network:50002",
+                "bitcoincash.quangld.com:50002",
+                "blackie.c3-soft.com:50002",
+                "ec-bcn.criptolayer.net:50212",
+                "electron.jochen-hoenicke.de:51002",
+                "electroncash.de:50002",
+                "electroncash.dk:50002",
+                "electrs.bitcoinunlimited.info:50002",
+                "electrum.imaginary.cash:50002",
+                "electrumx-bch.cryptonermal.net:50002",
+                "electrumx-cash.1209k.com:50002",
+                "fulcrum.fountainhead.cash:50002",
+                "greedyhog.mooo.com:50002"
 #else // MASTERNET and TESTNET
-                /*"electrum.ltc.xurious.com:51002",
-                "electrum-ltc.bysh.me:51002"*/
+                "bch0.kister.net:51002",
+                "blackie.c3-soft.com:60002",
+                "electroncash.de:50004",
+                "tbch.loping.net:60002",
+                "testnet.bitcoincash.network:60002",
+                "testnet.imaginary.cash:50002",
 #endif
             };
 
