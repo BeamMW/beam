@@ -292,7 +292,15 @@ bool Mediator::Serve(const std::string& channelID)
 
     LOG_DEBUG() << "Channel: " << channelID << " restore process finished";
     auto& channel = m_channels[p_channelID];
-    if (channel && CanBeHandled(channel->get_State()))
+    if (!channel) return false;
+
+    if (channel->get_State() == beam::Lightning::Channel::State::Expired)
+    {
+        ExpireChannel(channel);
+        return false;
+    }
+
+    if (CanBeHandled(channel->get_State()))
     {
         m_actionsQueue.emplace_back([this, p_channelID] () {
             auto& channel = m_channels[p_channelID];
@@ -312,6 +320,8 @@ bool Mediator::Serve(const std::string& channelID)
             if (channel->get_State() == beam::Lightning::Channel::State::Expired)
             {
                 ExpireChannel(channel);
+                for (auto observer : m_observers)
+                    observer->OnExpired(p_channelID);
                 return;
             }
 
@@ -531,6 +541,8 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
 
 
     auto& channel = m_channels[p_channelID];
+    if (!channel) return false;
+
     auto myChannelAmount = channel->get_amountCurrentMy();
     if (myChannelAmount < amount)
     {
@@ -541,12 +553,25 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         return false;
     }
 
-    if (channel && channel->get_State() == Lightning::Channel::State::Open)
+    if (channel->get_State() == beam::Lightning::Channel::State::Expired)
+    {
+        ExpireChannel(channel);
+        return false;
+    }
+
+    if (channel->get_State() == Lightning::Channel::State::Open)
     {
         if (!IsInSync())
         {
-            m_actionsQueue.emplace_back([this, amount, p_channelID] () {
-                TransferInternal(amount, p_channelID);
+            m_actionsQueue.emplace_back([this, amount, &channel] () {
+                if (channel->get_State() == beam::Lightning::Channel::State::Expired)
+                {
+                    ExpireChannel(channel);
+                    for (auto observer : m_observers)
+                        observer->OnExpired(channel->get_chID());
+                    return;
+                }
+                TransferInternal(amount, channel);
             });
         
             LOG_INFO() << "Sync in progress...";
@@ -555,7 +580,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         }
         else
         {
-            TransferInternal(amount, p_channelID);
+            TransferInternal(amount, channel);
         }
 
         return true;
@@ -663,19 +688,12 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh)
         observer->OnOpenFailed(chID);
 }
 
-void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
+void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
 {
     Lock lock(m_mutex);
 
-    auto& channel = m_channels[chID];
+    const auto& chID = channel->get_chID();
     std::string channelIdStr = to_hex(chID->m_pData, chID->nBytes);
-
-    if (!channel)
-    {
-        LOG_ERROR() << "Channel: " << channelIdStr << " not found";
-        return;
-    }
-
     channel->Subscribe();
 
     Block::SystemState::Full tip;
@@ -987,8 +1005,6 @@ void Mediator::ExpireChannel(const Channel::Ptr& channel)
     channel->LogState();
     channel->UpdateRestorePoint();
     m_pWalletDB->saveLaserChannel(*channel);
-    for (auto observer : m_observers)
-        observer->OnExpired(p_channelID);
 }
 
 }  // namespace beam::wallet::laser

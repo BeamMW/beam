@@ -93,7 +93,7 @@ private:
     bool OnIncoming(const ChannelIDPtr& channelID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = beam::Lightning::kDefaultOpenTxDh);
-    void TransferInternal(Amount amount, const ChannelIDPtr& chID);
+    void TransferInternal(Amount amount, const Channel::Ptr& channel);
     void GracefulCloseInternal(const Channel::Ptr& channel);
     void CloseInternal(const ChannelIDPtr& chID);
     void ClosingCompleted(const ChannelIDPtr& p_channelID);
