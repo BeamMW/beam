@@ -1400,8 +1400,6 @@ namespace
                 "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3",
                 "9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
                 "0103ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-                "7f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-                "0f9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95"
             };
             for (const auto& a : addresses)
             {
