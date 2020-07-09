@@ -149,7 +149,7 @@ namespace beam::wallet
 
             auto& enumerate = enumerates.front();//*it;
 
-            if (enumerate.session != "null")
+            if (enumerate.session != "null" && !existingDevice)
             {
                 client->release(enumerate.session);
                 enumerate.session = "null";
@@ -172,16 +172,17 @@ namespace beam::wallet
                     {
                         LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
                     });
-            }
-            try
-            {
-                trezor->init(enumerate);
-            }
-            catch (std::runtime_error e)
-            {
-                LOG_ERROR() << e.what();
-                return nullptr;
-            }
+
+                try
+                {
+                    trezor->init(enumerate);
+                }
+                catch (std::runtime_error e)
+                {
+                    LOG_ERROR() << e.what();
+                    return nullptr;
+                }
+            }           
 
             return trezor;
         }
