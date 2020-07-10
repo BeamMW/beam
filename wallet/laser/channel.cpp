@@ -538,6 +538,8 @@ void Channel::Unsubscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
     m_isSubscribed = false;
+    if (!m_lastUpdateStart && m_gracefulClose)
+        m_lastUpdateStart = get_Tip();
     LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
     
 }
@@ -599,6 +601,8 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_iRole;
         der & m_gracefulClose;
         der & m_lastUpdateStart;
+        if (m_gracefulClose)
+            m_lastUpdateStart = 0;
 
         size_t vInpSize = 0;
         der & vInpSize;
