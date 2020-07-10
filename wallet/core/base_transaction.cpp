@@ -296,6 +296,17 @@ namespace beam::wallet
             TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
             if (s == TxStatus::InProgress)
             {
+                // hack for old wallets. Should be removed in future
+                if (reason == TxFailureReason::AssetsDisabled)
+                {
+                    bool isSender = false;
+                    if (GetParameter(TxParameterID::IsSender, isSender) && isSender)
+                    {
+                        // overwrite the reason if it was sent by old client
+                        reason = TxFailureReason::AssetsDisabledReceiver;
+                    }
+                }
+                
                 OnFailed(reason);
                 return true;
             }
