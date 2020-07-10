@@ -810,7 +810,7 @@ namespace beam::wallet
                 deviceManager->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
                     {
                         auto message = child_cast<Message, Failure>(msg).message();
-
+                        HideUI();
                         if (m_Handlers.empty())
                         {
                             return;
