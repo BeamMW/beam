@@ -559,7 +559,7 @@ void NodeDB::CreateTables22()
 		"[" TblAccounts_Key		"] BLOB NOT NULL,"
 		"[" TblAccounts_Data	"] BLOB NOT NULL)");
 
-	ExecQuick("CREATE INDEX [Idx" TblAccounts "] ON [" TblAccounts "] ([" TblAccounts_Key"]);");
+	ExecQuick("CREATE INDEX [Idx" TblAccounts "] ON [" TblAccounts "] ([" TblAccounts_Key "]);");
 }
 
 void NodeDB::Vacuum()
