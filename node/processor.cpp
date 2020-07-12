@@ -2675,9 +2675,26 @@ bool NodeProcessor::ViewerKeys::IsEmpty() const
 	return !(m_pMw || m_nSh);
 }
 
-void NodeProcessor::RescanOwnedTxos()
+void NodeProcessor::RescanOwned()
 {
 	m_DB.DeleteEventsFrom(s_AccountDef, Rules::HeightGenesis - 1);
+	ScanOwned();
+}
+
+void NodeProcessor::ScanOwned()
+{
+	RecognizeCtx rctx;
+	rctx.m_AccountID = s_AccountDef;
+	get_ViewerKeys(rctx.m_Keys);
+
+	TxoID nShieldedOutputs = 0;
+	ScanOwned(rctx, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_ID.m_Height), nShieldedOutputs);
+}
+
+void NodeProcessor::ScanOwned(RecognizeCtx& rctx, const HeightRange& hr, TxoID& nShieldedOutputs)
+{
+	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+	assert(nShieldedOutputs <= m_Extra.m_ShieldedOutputs);
 
 	struct TxoRecover
 		:public ITxoRecover
@@ -2731,43 +2748,50 @@ void NodeProcessor::RescanOwnedTxos()
 		}
 	};
 
-	RecognizeCtx rctx;
-	rctx.m_AccountID = s_AccountDef;
-	get_ViewerKeys(rctx.m_Keys);
-
 	if (rctx.m_Keys.m_pMw)
 	{
-		LOG_INFO() << "Rescanning owned Txos...";
+		if (s_AccountDef == rctx.m_AccountID) {
+			LOG_INFO() << "Rescanning owned Txos...";
+		}
 
 		TxoRecover wlk(rctx, *this);
-		EnumTxos(wlk);
+		EnumTxos(wlk, hr);
 
-		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+		if (s_AccountDef == rctx.m_AccountID) {
+			LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+		}
 	}
 	else
 	{
-		LOG_INFO() << "Owned Txos reset";
+		if (s_AccountDef == rctx.m_AccountID) {
+			LOG_INFO() << "Owned Txos reset";
+		}
 	}
 
 	if (!rctx.m_Keys.IsEmpty())
 	{
-		LOG_INFO() << "Rescanning shielded Txos...";
+		if (s_AccountDef == rctx.m_AccountID) {
+			LOG_INFO() << "Rescanning kernels...";
+		}
 
 		// shielded items
 		Height h0 = Rules::get().pForks[2].m_Height;
-		if (m_Cursor.m_Sid.m_Height >= h0)
+		if (hr.m_Max >= h0)
 		{
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
-			m_Extra.m_ShieldedOutputs = 0;
+			m_Extra.m_ShieldedOutputs = nShieldedOutputs;
 
 			KrnWalkerRecognize wlkKrn(*this, rctx);
-			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
+			EnumKernels(wlkKrn, HeightRange(std::max(h0, hr.m_Min), hr.m_Max));
 
-			assert(m_Extra.m_ShieldedOutputs == nOuts);
-			nOuts; // supporess unused var warning in release
+			assert(m_Extra.m_ShieldedOutputs <= nOuts); // may be less if scan isn't up to cursor
+			nShieldedOutputs = m_Extra.m_ShieldedOutputs;
+			m_Extra.m_ShieldedOutputs = nOuts;
 		}
 
-		LOG_INFO() << "Shielded scan complete";
+		if (s_AccountDef == rctx.m_AccountID) {
+			LOG_INFO() << "Kernels scan complete";
+		}
 	}
 }
 
@@ -4032,7 +4056,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 
 	LOG_INFO() << "Treasury verified";
 
-	RescanOwnedTxos();
+	ScanOwned();
 
 	OnNewState();
 	TryGoUp();

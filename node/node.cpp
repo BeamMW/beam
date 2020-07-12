@@ -1055,7 +1055,7 @@ void Node::RefreshOwnedUtxos()
     if (bChanged)
     {
         // changed
-        m_Processor.RescanOwnedTxos();
+        m_Processor.RescanOwned();
 
         blob = Blob(hv0);
         m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);

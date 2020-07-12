@@ -2603,7 +2603,7 @@ namespace beam
 		TxoRecover wlk(*node.m_Keys.m_pOwner);
 		node2.get_Processor().EnumTxos(wlk);
 
-		node.get_Processor().RescanOwnedTxos();
+		node.get_Processor().RescanOwned();
 
 		verify_test(wlk.m_Recovered);
 

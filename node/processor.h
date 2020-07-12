@@ -367,7 +367,7 @@ public:
 
 	virtual void get_ViewerKeys(ViewerKeys&);
 
-	void RescanOwnedTxos();
+	void RescanOwned();
 
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
@@ -463,6 +463,9 @@ public:
 	};
 
 	struct RecognizeCtx;
+
+	void ScanOwned();
+	void ScanOwned(RecognizeCtx&, const HeightRange&, TxoID& nShieldedOutputs);
 
 	struct KrnWalkerRecognize
 		:public IKrnWalker
