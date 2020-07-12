@@ -90,7 +90,7 @@ namespace beam::wallet
 
     boost::optional<PeerID> FromHex(const std::string& s);
 
-    bool check_receiver_address(const std::string& addr);
+    bool CheckReceiverAddress(const std::string& addr);
 
     struct PrintableAmount
     {

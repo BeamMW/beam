@@ -246,6 +246,7 @@ namespace beam
     extern const char kLaserUpdating[];
     extern const char kLaserClosing[];
     extern const char kLaserClosed[];
+    extern const char kLaserExpired[];
     extern const char kLaserUnknown[];
     extern const char kLaserErrorParamsRead[];
     extern const char kLaserErrorMyAmountMissing[];
@@ -261,6 +262,7 @@ namespace beam
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];
+    extern const char kLaserMessageExpired[];
     extern const char kLaserErrorTransferFailed[];
     extern const char kLaserMessageChannelServed[];
     extern const char kLaserMessageUpdateFinished[];

@@ -14,6 +14,7 @@
 
 #include "wallet_model.h"
 #include "utility/logger.h"
+#include "wallet/core/common_utils.h"
 
 #include <jni.h>
 #include "common.h"
@@ -71,6 +72,8 @@ namespace
         setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(txDescription.m_status));
         setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(txDescription.m_kernelID.m_pData, txDescription.m_kernelID.nBytes));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
+
+        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
 
         return tx;
     }
@@ -270,6 +273,13 @@ WalletModel::~WalletModel()
 {
     stopReactor();
 }
+
+beam::wallet::WalletAddress WalletModel::generateToken(beam::wallet::IWalletDB::Ptr walletDB) 
+{
+    auto address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+    return address;
+}
+
 
 void WalletModel::onStatus(const WalletStatus& status)
 {

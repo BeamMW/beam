@@ -71,12 +71,27 @@ namespace beam::wallet
 
     // @param SBBS address as string
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
-    bool check_receiver_address(const std::string& addr)
+    bool CheckReceiverAddress(const std::string& addr)
     {
         WalletID walletID;
         return
             walletID.FromHex(addr) &&
             walletID.IsValid();
+    }
+
+    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    {
+        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+        if (!myID)
+        {
+            throw InvalidTransactionParametersException("No MyID");
+        }
+
+        auto senderAddr = walletDB->getAddress(*myID);
+        if (!senderAddr || !senderAddr->isOwn() || senderAddr->isExpired())
+        {
+            throw SenderInvalidAddressException();
+        }
     }
 
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons

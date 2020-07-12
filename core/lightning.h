@@ -173,7 +173,8 @@ namespace Lightning {
 				Updating, // negotiating to create a new update point
 				Closing1, // decided to close
 				Closing2, // Phase1 close confirmed
-				Closed // Phase2 close confirmed
+				Closed, // Phase2 close confirmed
+				Expired
 			};
 
 			// termination status

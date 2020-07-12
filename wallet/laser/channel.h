@@ -32,6 +32,7 @@ public:
         static const uint32_t MyWid = Control0 + 31;
     };
 
+    using Ptr = std::unique_ptr<Channel>;
     static ChannelIDPtr ChannelIdFromString(const std::string& chIdStr);
 
     Channel(IChannelHolder& holder,

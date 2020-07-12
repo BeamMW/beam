@@ -25,6 +25,7 @@
 #include "client.hpp"
 #include "queue/working_queue.h"
 #include "device_manager.hpp"
+#include "utility/logger.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -44,6 +45,72 @@ namespace beam::wallet
         {
             return "0x" + s;
         }
+
+        void DumpCommonParameters(const IPrivateKeyKeeper2::Method::TxCommon& m)
+        {
+            using namespace nlohmann;
+            auto res = json
+            {
+                {"tx_common",
+                    {
+                        {"inputs", json::array()},
+
+                        {"outputs", json::array()},
+
+                        {"offset_sk", Hex(ECC::Scalar(m.m_kOffset).str())},
+                        {"kernel_parameters",
+                            {
+                                {"fee", m.m_pKernel->m_Fee},
+                                {"min_height", m.m_pKernel->m_Height.m_Min},
+                                {"max_height", m.m_pKernel->m_Height.m_Max},
+                                {"commitment",
+                                    {
+                                        {"x", Hex(m.m_pKernel->m_Commitment.m_X.str())},
+                                        {"y", m.m_pKernel->m_Commitment.m_Y}
+                                    }
+                                },
+                                {"signature",
+                                    {
+                                        {"nonce_pub",
+                                            {
+                                                {"x", Hex(m.m_pKernel->m_Signature.m_NoncePub.m_X.str())},
+                                                {"y", m.m_pKernel->m_Signature.m_NoncePub.m_Y}
+                                            }
+                                        },
+                                        {"k", Hex(m.m_pKernel->m_Signature.m_k.str())}
+                                    },
+
+                                }
+                            }
+                        }
+                    },
+                }
+            };
+
+            auto f = [](json& j, const std::vector<CoinID>& coins)
+            {
+                for (const auto& c : coins)
+                {
+                    j.push_back(
+                        {
+                           {"idx", c.m_Idx},
+                           {"type", int(c.m_Type)},
+                           {"sub_idx", c.m_SubIdx},
+                           {"amount", c.m_Value},
+                           {"asset_id", c.m_AssetID}
+                        }
+                    );
+                }
+            };
+
+            f(res["tx_common"]["outputs"], m.m_vOutputs);
+            f(res["tx_common"]["inputs"], m.m_vInputs);
+
+
+
+            std::cout << std::endl << res.dump() << std::endl;
+        }
+
         void DumpSenderParameters(const IPrivateKeyKeeper2::Method::SignSender& m)
         {
             using namespace nlohmann;
@@ -129,6 +196,61 @@ namespace beam::wallet
             std::cout << std::endl << res.dump() << std::endl;
         }
 
+        std::shared_ptr<DeviceManager> GetTrezor(std::shared_ptr<Client> client, const std::string& deviceName, std::shared_ptr<DeviceManager> existingDevice)
+        {
+            auto enumerates = client->enumerate();
+            if (enumerates.empty())
+                return nullptr;
+            //auto it = std::find_if(enumerates.begin(), enumerates.end(),
+            //    [&deviceName](const auto& d)
+            //    {
+            //        return deviceName == std::to_string(d);
+            //    });
+            //
+            //if (it == enumerates.end())
+            //{
+            //    return nullptr;
+            //}
+
+            auto& enumerate = enumerates.front();//*it;
+
+            if (enumerate.session != "null" && !existingDevice)
+            {
+                client->release(enumerate.session);
+                enumerate.session = "null";
+            }
+
+            auto trezor = existingDevice ? existingDevice : std::make_shared<DeviceManager>();
+
+            if (!existingDevice)
+            {
+                trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        auto message = child_cast<Message, Failure>(msg).message();
+
+                        //onError(message);
+
+                        LOG_ERROR() << "TREZOR FAIL REASON: " << message;
+                    });
+
+                trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
+                    });
+
+                try
+                {
+                    trezor->init(enumerate);
+                }
+                catch (std::runtime_error e)
+                {
+                    LOG_ERROR() << e.what();
+                    return nullptr;
+                }
+            }           
+
+            return trezor;
+        }
 
         BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
         {
@@ -318,22 +440,12 @@ namespace beam::wallet
 
     //////////
     // TrezorKeyKeeperProxy
-    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, HWWallet::IHandler::Ptr uiHandler)
-        : m_DeviceManager(deviceManager)
+    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<Client> client, const std::string& deviceName, HWWallet::IHandler::Ptr uiHandler)
+        : m_Client(client)
+        , m_DeviceName(deviceName)
         , m_UIHandler(uiHandler)
     {
         EnsureEvtOut();
-        deviceManager->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
-        {
-            auto message = child_cast<Message, Failure>(msg).message();
-
-            if (m_Handlers.empty())
-            {
-                return;
-            }
-            PushOut(Status::Unspecified, m_Handlers.front());
-            m_Handlers.pop();
-        });
     }
 
     IPrivateKeyKeeper2::Status::Type TrezorKeyKeeperProxy::InvokeSync(Method::get_Kdf& m)
@@ -351,11 +463,11 @@ namespace beam::wallet
             m.m_iChild = 0; // with another value we will get "Firmware error"
         }
         PushHandler(h);
-        ShowUI();
-        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, false, 
+        //ShowUI();
+        GetDevice()->call_BeamGetPKdf(m.m_Root, m.m_iChild, false, 
             [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
-            HideUI();
+           // HideUI();
             PopHandler();
             const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
             typedef struct
@@ -408,7 +520,7 @@ namespace beam::wallet
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
         PushHandler(h);
-        m_DeviceManager->call_BeamGetNumSlots(false, 
+        GetDevice()->call_BeamGetNumSlots(false, 
             [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
             PopHandler();
@@ -581,7 +693,7 @@ namespace beam::wallet
 
         AutoMovePtr amp(std::move(p));
         m_This.PushHandler(amp.m_p->m_pHandler);
-        m_This.m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
+        m_This.GetDevice()->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
             [this, amp](const Message& msg, std::string session, size_t queue_size)
         {
             m_This.PopHandler();
@@ -643,7 +755,7 @@ namespace beam::wallet
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
 
         PushHandler(h);
-        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, 
+        GetDevice()->call_BeamSignTransactionReceive(txCommon, txMutualInfo, 
             [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             PopHandler();
@@ -677,8 +789,8 @@ namespace beam::wallet
 
         PushHandler(h);
         ShowUI();
-        DumpSenderParameters(m);
-        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams,
+        //DumpSenderParameters(m);
+        GetDevice()->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams,
             [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             HideUI();
@@ -700,7 +812,8 @@ namespace beam::wallet
 
         PushHandler(h);
         ShowUI();
-        m_DeviceManager->call_BeamSignTransactionSplit(txCommon,
+        //DumpCommonParameters(m);
+        GetDevice()->call_BeamSignTransactionSplit(txCommon,
             [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
             HideUI();
@@ -744,5 +857,37 @@ namespace beam::wallet
         {
             m_UIHandler->HideKeyKeeperMessage();
         }
+    }
+
+    std::shared_ptr<DeviceManager> TrezorKeyKeeperProxy::GetDevice()
+    {
+        {
+            auto deviceManager = GetTrezor(m_Client, m_DeviceName, m_DeviceManager);
+            if (!deviceManager)
+            {
+                if (m_UIHandler)
+                {
+                    m_UIHandler->ShowKeyKeeperError("HW wallet device is not connected");
+                }
+                throw std::runtime_error("no HW device");
+            }
+            if (!m_DeviceManager)
+            {
+                deviceManager->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        auto message = child_cast<Message, Failure>(msg).message();
+                        HideUI();
+                        if (m_Handlers.empty())
+                        {
+                            return;
+                        }
+                        PushOut(Status::Unspecified, m_Handlers.front());
+                        m_Handlers.pop();
+                    });
+
+            }
+            m_DeviceManager = deviceManager;
+        }
+        return m_DeviceManager;
     }
 }

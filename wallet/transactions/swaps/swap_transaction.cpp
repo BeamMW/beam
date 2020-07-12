@@ -305,13 +305,15 @@ namespace beam::wallet
 
     TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
+        TestSenderAddress(parameters, m_walletDB);
+
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (peerID)
         {
             auto receiverAddr = m_walletDB->getAddress(*peerID);
             if (receiverAddr && receiverAddr->isOwn())
             {
-                LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+                LOG_ERROR() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
                 throw FailToStartSwapException();
             }
         }

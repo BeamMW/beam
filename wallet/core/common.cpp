@@ -239,8 +239,10 @@ namespace beam::wallet
 
     bool WalletID::IsValid() const
     {
+        BbsChannel channel;
+        m_Channel.Export(channel);
         Point::Native p;
-        return m_Pk.ExportNnz(p);
+        return m_Pk.ExportNnz(p) && channel < proto::Bbs::s_MaxWalletChannels;
     }
 
     boost::optional<PeerID> FromHex(const std::string& s)
@@ -501,7 +503,7 @@ namespace beam::wallet
         else // plain WalletID
         {
             WalletID walletID;
-            if (walletID.FromBuf(buffer))
+            if (walletID.FromBuf(buffer) && walletID.IsValid())
             {
                 auto result = boost::make_optional<TxParameters>({});
                 result->SetParameter(TxParameterID::PeerID, walletID);

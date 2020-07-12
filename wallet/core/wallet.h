@@ -22,10 +22,10 @@
 namespace beam::wallet
 {
     // Exceptions
-    class AddressExpiredException : public std::runtime_error
+    class ReceiverAddressExpiredException : public std::runtime_error
     {
     public:
-        AddressExpiredException()
+        ReceiverAddressExpiredException()
             : std::runtime_error("")
         {
         }
@@ -60,6 +60,19 @@ namespace beam::wallet
         {
         }
     };
+
+    class SenderInvalidAddressException : public InvalidTransactionParametersException
+    {
+    public:
+        SenderInvalidAddressException()
+            : InvalidTransactionParametersException("Sending from not existing or expired SBBS address")
+        {
+        }
+
+    };
+
+
+    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver

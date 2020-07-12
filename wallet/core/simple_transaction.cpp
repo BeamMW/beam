@@ -54,6 +54,8 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
+        TestSenderAddress(parameters, m_WalletDB);
+
         const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (!peerID)
         {
@@ -65,8 +67,8 @@ namespace beam::wallet
         {
             if (receiverAddr->isOwn() && receiverAddr->isExpired())
             {
-                LOG_INFO() << "Can't send to the expired address.";
-                throw AddressExpiredException();
+                LOG_ERROR() << "Can't send to the expired address.";
+                throw ReceiverAddressExpiredException();
             }
 
             // update address comment if changed

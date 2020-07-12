@@ -75,8 +75,12 @@ Channel::State::Enum Channel::get_State() const
 		return State::Closing1;
 
 	auto& lastUpdate = m_lstUpdates.back();
-	if (!lastUpdate.get_HR())
+	auto* hr = lastUpdate.get_HR();
+	if (!hr)
 		return State::Updating;
+
+    if (get_Tip() >= hr->m_Max - m_Params.m_hPostLockReserve)
+		return State::Expired;
 
 	return m_pNegCtx ? State::Updating : State::Open;
 }

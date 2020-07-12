@@ -22,8 +22,6 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
 
-class DeviceManager;
-
 namespace beam::wallet
 {
     class TrezorKeyKeeperProxy
@@ -31,7 +29,7 @@ namespace beam::wallet
     {
         using MessageHandler = std::function<void()>;
     public:
-        TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager, HWWallet::IHandler::Ptr uiHandler = {});
+        TrezorKeyKeeperProxy(std::shared_ptr<Client> client, const std::string& deviceName, HWWallet::IHandler::Ptr uiHandler = {});
         virtual ~TrezorKeyKeeperProxy() = default;
     private:
         Status::Type InvokeSync(Method::get_Kdf& m) override;
@@ -44,7 +42,9 @@ namespace beam::wallet
 #undef THE_MACRO
 
     private:
+        std::shared_ptr<Client> m_Client;
         std::shared_ptr<DeviceManager> m_DeviceManager;
+        std::string m_DeviceName;
 
         struct Cache
         {
@@ -89,6 +89,7 @@ namespace beam::wallet
         void PopHandler();
         void ShowUI();
         void HideUI();
+        std::shared_ptr<DeviceManager> GetDevice();
 
         std::queue<Handler::Ptr> m_Handlers;
         HWWallet::IHandler::Ptr m_UIHandler;
