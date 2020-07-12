@@ -148,13 +148,13 @@ private:
         if (_nextHook) _nextHook->OnStateChanged();
     }
 
-    void OnRolledBack(const Block::SystemState::ID& id) override {
+    void OnRolledBack() override {
 
         auto& blocks = _cache.blocks;
 
-        blocks.erase(blocks.lower_bound(id.m_Height), blocks.end());
+        blocks.erase(blocks.lower_bound(_nodeBackend.m_Cursor.m_Full.m_Height), blocks.end());
 
-        if (_nextHook) _nextHook->OnRolledBack(id);
+        if (_nextHook) _nextHook->OnRolledBack();
     }
 
     bool get_status(io::SerializedMsg& out) override {

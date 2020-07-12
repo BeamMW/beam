@@ -524,9 +524,9 @@ struct TestDirector
 		OnTip(h);
 	}
 
-	virtual void OnRolledBack(const Block::SystemState::ID& id) override
+	virtual void OnRolledBack() override
 	{
-		std::cout << "Rollback to  " << id.m_Height << std::endl;
+		std::cout << "Rollback to " << m_Node.get_Processor().m_Cursor.m_Full.m_Height << std::endl;
 	}
 
 	void Stop()
