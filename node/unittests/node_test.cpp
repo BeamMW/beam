@@ -936,16 +936,16 @@ namespace beam
 			{
 				// Spend it in a transaction
 				Transaction::Ptr pTx;
-				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_ID.m_Height, hIncubation))
+				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_Full.m_Height, hIncubation))
 					break;
 
-				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
+				HeightRange hr(np.m_Cursor.m_Full.m_Height + 1, MaxHeight);
 
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
-				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
+				ctx.m_Height = np.m_Cursor.m_Full.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
 				Transaction::KeyType key;
@@ -975,7 +975,7 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		for (Height h = 1; h <= np.m_Cursor.m_ID.m_Height; h++)
+		for (Height h = 1; h <= np.m_Cursor.m_Full.m_Height; h++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Height = h;
@@ -1125,7 +1125,7 @@ namespace beam
 		}
 
 		npSrc.TryGoUp();
-		verify_test(npSrc.m_Cursor.m_ID.m_Height == blockChain.size());
+		verify_test(npSrc.m_Cursor.m_Full.m_Height == blockChain.size());
 
 		np.EnumCongestions();
 
@@ -1174,7 +1174,7 @@ namespace beam
 		}
 
 		np.TryGoUp();
-		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
+		verify_test(np.m_Cursor.m_Full.m_Height == Rules::HeightGenesis - 1); // should fall back to start
 		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
 
 
@@ -1216,7 +1216,7 @@ namespace beam
 		}
 
 		np.TryGoUp();
-		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
+		verify_test(np.m_Cursor.m_Full.m_Height == Rules::HeightGenesis - 1); // should fall back to start
 		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
 
 		// 2nd attempt. Tamper with the non-naked output
@@ -1269,11 +1269,11 @@ namespace beam
 
 			if (bTampered)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == h - 1);
+				verify_test(np.m_Cursor.m_Full.m_Height == h - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_Full.m_Height == h);
 		}
 
 		verify_test(bTampered);
@@ -1282,7 +1282,7 @@ namespace beam
 		// 3rd attempt. enforce "naked" output. The node won't notice a problem until all the blocks are fed
 		bTampered = false;
 
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		for (Height h = np.m_Cursor.m_Full.m_Height + 1; ; h++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
@@ -1332,11 +1332,11 @@ namespace beam
 
 			if (bLast)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1);
+				verify_test(np.m_Cursor.m_Full.m_Height == Rules::HeightGenesis - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_Full.m_Height == h);
 		}
 
 		verify_test(!np.m_SyncData.m_TxoLo);
@@ -1344,7 +1344,7 @@ namespace beam
 		// 3.1 Same as above, but now TxoLo is zero, Node should not erase all the blocks on error
 		Height hTampered = 0;
 
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		for (Height h = np.m_Cursor.m_Full.m_Height + 1; ; h++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
@@ -1394,15 +1394,15 @@ namespace beam
 
 			if (bLast)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == hTampered - 1);
+				verify_test(np.m_Cursor.m_Full.m_Height == hTampered - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_Full.m_Height == h);
 		}
 
 		// 4th attempt. provide valid data
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; h <= blockChain.size(); h++)
+		for (Height h = np.m_Cursor.m_Full.m_Height + 1; h <= blockChain.size(); h++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
@@ -1418,7 +1418,7 @@ namespace beam
 
 		np.TryGoUp();
 		verify_test(!np.IsFastSync());
-		verify_test(np.m_Cursor.m_ID.m_Height == blockChain.size());
+		verify_test(np.m_Cursor.m_Full.m_Height == blockChain.size());
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
@@ -2659,7 +2659,7 @@ namespace beam
 
 		NodeProcessor& proc = node.get_Processor();
 		proc.ManualRollbackTo(3);
-		verify_test(proc.m_Cursor.m_ID.m_Height >= 3); // it won't necessarily reach 3
+		verify_test(proc.m_Cursor.m_Full.m_Height >= 3); // it won't necessarily reach 3
 		verify_test(proc.m_sidForbidden.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
 	}
 
@@ -2714,7 +2714,7 @@ namespace beam
 	{
 		TxPool::Fluff txPool;
 
-		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
+		while (node.get_Processor().m_Cursor.m_Full.m_Height < h)
 		{
 			NodeProcessor::BlockContext bc(txPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
 			verify_test(node.get_Processor().GenerateNewBlock(bc));

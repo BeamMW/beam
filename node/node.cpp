@@ -91,7 +91,7 @@ void Node::UpdateSyncStatus()
 
 void Node::UpdateSyncStatusRaw()
 {
-	Height hTotal = m_Processor.m_Cursor.m_ID.m_Height;
+	Height hTotal = m_Processor.m_Cursor.m_Full.m_Height;
 	Height hDoneBlocks = hTotal;
 	Height hDoneHdrs = hTotal;
 
@@ -103,7 +103,7 @@ void Node::UpdateSyncStatusRaw()
 		const Task& t = *it;
 		if (!t.m_bNeeded)
 			continue;
-		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_sidTrg.m_Height)
+		if (m_Processor.m_Cursor.m_Full.m_Height >= t.m_sidTrg.m_Height)
 			continue;
 
 		bool bBlock = t.m_Key.second;
@@ -122,7 +122,7 @@ void Node::UpdateSyncStatusRaw()
 
 			std::setmax(hTotal, t.m_sidTrg.m_Height);
 			if (t.m_sidTrg.m_Height > t.m_Key.first.m_Height)
-				std::setmax(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
+				std::setmax(hDoneHdrs, m_Processor.m_Cursor.m_Full.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
 		}
 	}
 
@@ -140,7 +140,7 @@ void Node::UpdateSyncStatusRaw()
 	std::setmax(hTotal, hDoneHdrs);
 
 	// consider the timestamp of the tip, upon successful sync it should not be too far in the past
-	if (m_Processor.m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+	if (m_Processor.m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
 		hTotal++;
 	else
 	{
@@ -158,7 +158,7 @@ void Node::UpdateSyncStatusRaw()
 
 			const uint32_t& trg_s = Rules::get().DA.Target_s;
 			if (trg_s)
-				std::setmax(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
+				std::setmax(hTotal, m_Processor.m_Cursor.m_Full.m_Height + ts1_s / trg_s);
 		}
 
 	}
@@ -556,9 +556,9 @@ void Node::Processor::DeleteOutdated()
     Height h = get_ParentObj().m_Cfg.m_RollbackLimit.m_Max;
     std::setmin(h, Rules::get().MaxRollback);
 
-    if (m_Cursor.m_ID.m_Height > h)
+    if (m_Cursor.m_Full.m_Height > h)
     {
-        h = m_Cursor.m_ID.m_Height - h;
+        h = m_Cursor.m_Full.m_Height - h;
 
         while (!txp.m_setOutdated.empty())
         {
@@ -576,7 +576,7 @@ void Node::Processor::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
 		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
-			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
+			txp.SetOutdated(x, m_Cursor.m_Full.m_Height);
 	}
 }
 
@@ -658,7 +658,7 @@ void Node::MaybeGenerateRecovery()
 		return;
 
 	Height h0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::LastRecoveryHeight);
-	const Height& h1 = m_Processor.m_Cursor.m_ID.m_Height; // alias
+	const Height& h1 = m_Processor.m_Cursor.m_Full.m_Height; // alias
 	if (h1 < h0 + m_Cfg.m_Recovery.m_Granularity)
 		return;
 
@@ -706,7 +706,7 @@ void Node::Processor::OnRolledBack()
     while (!txp.m_setOutdated.empty())
     {
         TxPool::Fluff::Element& x = txp.m_setOutdated.rbegin()->get_ParentObj();
-        if (x.m_Outdated.m_Height <= m_Cursor.m_ID.m_Height)
+        if (x.m_Outdated.m_Height <= m_Cursor.m_Full.m_Height)
             break;
 
         txp.SetOutdated(x, MaxHeight); // may be deferred by the next loop
@@ -1237,7 +1237,7 @@ void Node::Peer::SetupLogin(proto::Login& msg)
 
 Height Node::Peer::get_MinPeerFork()
 {
-	return m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
+	return m_This.m_Processor.m_Cursor.m_Full.m_Height + 1;
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
@@ -2167,7 +2167,7 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool 
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_Full.m_Height + 1;
 
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
@@ -2498,7 +2498,7 @@ void Node::AddDummyInputs(Transaction& tx)
     {
 		CoinID cid(Zero);
         Height h = m_Processor.get_DB().GetLowestDummy(cid);
-        if (h > m_Processor.m_Cursor.m_ID.m_Height)
+        if (h > m_Processor.m_Cursor.m_Full.m_Height)
             break;
 
 		bModified = true;
@@ -2507,7 +2507,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		if (AddDummyInputEx(tx, cid))
 		{
 			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-			m_Processor.get_DB().SetDummyHeight(cid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			m_Processor.get_DB().SetDummyHeight(cid, m_Processor.m_Cursor.m_Full.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
 		}
 		else
 		{
@@ -2603,7 +2603,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
+        pOutput->Create(m_Processor.m_Cursor.m_Full.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
         db.InsertDummy(h, cid);
@@ -2625,7 +2625,7 @@ Height Node::SampleDummySpentHeight()
 {
 	const Config::Dandelion& d = m_Cfg.m_Dandelion; // alias
 
-	Height h = m_Processor.m_Cursor.m_ID.m_Height + d.m_DummyLifetimeLo + 1;
+	Height h = m_Processor.m_Cursor.m_Full.m_Height + d.m_DummyLifetimeLo + 1;
 
 	if (d.m_DummyLifetimeHi > d.m_DummyLifetimeLo)
 		h += RandomUInt32(d.m_DummyLifetimeHi - d.m_DummyLifetimeLo);
@@ -2642,7 +2642,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 	Transaction::Context ctx(pars);
     if (pElem)
     {
-		bool bValid = pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
+		bool bValid = pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_Full.m_Height + 1);
 
         ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
@@ -2959,7 +2959,7 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
         if (id.m_Height < Rules::HeightGenesis)
             ThrowUnexpected();
 
-        if ((id.m_Height < p.m_Cursor.m_ID.m_Height) && !p.IsFastSync())
+        if ((id.m_Height < p.m_Cursor.m_Full.m_Height) && !p.IsFastSync())
         {
             Merkle::Hash hv;
             p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
@@ -2994,7 +2994,7 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height h)
 {
-    assert(h < m_Cursor.m_Sid.m_Height);
+    assert(h < m_Cursor.m_Full.m_Height);
 
     Merkle::ProofBuilderHard bld;
 
@@ -3026,7 +3026,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 			uint64_t rowid = p.FindActiveAtStrict(h);
 			p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
 
-			if (h < p.m_Cursor.m_ID.m_Height)
+			if (h < p.m_Cursor.m_Full.m_Height)
 				p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
 		}
 	}
@@ -3305,7 +3305,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
+	if ((m_This.m_Processor.m_Cursor.m_Full.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
 	{
 		// test the hash
 		ECC::Hash::Value hv;
@@ -3584,11 +3584,11 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         // and do the overall validation
         TxBase::Context::Params pars;
 		TxBase::Context ctx(pars);
-		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
+		ctx.m_Height = m_This.m_Processor.m_Cursor.m_Full.m_Height + 1;
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 
-        if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+        if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_Full.m_Height + 1)))
             ThrowUnexpected();
 
         ctx.m_Sigma = -ctx.m_Sigma;
@@ -3604,7 +3604,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
         {
             CoinID cid;
-            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
+            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_Full.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
                 ThrowUnexpected();
         }
 
@@ -3643,7 +3643,7 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
 
     proto::StateSummary msgOut;
     msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
-    msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_ID.m_Height; // by convention after each block there's an artificial gap in Txo counting
+    msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_Full.m_Height; // by convention after each block there's an artificial gap in Txo counting
     msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
     msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
     msgOut.m_AssetsMax = static_cast<Asset::ID>(p.m_Mmr.m_Assets.m_Count);
@@ -4428,7 +4428,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
         Height h = Rules::get().pForks[2].m_Height;
 
-        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        if (m_Processor.m_Cursor.m_Full.m_Height >= h)
         {
             MySerializer ser(ctx.m_Writer.m_Stream);
             ser & MaxHeight; // terminator
@@ -4468,7 +4468,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             } wlk(ser);
 
-            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_Full.m_Height));
 
             ser & MaxHeight; // terminator
 

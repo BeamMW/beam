@@ -165,7 +165,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitializeUtxos(szPath);
 
-	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_Full.m_Height + 1);
 
 	m_Horizon.Normalize();
 
@@ -225,7 +225,7 @@ void NodeProcessor::TestDefinitionStrict()
 
 bool NodeProcessor::TestDefinition()
 {
-	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || (m_Cursor.m_ID.m_Height < m_SyncData.m_TxoLo))
+	if ((m_Cursor.m_Full.m_Height < Rules::HeightGenesis) || (m_Cursor.m_Full.m_Height < m_SyncData.m_TxoLo))
 		return true; // irrelevant
 
 	Merkle::Hash hv;
@@ -278,7 +278,7 @@ bool NodeProcessor::InitUtxoMapping(const char* sz, bool bForceReset)
 	Blob blob(us);
 
 	// don't use the saved image if no height: we may contain treasury UTXOs, but no way to verify the contents
-	if (bForceReset || (m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
+	if (bForceReset || (m_Cursor.m_Full.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
 	{
 		us = 1U;
 		us.Negate();
@@ -610,7 +610,7 @@ void NodeProcessor::EnumCongestions()
 	{
 		bool bFirstTime =
 			!IsFastSync() &&
-			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_Sync.Hi, m_Horizon.m_Sync.Hi / 2);
+			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_Full.m_Height, m_Horizon.m_Sync.Hi, m_Horizon.m_Sync.Hi / 2);
 
 		if (bFirstTime)
 		{
@@ -644,7 +644,7 @@ void NodeProcessor::EnumCongestions()
 				// So we'll limit the height range by the maximum "sane" value (which is also very unlikely to contain any block).
 				//
 				// In a worst-case scenario (extremely unlikely) the sync will fail, then all the blocks will be deleted, and sync restarts
-				Height hMaxSane = m_Cursor.m_ID.m_Height + Rules::get().MaxRollback;
+				Height hMaxSane = m_Cursor.m_Full.m_Height + Rules::get().MaxRollback;
 				if (hTargetPrev < hMaxSane)
 				{
 					if (m_SyncData.m_Target.m_Height <= hMaxSane)
@@ -733,7 +733,7 @@ Height NodeProcessor::get_LowestReturnHeight()
 {
 	Height hRet = std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
 
-	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
+	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_Full.m_Height;
 	Height hMaxRollback = get_MaxAutoRollback();
 
 	if (h0 > hMaxRollback)
@@ -1061,7 +1061,7 @@ struct NodeProcessor::MultiblockContext
 	MultiblockContext(NodeProcessor& np)
 		:m_This(np)
 	{
-		m_InProgress.m_Max = m_This.m_Cursor.m_ID.m_Height;
+		m_InProgress.m_Max = m_This.m_Cursor.m_Full.m_Height;
 		m_InProgress.m_Min = m_InProgress.m_Max + 1;
 		assert(m_InProgress.IsEmpty());
 
@@ -1256,7 +1256,7 @@ struct NodeProcessor::MultiblockContext
 	void OnBlock(const PeerID& pid, const MyTask::SharedBlock::Ptr& pShared)
 	{
 		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
-		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_ID.m_Height + 1);
+		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_Full.m_Height + 1);
 
 		if (m_bFail)
 			return;
@@ -1326,7 +1326,7 @@ struct NodeProcessor::MultiblockContext
 	{
 		// rapid rollback
 		m_This.RollbackTo(m_This.m_SyncData.m_h0);
-		m_InProgress.m_Max = m_This.m_Cursor.m_ID.m_Height;
+		m_InProgress.m_Max = m_This.m_Cursor.m_Full.m_Height;
 		m_InProgress.m_Min = m_InProgress.m_Max + 1;
 
 		if (bDeleteBlocks)
@@ -1479,7 +1479,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	size_t iPos = vPath.size();
 	while (iPos)
 	{
-		sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
+		sidFwd.m_Height = m_Cursor.m_Full.m_Height + 1;
 		sidFwd.m_Row = vPath[--iPos];
 
 		Block::SystemState::Full s;
@@ -1489,14 +1489,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		{
 			bContextFail = mbc.m_bFail = true;
 
-			if (m_Cursor.m_ID.m_Height + 1 == m_SyncData.m_TxoLo)
+			if (m_Cursor.m_Full.m_Height + 1 == m_SyncData.m_TxoLo)
 				mbc.OnFastSyncFailedOnLo();
 
 			break;
 		}
 
 		// Update mmr and cursor
-		if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+		if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
 			m_Mmr.m_States.Append(m_Cursor.m_ID.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
@@ -1552,9 +1552,9 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		}
 	}
 
-	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
+	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Full.m_Height + 1) << "-" <<  sidFwd.m_Height;
 
-	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height);
+	DeleteBlocksInRange(sidFwd, m_Cursor.m_Full.m_Height);
 }
 
 void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
@@ -1598,7 +1598,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 			// try to preserve blocks, recover them from the TXOs.
 
 			ByteBuffer bbP, bbE;
-			while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
+			while (m_Cursor.m_Full.m_Height > m_SyncData.m_h0)
 			{
 				NodeDB::StateID sid = m_Cursor.m_Sid;
 
@@ -1630,8 +1630,8 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 		LOG_INFO() << "Fast-sync succeeded";
 
 		// raise fossil height, hTxoLo, hTxoHi
-		RaiseFossil(m_Cursor.m_ID.m_Height);
-		RaiseTxoHi(m_Cursor.m_ID.m_Height);
+		RaiseFossil(m_Cursor.m_Full.m_Height);
+		RaiseTxoHi(m_Cursor.m_Full.m_Height);
 		RaiseTxoLo(m_SyncData.m_TxoLo);
 
 		ZeroObject(m_SyncData);
@@ -1665,9 +1665,9 @@ Height NodeProcessor::PruneOld()
 
 	Height hRet = 0;
 
-	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
+	if (m_Cursor.m_Full.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
-		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Branching;
+		Height h = m_Cursor.m_Full.m_Height - m_Horizon.m_Branching;
 
 		while (true)
 		{
@@ -1693,14 +1693,14 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_Fossil, (Height) Rules::get().MaxRollback))
-		hRet += RaiseFossil(m_Cursor.m_Sid.m_Height - Rules::get().MaxRollback);
+	if (IsBigger2(m_Cursor.m_Full.m_Height, m_Extra.m_Fossil, (Height) Rules::get().MaxRollback))
+		hRet += RaiseFossil(m_Cursor.m_Full.m_Height - Rules::get().MaxRollback);
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoLo, m_Horizon.m_Local.Lo))
-		hRet += RaiseTxoLo(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Lo);
+	if (IsBigger2(m_Cursor.m_Full.m_Height, m_Extra.m_TxoLo, m_Horizon.m_Local.Lo))
+		hRet += RaiseTxoLo(m_Cursor.m_Full.m_Height - m_Horizon.m_Local.Lo);
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoHi, m_Horizon.m_Local.Hi))
-		hRet += RaiseTxoHi(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Hi);
+	if (IsBigger2(m_Cursor.m_Full.m_Height, m_Extra.m_TxoHi, m_Horizon.m_Local.Hi))
+		hRet += RaiseTxoHi(m_Cursor.m_Full.m_Height - m_Horizon.m_Local.Hi);
 
 	return hRet;
 }
@@ -1863,7 +1863,7 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 	:m_Proc(p)
 {
-	m_Height = m_Proc.m_Cursor.m_ID.m_Height;
+	m_Height = m_Proc.m_Cursor.m_Full.m_Height;
 }
 
 bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
@@ -2688,12 +2688,12 @@ void NodeProcessor::ScanOwned()
 	get_ViewerKeys(rctx.m_Keys);
 
 	TxoID nShieldedOutputs = 0;
-	ScanOwned(rctx, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_ID.m_Height), nShieldedOutputs);
+	ScanOwned(rctx, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_Full.m_Height), nShieldedOutputs);
 }
 
 void NodeProcessor::ScanOwned(RecognizeCtx& rctx, const HeightRange& hr, TxoID& nShieldedOutputs)
 {
-	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+	assert(hr.m_Max <= m_Cursor.m_Full.m_Height);
 	assert(nShieldedOutputs <= m_Extra.m_ShieldedOutputs);
 
 	struct TxoRecover
@@ -3764,8 +3764,8 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
 
 void NodeProcessor::RollbackTo(Height h)
 {
-	assert(h <= m_Cursor.m_Sid.m_Height);
-	if (h == m_Cursor.m_Sid.m_Height)
+	assert(h <= m_Cursor.m_Full.m_Height);
+	if (h == m_Cursor.m_Full.m_Height)
 		return;
 
 	assert(h >= m_Extra.m_Fossil);
@@ -3819,7 +3819,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 	MyWalker wlk2;
 	wlk2.m_pThis = this;
-	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
+	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Full.m_Height));
 
 	m_DB.DeleteEventsFrom(s_AccountDef, h + 1);
 
@@ -3880,7 +3880,7 @@ bool NodeProcessor::ForbidActiveAt(Height h)
 {
 	if (h >= Rules::HeightGenesis)
 	{
-		if (m_Cursor.m_Sid.m_Height < h)
+		if (m_Cursor.m_Full.m_Height < h)
 		{
 			LOG_WARNING() << "Can't forbid a state above cursor";
 			return false;
@@ -3930,7 +3930,7 @@ void NodeProcessor::ManualRollbackTo(Height h)
 		h = m_Extra.m_TxoHi;
 	}
 
-	if (m_Cursor.m_ID.m_Height > h)
+	if (m_Cursor.m_Full.m_Height > h)
 	{
 		ForbidActiveAt(h + 1);
 		RollbackTo(h);
@@ -4095,7 +4095,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	THW thw0, thw1;
 
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, r.DA.WindowMedian1, thw1);
+	get_MovingMedianEx(m_Cursor.m_Full.m_Height, r.DA.WindowMedian1, thw1);
 
 	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
 	{
@@ -4221,13 +4221,13 @@ Timestamp NodeProcessor::get_MovingMedian()
 		return 0;
 
 	THW thw;
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, Rules::get().DA.WindowMedian0, thw);
+	get_MovingMedianEx(m_Cursor.m_Full.m_Height, Rules::get().DA.WindowMedian0, thw);
 	return thw.first;
 }
 
 uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
 {
-	Height h = m_Cursor.m_ID.m_Height + 1;
+	Height h = m_Cursor.m_Full.m_Height + 1;
 
 	if (!hr.IsInRange(h))
 		return proto::TxStatus::InvalidContext;
@@ -4320,7 +4320,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	d.m_Commitment = comm;
 	d.m_Maturity = 0;
 	kMin = d;
-	d.m_Maturity = m_Cursor.m_ID.m_Height;
+	d.m_Maturity = m_Cursor.m_Full.m_Height;
 	kMax = d;
 
 	UtxoTree::Cursor cu;
@@ -4333,7 +4333,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
 {
-	Height h = m_Cursor.m_Sid.m_Height + 1;
+	Height h = m_Cursor.m_Full.m_Height + 1;
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
@@ -4479,7 +4479,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
 	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
-	bc.m_Hdr.m_Height = m_Cursor.m_ID.m_Height + 1;
+	bc.m_Hdr.m_Height = m_Cursor.m_Full.m_Height + 1;
 
 	Evaluator ev(*this);
 	ev.m_Height++;
@@ -4520,7 +4520,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
-	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
+	BlockInterpretCtx bic(m_Cursor.m_Full.m_Height + 1, true);
 	bic.m_UpdateMmrs = false;
 	bic.SetAssetHi(*this);
 
@@ -4749,14 +4749,14 @@ TxoID NodeProcessor::FindHeightByTxoID(Height& h, TxoID id0)
 
 bool NodeProcessor::EnumTxos(ITxoWalker& wlk)
 {
-	return EnumTxos(wlk, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_ID.m_Height));
+	return EnumTxos(wlk, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_Full.m_Height));
 }
 
 bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 {
 	if (hr.IsEmpty())
 		return true;
-	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+	assert(hr.m_Max <= m_Cursor.m_Full.m_Height);
 
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
@@ -4790,7 +4790,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 {
 	if (hr.IsEmpty())
 		return true;
-	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+	assert(hr.m_Max <= m_Cursor.m_Full.m_Height);
 
 	ByteBuffer bbE;
 	TxVectors::Eternal txve;
@@ -4894,7 +4894,7 @@ void NodeProcessor::InitializeUtxos()
 	};
 
 	Walker wlk(*this);
-	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_Full.m_Height + 1);
 	EnumTxos(wlk);
 }
 
@@ -4934,7 +4934,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
 
 	// in case we're during sync - make sure we don't return non-full blocks as-is
-	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
+	if (IsFastSync() && (sid.m_Height > m_Cursor.m_Full.m_Height))
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1) && !pBody;
@@ -5185,14 +5185,14 @@ void NodeProcessor::Migrate21()
 
 	} wlk(*this);
 
-	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
+	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_Full.m_Height));
 
 	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 {
-	assert(h <= m_Cursor.m_ID.m_Height);
+	assert(h <= m_Cursor.m_Full.m_Height);
 
 	NodeDB::WalkerAssetEvt wlk;
 	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h);

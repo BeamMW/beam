@@ -518,7 +518,7 @@ struct TestDirector
 	virtual void OnSyncProgress() override {}
 	virtual void OnStateChanged() override
 	{
-		Height h = m_Node.get_Processor().m_Cursor.m_ID.m_Height;
+		Height h = m_Node.get_Processor().m_Cursor.m_Full.m_Height;
 		std::cout << "H=" << h << std::endl;
 
 		OnTip(h);
