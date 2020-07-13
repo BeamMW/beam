@@ -400,16 +400,16 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 		{
 			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
 			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
+			m_Cursor.m_Full.get_Hash(m_Cursor.m_Hash);
 		}
 
-		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
-		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
+		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_Hash);
 	}
 	else
 	{
 		m_Mmr.m_States.m_Count = 0;
 		ZeroObject(m_Cursor);
-		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
+		m_Cursor.m_Hash = Rules::get().Prehistoric;
 	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
@@ -1485,7 +1485,10 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		Block::SystemState::Full s;
 		m_DB.get_State(sidFwd.m_Row, s); // need it for logging anyway
 
-		if (!HandleBlock(sidFwd, s, mbc))
+		Block::SystemState::ID id;
+		s.get_ID(id);
+
+		if (!HandleBlock(sidFwd, s, id, mbc))
 		{
 			bContextFail = mbc.m_bFail = true;
 
@@ -1497,11 +1500,12 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 		// Update mmr and cursor
 		if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
-			m_Mmr.m_States.Append(m_Cursor.m_ID.m_Hash);
+			m_Mmr.m_States.Append(m_Cursor.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
 		m_Cursor.m_Sid = sidFwd;
 		m_Cursor.m_Full = s;
+		m_Cursor.m_Hash = id.m_Hash;
 		InitCursor(true);
 
 		if (IsFastSync())
@@ -1869,7 +1873,7 @@ NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
 {
 	const Cursor& c = m_Proc.m_Cursor;
-	hv = (m_Height == c.m_ID.m_Height) ? c.m_History : c.m_HistoryNext;
+	hv = (m_Height == c.m_Full.m_Height) ? c.m_History : c.m_HistoryNext;
 	return true;
 }
 
@@ -2146,6 +2150,16 @@ std::ostream& operator << (std::ostream& s, const LogSid& sid)
 	return s;
 }
 
+std::ostream& operator << (std::ostream& s, const NodeProcessor::Cursor& cu)
+{
+	Block::SystemState::ID id;
+	id.m_Height = cu.m_Full.m_Height;
+	id.m_Hash = cu.m_Hash;
+
+	s << id;
+	return s;
+}
+
 struct NodeProcessor::KrnFlyMmr
 	:public Merkle::FlyMmr
 {
@@ -2163,7 +2177,7 @@ struct NodeProcessor::KrnFlyMmr
 	}
 };
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, const Block::SystemState::ID& id, MultiblockContext& mbc)
 {
 	if (s.m_Height == m_sidForbidden.m_Height)
 	{
@@ -2171,7 +2185,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		s.get_Hash(hv);
 		if (hv == m_sidForbidden.m_Hash)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Forbidden";
+			LOG_WARNING() << id << " Forbidden";
 			return false;
 		}
 	}
@@ -2192,7 +2206,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		der & Cast::Down<TxVectors::Eternal>(block);
 	}
 	catch (const std::exception&) {
-		LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
+		LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
 
@@ -2212,19 +2226,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (wrk != s.m_ChainWork)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+			LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
 			return false;
 		}
 
 		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+			LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 			return false;
 		}
 
 		if (s.m_TimeStamp <= get_MovingMedian())
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
+			LOG_WARNING() << id << " Timestamp inconsistent wrt median";
 			return false;
 		}
 
@@ -2234,7 +2248,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (s.m_Kernels != hv)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
+			LOG_WARNING() << id << " Kernel commitment mismatch";
 			return false;
 		}
 	}
@@ -2257,7 +2271,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	{
 		assert(bFirstTime);
 		assert(m_Extra.m_Txos == id0);
-		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
+		LOG_WARNING() << id << " invalid in its context";
 	}
 	else
 	{
@@ -2276,7 +2290,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 			if (s.m_Definition != hvDef)
 			{
-				LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
+				LOG_WARNING() << id << " Header Definition mismatch";
 				bOk = false;
 			}
 		}
@@ -2288,7 +2302,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			{
 				if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
 				{
-					LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
+					LOG_WARNING() << id << " Invalid input in sparse block";
 					bOk = false;
 					break;
 				}
@@ -4478,7 +4492,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
-	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
+	bc.m_Hdr.m_Prev = m_Cursor.m_Hash;
 	bc.m_Hdr.m_Height = m_Cursor.m_Full.m_Height + 1;
 
 	Evaluator ev(*this);

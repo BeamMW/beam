@@ -66,7 +66,7 @@ class NodeProcessor
 	template <typename T>
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
+	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, const Block::SystemState::ID&, MultiblockContext&);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
@@ -205,8 +205,8 @@ public:
 	{
 		// frequently used data
 		NodeDB::StateID m_Sid;
-		Block::SystemState::ID m_ID;
 		Block::SystemState::Full m_Full;
+		Merkle::Hash m_Hash;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
@@ -588,6 +588,7 @@ struct LogSid
 };
 
 std::ostream& operator << (std::ostream& s, const LogSid&);
+std::ostream& operator << (std::ostream& s, const NodeProcessor::Cursor&);
 
 
 } // namespace beam

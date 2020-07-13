@@ -588,7 +588,7 @@ void Node::Processor::OnNewState()
 	if (!IsTreasuryHandled())
         return;
 
-    LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
+    LOG_INFO() << "My Tip: " << m_Cursor << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
 	if (IsFastSync())
 		return;
@@ -667,7 +667,9 @@ void Node::MaybeGenerateRecovery()
 	std::ostringstream os;
 	os
 		<< m_Cfg.m_Recovery.m_sPathOutput
-		<< m_Processor.m_Cursor.m_ID;
+		<< m_Processor.m_Cursor.m_Full.m_Height
+        << "-"
+        << m_Processor.m_Cursor.m_Hash;
 
 	std::string sPath = os.str();
 
@@ -700,7 +702,7 @@ void Node::MaybeGenerateRecovery()
 
 void Node::Processor::OnRolledBack()
 {
-    LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+    LOG_INFO() << "Rolled back to: " << m_Cursor;
 
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
     while (!txp.m_setOutdated.empty())
@@ -928,7 +930,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     InitIDs();
 
     LOG_INFO() << "Node ID=" << m_MyPublicID;
-    LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+    LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor;
 	LOG_INFO() << "Tx replication is OFF";
 
 	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {
