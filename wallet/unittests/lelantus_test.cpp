@@ -121,7 +121,7 @@ void TestUnlinkTx()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, Amount(38000000))
@@ -129,7 +129,7 @@ void TestUnlinkTx()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == 20)
+            else if (cursor.m_Full.m_Height == 20)
             {
                 // fill the pool
                 for (int i = 0; i < PushTxCount; ++i)
@@ -141,7 +141,7 @@ void TestUnlinkTx()
                     sender.m_Wallet.StartTransaction(parameters);
                 }
             }
-            else if (cursor.m_Sid.m_Height == 70)
+            else if (cursor.m_Full.m_Height == 70)
             {
                 mainReactor->stop();
             }
@@ -199,7 +199,7 @@ void TestCancelUnlinkTx()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, Amount(38000000))
@@ -207,11 +207,11 @@ void TestCancelUnlinkTx()
 
                 txID = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 4)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 4)
             {
                 sender.m_Wallet.CancelTransaction(txID);
             }
-            else if (cursor.m_Sid.m_Height == 70)
+            else if (cursor.m_Full.m_Height == 70)
             {
                 mainReactor->stop();
             }
@@ -263,7 +263,7 @@ void TestSimpleTx()
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
             auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 38000000)
@@ -271,7 +271,7 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        else if (cursor.m_Sid.m_Height == 30)
+        else if (cursor.m_Full.m_Height == 30)
         {
             auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 78000000)
@@ -279,7 +279,7 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        else if (cursor.m_Sid.m_Height == 40)
+        else if (cursor.m_Full.m_Height == 40)
         {
             auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 66000000)
@@ -289,7 +289,7 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        else if (cursor.m_Sid.m_Height == 50)
+        else if (cursor.m_Full.m_Height == 50)
         {
             auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 26000000)
@@ -298,7 +298,7 @@ void TestSimpleTx()
 
             sender.m_Wallet.StartTransaction(parameters);
         }
-        else if (cursor.m_Sid.m_Height == 70)
+        else if (cursor.m_Full.m_Height == 70)
         {
             mainReactor->stop();
         }
@@ -358,7 +358,7 @@ void TestDirectAnonymousPayment()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
@@ -367,7 +367,7 @@ void TestDirectAnonymousPayment()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == 20)
+            else if (cursor.m_Full.m_Height == 20)
             {
                 // second attempt
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
@@ -377,7 +377,7 @@ void TestDirectAnonymousPayment()
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == 26)
+            else if (cursor.m_Full.m_Height == 26)
             {
                 // third attempt should fail - all vouchers have been used
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
@@ -387,7 +387,7 @@ void TestDirectAnonymousPayment()
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == 40)
+            else if (cursor.m_Full.m_Height == 40)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(receiver.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 6000000)
@@ -404,7 +404,7 @@ void TestDirectAnonymousPayment()
                 receiver.m_Wallet.StartTransaction(parameters);
             }
 
-            else if (cursor.m_Sid.m_Height == 50)
+            else if (cursor.m_Full.m_Height == 50)
             {
                 mainReactor->stop();
             }
@@ -473,7 +473,7 @@ void TestManyTransactons()
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
             for (size_t i = 0; i < 500; i++)
             {
@@ -490,7 +490,7 @@ void TestManyTransactons()
                 sender.m_Wallet.StartTransaction(parameters);
             }
         }
-        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 4)
+        else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 4)
         {
             for (size_t i = 0; i < 500; i++)
             {
@@ -507,7 +507,7 @@ void TestManyTransactons()
                 sender.m_Wallet.StartTransaction(parameters);
             }
         }
-        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 5)
+        else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 5)
         {
             for (size_t i = 0; i < 500; i++)
             {
@@ -524,7 +524,7 @@ void TestManyTransactons()
                 sender.m_Wallet.StartTransaction(parameters);
             }
         }
-        else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 6)
+        else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 6)
         {
             for (size_t i = 0; i < 500; i++)
             {
@@ -541,7 +541,7 @@ void TestManyTransactons()
                 sender.m_Wallet.StartTransaction(parameters);
             }
         }
-        else if (cursor.m_Sid.m_Height == 150)
+        else if (cursor.m_Full.m_Height == 150)
         {
             //WALLET_CHECK(completedCount == 0);
             mainReactor->stop();
@@ -599,7 +599,7 @@ void TestShortWindow()
         {
             auto cursor = node.get_Processor().m_Cursor;
             // create 300(kCount) coins(split TX)
-            if (cursor.m_Sid.m_Height == 3)
+            if (cursor.m_Full.m_Height == 3)
             {
                 auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
                     .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
@@ -607,7 +607,7 @@ void TestShortWindow()
                 sender.m_Wallet.StartTransaction(splitTxParameters);
             }
             // insert 300(kCount) coins to shielded pool
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 for (size_t i = 0; i < kCount; i++)
                 {
@@ -619,7 +619,7 @@ void TestShortWindow()
                 }
             }
             // extract one of first shielded UTXO
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 15)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 15)
             {
                 {
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
@@ -646,7 +646,7 @@ void TestShortWindow()
                     sender.m_Wallet.StartTransaction(parameters);
                 }
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 20)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
@@ -655,7 +655,7 @@ void TestShortWindow()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 30)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 30)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
@@ -665,7 +665,7 @@ void TestShortWindow()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 40)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 40)
             {
                 mainReactor->stop();
             }
@@ -731,7 +731,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
         {
             auto cursor = node.get_Processor().m_Cursor;
             // create txCount coins(split TX)
-            if (cursor.m_Sid.m_Height == 3)
+            if (cursor.m_Full.m_Height == 3)
             {
                 auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
                     .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
@@ -739,7 +739,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 sender.m_Wallet.StartTransaction(splitTxParameters);
             }
             // insert pushTxCount coins to shielded pool
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 for (size_t i = 0; i < pushTxCount; i++)
                 {
@@ -751,7 +751,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 }
             }
             // extract pullTxCount shielded UTXO's
-            else if (cursor.m_Sid.m_Height == pullTxsStartHeight)
+            else if (cursor.m_Full.m_Height == pullTxsStartHeight)
             {
                 for (size_t index = 0; index < pullTxCount; index++)
                 {
@@ -763,7 +763,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                     sender.m_Wallet.StartTransaction(parameters);
                 }
             }
-            else if (cursor.m_Sid.m_Height == pullTxsStartHeight + minBlocksToCompletePullTxs)
+            else if (cursor.m_Full.m_Height == pullTxsStartHeight + minBlocksToCompletePullTxs)
             {
                 mainReactor->stop();
             }
@@ -832,7 +832,7 @@ void TestPushTxRollbackByLowFee()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 wallet::TxParameters parameters(GenerateTxID());
 
@@ -847,7 +847,7 @@ void TestPushTxRollbackByLowFee()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
                 mainReactor->stop();
             }
@@ -898,7 +898,7 @@ void TestPullTxRollbackByLowFee()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 3800000)
@@ -906,7 +906,7 @@ void TestPullTxRollbackByLowFee()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 3600000)
@@ -915,7 +915,7 @@ void TestPullTxRollbackByLowFee()
 
                 pullTxID = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 20)
             {
                 mainReactor->stop();
             }
@@ -972,7 +972,7 @@ void TestExpiredTxs()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == startHeight)
+            if (cursor.m_Full.m_Height == startHeight)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 38000000)
@@ -981,7 +981,7 @@ void TestExpiredTxs()
 
                 expiredPushTxId = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == startHeight + 3)
+            else if (cursor.m_Full.m_Height == startHeight + 3)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 78000000)
@@ -989,7 +989,7 @@ void TestExpiredTxs()
 
                 completedPushTxId = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == startHeight + 6)
+            else if (cursor.m_Full.m_Height == startHeight + 6)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 66000000)
@@ -999,7 +999,7 @@ void TestExpiredTxs()
 
                 expiredPullTxId = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == startHeight + 9)
+            else if (cursor.m_Full.m_Height == startHeight + 9)
             {
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 66000000)
@@ -1008,7 +1008,7 @@ void TestExpiredTxs()
 
                 completedPullTxId = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == startHeight + 12)
+            else if (cursor.m_Full.m_Height == startHeight + 12)
             {
                 mainReactor->stop();
             }
@@ -1064,7 +1064,7 @@ void TestReextract()
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 38000000)
@@ -1072,7 +1072,7 @@ void TestReextract()
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
                 {
                     auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
@@ -1091,7 +1091,7 @@ void TestReextract()
                     sender.m_Wallet.StartTransaction(parameters);
                 }
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
+            else if (cursor.m_Full.m_Height == Rules::get().pForks[2].m_Height + 20)
             {
                 mainReactor->stop();
             }

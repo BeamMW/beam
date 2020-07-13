@@ -179,7 +179,7 @@ int main()
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        newBlockFunc(cursor.m_Sid.m_Height);
+        newBlockFunc(cursor.m_Full.m_Height);
     });
     auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
     InitNodeToTest(

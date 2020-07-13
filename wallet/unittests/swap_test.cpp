@@ -224,9 +224,9 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == fork1Height + 5)
+        if (cursor.m_Full.m_Height == fork1Height + 5)
         {
-            auto currentHeight = cursor.m_Sid.m_Height;
+            auto currentHeight = cursor.m_Full.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
             auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
@@ -342,9 +342,9 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     NodeObserver observer([&]()
         {
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == fork1Height + 5)
+            if (cursor.m_Full.m_Height == fork1Height + 5)
             {
-                auto currentHeight = cursor.m_Sid.m_Height;
+                auto currentHeight = cursor.m_Full.m_Height;
                 bool isBeamSide = !isBeamOwnerStart;
                 auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                     currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
@@ -985,7 +985,7 @@ void TestSwapBeamAndBTCRefundTransaction()
     {
         Height minHeight = 15;
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == minHeight)
+        if (cursor.m_Full.m_Height == minHeight)
         {
             InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
             InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -1126,7 +1126,7 @@ void TestSwapBTCRedeemAfterExpired()
     {
         Height minHeight = 15;
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == minHeight)
+        if (cursor.m_Full.m_Height == minHeight)
         {
             InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
             InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
@@ -1514,7 +1514,7 @@ void TestExpireByLifeTime()
         {
             Height minHeight = 5;
             auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == minHeight)
+            if (cursor.m_Full.m_Height == minHeight)
             {
                 InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
                 InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
