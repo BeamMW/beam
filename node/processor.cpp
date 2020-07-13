@@ -159,8 +159,11 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	m_DB.get_Cursor(m_Cursor.m_Sid);
-	m_Mmr.m_States.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
+	NodeDB::StateID sid;
+	m_DB.get_Cursor(sid);
+	m_Mmr.m_States.m_Count = sid.m_Height - Rules::HeightGenesis;
+
+	m_Cursor.m_RowID = sid.m_Row;
 	InitCursor(false);
 
 	InitializeUtxos(szPath);
@@ -389,16 +392,16 @@ void NodeProcessor::CommitDB()
 
 void NodeProcessor::InitCursor(bool bMovingUp)
 {
-	if (m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)
+	if (m_Cursor.m_RowID)
 	{
 		if (bMovingUp)
 		{
-			assert(m_Cursor.m_Full.m_Height == m_Cursor.m_Sid.m_Height); // must already initialized
+			// must already initialized
 			m_Cursor.m_History = m_Cursor.m_HistoryNext;
 		}
 		else
 		{
-			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
+			m_DB.get_State(m_Cursor.m_RowID, m_Cursor.m_Full);
 			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
 			m_Cursor.m_Full.get_Hash(m_Cursor.m_Hash);
 		}
@@ -1413,7 +1416,7 @@ void NodeProcessor::TryGoUp()
 		return;
 
 	bool bDirty = false;
-	uint64_t rowid = m_Cursor.m_Sid.m_Row;
+	uint64_t rowid = m_Cursor.m_RowID;
 
 	while (true)
 	{
@@ -1425,7 +1428,7 @@ void NodeProcessor::TryGoUp()
 
 			if (!ws.MoveNext())
 			{
-				assert(!m_Cursor.m_Sid.m_Row);
+				assert(!m_Cursor.m_RowID);
 				break; // nowhere to go
 			}
 
@@ -1446,7 +1449,7 @@ void NodeProcessor::TryGoUp()
 	if (bDirty)
 	{
 		PruneOld();
-		if (m_Cursor.m_Sid.m_Row != rowid)
+		if (m_Cursor.m_RowID != rowid)
 			OnNewState();
 	}
 }
@@ -1474,7 +1477,9 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	MultiblockContext mbc(*this);
 	bool bContextFail = false, bKeepBlocks = false;
 
-	NodeDB::StateID sidFwd = m_Cursor.m_Sid;
+	NodeDB::StateID sidFwd;
+	sidFwd.m_Row = m_Cursor.m_RowID;
+	sidFwd.m_Height = m_Cursor.m_Full.m_Height;
 
 	size_t iPos = vPath.size();
 	while (iPos)
@@ -1503,7 +1508,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			m_Mmr.m_States.Append(m_Cursor.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
-		m_Cursor.m_Sid = sidFwd;
+		m_Cursor.m_RowID = sidFwd.m_Row;
 		m_Cursor.m_Full = s;
 		m_Cursor.m_Hash = id.m_Hash;
 		InitCursor(true);
@@ -1604,7 +1609,9 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 			ByteBuffer bbP, bbE;
 			while (m_Cursor.m_Full.m_Height > m_SyncData.m_h0)
 			{
-				NodeDB::StateID sid = m_Cursor.m_Sid;
+				NodeDB::StateID sid;
+				sid.m_Row = m_Cursor.m_RowID;
+				sid.m_Height = m_Cursor.m_Full.m_Height;
 
 				bbP.clear();
 				if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height, true))
@@ -3787,7 +3794,10 @@ void NodeProcessor::RollbackTo(Height h)
 	TxoID id0 = get_TxosBefore(h + 1);
 
 	// undo inputs
-	for (NodeDB::StateID sid = m_Cursor.m_Sid; sid.m_Height > h; )
+	NodeDB::StateID sid;
+	sid.m_Row = m_Cursor.m_RowID;
+	sid.m_Height = m_Cursor.m_Full.m_Height;
+	while (sid.m_Height > h)
 	{
 		std::vector<NodeDB::StateInput> v;
 		m_DB.get_StateInputs(sid.m_Row, v);
@@ -3855,18 +3865,21 @@ void NodeProcessor::RollbackTo(Height h)
 	ByteBuffer bbE, bbR;
 	TxVectors::Eternal txve;
 
-	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
+	sid.m_Row = m_Cursor.m_RowID;
+	sid.m_Height = m_Cursor.m_Full.m_Height;
+
+	for (; sid.m_Height > h; m_DB.MoveBack(sid))
 	{
 		txve.m_vKernels.clear();
 		bbE.clear();
 		bbR.clear();
-		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE, &bbR);
+		m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, &bbR);
 
 		Deserializer der;
 		der.reset(bbE);
 		der & Cast::Down<TxVectors::Eternal>(txve);
 
-		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
+		BlockInterpretCtx bic(sid.m_Height, false);
 		bic.m_StoreShieldedOutput = true;
 		bic.m_pRollback = &bbR;
 		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
@@ -3879,11 +3892,13 @@ void NodeProcessor::RollbackTo(Height h)
 
 	m_RecentStates.RollbackTo(h);
 
-	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.H2I(m_Cursor.m_Sid.m_Height));
+	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.H2I(h));
 
 	m_Extra.m_Txos = id0;
 
+	m_Cursor.m_RowID = sid.m_Row;
 	InitCursor(false);
+
 	if (!TestDefinition())
 		OnCorrupted();
 
@@ -4104,7 +4119,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 {
 	const Rules& r = Rules::get(); // alias
 
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Cursor.m_RowID)
 		return r.DA.Difficulty0; // 1st block
 
 	THW thw0, thw1;
@@ -4231,7 +4246,7 @@ void NodeProcessor::get_MovingMedianEx(Height hLast, uint32_t nWindow, THW& res)
 
 Timestamp NodeProcessor::get_MovingMedian()
 {
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Cursor.m_RowID)
 		return 0;
 
 	THW thw;

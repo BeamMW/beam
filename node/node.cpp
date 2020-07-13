@@ -2987,8 +2987,7 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
     proto::ProofState msgOut;
 
     Processor& p = m_This.m_Processor;
-    const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
-    if ((msg.m_Height < sid.m_Height) && !p.IsFastSync())
+    if ((msg.m_Height < p.m_Cursor.m_Full.m_Height) && !p.IsFastSync())
         p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
 
     Send(msgOut);

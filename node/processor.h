@@ -204,7 +204,7 @@ public:
 	struct Cursor
 	{
 		// frequently used data
-		NodeDB::StateID m_Sid;
+		uint64_t m_RowID;
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_Hash;
 		Merkle::Hash m_History;
