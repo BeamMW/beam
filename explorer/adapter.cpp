@@ -143,7 +143,7 @@ private:
 
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
-        _cache.currentHeight = cursor.m_Sid.m_Height;
+        _cache.currentHeight = cursor.m_Full.m_Height;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -161,7 +161,7 @@ private:
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
 
-            _cache.currentHeight = cursor.m_Sid.m_Height;
+            _cache.currentHeight = cursor.m_Full.m_Height;
 
             char buf[80];
 
@@ -519,7 +519,7 @@ private:
 
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
-            _cache.currentHeight = cursor.m_Sid.m_Height;
+            _cache.currentHeight = cursor.m_Full.m_Height;
         }
 
         io::SharedBuffer body;
