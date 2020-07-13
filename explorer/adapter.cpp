@@ -173,7 +173,7 @@ private:
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
-                    { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
+                    { "hash", hash_to_hex(buf, cursor.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
                     { "peers_count", _node.get_AcessiblePeerCount() }
                 }
