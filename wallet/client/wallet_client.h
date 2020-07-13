@@ -88,6 +88,7 @@ namespace beam::wallet
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;
+        ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;

@@ -496,6 +496,18 @@ namespace beam::wallet
         return m_isConnectionTrusted;
     }
 
+    ByteBuffer WalletClient::generateVouchers(uint64_t ownID, size_t count) const
+    {
+        // save master kdf is readonly 
+        auto kdf = m_walletDB->get_MasterKdf();
+        if (kdf)
+        {
+            auto vouchers = GenerateVoucherList(kdf, ownID, count);
+            return toByteBuffer(vouchers);
+        }
+        return {};
+    }
+
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
