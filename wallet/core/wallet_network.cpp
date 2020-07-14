@@ -229,20 +229,14 @@ namespace beam::wallet {
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
-    void BaseMessageEndpoint::ListenTmp(WalletID& addr)
+    void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk)
     {
-        ECC::Scalar::Native nonce;
-        nonce.GenRandomNnz();
-
-        addr.m_Pk.FromSk(nonce);
-        addr.SetChannelFromPk();
-
         Addr* pAddr = CreateOwnAddr(addr);
-        pAddr->m_sk = nonce;
+        pAddr->m_sk = sk;
         pAddr->m_ExpirationTime = Timestamp(-1);
     }
 
-    void BaseMessageEndpoint::UnlistenTmp(const WalletID& wid)
+    void BaseMessageEndpoint::Unlisten(const WalletID& wid)
     {
         DeleteOwnAddress(wid);
     }
