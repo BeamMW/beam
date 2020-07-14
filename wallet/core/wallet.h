@@ -341,6 +341,33 @@ namespace beam::wallet
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
 
+        struct VoucherManager
+        {
+            struct Request
+            {
+                struct Target :public boost::intrusive::set_base_hook<>
+                {
+                    typedef boost::intrusive::multiset<Target> Set;
+                    WalletID m_Value;
+                    bool operator < (const Target& x) const { return m_Value < x.m_Value; }
+                    IMPLEMENT_GET_PARENT_OBJ(Request, m_Target)
+                } m_Target;
+
+                WalletID m_OwnAddr;
+            };
+
+            Request::Target::Set m_setTrg;
+
+            Request* CreateIfNew(const WalletID& trg);
+            void Delete(Request&);
+            void DeleteAll();
+
+            ~VoucherManager() { DeleteAll(); }
+
+            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_VoucherManager)
+        } m_VoucherManager;
+
+
         // List of registered transaction creators
         // Creators can store some objects for the transactions, 
         // so they have to be destroyed after the transactions
