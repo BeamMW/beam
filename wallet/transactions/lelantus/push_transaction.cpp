@@ -98,8 +98,13 @@ namespace beam::wallet::lelantus
             ShieldedVoucherList vouchers;
             if (!isSelfTx && !GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
             {
-                GetGateway().RequestVoucherFrom(GetMandatoryParameter<WalletID>(TxParameterID::PeerID), GetTxID());
-                return;
+                boost::optional<ShieldedTxo::Voucher> voucher;
+                GetGateway().get_UniqueVoucher(GetMandatoryParameter<WalletID>(TxParameterID::PeerID), GetTxID(), voucher);
+
+                if (!voucher)
+                    return;
+
+                SetParameter(TxParameterID::ShieldedVoucherList, ShieldedVoucherList(1, *voucher));
             }
         }
 

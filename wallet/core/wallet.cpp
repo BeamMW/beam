@@ -590,7 +590,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::RequestVoucherFrom(const WalletID& peerID, const TxID& txID)
+    void Wallet::get_UniqueVoucher(const WalletID& peerID, const TxID&, boost::optional<ShieldedTxo::Voucher>& res)
     {
         auto count = m_WalletDB->getVoucherCount(peerID);
         const size_t VoucherCountThreshold = 5;
@@ -604,13 +604,7 @@ namespace beam::wallet
             RequestVouchersFrom(peerID, address.m_walletID, 30);
         }
         if (count > 0)
-        {
-            auto it = m_ActiveTransactions.find(txID);
-            if (it != m_ActiveTransactions.end())
-            {
-                ApplyVoucher(it->second, peerID);
-            }
-        }
+            res = m_WalletDB->grabVoucher(peerID);
     }
 
     void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
@@ -702,18 +696,8 @@ namespace beam::wallet
                 && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == addr.m_walletID
                 && !tx->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList, vouchers))
             {
-                ApplyVoucher(tx, addr.m_walletID);
+                UpdateTransaction(tx);
             }
-        }
-    }
-
-    void Wallet::ApplyVoucher(BaseTransaction::Ptr tx, const WalletID& peerID)
-    {
-        auto v = m_WalletDB->grabVoucher(peerID);
-        if (v)
-        {
-            tx->SetParameter(TxParameterID::ShieldedVoucherList, ShieldedVoucherList(1, *v));
-            UpdateTransaction(tx);
         }
     }
 
