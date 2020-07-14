@@ -83,6 +83,9 @@ namespace beam::wallet
 
         bool IsValid() const; // isn't cheap
 
+        BbsChannel get_Channel() const;
+        void SetChannelFromPk();
+
         int cmp(const WalletID&) const;
         COMPARISON_VIA_CMP
     };

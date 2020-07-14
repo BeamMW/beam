@@ -2240,13 +2240,7 @@ namespace beam::wallet
     void IWalletDB::get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
     {
         get_SbbsPeerID(sk, wid.m_Pk, ownID);
-
-        // derive the channel from the address
-        BbsChannel ch;
-        wid.m_Pk.ExportWord<0>(ch);
-        ch %= proto::Bbs::s_MaxWalletChannels;
-
-        wid.m_Channel = ch;
+        wid.SetChannelFromPk();
     }
 
     void IWalletDB::get_SbbsWalletID(WalletID& wid, uint64_t ownID)
