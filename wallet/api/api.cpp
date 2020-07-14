@@ -775,6 +775,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
             }
+            catch (const jsonrpc_exception& e)
+            {
+                throw;
+            }
+            catch (const std::runtime_error& e)
+            {
+                LOG_ERROR() << "error while calling " << method << ": " << e.what();
+                throw jsonrpc_exception{ApiError::InternalErrorJsonRpc, e.what(), id};
+            }
         }
         catch (const jsonrpc_exception& e)
         {
