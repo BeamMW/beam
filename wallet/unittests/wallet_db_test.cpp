@@ -1448,6 +1448,39 @@ void TestExchangeRates()
     }
 }
 
+void TestVouchers()
+{
+    cout << "\nWallet database vouchers test\n";
+    auto db = createSqliteWalletDB();
+    WalletAddress address;
+    db->createAddress(address);
+    const WalletID& receiverID = address.m_walletID;
+    const uint32_t VOUCHERS_COUNT = 20;
+    auto voucher = db->grabVoucher(receiverID);
+    WALLET_CHECK(!voucher);
+    WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+    auto vouchers = GenerateVoucherList(db->get_MasterKdf(), address.m_OwnID, VOUCHERS_COUNT);
+    WALLET_CHECK(vouchers.size() == VOUCHERS_COUNT);
+    for (const auto& v : vouchers)
+    {
+        db->saveVoucher(v, receiverID);
+    }
+
+    WALLET_CHECK(db->getVoucherCount(receiverID) == VOUCHERS_COUNT);
+
+    for (uint32_t i = 0; i < VOUCHERS_COUNT; ++i)
+    {
+        auto v = db->grabVoucher(receiverID);
+        WALLET_CHECK(v);
+        WALLET_CHECK(v->IsValid(address.m_Identity));
+    }
+    {
+        auto v = db->grabVoucher(receiverID);
+        WALLET_CHECK(!v);
+    }
+    WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+}
+
 }
 
 int main() 
@@ -1480,6 +1513,7 @@ int main()
     TestWalletMessages();
     TestNotifications();
     TestExchangeRates();
+    TestVouchers();
 
     return WALLET_CHECK_RESULT;
 }

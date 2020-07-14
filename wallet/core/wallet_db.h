@@ -488,6 +488,11 @@ namespace beam::wallet
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
 
+        // Vouchers management
+        virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
+        virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) = 0;
+        virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
         TxStatusInterpreter getStatusInterpreter(const TxParameters& txParams) const;
 
@@ -627,6 +632,10 @@ namespace beam::wallet
         
         std::vector<ExchangeRate> getExchangeRates() const override;
         void saveExchangeRate(const ExchangeRate&) override;
+
+        boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
+        void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) override;
+        size_t getVoucherCount(const WalletID& peerID) const override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);

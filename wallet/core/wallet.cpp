@@ -94,6 +94,57 @@ namespace beam::wallet
         }
     }
 
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    {
+        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (!peerID)
+        {
+            throw InvalidTransactionParametersException("No PeerID");
+        }
+
+        auto receiverAddr = walletDB->getAddress(*peerID);
+        if (receiverAddr)
+        {
+            if (receiverAddr->isOwn() && receiverAddr->isExpired())
+            {
+                LOG_ERROR() << "Can't send to the expired address.";
+                throw ReceiverAddressExpiredException();
+            }
+
+            // update address comment if changed
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                auto messageStr = std::string(message->begin(), message->end());
+                if (messageStr != receiverAddr->m_label)
+                {
+                    receiverAddr->m_label = messageStr;
+                    walletDB->saveAddress(*receiverAddr);
+                }
+            }
+
+            TxParameters temp{ parameters };
+            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
+            return temp;
+        }
+        else
+        {
+            WalletAddress address;
+            address.m_walletID = *peerID;
+            address.m_createTime = getTimestamp();
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                address.m_label = std::string(message->begin(), message->end());
+            }
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            {
+                address.m_Identity = *identity;
+            }
+
+            walletDB->saveAddress(address);
+        }
+        return parameters;
+    }
+
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
     Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
@@ -539,6 +590,29 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::RequestVoucherFrom(const WalletID& peerID, const TxID& txID)
+    {
+        auto count = m_WalletDB->getVoucherCount(peerID);
+        const size_t VoucherCountThreshold = 5;
+
+        if (count < VoucherCountThreshold)
+        {
+            WalletAddress address;
+            m_WalletDB->createAddress(address);
+            m_WalletDB->saveAddress(address);
+
+            RequestVouchersFrom(peerID, address.m_walletID, 30);
+        }
+        if (count > 0)
+        {
+            auto it = m_ActiveTransactions.find(txID);
+            if (it != m_ActiveTransactions.end())
+            {
+                ApplyVoucher(it->second, peerID);
+            }
+        }
+    }
+
     void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
     {
         memset0(&msg.m_TxID.front(), msg.m_TxID.size());
@@ -602,6 +676,8 @@ namespace beam::wallet
                 if (!IsValidVoucherList(res, address->m_Identity))
                     return;
 
+                // remove/unsubscribe temporaty SBBS address
+                m_WalletDB->deleteAddress(myID);
                 OnVouchersFrom(*address, std::move(res));
 
             }
@@ -614,6 +690,31 @@ namespace beam::wallet
 
     void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
     {
+        for (const auto& v : res)
+        {
+            m_WalletDB->saveVoucher(v, addr.m_walletID);
+        }
+        for (auto p : m_ActiveTransactions)
+        {
+            ShieldedVoucherList vouchers;
+            const auto& tx = p.second;
+            if (tx->GetType() == TxType::PushTransaction
+                && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == addr.m_walletID
+                && !tx->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList, vouchers))
+            {
+                ApplyVoucher(tx, addr.m_walletID);
+            }
+        }
+    }
+
+    void Wallet::ApplyVoucher(BaseTransaction::Ptr tx, const WalletID& peerID)
+    {
+        auto v = m_WalletDB->grabVoucher(peerID);
+        if (v)
+        {
+            tx->SetParameter(TxParameterID::ShieldedVoucherList, ShieldedVoucherList(1, *v));
+            UpdateTransaction(tx);
+        }
     }
 
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)

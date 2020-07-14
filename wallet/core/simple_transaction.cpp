@@ -56,53 +56,7 @@ namespace beam::wallet
     {
         TestSenderAddress(parameters, m_WalletDB);
 
-        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
-        if (!peerID)
-        {
-            throw InvalidTransactionParametersException("No PeerID");
-        }
-
-        auto receiverAddr = m_WalletDB->getAddress(*peerID);
-        if (receiverAddr)
-        {
-            if (receiverAddr->isOwn() && receiverAddr->isExpired())
-            {
-                LOG_ERROR() << "Can't send to the expired address.";
-                throw ReceiverAddressExpiredException();
-            }
-
-            // update address comment if changed
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            {
-                auto messageStr = std::string(message->begin(), message->end());
-                if (messageStr != receiverAddr->m_label)
-                {
-                    receiverAddr->m_label = messageStr;
-                    m_WalletDB->saveAddress(*receiverAddr);
-                }
-            }          
-
-            TxParameters temp{ parameters };
-            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
-            return temp;
-        }
-        else
-        {
-            WalletAddress address;
-            address.m_walletID = *peerID;
-            address.m_createTime = getTimestamp();
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            {
-                address.m_label = std::string(message->begin(), message->end());
-            }
-            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
-            {
-                address.m_Identity = *identity;
-            }
-
-            m_WalletDB->saveAddress(address);
-        }
-        return parameters;
+        return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
     SimpleTransaction::SimpleTransaction(const TxContext& context, bool withAssets)

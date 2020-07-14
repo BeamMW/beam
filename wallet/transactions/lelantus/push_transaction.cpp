@@ -16,6 +16,7 @@
 #include "core/shielded.h"
 #include "push_tx_builder.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/core/wallet.h"
 
 namespace beam::wallet::lelantus
 {
@@ -32,8 +33,9 @@ namespace beam::wallet::lelantus
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        // TODO roman.strilets implement this
-        return parameters;
+        wallet::TestSenderAddress(parameters, m_walletDB);
+
+        return wallet::ProcessReceiverAddress(parameters, m_walletDB);
     }
 
     PushTransaction::PushTransaction(const TxContext& context
@@ -56,6 +58,7 @@ namespace beam::wallet::lelantus
 
     void PushTransaction::UpdateImpl()
     {
+        const bool isSelfTx = IsSelfTx();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
@@ -89,6 +92,15 @@ namespace beam::wallet::lelantus
         if (m_TxBuilder->CreateOutputs())
         {
             return;
+        }
+        
+        {
+            ShieldedVoucherList vouchers;
+            if (!isSelfTx && !GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+            {
+                GetGateway().RequestVoucherFrom(GetMandatoryParameter<WalletID>(TxParameterID::PeerID), GetTxID());
+                return;
+            }
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
@@ -211,5 +223,12 @@ namespace beam::wallet::lelantus
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         GetWalletDB()->rollbackTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
+    }
+
+    bool PushTransaction::IsSelfTx() const
+    {
+        WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
+        auto address = GetWalletDB()->getAddress(peerID);
+        return address.is_initialized() && address->isOwn();
     }
 } // namespace beam::wallet::lelantus

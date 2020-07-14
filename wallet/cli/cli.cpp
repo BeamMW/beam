@@ -2760,7 +2760,7 @@ namespace
             wallet::AsyncContextHolder holder(wallet);
 
 #ifdef BEAM_LELANTUS_SUPPORT
-            lelantus::RegisterCreators(wallet, withAssets);
+            lelantus::RegisterCreators(wallet, walletDB, withAssets);
 #endif
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             RegisterSwapTxCreators(wallet, walletDB);

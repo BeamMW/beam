@@ -73,6 +73,7 @@ namespace beam::wallet
 
 
     void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
@@ -176,6 +177,7 @@ namespace beam::wallet
         void get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
+        void RequestVoucherFrom(const WalletID& peerID, const TxID& txID) override;
 
         // IWalletMessageConsumer
         void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
@@ -227,6 +229,7 @@ namespace beam::wallet
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
+        void ApplyVoucher(BaseTransaction::Ptr tx, const WalletID& peerID);
 
     private:
 

@@ -17,5 +17,5 @@
 
 namespace beam::wallet::lelantus
 {
-    void RegisterCreators(Wallet& wallet, bool withAssets);
+    void RegisterCreators(Wallet& wallet, IWalletDB::Ptr walletDB, bool withAssets);
 }
