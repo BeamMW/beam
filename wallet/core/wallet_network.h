@@ -71,6 +71,8 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
+        void ListenTmp(WalletID&) override;
+        void UnlistenTmp(const WalletID&) override;
         void OnAddressTimer();
         
     private:
