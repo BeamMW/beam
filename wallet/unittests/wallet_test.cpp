@@ -2341,7 +2341,7 @@ void TestVouchers()
             pTwn->m_Map[m_MyAddr.m_walletID].m_pSink = this;
         }
 
-        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&& res) override
+        virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myAddr, std::vector<ShieldedTxo::Voucher>&& res) override
         {
             m_Vouchers = std::move(res);
             io::Reactor::get_Current().stop();

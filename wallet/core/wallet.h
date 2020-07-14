@@ -155,7 +155,7 @@ namespace beam::wallet
 
         // voucher management
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
-        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+        virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);

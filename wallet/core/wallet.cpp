@@ -678,7 +678,7 @@ namespace beam::wallet
 
                 // remove/unsubscribe temporaty SBBS address
                 m_WalletDB->deleteAddress(myID);
-                OnVouchersFrom(*address, std::move(res));
+                OnVouchersFrom(*address, myID, std::move(res));
 
             }
             break;
@@ -688,7 +688,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
+    void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)
     {
         for (const auto& v : res)
         {
