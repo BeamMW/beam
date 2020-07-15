@@ -27,6 +27,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/dash/dash.h"
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2163,6 +2164,11 @@ namespace
                 return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
                     (vm, walletDB, kSwapCoinQTUM);
             }
+            case beam::wallet::AtomicSwapCoin::Dash:
+            {
+                return HandleSwapCoin<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinDASH);
+            }
             default:
             {
                 throw std::runtime_error("Unsupported coin for swap");
@@ -2197,6 +2203,11 @@ namespace
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
                 ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Dash:
+            {
+                ShowSwapSettings<dash::SettingsProvider>(walletDB, "dash");
                 break;
             }
             default:
@@ -2366,6 +2377,22 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = qtumSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Dash)
+        {
+            auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+            dashSettingsProvider->Initialize();
+            auto dashSettings = dashSettingsProvider->GetSettings();
+            if (!dashSettings.IsInitialized())
+            {
+                throw std::runtime_error("Dash settings should be initialized.");
+            }
+
+            if (!DashSide::CheckAmount(*swapAmount, dashSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = dashSettings.GetFeeRate();
         }
         else
         {

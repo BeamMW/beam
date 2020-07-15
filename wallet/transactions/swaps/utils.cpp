@@ -21,6 +21,7 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/dash/dash.h"
 
 namespace beam::wallet
 {
@@ -162,6 +163,26 @@ void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
         auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
     }
+
+    {
+        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+        dashSettingsProvider->Initialize();
+
+        // dashSettingsProvider stored in dashBridgeCreator
+        auto dashBridgeCreator = [settingsProvider = dashSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<dash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<dash::DashCore014>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto dashSecondSideFactory = wallet::MakeSecondSideFactory<DashSide, dash::Electrum, dash::ISettingsProvider>(dashBridgeCreator, *dashSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dash, dashSecondSideFactory);
+    }
 }
 
 Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
@@ -207,6 +228,19 @@ Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 
         return qtumSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Dash:
+    {
+        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+        dashSettingsProvider->Initialize();
+
+        auto dashSettings = dashSettingsProvider->GetSettings();
+        if (!dashSettings.IsInitialized())
+        {
+            throw std::runtime_error("Dash settings should be initialized.");
+        }
+
+        return dashSettings.GetFeeRate();
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -225,6 +259,8 @@ bool IsSwapAmountValid(
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Dash:
+        return DashSide::CheckAmount(swapAmount, swapFeeRate);
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }

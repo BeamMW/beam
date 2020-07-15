@@ -118,6 +118,7 @@ namespace beam
     extern const char kSwapCoinBTC[];
     extern const char kSwapCoinLTC[];
     extern const char kSwapCoinQTUM[];
+    extern const char kSwapCoinDASH[];
     // Treasury messages
     extern const char kTreasuryConsumeRemaining[];
     extern const char kTreasuryDataHash[];
