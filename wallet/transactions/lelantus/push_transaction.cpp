@@ -35,7 +35,7 @@ namespace beam::wallet::lelantus
     {
         wallet::TestSenderAddress(parameters, m_walletDB);
 
-        return wallet::ProcessReceiverAddress(parameters, m_walletDB);
+        return wallet::ProcessReceiverAddress(parameters, m_walletDB, false);
     }
 
     PushTransaction::PushTransaction(const TxContext& context
@@ -232,8 +232,13 @@ namespace beam::wallet::lelantus
 
     bool PushTransaction::IsSelfTx() const
     {
-        WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
-        auto address = GetWalletDB()->getAddress(peerID);
-        return address.is_initialized() && address->isOwn();
+        WalletID peerID;
+        if (GetParameter(TxParameterID::PeerID, peerID))
+        {
+            auto address = GetWalletDB()->getAddress(peerID);
+            return address.is_initialized() && address->isOwn();
+        }
+        ShieldedVoucherList vouchers;
+        return !GetParameter(TxParameterID::ShieldedVoucherList, vouchers); // if we have vouchers then this is not self tx
     }
 } // namespace beam::wallet::lelantus

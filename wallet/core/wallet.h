@@ -73,7 +73,7 @@ namespace beam::wallet
 
 
     void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
