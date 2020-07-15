@@ -3760,14 +3760,14 @@ namespace beam::wallet
 
     size_t WalletDB::getVoucherCount(const WalletID& peerID) const
     {
-        size_t res = 0;
+        int res = 0;
         sqlite::Statement stm(this, "SELECT COUNT(Voucher) FROM " VOUCHERS_NAME " WHERE WalletID=?1;");
         stm.bind(1, peerID);
         if (stm.step())
         {
             stm.get(0, res);
         }
-        return res;
+        return size_t(res);
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)
