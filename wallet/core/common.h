@@ -83,6 +83,9 @@ namespace beam::wallet
 
         bool IsValid() const; // isn't cheap
 
+        BbsChannel get_Channel() const;
+        void SetChannelFromPk();
+
         int cmp(const WalletID&) const;
         COMPARISON_VIA_CMP
     };
@@ -675,7 +678,7 @@ namespace beam::wallet
         virtual void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
         virtual void get_proof_shielded_output(const TxID&, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
-        virtual void RequestVoucherFrom(const WalletID& peerID, const TxID& txID) {};
+        virtual void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) {}
     };
 
     enum class ErrorType : uint8_t

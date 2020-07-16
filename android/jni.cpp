@@ -217,7 +217,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(false);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB, false);
         auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>(false);
         auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(false);
         
@@ -291,7 +291,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(false);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB, false);
         auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>(false);
         auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(false);
         

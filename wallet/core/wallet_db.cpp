@@ -2240,13 +2240,7 @@ namespace beam::wallet
     void IWalletDB::get_SbbsWalletID(ECC::Scalar::Native& sk, WalletID& wid, uint64_t ownID)
     {
         get_SbbsPeerID(sk, wid.m_Pk, ownID);
-
-        // derive the channel from the address
-        BbsChannel ch;
-        wid.m_Pk.ExportWord<0>(ch);
-        ch %= proto::Bbs::s_MaxWalletChannels;
-
-        wid.m_Channel = ch;
+        wid.SetChannelFromPk();
     }
 
     void IWalletDB::get_SbbsWalletID(WalletID& wid, uint64_t ownID)
@@ -3766,14 +3760,14 @@ namespace beam::wallet
 
     size_t WalletDB::getVoucherCount(const WalletID& peerID) const
     {
-        size_t res = 0;
+        int res = 0;
         sqlite::Statement stm(this, "SELECT COUNT(Voucher) FROM " VOUCHERS_NAME " WHERE WalletID=?1;");
         stm.bind(1, peerID);
         if (stm.step())
         {
             stm.get(0, res);
         }
-        return res;
+        return size_t(res);
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)

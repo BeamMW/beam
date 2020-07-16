@@ -73,7 +73,7 @@ namespace beam::wallet
 
 
     void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
@@ -103,6 +103,8 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk) {}
+        virtual void Unlisten(const WalletID&) {}
     };
 
     // Extends FlyClient protocol for communication with own or remote node
@@ -153,7 +155,7 @@ namespace beam::wallet
 
         // voucher management
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
-        virtual void OnVouchersFrom(const WalletAddress&, std::vector<ShieldedTxo::Voucher>&&);
+        virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -177,7 +179,7 @@ namespace beam::wallet
         void get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
-        void RequestVoucherFrom(const WalletID& peerID, const TxID& txID) override;
+        void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) override;
 
         // IWalletMessageConsumer
         void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
@@ -229,7 +231,6 @@ namespace beam::wallet
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
-        void ApplyVoucher(BaseTransaction::Ptr tx, const WalletID& peerID);
 
     private:
 
@@ -339,6 +340,33 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB; 
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+
+        struct VoucherManager
+        {
+            struct Request
+            {
+                struct Target :public boost::intrusive::set_base_hook<>
+                {
+                    typedef boost::intrusive::multiset<Target> Set;
+                    WalletID m_Value;
+                    bool operator < (const Target& x) const { return m_Value < x.m_Value; }
+                    IMPLEMENT_GET_PARENT_OBJ(Request, m_Target)
+                } m_Target;
+
+                WalletID m_OwnAddr;
+            };
+
+            Request::Target::Set m_setTrg;
+
+            Request* CreateIfNew(const WalletID& trg);
+            void Delete(Request&);
+            void DeleteAll();
+
+            ~VoucherManager() { DeleteAll(); }
+
+            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_VoucherManager)
+        } m_VoucherManager;
+
 
         // List of registered transaction creators
         // Creators can store some objects for the transactions, 

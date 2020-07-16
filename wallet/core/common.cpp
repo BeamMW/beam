@@ -245,6 +245,23 @@ namespace beam::wallet
         return m_Pk.ExportNnz(p) && channel < proto::Bbs::s_MaxWalletChannels;
     }
 
+    BbsChannel WalletID::get_Channel() const
+    {
+        BbsChannel ret;
+        m_Channel.Export(ret);
+        return ret;
+    }
+
+    void WalletID::SetChannelFromPk()
+    {
+        // derive the channel from the address
+        BbsChannel ch;
+        m_Pk.ExportWord<0>(ch);
+        ch %= proto::Bbs::s_MaxWalletChannels;
+
+        m_Channel = ch;
+    }
+
     boost::optional<PeerID> FromHex(const std::string& s)
     {
         boost::optional<PeerID> res;

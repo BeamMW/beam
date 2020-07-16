@@ -33,8 +33,8 @@ namespace beam::wallet
         struct Addr
         {
             struct Wid :public boost::intrusive::set_base_hook<> {
-                uint64_t m_OwnID;
-                bool operator < (const Wid& x) const { return m_OwnID < x.m_OwnID; }
+                WalletID m_Value;
+                bool operator < (const Wid& x) const { return m_Value < x.m_Value; }
                 IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
             } m_Wid;
 
@@ -50,14 +50,13 @@ namespace beam::wallet
             }
 
             ECC::Scalar::Native m_sk; // private addr
-            PeerID m_Pk; // self public addr
             Timestamp m_ExpirationTime;
         };
     public:
         BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&);
         virtual ~BaseMessageEndpoint();
         void AddOwnAddress(const WalletAddress& address);
-        void DeleteOwnAddress(uint64_t ownID);
+        void DeleteOwnAddress(const WalletID&);
     protected:
         void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
         void Subscribe();
@@ -68,9 +67,12 @@ namespace beam::wallet
     private:
         void DeleteAddr(const Addr&);
         bool IsSingleChannelUser(const Addr::Channel&);
+        Addr* CreateOwnAddr(const WalletID&);
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
+        void Listen(const WalletID&, const ECC::Scalar::Native&) override;
+        void Unlisten(const WalletID&) override;
         void OnAddressTimer();
         
     private:
