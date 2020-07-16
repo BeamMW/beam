@@ -169,6 +169,7 @@ namespace
         walletDB->addStatusInterpreterCreator(TxType::AssetUnreg, assetsStatusIterpreterCreator);
         walletDB->addStatusInterpreterCreator(TxType::AssetInfo, assetsStatusIterpreterCreator);
 
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         walletDB->addStatusInterpreterCreator(TxType::AtomicSwap, [] (const TxParameters& txParams) {
             struct CliSwapTxStatusInterpreter : public TxStatusInterpreter
             {
@@ -187,6 +188,8 @@ namespace
             };
             return CliSwapTxStatusInterpreter(txParams);
         });
+        #endif
+
         LOG_INFO() << kWalletOpenedMessage;
         return walletDB;
     }
@@ -1361,6 +1364,7 @@ namespace
             }
         }
 
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         if (vm.count(cli::SWAP_TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
@@ -1410,6 +1414,7 @@ namespace
                 }
             }
         }
+        #endif
     }
 
     int ShowWalletInfo(const po::variables_map& vm)
@@ -1818,6 +1823,7 @@ namespace
         return true;
     }
 
+    #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     template<typename Settings>
     bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
@@ -2434,6 +2440,7 @@ namespace
 
         return wallet.StartTransaction(*swapTxParameters);
     }
+    #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
@@ -2912,6 +2919,7 @@ namespace
             });
     }
 
+    #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     int InitSwap(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
@@ -2943,6 +2951,7 @@ namespace
                 return 0;
             });
     }
+    #endif
 
     int IssueAsset(const po::variables_map& vm)
     {
@@ -3134,14 +3143,16 @@ int main_impl(int argc, char* argv[])
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
         {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
+        #endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
-#ifdef BEAM_LASER_SUPPORT   
+        #ifdef BEAM_LASER_SUPPORT
         {cli::LASER,                HandleLaser,                    "laser beam command"},
-#endif  // BEAM_LASER_SUPPORT
+        #endif  // BEAM_LASER_SUPPORT
         {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
         {cli::ASSET_CONSUME,        ConsumeAsset,                   "consume (burn) an existing confidential asset"},
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},

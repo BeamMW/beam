@@ -197,7 +197,7 @@ class WalletApiServer
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 {
 public:
-    WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
+    WalletApiServer(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, io::Reactor& reactor,
         io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist, bool withAssets)
         : _reactor(reactor)
         , _bindAddress(listenTo)
@@ -377,34 +377,43 @@ private:
 
         struct WalletData : WalletApiHandler::IWalletData
         {
-            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider& atomicSwapProvider)
                 : m_walletDB(walletDB)
                 , m_wallet(wallet)
                 , m_atomicSwapProvider(atomicSwapProvider)
-            {}
+            {
+            }
+            #else
+            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet)
+                : m_walletDB(walletDB)
+                , m_wallet(wallet)
+            {
+            }
+            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
             virtual ~WalletData() {}
 
-            IWalletDB::Ptr getWalletDB() override
+            IWalletDB::Ptr getWalletDBPtr() override
             {
                 return m_walletDB;
             }
 
-            Wallet& getWallet() override
+            Wallet::Ptr getWalletPtr() override
             {
                 return m_wallet;
             }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             const IAtomicSwapProvider& getAtomicSwapProvider() const override
             {
                 return m_atomicSwapProvider;
             }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+            IAtomicSwapProvider& m_atomicSwapProvider;
+            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
             IWalletDB::Ptr m_walletDB;
-            Wallet& m_wallet;
-            IAtomicSwapProvider& m_atomicSwapProvider;
+            Wallet::Ptr m_wallet;
         };
 
     template<typename T>
@@ -412,7 +421,11 @@ private:
     {
         if (!_walletData)
         {
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
+            #else
+            _walletData = std::make_unique<WalletData>(_walletDB, _wallet);
+            #endif
         }
 
         return std::static_pointer_cast<WalletApiHandler>(
@@ -647,8 +660,9 @@ private:
     std::unordered_map<uint64_t, std::shared_ptr<WalletApiHandler>> _connections;
 
     IWalletDB::Ptr _walletDB;
-    Wallet& _wallet;
-        std::unique_ptr<WalletData> _walletData;
+    Wallet::Ptr _wallet;
+
+    std::unique_ptr<WalletData> _walletData;
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;
@@ -831,9 +845,9 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-        Wallet wallet{ walletDB, withAssets};
+        auto wallet = std::make_shared<Wallet>(walletDB, withAssets);
 
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
         if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -853,9 +867,9 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
-		wallet.AddMessageEndpoint(wnet);
-        wallet.SetNodeEndpoint(nnet);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
+		wallet->AddMessageEndpoint(wnet);
+        wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(walletDB, wallet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist, withAssets);
@@ -867,11 +881,11 @@ int main(int argc, char* argv[])
 
         if (Rules::get().CA.Enabled && withAssets)
         {
-            RegisterAssetCreators(wallet);
+            RegisterAssetCreators(*wallet);
         }
 
         // All TxCreators must be registered by this point
-        wallet.ResumeAllTransactions();
+        wallet->ResumeAllTransactions();
 
         io::Reactor::get_Current().run();
 

@@ -15,6 +15,8 @@
 #include "wallet/api/api.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
+#include "utility/logger.h"
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
@@ -147,7 +149,9 @@ void GetStatusResponseJson(const TxDescription& tx,
     }
     else if (tx.m_txType == TxType::AtomicSwap)
     {
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
+        #endif
     }
     msg = json
     {
