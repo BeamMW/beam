@@ -180,6 +180,7 @@ namespace beam
     const char kCoinColumnType[] = "Type";
     const char kCoinColumnIsUnlinked[] = "Unlinked";
     const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
+    const char kCoinConfirmationsCount[] = "Count of confirmations before you can't spend coin is: %1%";
 
     // Tx history
     const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";

@@ -85,6 +85,7 @@
 #define NOTIFICATIONS_NAME "notifications"
 #define EXCHANGE_RATES_NAME "exchangeRates"
 #define VOUCHERS_NAME "vouchers"
+#define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -947,9 +948,9 @@ namespace beam::wallet
         }
     }
 
-    Height Coin::get_Maturity() const
+    Height Coin::get_Maturity(Height offset/* = 0*/) const
     {
-        return IsMaturityValid() ? m_maturity : MaxHeight;
+        return IsMaturityValid() ? m_maturity + offset : MaxHeight;
     }
 
     bool Coin::operator==(const Coin& other) const
@@ -1890,6 +1891,7 @@ namespace beam::wallet
 
             }
         }
+        walletDB->getVarRaw(COIN_CONFIRMATIONS_COUNT, &walletDB->m_coinConfirmationsOffset, sizeof(uint32_t));
         walletDB->m_Initialized = true;
         return static_pointer_cast<IWalletDB>(walletDB);
     }
@@ -2619,6 +2621,17 @@ namespace beam::wallet
         sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
         stm.step();
         notifyCoinsChanged(ChangeAction::Reset, {});
+    }
+
+    void WalletDB::setCoinConfirmationsOffset(uint32_t offset)
+    {
+        setVarRaw(COIN_CONFIRMATIONS_COUNT, &offset, sizeof(uint32_t));
+        m_coinConfirmationsOffset = offset;
+    }
+
+    uint32_t WalletDB::getCoinConfirmationsOffset() const
+    {
+        return m_coinConfirmationsOffset;
     }
 
     bool WalletDB::findCoin(Coin& coin)
@@ -4508,6 +4521,8 @@ namespace beam::wallet
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
         {
             c.m_status = GetCoinStatus(walletDB, c, hTop);
+            if (c.m_status == Coin::Status::Available && c.m_confirmHeight > hTop - walletDB.getCoinConfirmationsOffset())
+                c.m_status = Coin::Status::Maturing;
         }
 
         bool IsOngoingTx(const IWalletDB& walletDB, const boost::optional<TxID>& txID)

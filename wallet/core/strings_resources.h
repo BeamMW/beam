@@ -175,6 +175,7 @@ namespace beam
     extern const char kCoinColumnType[];
     extern const char kCoinColumnIsUnlinked[];
     extern const char kCoinsTableFormat[];
+    extern const char kCoinConfirmationsCount[];
     // Tx history
     extern const char kTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];

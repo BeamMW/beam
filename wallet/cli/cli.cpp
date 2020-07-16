@@ -715,6 +715,23 @@ namespace
         return 0;
     }
 
+    int SetConfirmationsCount(const po::variables_map& vm)
+    {
+        uint32_t confirmations_count = vm[cli::CONFIRMATIONS_COUNT].as<Nonnegative<uint32_t>>().value;
+        auto walletDB = OpenDataBase(vm);
+        walletDB->setCoinConfirmationsOffset(confirmations_count);
+        cout << boost::format(kCoinConfirmationsCount) % confirmations_count << std::endl;
+        return 0;
+    }
+
+    int GetConfirmationsCount(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+        auto confirmations_count = walletDB->getCoinConfirmationsOffset();
+        cout << boost::format(kCoinConfirmationsCount) % confirmations_count << std::endl;
+        return 0;
+    }
+
     WordList GeneratePhrase()
     {
         auto phrase = createMnemonic(getEntropy(), language::en);
@@ -920,6 +937,7 @@ namespace
             return true;
         });
 
+        auto offset = walletDB->getCoinConfirmationsOffset();
         const auto displayCoins = [&](const std::vector<Coin>& coins) {
             if (coins.empty())
             {
@@ -930,7 +948,7 @@ namespace
                         % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
                         % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
                         % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
+                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.get_Maturity(offset))) : "-"))
                         % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                         % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
                         % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
@@ -3143,16 +3161,18 @@ int main_impl(int argc, char* argv[])
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
-        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
         {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
-        #endif // BEAM_ATOMIC_SWAP_SUPPORT
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
-        #ifdef BEAM_LASER_SUPPORT
+        {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
+        {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
+#ifdef BEAM_LASER_SUPPORT   
         {cli::LASER,                HandleLaser,                    "laser beam command"},
-        #endif  // BEAM_LASER_SUPPORT
+#endif  // BEAM_LASER_SUPPORT
         {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
         {cli::ASSET_CONSUME,        ConsumeAsset,                   "consume (burn) an existing confidential asset"},
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},

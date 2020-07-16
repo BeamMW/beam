@@ -84,6 +84,9 @@ namespace beam
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* GET_TOKEN;
+        extern const char* SET_CONFIRMATIONS_COUNT;
+        extern const char* GET_CONFIRMATIONS_COUNT;
+        extern const char* CONFIRMATIONS_COUNT;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
         extern const char* TX_DETAILS;
