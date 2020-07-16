@@ -168,6 +168,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* PRINT_TXO = "print_txo";
+        const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
@@ -375,6 +376,7 @@ namespace beam
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
+            (cli::PRINT_ROLLBACK_STATS, po::value<bool>()->default_value(false), "Analyze and print recent reverted branches, check if there were double-spends.")
             (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
