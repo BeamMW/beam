@@ -513,10 +513,11 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
-        static Ptr init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
-        static Ptr open(const std::string& path, const SecString& password);
+        static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
+        static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
+        static Ptr  initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
+        static Ptr  open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
+        static Ptr  open(const std::string& path, const SecString& password);
 
         WalletDB(sqlite3* db);
         WalletDB(sqlite3* db, sqlite3* sdb);
@@ -643,6 +644,7 @@ namespace beam::wallet
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
+
         void storeOwnerKey();
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
