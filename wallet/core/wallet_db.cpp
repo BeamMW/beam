@@ -1352,7 +1352,7 @@ namespace beam::wallet
         CreateVouchersTable(db);
     }
 
-    std::shared_ptr<WalletDB>  WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
+    std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
     {
         if (isInitialized(path))
         {
@@ -1565,6 +1565,11 @@ namespace beam::wallet
                 // restore used slots
                 m_pLocalKeyKeeper->m_State.m_Used.swap(us.m_Used);
         }
+    }
+
+    IWalletDB::Ptr WalletDB::initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData)
+    {
+        return initBase(path, password, separateDBForPrivateData);
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData)
