@@ -417,6 +417,7 @@ namespace beam::wallet
         struct Response
         {
             std::vector<Coin> utxos;
+            uint32_t confirmations_count;
         };
     };
 

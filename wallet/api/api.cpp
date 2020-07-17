@@ -1558,7 +1558,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 {"asset_id", utxo.m_ID.m_AssetID},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"maturity", utxo.get_Maturity()},
+                {"maturity", utxo.get_Maturity(res.confirmations_count)},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
                 {"status", utxo.m_status},

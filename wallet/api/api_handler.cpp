@@ -825,6 +825,7 @@ namespace beam::wallet
         }
 
         GetUtxo::Response response;
+        response.confirmations_count = walletDB->getCoinConfirmationsOffset();
         walletDB->visitCoins([&response, &data](const Coin& c)->bool {
             if(!data.withAssets && c.isAsset())
             {
