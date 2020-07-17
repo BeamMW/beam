@@ -379,9 +379,9 @@ private:
         {
             #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider& atomicSwapProvider)
-                : m_walletDB(walletDB)
+                : m_atomicSwapProvider(atomicSwapProvider)
+                , m_walletDB(walletDB)
                 , m_wallet(wallet)
-                , m_atomicSwapProvider(atomicSwapProvider)
             {
             }
             #else

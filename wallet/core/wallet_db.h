@@ -90,7 +90,7 @@ namespace beam::wallet
         bool m_isUnlinked = false;
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
-        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
+        Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
         
         std::string getStatusString() const;
         static boost::optional<Coin::ID> FromString(const std::string& str);
@@ -388,6 +388,8 @@ namespace beam::wallet
         virtual void removeCoins(const std::vector<Coin::ID>&) = 0;
         virtual bool findCoin(Coin& coin) = 0;
         virtual void clearCoins() = 0;
+        virtual void setCoinConfirmationsOffset(uint32_t offset) = 0;
+        virtual uint32_t getCoinConfirmationsOffset() const = 0;
 
         // Generic visitors
         virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
@@ -546,6 +548,8 @@ namespace beam::wallet
         void removeCoins(const std::vector<Coin::ID>&) override;
         bool findCoin(Coin& coin) override;
         void clearCoins() override;
+        void setCoinConfirmationsOffset(uint32_t offset) override;
+        uint32_t getCoinConfirmationsOffset() const override;
 
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
         void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
@@ -713,6 +717,7 @@ namespace beam::wallet
 
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
+        uint32_t m_coinConfirmationsOffset = 0;
     };
 
     namespace storage

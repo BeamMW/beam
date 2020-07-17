@@ -168,6 +168,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* PRINT_TXO = "print_txo";
+        const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
@@ -184,6 +185,9 @@ namespace beam
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_TOKEN = "get_token";
+        const char* SET_CONFIRMATIONS_COUNT = "set_confirmations_count";
+        const char* GET_CONFIRMATIONS_COUNT = "get_confirmations_count";
+        const char* CONFIRMATIONS_COUNT = "confirmations_count";
         const char* NEW_ADDRESS_COMMENT = "comment";
         const char* EXPIRATION_TIME = "expiration_time";
         const char* SEND = "send";
@@ -372,6 +376,7 @@ namespace beam
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
+            (cli::PRINT_ROLLBACK_STATS, po::value<bool>()->default_value(false), "Analyze and print recent reverted branches, check if there were double-spends.")
             (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
@@ -403,6 +408,7 @@ namespace beam
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
+            (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")

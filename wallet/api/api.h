@@ -95,6 +95,8 @@ namespace beam::wallet
     macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
     macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
     macro(GetAssetInfo,       "get_asset_info",       API_READ_ACCESS)    \
+    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS)    \
+    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -510,6 +512,22 @@ namespace beam::wallet
         struct Response
         {
             WalletAsset AssetInfo;
+        };
+    };
+
+    struct SetConfirmationsCount
+    {
+        uint32_t count = 0;
+        struct Response {
+            uint32_t count;
+        };
+    };
+
+    struct GetConfirmationsCount
+    {
+        struct Response
+        {
+            uint32_t count;
         };
     };
 

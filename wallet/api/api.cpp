@@ -1140,6 +1140,29 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, data);
     }
 
+    void WalletApi::onSetConfirmationsCountMessage(const JsonRpcId& id, const json& params)
+    {
+        SetConfirmationsCount data;
+        checkJsonParam(params, "count", id);
+
+        if (params["count"] >= 0)
+        {
+            data.count = params["count"];
+        }
+        else
+        {
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id};
+        }
+
+        getHandler().onMessage(id, data);
+    }
+
+    void WalletApi::onGetConfirmationsCountMessage(const JsonRpcId& id, const json& params)
+    {
+        GetConfirmationsCount data;
+        getHandler().onMessage(id, data);
+    }
+
     void WalletApi::onTxAssetInfoMessage(const JsonRpcId& id, const json& params)
     {
         checkCAEnabled(id);
@@ -1613,6 +1636,34 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             jsres["emission"] = AmountBig::get_Lo(res.AssetInfo.m_Value);
         }
         jsres["emission_str"] = std::to_string(res.AssetInfo.m_Value);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId &id, const SetConfirmationsCount::Response &res, json &msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"count", res.count}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId &id, const GetConfirmationsCount::Response &res, json &msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"count", res.count}
+                }
+            }
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)

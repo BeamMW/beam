@@ -477,7 +477,7 @@ void TestPoints()
 	for (uint32_t i = 1; i < nBatch; i++)
 		pPts[i] = pPts[i-1] + pPts[0];
 
-	memcpy(bctx.m_pPtsBuf, pPts, sizeof(pPts));
+	memcpy(reinterpret_cast<void*>(bctx.m_pPtsBuf), pPts, sizeof(pPts));
 
 	bctx.Normalize();
 
@@ -496,7 +496,7 @@ void TestPoints()
 	}
 
 	// bringing to the same denominator
-	memcpy(bctx.m_pPtsBuf, pPts, sizeof(pPts));
+	memcpy(reinterpret_cast<void*>(bctx.m_pPtsBuf), pPts, sizeof(pPts));
 
 	secp256k1_fe zDen;
 	bctx.ToCommonDenominator(zDen);

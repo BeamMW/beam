@@ -1721,8 +1721,11 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 		{
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
 				m_DB.DelStateBlockPPR(ws.m_Sid.m_Row);
-			else
-				DeleteBlock(ws.m_Sid.m_Row);
+			//else
+			//	DeleteBlock(ws.m_Sid.m_Row);
+
+			// Don't delete non-active blocks! For non-archieve nodes the whole abandoned branch will eventually be deleted.
+			// For archieve node - keep abandoned blocks, to be able to analyze them later.
 
 			hRet++;
 		}

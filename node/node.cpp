@@ -4544,4 +4544,139 @@ void Node::PrintTxos()
     LOG_INFO() << os.str();
 }
 
+void Node::PrintRollbackStats()
+{
+    std::ostringstream os;
+    os << "Printing recent rollback stats" << std::endl;
+
+    NodeDB& db = m_Processor.get_DB(); // alias
+
+    ByteBuffer bufP, bufE;
+    std::vector<NodeDB::StateInput> vIns;
+
+    NodeDB::WalkerState wlk;
+    for (db.EnumFunctionalTips(wlk); wlk.MoveNext(); )
+    {
+        Block::SystemState::Full sTip1;
+        db.get_State(wlk.m_Sid.m_Row, sTip1);
+        assert(sTip1.m_Height == wlk.m_Sid.m_Height);
+
+        typedef std::map<ECC::Point, Height> InputMap;
+        InputMap inpMap;
+
+        typedef std::map<ECC::Hash::Value, Height> KrnMap;
+        KrnMap krnMap;
+
+        NodeDB::StateID sidSplit = wlk.m_Sid;
+
+        for (; sidSplit.m_Row; db.get_Prev(sidSplit))
+        {
+            if (NodeDB::StateFlags::Active & db.GetStateFlags(sidSplit.m_Row))
+                break;
+
+            bufP.clear();
+            bufE.clear();
+            db.GetStateBlock(sidSplit.m_Row, &bufP, &bufE, nullptr);
+
+            Block::Body block;
+
+            Deserializer der;
+            der.reset(bufP);
+            der & Cast::Down<Block::BodyBase>(block);
+            der & Cast::Down<TxVectors::Perishable>(block);
+
+            der.reset(bufE);
+            der & Cast::Down<TxVectors::Eternal>(block);
+
+            for (size_t i = 0; i < block.m_vInputs.size(); i++)
+                inpMap[block.m_vInputs[i]->m_Commitment] = sidSplit.m_Height;
+
+            for (size_t i = 0; i < block.m_vKernels.size(); i++)
+                krnMap[block.m_vKernels[i]->m_Internal.m_ID] = sidSplit.m_Height;
+        }
+
+        if (inpMap.empty())
+            continue;
+
+        os << "Rollback " << sTip1.m_Height << " -> " << sidSplit.m_Height << std::endl;
+
+        Height h = sidSplit.m_Height;
+        while (h < m_Processor.m_Cursor.m_Full.m_Height)
+        {
+            uint64_t row = db.FindActiveStateStrict(++h);
+            Block::SystemState::Full s2;
+            db.get_State(row, s2);
+
+            if (s2.m_TimeStamp > sTip1.m_TimeStamp)
+            {
+                os << "	H=" << h << ", Stopping" << std::endl;
+                break;
+            }
+
+            vIns.clear();
+            db.get_StateInputs(row, vIns);
+
+            if (vIns.empty())
+                continue;
+
+            os << "	H=" << h << ", Inputs=" << vIns.size() << std::endl;
+
+            bufE.clear();
+            db.GetStateBlock(row, nullptr, &bufE, nullptr);
+
+            TxVectors::Eternal krns;
+
+            Deserializer der;
+            der.reset(bufE);
+            der & krns;
+
+            typedef std::map<Height, uint32_t> DoubleSpendMap;
+            DoubleSpendMap dsm;
+
+            for (size_t i = 0; i < vIns.size(); i++)
+            {
+                ECC::Point comm;
+                vIns[i].Get(comm);
+
+                InputMap::iterator it = inpMap.find(comm);
+                if (inpMap.end() != it)
+                {
+                    Height hOld = it->second;
+                    inpMap.erase(it);
+
+                    DoubleSpendMap::iterator it2 = dsm.find(hOld);
+                    if (dsm.end() == it2)
+                    {
+                        // check if there're corresponding kernels
+                        uint32_t nCommonKrns = 0;
+                        for (size_t j = 0; j < krns.m_vKernels.size(); j++)
+                        {
+                            if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->m_Internal.m_ID))
+                                nCommonKrns++;
+                        }
+
+                        it2 = dsm.insert(DoubleSpendMap::value_type(hOld, nCommonKrns ? uint32_t(-1) : 0)).first;
+                    }
+
+                    if (it2->second != uint32_t(-1))
+                        it2->second++;
+                }
+            }
+
+            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; it++)
+            {
+                uint32_t n = it->second;
+                if (uint32_t(-1) == n)
+                    continue;
+
+                os << "		Double-spend. Old Height=" << it->first << ", Count=" << n << std::endl;
+            }
+
+        }
+
+    }
+
+    LOG_INFO() << os.str();
+}
+
 } // namespace beam

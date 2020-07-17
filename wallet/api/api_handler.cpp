@@ -616,6 +616,19 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const SetConfirmationsCount& data)
+    {
+        auto walletDB = _walletData.getWalletDBPtr();
+        walletDB->setCoinConfirmationsOffset(data.count);
+        doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetConfirmationsCount& data)
+    {
+        auto walletDB = _walletData.getWalletDBPtr();
+        doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
+    }
+
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)
     {
         LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "

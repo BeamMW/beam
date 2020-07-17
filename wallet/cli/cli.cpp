@@ -715,6 +715,23 @@ namespace
         return 0;
     }
 
+    int SetConfirmationsCount(const po::variables_map& vm)
+    {
+        uint32_t confirmations_count = vm[cli::CONFIRMATIONS_COUNT].as<Nonnegative<uint32_t>>().value;
+        auto walletDB = OpenDataBase(vm);
+        walletDB->setCoinConfirmationsOffset(confirmations_count);
+        cout << boost::format(kCoinConfirmationsCount) % confirmations_count << std::endl;
+        return 0;
+    }
+
+    int GetConfirmationsCount(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+        auto confirmations_count = walletDB->getCoinConfirmationsOffset();
+        cout << boost::format(kCoinConfirmationsCount) % confirmations_count << std::endl;
+        return 0;
+    }
+
     WordList GeneratePhrase()
     {
         auto phrase = createMnemonic(getEntropy(), language::en);
@@ -920,6 +937,7 @@ namespace
             return true;
         });
 
+        auto offset = walletDB->getCoinConfirmationsOffset();
         const auto displayCoins = [&](const std::vector<Coin>& coins) {
             if (coins.empty())
             {
@@ -930,7 +948,7 @@ namespace
                         % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
                         % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
                         % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
+                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.get_Maturity(offset))) : "-"))
                         % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                         % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
                         % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
@@ -2735,7 +2753,7 @@ namespace
 
 #endif  // BEAM_LASER_SUPPORT
 
-    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet&, IWalletDB::Ptr, boost::optional<TxID>&, bool)> func)
+    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&, bool)> func)
     {
         LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
@@ -2760,14 +2778,14 @@ namespace
         const auto withAssets = vm[cli::WITH_ASSETS].as<bool>();
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
 
-        Wallet wallet{walletDB, withAssets,
+        auto wallet = std::make_shared<Wallet>(walletDB, withAssets,
                       std::move(txCompletedAction),
-                      Wallet::UpdateCompletedAction()};
+                      Wallet::UpdateCompletedAction());
         {
-            wallet::AsyncContextHolder holder(wallet);
+            wallet::AsyncContextHolder holder(*wallet);
 
 #ifdef BEAM_LELANTUS_SUPPORT
-            lelantus::RegisterCreators(wallet, walletDB, withAssets);
+            lelantus::RegisterCreators(*wallet, walletDB, withAssets);
 #endif
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             RegisterSwapTxCreators(wallet, walletDB);
@@ -2775,18 +2793,18 @@ namespace
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
            if (Rules::get().CA.Enabled && withAssets)
             {
-                RegisterAssetCreators(wallet);
+                RegisterAssetCreators(*wallet);
             }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-            wallet.ResumeAllTransactions();
+            wallet->ResumeAllTransactions();
 
-            auto nnet = CreateNetwork(wallet, vm);
+            auto nnet = CreateNetwork(*wallet, vm);
             if (!nnet)
             {
                 return -1;
             }
-            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
-            wallet.SetNodeEndpoint(nnet);
+            wallet->AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB));
+            wallet->SetNodeEndpoint(nnet);
 
             int res = func(vm, wallet, walletDB, currentTxID, isFork1);
             if (res != 0)
@@ -2826,7 +2844,7 @@ namespace
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-                currentTxID = wallet.StartTransaction(params);
+                currentTxID = wallet->StartTransaction(params);
 
                 return 0;
             });
@@ -2844,7 +2862,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                wallet.Rescan();
+                wallet->Rescan();
                 return 0;
             });
     }
@@ -2904,10 +2922,10 @@ namespace
                 auto tx = walletDB->getTx(*txId);
                 if (tx)
                 {
-                    if (wallet.CanCancelTransaction(*txId))
+                    if (wallet->CanCancelTransaction(*txId))
                     {
                         currentTxID = *txId;
-                        wallet.CancelTransaction(*txId);
+                        wallet->CancelTransaction(*txId);
                         return 0;
                     }
                     auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
@@ -2924,12 +2942,12 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                if (!wallet.IsWalletInSync())
+                if (!wallet->IsWalletInSync())
                 {
                     return -1;
                 }
 
-                currentTxID = InitSwap(vm, walletDB, wallet, isFork1);
+                currentTxID = InitSwap(vm, walletDB, *wallet, isFork1);
                 if (!currentTxID)
                 {
                     return -1;
@@ -2943,7 +2961,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = AcceptSwap(vm, walletDB, wallet, isFork1);
+                currentTxID = AcceptSwap(vm, walletDB, *wallet, isFork1);
                 if (!currentTxID)
                 {
                     return -1;
@@ -2957,7 +2975,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = IssueConsumeAsset(true, vm, wallet, walletDB);
+                currentTxID = IssueConsumeAsset(true, vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
             });
     }
@@ -2966,7 +2984,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = IssueConsumeAsset(false, vm, wallet, walletDB);
+                currentTxID = IssueConsumeAsset(false, vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
             });
     }
@@ -2975,7 +2993,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = RegisterAsset(vm, wallet);
+                currentTxID = RegisterAsset(vm, *wallet);
                 return currentTxID ? 0 : -1;
             });
     }
@@ -2984,7 +3002,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = UnregisterAsset(vm, wallet, walletDB);
+                currentTxID = UnregisterAsset(vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
             });
     }
@@ -2993,7 +3011,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = GetAssetInfo(vm, wallet);
+                currentTxID = GetAssetInfo(vm, *wallet);
                 return currentTxID ? 0: -1;
             });
     }
@@ -3043,7 +3061,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = InsertToShieldedPool(vm, wallet, walletDB);
+                currentTxID = InsertToShieldedPool(vm, *wallet, walletDB);
                 return currentTxID ? 0: -1;
             });
     }
@@ -3107,7 +3125,7 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
-                currentTxID = ExtractFromShieldedPool(vm, wallet, walletDB);
+                currentTxID = ExtractFromShieldedPool(vm, *wallet, walletDB);
                 return currentTxID ? 0: -1;
             });
     }
@@ -3143,16 +3161,18 @@ int main_impl(int argc, char* argv[])
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
-        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
         {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
-        #endif // BEAM_ATOMIC_SWAP_SUPPORT
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
-        #ifdef BEAM_LASER_SUPPORT
+        {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
+        {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
+#ifdef BEAM_LASER_SUPPORT   
         {cli::LASER,                HandleLaser,                    "laser beam command"},
-        #endif  // BEAM_LASER_SUPPORT
+#endif  // BEAM_LASER_SUPPORT
         {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
         {cli::ASSET_CONSUME,        ConsumeAsset,                   "consume (burn) an existing confidential asset"},
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
