@@ -219,6 +219,8 @@ namespace beam::wallet
         ByteBuffer m_Message;
     };
 
+    struct IWalletDB;
+
     struct ShieldedCoin
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
@@ -246,6 +248,31 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
+
+        // All the following is not stored in DB, it's deduced from the current blockchain state
+        enum Status
+        {
+            Unavailable,
+            Incoming,
+            Available,
+            Maturing, // relevant if confirmation offset is used. Not related to unlink state
+            Outgoing,
+            Spent,
+
+            count
+        };
+
+        Status m_Status = Unavailable;
+        TxoID m_PreferredWindowEnd = 0;
+        uint32_t m_UnlinkProgress = 0; // 0-100: cleaning
+        uint32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
+        uint32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+
+        void DeduceStatus(const IWalletDB&, Height hTop, TxoID nShieldedOuts);
+
+    private:
+        Status get_StatusInternal(const IWalletDB&, Height hTop) const;
+        static uint32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
     // Notifications for all collection changes

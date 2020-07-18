@@ -5283,4 +5283,68 @@ namespace beam::wallet
             break;
         }
     }
+
+    void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop, TxoID nShieldedOuts)
+    {
+        const Rules& r = Rules::get();
+        const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
+
+        uint32_t nRange;
+        m_Key.m_kSerG.m_Value.ExportWord<0>(nRange); // pseudo-random
+        nRange %= N;
+
+        m_PreferredWindowEnd = m_ID + nRange + 1;
+
+        if (nShieldedOuts <= m_ID)
+        {
+            m_UnlinkProgress = 0;
+            m_WndReserve0 = 0;
+            m_WndReserve1 = 0;
+        }
+        else
+        {
+            nShieldedOuts -= m_ID; // to relative
+            assert(nShieldedOuts);
+
+            if (nShieldedOuts <= nRange)
+            {
+                assert(nRange);
+
+                uint32_t n = static_cast<uint32_t>(nShieldedOuts) - 1;
+                assert(n < nRange);
+
+                m_UnlinkProgress = 1 + 99U * n / nRange;
+            }
+            else
+                m_UnlinkProgress = 100;
+
+            m_WndReserve0 = get_Reserve(nRange + 1, nShieldedOuts);
+            m_WndReserve1 = get_Reserve(N, nShieldedOuts);
+        }
+
+        m_Status = get_StatusInternal(db, hTop);
+    }
+
+    uint32_t ShieldedCoin::get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel)
+    {
+        nEndRel += Rules::get().Shielded.MaxWindowBacklog;
+        return (nEndRel > nShieldedOutsRel) ? static_cast<uint32_t>(nEndRel - nShieldedOutsRel) : 0;
+    }
+
+    ShieldedCoin::Status ShieldedCoin::get_StatusInternal(const IWalletDB& db, Height hTop) const
+    {
+        if (MaxHeight != m_spentHeight)
+            return Status::Spent;
+
+        if (MaxHeight == m_confirmHeight)
+            return storage::IsOngoingTx(db, m_createTxId) ? Status::Incoming : Status::Unavailable;
+
+        if (storage::IsOngoingTx(db, m_spentTxId))
+            return Status::Outgoing;
+
+        if (hTop - m_confirmHeight < db.getCoinConfirmationsOffset())
+            return Status::Maturing;
+
+        return Status::Available;
+    }
 }
