@@ -422,6 +422,7 @@ namespace beam::wallet
         virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
         virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
         virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) = 0;
+        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) = 0;
 
         // Used in split API for session management
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
@@ -442,6 +443,7 @@ namespace beam::wallet
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
         virtual void clearShieldedCoins() = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
+        virtual void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) = 0;
 
         // Rollback shielded UTXO set to known height (used in rollback scenario)
         virtual void rollbackConfirmedShieldedUtxo(Height minHeight) = 0;
@@ -581,6 +583,7 @@ namespace beam::wallet
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
         void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
         void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) override;
+        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -600,6 +603,7 @@ namespace beam::wallet
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
         void clearShieldedCoins() override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
+        void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;

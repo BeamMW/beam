@@ -885,7 +885,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 22;
+        const int DbVersion   = 23;
+        const int DbVersion22 = 22;
         const int DbVersion21 = 21;
         const int DbVersion20 = 20;
         const int DbVersion19 = 19;
@@ -1229,6 +1230,13 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateShieldedCoinsTableIndex(sqlite3* db)
+        {
+            const char* req = "CREATE INDEX " SHIELDED_COINS_NAME "SpendIdx ON " SHIELDED_COINS_NAME "(spentHeight);";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void CreateVouchersTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " VOUCHERS_NAME " (" ENUM_VOUCHERS_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
@@ -1348,6 +1356,7 @@ namespace beam::wallet
         CreateLaserTables(db);
         CreateAssetsTable(db);
         CreateShieldedCoinsTable(db);
+        CreateShieldedCoinsTableIndex(db);
         CreateNotificationsTable(db);
         CreateExchangeRatesTable(db);
         CreateVouchersTable(db);
@@ -1814,6 +1823,11 @@ namespace beam::wallet
                 case DbVersion21:
                     LOG_INFO() << "Converting DB from format 21...";
                     CreateVouchersTable(db);
+                    // no break
+
+                case DbVersion22:
+                    CreateShieldedCoinsTableIndex(db);
+
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
@@ -2689,6 +2703,24 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func)
+    {
+        ShieldedStatusCtx ssc(*this);
+
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight >=0;");
+        while (stm.step())
+        {
+            ShieldedCoin coin;
+
+            int colIdx = 0;
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            if (!func(coin))
+                break;
+        }
+    }
+
     void WalletDB::visitCoins(function<bool(const Coin& coin)> func)
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
@@ -2931,37 +2963,50 @@ namespace beam::wallet
 
     void WalletDB::rollbackConfirmedShieldedUtxo(Height minHeight)
     {
-        // Shielded UTXOs
+        ShieldedStatusCtx ssc(*this);
         vector<ShieldedCoin> changedCoins;
+
+        // 1. Undo 'spent' where necessary
+        const char* req = "SELECT " ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) " FROM " SHIELDED_COINS_NAME " WHERE spentHeight > ?1;";
+        sqlite::Statement stm(this, req);
+        stm.bind(1, minHeight);
+
+        while (stm.step())
         {
-            const char* req = "SELECT " ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) " FROM " SHIELDED_COINS_NAME " WHERE confirmHeight > ?1 OR spentHeight > ?1;";
-            sqlite::Statement stm(this, req);
-            stm.bind(1, minHeight);
-            while (stm.step())
-            {
-                ShieldedCoin& coin = changedCoins.emplace_back();
-                int colIdx = 0;
-                ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            }
+            ShieldedCoin& coin = changedCoins.emplace_back();
+            int colIdx = 0;
+            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+            coin.m_spentHeight = MaxHeight;
+            updateShieldedCoinRaw(coin);
+
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            changedCoins.push_back(std::move(coin));
         }
+
         if (!changedCoins.empty())
         {
+            notifyShieldedCoinsChanged(ChangeAction::Updated, changedCoins);
+            changedCoins.clear();
+        }
+
+        // 2. For unspent - remove confirmHeight where applicable
+        visitShieldedCoinsUnspent([&changedCoins, minHeight](const ShieldedCoin& coin) -> bool {
+            if ((MaxHeight != coin.m_confirmHeight) && (coin.m_confirmHeight > minHeight))
+                changedCoins.push_back(coin);
+            return true;
+            });
+
+        if (!changedCoins.empty())
+        {
+            for (size_t i = 0; i < changedCoins.size(); i++)
             {
-                const char* req = "UPDATE " SHIELDED_COINS_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";
-                sqlite::Statement stm(this, req);
-                stm.bind(1, MaxHeight);
-                stm.bind(2, minHeight);
-                stm.step();
+                ShieldedCoin& coin = changedCoins[i];
+                coin.m_confirmHeight = MaxHeight;
+                coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             }
 
-            {
-                const char* req = "UPDATE " SHIELDED_COINS_NAME " SET spentHeight=?1 WHERE spentHeight > ?2;";
-                sqlite::Statement stm(this, req);
-                stm.bind(1, MaxHeight);
-                stm.bind(2, minHeight);
-                stm.step();
-            }
-
+            // TODO: erase coins completely with "Unavail" status
             notifyShieldedCoinsChanged(ChangeAction::Updated, changedCoins);
         }
     }
@@ -3232,8 +3277,17 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::DeleteShieldedCoin(const ShieldedTxo::BaseKey& key)
+    {
+        const char* req = "DELETE FROM " SHIELDED_COINS_NAME " WHERE Key=?1;";
+        sqlite::Statement stm(this, req);
+        stm.bind(1, key);
+        stm.step();
+    }
+
     void WalletDB::deleteShieldedCoinsCreatedByTx(const TxID& txId)
     {
+        ShieldedStatusCtx ssc(*this);
         std::vector<ShieldedCoin> deletedItems;
         {
             const char* req = "SELECT " ENUM_SHIELDED_COIN_FIELDS(LIST, COMMA, ) " FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
@@ -3245,18 +3299,14 @@ namespace beam::wallet
                 ShieldedCoin& coin = deletedItems.emplace_back();
                 int colIdx = 0;
                 ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+                coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+
+                DeleteShieldedCoin(coin.m_Key);
             }
         }
-        if (!deletedItems.empty())
-        {
-            const char* req = "DELETE FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
-            sqlite::Statement stm(this, req);
-            stm.bind(1, txId);
-            stm.bind(2, MaxHeight);
-            stm.step();
 
+        if (!deletedItems.empty())
             notifyShieldedCoinsChanged(ChangeAction::Removed, deletedItems);
-        }
     }
 
     namespace
@@ -4513,7 +4563,7 @@ namespace beam::wallet
                 return true;
             });
 
-            walletDB.visitShieldedCoins([getTotalsRef](const ShieldedCoin& coin) -> bool {
+            walletDB.visitShieldedCoinsUnspent([getTotalsRef](const ShieldedCoin& coin) -> bool {
                 // always add to totals even if there will be no available coins
                 auto& totals = getTotalsRef(coin.m_assetID);
                 if(coin.IsAvailable())
