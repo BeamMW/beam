@@ -745,6 +745,8 @@ namespace beam::wallet
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
         uint32_t m_coinConfirmationsOffset = 0;
+
+        struct ShieldedStatusCtx;
     };
 
     namespace storage

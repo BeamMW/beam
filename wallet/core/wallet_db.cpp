@@ -2658,8 +2658,23 @@ namespace beam::wallet
         return true;
     }
 
+    struct WalletDB::ShieldedStatusCtx
+    {
+        Height m_hTip;
+        TxoID m_nShieldedOuts;
+
+        ShieldedStatusCtx(const WalletDB& db)
+        {
+            m_hTip = db.getCurrentHeight();
+            if (!storage::getVar(db, kStateSummaryShieldedOutsDBPath, m_nShieldedOuts))
+                m_nShieldedOuts = 0;
+        }
+    };
+
     void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func)
     {
+        ShieldedStatusCtx ssc(*this);
+
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY Key;"); // the order is not importantt, but at least it should be by indexed field
         while (stm.step())
         {
@@ -2668,6 +2683,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
 
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             if (!func(coin))
                 break;
         }
@@ -2828,6 +2844,8 @@ namespace beam::wallet
 
     std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
+        ShieldedStatusCtx ssc(*this);
+
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
         stm.bind(1, assetId);
         std::vector<ShieldedCoin> coins;
@@ -2837,6 +2855,7 @@ namespace beam::wallet
             auto& coin = coins.emplace_back();
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
         }
 
         return coins;
@@ -2844,6 +2863,8 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const TxID& txId) const
     {
+        ShieldedStatusCtx ssc(*this);
+
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 OR spentTxId=?1;");
         stm.bind(1, txId);
 
@@ -2852,6 +2873,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             return coin;
         }
 
@@ -2860,6 +2882,8 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(TxoID id) const
     {
+        ShieldedStatusCtx ssc(*this);
+
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE ID = ?;");
         stm.bind(1, id);
 
@@ -2868,6 +2892,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             return coin;
         }
 
@@ -2876,6 +2901,8 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const ShieldedTxo::BaseKey& key) const
     {
+        ShieldedStatusCtx ssc(*this);
+
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE Key = ?;");
         stm.bind(1, key);
 
@@ -2884,6 +2911,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
+            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             return coin;
         }
         return {};
