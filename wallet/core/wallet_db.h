@@ -263,7 +263,6 @@ namespace beam::wallet
         };
 
         Status m_Status = Unavailable;
-        TxoID m_PreferredWindowEnd = 0;
         uint32_t m_UnlinkProgress = 0; // 0-100: cleaning
         uint32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
         uint32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
@@ -278,6 +277,8 @@ namespace beam::wallet
         // 2: Spend urgently, or the window will close
 
         static void Sort(std::vector<ShieldedCoin>&);
+
+        uint32_t get_WndIndex(uint32_t N) const;
 
     private:
         Status get_StatusInternal(const IWalletDB&, Height hTop) const;

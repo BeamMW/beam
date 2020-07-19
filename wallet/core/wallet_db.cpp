@@ -5447,17 +5447,23 @@ namespace beam::wallet
         }
     }
 
+    uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
+    {
+        assert(N);
+
+        uint32_t nIdx;
+        m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // pseudo-random
+
+        nIdx %= N; // pseudo-random, how many elements should follow this in the window
+
+        if (nIdx < m_ID)
+            nIdx = static_cast<uint32_t>(m_ID);
+
+        return nIdx;
+    }
+
     void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop, TxoID nShieldedOuts)
     {
-        const Rules& r = Rules::get();
-        const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
-
-        uint32_t nRange;
-        m_Key.m_kSerG.m_Value.ExportWord<0>(nRange); // pseudo-random
-        nRange %= N;
-
-        m_PreferredWindowEnd = m_ID + nRange + 1;
-
         if (nShieldedOuts <= m_ID)
         {
             m_UnlinkProgress = 0;
@@ -5466,22 +5472,27 @@ namespace beam::wallet
         }
         else
         {
+            const Rules& r = Rules::get();
+            const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
+
+            uint32_t nRemaining = N - get_WndIndex(N) - 1;
+
             nShieldedOuts -= m_ID; // to relative
             assert(nShieldedOuts);
 
-            if (nShieldedOuts <= nRange)
+            if (nShieldedOuts <= nRemaining)
             {
-                assert(nRange);
+                assert(nRemaining);
 
                 uint32_t n = static_cast<uint32_t>(nShieldedOuts) - 1;
-                assert(n < nRange);
+                assert(n < nRemaining);
 
-                m_UnlinkProgress = 1 + 99U * n / nRange;
+                m_UnlinkProgress = 1 + 99U * n / nRemaining;
             }
             else
                 m_UnlinkProgress = 100;
 
-            m_WndReserve0 = get_Reserve(nRange + 1, nShieldedOuts);
+            m_WndReserve0 = get_Reserve(nRemaining + 1, nShieldedOuts);
             m_WndReserve1 = get_Reserve(N, nShieldedOuts);
         }
 
@@ -5549,9 +5560,9 @@ namespace beam::wallet
                 if (-1 == na)
                 {
                     // if both are washing - spend the one that is cleaner
-                    if (a.m_PreferredWindowEnd < b.m_PreferredWindowEnd)
+                    if (a.m_WndReserve0 < b.m_WndReserve0)
                         return true;
-                    if (a.m_PreferredWindowEnd > b.m_PreferredWindowEnd)
+                    if (a.m_WndReserve0 > b.m_WndReserve0)
                         return false;
                 }
 
