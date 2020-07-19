@@ -2327,6 +2327,80 @@ namespace beam::wallet
         return selectCoinsEx(amount, assetId, true);
     }
 
+    static void DecreaseAmount(Amount& x, Amount val)
+    {
+        if (x > val)
+            x -= val;
+        else
+            x = 0;
+    }
+
+    void WalletDB::selectCoins2(Amount amount, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded)
+    {
+        if (!amount)
+            return;
+
+        vector<ShieldedCoin> vShielded;
+        size_t iPosShielded = 0;
+
+        Transaction::FeeSettings fs;
+
+        if (nMaxShielded)
+        {
+            visitShieldedCoinsUnspent([&vShielded, aid](const ShieldedCoin& coin) -> bool
+                {
+                    if ((ShieldedCoin::Status::Available == coin.m_Status) && (coin.m_assetID == aid))
+                        vShielded.push_back(coin);
+                    return true;
+                }
+            );
+
+            ShieldedCoin::Sort(vShielded);
+
+            for (; iPosShielded < vShielded.size(); iPosShielded++)
+            {
+                const ShieldedCoin& x = vShielded[iPosShielded];
+                int n = x.get_SpendPriority();
+
+                if (n < 0) // don't spend unless have to
+                    break;
+
+                if (!n && !amount) // don't spend if amount already reached
+                    break;
+
+                if (!aid)
+                    amount += fs.m_ShieldedInput + fs.m_Kernel;
+
+                DecreaseAmount(amount, x.m_value);
+                vSelShielded.push_back(x);
+
+                if (vSelShielded.size() == nMaxShielded)
+                    break;
+            }
+        }
+
+        if (amount)
+        {
+            vSelStd = selectCoinsEx(amount, aid, false);
+
+            for (size_t i = 0; i < vSelStd.size(); i++)
+                DecreaseAmount(amount, vSelStd[i].m_ID.m_Value);
+        }
+        else
+            vSelStd.clear();
+
+        for (; amount && (iPosShielded < vShielded.size()) && (vSelShielded.size() < nMaxShielded); iPosShielded++)
+        {
+            if (!aid)
+                amount += fs.m_ShieldedInput + fs.m_Kernel;
+
+            const ShieldedCoin& x = vShielded[iPosShielded];
+            DecreaseAmount(amount, x.m_value);
+            vSelShielded.push_back(x);
+        }
+
+    }
+
     vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool unlinked)
     {
         vector<Coin> coins, coinsSel;
@@ -5425,4 +5499,57 @@ namespace beam::wallet
 
         return Status::Available;
     }
+
+    bool ShieldedCoin::IsLargeSpendWindowLost() const
+    {
+        const uint32_t nThreshold = Rules::get().Shielded.MaxIns;
+        return m_WndReserve1 < nThreshold;
+    }
+
+    int ShieldedCoin::get_SpendPriority() const
+    {
+        if (IsLargeSpendWindowLost())
+            return 0;
+
+        const uint32_t nWndThresholdHi = 100; // Urgently spend if window will close in less than this
+        if (m_WndReserve1 < nWndThresholdHi)
+            return 2;
+
+        if (100 == m_UnlinkProgress)
+            return 1;
+
+        return -1;
+    }
+
+    void ShieldedCoin::Sort(std::vector<ShieldedCoin>& v)
+    {
+        struct MyCmp
+        {
+            bool operator ()(const ShieldedCoin& a, const ShieldedCoin& b) const
+            {
+                // return if a should be spend before b
+                int na = a.get_SpendPriority();
+                int nb = b.get_SpendPriority();
+                if (na < nb)
+                    return false;
+                if (na > nb)
+                    return true;
+
+                if (-1 == na)
+                {
+                    // if both are washing - spend the one that is cleaner
+                    if (a.m_PreferredWindowEnd < b.m_PreferredWindowEnd)
+                        return true;
+                    if (a.m_PreferredWindowEnd > b.m_PreferredWindowEnd)
+                        return false;
+                }
+
+                // not really important, but for steady sort let's resolve ambiguity by coin unique ID
+                return a.m_ID < b.m_ID;
+            }
+        } mcmp;
+
+        std::sort(v.begin(), v.end(), mcmp);
+    }
+
 }

@@ -270,6 +270,15 @@ namespace beam::wallet
 
         void DeduceStatus(const IWalletDB&, Height hTop, TxoID nShieldedOuts);
 
+        bool IsLargeSpendWindowLost() const;
+        int get_SpendPriority() const;
+        // -1: don't spend unless have to
+        // 0: spend as much as needed atm
+        // 1: spend even more than needed (ideal spend window)
+        // 2: Spend urgently, or the window will close
+
+        static void Sort(std::vector<ShieldedCoin>&);
+
     private:
         Status get_StatusInternal(const IWalletDB&, Height hTop) const;
         static uint32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
@@ -397,6 +406,7 @@ namespace beam::wallet
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
         virtual std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) = 0;
+        virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -563,6 +573,7 @@ namespace beam::wallet
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
         std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) override;
+        void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
