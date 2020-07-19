@@ -129,9 +129,11 @@ namespace beam::wallet
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_Offset; // goes to offset
+        std::vector<TxKernelShieldedInput::Ptr> m_InputsShielded;
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
+        std::vector<ShieldedTxo::BaseKey> m_InputCoinsShielded;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 

@@ -179,23 +179,24 @@ namespace beam::wallet
 
     void BaseTxBuilder::SelectInputs()
     {
-        CoinIDList preselectedCoinIDs;
         vector<Coin> coins;
+        vector<ShieldedCoin> coinsShielded;
 
-        Amount preselAmountBeam = 0;
-        Amount preselAmountAsset = 0;
+        Amount amountSelBeam = 0;
+        Amount amountSelAsset = 0;
 
+        CoinIDList preselectedCoinIDs;
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs, m_SubTxID) && !preselectedCoinIDs.empty())
         {
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
             for (auto& coin : coins)
             {
                 if (!coin.isAsset())
-                    preselAmountBeam += coin.getAmount();
+                    amountSelBeam += coin.getAmount();
                 else
                 {
                     if (coin.isAsset(GetAssetId()))
-                        preselAmountAsset += coin.getAmount();
+                        amountSelAsset += coin.getAmount();
                 }
                 coin.m_spentTxId = m_Tx.GetTxID();
             }
@@ -203,51 +204,91 @@ namespace beam::wallet
         }
 
         const bool isBeamTransaction = !IsAssetTx();
-        const Amount amountBeamWithFee = (isBeamTransaction ? GetAmount() : 0) + GetFee();
-        if (preselAmountBeam < amountBeamWithFee)
+
+        Amount amountTrgBeam = GetFee();
+        Amount amountTrgAsset = 0;
+        (isBeamTransaction ? amountTrgBeam : amountTrgAsset) += GetAmount();
+
+        Key::IKdf::Ptr pKdf = m_Tx.GetWalletDB()->get_MasterKdf();
+        uint32_t nShieldedMax = pKdf ? Rules::get().Shielded.MaxIns : 0;
+
+        Transaction::FeeSettings fs;
+
+        // 1st select needed value in assets. It may affect needed value in beams
+        if (amountTrgAsset > amountSelAsset)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
-            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
-            if (selectedCoins.empty())
+            std::vector<Coin> vSelStd;
+            std::vector<ShieldedCoin> vSelShielded;
+            m_Tx.GetWalletDB()->selectCoins2(amountTrgAsset - amountSelAsset, GetAssetId(), vSelStd, vSelShielded, nShieldedMax / 2, true);
+
+            for (size_t i = 0; i < vSelStd.size(); i++)
+                amountSelAsset += vSelStd[i].m_ID.m_Value;
+
+            for (size_t i = 0; i < vSelShielded.size(); i++)
             {
-                storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto& totals = allTotals.GetBeamTotals();
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+                amountSelAsset += vSelShielded[i].m_value;
+                amountTrgBeam += fs.m_ShieldedInput + fs.m_Kernel;
+                nShieldedMax--;
+            }
+
+            if (amountTrgAsset > amountSelAsset)
+            {
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(amountSelAsset, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
+
+            copy(vSelStd.begin(), vSelStd.end(), back_inserter(coins));
+            copy(vSelShielded.begin(), vSelShielded.end(), back_inserter(coinsShielded));
         }
 
-        const Amount amountAsset = isBeamTransaction ? 0 : GetAmount();
-        if (preselAmountAsset < amountAsset)
+        // now select beams
+        if (amountTrgBeam > amountSelBeam)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, GetAssetId());
-            if (selectedCoins.empty())
+            std::vector<Coin> vSelStd;
+            std::vector<ShieldedCoin> vSelShielded;
+            m_Tx.GetWalletDB()->selectCoins2(amountTrgBeam - amountSelBeam, 0, vSelStd, vSelShielded, nShieldedMax, true);
+
+            for (size_t i = 0; i < vSelStd.size(); i++)
+                amountSelBeam += vSelStd[i].m_ID.m_Value;
+
+            for (size_t i = 0; i < vSelShielded.size(); i++)
             {
-                storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto& totals = allTotals.GetTotals(GetAssetId());
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH);
+                amountSelBeam += vSelShielded[i].m_value;
+                amountTrgBeam += fs.m_ShieldedInput + fs.m_Kernel;
+            }
+
+            if (amountTrgBeam > amountSelBeam)
+            {
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(amountSelBeam);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
-            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
+
+            copy(vSelStd.begin(), vSelStd.end(), back_inserter(coins));
+            copy(vSelShielded.begin(), vSelShielded.end(), back_inserter(coinsShielded));
         }
 
         m_InputCoins.reserve(coins.size());
-        Amount totalBeam = 0;
-        Amount totalAsset = 0;
         for (auto& coin : coins)
         {
             coin.m_spentTxId = m_Tx.GetTxID();
-            if (coin.isAsset()) totalAsset += coin.m_ID.m_Value;
-            else totalBeam += coin.m_ID.m_Value;
             m_InputCoins.push_back(coin.m_ID);
         }
 
-        m_ChangeBeam  = totalBeam  - amountBeamWithFee;
-        m_ChangeAsset = totalAsset - amountAsset;
+        m_InputCoinsShielded.reserve(coinsShielded.size());
+        for (auto& coin : coinsShielded)
+        {
+            coin.m_spentTxId = m_Tx.GetTxID();
+            m_InputCoinsShielded.push_back(coin.m_Key);
+            m_Tx.GetWalletDB()->saveShieldedCoin(coin);
+        }
+
+        m_ChangeBeam = amountSelBeam - amountTrgBeam;
+        m_ChangeAsset = amountSelAsset - amountTrgAsset;
 
         m_Tx.SetParameter(TxParameterID::ChangeBeam, m_ChangeBeam, false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::InputCoins, m_InputCoins, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::InputCoinsShielded, m_InputCoinsShielded, false, m_SubTxID);
 
         m_Tx.GetWalletDB()->saveCoins(coins);
     }
@@ -506,7 +547,9 @@ namespace beam::wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::InputsShielded, m_InputsShielded, m_SubTxID);
         bool hasInputs = m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
+        bool hasInputsShielded = m_Tx.GetParameter(TxParameterID::InputCoinsShielded, m_InputCoinsShielded, m_SubTxID);
         bool hasOutputs = m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
 
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
@@ -533,7 +576,7 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
 
-        return hasInputs || hasOutputs; 
+        return hasInputs || hasInputsShielded || hasOutputs; 
     }
 
     bool BaseTxBuilder::GetInputs()

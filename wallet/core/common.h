@@ -360,8 +360,10 @@ namespace beam::wallet
         SharedSeed = 173,
 
         Inputs = 180,
+        InputsShielded = 181,
         InputCoins = 183,
         OutputCoins = 184,
+        InputCoinsShielded = 185,
         Outputs = 190,
 
         Kernel = 200,

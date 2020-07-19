@@ -2335,7 +2335,7 @@ namespace beam::wallet
             x = 0;
     }
 
-    void WalletDB::selectCoins2(Amount amount, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded)
+    void WalletDB::selectCoins2(Amount amount, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
         if (!amount)
             return;
@@ -2399,7 +2399,7 @@ namespace beam::wallet
             vSelShielded.push_back(x);
         }
 
-        if (amount)
+        if (amount && !bCanReturnLess)
         {
             // failed to select needed amount. By convention don't return anything
             vSelStd.clear();
