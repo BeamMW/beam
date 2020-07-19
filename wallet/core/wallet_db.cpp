@@ -2792,7 +2792,7 @@ namespace beam::wallet
     {
         ShieldedStatusCtx ssc(*this);
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight >=0;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight <0;");
         while (stm.step())
         {
             ShieldedCoin coin;

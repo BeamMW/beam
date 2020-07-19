@@ -505,7 +505,7 @@ namespace beam::wallet
 
         // currently process inputs 1-by-1
         // don't cache retrieved elements (i.e. ignore overlaps for multiple inputs)
-        auto pCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_InputsShielded.size());
+        auto pCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_InputCoinsShielded[m_InputsShielded.size()]);
         if (!pCoin)
             throw TransactionFailedException(true, TxFailureReason::Unknown);
 
@@ -535,7 +535,7 @@ namespace beam::wallet
         if (nWndEnd > nShieldedCurrently)
         {
             uint32_t nExtra = static_cast<uint32_t>(nWndEnd - nShieldedCurrently);
-            if (nExtra > ctx.m_Wnd0)
+            if (nExtra < ctx.m_Wnd0)
                 ctx.m_Wnd0 -= nExtra;
             else
             {
@@ -1077,12 +1077,14 @@ namespace beam::wallet
 
         // create transaction
         auto transaction = make_shared<Transaction>();
+        transaction->m_vKernels.reserve(m_InputsShielded.size() + 1);
         transaction->m_vKernels.push_back(move(m_Kernel));
         transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
         move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
         move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
+        move(m_InputsShielded.begin(), m_InputsShielded.end(), back_inserter(transaction->m_vKernels));
 
         transaction->Normalize();
 
