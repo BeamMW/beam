@@ -2319,12 +2319,12 @@ namespace beam::wallet
 
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
-        return selectCoinsEx(amount, assetId, false);
+        return selectCoinsEx(amount, assetId, false, false);
     }
 
     vector<Coin> WalletDB::selectUnlinkedCoins(Amount amount, Asset::ID assetId)
     {
-        return selectCoinsEx(amount, assetId, true);
+        return selectCoinsEx(amount, assetId, true, false);
     }
 
     static void DecreaseAmount(Amount& x, Amount val)
@@ -2381,7 +2381,7 @@ namespace beam::wallet
 
         if (amount)
         {
-            vSelStd = selectCoinsEx(amount, aid, false);
+            vSelStd = selectCoinsEx(amount, aid, false, true);
 
             for (size_t i = 0; i < vSelStd.size(); i++)
                 DecreaseAmount(amount, vSelStd[i].m_ID.m_Value);
@@ -2399,9 +2399,15 @@ namespace beam::wallet
             vSelShielded.push_back(x);
         }
 
+        if (amount)
+        {
+            // failed to select needed amount. By convention don't return anything
+            vSelStd.clear();
+            vSelShielded.clear();
+        }
     }
 
-    vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool unlinked)
+    vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool unlinked, bool bCanReturnLess)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
@@ -2442,6 +2448,11 @@ namespace beam::wallet
 
             for (size_t j = 0; j < res.second.size(); j++)
                 coinsSel.push_back(std::move(coins[res.second[j]]));
+        }
+        else
+        {
+            if (bCanReturnLess)
+                coinsSel.swap(coins);
         }
 
         return coinsSel;

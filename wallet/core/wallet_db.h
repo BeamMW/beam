@@ -574,7 +574,7 @@ namespace beam::wallet
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
         std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) override;
         void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded) override;
-        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked);
+        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked, bool bCanReturnLess);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
