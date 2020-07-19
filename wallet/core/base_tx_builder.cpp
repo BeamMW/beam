@@ -14,8 +14,10 @@
 
 #include "base_tx_builder.h"
 #include "core/block_crypt.h"
+#include "core/shielded.h"
 #include "base_transaction.h"
 #include "strings_resources.h"
+#include "utility/executor.h"
 
 // TODO: getrandom not available until API 28 in the Android NDK 17b
 // https://github.com/boostorg/uuid/issues/76
@@ -397,13 +399,24 @@ namespace beam::wallet
 
     bool BaseTxBuilder::CreateInputs()
     {
-        if (GetInputs() || GetInputCoins().empty())
-        {
-            return false;
-        }
+        m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
+        bool bStd = (m_Inputs.size() != m_InputCoins.size());
 
-        if (m_CreatingInputs)
-            return true; // already in progress
+        if (bStd && !m_CreatingInputs)
+            CreateInputsStd();
+
+        m_Tx.GetParameter(TxParameterID::InputsShielded, m_InputsShielded, m_SubTxID);
+        bool bShielded = (m_InputsShielded.size() != m_InputCoinsShielded.size());
+
+        if (bShielded && !m_CreatingInputsShielded)
+            CreateInputsShielded();
+
+        return bStd || bShielded;
+    }
+
+    void BaseTxBuilder::CreateInputsStd()
+    {
+        assert(!m_CreatingInputs);
 
         struct MyHandler
             :public KeyKeeperHandler
@@ -448,6 +461,12 @@ namespace beam::wallet
             }
         };
 
+        if (m_InputCoins.empty())
+        {
+            FinalizeInputs();
+            return;
+        }
+
         KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_CreatingInputs);
         MyHandler& x = Cast::Up<MyHandler>(*pHandler);
 
@@ -460,8 +479,189 @@ namespace beam::wallet
             c.m_Root = !c.m_Cid.get_ChildKdfIndex(c.m_iChild);
             m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_vCalls[i], pHandler);
         }
+    }
 
-        return true;// true if async
+    struct BaseTxBuilder::ShieldedInputContext
+    {
+        ShieldedCoin m_Coin;
+        Sigma::Cfg m_Cfg;
+        TxoID m_Wnd0;
+        uint32_t m_N;
+        uint32_t m_Idx;
+        uint32_t m_Count;
+
+        bool OnList(proto::ShieldedList& msg, BaseTxBuilder&) const;
+    };
+
+    void BaseTxBuilder::CreateInputsShielded()
+    {
+        assert(!m_CreatingInputsShielded);
+
+        if (m_InputsShielded.size() >= m_InputCoinsShielded.size())
+            return;
+
+        if (m_InputsShielded.empty())
+            m_InputsShielded.reserve(m_InputCoinsShielded.size());
+
+        // currently process inputs 1-by-1
+        // don't cache retrieved elements (i.e. ignore overlaps for multiple inputs)
+        auto pCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_InputsShielded.size());
+        if (!pCoin)
+            throw TransactionFailedException(true, TxFailureReason::Unknown);
+
+        ShieldedInputContext ctx;
+
+        ctx.m_Coin = *pCoin;
+
+        bool bWndLost = ctx.m_Coin.IsLargeSpendWindowLost();
+        ctx.m_Cfg = bWndLost ?
+            Rules::get().Shielded.m_ProofMin :
+            Rules::get().Shielded.m_ProofMax;
+
+        ctx.m_N = ctx.m_Cfg.get_N();
+        if (!ctx.m_N)
+            throw TransactionFailedException(true, TxFailureReason::Unknown);
+
+        TxoID nShieldedCurrently = 0;
+        storage::getVar(*m_Tx.GetWalletDB(), kStateSummaryShieldedOutsDBPath, nShieldedCurrently);
+
+        std::setmax(nShieldedCurrently, ctx.m_Coin.m_ID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
+
+        ctx.m_Idx = ctx.m_Coin.get_WndIndex(ctx.m_N);
+        ctx.m_Wnd0 = ctx.m_Coin.m_ID - ctx.m_Idx;
+        ctx.m_Count = ctx.m_N;
+
+        TxoID nWndEnd = ctx.m_Wnd0 + ctx.m_N;
+        if (nWndEnd > nShieldedCurrently)
+        {
+            uint32_t nExtra = static_cast<uint32_t>(nWndEnd - nShieldedCurrently);
+            if (nExtra > ctx.m_Wnd0)
+                ctx.m_Wnd0 -= nExtra;
+            else
+            {
+                nExtra = static_cast<uint32_t>(ctx.m_Wnd0);
+                ctx.m_Wnd0 = 0;
+            }
+
+            ctx.m_Idx += nExtra;
+            ctx.m_Count += nExtra;
+        }
+
+        m_CreatingInputsShielded = true;
+
+        m_Tx.GetGateway().get_shielded_list(m_Tx.GetTxID(), ctx.m_Wnd0, ctx.m_Count,
+            [ctx, weak = this->weak_from_this(), weakTx = m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
+        {
+            auto pBldr = weak.lock();
+            if (!pBldr)
+                return;
+            BaseTxBuilder& x = *pBldr;
+
+            assert(x.m_CreatingInputsShielded);
+            x.m_CreatingInputsShielded = false;
+
+            auto pTx = weakTx.lock();
+            if (!pTx)
+                return;
+
+            if (ctx.OnList(msg, x))
+                x.m_Tx.Update();
+            else
+                x.m_Tx.OnFailed(TxFailureReason::Unknown);
+        });
+    }
+
+    bool BaseTxBuilder::ShieldedInputContext::OnList(proto::ShieldedList& msg, BaseTxBuilder& x) const
+    {
+        if (msg.m_Items.size() > m_Count)
+            return false;
+
+        if (msg.m_Items.size() < m_N)
+        {
+            if (m_Wnd0 || (msg.m_Items.size() <= m_Idx))
+                return false;
+        }
+
+        struct MyList
+            :public Sigma::CmList
+        {
+            ECC::Point::Storage* m_pElems;
+            uint32_t m_Count;
+
+            virtual bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
+            {
+                if (iIdx >= m_Count)
+                    return false;
+
+                res = m_pElems[iIdx];
+                return true;
+            }
+        };
+
+        MyList lst;
+        lst.m_pElems = &msg.m_Items.front();
+        lst.m_Count = static_cast<uint32_t>(msg.m_Items.size());
+
+        Transaction::FeeSettings fs;
+
+        TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
+        pKrn->m_Fee = fs.m_Kernel + fs.m_ShieldedInput;
+        pKrn->m_Height.m_Min = x.m_MinHeight;
+        pKrn->m_Height.m_Max = x.m_MaxHeight;
+        pKrn->m_WindowEnd = m_Wnd0 + lst.m_Count;
+        pKrn->m_SpendProof.m_Cfg = m_Cfg;
+
+        Lelantus::Prover prover(lst, pKrn->m_SpendProof);
+        {
+            Key::IKdf::Ptr pKdf = x.m_Tx.GetWalletDB()->get_MasterKdf();
+            if (!pKdf)
+                return false;
+
+            ShieldedTxo::Viewer viewer;
+            viewer.FromOwner(*pKdf, m_Coin.m_Key.m_nIdx);
+
+            ShieldedTxo::DataParams sdp;
+            sdp.m_Ticket.m_pK[0] = m_Coin.m_Key.m_kSerG;
+            sdp.m_Ticket.m_IsCreatedByViewer = m_Coin.m_Key.m_IsCreatedByViewer;
+            sdp.m_Ticket.Restore(viewer);
+
+            sdp.m_Output.m_Value = m_Coin.m_value;
+            sdp.m_Output.m_AssetID = m_Coin.m_assetID;
+            sdp.m_Output.m_User = m_Coin.m_User;
+
+            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+
+            Key::IKdf::Ptr pSerialPrivate;
+            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf, m_Coin.m_Key.m_nIdx);
+            pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
+
+            prover.m_Witness.V.m_L = m_Idx;
+            prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
+            prover.m_Witness.V.m_R += sdp.m_Output.m_k;
+            prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
+
+            if (lst.m_Count > m_N)
+            {
+                uint32_t nDelta = lst.m_Count - m_N;
+                lst.m_Count = m_N;
+                lst.m_pElems += nDelta;
+                prover.m_Witness.V.m_L += nDelta;
+            }
+        }
+
+        {
+            ExecutorMT exec;
+            Executor::Scope scope(exec);
+            pKrn->Sign(prover, x.GetAssetId());
+        }
+
+        x.m_InputsShielded.push_back(std::move(pKrn));
+        x.m_Offset += prover.m_Witness.V.m_R_Output;
+
+        x.m_Tx.SetParameter(TxParameterID::InputsShielded, x.m_InputsShielded, false, x.m_SubTxID);
+        x.m_Tx.SetParameter(TxParameterID::Offset, x.m_Inputs, false, x.m_SubTxID);
+
+        return true;
     }
 
     void BaseTxBuilder::FinalizeInputs()
@@ -650,7 +850,7 @@ namespace beam::wallet
                 else
                 {
                     b.StoreAndLoad(TxParameterID::PartialSignature, krn.m_Signature.m_k, b.m_PartialSignature);
-                    b.m_Offset = m_Method.m_kOffset;
+                    b.m_Offset += m_Method.m_kOffset;
                     b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
                     b.StoreKernelID();
 
@@ -775,7 +975,7 @@ namespace beam::wallet
                 b.m_PublicExcess -= b.m_PeerPublicExcess;
                 b.m_Tx.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess, b.m_SubTxID);
 
-                b.m_Offset = m_Method.m_kOffset;
+                b.m_Offset += m_Method.m_kOffset;
                 b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
 
                 if (m_Method.m_MyIDKey)

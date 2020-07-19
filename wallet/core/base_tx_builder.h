@@ -114,6 +114,10 @@ namespace beam::wallet
             m_Tx.SetParameter(parameterID, source, m_SubTxID);
             m_Tx.GetParameter(parameterID, dest, m_SubTxID);
         }
+
+        void CreateInputsStd();
+        void CreateInputsShielded();
+
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
@@ -154,7 +158,10 @@ namespace beam::wallet
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;
 
         bool m_CreatingInputs = false;
+        bool m_CreatingInputsShielded = false;
         bool m_CreatingOutputs = false;
         bool m_Signing = false;
+
+        struct ShieldedInputContext;
     };
 }
