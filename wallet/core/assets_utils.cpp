@@ -22,7 +22,7 @@ namespace beam::wallet {
     namespace
     {
         const char STD_META_MARK[]     = "STD:";
-        const char VERSION_KEY[]       = "SCHEMA_VER";
+        const char VERSION_KEY[]       = "SCH_VER";
         const char NAME_KEY[]          = "N";
         const char SHORT_NAME_KEY[]    = "SN";
         const char UNIT_NAME_KEY[]     = "UN";
@@ -142,28 +142,28 @@ namespace beam::wallet {
     {
         assert(_parsed);
         const auto it = _values.find(UNIT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kAmountASSET);
     }
 
     std::string WalletAssetMeta::GetNthUnitName() const
     {
         assert(_parsed);
         const auto it = _values.find(NTH_UNIT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kAmountAGROTH);
     }
 
     std::string WalletAssetMeta::GetName() const
     {
         assert(_parsed);
         const auto it = _values.find(NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kNA);
     }
 
     std::string WalletAssetMeta::GetShortName() const
     {
         assert(_parsed);
         const auto it = _values.find(SHORT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kNA);
     }
 
     unsigned WalletAssetMeta::GetSchemaVersion() const

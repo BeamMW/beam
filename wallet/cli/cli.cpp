@@ -845,10 +845,10 @@ namespace
         {
             const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
             isOwned  = info->m_IsOwned;
-            unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
-            nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+            unitName = meta.GetUnitName();
+            nthName  = meta.GetNthUnitName();
             ownerStr = (isOwned ? info->m_Owner.str() + "\nYou own this asset": info->m_Owner.str());
-            coinName = meta.isStd() ? meta.GetName() + " (" + meta.GetShortName() + ")" : kNA;
+            coinName = meta.GetName() + " (" + meta.GetShortName() + ")";
             lkHeight = std::to_string(info->m_LockHeight);
             rfHeight = std::to_string(info->m_RefreshHeight);
 
@@ -892,8 +892,8 @@ namespace
         {
             const auto info = walletDB->findAsset(assetId);
             const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
-            unitName = meta.isStd() ? meta.GetUnitName() : kAmountASSET;
-            nthName  = meta.isStd() ? meta.GetNthUnitName() : kAmountAGROTH;
+            unitName = meta.GetUnitName();
+            nthName  = meta.GetNthUnitName();
         }
 
         return std::make_pair(unitName, nthName);
