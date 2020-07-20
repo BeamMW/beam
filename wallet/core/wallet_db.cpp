@@ -4693,7 +4693,7 @@ namespace beam::wallet
             if (c.m_ID.m_Type != ECC::Key::Type::Coinbase
              && c.m_ID.m_Type != ECC::Key::Type::Treasury
              && c.m_status == Coin::Status::Available
-             && c.m_confirmHeight >= hTop - walletDB.getCoinConfirmationsOffset())
+             && c.m_confirmHeight > hTop - walletDB.getCoinConfirmationsOffset())
              {
                 c.m_status = Coin::Status::Maturing;
              } 
