@@ -868,8 +868,8 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
+             // % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
 
         if (!info.is_initialized())
         {
@@ -916,7 +916,7 @@ namespace
     {
         const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
-        const array<uint8_t, 7> columnWidths{{idWidth, 14, 14, 18, 20, 8, 8}};
+        const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 20, 8}};
 
         const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
         std::vector<Coin> reliable;
@@ -951,7 +951,6 @@ namespace
                         % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.get_Maturity(offset))) : "-"))
                         % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                         % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
-                        % boost::io::group(right, boolalpha, setw(columnWidths[6]), c.m_isUnlinked)
                       << std::endl;
             }
         };
@@ -966,7 +965,6 @@ namespace
                      % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
                      % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
                      % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
-                     % boost::io::group(left, setw(columnWidths[6]), kCoinColumnIsUnlinked)
                   << std::endl;
 
             displayCoins(reliable);
@@ -986,7 +984,8 @@ namespace
 
     void ShowAssetTxs(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
-        bool show = vm.count(cli::TX_HISTORY) || vm.count(cli::SHIELDED_TX_HISTORY);
+        // Lelantus basic ops disabled starting from v5.1
+        bool show = vm.count(cli::TX_HISTORY); // || vm.count(cli::SHIELDED_TX_HISTORY);
         if (!show) return;
 
         std::vector<TxDescription> txHistory;
@@ -1012,17 +1011,18 @@ namespace
             txHistory.insert(txHistory.end(), txInfo.begin(), txInfo.end());
         }
 
-        if (vm.count(cli::SHIELDED_TX_HISTORY))
-        {
-            // there cannot be 'orphaned' asset push/pull transactions but beam only, so skip in this case
-            if (assetId != Asset::s_InvalidID)
-            {
-                auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
-                auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
-                txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
-                txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
-            }
-        }
+        // Lelantus basic ops disabled starting from v5.1
+        //if (vm.count(cli::SHIELDED_TX_HISTORY))
+        //{
+        //    // there cannot be 'orphaned' asset push/pull transactions but beam only, so skip in this case
+        //    if (assetId != Asset::s_InvalidID)
+        //    {
+        //        auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
+        //        auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
+        //        txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
+        //        txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
+        //    }
+        //}
 
         std::sort(txHistory.begin(), txHistory.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
             return a.m_createTime > b.m_createTime;
@@ -1318,13 +1318,13 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalCoinbase) % to_string(PrintableAmount(totals.Coinbase))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
 
         ShowAssetCoins(walletDB, Zero);
         ShowShilededCoins(vm, walletDB, Zero);
 
-        if (vm.count(cli::TX_HISTORY) || vm.count(cli::SHIELDED_TX_HISTORY))
+        // Lelantus basic ops disabled starting from v5.1
+        if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
         {
             std::vector<TxDescription> txHistory;
 
@@ -1334,13 +1334,14 @@ namespace
                 txHistory.insert(txHistory.end(), simpleTxHistory.begin(), simpleTxHistory.end());
             }
 
-            if (vm.count(cli::SHIELDED_TX_HISTORY))
-            {
-                auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
-                auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
-                txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
-                txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
-            }
+            // Lelantus basic ops disabled starting from v5.1
+            // if (vm.count(cli::SHIELDED_TX_HISTORY))
+            // {
+            //    auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
+            //    auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
+            //    txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
+            //    txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
+            //}
 
             txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
                 return tx.m_assetId != 0;
@@ -2785,8 +2786,10 @@ namespace
             wallet::AsyncContextHolder holder(*wallet);
 
 #ifdef BEAM_LELANTUS_SUPPORT
-            lelantus::RegisterCreators(*wallet, walletDB, withAssets);
+            // Forcibly disable starting from v5.1
+            // lelantus::RegisterCreators(*wallet, walletDB, withAssets);
 #endif
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -3178,9 +3181,11 @@ int main_impl(int argc, char* argv[])
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
         {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from the blockchain"},
         {cli::ASSET_INFO,           GetAssetInfo,                   "print confidential asset information from a node"},
-
-        {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert UTXO to the shielded pool"},
-        {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded UTXO from the shielded pool"}
+#ifdef BEAM_LELANTUS_SUPPORT
+        // Basic lelantus operations are disabled in CLI starting from v5.1
+        // {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert UTXO to the shielded pool"},
+        // {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded UTXO from the shielded pool"}
+#endif
     };
 
     try
