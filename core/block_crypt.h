@@ -599,6 +599,9 @@ namespace beam
 					& m_IsCreatedByViewer
 					& m_kSerG;
 			}
+
+			void get_SkOut(ECC::Scalar::Native&, const ECC::Hash::Value&, Key::IKdf& kdf, Amount, Asset::ID) const;
+
 		};
 
 		struct User
@@ -862,7 +865,6 @@ namespace beam
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
 
-		// Prover/Witness: the 'output' blinding factor and the seed are automatically set
 		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
 
 		virtual ~TxKernelShieldedInput() {}

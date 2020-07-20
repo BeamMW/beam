@@ -892,9 +892,12 @@ struct Context
         ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
         pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
+        pKrn->UpdateMsg();
+        txo.m_Key.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *m_pKdf, txo.m_Value, txo.m_AssetID);
+
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, 0, true);
+            pKrn->Sign(p, txo.m_AssetID, true);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));

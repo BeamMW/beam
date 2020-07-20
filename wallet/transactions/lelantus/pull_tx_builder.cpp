@@ -175,12 +175,13 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
                 prover.m_Witness.V.m_R += sdp.m_Output.m_k;
                 prover.m_Witness.V.m_V = IsAssetTx() ? GetAmount() : GetAmount() + GetFee();
-            }
 
-            {
+                pKrn->UpdateMsg();
+                shieldedCoin->m_Key.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pMaster, shieldedCoin->m_value, shieldedCoin->m_assetID);
+
                 ExecutorMT exec;
                 Executor::Scope scope(exec);
-                pKrn->Sign(prover, GetAssetId());
+                pKrn->Sign(prover, shieldedCoin->m_assetID);
             }
 
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);

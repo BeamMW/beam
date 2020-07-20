@@ -99,6 +99,22 @@ namespace beam
 			IsValid(pk);
 	}
 
+	void ShieldedTxo::BaseKey::get_SkOut(ECC::Scalar::Native& out, const ECC::Hash::Value& hvSeed, Key::IKdf& kdf, Amount val, Asset::ID aid) const
+	{
+		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
+		ECC::Hash::Value hv;
+		ECC::Oracle()
+			<< hvSeed
+			<< val
+			<< aid
+			<< m_kSerG
+			<< m_IsCreatedByViewer
+			<< m_nIdx
+			>> hv;
+
+		kdf.DeriveKey(out, hv);
+	}
+
 	/////////////
 	// Shielded keygen
 	struct ShieldedTxo::Data::HashTxt

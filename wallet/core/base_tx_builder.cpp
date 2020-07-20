@@ -647,9 +647,10 @@ namespace beam::wallet
                 lst.m_pElems += nDelta;
                 prover.m_Witness.V.m_L += nDelta;
             }
-        }
 
-        {
+            pKrn->UpdateMsg();
+            m_Coin.m_Key.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pKdf, m_Coin.m_value, m_Coin.m_assetID);
+
             ExecutorMT exec;
             Executor::Scope scope(exec);
             pKrn->Sign(prover, x.GetAssetId());

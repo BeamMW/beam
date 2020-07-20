@@ -1875,6 +1875,10 @@ namespace beam
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
+				pKrn->UpdateMsg();
+
+				ECC::SetRandom(p.m_Witness.V.m_R_Output);
+
 				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);

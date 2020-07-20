@@ -1239,8 +1239,6 @@ namespace beam
 
 	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
 	{
-		UpdateMsg();
-
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
@@ -1255,12 +1253,13 @@ namespace beam
 			<< w.m_L
 			<< w.m_V
 			<< w.m_R
+			<< w.m_R_Output
 			<< w.m_SpendSk
 			>> hvSeed.V;
 
 		ECC::NonceGenerator("krn.sh.i")
 			<< hvSeed.V
-			>> w.m_R_Output;
+			>> hvSeed.V;
 
 		ECC::Point::Native hGen;
 		if (aid)
