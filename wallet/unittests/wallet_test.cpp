@@ -1719,6 +1719,87 @@ namespace
         WALLET_CHECK(rtx->m_sender == false);
     }
 
+    void TestSendingShielded()
+    {
+        cout << "\nTesting consuming shielded TXOs...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+
+        Transaction::FeeSettings fs;
+        Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
+        Amount nValNetto = 135;
+
+        wallet::ShieldedCoin sc;
+        sc.m_Key.m_IsCreatedByViewer = true;
+        sc.m_Key.m_nIdx = 0;
+        ZeroObject(sc.m_User);
+        sc.m_ID = 12;
+        sc.m_value = nValNetto + nInpFee;
+        sc.m_confirmHeight = 0;
+
+        ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
+        ECC::Point::Storage ptS;
+        ptN.Export(ptS);
+
+        node.m_vShieldedPool.resize(50, ptS);
+
+        // calculate shielded element commitment
+        {
+            ShieldedTxo::Viewer viewer;
+            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), sc.m_Key.m_nIdx);
+
+            ShieldedTxo::Ticket tkt;
+            ShieldedTxo::DataParams sdp;
+            sdp.m_Ticket.Generate(tkt, viewer, 12323U);
+            sc.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+
+            sdp.m_Output.m_Value = sc.m_value;
+            sdp.m_Output.m_AssetID = sc.m_assetID;
+            sdp.m_Output.m_User = sc.m_User;
+
+            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+
+            WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
+
+            ptN += ECC::Context::get().G * sdp.m_Output.m_k;
+            CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+
+            ptN.Export(ptS);
+        }
+
+        node.m_vShieldedPool[sc.m_ID] = ptS;
+
+        sender.m_WalletDB->saveShieldedCoin(sc);
+
+        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+            .SetParameter(TxParameterID::Amount, nValNetto + Amount(3))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+        mainReactor->run();
+    }
+
     void TestMultiUserWallet()
     {
         cout << "\nTesting mulituser wallet...\n";

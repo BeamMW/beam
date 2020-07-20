@@ -5456,7 +5456,7 @@ namespace beam::wallet
 
         nIdx %= N; // pseudo-random, how many elements should follow this in the window
 
-        if (nIdx < m_ID)
+        if (nIdx > m_ID)
             nIdx = static_cast<uint32_t>(m_ID);
 
         return nIdx;
@@ -5464,7 +5464,7 @@ namespace beam::wallet
 
     void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop, TxoID nShieldedOuts)
     {
-        if (nShieldedOuts <= m_ID)
+        if (kTxoInvalidID == m_ID)
         {
             m_UnlinkProgress = 0;
             m_WndReserve0 = 0;
@@ -5477,6 +5477,7 @@ namespace beam::wallet
 
             uint32_t nRemaining = N - get_WndIndex(N) - 1;
 
+            std::setmax(nShieldedOuts, m_ID + 1);
             nShieldedOuts -= m_ID; // to relative
             assert(nShieldedOuts);
 

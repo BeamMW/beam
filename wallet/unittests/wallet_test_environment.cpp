@@ -955,6 +955,7 @@ public:
     }
 
     TestBlockchain m_Blockchain;
+    std::vector<ECC::Point::Storage> m_vShieldedPool;
 
     void AddBlock()
     {
@@ -982,7 +983,7 @@ private:
 
     struct Client
         :public proto::NodeConnection
-        , public boost::intrusive::list_base_hook<>
+        ,public boost::intrusive::list_base_hook<>
     {
         TestNode& m_This;
         bool m_Subscribed;
@@ -1098,8 +1099,32 @@ private:
 
         void OnMsg(proto::GetStateSummary&& msg) override
         {
-            Send(proto::StateSummary(Zero));
+            proto::StateSummary msgOut;
+            msgOut.m_ShieldedOuts = m_This.m_vShieldedPool.size();
+            Send(msgOut);
         }
+
+        void OnMsg(proto::GetShieldedList&& msg) override
+        {
+            const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
+
+            proto::ShieldedList msgOut;
+            msgOut.m_ShieldedOuts = v.size();
+
+            if (msg.m_Id0 < msgOut.m_ShieldedOuts)
+            {
+                size_t n = msgOut.m_ShieldedOuts - msg.m_Id0;
+                std::setmin(n, msg.m_Count);
+                std::setmin(n, Rules::get().Shielded.m_ProofMax.get_N() * 2);
+
+                msgOut.m_Items.resize(n);
+                std::copy(v.begin() + msg.m_Id0, v.begin() + msg.m_Id0 + n, msgOut.m_Items.begin());
+            }
+
+            Send(msgOut);
+        }
+
+
 
         void OnDisconnect(const DisconnectReason& r) override
         {
