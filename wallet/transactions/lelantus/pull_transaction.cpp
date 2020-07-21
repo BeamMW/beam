@@ -75,10 +75,9 @@ namespace beam::wallet::lelantus
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
-            bool isUnlinked = storage::IsShieldedCoinUnlinked(*GetWalletDB(), *shieldedCoin);
             for (const auto& amount : m_TxBuilder->GetAmountList())
             {
-                m_TxBuilder->GenerateCoin(amount, isUnlinked);
+                m_TxBuilder->GenerateCoin(amount);
             }
 
             const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
@@ -100,8 +99,9 @@ namespace beam::wallet::lelantus
                 // If asset we must have BEAM inputs
                 if (m_TxBuilder->IsAssetTx())
                 {
-                    m_TxBuilder->SelectFeeInputsPreferUnlinked();
-                    m_TxBuilder->AddChange();
+                    throw TransactionFailedException(false, TxFailureReason::NoInputs, "asset pull not impl");
+                    //m_TxBuilder->SelectFeeInputsPreferUnlinked();
+                    //m_TxBuilder->AddChange();
                 }
                 else
                 {

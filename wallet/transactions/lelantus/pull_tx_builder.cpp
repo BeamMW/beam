@@ -206,12 +206,11 @@ namespace beam::wallet::lelantus
         return transaction;
     }
 
-    void PullTxBuilder::GenerateCoin(Amount amount, bool isUnlinked)
+    void PullTxBuilder::GenerateCoin(Amount amount)
     {
         Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, GetAssetId());
 
         newUtxo.m_createTxId = m_Tx.GetTxID();
-        newUtxo.m_isUnlinked = isUnlinked;
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);

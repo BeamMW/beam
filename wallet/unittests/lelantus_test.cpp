@@ -161,7 +161,6 @@ void TestUnlinkTx()
     auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
     WALLET_CHECK(coins.size() == 1);
     auto& coin = coins[0];
-    WALLET_CHECK(coin.m_isUnlinked);
     WALLET_CHECK(coin.m_ID.m_Value == 26000000);
 }
 
@@ -231,7 +230,6 @@ void TestCancelUnlinkTx()
     auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
     WALLET_CHECK(coins.size() == 1);
     auto& coin = coins[0];
-    WALLET_CHECK(coin.m_isUnlinked == false);
     WALLET_CHECK(coin.m_ID.m_Value == 26000000);
 }
 
@@ -314,14 +312,6 @@ void TestSimpleTx()
         {
             return (tx.m_txType == TxType::PushTransaction || tx.m_txType == TxType::PullTransaction) && tx.m_status == TxStatus::Completed;
         }));
-    for (const auto& tx : txHistory)
-    {
-        if (tx.m_txType == TxType::PullTransaction)
-        {
-            auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
-            WALLET_CHECK(std::all_of(coins.begin(), coins.end(), [](const auto& coin) { return coin.m_isUnlinked == false; }));
-        }
-    }
 }
 
 void TestDirectAnonymousPayment()
