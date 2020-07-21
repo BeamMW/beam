@@ -54,6 +54,12 @@ namespace beam::wallet
             virtual void OnDone(Status::Type) = 0;
         };
 
+        struct ShieldedInput
+            :public ShieldedTxo::ID
+        {
+            TxKernelShieldedInput::Ptr m_pKernel;
+        };
+
         struct Method
         {
             struct get_Kdf
@@ -77,10 +83,23 @@ namespace beam::wallet
                 Output::Ptr m_pResult;
             };
 
+            struct CreateInputShielded
+                :public ShieldedInput
+            {
+                Sigma::CmList* m_pList;
+                uint32_t m_iIdx;
+
+                // before invocation the following must be set:
+                //  Fee, min/max Heights
+                //  m_WindowEnd
+                //  m_SpendProof.m_Cfg
+            };
+
             struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
                 std::vector<CoinID> m_vOutputs;
+                std::vector<ShieldedInput> m_vInputsShielded;
             };
 
             struct TxCommon :public InOuts
@@ -119,6 +138,7 @@ namespace beam::wallet
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
 		macro(CreateOutput) \
+		macro(CreateInputShielded) \
 		macro(SignReceiver) \
 		macro(SignSender) \
 		macro(SignSplit) \

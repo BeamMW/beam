@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "core/shielded.h"
 #include "utility/logger.h"
+#include "utility/executor.h"
 
 namespace beam::wallet
 {
@@ -83,8 +85,32 @@ namespace beam::wallet
         Values m_Ins;
         Values m_Outs;
 
+        Amount m_TotalFee;
+
+        bool Add(Values& vals, Amount v, Asset::ID aid)
+        {
+            bool bAdded = false;
+            if (aid)
+            {
+                if (m_AssetID)
+                {
+                    if (m_AssetID != aid)
+                        return false; // mixed assets are not allowed in a single tx
+                }
+                else
+                    m_AssetID = aid;
+
+                bAdded = Add(vals.m_Asset, v);
+            }
+            else
+                bAdded = Add(vals.m_Beam, v);
+
+            return bAdded;
+        }
+
         bool Aggregate(const Method::TxCommon&);
         bool Aggregate(const std::vector<CoinID>&, bool bOuts);
+        bool Aggregate(const std::vector<ShieldedInput>&);
     };
 
     bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const Method::TxCommon& tx)
@@ -92,6 +118,7 @@ namespace beam::wallet
         if (!tx.m_pKernel)
             return false;
         TxKernelStd& krn = *tx.m_pKernel;
+        m_TotalFee = krn.m_Fee;
 
         m_NonConventional = tx.m_NonConventional;
         if (m_NonConventional)
@@ -116,6 +143,9 @@ namespace beam::wallet
         if (!Aggregate(tx.m_vInputs, false))
             return false;
 
+        if (!Aggregate(tx.m_vInputsShielded))
+            return false;
+
         m_sk = -m_sk;
 
         if (!Aggregate(tx.m_vOutputs, true))
@@ -127,7 +157,6 @@ namespace beam::wallet
     bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const std::vector<CoinID>& v, bool bOuts)
     {
         Values& vals = bOuts ? m_Outs : m_Ins;
-        ZeroObject(vals);
 
         Scalar::Native sk;
         for (size_t i = 0; i < v.size(); i++)
@@ -159,23 +188,34 @@ namespace beam::wallet
                     return false; // trustless wallet should not send funds to child subkeys (potentially belonging to miners)
             }
 
-            bool bAdded = false;
-            if (cid.m_AssetID)
-            {
-                if (m_AssetID)
-                {
-                    if (m_AssetID != cid.m_AssetID)
-                        return false; // mixed assets are not allowed in a single tx
-                }
-                else
-                    m_AssetID = cid.m_AssetID;
+            if (!Add(vals, cid.m_Value,  cid.m_AssetID))
+                return false; // overflow
+        }
 
-                bAdded = Add(vals.m_Asset, cid.m_Value);
-            }
-            else
-                bAdded = Add(vals.m_Beam, cid.m_Value);
+        return true;
+    }
 
-            if (!bAdded)
+    bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const std::vector<ShieldedInput>& v)
+    {
+        Values& vals = m_Ins;
+        Scalar::Native sk;
+        for (size_t i = 0; i < v.size(); i++)
+        {
+            const ShieldedInput& si = v[i];
+            si.get_SkOut(sk, si.m_pKernel->m_Internal.m_ID, *m_This.m_pKdf);
+
+            m_sk += sk;
+
+            if (m_NonConventional)
+                continue; // ignore values
+
+            if (si.m_pKernel->m_CanEmbed || !si.m_pKernel->m_vNested.empty())
+                return false; // non-trivial kernels should not be supported
+
+            if (!Add(vals, si.m_Value, si.m_AssetID))
+                return false; // overflow
+
+            if (!Add(m_TotalFee, si.m_pKernel->m_Fee))
                 return false; // overflow
         }
 
@@ -215,6 +255,45 @@ namespace beam::wallet
 
         Scalar::Native sk;
         x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateInputShielded& x)
+    {
+        assert(x.m_pKernel && x.m_pList);
+
+        Lelantus::Prover prover(*x.m_pList, x.m_pKernel->m_SpendProof);
+
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*m_pKdf, x.m_Key.m_nIdx);
+
+        ShieldedTxo::DataParams sdp;
+        sdp.m_Ticket.m_pK[0] = x.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = x.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.Restore(viewer);
+
+        sdp.m_Output.m_Value = x.m_Value;
+        sdp.m_Output.m_AssetID = x.m_AssetID;
+        sdp.m_Output.m_User = x.m_User;
+
+        sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+
+        Key::IKdf::Ptr pSerialPrivate;
+        ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *m_pKdf, x.m_Key.m_nIdx);
+        pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
+
+        prover.m_Witness.V.m_L = x.m_iIdx;
+        prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
+        prover.m_Witness.V.m_R += sdp.m_Output.m_k;
+        prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
+
+        x.m_pKernel->UpdateMsg();
+        x.get_SkOut(prover.m_Witness.V.m_R_Output, x.m_pKernel->m_Internal.m_ID, *m_pKdf);
+
+        ExecutorMT exec;
+        Executor::Scope scope(exec);
+        x.m_pKernel->Sign(prover, x.m_AssetID);
 
         return Status::Success;
     }
@@ -343,15 +422,15 @@ namespace beam::wallet
                 if (!vals.m_Asset)
                     return Status::Unspecified; // asset involved, but no net transfer
 
-                if (vals.m_Beam != krn.m_Fee)
+                if (vals.m_Beam != aggr.m_TotalFee)
                     return Status::Unspecified; // all beams must be consumed by the fee
             }
             else
             {
-                if (vals.m_Beam <= krn.m_Fee)
+                if (vals.m_Beam <= aggr.m_TotalFee)
                     return Status::Unspecified;
 
-                vals.m_Asset = vals.m_Beam - krn.m_Fee;
+                vals.m_Asset = vals.m_Beam - aggr.m_TotalFee;
             }
         }
 
@@ -474,7 +553,7 @@ namespace beam::wallet
         assert(x.m_pKernel);
         TxKernelStd& krn = *x.m_pKernel;
 
-        if (vals.m_Asset || vals.m_Beam != krn.m_Fee)
+        if (vals.m_Asset || vals.m_Beam != aggr.m_TotalFee)
             return Status::Unspecified; // some funds are missing!
 
         Scalar::Native kKrn, kNonce;
