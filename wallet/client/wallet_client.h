@@ -89,6 +89,8 @@ namespace beam::wallet
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;
         ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
+        void setCoinConfirmationsOffset(uint32_t offset);
+        uint32_t getCoinConfirmationsOffset() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;

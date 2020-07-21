@@ -487,12 +487,13 @@ namespace beam
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
-        po::options_description lelantus_options("Lelantus-MW");
-        lelantus_options.add_options()
-            (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
-            (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
-            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
-            (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
+        // Basic lelantus operations are disabled starting from v5.1
+        // po::options_description lelantus_options("Lelantus-MW");
+        // lelantus_options.add_options()
+        //    (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
+        //    (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
+        //    (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
+        //    (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
 
         po::options_description options{ "OPTIONS" };
         po::options_description visible_options{ "OPTIONS" };
@@ -515,7 +516,8 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
-            options.add(lelantus_options);
+            // Basic lelantus operations are disabled starting from v5.1
+            // options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
@@ -524,7 +526,8 @@ namespace beam
 
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
-             visible_options.add(lelantus_options);
+            // Basic lelantus operations are disabled starting from v5.1
+            // visible_options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {

@@ -508,6 +508,16 @@ namespace beam::wallet
         return {};
     }
 
+    void WalletClient::setCoinConfirmationsOffset(uint32_t offset)
+    {
+        m_walletDB->setCoinConfirmationsOffset(offset);
+    }
+
+    uint32_t WalletClient::getCoinConfirmationsOffset() const
+    {
+        return m_walletDB->getCoinConfirmationsOffset();
+    }
+
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
