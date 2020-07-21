@@ -687,13 +687,12 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    constexpr uint32_t kSplitTxCount = 1;
     const uint32_t pushTxCount = txCount;
     const uint32_t pullTxCount = txCount;
     Height pullTxsStartHeight = Rules::get().pForks[2].m_Height + 15;
 
     uint32_t nTxsPending = 0;
-    auto completeAction = [&mainReactor, &nTxsPending](auto)
+    auto completeAction = [&nTxsPending](auto)
     {
         assert(nTxsPending);
         --nTxsPending;
