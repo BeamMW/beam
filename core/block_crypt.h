@@ -632,7 +632,7 @@ namespace beam
 					& m_User;
 			}
 
-			void get_SkOut(ECC::Scalar::Native&, const ECC::Hash::Value&, Key::IKdf& kdf) const;
+			void get_SkOut(ECC::Scalar::Native&, Amount fee, Key::IKdf& kdf) const;
 		};
 
 		struct Voucher

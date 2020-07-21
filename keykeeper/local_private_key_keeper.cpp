@@ -202,7 +202,7 @@ namespace beam::wallet
         for (size_t i = 0; i < v.size(); i++)
         {
             const ShieldedInput& si = v[i];
-            si.get_SkOut(sk, si.m_pKernel->m_Msg, *m_This.m_pKdf);
+            si.get_SkOut(sk, si.m_pKernel->m_Fee, *m_This.m_pKdf);
 
             m_sk += sk;
 
@@ -289,7 +289,7 @@ namespace beam::wallet
         prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
 
         x.m_pKernel->UpdateMsg();
-        x.get_SkOut(prover.m_Witness.V.m_R_Output, x.m_pKernel->m_Msg, *m_pKdf);
+        x.get_SkOut(prover.m_Witness.V.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
 
         ExecutorMT exec;
         Executor::Scope scope(exec);

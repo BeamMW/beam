@@ -99,14 +99,15 @@ namespace beam
 			IsValid(pk);
 	}
 
-	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, const ECC::Hash::Value& hvSeed, Key::IKdf& kdf) const
+	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, Amount fee, Key::IKdf& kdf) const
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
 		ECC::Hash::Value hv;
 		ECC::Oracle()
-			<< hvSeed
+			<< "sh.skout"
 			<< m_Value
 			<< m_AssetID
+			<< fee
 			<< m_Key.m_kSerG
 			<< m_Key.m_IsCreatedByViewer
 			<< m_Key.m_nIdx
