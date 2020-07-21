@@ -103,7 +103,7 @@ namespace beam
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
 		ECC::Hash::Value hv;
-		ECC::Oracle()
+		ECC::Hash::Processor()
 			<< "sh.skout"
 			<< m_Value
 			<< m_AssetID
