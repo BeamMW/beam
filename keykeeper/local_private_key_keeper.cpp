@@ -51,9 +51,9 @@ namespace beam::wallet
         LocalPrivateKeyKeeper2& m_This;
         Aggregation(LocalPrivateKeyKeeper2& v) :m_This(v) {}
 
-        ECC::Scalar::Native m_sk;
-        Asset::ID m_AssetID;
-        bool m_NonConventional;
+        ECC::Scalar::Native m_sk = Zero;
+        Asset::ID m_AssetID = Asset::s_InvalidID;
+        bool m_NonConventional = false;
 
         static bool Add(Amount& trg, Amount val)
         {
@@ -71,8 +71,8 @@ namespace beam::wallet
 
         struct Values
         {
-            Amount m_Beam;
-            Amount m_Asset;
+            Amount m_Beam = Amount(0);
+            Amount m_Asset = Amount(0);
 
             bool Subtract(const Values& v)
             {
@@ -84,8 +84,7 @@ namespace beam::wallet
 
         Values m_Ins;
         Values m_Outs;
-
-        Amount m_TotalFee;
+        Amount m_TotalFee = Amount(0);
 
         bool Add(Values& vals, Amount v, Asset::ID aid)
         {
