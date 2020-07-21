@@ -2339,13 +2339,20 @@ namespace beam::wallet
         size_t iPosShielded = 0;
 
         Transaction::FeeSettings fs;
+        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
 
         if (nMaxShielded)
         {
-            visitShieldedCoinsUnspent([&vShielded, aid](const ShieldedCoin& coin) -> bool
+            visitShieldedCoinsUnspent(
+                [&vShielded, aid, feeShielded](const ShieldedCoin& coin) -> bool
                 {
                     if ((ShieldedCoin::Status::Available == coin.m_Status) && (coin.m_CoinID.m_AssetID == aid))
-                        vShielded.push_back(coin);
+                    {
+                        // skip dust
+                        bool bDust = !aid && (coin.m_CoinID.m_Value <= feeShielded);
+                        if (!bDust)
+                            vShielded.push_back(coin);
+                    }
                     return true;
                 }
             );
@@ -2364,7 +2371,7 @@ namespace beam::wallet
                     break;
 
                 if (!aid)
-                    amount += fs.m_ShieldedInput + fs.m_Kernel;
+                    amount += feeShielded;
 
                 DecreaseAmount(amount, x.m_CoinID.m_Value);
                 vSelShielded.push_back(x);
@@ -2387,7 +2394,7 @@ namespace beam::wallet
         for (; amount && (iPosShielded < vShielded.size()) && (vSelShielded.size() < nMaxShielded); iPosShielded++)
         {
             if (!aid)
-                amount += fs.m_ShieldedInput + fs.m_Kernel;
+                amount += feeShielded;
 
             const ShieldedCoin& x = vShielded[iPosShielded];
             DecreaseAmount(amount, x.m_CoinID.m_Value);
