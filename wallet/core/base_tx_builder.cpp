@@ -819,10 +819,7 @@ namespace beam::wallet
             IPrivateKeyKeeper2::ShieldedInput& x = m.m_vInputsShielded[i];
 
             Cast::Down<ShieldedTxo::ID>(x) = m_InputCoinsShielded[i];
-
-            TxKernel::Ptr pKrn;
-            m_InputsShielded[i]->Clone(pKrn);
-            x.m_pKernel.reset(Cast::Up<TxKernelShieldedInput>(pKrn.release()));
+            x.m_Fee = m_InputsShielded[i]->m_Fee;
         }
     }
 

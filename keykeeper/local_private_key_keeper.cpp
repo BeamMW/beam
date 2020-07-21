@@ -202,20 +202,17 @@ namespace beam::wallet
         for (size_t i = 0; i < v.size(); i++)
         {
             const ShieldedInput& si = v[i];
-            si.get_SkOut(sk, si.m_pKernel->m_Fee, *m_This.m_pKdf);
+            si.get_SkOut(sk, si.m_Fee, *m_This.m_pKdf);
 
             m_sk += sk;
 
             if (m_NonConventional)
                 continue; // ignore values
 
-            if (si.m_pKernel->m_CanEmbed || !si.m_pKernel->m_vNested.empty())
-                return false; // non-trivial kernels should not be supported
-
             if (!Add(vals, si.m_Value, si.m_AssetID))
                 return false; // overflow
 
-            if (!Add(m_TotalFee, si.m_pKernel->m_Fee))
+            if (!Add(m_TotalFee, si.m_Fee))
                 return false; // overflow
         }
 
@@ -484,7 +481,7 @@ namespace beam::wallet
         {
             if (IsTrustless())
             {
-                Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, false);
+                Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, false);
                 if (Status::Success != res)
                     return res;
             }
@@ -523,7 +520,7 @@ namespace beam::wallet
         if (IsTrustless())
         {
             // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
-            Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
+            Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
             if (Status::Success != res)
                 return res;
         }
@@ -580,7 +577,7 @@ namespace beam::wallet
 
         krn.UpdateID();
 
-        Status::Type res = ConfirmSpend(0, 0, Zero, krn, true);
+        Status::Type res = ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true);
         if (Status::Success != res)
             return res;
 
