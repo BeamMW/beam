@@ -57,7 +57,7 @@ namespace beam::wallet
         struct ShieldedInput
             :public ShieldedTxo::ID
         {
-            TxKernelShieldedInput::Ptr m_pKernel;
+            Amount m_Fee;
         };
 
         struct Method
@@ -84,11 +84,12 @@ namespace beam::wallet
             };
 
             struct CreateInputShielded
-                :public ShieldedInput
+                :public ShieldedTxo::ID
             {
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
 
+                TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:
                 //  Fee, min/max Heights
                 //  m_WindowEnd

@@ -882,7 +882,7 @@ struct Context
         pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
         pKrn->UpdateMsg();
-        txo.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *m_pKdf);
+        txo.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Fee, *m_pKdf);
 
         {
             beam::Executor::Scope scope(m_Exec);

@@ -1798,6 +1798,12 @@ namespace
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
         mainReactor->run();
+
+        // check Tx
+        auto txHistory = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txId == txId);
+        WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
     }
 
     void TestMultiUserWallet()

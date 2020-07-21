@@ -177,7 +177,7 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_V = IsAssetTx() ? GetAmount() : GetAmount() + GetFee();
 
                 pKrn->UpdateMsg();
-                shieldedCoin->m_CoinID.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pMaster);
+                shieldedCoin->m_CoinID.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Fee, *pMaster);
 
                 ExecutorMT exec;
                 Executor::Scope scope(exec);
