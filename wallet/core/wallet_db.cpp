@@ -3090,6 +3090,8 @@ namespace beam::wallet
             {
                 ShieldedCoin& coin = changedCoins[i];
                 coin.m_confirmHeight = MaxHeight;
+                updateShieldedCoinRaw(coin);
+
                 coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             }
 
