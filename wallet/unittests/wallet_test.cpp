@@ -1787,7 +1787,7 @@ namespace
 
         sender.m_WalletDB->saveShieldedCoin(sc);
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
