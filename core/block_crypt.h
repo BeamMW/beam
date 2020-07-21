@@ -599,9 +599,6 @@ namespace beam
 					& m_IsCreatedByViewer
 					& m_kSerG;
 			}
-
-			void get_SkOut(ECC::Scalar::Native&, const ECC::Hash::Value&, Key::IKdf& kdf, Amount, Asset::ID) const;
-
 		};
 
 		struct User
@@ -616,6 +613,26 @@ namespace beam
 					& m_Sender
 					& m_pMessage;
 			}
+		};
+
+		struct ID
+		{
+			BaseKey m_Key;
+			User m_User;
+			Amount m_Value;
+			Asset::ID m_AssetID = 0;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Value
+					& m_AssetID
+					& m_Key
+					& m_User;
+			}
+
+			void get_SkOut(ECC::Scalar::Native&, const ECC::Hash::Value&, Key::IKdf& kdf) const;
 		};
 
 		struct Voucher

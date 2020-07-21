@@ -159,11 +159,11 @@
 #define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
 
 #define ENUM_SHIELDED_COIN_FIELDS(each, sep, obj) \
-    each(Key,                   Key,                  BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(User,                  User,                 BLOB, obj) sep \
-    each(ID,                    ID,                   INTEGER NOT NULL, obj) sep \
-    each(assetID,               assetID,              INTEGER, obj) sep \
-    each(value,                 value,                INTEGER NOT NULL, obj) sep \
+    each(Key,                   CoinID.m_Key,         BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(User,                  CoinID.m_User,        BLOB, obj) sep \
+    each(ID,                    TxoID,                INTEGER NOT NULL, obj) sep \
+    each(assetID,               CoinID.m_AssetID,     INTEGER, obj) sep \
+    each(value,                 CoinID.m_Value,       INTEGER NOT NULL, obj) sep \
     each(confirmHeight,         confirmHeight,        INTEGER, obj) sep \
     each(spentHeight,           spentHeight,          INTEGER, obj) sep \
     each(createTxId,            createTxId,           BLOB, obj) sep \
@@ -2196,15 +2196,10 @@ namespace beam::wallet
             virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index nIdx) override
             {
                 ShieldedCoin sc;
+                pars.ToID(sc.m_CoinID);
+                sc.m_CoinID.m_Key.m_nIdx = nIdx;
+                sc.m_TxoID = dout.m_ID;
 
-                sc.m_Key.m_nIdx = nIdx;
-                sc.m_Key.m_IsCreatedByViewer = pars.m_Ticket.m_IsCreatedByViewer;
-                sc.m_Key.m_kSerG = pars.m_Ticket.m_pK[0];
-
-                sc.m_User = pars.m_Output.m_User;
-                sc.m_ID = dout.m_ID;
-                sc.m_assetID = pars.m_Output.m_AssetID;
-                sc.m_value = pars.m_Output.m_Value;
                 sc.m_confirmHeight = dout.m_Height;
                 sc.m_spentHeight = MaxHeight;
 
@@ -2212,7 +2207,7 @@ namespace beam::wallet
 
                 LOG_INFO() << "Shielded output, ID: " << dout.m_ID << " Confirmed, Height=" << dout.m_Height;
 
-                m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_Key;
+                m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_CoinID.m_Key;
 
                 return true;
             }
@@ -2228,7 +2223,7 @@ namespace beam::wallet
                         shieldedCoin->m_spentHeight = dinp.m_Height;
                         m_This.saveShieldedCoin(*shieldedCoin);
 
-                        LOG_INFO() << "Shielded input, ID: " << shieldedCoin->m_ID << " Spent, Height=" << dinp.m_Height;
+                        LOG_INFO() << "Shielded input, TxoID: " << shieldedCoin->m_TxoID << " Spent, Height=" << dinp.m_Height;
                     }
 
                     m_mapShielded.erase(it);
@@ -2349,7 +2344,7 @@ namespace beam::wallet
         {
             visitShieldedCoinsUnspent([&vShielded, aid](const ShieldedCoin& coin) -> bool
                 {
-                    if ((ShieldedCoin::Status::Available == coin.m_Status) && (coin.m_assetID == aid))
+                    if ((ShieldedCoin::Status::Available == coin.m_Status) && (coin.m_CoinID.m_AssetID == aid))
                         vShielded.push_back(coin);
                     return true;
                 }
@@ -2371,7 +2366,7 @@ namespace beam::wallet
                 if (!aid)
                     amount += fs.m_ShieldedInput + fs.m_Kernel;
 
-                DecreaseAmount(amount, x.m_value);
+                DecreaseAmount(amount, x.m_CoinID.m_Value);
                 vSelShielded.push_back(x);
 
                 if (vSelShielded.size() == nMaxShielded)
@@ -2395,7 +2390,7 @@ namespace beam::wallet
                 amount += fs.m_ShieldedInput + fs.m_Kernel;
 
             const ShieldedCoin& x = vShielded[iPosShielded];
-            DecreaseAmount(amount, x.m_value);
+            DecreaseAmount(amount, x.m_CoinID.m_Value);
             vSelShielded.push_back(x);
         }
 
@@ -3113,7 +3108,7 @@ namespace beam::wallet
         int colIdx = 0;
 
         ENUM_SHIELDED_COIN_FIELDS(STM_BIND_LIST, NOSEP, coin);
-        stm.bind(++colIdx, coin.m_Key);
+        stm.bind(++colIdx, coin.m_CoinID.m_Key);
         stm.step();
 
         return sqlite3_changes(_db) > 0;
@@ -3386,7 +3381,7 @@ namespace beam::wallet
                 ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
                 coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
 
-                DeleteShieldedCoin(coin.m_Key);
+                DeleteShieldedCoin(coin.m_CoinID.m_Key);
             }
         }
 
@@ -4650,10 +4645,10 @@ namespace beam::wallet
 
             walletDB.visitShieldedCoinsUnspent([getTotalsRef](const ShieldedCoin& coin) -> bool {
                 // always add to totals even if there will be no available coins
-                auto& totals = getTotalsRef(coin.m_assetID);
+                auto& totals = getTotalsRef(coin.m_CoinID.m_AssetID);
                 if(coin.IsAvailable())
                 {
-                    const AmountBig::Type value = coin.m_value;
+                    const AmountBig::Type value = coin.m_CoinID.m_Value;
                     totals.Shielded += value;
                 }
                 return true;
@@ -5452,19 +5447,19 @@ namespace beam::wallet
         assert(N);
 
         uint32_t nIdx;
-        m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // pseudo-random
+        m_CoinID.m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // pseudo-random
 
         nIdx %= N; // pseudo-random, how many elements should follow this in the window
 
-        if (nIdx > m_ID)
-            nIdx = static_cast<uint32_t>(m_ID);
+        if (nIdx > m_TxoID)
+            nIdx = static_cast<uint32_t>(m_TxoID);
 
         return nIdx;
     }
 
     void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop, TxoID nShieldedOuts)
     {
-        if (kTxoInvalidID == m_ID)
+        if (kTxoInvalidID == m_TxoID)
         {
             m_UnlinkProgress = 0;
             m_WndReserve0 = 0;
@@ -5477,8 +5472,8 @@ namespace beam::wallet
 
             uint32_t nRemaining = N - get_WndIndex(N) - 1;
 
-            std::setmax(nShieldedOuts, m_ID + 1);
-            nShieldedOuts -= m_ID; // to relative
+            std::setmax(nShieldedOuts, m_TxoID + 1);
+            nShieldedOuts -= m_TxoID; // to relative
             assert(nShieldedOuts);
 
             if (nShieldedOuts <= nRemaining)
@@ -5568,7 +5563,7 @@ namespace beam::wallet
                 }
 
                 // not really important, but for steady sort let's resolve ambiguity by coin unique ID
-                return a.m_ID < b.m_ID;
+                return a.m_TxoID < b.m_TxoID;
             }
         } mcmp;
 

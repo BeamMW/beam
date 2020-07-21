@@ -370,11 +370,8 @@ namespace proto {
 
 #define BeamEvent_Shielded(macro) \
         macro(uint8_t, Flags) \
-        macro(TxoID, ID) \
-        macro(Amount, Value) \
-        macro(Asset::ID, AssetID) \
-        macro(ShieldedTxo::BaseKey, Key) \
-        macro(ShieldedTxo::User, User)
+        macro(TxoID, TxoID) \
+        macro(ShieldedTxo::ID, CoinID)
 
 #define BeamEvent_AssetCtl(macro) \
         macro(Asset::Full, Info) \

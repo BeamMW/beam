@@ -228,15 +228,7 @@ struct Context
 
     typedef Txo<CoinID, TxoBase> TxoMW;
 
-    struct TxoShieldedBase
-    {
-        Amount m_Value;
-        Asset::ID m_AssetID;
-        ShieldedTxo::BaseKey m_Key;
-        ShieldedTxo::User m_User;
-    };
-
-    typedef Txo<TxoID, TxoShieldedBase> TxoSH;
+    typedef Txo<TxoID, ShieldedTxo::ID> TxoSH;
 
     TxoMW::Container m_TxosMW;
     TxoSH::Container m_TxosSH;
@@ -302,7 +294,7 @@ struct Context
                 void OnEventType(proto::Event::Shielded& evt)
                 {
                     TxoSH::ID cid;
-                    cid.m_Value = evt.m_ID;
+                    cid.m_Value = evt.m_TxoID;
 
                     TxoSH::IDMap::iterator it = m_This.m_TxosSH.m_mapID.find(cid);
 
@@ -310,11 +302,8 @@ struct Context
                     {
                         if (m_This.m_TxosSH.m_mapID.end() == it)
                         {
-                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
-                            pTxo->m_Value = evt.m_Value;
-                            pTxo->m_AssetID = evt.m_AssetID;
-                            pTxo->m_Key = evt.m_Key;
-                            pTxo->m_User = evt.m_User;
+                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_TxoID, m_Height);
+                            Cast::Down<ShieldedTxo::ID>(*pTxo) = evt.m_CoinID;
                         }
                     }
                     else
@@ -893,7 +882,7 @@ struct Context
         pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
         pKrn->UpdateMsg();
-        txo.m_Key.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *m_pKdf, txo.m_Value, txo.m_AssetID);
+        txo.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *m_pKdf);
 
         {
             beam::Executor::Scope scope(m_Exec);

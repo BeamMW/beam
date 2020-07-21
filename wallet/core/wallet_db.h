@@ -233,16 +233,12 @@ namespace beam::wallet
         TxoID GetAnonymitySet(TxoID lastKnownShieldedOuts) const
         {
             // TODO: review this
-            return lastKnownShieldedOuts && (lastKnownShieldedOuts > m_ID) ? lastKnownShieldedOuts - m_ID : 0;
+            return lastKnownShieldedOuts && (lastKnownShieldedOuts > m_TxoID) ? lastKnownShieldedOuts - m_TxoID : 0;
         }
 
-        ShieldedTxo::BaseKey m_Key;
-        ShieldedTxo::User m_User;
+        ShieldedTxo::ID m_CoinID;
+        TxoID m_TxoID = kTxoInvalidID;
 
-        TxoID m_ID = kTxoInvalidID;
-        Asset::ID m_assetID = 0;
-
-        Amount m_value = 0;
         Height m_confirmHeight = MaxHeight;  // height at which the coin was confirmed (appeared in the chain)
         Height m_spentHeight = MaxHeight;    // height at which the coin was spent
 

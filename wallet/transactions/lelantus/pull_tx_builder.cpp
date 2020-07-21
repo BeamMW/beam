@@ -162,13 +162,13 @@ namespace beam::wallet::lelantus
                 }
 
                 ShieldedTxo::Viewer viewer;
-                viewer.FromOwner(*pMaster, shieldedCoin->m_Key.m_nIdx);
+                viewer.FromOwner(*pMaster, shieldedCoin->m_CoinID.m_Key.m_nIdx);
 
                 ShieldedTxo::DataParams sdp;
                 Restore(sdp, *shieldedCoin, viewer);
 
                 Key::IKdf::Ptr pSerialPrivate;
-                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster, shieldedCoin->m_Key.m_nIdx);
+                ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pMaster, shieldedCoin->m_CoinID.m_Key.m_nIdx);
                 pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
                 prover.m_Witness.V.m_L = shieldedWindowId;
@@ -177,11 +177,11 @@ namespace beam::wallet::lelantus
                 prover.m_Witness.V.m_V = IsAssetTx() ? GetAmount() : GetAmount() + GetFee();
 
                 pKrn->UpdateMsg();
-                shieldedCoin->m_Key.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pMaster, shieldedCoin->m_value, shieldedCoin->m_assetID);
+                shieldedCoin->m_CoinID.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pMaster);
 
                 ExecutorMT exec;
                 Executor::Scope scope(exec);
-                pKrn->Sign(prover, shieldedCoin->m_assetID);
+                pKrn->Sign(prover, shieldedCoin->m_CoinID.m_AssetID);
             }
 
             m_Tx.SetParameter(TxParameterID::KernelID, pKrn->m_Internal.m_ID);

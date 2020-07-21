@@ -206,7 +206,7 @@ namespace beam::wallet::lelantus
                         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
                         if (coin) // payment to ourself
                         {
-                            coin->m_ID = proof.m_ID;
+                            coin->m_TxoID = proof.m_ID;
                             coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
 
                             // save shielded output to DB

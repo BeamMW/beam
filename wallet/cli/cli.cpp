@@ -1179,9 +1179,9 @@ namespace
             {
                 TxoID anonymitySetForCoin = c.GetAnonymitySet(lastKnownShieldedOuts);
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
-                    % boost::io::group(left, setw(columnWidths[0]),  c.m_ID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_ID))
-                    % boost::io::group(right, setw(columnWidths[1]), c.m_value / Rules::Coin)
-                    % boost::io::group(right, setw(columnWidths[2]), c.m_value % Rules::Coin)
+                    % boost::io::group(left, setw(columnWidths[0]),  c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID))
+                    % boost::io::group(right, setw(columnWidths[1]), c.m_CoinID.m_Value / Rules::Coin)
+                    % boost::io::group(right, setw(columnWidths[2]), c.m_CoinID.m_Value % Rules::Coin)
                     % boost::io::group(left, setw(columnWidths[3]),  c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
                     % boost::io::group(left, setw(columnWidths[4]),  c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
                     % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
@@ -3089,7 +3089,7 @@ namespace
             return boost::none;
         }
 
-        const bool isAsset = shieldedCoin->m_assetID != Asset::s_InvalidID;
+        const bool isAsset = shieldedCoin->m_CoinID.m_AssetID != Asset::s_InvalidID;
         if (isAsset)
         {
             CheckAssetsAllowed(vm);
@@ -3097,7 +3097,7 @@ namespace
         else
         {
             // BEAM
-            if (shieldedCoin->m_value <= fee)
+            if (shieldedCoin->m_CoinID.m_Value <= fee)
             {
                 LOG_ERROR() << "Shielded UTXO amount less or equal fee.";
                 return boost::none;
@@ -3107,9 +3107,9 @@ namespace
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
         auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
-            .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_value : shieldedCoin->m_value - fee)
+            .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_CoinID.m_Value : shieldedCoin->m_CoinID.m_Value - fee)
             .SetParameter(TxParameterID::Fee, fee)
-            .SetParameter(TxParameterID::AssetID, shieldedCoin->m_assetID)
+            .SetParameter(TxParameterID::AssetID, shieldedCoin->m_CoinID.m_AssetID)
             .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
             .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 

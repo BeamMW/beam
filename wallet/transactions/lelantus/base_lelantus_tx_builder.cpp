@@ -58,13 +58,13 @@ namespace beam::wallet::lelantus
 
     void BaseLelantusTxBuilder::Restore(ShieldedTxo::DataParams& sdp, const ShieldedCoin& sc, const ShieldedTxo::Viewer& viewer)
     {
-        sdp.m_Ticket.m_pK[0] = sc.m_Key.m_kSerG;
-        sdp.m_Ticket.m_IsCreatedByViewer = sc.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.m_pK[0] = sc.m_CoinID.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = sc.m_CoinID.m_Key.m_IsCreatedByViewer;
         sdp.m_Ticket.Restore(viewer);
 
-        sdp.m_Output.m_Value = sc.m_value;
-        sdp.m_Output.m_AssetID = sc.m_assetID;
-        sdp.m_Output.m_User = sc.m_User;
+        sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
+        sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
+        sdp.m_Output.m_User = sc.m_CoinID.m_User;
 
         sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
     }

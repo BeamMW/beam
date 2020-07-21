@@ -55,12 +55,12 @@ namespace beam::wallet::lelantus
             offset -= sk;
         }
 
-        ShieldedTxo::Data::OutputParams op;
-        op.m_Value = GetAmount();
-        op.m_AssetID = GetAssetId();
-        ZeroObject(op.m_User);
+        ShieldedTxo::Data::Params pars;
+        pars.m_Output.m_Value = GetAmount();
+        pars.m_Output.m_AssetID = GetAssetId();
+        ZeroObject(pars.m_Output.m_User);
 
-        op.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
+        pars.m_Output.m_User.m_Sender = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID).m_Pk;
         // TODO: add ShieldedMessage if needed
         // op.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
 
@@ -80,21 +80,16 @@ namespace beam::wallet::lelantus
 
                 ECC::GenRandom(voucher.m_SharedSecret); // not yet, just a nonce placeholder
 
-                ShieldedTxo::Data::TicketParams tp;
-                tp.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
+                pars.m_Ticket.Generate(voucher.m_Ticket, viewer, voucher.m_SharedSecret);
 
-                voucher.m_SharedSecret = tp.m_SharedSecret;
+                voucher.m_SharedSecret = pars.m_Ticket.m_SharedSecret;
                 ZeroObject(voucher.m_Signature);
 
                 // save shielded Coin
                 ShieldedCoin shieldedCoin;
-                shieldedCoin.m_value = op.m_Value;
-                shieldedCoin.m_assetID = op.m_AssetID;
+                pars.ToID(shieldedCoin.m_CoinID);
+                shieldedCoin.m_CoinID.m_Key.m_nIdx = nIdx;
                 shieldedCoin.m_createTxId = m_Tx.GetTxID();
-                shieldedCoin.m_Key.m_kSerG = tp.m_pK[0];
-                shieldedCoin.m_Key.m_IsCreatedByViewer = tp.m_IsCreatedByViewer;
-                shieldedCoin.m_Key.m_nIdx = nIdx;
-                shieldedCoin.m_User = op.m_User;
 
                 m_Tx.GetWalletDB()->saveShieldedCoin(shieldedCoin);
             }
@@ -108,7 +103,7 @@ namespace beam::wallet::lelantus
         }
 
         const ShieldedTxo::Voucher& voucher = vouchers.back();
-        op.Restore_kG(voucher.m_SharedSecret);
+        pars.m_Output.Restore_kG(voucher.m_SharedSecret);
 
         ECC::Scalar::Native kWrap;
 
@@ -141,7 +136,7 @@ namespace beam::wallet::lelantus
             oracle << pKrnOut->m_Msg;
 
             pKrnOut->m_Txo.m_Ticket = voucher.m_Ticket;
-            op.Generate(pKrnOut->m_Txo, voucher.m_SharedSecret, oracle);
+            pars.m_Output.Generate(pKrnOut->m_Txo, voucher.m_SharedSecret, oracle);
 
             m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, voucher.m_Ticket.m_SerialPub);
 
@@ -175,7 +170,7 @@ namespace beam::wallet::lelantus
 
         transaction->m_vKernels.push_back(std::move(pKrn));
 
-        offset -= op.m_k;
+        offset -= pars.m_Output.m_k;
 
         transaction->m_Offset = offset;
         transaction->Normalize();

@@ -99,17 +99,17 @@ namespace beam
 			IsValid(pk);
 	}
 
-	void ShieldedTxo::BaseKey::get_SkOut(ECC::Scalar::Native& out, const ECC::Hash::Value& hvSeed, Key::IKdf& kdf, Amount val, Asset::ID aid) const
+	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, const ECC::Hash::Value& hvSeed, Key::IKdf& kdf) const
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
 		ECC::Hash::Value hv;
 		ECC::Oracle()
 			<< hvSeed
-			<< val
-			<< aid
-			<< m_kSerG
-			<< m_IsCreatedByViewer
-			<< m_nIdx
+			<< m_Value
+			<< m_AssetID
+			<< m_Key.m_kSerG
+			<< m_Key.m_IsCreatedByViewer
+			<< m_Key.m_nIdx
 			>> hv;
 
 		kdf.DeriveKey(out, hv);
@@ -473,6 +473,15 @@ namespace beam
 		return
 			m_Ticket.Recover(txo.m_Ticket, v) &&
 			m_Output.Recover(txo, m_Ticket.m_SharedSecret, oracle);
+	}
+
+	void ShieldedTxo::Data::Params::ToID(ID& cid) const
+	{
+		cid.m_Value = m_Output.m_Value;
+		cid.m_AssetID = m_Output.m_AssetID;
+		cid.m_User = m_Output.m_User;
+		cid.m_Key.m_IsCreatedByViewer = m_Ticket.m_IsCreatedByViewer;
+		cid.m_Key.m_kSerG = m_Ticket.m_pK[0];
 	}
 
 	/////////////

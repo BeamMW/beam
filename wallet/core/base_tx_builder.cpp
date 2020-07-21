@@ -228,7 +228,7 @@ namespace beam::wallet
 
             for (size_t i = 0; i < vSelShielded.size(); i++)
             {
-                amountSelAsset += vSelShielded[i].m_value;
+                amountSelAsset += vSelShielded[i].m_CoinID.m_Value;
                 amountTrgBeam += fs.m_ShieldedInput + fs.m_Kernel;
                 nShieldedMax--;
             }
@@ -255,7 +255,7 @@ namespace beam::wallet
 
             for (size_t i = 0; i < vSelShielded.size(); i++)
             {
-                amountSelBeam += vSelShielded[i].m_value;
+                amountSelBeam += vSelShielded[i].m_CoinID.m_Value;
                 amountTrgBeam += fs.m_ShieldedInput + fs.m_Kernel;
             }
 
@@ -280,7 +280,7 @@ namespace beam::wallet
         for (auto& coin : coinsShielded)
         {
             coin.m_spentTxId = m_Tx.GetTxID();
-            m_InputCoinsShielded.push_back(coin.m_Key);
+            m_InputCoinsShielded.push_back(coin.m_CoinID.m_Key);
             m_Tx.GetWalletDB()->saveShieldedCoin(coin);
         }
 
@@ -525,10 +525,10 @@ namespace beam::wallet
         TxoID nShieldedCurrently = 0;
         storage::getVar(*m_Tx.GetWalletDB(), kStateSummaryShieldedOutsDBPath, nShieldedCurrently);
 
-        std::setmax(nShieldedCurrently, ctx.m_Coin.m_ID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
+        std::setmax(nShieldedCurrently, ctx.m_Coin.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
 
         ctx.m_Idx = ctx.m_Coin.get_WndIndex(ctx.m_N);
-        ctx.m_Wnd0 = ctx.m_Coin.m_ID - ctx.m_Idx;
+        ctx.m_Wnd0 = ctx.m_Coin.m_TxoID - ctx.m_Idx;
         ctx.m_Count = ctx.m_N;
 
         TxoID nWndEnd = ctx.m_Wnd0 + ctx.m_N;
@@ -618,21 +618,21 @@ namespace beam::wallet
                 return false;
 
             ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*pKdf, m_Coin.m_Key.m_nIdx);
+            viewer.FromOwner(*pKdf, m_Coin.m_CoinID.m_Key.m_nIdx);
 
             ShieldedTxo::DataParams sdp;
-            sdp.m_Ticket.m_pK[0] = m_Coin.m_Key.m_kSerG;
-            sdp.m_Ticket.m_IsCreatedByViewer = m_Coin.m_Key.m_IsCreatedByViewer;
+            sdp.m_Ticket.m_pK[0] = m_Coin.m_CoinID.m_Key.m_kSerG;
+            sdp.m_Ticket.m_IsCreatedByViewer = m_Coin.m_CoinID.m_Key.m_IsCreatedByViewer;
             sdp.m_Ticket.Restore(viewer);
 
-            sdp.m_Output.m_Value = m_Coin.m_value;
-            sdp.m_Output.m_AssetID = m_Coin.m_assetID;
-            sdp.m_Output.m_User = m_Coin.m_User;
+            sdp.m_Output.m_Value = m_Coin.m_CoinID.m_Value;
+            sdp.m_Output.m_AssetID = m_Coin.m_CoinID.m_AssetID;
+            sdp.m_Output.m_User = m_Coin.m_CoinID.m_User;
 
             sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
             Key::IKdf::Ptr pSerialPrivate;
-            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf, m_Coin.m_Key.m_nIdx);
+            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf, m_Coin.m_CoinID.m_Key.m_nIdx);
             pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
             prover.m_Witness.V.m_L = m_Idx;
@@ -649,7 +649,7 @@ namespace beam::wallet
             }
 
             pKrn->UpdateMsg();
-            m_Coin.m_Key.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pKdf, m_Coin.m_value, m_Coin.m_assetID);
+            m_Coin.m_CoinID.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pKdf);
 
             ExecutorMT exec;
             Executor::Scope scope(exec);

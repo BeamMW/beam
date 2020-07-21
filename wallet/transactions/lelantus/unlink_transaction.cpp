@@ -317,7 +317,7 @@ namespace beam::wallet::lelantus
 
         tx->SetParameter(TxParameterID::Amount, amount - fee);
         CopyParameter<Amount>(TxParameterID::Fee, *tx);
-        tx->SetParameter(TxParameterID::ShieldedOutputId, coin->m_ID);
+        tx->SetParameter(TxParameterID::ShieldedOutputId, coin->m_TxoID);
         m_ActiveTransaction = tx;
     }
 } // namespace beam::wallet::lelantus

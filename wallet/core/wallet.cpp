@@ -1170,17 +1170,14 @@ namespace beam::wallet
 
     void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
     {
-        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_Key);
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_CoinID.m_Key);
         if (!shieldedCoin)
         {
             shieldedCoin = ShieldedCoin{};
-            shieldedCoin->m_Key = shieldedEvt.m_Key;
         }
 
-        shieldedCoin->m_User = shieldedEvt.m_User;
-        shieldedCoin->m_ID = shieldedEvt.m_ID;
-        shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
-        shieldedCoin->m_value = shieldedEvt.m_Value;
+        shieldedCoin->m_CoinID = shieldedEvt.m_CoinID;
+        shieldedCoin->m_TxoID = shieldedEvt.m_TxoID;
 
         bool isAdd = 0 != (proto::Event::Flags::Add & shieldedEvt.m_Flags);
         if (isAdd)
@@ -1194,7 +1191,7 @@ namespace beam::wallet
 
         m_WalletDB->saveShieldedCoin(*shieldedCoin);
 
-        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_ID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
     }
 
     void Wallet::OnRolledBack()

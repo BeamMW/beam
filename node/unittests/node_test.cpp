@@ -2422,21 +2422,21 @@ namespace beam
 					void OnEventType(proto::Event::Shielded& evt)
 					{
 						// Restore all the relevent data
-						verify_test(evt.m_ID == 0);
+						verify_test(evt.m_TxoID == 0);
 
 						// Output parameters are fully recovered
-						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_User, sizeof(evt.m_User)));
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
+						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_CoinID.m_User, sizeof(evt.m_CoinID.m_User)));
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_CoinID.m_Value);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_CoinID.m_AssetID);
 						
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
-						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_Key.m_nIdx);
+						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_CoinID.m_Key.m_nIdx);
 
 						ShieldedTxo::Data::TicketParams sp;
-						sp.m_pK[0] = evt.m_Key.m_kSerG;
-						sp.m_IsCreatedByViewer = evt.m_Key.m_IsCreatedByViewer;
+						sp.m_pK[0] = evt.m_CoinID.m_Key.m_kSerG;
+						sp.m_IsCreatedByViewer = evt.m_CoinID.m_Key.m_IsCreatedByViewer;
 						sp.Restore(viewer); // restores only what is necessary for spend
 
 						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
@@ -2445,9 +2445,9 @@ namespace beam
 
 						// Recover the full data
 						ShieldedTxo::Data::OutputParams op;
-						op.m_Value = evt.m_Value;
-						op.m_AssetID = evt.m_AssetID;
-						op.m_User = evt.m_User;
+						op.m_Value = evt.m_CoinID.m_Value;
+						op.m_AssetID = evt.m_CoinID.m_AssetID;
+						op.m_User = evt.m_CoinID.m_User;
 						op.Restore_kG(sp.m_SharedSecret);
 
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == op.m_k);

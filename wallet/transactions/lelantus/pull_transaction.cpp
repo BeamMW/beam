@@ -85,7 +85,7 @@ namespace beam::wallet::lelantus
             const auto nthName  = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
 
             LOG_INFO() << m_Context << " Extracting from shielded pool:"
-                << " ID - " << shieldedId << ", amount - " << PrintableAmount(shieldedCoin->m_value, false, unitName, nthName)
+                << " ID - " << shieldedId << ", amount - " << PrintableAmount(shieldedCoin->m_CoinID.m_Value, false, unitName, nthName)
                 << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
                 << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
@@ -106,10 +106,10 @@ namespace beam::wallet::lelantus
                 else
                 {
                     Amount requiredAmount = m_TxBuilder->GetAmount() + m_TxBuilder->GetFee();
-                    if (shieldedCoin->m_value < requiredAmount)
+                    if (shieldedCoin->m_CoinID.m_Value < requiredAmount)
                     {
                         LOG_ERROR() << m_Context << " The ShieldedCoin value("
-                                    << PrintableAmount(shieldedCoin->m_value)
+                                    << PrintableAmount(shieldedCoin->m_CoinID.m_Value)
                                     << ") is less than the required value(" << PrintableAmount(requiredAmount) << ")";
                         throw TransactionFailedException(false, TxFailureReason::NoInputs, "");
                     }

@@ -1746,11 +1746,11 @@ namespace
         Amount nValNetto = 135;
 
         wallet::ShieldedCoin sc;
-        sc.m_Key.m_IsCreatedByViewer = true;
-        sc.m_Key.m_nIdx = 0;
-        ZeroObject(sc.m_User);
-        sc.m_ID = 12;
-        sc.m_value = nValNetto + nInpFee;
+        sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
+        sc.m_CoinID.m_Key.m_nIdx = 0;
+        ZeroObject(sc.m_CoinID.m_User);
+        sc.m_TxoID = 12;
+        sc.m_CoinID.m_Value = nValNetto + nInpFee + 100;
         sc.m_confirmHeight = 0;
 
         ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
@@ -1762,16 +1762,16 @@ namespace
         // calculate shielded element commitment
         {
             ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), sc.m_Key.m_nIdx);
+            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), sc.m_CoinID.m_Key.m_nIdx);
 
             ShieldedTxo::Ticket tkt;
             ShieldedTxo::DataParams sdp;
             sdp.m_Ticket.Generate(tkt, viewer, 12323U);
-            sc.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+            sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
 
-            sdp.m_Output.m_Value = sc.m_value;
-            sdp.m_Output.m_AssetID = sc.m_assetID;
-            sdp.m_Output.m_User = sc.m_User;
+            sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
+            sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
+            sdp.m_Output.m_User = sc.m_CoinID.m_User;
 
             sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
@@ -1783,7 +1783,7 @@ namespace
             ptN.Export(ptS);
         }
 
-        node.m_vShieldedPool[sc.m_ID] = ptS;
+        node.m_vShieldedPool[sc.m_TxoID] = ptS;
 
         sender.m_WalletDB->saveShieldedCoin(sc);
 
