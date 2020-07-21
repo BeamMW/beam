@@ -152,6 +152,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::activateAddress, id);
     }
 
+    void getAddress(const WalletID& id) override
+    {
+        call_async(&IWalletModelAsync::getAddress, id);
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::setNodeAddress, addr);
@@ -911,6 +916,21 @@ namespace beam::wallet
             {
                 LOG_ERROR() << "Address " << to_string(id) << " is absent.";
             }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::getAddress(const WalletID& id) 
+    {
+        try
+        {
+            onGetAddress(id, m_walletDB->getAddress(id));
         }
         catch (const std::exception& e)
         {
