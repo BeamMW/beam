@@ -211,8 +211,7 @@ namespace beam::wallet
         Amount amountTrgAsset = 0;
         (isBeamTransaction ? amountTrgBeam : amountTrgAsset) += GetAmount();
 
-        Key::IKdf::Ptr pKdf = m_Tx.GetWalletDB()->get_MasterKdf();
-        uint32_t nShieldedMax = pKdf ? Rules::get().Shielded.MaxIns : 0;
+        uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
 
         Transaction::FeeSettings fs;
 
@@ -280,7 +279,7 @@ namespace beam::wallet
         for (auto& coin : coinsShielded)
         {
             coin.m_spentTxId = m_Tx.GetTxID();
-            m_InputCoinsShielded.push_back(coin.m_CoinID.m_Key);
+            m_InputCoinsShielded.push_back(coin.m_CoinID);
             m_Tx.GetWalletDB()->saveShieldedCoin(coin);
         }
 
@@ -483,7 +482,7 @@ namespace beam::wallet
 
     struct BaseTxBuilder::ShieldedInputContext
     {
-        ShieldedCoin m_Coin;
+        ShieldedTxo::ID m_CoinID;
         Sigma::Cfg m_Cfg;
         TxoID m_Wnd0;
         uint32_t m_N;
@@ -505,15 +504,16 @@ namespace beam::wallet
 
         // currently process inputs 1-by-1
         // don't cache retrieved elements (i.e. ignore overlaps for multiple inputs)
-        auto pCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_InputCoinsShielded[m_InputsShielded.size()]);
+        auto pCoin = m_Tx.GetWalletDB()->getShieldedCoin(m_InputCoinsShielded[m_InputsShielded.size()].m_Key);
         if (!pCoin)
             throw TransactionFailedException(true, TxFailureReason::Unknown);
+        const ShieldedCoin& c = *pCoin;
+
 
         ShieldedInputContext ctx;
+        ctx.m_CoinID = c.m_CoinID;
 
-        ctx.m_Coin = *pCoin;
-
-        bool bWndLost = ctx.m_Coin.IsLargeSpendWindowLost();
+        bool bWndLost = c.IsLargeSpendWindowLost();
         ctx.m_Cfg = bWndLost ?
             Rules::get().Shielded.m_ProofMin :
             Rules::get().Shielded.m_ProofMax;
@@ -525,10 +525,10 @@ namespace beam::wallet
         TxoID nShieldedCurrently = 0;
         storage::getVar(*m_Tx.GetWalletDB(), kStateSummaryShieldedOutsDBPath, nShieldedCurrently);
 
-        std::setmax(nShieldedCurrently, ctx.m_Coin.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
+        std::setmax(nShieldedCurrently, c.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
 
-        ctx.m_Idx = ctx.m_Coin.get_WndIndex(ctx.m_N);
-        ctx.m_Wnd0 = ctx.m_Coin.m_TxoID - ctx.m_Idx;
+        ctx.m_Idx = c.get_WndIndex(ctx.m_N);
+        ctx.m_Wnd0 = c.m_TxoID - ctx.m_Idx;
         ctx.m_Count = ctx.m_N;
 
         TxoID nWndEnd = ctx.m_Wnd0 + ctx.m_N;
@@ -576,91 +576,96 @@ namespace beam::wallet
         if (msg.m_Items.size() > m_Count)
             return false;
 
-        if (msg.m_Items.size() < m_N)
+        uint32_t nItems = static_cast<uint32_t>(msg.m_Items.size());
+
+        if (nItems < m_N)
         {
-            if (m_Wnd0 || (msg.m_Items.size() <= m_Idx))
+            if (m_Wnd0 || (nItems <= m_Idx))
                 return false;
         }
 
         struct MyList
             :public Sigma::CmList
         {
-            ECC::Point::Storage* m_pElems;
-            uint32_t m_Count;
+            std::vector<ECC::Point::Storage> m_vec;
+
+            ECC::Point::Storage* m_p0;
+            uint32_t m_Skip;
 
             virtual bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
             {
-                if (iIdx >= m_Count)
-                    return false;
+                if (iIdx < m_Skip)
+                {
+                    res.m_X = Zero;
+                    res.m_Y = Zero;
+                }
+                else
+                    res = m_p0[iIdx - m_Skip];
 
-                res = m_pElems[iIdx];
                 return true;
             }
         };
 
-        MyList lst;
-        lst.m_pElems = &msg.m_Items.front();
-        lst.m_Count = static_cast<uint32_t>(msg.m_Items.size());
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::CreateInputShielded m_Method;
+            MyList m_Lst;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b) override
+            {
+                b.m_InputsShielded.push_back(std::move(m_Method.m_pKernel));
+                b.m_Tx.SetParameter(TxParameterID::InputsShielded, b.m_InputsShielded, false, b.m_SubTxID);
+
+                OnAllDone(b);
+            }
+        };
 
         Transaction::FeeSettings fs;
 
-        TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
-        pKrn->m_Fee = fs.m_Kernel + fs.m_ShieldedInput;
-        pKrn->m_Height.m_Min = x.m_MinHeight;
-        pKrn->m_Height.m_Max = x.m_MaxHeight;
-        pKrn->m_WindowEnd = m_Wnd0 + lst.m_Count;
-        pKrn->m_SpendProof.m_Cfg = m_Cfg;
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(x, x.m_CreatingInputsShielded);
+        MyHandler& h = Cast::Up<MyHandler>(*pHandler);
 
-        Lelantus::Prover prover(lst, pKrn->m_SpendProof);
+        Cast::Down<ShieldedTxo::ID>(h.m_Method) = m_CoinID;
+
+        h.m_Lst.m_p0 = &msg.m_Items.front();
+        h.m_Lst.m_Skip = 0;
+        h.m_Lst.m_vec.swap(msg.m_Items);
+
+        h.m_Method.m_pList = &h.m_Lst;
+        h.m_Method.m_iIdx = m_Idx;
+
+        h.m_Method.m_pKernel = std::make_unique<TxKernelShieldedInput>();
+        h.m_Method.m_pKernel->m_Fee = fs.m_Kernel + fs.m_ShieldedInput;
+        h.m_Method.m_pKernel->m_Height.m_Min = x.m_MinHeight;
+        h.m_Method.m_pKernel->m_Height.m_Max = x.m_MaxHeight;
+        h.m_Method.m_pKernel->m_WindowEnd = m_Wnd0 + nItems;
+        h.m_Method.m_pKernel->m_SpendProof.m_Cfg = m_Cfg;
+
+        if (nItems > m_N)
         {
-            Key::IKdf::Ptr pKdf = x.m_Tx.GetWalletDB()->get_MasterKdf();
-            if (!pKdf)
-                return false;
+            uint32_t nDelta = nItems - m_N;
+            h.m_Lst.m_p0 += nDelta;
 
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*pKdf, m_Coin.m_CoinID.m_Key.m_nIdx);
-
-            ShieldedTxo::DataParams sdp;
-            sdp.m_Ticket.m_pK[0] = m_Coin.m_CoinID.m_Key.m_kSerG;
-            sdp.m_Ticket.m_IsCreatedByViewer = m_Coin.m_CoinID.m_Key.m_IsCreatedByViewer;
-            sdp.m_Ticket.Restore(viewer);
-
-            sdp.m_Output.m_Value = m_Coin.m_CoinID.m_Value;
-            sdp.m_Output.m_AssetID = m_Coin.m_CoinID.m_AssetID;
-            sdp.m_Output.m_User = m_Coin.m_CoinID.m_User;
-
-            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
-
-            Key::IKdf::Ptr pSerialPrivate;
-            ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *pKdf, m_Coin.m_CoinID.m_Key.m_nIdx);
-            pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
-
-            prover.m_Witness.V.m_L = m_Idx;
-            prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
-            prover.m_Witness.V.m_R += sdp.m_Output.m_k;
-            prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
-
-            if (lst.m_Count > m_N)
-            {
-                uint32_t nDelta = lst.m_Count - m_N;
-                lst.m_Count = m_N;
-                lst.m_pElems += nDelta;
-                prover.m_Witness.V.m_L += nDelta;
-            }
-
-            pKrn->UpdateMsg();
-            m_Coin.m_CoinID.get_SkOut(prover.m_Witness.V.m_R_Output, pKrn->m_Internal.m_ID, *pKdf);
-
-            ExecutorMT exec;
-            Executor::Scope scope(exec);
-            pKrn->Sign(prover, x.GetAssetId());
+            assert(h.m_Method.m_iIdx >= nDelta);
+            h.m_Method.m_iIdx -= nDelta;
         }
 
-        x.m_InputsShielded.push_back(std::move(pKrn));
-        x.m_Offset += prover.m_Witness.V.m_R_Output;
+        if (nItems < m_N)
+        {
+            uint32_t nDelta = m_N - nItems;
+            h.m_Lst.m_Skip = nDelta;
 
-        x.m_Tx.SetParameter(TxParameterID::InputsShielded, x.m_InputsShielded, false, x.m_SubTxID);
-        x.m_Tx.SetParameter(TxParameterID::Offset, x.m_Inputs, false, x.m_SubTxID);
+            h.m_Method.m_iIdx += nDelta;
+            assert(h.m_Method.m_iIdx < m_N);
+        }
+
+        x.m_Tx.get_KeyKeeperStrict()->InvokeAsync(h.m_Method, pHandler);
 
         return true;
     }
@@ -799,6 +804,28 @@ namespace beam::wallet
         return hasInputs || hasOutputs;
     }
 
+    void BaseTxBuilder::SetCommon(IPrivateKeyKeeper2::Method::TxMutual& m)
+    {
+        m.m_vInputs = m_InputCoins;
+        m.m_vOutputs = m_OutputCoins;
+        m.m_pKernel.reset(new TxKernelStd);
+
+        m.m_pKernel->m_Fee = m_Fee;
+        m.m_pKernel->m_Height = { GetMinHeight(), GetMaxHeight() };
+
+        m.m_vInputsShielded.resize(m_InputsShielded.size());
+        for (size_t i = 0; i < m_InputsShielded.size(); i++)
+        {
+            IPrivateKeyKeeper2::ShieldedInput& x = m.m_vInputsShielded[i];
+
+            Cast::Down<ShieldedTxo::ID>(x) = m_InputCoinsShielded[i];
+
+            TxKernel::Ptr pKrn;
+            m_InputsShielded[i]->Clone(pKrn);
+            x.m_pKernel.reset(Cast::Up<TxKernelShieldedInput>(pKrn.release()));
+        }
+    }
+
     bool BaseTxBuilder::SignSender(bool initial, bool bIsConventional)
     {
         if (m_Signing)
@@ -867,15 +894,12 @@ namespace beam::wallet
         x.m_Initial = initial;
         IPrivateKeyKeeper2::Method::SignSender& m = x.m_Method;
 
-        m.m_vInputs = m_InputCoins;
-        m.m_vOutputs = m_OutputCoins;
-        m.m_pKernel.reset(new TxKernelStd);
+        SetCommon(m);
+
         m.m_Slot = m_Tx.GetSlotSafe(true);
         m.m_NonConventional = !bIsConventional;
 
         TxKernelStd& krn = *m.m_pKernel;
-        krn.m_Fee = m_Fee;
-        krn.m_Height = { GetMinHeight(), GetMaxHeight() };
 
         if (bIsConventional)
         {
@@ -992,13 +1016,9 @@ namespace beam::wallet
         MyHandler& x = Cast::Up<MyHandler>(*pHandler);
         IPrivateKeyKeeper2::Method::SignReceiver& m = x.m_Method;
 
-        m.m_vInputs = m_InputCoins;
-        m.m_vOutputs = m_OutputCoins;
-        m.m_pKernel.reset(new TxKernelStd);
+        SetCommon(m);
 
         TxKernelStd& krn = *m.m_pKernel;
-        krn.m_Fee = m_Fee;
-        krn.m_Height = { GetMinHeight(), GetMaxHeight() };
 
         m.m_NonConventional = !bIsConventional;
         m.m_Peer = Zero;

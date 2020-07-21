@@ -117,6 +117,7 @@ namespace beam::wallet
 
         void CreateInputsStd();
         void CreateInputsShielded();
+        void SetCommon(IPrivateKeyKeeper2::Method::TxMutual&);
 
     protected:
         BaseTransaction& m_Tx;
@@ -137,7 +138,7 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        std::vector<ShieldedTxo::BaseKey> m_InputCoinsShielded;
+        std::vector<ShieldedTxo::ID> m_InputCoinsShielded;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 
