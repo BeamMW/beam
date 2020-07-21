@@ -1793,7 +1793,7 @@ namespace
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
             .SetParameter(TxParameterID::Amount, nValNetto + Amount(3))
-            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Fee, Amount(100))
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
@@ -2746,6 +2746,12 @@ int main()
 
     //TestBbsMessages();
     //TestBbsMessages2();
+
+    Rules::get().pForks[1].m_Height = 20;
+    Rules::get().pForks[2].m_Height = 20;
+    Rules::get().UpdateChecksum();
+
+    TestSendingShielded();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
