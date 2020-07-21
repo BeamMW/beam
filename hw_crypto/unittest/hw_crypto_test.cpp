@@ -852,6 +852,11 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 	return static_cast<Status::Type>(nRet);
 }
 
+KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded& m)
+{
+	return Status::NotImplemented;
+}
+
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
 {
 	std::vector<BeamCrypto_CoinID> vCvt;

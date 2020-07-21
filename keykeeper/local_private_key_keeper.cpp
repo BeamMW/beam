@@ -110,6 +110,8 @@ namespace beam::wallet
         bool Aggregate(const Method::TxCommon&);
         bool Aggregate(const std::vector<CoinID>&, bool bOuts);
         bool Aggregate(const std::vector<ShieldedInput>&);
+
+        bool ValidateSend();
     };
 
     bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const Method::TxCommon& tx)
@@ -213,6 +215,30 @@ namespace beam::wallet
 
             if (!Add(m_TotalFee, si.m_Fee))
                 return false; // overflow
+        }
+
+        return true;
+    }
+
+    bool LocalPrivateKeyKeeper2::Aggregation::ValidateSend()
+    {
+        if (!m_Ins.Subtract(m_Outs))
+            return false; // not sending
+
+        if (m_AssetID)
+        {
+            if (!m_Ins.m_Asset)
+                return false; // asset involved, but no net transfer
+
+            if (m_Ins.m_Beam != m_TotalFee)
+                return false; // all beams must be consumed by the fee
+        }
+        else
+        {
+            if (m_Ins.m_Beam <= m_TotalFee)
+                return false; // not sending
+
+            m_Ins.m_Asset = m_Ins.m_Beam - m_TotalFee;
         }
 
         return true;
@@ -410,24 +436,8 @@ namespace beam::wallet
             if (x.m_Peer == Zero)
                 return Status::UserAbort; // conventional transfers must always be signed
 
-            if (!vals.Subtract(aggr.m_Outs))
+            if (!aggr.ValidateSend())
                 return Status::Unspecified; // not sending
-
-            if (aggr.m_AssetID)
-            {
-                if (!vals.m_Asset)
-                    return Status::Unspecified; // asset involved, but no net transfer
-
-                if (vals.m_Beam != aggr.m_TotalFee)
-                    return Status::Unspecified; // all beams must be consumed by the fee
-            }
-            else
-            {
-                if (vals.m_Beam <= aggr.m_TotalFee)
-                    return Status::Unspecified;
-
-                vals.m_Asset = vals.m_Beam - aggr.m_TotalFee;
-            }
         }
 
         if (x.m_Slot >= get_NumSlots())
@@ -531,6 +541,95 @@ namespace beam::wallet
         kSig += krn.m_Signature.m_k;
         krn.m_Signature.m_k = kSig;
 
+        UpdateOffset(x, aggr.m_sk, kKrn);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSendShielded& x)
+    {
+        Aggregation aggr(*this);
+        if (!aggr.Aggregate(x))
+            return Status::Unspecified;
+
+        assert(x.m_pKernel);
+        TxKernelStd& krn = *x.m_pKernel;
+
+        Aggregation::Values& vals = aggr.m_Ins; // alias
+
+        ECC::Scalar::Native kKrn, kNonce;
+
+        if (!x.m_NonConventional)
+        {
+            if (!aggr.ValidateSend())
+                return Status::Unspecified; // not sending
+
+            if (!x.m_Voucher.IsValid(x.m_Peer)) // will fail if m_Peer is Zero
+                return Status::Unspecified;
+
+            if (x.m_MyIDKey)
+            {
+                m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+
+                PeerID pid;
+                pid.FromSk(kKrn);
+                if (pid != x.m_Peer)
+                    return Status::Unspecified;
+            }
+        }
+
+        ShieldedTxo::Data::Params pars;
+        pars.m_Output.m_Value = vals.m_Asset;
+        pars.m_Output.m_AssetID = aggr.m_AssetID;
+        pars.m_Output.m_User = x.m_User;
+        pars.m_Output.Restore_kG(x.m_Voucher.m_SharedSecret);
+
+        TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();
+        TxKernelShieldedOutput& krn1 = *pOutp;
+
+        krn1.m_CanEmbed = true;
+        krn1.m_Txo.m_Ticket = x.m_Voucher.m_Ticket;
+
+        krn1.UpdateMsg();
+        ECC::Oracle oracle;
+        oracle << krn1.m_Msg;
+
+        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, oracle, x.m_HideAssetAlways);
+        krn1.MsgToID();
+
+        assert(krn.m_vNested.empty());
+        krn.m_vNested.push_back(std::move(pOutp));
+
+        // select blinding factor for the outer kernel.
+        Hash::Processor()
+            << krn1.m_Internal.m_ID
+            << krn.m_Height.m_Min
+            << krn.m_Height.m_Max
+            << krn.m_Fee
+            << aggr.m_sk
+            >> krn.m_Internal.m_ID;
+
+        NonceGenerator ng("hw-wlt-snd-sh");
+        ng
+            << krn.m_Internal.m_ID
+            >> kKrn;
+        ng >> kNonce;
+
+        krn.m_Commitment = ECC::Context::get().G * kKrn;
+        krn.m_Signature.m_NoncePub = ECC::Context::get().G * kNonce;
+        krn.UpdateID();
+
+        if (IsTrustless())
+        {
+            Status::Type res = x.m_MyIDKey ?
+                ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true) : // sending to self, it's a split in fact
+                ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
+
+            if (Status::Success != res)
+                return res;
+        }
+
+        krn.m_Signature.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         return Status::Success;
