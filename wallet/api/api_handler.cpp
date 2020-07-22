@@ -629,6 +629,27 @@ namespace beam::wallet
         doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
     }
 
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const SendSbbsMessage& data)
+    {
+        //todo send to
+        // data.receiver.m_Pk
+        // _walletData.getWalletDBPtr()->createAddress()
+        WalletAddress address;
+        auto walletDB = _walletData.getWalletDBPtr();
+        walletDB->createAddress(address);
+        address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
+        address.setLabel("instant message");
+        walletDB->saveAddress(address);
+
+        _walletData.getWalletPtr()->SendInstantSbbsMessage(data.receiver, address.m_walletID, data.message);
+        doResponse(id, SendSbbsMessage::Response{ address.m_walletID, data.receiver, data.message.size() });
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const ReadSbbsMessages& data)
+    {
+        doResponse(id, ReadSbbsMessages::Response{});
+    }
+
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)
     {
         LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "

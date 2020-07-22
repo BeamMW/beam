@@ -41,6 +41,7 @@ namespace beam::wallet
         VoucherRequest,
         VoucherResponse,
         UnlinkFunds,
+        InstantSbbsMessage,
         ALL
     };
 

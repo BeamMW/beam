@@ -884,7 +884,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 23;
+        const int DbVersion   = 24;
+        const int DbVersion23 = 23;
         const int DbVersion22 = 22;
         const int DbVersion21 = 21;
         const int DbVersion20 = 20;
@@ -1218,6 +1219,11 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateIMTables(sqlite3* db)
+        {
+
+        }
+
         void CreateVouchersTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " VOUCHERS_NAME " (" ENUM_VOUCHERS_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
@@ -1341,6 +1347,7 @@ namespace beam::wallet
         CreateNotificationsTable(db);
         CreateExchangeRatesTable(db);
         CreateVouchersTable(db);
+        CreateIMTables(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1806,9 +1813,14 @@ namespace beam::wallet
                     // no break
 
                 case DbVersion22:
+                    LOG_INFO() << "Converting DB from format 22...";
                     CreateShieldedCoinsTableIndex(db);
 
-                    storage::setVar(*walletDB, Version, DbVersion);
+                case DbVersion23:
+                    LOG_INFO() << "Converting DB from format 23...";
+                    CreateIMTables(db);
+
+                    storage::setVar(*walletDB, Version, 23);
                     // no break
 
                 case DbVersion:

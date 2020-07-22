@@ -13,10 +13,13 @@
 // limitations under the License.
 
 #include "wallet/api/api.h"
+#include "wallet/core/base58.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
 #include "utility/logger.h"
 
+
+// #include "utility/common.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
@@ -1163,6 +1166,40 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, data);
     }
 
+    void WalletApi::onSendSbbsMessageMessage(const JsonRpcId& id, const json& params)
+    {
+        SendSbbsMessage data;
+        checkJsonParam(params, "receiver", id);
+        checkJsonParam(params, "message", id);
+
+        auto receiverStr = params["receiver"];
+        bool isValid = false;
+        ByteBuffer receiver_bb = from_hex(receiverStr, &isValid);
+        if (!isValid)
+        {
+            receiver_bb = DecodeBase58(receiverStr);
+            if (receiver_bb.empty())
+                throw jsonrpc_exception{ ApiError::InvalidAddress, "Receiver address is invalid.", id };
+        }
+        data.receiver.FromBuf(receiver_bb);
+
+        auto message = params["message"];
+        if (!message.is_object())
+            throw jsonrpc_exception{ ApiError::NotSupported, R"("message" must be json object.)", id };
+
+        auto message_dump = message.dump();
+        ByteBuffer message_bb(message_dump.begin(), message_dump.end());
+
+        data.message = message_bb;
+        getHandler().onMessage(id, data);
+    }
+
+    void WalletApi::onReadSbbsMessagesMessage(const JsonRpcId& id, const json& params)
+    {
+        ReadSbbsMessages data;
+        getHandler().onMessage(id, data);
+    }
+
     void WalletApi::onTxAssetInfoMessage(const JsonRpcId& id, const json& params)
     {
         checkCAEnabled(id);
@@ -1661,6 +1698,36 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"result",
                 {
                     {"count", res.count}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId &id, const SendSbbsMessage::Response &res, json &msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"from", std::to_string(res.sender)},
+                    {"to", std::to_string(res.receiver)},
+                    {"bytes", res.bytes}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId &id, const ReadSbbsMessages::Response &res, json &msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+                {
+                    {"response", "response"}
                 }
             }
         };

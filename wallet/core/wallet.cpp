@@ -664,6 +664,18 @@ namespace beam::wallet
         SendSpecialMsg(peerID, msg);
     }
 
+    void Wallet::SendInstantSbbsMessage(const WalletID& peerID, const WalletID& myID, const ByteBuffer& message)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::InstantSbbsMessage;
+
+        msg.AddParameter((TxParameterID) 0, message.size());
+        msg.AddParameter((TxParameterID) 1, message);
+
+        SendSpecialMsg(peerID, msg);
+    }
+
     void Wallet::OnSpecialMsg(const WalletID& myID, const SetTxParameter& msg)
     {
         switch (msg.m_Type)
@@ -712,6 +724,26 @@ namespace beam::wallet
 
                 OnVouchersFrom(*address, myID, std::move(res));
 
+            }
+            break;
+
+        case TxType::InstantSbbsMessage:
+            {
+                auto receiver = m_WalletDB->getAddress(myID);
+                if (!receiver.is_initialized() || !receiver->m_OwnID)
+                    return;
+
+                auto sender = m_WalletDB->getAddress(msg.m_From);
+                if (!sender.is_initialized())
+                    return;
+
+                size_t message_size = 0;
+                msg.GetParameter((TxParameterID) 0, message_size);
+                ByteBuffer message_bb;
+                message_bb.reserve(message_size);
+                msg.GetParameter((TxParameterID) 1, message_bb);
+                std::string message(message_bb.begin(), message_bb.end());
+                LOG_DEBUG() << message;
             }
             break;
 

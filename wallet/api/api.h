@@ -97,6 +97,8 @@ namespace beam::wallet
     macro(GetAssetInfo,       "get_asset_info",       API_READ_ACCESS)    \
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS)    \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS)    \
+    macro(SendSbbsMessage,          "send_message",       API_WRITE_ACCESS)    \
+    macro(ReadSbbsMessages,         "read_messages",      API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -529,6 +531,25 @@ namespace beam::wallet
         struct Response
         {
             uint32_t count;
+        };
+    };
+
+    struct SendSbbsMessage
+    {
+        WalletID receiver = Zero;
+        ByteBuffer message;
+        struct Response
+        {
+            WalletID sender = Zero;
+            WalletID receiver = Zero;
+            size_t bytes = 0;
+        };
+    };
+
+    struct ReadSbbsMessages
+    {
+        struct Response
+        {
         };
     };
 
