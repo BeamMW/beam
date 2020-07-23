@@ -147,10 +147,10 @@ namespace beam::wallet
                 (cid.m_AssetID ? m_SelAsset : m_SelBeam) += cid.m_Value;
             }
 
-            void Add(const ShieldedTxo::ID& cid)
+            void Add(const IPrivateKeyKeeper2::ShieldedInput& cid)
             {
                 (cid.m_AssetID ? m_SelAsset : m_SelBeam) += cid.m_Value;
-                m_TrgBeam += m_FeeShielded;
+                m_TrgBeam += cid.m_Fee;
 
                 if (m_ShieldedMax)
                     m_ShieldedMax--;
@@ -170,7 +170,7 @@ namespace beam::wallet
         for (const CoinID& cid : m_InputCoins)
             vals.Add(cid);
 
-        for (const ShieldedTxo::ID& cid : m_InputCoinsShielded)
+        for (const IPrivateKeyKeeper2::ShieldedInput& cid : m_InputCoinsShielded)
             vals.Add(cid);
 
         // 1st select needed value in assets. It may affect needed value in beams
@@ -181,22 +181,23 @@ namespace beam::wallet
             m_Tx.GetWalletDB()->selectCoins2(vals.m_TrgAsset - vals.m_SelAsset, GetAssetId(), vSelStd, vSelShielded, vals.m_ShieldedMax / 2, true);
 
             for (const Coin& c : vSelStd)
+            {
+                m_InputCoins.push_back(c.m_ID);
                 vals.Add(c.m_ID);
+            }
 
             for (const ShieldedCoin& c : vSelShielded)
-                vals.Add(c.m_CoinID);
+            {
+                Cast::Down<ShieldedTxo::ID>(m_InputCoinsShielded.emplace_back()) = c.m_CoinID;
+                m_InputCoinsShielded.back().m_Fee = vals.m_FeeShielded;
+                vals.Add(m_InputCoinsShielded.back());
+            }
 
             if (vals.m_TrgAsset > vals.m_SelAsset)
             {
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(vals.m_SelAsset, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
-
-            for (const Coin& c : vSelStd)
-                m_InputCoins.push_back(c.m_ID);
-
-            for (const ShieldedCoin& c : vSelShielded)
-                m_InputCoinsShielded.push_back(c.m_CoinID);
         }
 
         // now select beams
@@ -207,22 +208,23 @@ namespace beam::wallet
             m_Tx.GetWalletDB()->selectCoins2(vals.m_TrgBeam - vals.m_SelBeam, 0, vSelStd, vSelShielded, vals.m_ShieldedMax, true);
 
             for (const Coin& c : vSelStd)
+            {
+                m_InputCoins.push_back(c.m_ID);
                 vals.Add(c.m_ID);
+            }
 
             for (const ShieldedCoin& c : vSelShielded)
-                vals.Add(c.m_CoinID);
+            {
+                Cast::Down<ShieldedTxo::ID>(m_InputCoinsShielded.emplace_back()) = c.m_CoinID;
+                m_InputCoinsShielded.back().m_Fee = vals.m_FeeShielded;
+                vals.Add(m_InputCoinsShielded.back());
+            }
 
             if (vals.m_TrgBeam > vals.m_SelBeam)
             {
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(vals.m_SelBeam);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
-
-            for (const Coin& c : vSelStd)
-                m_InputCoins.push_back(c.m_ID);
-
-            for (const ShieldedCoin& c : vSelShielded)
-                m_InputCoinsShielded.push_back(c.m_CoinID);
         }
 
         for (auto& cid : m_InputCoins)
@@ -774,14 +776,7 @@ namespace beam::wallet
         m.m_pKernel->m_Fee = m_Fee;
         m.m_pKernel->m_Height = { GetMinHeight(), GetMaxHeight() };
 
-        m.m_vInputsShielded.resize(m_InputsShielded.size());
-        for (size_t i = 0; i < m_InputsShielded.size(); i++)
-        {
-            IPrivateKeyKeeper2::ShieldedInput& x = m.m_vInputsShielded[i];
-
-            Cast::Down<ShieldedTxo::ID>(x) = m_InputCoinsShielded[i];
-            x.m_Fee = m_InputsShielded[i]->m_Fee;
-        }
+        m.m_vInputsShielded = m_InputCoinsShielded;
     }
 
     bool BaseTxBuilder::SignSender(bool initial, bool bIsConventional)

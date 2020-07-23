@@ -81,7 +81,7 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
-        std::vector<ShieldedTxo::ID>& get_InputCoinsShielded() { return m_InputCoinsShielded; }
+        std::vector<IPrivateKeyKeeper2::ShieldedInput>& get_InputCoinsShielded() { return m_InputCoinsShielded; }
 
     protected:
 
@@ -139,7 +139,7 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        std::vector<ShieldedTxo::ID> m_InputCoinsShielded;
+        std::vector<IPrivateKeyKeeper2::ShieldedInput> m_InputCoinsShielded;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 

@@ -56,6 +56,9 @@ namespace beam::wallet::lelantus
 
     void PullTransaction::UpdateImpl()
     {
+        Transaction::FeeSettings fs;
+        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
+
         if (!m_TxBuilder)
         {
             AmountList amoutList; // dummy
@@ -64,8 +67,6 @@ namespace beam::wallet::lelantus
             Amount fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
 
             // by convention the fee now includes ALL the fee, whereas our code will add the minimal shielded fee.
-            Transaction::FeeSettings fs;
-            Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
             if (fee >= feeShielded)
                 fee -= feeShielded;
             std::setmax(fee, fs.m_Kernel);
@@ -81,7 +82,7 @@ namespace beam::wallet::lelantus
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
-            std::vector<ShieldedTxo::ID>& vInp = m_TxBuilder->get_InputCoinsShielded();
+            auto& vInp = m_TxBuilder->get_InputCoinsShielded();
             if (vInp.empty())
             {
                 if (!shieldedCoin || !shieldedCoin->IsAvailable())
@@ -95,7 +96,8 @@ namespace beam::wallet::lelantus
                     << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
                     << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
 
-                vInp.push_back(shieldedCoin->m_CoinID);
+                Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = shieldedCoin->m_CoinID;
+                vInp.back().m_Fee = feeShielded;
 
                 m_TxBuilder->SelectInputs();
                 m_TxBuilder->AddChange();
