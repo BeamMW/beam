@@ -14,11 +14,11 @@
 
 #pragma once
 
-#include "base_lelantus_tx_builder.h"
+#include "../../core/base_tx_builder.h"
 
 namespace beam::wallet::lelantus
 {
-    class PushTxBuilder : public BaseLelantusTxBuilder
+    class PushTxBuilder : public BaseTxBuilder
     {
     public:
         PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);

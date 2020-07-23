@@ -14,7 +14,6 @@
 
 #include "pull_transaction.h"
 #include "core/shielded.h"
-#include "pull_tx_builder.h"
 #include "wallet/core/strings_resources.h"
 
 namespace beam::wallet::lelantus
