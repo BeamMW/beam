@@ -653,8 +653,7 @@ void TestShortWindow()
                 auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
-                    .SetParameter(TxParameterID::ShieldedOutputId, 180)
-                    .SetParameter(TxParameterID::WindowBegin, 180U-64U);
+                    .SetParameter(TxParameterID::ShieldedOutputId, 180);
 
                 sender.m_Wallet.StartTransaction(parameters);
             }

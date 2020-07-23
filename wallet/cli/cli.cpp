@@ -1795,19 +1795,6 @@ namespace
         return true;
     }
 
-    bool ReadWindowBegin(const po::variables_map& vm, TxoID& windowBegin)
-    {
-        if (vm.count(cli::WINDOW_BEGIN) == 0)
-        {
-            LOG_ERROR() << kErrorWindowBeginMissing;
-            return false;
-        }
-
-        windowBegin = vm[cli::WINDOW_BEGIN].as<Nonnegative<TxoID>>().value;
-
-        return true;
-    }
-
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
@@ -3112,11 +3099,6 @@ namespace
             .SetParameter(TxParameterID::AssetID, shieldedCoin->m_CoinID.m_AssetID)
             .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
             .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
-        {
-            txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
-        }
 
         return wallet.StartTransaction(txParams);
     }

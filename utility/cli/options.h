@@ -215,7 +215,6 @@ namespace beam
         extern const char* EXTRACT_FROM_POOL;
         extern const char* SHIELDED_UTXOS;
         extern const char* SHIELDED_ID;
-        extern const char* WINDOW_BEGIN;
         extern const char* SHIELDED_TX_HISTORY;
         extern const char* VOUCHER_COUNT;
 
