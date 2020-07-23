@@ -96,6 +96,13 @@ namespace beam::wallet
                 //  m_SpendProof.m_Cfg
             };
 
+            struct CreateVoucherShielded
+            {
+                WalletIDKey m_MyIDKey;
+                ECC::Hash::Value m_Nonce;
+                ShieldedTxo::Voucher m_Voucher;
+            };
+
             struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
@@ -151,6 +158,7 @@ namespace beam::wallet
 		macro(get_NumSlots) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
+		macro(CreateVoucherShielded) \
 		macro(SignReceiver) \
 		macro(SignSender) \
 		macro(SignSendShielded) \
