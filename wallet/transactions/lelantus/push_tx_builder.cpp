@@ -142,7 +142,6 @@ namespace beam::wallet::lelantus
             // save shielded Coin
             ShieldedCoin shieldedCoin;
             shieldedCoin.m_createTxId = m_Tx.GetTxID();
-            TxID txid = m_Tx.GetTxID();
 
             shieldedCoin.m_CoinID.m_Key.m_nIdx = 0;
             pars.ToID(shieldedCoin.m_CoinID);
