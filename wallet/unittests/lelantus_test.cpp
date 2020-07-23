@@ -684,7 +684,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
     Rules::get().Shielded.m_ProofMax = cfg;
     Rules::get().Shielded.m_ProofMin = minCfg;
-    Rules::get().Shielded.MaxWindowBacklog = cfg.get_N();
+    Rules::get().Shielded.MaxWindowBacklog = cfg.get_N() + 200;
     //uint32_t minBlocksToCompletePullTxs = txCount / Rules::get().Shielded.MaxIns + 5;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
