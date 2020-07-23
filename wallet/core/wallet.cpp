@@ -114,37 +114,37 @@ namespace beam::wallet
                 throw ReceiverAddressExpiredException();
             }
 
-            // update address comment if changed
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            {
-                auto messageStr = std::string(message->begin(), message->end());
-                if (messageStr != receiverAddr->m_label)
-                {
-                    receiverAddr->m_label = messageStr;
-                    walletDB->saveAddress(*receiverAddr);
-                }
-            }
-
-            TxParameters temp{ parameters };
-            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
-            return temp;
+            //// update address comment if changed
+            //if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            //{
+            //    auto messageStr = std::string(message->begin(), message->end());
+            //    if (messageStr != receiverAddr->m_label)
+            //    {
+            //        receiverAddr->m_label = messageStr;
+            //        walletDB->saveAddress(*receiverAddr);
+            //    }
+            //}
+            //
+            //TxParameters temp{ parameters };
+            //temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
+            //return temp;
         }
-        else
-        {
-            WalletAddress address;
-            address.m_walletID = *peerID;
-            address.m_createTime = getTimestamp();
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            {
-                address.m_label = std::string(message->begin(), message->end());
-            }
-            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
-            {
-                address.m_Identity = *identity;
-            }
-
-            walletDB->saveAddress(address);
-        }
+        //else
+        //{
+            //WalletAddress address;
+            //address.m_walletID = *peerID;
+            //address.m_createTime = getTimestamp();
+            //if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            //{
+            //    address.m_label = std::string(message->begin(), message->end());
+            //}
+            //if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            //{
+            //    address.m_Identity = *identity;
+            //}
+            //
+            //walletDB->saveAddress(address);
+        //}
         return parameters;
     }
 
