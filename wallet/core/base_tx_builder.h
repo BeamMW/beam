@@ -157,7 +157,6 @@ namespace beam::wallet
         ECC::Scalar::Native m_PeerSignature;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-        io::AsyncEvent::Ptr m_AsyncCompletedEvent;
 
         bool m_CreatingInputs = false;
         bool m_CreatingInputsShielded = false;
