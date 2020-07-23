@@ -743,7 +743,7 @@ namespace beam::wallet
         return hasInputs || hasOutputs;
     }
 
-    void BaseTxBuilder::SetCommon(IPrivateKeyKeeper2::Method::TxMutual& m)
+    void BaseTxBuilder::SetCommon(IPrivateKeyKeeper2::Method::TxCommon& m)
     {
         m.m_vInputs = m_InputCoins;
         m.m_vOutputs = m_OutputCoins;

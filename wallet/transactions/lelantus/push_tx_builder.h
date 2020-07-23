@@ -22,6 +22,8 @@ namespace beam::wallet::lelantus
     {
     public:
         PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
-        Transaction::Ptr CreateTransaction() override;
+        Transaction::Ptr m_pTransaction;
+
+        bool SignSendShielded();
     };
 } // namespace beam::wallet::lelantus

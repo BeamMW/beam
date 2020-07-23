@@ -102,6 +102,8 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
+        void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
+
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
@@ -116,7 +118,6 @@ namespace beam::wallet
 
         void CreateInputsStd();
         void CreateInputsShielded();
-        void SetCommon(IPrivateKeyKeeper2::Method::TxMutual&);
 
     protected:
         BaseTransaction& m_Tx;

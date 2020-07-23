@@ -206,7 +206,7 @@ void TestCancelUnlinkTx()
 
                 txID = sender.m_Wallet.StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 4)
+            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 7)
             {
                 sender.m_Wallet.CancelTransaction(txID);
             }
@@ -353,7 +353,8 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -363,7 +364,8 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -373,7 +375,8 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -1141,7 +1144,7 @@ int main()
     TestCancelUnlinkTx();
 
     TestSimpleTx();
-    TestDirectAnonymousPayment();
+    //TestDirectAnonymousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
     TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
