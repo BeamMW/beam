@@ -81,6 +81,7 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+        std::vector<ShieldedTxo::ID>& get_InputCoinsShielded() { return m_InputCoinsShielded; }
 
     protected:
 
