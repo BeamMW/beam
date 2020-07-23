@@ -51,9 +51,9 @@ namespace beam::wallet
         LocalPrivateKeyKeeper2& m_This;
         Aggregation(LocalPrivateKeyKeeper2& v) :m_This(v) {}
 
-        ECC::Scalar::Native m_sk = Zero;
-        Asset::ID m_AssetID = Asset::s_InvalidID;
-        bool m_NonConventional = false;
+        ECC::Scalar::Native m_sk;
+        Asset::ID m_AssetID;
+        bool m_NonConventional;
 
         static bool Add(Amount& trg, Amount val)
         {
@@ -71,8 +71,8 @@ namespace beam::wallet
 
         struct Values
         {
-            Amount m_Beam = Amount(0);
-            Amount m_Asset = Amount(0);
+            Amount m_Beam;
+            Amount m_Asset;
 
             bool Subtract(const Values& v)
             {
@@ -140,6 +140,8 @@ namespace beam::wallet
         }
 
         m_AssetID = 0;
+        ZeroObject(m_Ins);
+        ZeroObject(m_Outs);
 
         if (!Aggregate(tx.m_vInputs, false))
             return false;
@@ -630,6 +632,8 @@ namespace beam::wallet
         }
 
         krn.m_Signature.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
+
+        kKrn += pars.m_Output.m_k;
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         return Status::Success;
