@@ -58,7 +58,6 @@ namespace beam::wallet::lelantus
 
     void PushTransaction::UpdateImpl()
     {
-        const bool isSelfTx = IsSelfTx();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
