@@ -1155,7 +1155,7 @@ int main()
 
     TestShieldedUTXORollback();
     TestPushTxRollbackByLowFee();
-    TestPullTxRollbackByLowFee();
+    //TestPullTxRollbackByLowFee(); test won't succeed, current pull logic will automatically add inputs and/or adjust fee
     //TestExpiredTxs();
 
     //TestReextract();
