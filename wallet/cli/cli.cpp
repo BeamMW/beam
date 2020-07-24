@@ -2538,7 +2538,7 @@ namespace
         }
     }
 
-    std::string ReadAssetMeta(const po::variables_map& vm)
+    std::string ReadAssetMeta(const po::variables_map& vm, bool allow_v5_0)
     {
         if(!vm.count(cli::ASSET_METADATA))
         {
@@ -2552,7 +2552,8 @@ namespace
         }
 
         WalletAssetMeta meta(strMeta);
-        if (!meta.isStd())
+
+        if (!(allow_v5_0 ? meta.isStd_v5_0() : meta.isStd()))
         {
             throw std::runtime_error(kErrorAssetNonSTDMeta);
         }
@@ -2599,7 +2600,7 @@ namespace
         }
         else if (vm.count(cli::ASSET_METADATA))
         {
-            meta = ReadAssetMeta(vm);
+            meta = ReadAssetMeta(vm, true);
         }
         else
         {
@@ -2632,7 +2633,7 @@ namespace
     {
         CheckAssetsAllowed(vm);
 
-        const auto strMeta = ReadAssetMeta(vm);
+        const auto strMeta = ReadAssetMeta(vm, false);
 
         Amount fee = 0;
         if (!ReadFee(vm, fee, true))
@@ -2660,7 +2661,7 @@ namespace
         }
         else if (vm.count(cli::ASSET_METADATA))
         {
-            meta = ReadAssetMeta(vm);
+            meta = ReadAssetMeta(vm, true);
         }
         else
         {
@@ -2696,7 +2697,7 @@ namespace
 
         if (vm.count(cli::ASSET_METADATA))
         {
-            const auto assetMeta = ReadAssetMeta(vm);
+            const auto assetMeta = ReadAssetMeta(vm, true);
             params.SetParameter(TxParameterID::AssetMetadata, assetMeta);
             return wallet.StartTransaction(params);
         }
