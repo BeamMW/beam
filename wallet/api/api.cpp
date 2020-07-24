@@ -1197,6 +1197,13 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onReadSbbsMessagesMessage(const JsonRpcId& id, const json& params)
     {
         ReadSbbsMessages data;
+        if (existsJsonParam(params, "all"))
+        {
+            if (!params["all"].is_boolean())
+                throw jsonrpc_exception{ ApiError::NotSupported, R"(parameter "all" must be boolean.)", id };
+            data.all = params["all"].get<bool>(); 
+        }
+
         getHandler().onMessage(id, data);
     }
 
@@ -1725,12 +1732,18 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result",
-                {
-                    {"response", "response"}
-                }
-            }
+            {"result", json::array()}
         };
+        for (auto& message : res.messages)
+        {
+            msg["result"].push_back(
+            { 
+                {"id", message.m_id},
+                {"timestamp", message.m_timestamp},
+                {"sender", std::to_string(message.m_sender)},
+                {"message", json::parse(message.m_message)}
+            });
+        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)

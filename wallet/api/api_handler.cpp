@@ -631,9 +631,6 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const SendSbbsMessage& data)
     {
-        //todo send to
-        // data.receiver.m_Pk
-        // _walletData.getWalletDBPtr()->createAddress()
         WalletAddress address;
         auto walletDB = _walletData.getWalletDBPtr();
         walletDB->createAddress(address);
@@ -647,7 +644,7 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ReadSbbsMessages& data)
     {
-        doResponse(id, ReadSbbsMessages::Response{});
+        doResponse(id, ReadSbbsMessages::Response{ _walletData.getWalletPtr()->ReadInstantMessages(data.all)});
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxAssetInfo& data)

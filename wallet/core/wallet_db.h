@@ -282,6 +282,14 @@ namespace beam::wallet
         Reset
     };
 
+    struct InstantMessage
+    {
+        uint32_t m_id;
+        Timestamp m_timestamp;
+        WalletID m_sender;
+        std::string m_message;
+    };
+
     class CannotGenerateSecretException : public std::runtime_error
     {
     public:
@@ -522,6 +530,10 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // IM
+        virtual void storeIM(Timestamp time, WalletID from, std::string message) = 0;
+        virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
         TxStatusInterpreter getStatusInterpreter(const TxParameters& txParams) const;
 
@@ -671,6 +683,9 @@ namespace beam::wallet
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
+        void storeIM(Timestamp time, WalletID from, std::string message) override;
+        std::vector<InstantMessage> readIMs(bool all = false) override;
+
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
 
@@ -747,6 +762,7 @@ namespace beam::wallet
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
         uint32_t m_coinConfirmationsOffset = 0;
+        uint32_t m_lastReadIMId = 0;
 
         struct ShieldedStatusCtx;
     };

@@ -548,8 +548,10 @@ namespace beam::wallet
 
     struct ReadSbbsMessages
     {
+        bool all = false;
         struct Response
         {
+            std::vector<InstantMessage> messages;
         };
     };
 

@@ -84,7 +84,9 @@
 #define NOTIFICATIONS_NAME "notifications"
 #define EXCHANGE_RATES_NAME "exchangeRates"
 #define VOUCHERS_NAME "vouchers"
+#define IM_NAME "IM"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
+#define LAST_READ_IM_ID "LastReadIMId"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -192,6 +194,14 @@
     each(Voucher,   Voucher,   BLOB NOT NULL UNIQUE, obj)
 
 #define VOUCHERS_FIELDS ENUM_VOUCHERS_FIELDS(LIST, COMMA, )
+
+#define ENUM_IM_FIELDS(each, sep, obj) \
+    each(id,        id,        INTEGER PRIMARY KEY AUTOINCREMENT, obj) sep \
+    each(timestamp, timestamp, INTEGER NOT NULL, obj) sep \
+    each(sender,    sender,    BLOB NOT NULL,    obj) sep \
+    each(message,   message,   BLOB NOT NULL,    obj)
+
+#define IM_FIELDS ENUM_IM_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -1219,11 +1229,6 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        void CreateIMTables(sqlite3* db)
-        {
-
-        }
-
         void CreateVouchersTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " VOUCHERS_NAME " (" ENUM_VOUCHERS_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
@@ -1232,6 +1237,14 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateIMTables(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " IM_NAME " (" ENUM_IM_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
+                "CREATE UNIQUE INDEX " IM_NAME "_timestamp_sender on " IM_NAME " ( timestamp, sender ) ;"
+                "insert into SQLITE_SEQUENCE (name, seq) VALUES ('" IM_NAME "', 0);";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
@@ -1820,7 +1833,7 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 23...";
                     CreateIMTables(db);
 
-                    storage::setVar(*walletDB, Version, 23);
+                    storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
                 case DbVersion:
@@ -1970,7 +1983,8 @@ namespace beam::wallet
             TxParameterID::CreateTime,
             TxParameterID::IsSender }
     {
-
+        if (!storage::getVar(*this, LAST_READ_IM_ID, m_lastReadIMId))
+            m_lastReadIMId = 0;
     }
 
     WalletDB::~WalletDB()
@@ -3939,6 +3953,47 @@ namespace beam::wallet
             stm.get(0, res);
         }
         return size_t(res);
+    }
+
+    void WalletDB::storeIM(Timestamp time, WalletID from, std::string message)
+    {
+        sqlite::Statement stm(this, "INSERT OR IGNORE INTO " IM_NAME " (" ENUM_IM_FIELDS(LIST, COMMA, ) ") VALUES(null,?,?,?);");
+        stm.bind(1, time);
+        stm.bind(2, from);
+        stm.bind(3, message);
+        stm.step();
+    }
+
+    std::vector<InstantMessage> WalletDB::readIMs(bool all)
+    {
+        std::vector<InstantMessage> messages;
+        const char* req = all
+            ? "SELECT * FROM " IM_NAME " ORDER BY timestamp DESC;"
+            : "SELECT * FROM " IM_NAME " WHERE ID > ?1 ORDER BY timestamp DESC;";
+
+        sqlite::Statement stm(this, req);
+        if (!all) stm.bind(1, m_lastReadIMId);
+
+        while (stm.step())
+        {
+            auto& message = messages.emplace_back();
+            int colIdx = 0;
+            ENUM_IM_FIELDS(STM_GET_LIST, NOSEP, message);
+        }
+
+        if (!messages.empty())
+        {
+            auto message_with_largest_id = std::max_element(
+                messages.begin(), messages.end(),
+                [] (const InstantMessage& largest, const InstantMessage& first)
+                {
+                    return largest.m_id < first.m_id;
+                });
+            m_lastReadIMId = message_with_largest_id->m_id;
+            storage::setVar(*this, LAST_READ_IM_ID, m_lastReadIMId);
+        }
+
+        return messages;
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)

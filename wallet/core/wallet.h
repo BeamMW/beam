@@ -158,6 +158,7 @@ namespace beam::wallet
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
 
         void SendInstantSbbsMessage(const WalletID& peerID, const WalletID& myID, const ByteBuffer& message);
+        std::vector<InstantMessage> ReadInstantMessages(bool all);
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);

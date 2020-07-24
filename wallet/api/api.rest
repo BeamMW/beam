@@ -58,8 +58,8 @@ content-type: application/json-rpc
     "params": {
         "receiver": "50614dccd139f398504882567e5246ecd2cbe031085be97806cea7f07510443c69",
         "message": {
-            "random_field1": 42,
-            "random_field2": "text"
+            "random_field1": 257,
+            "random_field2": "text24"
         }
     }
 }
@@ -74,6 +74,20 @@ content-type: application/json-rpc
     "id": 1236,
     "method": "read_messages",
     "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "read_messages",
+    "params": {
+        "all" : true
+    }
 }
 
 ###
