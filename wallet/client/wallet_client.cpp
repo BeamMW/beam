@@ -152,6 +152,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::activateAddress, id);
     }
 
+    void getAddress(const WalletID& id) override
+    {
+        call_async(&IWalletModelAsync::getAddress, id);
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::setNodeAddress, addr);
@@ -921,6 +926,21 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::getAddress(const WalletID& id) 
+    {
+        try
+        {
+            onGetAddress(id, m_walletDB->getAddress(id));
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
     void WalletClient::setNodeAddress(const std::string& addr)
     {
         if (auto s = m_nodeNetwork.lock())
@@ -1094,8 +1114,6 @@ namespace beam::wallet
         status.receiving         = AmountBig::get_Lo(totals.Incoming);
         status.sending           = AmountBig::get_Lo(totals.Outgoing);
         status.maturing          = AmountBig::get_Lo(totals.Maturing);
-        status.linked            = AmountBig::get_Lo(totals.Linked);
-        status.unlinked          = AmountBig::get_Lo(totals.Unlinked);
         status.shielded          = AmountBig::get_Lo(totals.Shielded);
         status.update.lastTime   = m_walletDB->getLastUpdateTime();
 

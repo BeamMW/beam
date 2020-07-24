@@ -51,6 +51,7 @@ namespace beam::wallet
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void activateAddress(const WalletID& id) = 0;
+        virtual void getAddress(const WalletID& id) = 0;
 
         virtual void setNodeAddress(const std::string& addr) = 0;
 

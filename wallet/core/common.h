@@ -265,6 +265,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   WalletID) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \

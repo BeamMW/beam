@@ -48,8 +48,7 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
-    each(isUnlinked,     isUnlinked,    BOOLEAN DEFAULT false, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -1205,24 +1204,6 @@ namespace beam::wallet
             }
         }
 
-        void AddIsUnlinkedColumn(const WalletDB* walletDB, sqlite3* db)
-        {
-            const char* req_storage_is_unlinked_exist =
-                "SELECT COUNT(*) AS CNTREC FROM pragma_table_info('" STORAGE_NAME "') WHERE name='isUnlinked';";
-            int storage_is_unlinked_exist = 0;
-            for (sqlite::Statement stm(walletDB, req_storage_is_unlinked_exist); stm.step();)
-            {
-                stm.get(0, storage_is_unlinked_exist);
-            }
-
-            if (!storage_is_unlinked_exist)
-            {
-                const char* req = "ALTER TABLE " STORAGE_NAME " ADD isUnlinked BOOL DEFAULT false;";
-                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, db);
-            }
-        }
-
         void CreateShieldedCoinsTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " SHIELDED_COINS_NAME " (" ENUM_SHIELDED_COIN_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
@@ -1812,7 +1793,6 @@ namespace beam::wallet
                 case DbVersion19:
                     LOG_INFO() << "Converting DB from format 19...";
                     CreateShieldedCoinsTable(walletDB->_db);
-                    AddIsUnlinkedColumn(walletDB.get(), walletDB->_db);
                     // no break
 
                 case DbVersion20:
@@ -2314,12 +2294,7 @@ namespace beam::wallet
 
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
     {
-        return selectCoinsEx(amount, assetId, false, false);
-    }
-
-    vector<Coin> WalletDB::selectUnlinkedCoins(Amount amount, Asset::ID assetId)
-    {
-        return selectCoinsEx(amount, assetId, true, false);
+        return selectCoinsEx(amount, assetId, false);
     }
 
     static void DecreaseAmount(Amount& x, Amount val)
@@ -2339,13 +2314,20 @@ namespace beam::wallet
         size_t iPosShielded = 0;
 
         Transaction::FeeSettings fs;
+        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
 
         if (nMaxShielded)
         {
-            visitShieldedCoinsUnspent([&vShielded, aid](const ShieldedCoin& coin) -> bool
+            visitShieldedCoinsUnspent(
+                [&vShielded, aid, feeShielded](const ShieldedCoin& coin) -> bool
                 {
                     if ((ShieldedCoin::Status::Available == coin.m_Status) && (coin.m_CoinID.m_AssetID == aid))
-                        vShielded.push_back(coin);
+                    {
+                        // skip dust
+                        bool bDust = !aid && (coin.m_CoinID.m_Value <= feeShielded);
+                        if (!bDust)
+                            vShielded.push_back(coin);
+                    }
                     return true;
                 }
             );
@@ -2364,7 +2346,7 @@ namespace beam::wallet
                     break;
 
                 if (!aid)
-                    amount += fs.m_ShieldedInput + fs.m_Kernel;
+                    amount += feeShielded;
 
                 DecreaseAmount(amount, x.m_CoinID.m_Value);
                 vSelShielded.push_back(x);
@@ -2376,7 +2358,7 @@ namespace beam::wallet
 
         if (amount)
         {
-            vSelStd = selectCoinsEx(amount, aid, false, true);
+            vSelStd = selectCoinsEx(amount, aid, true);
 
             for (size_t i = 0; i < vSelStd.size(); i++)
                 DecreaseAmount(amount, vSelStd[i].m_ID.m_Value);
@@ -2387,7 +2369,7 @@ namespace beam::wallet
         for (; amount && (iPosShielded < vShielded.size()) && (vSelShielded.size() < nMaxShielded); iPosShielded++)
         {
             if (!aid)
-                amount += fs.m_ShieldedInput + fs.m_Kernel;
+                amount += feeShielded;
 
             const ShieldedCoin& x = vShielded[iPosShielded];
             DecreaseAmount(amount, x.m_CoinID.m_Value);
@@ -2402,15 +2384,14 @@ namespace beam::wallet
         }
     }
 
-    vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool unlinked, bool bCanReturnLess)
+    vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool bCanReturnLess)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
 
         {
-            const char* query = unlinked ? "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 AND isUnlinked=true ORDER BY amount ASC"
-                                         : "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 ORDER BY amount ASC";
+            const char* query = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE maturity>=0 AND maturity<=?1 AND spentHeight<0 ORDER BY amount ASC";
 
             sqlite::Statement stm(this, query);
             stm.bind(1, stateID.m_Height);
@@ -3083,6 +3064,8 @@ namespace beam::wallet
             {
                 ShieldedCoin& coin = changedCoins[i];
                 coin.m_confirmHeight = MaxHeight;
+                updateShieldedCoinRaw(coin);
+
                 coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
             }
 
@@ -4581,7 +4564,6 @@ namespace beam::wallet
                 case Coin::Status::Available:
                     totals.Avail += value;
                     totals.Unspent += value;
-                    c.m_isUnlinked ? totals.Unlinked += value : totals.Linked += value;
                     switch (c.m_ID.m_Type)
                     {
                     case Key::Type::Coinbase:
@@ -4684,14 +4666,8 @@ namespace beam::wallet
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
         {
             c.m_status = GetCoinStatus(walletDB, c, hTop);
-            
-            if (c.m_ID.m_Type != ECC::Key::Type::Coinbase
-             && c.m_ID.m_Type != ECC::Key::Type::Treasury
-             && c.m_status == Coin::Status::Available
-             && c.m_confirmHeight > hTop - walletDB.getCoinConfirmationsOffset())
-             {
+            if (c.m_status == Coin::Status::Available && c.m_confirmHeight > hTop - walletDB.getCoinConfirmationsOffset())
                 c.m_status = Coin::Status::Maturing;
-             } 
         }
 
         bool IsOngoingTx(const IWalletDB& walletDB, const boost::optional<TxID>& txID)
@@ -5359,16 +5335,6 @@ namespace beam::wallet
                 });
             return myAddrIt != myAddresses.end();
         }
-
-        bool IsShieldedCoinUnlinked(const IWalletDB& db, const ShieldedCoin& coin)
-        {
-            TxoID lastKnownShieldedOuts = 0;
-            storage::getVar(db, kStateSummaryShieldedOutsDBPath, lastKnownShieldedOuts);
-            auto targetAnonymitySet = Rules::get().Shielded.m_ProofMax.get_N();
-
-            auto coinAnonymitySet = coin.GetAnonymitySet(lastKnownShieldedOuts);
-            return (coinAnonymitySet >= targetAnonymitySet);
-        }
     }
 
     ////////////////////////
@@ -5401,6 +5367,11 @@ namespace beam::wallet
         return m_OwnID != 0;
     }
 
+    bool WalletAddress::isPermanent() const
+    {
+        return m_duration == AddressExpirationNever;
+    }
+
     Timestamp WalletAddress::getCreateTime() const
     {
         return m_createTime;
@@ -5408,7 +5379,7 @@ namespace beam::wallet
 
     Timestamp WalletAddress::getExpirationTime() const
     {
-        if (m_duration == AddressExpirationNever)
+        if (isPermanent())
         {
             return Timestamp(-1);
         }

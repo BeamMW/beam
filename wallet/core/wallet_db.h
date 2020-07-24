@@ -87,8 +87,6 @@ namespace beam::wallet
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
-        bool m_isUnlinked = false;
-
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
         
@@ -114,6 +112,7 @@ namespace beam::wallet
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         bool isOwn() const;
+        bool isPermanent() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
 
@@ -228,12 +227,6 @@ namespace beam::wallet
         bool IsAvailable() const
         {
             return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight && !m_spentTxId;
-        }
-
-        TxoID GetAnonymitySet(TxoID lastKnownShieldedOuts) const
-        {
-            // TODO: review this
-            return lastKnownShieldedOuts && (lastKnownShieldedOuts > m_TxoID) ? lastKnownShieldedOuts - m_TxoID : 0;
         }
 
         ShieldedTxo::ID m_CoinID;
@@ -402,7 +395,6 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
-        virtual std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) = 0;
         virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
@@ -569,9 +561,8 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
-        std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) override;
         void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
-        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked, bool bCanReturnLess);
+        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
@@ -847,8 +838,6 @@ namespace beam::wallet
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
                 AmountBig::Type Shielded = 0U;
-                AmountBig::Type Linked = 0U;
-                AmountBig::Type Unlinked = 0U;
                 Height MinCoinHeight = 0;
             };
 
@@ -969,6 +958,5 @@ namespace beam::wallet
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
 
-        bool IsShieldedCoinUnlinked(const IWalletDB& db, const ShieldedCoin& coin);
     }  // namespace storage
 }  // namespace beam::wallet

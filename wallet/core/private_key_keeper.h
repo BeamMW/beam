@@ -57,7 +57,7 @@ namespace beam::wallet
         struct ShieldedInput
             :public ShieldedTxo::ID
         {
-            TxKernelShieldedInput::Ptr m_pKernel;
+            Amount m_Fee;
         };
 
         struct Method
@@ -84,15 +84,23 @@ namespace beam::wallet
             };
 
             struct CreateInputShielded
-                :public ShieldedInput
+                :public ShieldedTxo::ID
             {
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
 
+                TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:
                 //  Fee, min/max Heights
                 //  m_WindowEnd
                 //  m_SpendProof.m_Cfg
+            };
+
+            struct CreateVoucherShielded
+            {
+                WalletIDKey m_MyIDKey;
+                ECC::Hash::Value m_Nonce;
+                ShieldedTxo::Voucher m_Voucher;
             };
 
             struct InOuts
@@ -132,6 +140,17 @@ namespace beam::wallet
                 // send funds to yourself. in/out difference must be equal to fee
             };
 
+            struct SignSendShielded :public TxCommon
+            {
+                ShieldedTxo::Voucher m_Voucher;
+                PeerID m_Peer;
+                WalletIDKey m_MyIDKey = 0; // set if sending to yourself (though makes no sense to do so)
+
+                // sent value and asset are derived from the tx balance (ins - outs)
+                ShieldedTxo::User m_User;
+                bool m_HideAssetAlways = false;
+            };
+
         };
 
 #define KEY_KEEPER_METHODS(macro) \
@@ -139,8 +158,10 @@ namespace beam::wallet
 		macro(get_NumSlots) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
+		macro(CreateVoucherShielded) \
 		macro(SignReceiver) \
 		macro(SignSender) \
+		macro(SignSendShielded) \
 		macro(SignSplit) \
 
 

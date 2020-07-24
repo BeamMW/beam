@@ -31,7 +31,6 @@ namespace beam::wallet
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
         virtual ~BaseTxBuilder() = default;
         void SelectInputs();
-        void SelectFeeInputsPreferUnlinked();
         void AddChange();
         void GenerateAssetCoin(Amount amount, bool change);
         void GenerateBeamCoin(Amount amount, bool change);
@@ -82,6 +81,7 @@ namespace beam::wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+        std::vector<IPrivateKeyKeeper2::ShieldedInput>& get_InputCoinsShielded() { return m_InputCoinsShielded; }
 
     protected:
 
@@ -103,6 +103,8 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
+        void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
+
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
@@ -117,7 +119,6 @@ namespace beam::wallet
 
         void CreateInputsStd();
         void CreateInputsShielded();
-        void SetCommon(IPrivateKeyKeeper2::Method::TxMutual&);
 
     protected:
         BaseTransaction& m_Tx;
@@ -138,7 +139,7 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        std::vector<ShieldedTxo::ID> m_InputCoinsShielded;
+        std::vector<IPrivateKeyKeeper2::ShieldedInput> m_InputCoinsShielded;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 
@@ -156,7 +157,6 @@ namespace beam::wallet
         ECC::Scalar::Native m_PeerSignature;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-        io::AsyncEvent::Ptr m_AsyncCompletedEvent;
 
         bool m_CreatingInputs = false;
         bool m_CreatingInputsShielded = false;

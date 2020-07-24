@@ -46,8 +46,6 @@ namespace beam::wallet
         Amount receivingChange = 0;
         Amount sending = 0;
         Amount maturing = 0;
-        Amount linked = 0;
-        Amount unlinked = 0;
         Amount shielded = 0;
 
         struct
@@ -122,6 +120,7 @@ namespace beam::wallet
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
+        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
@@ -179,6 +178,7 @@ namespace beam::wallet
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void activateAddress(const WalletID& id) override;
+        void getAddress(const WalletID& id) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;

@@ -290,7 +290,8 @@ namespace beam::wallet::lelantus
     bool UnlinkFundsTransaction::CheckAnonymitySet() const
     {
         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-        return storage::IsShieldedCoinUnlinked(*GetWalletDB(), *coin);
+        ShieldedCoin& c = *coin;
+        return 100 == c.m_UnlinkProgress;
     }
 
     void UnlinkFundsTransaction::CreateExtractTransaction()
