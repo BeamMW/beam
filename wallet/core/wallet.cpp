@@ -124,10 +124,10 @@ namespace beam::wallet
             //        walletDB->saveAddress(*receiverAddr);
             //    }
             //}
-            //
-            //TxParameters temp{ parameters };
-            //temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
-            //return temp;
+            
+            TxParameters temp{ parameters };
+            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
+            return temp;
         }
         //else
         //{
