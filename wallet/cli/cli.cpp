@@ -1795,19 +1795,6 @@ namespace
         return true;
     }
 
-    bool ReadWindowBegin(const po::variables_map& vm, TxoID& windowBegin)
-    {
-        if (vm.count(cli::WINDOW_BEGIN) == 0)
-        {
-            LOG_ERROR() << kErrorWindowBeginMissing;
-            return false;
-        }
-
-        windowBegin = vm[cli::WINDOW_BEGIN].as<Nonnegative<TxoID>>().value;
-
-        return true;
-    }
-
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
@@ -2538,7 +2525,7 @@ namespace
         }
     }
 
-    std::string ReadAssetMeta(const po::variables_map& vm)
+    std::string ReadAssetMeta(const po::variables_map& vm, bool allow_v5_0)
     {
         if(!vm.count(cli::ASSET_METADATA))
         {
@@ -2552,7 +2539,8 @@ namespace
         }
 
         WalletAssetMeta meta(strMeta);
-        if (!meta.isStd())
+
+        if (!(allow_v5_0 ? meta.isStd_v5_0() : meta.isStd()))
         {
             throw std::runtime_error(kErrorAssetNonSTDMeta);
         }
@@ -2599,7 +2587,7 @@ namespace
         }
         else if (vm.count(cli::ASSET_METADATA))
         {
-            meta = ReadAssetMeta(vm);
+            meta = ReadAssetMeta(vm, true);
         }
         else
         {
@@ -2632,7 +2620,7 @@ namespace
     {
         CheckAssetsAllowed(vm);
 
-        const auto strMeta = ReadAssetMeta(vm);
+        const auto strMeta = ReadAssetMeta(vm, false);
 
         Amount fee = 0;
         if (!ReadFee(vm, fee, true))
@@ -2660,7 +2648,7 @@ namespace
         }
         else if (vm.count(cli::ASSET_METADATA))
         {
-            meta = ReadAssetMeta(vm);
+            meta = ReadAssetMeta(vm, true);
         }
         else
         {
@@ -2696,7 +2684,7 @@ namespace
 
         if (vm.count(cli::ASSET_METADATA))
         {
-            const auto assetMeta = ReadAssetMeta(vm);
+            const auto assetMeta = ReadAssetMeta(vm, true);
             params.SetParameter(TxParameterID::AssetMetadata, assetMeta);
             return wallet.StartTransaction(params);
         }
@@ -3111,11 +3099,6 @@ namespace
             .SetParameter(TxParameterID::AssetID, shieldedCoin->m_CoinID.m_AssetID)
             .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
             .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
-        {
-            txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
-        }
 
         return wallet.StartTransaction(txParams);
     }

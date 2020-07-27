@@ -5434,6 +5434,11 @@ namespace beam::wallet
         return m_OwnID != 0;
     }
 
+    bool WalletAddress::isPermanent() const
+    {
+        return m_duration == AddressExpirationNever;
+    }
+
     Timestamp WalletAddress::getCreateTime() const
     {
         return m_createTime;
@@ -5441,7 +5446,7 @@ namespace beam::wallet
 
     Timestamp WalletAddress::getExpirationTime() const
     {
-        if (m_duration == AddressExpirationNever)
+        if (isPermanent())
         {
             return Timestamp(-1);
         }

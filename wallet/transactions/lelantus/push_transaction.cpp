@@ -58,7 +58,6 @@ namespace beam::wallet::lelantus
 
     void PushTransaction::UpdateImpl()
     {
-        const bool isSelfTx = IsSelfTx();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
@@ -84,30 +83,6 @@ namespace beam::wallet::lelantus
             m_TxBuilder->AddChange();
         }
 
-        if (m_TxBuilder->CreateInputs())
-        {
-            return;
-        }
-
-        if (m_TxBuilder->CreateOutputs())
-        {
-            return;
-        }
-        
-        {
-            ShieldedVoucherList vouchers;
-            if (!isSelfTx && !GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
-            {
-                boost::optional<ShieldedTxo::Voucher> voucher;
-                GetGateway().get_UniqueVoucher(GetMandatoryParameter<WalletID>(TxParameterID::PeerID), GetTxID(), voucher);
-
-                if (!voucher)
-                    return;
-
-                SetParameter(TxParameterID::ShieldedVoucherList, ShieldedVoucherList(1, *voucher));
-            }
-        }
-
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered)
             || nRegistered == proto::TxStatus::Unspecified)
@@ -117,25 +92,39 @@ namespace beam::wallet::lelantus
                 return;
             }
 
-            // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction();
-            if (!transaction)
+            if (!m_TxBuilder->m_pTransaction)
             {
-                OnFailed(TxFailureReason::NoVouchers);
-                return;
+                bool bI = m_TxBuilder->CreateInputs();
+                bool bO = m_TxBuilder->CreateOutputs();
+
+                if (bI || bO)
+                    return;
+
+                if (m_TxBuilder->SignSendShielded())
+                    return;
+
+                // Construct transaction
+                auto transaction = m_TxBuilder->CreateTransaction();
+                if (!transaction)
+                {
+                    OnFailed(TxFailureReason::NoVouchers);
+                    return;
+                }
+
+                // Verify final transaction
+                TxBase::Context::Params pars;
+                TxBase::Context ctx(pars);
+                ctx.m_Height.m_Min = m_TxBuilder->GetMinHeight();
+                if (!transaction->IsValid(ctx))
+                {
+                    OnFailed(TxFailureReason::InvalidTransaction, true);
+                    return;
+                }
+
+                m_TxBuilder->m_pTransaction = std::move(transaction);
             }
 
-            // Verify final transaction
-            TxBase::Context::Params pars;
-            TxBase::Context ctx(pars);
-            ctx.m_Height.m_Min = m_TxBuilder->GetMinHeight();
-            if (!transaction->IsValid(ctx))
-            {
-                OnFailed(TxFailureReason::InvalidTransaction, true);
-                return;
-            }
-
-            GetGateway().register_tx(GetTxID(), transaction, GetSubTxID());
+            GetGateway().register_tx(GetTxID(), m_TxBuilder->m_pTransaction, GetSubTxID());
             return;
         }
 

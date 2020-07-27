@@ -112,6 +112,7 @@ namespace beam::wallet
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         bool isOwn() const;
+        bool isPermanent() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
 

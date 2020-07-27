@@ -266,6 +266,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   WalletID) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \
@@ -309,8 +310,6 @@ namespace beam::wallet
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
-    MACRO(ShieldedOutputId,                122, TxoID) \
-    MACRO(WindowBegin,                     123, TxoID) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     /* Version */ \
     MACRO(ClientVersion,                   126, std::string) \
@@ -376,6 +375,7 @@ namespace beam::wallet
         AtomicSwapWithdrawAddress = 206,
         AtomicSwapExternalHeight = 207,
 
+        ShieldedOutputId = 208,
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,

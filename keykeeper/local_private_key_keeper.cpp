@@ -51,9 +51,9 @@ namespace beam::wallet
         LocalPrivateKeyKeeper2& m_This;
         Aggregation(LocalPrivateKeyKeeper2& v) :m_This(v) {}
 
-        ECC::Scalar::Native m_sk = Zero;
-        Asset::ID m_AssetID = Asset::s_InvalidID;
-        bool m_NonConventional = false;
+        ECC::Scalar::Native m_sk;
+        Asset::ID m_AssetID;
+        bool m_NonConventional;
 
         static bool Add(Amount& trg, Amount val)
         {
@@ -71,8 +71,8 @@ namespace beam::wallet
 
         struct Values
         {
-            Amount m_Beam = Amount(0);
-            Amount m_Asset = Amount(0);
+            Amount m_Beam;
+            Amount m_Asset;
 
             bool Subtract(const Values& v)
             {
@@ -140,6 +140,8 @@ namespace beam::wallet
         }
 
         m_AssetID = 0;
+        ZeroObject(m_Ins);
+        ZeroObject(m_Outs);
 
         if (!Aggregate(tx.m_vInputs, false))
             return false;
@@ -316,6 +318,28 @@ namespace beam::wallet
         ExecutorMT exec;
         Executor::Scope scope(exec);
         x.m_pKernel->Sign(prover, x.m_AssetID);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateVoucherShielded& x)
+    {
+        ECC::Scalar::Native sk;
+        m_pKdf->DeriveKey(sk, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+        PeerID pid;
+        pid.FromSk(sk);
+
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*m_pKdf, 0);
+
+        ShieldedTxo::Data::TicketParams tp;
+        tp.Generate(x.m_Voucher.m_Ticket, viewer, x.m_Nonce);
+
+        x.m_Voucher.m_SharedSecret = tp.m_SharedSecret;
+
+        ECC::Hash::Value hvMsg;
+        x.m_Voucher.get_Hash(hvMsg);
+        x.m_Voucher.m_Signature.Sign(hvMsg, sk);
 
         return Status::Success;
     }
@@ -630,6 +654,8 @@ namespace beam::wallet
         }
 
         krn.m_Signature.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
+
+        kKrn += pars.m_Output.m_k;
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         return Status::Success;

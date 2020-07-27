@@ -315,7 +315,6 @@ namespace beam
         const char* EXTRACT_FROM_POOL = "extract_from_pool";
         const char* SHIELDED_UTXOS = "shielded_utxos";
         const char* SHIELDED_ID = "shielded_id";
-        const char* WINDOW_BEGIN = "window_begin";
         const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
 
         // Defaults
@@ -492,7 +491,6 @@ namespace beam
         // lelantus_options.add_options()
         //    (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
         //    (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
-        //    (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
         //    (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
 
         po::options_description options{ "OPTIONS" };
