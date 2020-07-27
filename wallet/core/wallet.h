@@ -340,6 +340,7 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB; 
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         struct VoucherManager
         {
@@ -393,7 +394,6 @@ namespace beam::wallet
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
-        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
