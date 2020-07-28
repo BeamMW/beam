@@ -22,7 +22,7 @@
 
 namespace beam::wallet
 {
-    class BaseTxBuilder;
+    class MutualTxBuilder;
 
     TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
     TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
@@ -61,8 +61,8 @@ namespace beam::wallet
         bool IsInSafety() const override;
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        void SendInvitation(const BaseTxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const BaseTxBuilder& builder);
+        void SendInvitation(const MutualTxBuilder& builder, bool isSender);
+        void ConfirmInvitation(const MutualTxBuilder& builder);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
@@ -80,11 +80,11 @@ namespace beam::wallet
             OK,
         };
 
-        AssetCheckResult CheckAsset(const BaseTxBuilder& builder);
+        AssetCheckResult CheckAsset(const MutualTxBuilder& builder);
         AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
         bool m_withAssets;
 
     private:
-        std::shared_ptr<BaseTxBuilder> m_TxBuilder;
+        std::shared_ptr<MutualTxBuilder> m_TxBuilder;
     };
 }

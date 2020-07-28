@@ -20,7 +20,7 @@ using namespace ECC;
 namespace beam::wallet
 {
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
-        : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
+        : MutualTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
         ZeroObject(m_SharedProof); // zero-init it to prevent errors during serialization
     }
@@ -111,7 +111,7 @@ namespace beam::wallet
         output->m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
         *(output->m_pConfidential) = m_SharedProof;
 
-        m_Outputs.push_back(std::move(output));
+        m_pTransaction->m_vOutputs.push_back(std::move(output));
     }
 
     void LockTxBuilder::LoadSharedParameters()
@@ -121,9 +121,9 @@ namespace beam::wallet
             m_SharedCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount(), Zero);
             m_Tx.SetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
 
-            m_OutputCoins.push_back(m_SharedCoin.m_ID);
-            m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
-            m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
+            m_Coins.m_Output.push_back(m_SharedCoin.m_ID);
+            m_Tx.SetParameter(TxParameterID::OutputCoins, m_Coins.m_Output, m_SubTxID);
+            m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, false, m_SubTxID);
 
             CoinIDList sharedInputs;
             sharedInputs.push_back(m_SharedCoin.m_ID);
@@ -153,7 +153,7 @@ namespace beam::wallet
     {
         AddSharedOutput();
         LoadPeerOffset();
-        return BaseTxBuilder::CreateTransaction();
+        return MutualTxBuilder::CreateTransaction();
     }
 
     const ECC::uintBig& LockTxBuilder::GetSharedSeed() const

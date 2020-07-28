@@ -21,7 +21,7 @@
 
 namespace beam::wallet
 {
-    class BaseTxBuilder;
+    class MutualTxBuilder;
     class AssetRegisterTransaction : public AssetTransaction
     {
     public:

@@ -21,7 +21,7 @@
 
 namespace beam::wallet
 {
-    class SharedTxBuilder : public BaseTxBuilder
+    class SharedTxBuilder : public MutualTxBuilder
     {
     public:
         SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount = 0, Amount fee = 0);

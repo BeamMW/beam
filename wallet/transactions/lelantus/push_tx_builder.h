@@ -21,9 +21,12 @@ namespace beam::wallet::lelantus
     class PushTxBuilder : public BaseTxBuilder
     {
     public:
-        PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
-        Transaction::Ptr m_pTransaction;
+        PushTxBuilder(BaseTransaction& tx);
 
-        bool SignSendShielded();
+        Amount m_Value = 0;
+        Asset::ID m_AssetID = 0;
+
+        void ReadParams();
+        void SignSendShielded();
     };
 } // namespace beam::wallet::lelantus

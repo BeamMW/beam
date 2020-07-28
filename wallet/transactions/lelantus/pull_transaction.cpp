@@ -72,10 +72,11 @@ namespace beam::wallet::lelantus
             std::setmax(fee, fs.m_Kernel);
 
 
-            m_TxBuilder = std::make_shared<BaseTxBuilder>(*this, GetSubTxID(), amoutList, fee);
+            m_TxBuilder = std::make_shared<MutualTxBuilder>(*this, GetSubTxID(), amoutList, fee);
+            m_TxBuilder->ReadParams();
         }
 
-        if (!m_TxBuilder->GetInitialTxParams())
+        if (m_TxBuilder->m_Coins.IsEmpty())
         {
             UpdateTxDescription(TxStatus::InProgress);
 
@@ -85,7 +86,7 @@ namespace beam::wallet::lelantus
             if (shieldedCoin->m_CoinID.m_AssetID && !m_withAssets)
                 throw TransactionFailedException(false, TxFailureReason::AssetsDisabled);
 
-            auto& vInp = m_TxBuilder->get_InputCoinsShielded();
+            auto& vInp = m_TxBuilder->m_Coins.m_InputShielded;
             if (vInp.empty())
             {
                 if (!shieldedCoin || !shieldedCoin->IsAvailable())
@@ -107,20 +108,11 @@ namespace beam::wallet::lelantus
             }
         }
 
-        if (m_TxBuilder->CreateInputs())
-        {
-            return;
-        }
+        m_TxBuilder->GenerateInOuts();
+        m_TxBuilder->SignSplit();
 
-        if (m_TxBuilder->CreateOutputs())
-        {
+        if (m_TxBuilder->IsGeneratingInOuts() || m_TxBuilder->IsSigning())
             return;
-        }
-
-        if (m_TxBuilder->SignSplit())
-        {
-            return;
-        }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))

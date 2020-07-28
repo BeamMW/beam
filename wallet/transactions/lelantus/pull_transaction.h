@@ -18,7 +18,7 @@
 #include "wallet/core/base_tx_builder.h"
 
 namespace beam::wallet {
-    class BaseTxBuilder;
+    class MutualTxBuilder;
 }
 
 namespace beam::wallet::lelantus
@@ -52,7 +52,7 @@ namespace beam::wallet::lelantus
         void RollbackTx() override;
 
     private:
-        std::shared_ptr<BaseTxBuilder> m_TxBuilder;
+        std::shared_ptr<MutualTxBuilder> m_TxBuilder;
         bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

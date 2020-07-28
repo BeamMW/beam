@@ -33,7 +33,7 @@ namespace beam::wallet
     }
 
     SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee)
-        : BaseTxBuilder(tx, subTxID, ConstructAmountList(amount), fee)
+        : MutualTxBuilder(tx, subTxID, ConstructAmountList(amount), fee)
     {
         InitMinHeight();
     }
@@ -41,12 +41,12 @@ namespace beam::wallet
     Transaction::Ptr SharedTxBuilder::CreateTransaction()
     {
         LoadPeerOffset();
-        return BaseTxBuilder::CreateTransaction();
+        return MutualTxBuilder::CreateTransaction();
     }
 
     Height SharedTxBuilder::GetMaxHeight() const
     {
-        return m_MaxHeight;
+        return m_Height.m_Max;
     }
 
     bool SharedTxBuilder::GetSharedParameters()
@@ -58,21 +58,13 @@ namespace beam::wallet
 
     void SharedTxBuilder::InitTx(bool isTxOwner)
     {
+        InitInput();
+
         if (isTxOwner)
-        {
             // select shared UTXO as input and create output utxo
-            InitInput();
             InitOutput();
 
-            if (!FinalizeOutputs())
-            {
-                // TODO: transaction is too big :(
-            }
-        }
-        else
-        {
-            InitInput();
-        }
+        m_GeneratingInOuts = Stage::Done;
     }
 
     void SharedTxBuilder::InitInput()
@@ -84,9 +76,10 @@ namespace beam::wallet
         commitment += Context::get().G * m_SharedBlindingFactor;
         commitment += m_PeerPublicSharedBlindingFactor;
 
-        auto& input = m_Inputs.emplace_back(std::make_unique<Input>());
+        auto& input = m_pTransaction->m_vInputs.emplace_back(std::make_unique<Input>());
         input->m_Commitment = commitment;
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs, false, m_SubTxID);
+
     }
 
     void SharedTxBuilder::InitOutput()
@@ -115,9 +108,9 @@ namespace beam::wallet
 
         m_Tx.TestKeyKeeperRet(m_Tx.get_KeyKeeperStrict()->InvokeSync(m));
 
-        m_Outputs.push_back(std::move(m.m_pResult));
-        m_OutputCoins.push_back(outputCoin.m_ID);
-        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+        m_pTransaction->m_vOutputs.push_back(std::move(m.m_pResult));
+        m_Coins.m_Output.push_back(outputCoin.m_ID);
+        m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
     }
 
     void SharedTxBuilder::InitMinHeight()
