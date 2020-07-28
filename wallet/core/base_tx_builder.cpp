@@ -627,46 +627,25 @@ namespace beam::wallet
     MutualTxBuilder::MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         :BaseTxBuilder(tx, subTxID)
         , m_AmountList{ amountList }
-        , m_ChangeBeam{0}
-        , m_ChangeAsset{0}
         , m_Lifetime{ kDefaultTxLifetime }
     {
         m_Fee = fee;
     }
 
-    void MutualTxBuilder::SelectInputs()
+    void MutualTxBuilder::MakeInputsAndChanges()
     {
         Asset::ID aid = GetAssetId();
         Amount val = GetAmount();
 
         if (aid)
         {
-            m_ChangeAsset = MakeInputs(val, aid) - val;
+            MakeInputsAndChange(val, aid);
             val = m_Fee;
         }
         else
-        {
-            m_ChangeAsset = 0;
             val += m_Fee;
-        }
 
-        m_ChangeBeam = MakeInputs(val, 0) - val;
-
-        m_Tx.SetParameter(TxParameterID::ChangeBeam, m_ChangeBeam, false, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
-    }
-
-    void MutualTxBuilder::AddChange()
-    {
-        if (m_ChangeBeam)
-        {
-            GenerateBeamCoin(m_ChangeBeam, true);
-        }
-
-        if (m_ChangeAsset)
-        {
-            GenerateAssetCoin(m_ChangeAsset, true);
-        }
+        MakeInputsAndChange(val, 0);
     }
 
     void MutualTxBuilder::GenerateAssetCoin(Amount amount, bool change)

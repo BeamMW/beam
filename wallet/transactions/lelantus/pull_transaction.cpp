@@ -103,8 +103,7 @@ namespace beam::wallet::lelantus
                 Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = shieldedCoin->m_CoinID;
                 vInp.back().m_Fee = feeShielded;
 
-                m_TxBuilder->SelectInputs();
-                m_TxBuilder->AddChange();
+                m_TxBuilder->MakeInputsAndChanges();
             }
         }
 

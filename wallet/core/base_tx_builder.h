@@ -144,8 +144,7 @@ namespace beam::wallet
         MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
         virtual ~MutualTxBuilder() = default;
         void ReadParams();
-        void SelectInputs();
-        void AddChange();
+        void MakeInputsAndChanges();
         void GenerateAssetCoin(Amount amount, bool change);
         void GenerateBeamCoin(Amount amount, bool change);
         bool LoadKernel();
@@ -192,8 +191,6 @@ namespace beam::wallet
 
         // input
         AmountList m_AmountList;
-        Amount m_ChangeBeam;
-        Amount m_ChangeAsset;
         Height m_Lifetime;
 
         ECC::Point::Native m_PublicNonce;

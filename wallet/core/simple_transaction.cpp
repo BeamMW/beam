@@ -169,8 +169,7 @@ namespace beam::wallet
                         LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                     }
 
-                    builder.SelectInputs();
-                    builder.AddChange();
+                    builder.MakeInputsAndChanges();
                 }
 
                 if (isSelfTx || !isSender)
