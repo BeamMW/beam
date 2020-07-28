@@ -29,5 +29,6 @@ namespace beam::wallet
     protected:
 
         uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
+        bool IsSegwitSupported() const override;
     };
 }

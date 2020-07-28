@@ -39,4 +39,9 @@ namespace beam::wallet
     {
         return kDogecoinLockTxEstimatedTimeInBeamBlocks;
     }
+
+    bool DogecoinSide::IsSegwitSupported() const
+    {
+        return false;
+    }
 }
