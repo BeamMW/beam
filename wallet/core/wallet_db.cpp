@@ -3696,6 +3696,8 @@ namespace beam::wallet
 
             saveAddress(ch.get_myAddr(), true);
         }
+
+        flushDB();
     }
 
     bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
