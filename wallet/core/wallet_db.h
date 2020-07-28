@@ -699,6 +699,8 @@ namespace beam::wallet
         void insertShieldedCoinRaw(const ShieldedCoin& coin);
         void saveShieldedCoinRaw(const ShieldedCoin& coin);
 
+        Amount selectCoinsStd(Amount nTrg, Amount nSel, Asset::ID, std::vector<Coin>&);
+
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
         using ParameterCache = std::map<TxID, std::map<SubTxID, std::map<TxParameterID, boost::optional<ByteBuffer>>>>;
