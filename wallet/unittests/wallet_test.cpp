@@ -1745,14 +1745,6 @@ namespace
         Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
         Amount nValNetto = 135;
 
-        wallet::ShieldedCoin sc;
-        sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
-        sc.m_CoinID.m_Key.m_nIdx = 0;
-        ZeroObject(sc.m_CoinID.m_User);
-        sc.m_TxoID = 12;
-        sc.m_CoinID.m_Value = nValNetto + nInpFee + 100;
-        sc.m_confirmHeight = 0;
-
         ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
         ECC::Point::Storage ptS;
         ptN.Export(ptS);
@@ -1760,40 +1752,55 @@ namespace
         node.m_vShieldedPool.resize(50, ptS);
 
         // calculate shielded element commitment
+        const uint32_t nShieldedCoins = 3;
         {
+            Key::Index nShIdx = 0;
             ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), sc.m_CoinID.m_Key.m_nIdx);
+            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), nShIdx);
 
-            ShieldedTxo::Ticket tkt;
-            ShieldedTxo::DataParams sdp;
-            sdp.m_Ticket.Generate(tkt, viewer, 12323U);
-            sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+            for (uint32_t i = 0; i < nShieldedCoins; i++)
+            {
+                wallet::ShieldedCoin sc;
 
-            sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
-            sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
-            sdp.m_Output.m_User = sc.m_CoinID.m_User;
+                ShieldedTxo::Ticket tkt;
+                ShieldedTxo::DataParams sdp;
+                sdp.m_Ticket.Generate(tkt, viewer, 12323U + i);
+                sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
 
-            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+                sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
+                sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
+                sdp.m_Output.m_User = sc.m_CoinID.m_User;
 
-            WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
+                sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
-            ptN += ECC::Context::get().G * sdp.m_Output.m_k;
-            CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+                WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
 
-            ptN.Export(ptS);
+                ptN += ECC::Context::get().G * sdp.m_Output.m_k;
+                CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+
+                ptN.Export(ptS);
+
+                sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
+                sc.m_CoinID.m_Key.m_nIdx = nShIdx;
+                ZeroObject(sc.m_CoinID.m_User);
+                sc.m_TxoID = 12 + i;
+                sc.m_CoinID.m_Value = nValNetto + nInpFee + 1;
+                sc.m_confirmHeight = 0;
+
+                node.m_vShieldedPool[sc.m_TxoID] = ptS;
+
+                sender.m_WalletDB->saveShieldedCoin(sc);
+            }
         }
 
-        node.m_vShieldedPool[sc.m_TxoID] = ptS;
-
-        sender.m_WalletDB->saveShieldedCoin(sc);
 
         auto txId  = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-            .SetParameter(TxParameterID::Amount, nValNetto + Amount(3))
-            .SetParameter(TxParameterID::Fee, Amount(100))
+            .SetParameter(TxParameterID::Amount, nValNetto * nShieldedCoins  - 15)
+            .SetParameter(TxParameterID::Fee, Amount(30))
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
