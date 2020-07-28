@@ -70,8 +70,6 @@ namespace beam::wallet
 
         } m_Balance;
 
-        void ReadParams();
-
         void RefreshBalance();
 
         Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
@@ -143,7 +141,6 @@ namespace beam::wallet
     public:
         MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
         virtual ~MutualTxBuilder() = default;
-        void ReadParams();
         void MakeInputsAndChanges();
         void GenerateAssetCoin(Amount amount, bool change);
         void GenerateBeamCoin(Amount amount, bool change);

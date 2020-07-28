@@ -21,12 +21,6 @@ namespace beam::wallet::lelantus
     PushTxBuilder::PushTxBuilder(BaseTransaction& tx)
         : BaseTxBuilder(tx, kDefaultSubTxID)
     {
-    }
-
-    void PushTxBuilder::ReadParams()
-    {
-        BaseTxBuilder::ReadParams();
-
         m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
         m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID);
 

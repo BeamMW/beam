@@ -71,9 +71,7 @@ namespace beam::wallet::lelantus
                 fee -= feeShielded;
             std::setmax(fee, fs.m_Kernel);
 
-
             m_TxBuilder = std::make_shared<MutualTxBuilder>(*this, GetSubTxID(), amoutList, fee);
-            m_TxBuilder->ReadParams();
         }
 
         if (m_TxBuilder->m_Coins.IsEmpty())

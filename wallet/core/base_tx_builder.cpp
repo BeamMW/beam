@@ -100,10 +100,6 @@ namespace beam::wallet
         :m_Tx(tx)
         ,m_SubTxID(subTxID)
     {
-    }
-
-    void BaseTxBuilder::ReadParams()
-    {
         m_Tx.GetParameter(TxParameterID::MinHeight, m_Height.m_Min, m_SubTxID);
         if (!m_Height.m_Min)
         {
@@ -624,14 +620,6 @@ namespace beam::wallet
         return m_pTransaction->IsValid(ctx);
     }
 
-    MutualTxBuilder::MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
-        :BaseTxBuilder(tx, subTxID)
-        , m_AmountList{ amountList }
-        , m_Lifetime{ kDefaultTxLifetime }
-    {
-        m_Fee = fee;
-    }
-
     void MutualTxBuilder::MakeInputsAndChanges()
     {
         Asset::ID aid = GetAssetId();
@@ -739,9 +727,12 @@ namespace beam::wallet
         return false;
     }
 
-    void MutualTxBuilder::ReadParams()
+    MutualTxBuilder::MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
+        :BaseTxBuilder(tx, subTxID)
+        , m_AmountList{ amountList }
+        , m_Lifetime{ kDefaultTxLifetime }
     {
-        BaseTxBuilder::ReadParams();
+        m_Fee = fee;
 
         if (m_AmountList.empty())
             m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);

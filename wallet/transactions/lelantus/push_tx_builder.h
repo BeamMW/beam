@@ -26,7 +26,6 @@ namespace beam::wallet::lelantus
         Amount m_Value = 0;
         Asset::ID m_AssetID = 0;
 
-        void ReadParams();
         void SignSendShielded();
     };
 } // namespace beam::wallet::lelantus

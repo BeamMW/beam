@@ -1154,10 +1154,7 @@ namespace beam::wallet
         }
 
         if (!m_pLockBuiler)
-        {
             m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
-            m_pLockBuiler->ReadParams();
-        }
         LockTxBuilder* lockTxBuilder = m_pLockBuiler.get();
 
         if (lockTxBuilder->m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
@@ -1284,10 +1281,8 @@ namespace beam::wallet
         }
 
         if (!m_pSharedBuiler || (m_pSharedBuiler->GetSubTxID() != subTxID))
-        {
             m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
-            m_pSharedBuiler->ReadParams();
-        }
+
         SharedTxBuilder* builder = m_pSharedBuiler.get();
 
         if (!builder->GetSharedParameters())
@@ -1707,7 +1702,6 @@ namespace beam::wallet
         TxKernelStd::Ptr kernel = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, subTxID);
 
         SharedTxBuilder builder{ *this, subTxID };
-        builder.ReadParams();
         builder.GetSharedParameters();
         builder.GetPeerPublicExcessAndNonce();
         builder.CreateKernel();

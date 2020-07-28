@@ -88,10 +88,8 @@ namespace beam::wallet
         }
 
         if (!m_TxBuilder)
-        {
             m_TxBuilder = make_shared<MutualTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
-            m_TxBuilder->ReadParams();
-        }
+
         auto sharedBuilder = m_TxBuilder;
         MutualTxBuilder& builder = *sharedBuilder;
         builder.GetPeerInputsAndOutputs();

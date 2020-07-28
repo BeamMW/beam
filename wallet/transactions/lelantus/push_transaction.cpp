@@ -59,11 +59,7 @@ namespace beam::wallet::lelantus
     void PushTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
-        {
             m_TxBuilder = std::make_shared<PushTxBuilder>(*this);
-            m_TxBuilder->ReadParams();
-        }
-
         PushTxBuilder& builder = *m_TxBuilder;
 
         if (builder.m_Coins.IsEmpty())
