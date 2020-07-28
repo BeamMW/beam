@@ -51,6 +51,7 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Bitcoin_Cash,
     Bitcoin_SV,
     Dogecoin,
+    Dash,
     Unknown
 };
 

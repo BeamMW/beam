@@ -47,6 +47,7 @@ namespace beam::bitcoin
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
         virtual std::string getCoinName() const;
+        virtual std::string getAddressType() const;
 
     private:
         HttpClient m_httpClient;

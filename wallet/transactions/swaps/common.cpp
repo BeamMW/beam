@@ -31,6 +31,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Bitcoin_SV;
     else if (value == "doge")
         return AtomicSwapCoin::Dogecoin;
+    else if (value == "dash")
+        return AtomicSwapCoin::Dash;
 
     return AtomicSwapCoin::Unknown;
 }
@@ -45,6 +47,7 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     case AtomicSwapCoin::Bitcoin_Cash:
     case AtomicSwapCoin::Bitcoin_SV:
     case AtomicSwapCoin::Dogecoin:
+    case AtomicSwapCoin::Dash:
         return libbitcoin::satoshi_per_bitcoin;
     default:
     {
@@ -95,6 +98,8 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "BSV";
     case beam::wallet::AtomicSwapCoin::Dogecoin:
         return "DOGE";
+    case beam::wallet::AtomicSwapCoin::Dash:
+        return "DASH";
     default:
         return "";
     }

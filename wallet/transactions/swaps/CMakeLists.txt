@@ -24,6 +24,9 @@ set(SWAP_SRC
     bridges/dogecoin/common.cpp
     bridges/dogecoin/dogecoin_core_014.cpp
     bridges/dogecoin/dogecoin_side.cpp
+    bridges/dash/common.cpp
+    bridges/dash/dash_core_014.cpp
+    bridges/dash/dash_side.cpp
     bridges/litecoin/common.cpp
     bridges/litecoin/litecoin_core_016.cpp
     bridges/litecoin/litecoin_core_017.cpp
