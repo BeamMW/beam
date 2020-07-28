@@ -22,6 +22,10 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
+#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
@@ -165,6 +169,86 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
         auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
     }
+
+    {
+        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+        bchSettingsProvider->Initialize();
+
+        // bchSettingsProvider stored in bchBridgeCreator
+        auto bchBridgeCreator = [settingsProvider = bchSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<bitcoin_cash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<bitcoin_cash::BitcoinCashCore>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto bchSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinCashSide, bitcoin_cash::Electrum, bitcoin_cash::ISettingsProvider>(bchBridgeCreator, *bchSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin_Cash, bchSecondSideFactory);
+    }
+
+    {
+        auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
+        bsvSettingsProvider->Initialize();
+
+        // bsvSettingsProvider stored in bsvBridgeCreator
+        auto bsvBridgeCreator = [settingsProvider = bsvSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<bitcoin_sv::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<bitcoin_sv::BitcoinSVCore>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto bsvSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSVSide, bitcoin_sv::Electrum, bitcoin_sv::ISettingsProvider>(bsvBridgeCreator, *bsvSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin_SV, bsvSecondSideFactory);
+    }
+
+    {
+        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+        dogecoinSettingsProvider->Initialize();
+
+        // qtumSettingsProvider stored in qtumBridgeCreator
+        auto dogecoinBridgeCreator = [settingsProvider = dogecoinSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<dogecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<dogecoin::DogecoinCore014>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto dogecoinSecondSideFactory = wallet::MakeSecondSideFactory<DogecoinSide, dogecoin::Electrum, dogecoin::ISettingsProvider>(dogecoinBridgeCreator, *dogecoinSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dogecoin, dogecoinSecondSideFactory);
+    }
+
+    {
+        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+        dashSettingsProvider->Initialize();
+
+        // dashSettingsProvider stored in dashBridgeCreator
+        auto dashBridgeCreator = [settingsProvider = dashSettingsProvider]() -> bitcoin::IBridge::Ptr
+        {
+            if (settingsProvider->GetSettings().IsElectrumActivated())
+                return std::make_shared<dash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+            if (settingsProvider->GetSettings().IsCoreActivated())
+                return std::make_shared<dash::DashCore014>(io::Reactor::get_Current(), *settingsProvider);
+
+            return bitcoin::IBridge::Ptr();
+        };
+
+        auto dashSecondSideFactory = wallet::MakeSecondSideFactory<DashSide, dash::Electrum, dash::ISettingsProvider>(dashBridgeCreator, *dashSettingsProvider);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dash, dashSecondSideFactory);
+    }
 }
 
 Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
@@ -210,6 +294,58 @@ Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
 
         return qtumSettings.GetFeeRate();
     }
+    case AtomicSwapCoin::Bitcoin_Cash:
+    {
+        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+        bchSettingsProvider->Initialize();
+
+        auto bchSettings = bchSettingsProvider->GetSettings();
+        if (!bchSettings.IsInitialized())
+        {
+            throw std::runtime_error("Bitcoin Cash settings should be initialized.");
+        }
+
+        return bchSettings.GetFeeRate();
+    }
+    case AtomicSwapCoin::Bitcoin_SV:
+    {
+        auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
+        bsvSettingsProvider->Initialize();
+
+        auto bsvSettings = bsvSettingsProvider->GetSettings();
+        if (!bsvSettings.IsInitialized())
+        {
+            throw std::runtime_error("Bitcoin SV settings should be initialized.");
+        }
+
+        return bsvSettings.GetFeeRate();
+    }
+    case AtomicSwapCoin::Dogecoin:
+    {
+        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+        dogecoinSettingsProvider->Initialize();
+
+        auto dogecoinSettings = dogecoinSettingsProvider->GetSettings();
+        if (!dogecoinSettings.IsInitialized())
+        {
+            throw std::runtime_error("Dogecoin settings should be initialized.");
+        }
+
+        return dogecoinSettings.GetFeeRate();
+    }
+    case AtomicSwapCoin::Dash:
+    {
+        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+        dashSettingsProvider->Initialize();
+
+        auto dashSettings = dashSettingsProvider->GetSettings();
+        if (!dashSettings.IsInitialized())
+        {
+            throw std::runtime_error("Dash settings should be initialized.");
+        }
+
+        return dashSettings.GetFeeRate();
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -228,6 +364,14 @@ bool IsSwapAmountValid(
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Bitcoin_Cash:
+        return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Bitcoin_SV:
+        return BitcoinSVSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Dogecoin:
+        return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Dash:
+        return DashSide::CheckAmount(swapAmount, swapFeeRate);
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }

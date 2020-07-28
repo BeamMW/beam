@@ -346,6 +346,16 @@ namespace beam::wallet
         return m_settingsProvider.GetSettings().GetAddressVersion();
     }
 
+    uint8_t BitcoinSide::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all;
+    }
+
+    bool BitcoinSide::NeedSignValue() const
+    {
+        return false;
+    }
+
     Amount BitcoinSide::GetFeeRate() const
     {
         return m_settingsProvider.GetSettings().GetFeeRate();
@@ -835,7 +845,7 @@ namespace beam::wallet
         auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
         libbitcoin::endorsement sig;
         libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
-            libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+            GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, input_amount);
 
         // Create input witness script
         libbitcoin::data_stack witnessStack;
@@ -857,7 +867,7 @@ namespace beam::wallet
 
             libbitcoin::endorsement secretSig;
             libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
-                libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+                GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, input_amount);
 
             // 0 <their sig> <secret sig> 1
             witnessStack.push_back(emptyChunk);
@@ -887,8 +897,17 @@ namespace beam::wallet
         uint32_t input_index = 0;
         auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
         libbitcoin::endorsement sig;
-        libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
-            libbitcoin::machine::sighash_algorithm::all);
+        if (NeedSignValue())
+        {
+            uint64_t total = m_tx.GetMandatoryParameter<Amount>(beam::wallet::TxParameterID::AtomicSwapAmount);
+            libbitcoin::chain::script::create_endorsement(
+                sig, localSecret, contractScript, withdrawTX, input_index, GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, total);
+        }
+        else
+        {
+            libbitcoin::chain::script::create_endorsement(
+                sig, localSecret, contractScript, withdrawTX, input_index, GetSighashAlgorithm());
+        }
 
         // Create input script
         libbitcoin::machine::operation::list sig_script;
@@ -908,8 +927,17 @@ namespace beam::wallet
             std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
 
             libbitcoin::endorsement secretSig;
-            libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
-                libbitcoin::machine::sighash_algorithm::all);
+            if (NeedSignValue())
+            {
+                uint64_t total = m_tx.GetMandatoryParameter<Amount>(beam::wallet::TxParameterID::AtomicSwapAmount);
+                libbitcoin::chain::script::create_endorsement(
+                    secretSig, secret, contractScript, withdrawTX, input_index, GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, total);
+            }
+            else
+            {
+                libbitcoin::chain::script::create_endorsement(
+                    secretSig, secret, contractScript, withdrawTX, input_index, GetSighashAlgorithm());
+            }
 
             // 0 <their sig> <secret sig> 1
             sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));

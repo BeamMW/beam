@@ -27,6 +27,10 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
+#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
+#include "wallet/transactions/swaps/bridges/dash/dash.h"
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2171,6 +2175,26 @@ namespace
                 return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
                     (vm, walletDB, kSwapCoinQTUM);
             }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+            {
+                return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinBCH);
+            }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+            {
+                return HandleSwapCoin<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinBSV);
+            }
+            case beam::wallet::AtomicSwapCoin::Dogecoin:
+            {
+                return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinDOGE);
+            }
+            case beam::wallet::AtomicSwapCoin::Dash:
+            {
+                return HandleSwapCoin<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinDASH);
+            }
             default:
             {
                 throw std::runtime_error("Unsupported coin for swap");
@@ -2205,6 +2229,26 @@ namespace
             case beam::wallet::AtomicSwapCoin::Qtum:
             {
                 ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+            {
+                ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, "bch");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+            {
+                ShowSwapSettings<bitcoin_sv::SettingsProvider>(walletDB, "bsv");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Dogecoin:
+            {
+                ShowSwapSettings<dogecoin::SettingsProvider>(walletDB, "dogecoin");
+                break;
+            }
+            case beam::wallet::AtomicSwapCoin::Dash:
+            {
+                ShowSwapSettings<dash::SettingsProvider>(walletDB, "dash");
                 break;
             }
             default:
@@ -2374,6 +2418,70 @@ namespace
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
             swapFeeRate = qtumSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Bitcoin_Cash)
+        {
+            auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
+            bchSettingsProvider->Initialize();
+            auto bchSettings = bchSettingsProvider->GetSettings();
+            if (!bchSettings.IsInitialized())
+            {
+                throw std::runtime_error("Bitcoin Cash settings should be initialized.");
+            }
+
+            if (!BitcoinCashSide::CheckAmount(*swapAmount, bchSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = bchSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Bitcoin_SV)
+        {
+            auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
+            bsvSettingsProvider->Initialize();
+            auto bsvSettings = bsvSettingsProvider->GetSettings();
+            if (!bsvSettings.IsInitialized())
+            {
+                throw std::runtime_error("Bitcoin SV settings should be initialized.");
+            }
+
+            if (!BitcoinSVSide::CheckAmount(*swapAmount, bsvSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = bsvSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Dogecoin)
+        {
+            auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
+            dogecoinSettingsProvider->Initialize();
+            auto dogecoinSettings = dogecoinSettingsProvider->GetSettings();
+            if (!dogecoinSettings.IsInitialized())
+            {
+                throw std::runtime_error("Dogecoin settings should be initialized.");
+            }
+
+            if (!DogecoinSide::CheckAmount(*swapAmount, dogecoinSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = dogecoinSettings.GetFeeRate();
+        }
+        else if (swapCoin == wallet::AtomicSwapCoin::Dash)
+        {
+            auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
+            dashSettingsProvider->Initialize();
+            auto dashSettings = dashSettingsProvider->GetSettings();
+            if (!dashSettings.IsInitialized())
+            {
+                throw std::runtime_error("Dash settings should be initialized.");
+            }
+
+            if (!DashSide::CheckAmount(*swapAmount, dashSettings.GetFeeRate()))
+            {
+                throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+            }
+            swapFeeRate = dashSettings.GetFeeRate();
         }
         else
         {
