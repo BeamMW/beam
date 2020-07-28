@@ -119,6 +119,8 @@ namespace beam
     const char kSwapCoinBTC[] = "BTC";
     const char kSwapCoinLTC[] = "LTC";
     const char kSwapCoinQTUM[] = "QTUM";
+    const char kSwapCoinBCH[] = "BCH";
+    const char kSwapCoinBSV[] = "BSV";
     const char kSwapCoinDOGE[] = "DOGE";
 
     // Treasury messages

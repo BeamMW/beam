@@ -346,6 +346,16 @@ namespace beam::wallet
         return m_settingsProvider.GetSettings().GetAddressVersion();
     }
 
+    uint8_t BitcoinSide::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all;
+    }
+
+    bool BitcoinSide::NeedSignValue() const
+    {
+        return false;
+    }
+
     Amount BitcoinSide::GetFeeRate() const
     {
         return m_settingsProvider.GetSettings().GetFeeRate();
