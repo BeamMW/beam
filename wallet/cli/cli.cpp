@@ -2174,7 +2174,8 @@ namespace
             }
             case beam::wallet::AtomicSwapCoin::Dogecoin:
             {
-                return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>(vm, walletDB);
+                return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
+                    (vm, walletDB, kSwapCoinDOGE);
             }
             default:
             {
