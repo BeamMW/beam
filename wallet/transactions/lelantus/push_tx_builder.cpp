@@ -28,7 +28,6 @@ namespace beam::wallet::lelantus
         BaseTxBuilder::ReadParams();
 
         m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee);
         m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID);
 
         ECC::Hash::Value hv;
