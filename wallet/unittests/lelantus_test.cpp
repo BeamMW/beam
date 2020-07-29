@@ -1142,8 +1142,8 @@ int main()
     Rules::get().pForks[2].m_Height = fork2Height;
 
 
-    TestUnlinkTx();
-    TestCancelUnlinkTx();
+    //TestUnlinkTx();
+    //TestCancelUnlinkTx();
 
     TestSimpleTx();
     //TestDirectAnonymousPayment();
