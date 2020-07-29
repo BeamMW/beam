@@ -41,15 +41,14 @@ namespace beam::wallet
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
 
-    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB, bool withAssets)
+    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
         : m_WalletDB(walletDB)
-        , m_withAssets(withAssets)
     {
     }
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(context, m_withAssets));
+        return BaseTransaction::Ptr(new SimpleTransaction(context));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -59,9 +58,8 @@ namespace beam::wallet
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
-    SimpleTransaction::SimpleTransaction(const TxContext& context, bool withAssets)
+    SimpleTransaction::SimpleTransaction(const TxContext& context)
         : BaseTransaction{ context }
-        , m_withAssets(withAssets)
     {
     }
 

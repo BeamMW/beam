@@ -27,7 +27,7 @@ namespace beam::wallet::lelantus
 
     BaseTransaction::Ptr PullTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new PullTransaction(context, m_withAssets));
+        return BaseTransaction::Ptr(new PullTransaction(context));
     }
 
     TxParameters PullTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -36,10 +36,8 @@ namespace beam::wallet::lelantus
         return parameters;
     }
 
-    PullTransaction::PullTransaction(const TxContext& context
-        , bool withAssets)
+    PullTransaction::PullTransaction(const TxContext& context)
         : BaseTransaction(context)
-        , m_withAssets(withAssets)
     {
     }
 

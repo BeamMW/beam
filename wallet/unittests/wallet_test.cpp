@@ -83,8 +83,8 @@ namespace
 
         TestNodeNetwork::Shared tnns;
 
-        Wallet sender(senderWalletDB, true, f);
-        Wallet receiver(receiverWalletDB, true, f);
+        Wallet sender(senderWalletDB, f);
+        Wallet receiver(receiverWalletDB, f);
 
         auto twn = make_shared<TestWalletNetwork>();
         auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
@@ -942,7 +942,7 @@ namespace
         TestWalletRig receiver(createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB, true);
+        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
         BaseTransaction::Creator& creator = simpleCreator;
         auto tx = creator.Create(BaseTransaction::TxContext(gateway, sender.m_WalletDB, txID));
 
@@ -993,7 +993,7 @@ namespace
         TestWalletRig receiver(createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
-        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB, true);
+        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB);
         BaseTransaction::Creator& txCreator = simpleTxCreator;
         // process TransactionFailedException
         {
@@ -1586,7 +1586,7 @@ namespace
                 { Notification::Type::TransactionFailed, true },
                 { Notification::Type::TransactionCompleted, true }
             };
-            client.start(activeNotifications, true);
+            client.start(activeNotifications);
         }
         auto timer = io::Timer::create(*mainReactor);
         
@@ -2422,7 +2422,7 @@ void TestVouchers()
         TestNodeNetwork::Ptr m_MyNetwork;
 
         MyWallet(IWalletDB::Ptr pDb, const std::shared_ptr<TestWalletNetwork>& pTwn, TestNodeNetwork::Shared& tnns)
-            :Wallet(pDb, true)
+            :Wallet(pDb)
         {
             pDb->createAddress(m_MyAddr);
             pDb->saveAddress(m_MyAddr);
@@ -2705,6 +2705,8 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
+
+    wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
 

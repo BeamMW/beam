@@ -367,7 +367,7 @@ class TestWallet : public Wallet
 {
 public:
     TestWallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
-        : Wallet{ walletDB, true, std::move(action), std::move(updateCompleted)}
+        : Wallet{ walletDB, std::move(action), std::move(updateCompleted)}
         , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
     {
 

@@ -189,10 +189,9 @@ namespace beam::wallet
 {
     WalletApiHandler::WalletApiHandler(
         IWalletData& walletData
-        , WalletApi::ACL acl
-        , bool withAssets)
+        , WalletApi::ACL acl)
         : _walletData(walletData)
-        , _api(*this, withAssets, acl)
+        , _api(*this, acl)
     {
     }
 

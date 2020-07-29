@@ -28,7 +28,7 @@ namespace beam::wallet::lelantus
 
     BaseTransaction::Ptr PushTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new PushTransaction(context, m_withAssets));
+        return BaseTransaction::Ptr(new PushTransaction(context));
     }
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -38,10 +38,8 @@ namespace beam::wallet::lelantus
         return wallet::ProcessReceiverAddress(parameters, m_walletDB, false);
     }
 
-    PushTransaction::PushTransaction(const TxContext& context
-        , bool withAssets)
+    PushTransaction::PushTransaction(const TxContext& context)
         : BaseTransaction(context)
-        , m_withAssets(withAssets)
     {
     }
 
