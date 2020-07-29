@@ -194,7 +194,6 @@ namespace beam::wallet
             if (_issue)
             {
                 CoinID cid;
-                cid.set_Subkey(0);
                 cid.m_Value = builder.m_Value;
                 cid.m_AssetID = wa.m_ID;
                 cid.m_Type = Key::Type::Regular;

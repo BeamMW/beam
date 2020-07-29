@@ -229,7 +229,6 @@ namespace beam::wallet
         if (v > val)
         {
             CoinID cid;
-            cid.set_Subkey(0);
             cid.m_Value = v - val;
             cid.m_AssetID = aid;
             cid.m_Type = Key::Type::Change;
@@ -683,28 +682,6 @@ namespace beam::wallet
             val += m_Fee;
 
         MakeInputsAndChange(val, 0);
-    }
-
-    void MutualTxBuilder::GenerateAssetCoin(Amount amount, bool change)
-    {
-        CoinID cid;
-        cid.set_Subkey(0);
-        cid.m_Value = amount;
-        cid.m_AssetID = GetAssetId();
-        cid.m_Type = change ? Key::Type::Change : Key::Type::Regular;
-
-        CreateAddNewOutput(cid);
-    }
-
-    void MutualTxBuilder::GenerateBeamCoin(Amount amount, bool change)
-    {
-        CoinID cid;
-        cid.set_Subkey(0);
-        cid.m_Value = amount;
-        cid.m_AssetID = 0;
-        cid.m_Type = change ? Key::Type::Change : Key::Type::Regular;
-
-        CreateAddNewOutput(cid);
     }
 
     void MutualTxBuilder::CreateKernel()

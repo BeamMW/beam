@@ -155,17 +155,15 @@ namespace beam::wallet
 
                 if (isSelfTx || !isSender)
                 {
+                    CoinID cid;
+                    cid.m_AssetID = builder.GetAssetId();
+                    cid.m_Type = Key::Type::Regular;
+
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        if (builder.GetAssetId() != 0)
-                        {
-                            builder.GenerateAssetCoin(amount, false);
-                        }
-                        else
-                        {
-                            builder.GenerateBeamCoin(amount, false);
-                        }
+                        cid.m_Value = amount;
+                        builder.CreateAddNewOutput(cid);
                     }
                 }
             }

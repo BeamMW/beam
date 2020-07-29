@@ -187,7 +187,6 @@ namespace beam::wallet
             if (builder.m_Fee < Rules::get().CA.DepositForList)
             {
                 CoinID cid;
-                cid.set_Subkey(0);
                 cid.m_Value = Rules::get().CA.DepositForList - builder.m_Fee;
                 cid.m_Type = Key::Type::Regular;
                 builder.CreateAddNewOutput(cid);
