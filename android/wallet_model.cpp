@@ -274,13 +274,6 @@ WalletModel::~WalletModel()
     stopReactor();
 }
 
-beam::wallet::WalletAddress WalletModel::generateToken(beam::wallet::IWalletDB::Ptr walletDB) 
-{
-    auto address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-    return address;
-}
-
-
 void WalletModel::onStatus(const WalletStatus& status)
 {
     JNIEnv* env = Android_JNI_getEnv();
