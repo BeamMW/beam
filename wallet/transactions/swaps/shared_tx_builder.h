@@ -36,7 +36,6 @@ namespace beam::wallet
 
         void InitInput();
         void InitOutput();
-        void InitMinHeight();
 
         void LoadPeerOffset();
 
