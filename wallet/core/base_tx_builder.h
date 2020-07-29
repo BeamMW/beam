@@ -147,7 +147,7 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        virtual ECC::Point::Native GetPublicExcess() const;
+        ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         Asset::ID GetAssetId() const;
         bool IsAssetTx() const;
