@@ -217,9 +217,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB, false);
-        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>(false);
-        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(false);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
+        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>();
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
@@ -227,7 +227,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         additionalTxCreators->emplace(TxType::UnlinkFunds, unlinkTxCreator);
         
         
-        walletModel->start(initNotifications(false), false, true, additionalTxCreators);
+        walletModel->start(initNotifications(false), true, additionalTxCreators);
 
         return walletObj;
     }
@@ -291,16 +291,16 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB, false);
-        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>(false);
-        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>(false);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
+        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
+        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>();
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
         additionalTxCreators->emplace(TxType::PullTransaction, pullTxCreator);
         additionalTxCreators->emplace(TxType::UnlinkFunds, unlinkTxCreator);
         
-        walletModel->start(initNotifications(false), false, true, additionalTxCreators);
+        walletModel->start(initNotifications(false), true, additionalTxCreators);
 
         return walletObj;
     }
