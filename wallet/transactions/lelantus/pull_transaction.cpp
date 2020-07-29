@@ -79,25 +79,28 @@ namespace beam::wallet::lelantus
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
+            if (!shieldedCoin || !shieldedCoin->IsAvailable())
+                throw TransactionFailedException(false, TxFailureReason::NoInputs);
+
+            ShieldedCoin& sc = *shieldedCoin;
+
+            const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
+            const auto nthName = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
+
+            LOG_INFO() << m_Context << " Extracting from shielded pool:"
+                << " ID - " << shieldedId << ", amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
+                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
+                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+
             auto& vInp = m_TxBuilder->m_Coins.m_InputShielded;
-            if (vInp.empty())
-            {
-                if (!shieldedCoin || !shieldedCoin->IsAvailable())
-                    throw TransactionFailedException(false, TxFailureReason::NoInputs);
+            Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = sc.m_CoinID;
+            vInp.back().m_Fee = feeShielded;
+            m_TxBuilder->m_Balance.Add(vInp.back());
 
-                const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
-                const auto nthName = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
+            sc.m_spentTxId = GetTxID();
+            GetWalletDB()->saveShieldedCoin(sc);
 
-                LOG_INFO() << m_Context << " Extracting from shielded pool:"
-                    << " ID - " << shieldedId << ", amount - " << PrintableAmount(shieldedCoin->m_CoinID.m_Value, false, unitName, nthName)
-                    << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
-                    << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
-
-                Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = shieldedCoin->m_CoinID;
-                vInp.back().m_Fee = feeShielded;
-
-                m_TxBuilder->MakeInputsAndChanges();
-            }
+            m_TxBuilder->MakeInputsAndChanges(); 
         }
 
         m_TxBuilder->GenerateInOuts();

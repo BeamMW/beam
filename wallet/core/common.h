@@ -310,6 +310,7 @@ namespace beam::wallet
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
+    MACRO(ShieldedOutputId,                122, TxoID) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     /* Version */ \
     MACRO(ClientVersion,                   126, std::string) \
@@ -375,7 +376,6 @@ namespace beam::wallet
         AtomicSwapWithdrawAddress = 206,
         AtomicSwapExternalHeight = 207,
 
-        ShieldedOutputId = 208,
         InternalFailureReason = 210,
     
         ShieldedSerialPub = 220,
