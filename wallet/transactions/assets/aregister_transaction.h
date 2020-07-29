@@ -17,11 +17,9 @@
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "asset_base_tx.h"
-#include "aregister_tx_builder.h"
 
 namespace beam::wallet
 {
-    class MutualTxBuilder;
     class AssetRegisterTransaction : public AssetTransaction
     {
     public:
@@ -42,7 +40,6 @@ namespace beam::wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void ConfirmAsset();
-        AssetRegisterTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
@@ -57,6 +54,7 @@ namespace beam::wallet
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetRegisterTxBuilder> _builder;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> _builder;
     };
 }
