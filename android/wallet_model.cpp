@@ -605,7 +605,7 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
 
 void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
-    LOG_DEBUG() << "onExchangeRates";
+    LOG_DEBUG() << "onExchangeRates(" << rates.size() << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
