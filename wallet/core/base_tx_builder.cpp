@@ -70,14 +70,22 @@ namespace beam::wallet
             std::shared_ptr<BaseTxBuilder> pBld = m_pBuilder.lock();
             if (pBld)
             {
+                BaseTxBuilder& b = *pBld;
                 if (IPrivateKeyKeeper2::Status::Success == n)
                 {
-                    ITransaction::Ptr pGuard(pBld->m_Tx.shared_from_this()); // extra ref on transaction object.
+                    ITransaction::Ptr pGuard(b.m_Tx.shared_from_this()); // extra ref on transaction object.
                     // Otherwise it can crash in Update() -> CompleteTx(), which will remove its ptr from live tx map
-                    OnSuccess(*pBld);
+
+                    try {
+                        OnSuccess(b);
+                    }
+                    catch (const TransactionFailedException& ex) {
+                        Detach(b, Stage::None);
+                        pBld->m_Tx.OnFailed(ex.GetReason(), ex.ShouldNofify());
+                    }
                 }
                 else
-                    OnFailed(*pBld, n);
+                    OnFailed(b, n);
             }
             else
                 m_pStage = nullptr;
@@ -548,8 +556,13 @@ namespace beam::wallet
             if (!pTx)
                 return;
 
-            if (!pHandler->m_InputsShielded.OnList(b, msg))
-                b.m_Tx.OnFailed(TxFailureReason::Unknown);
+            try {
+                if (!pHandler->m_InputsShielded.OnList(b, msg))
+                    b.m_Tx.OnFailed(TxFailureReason::Unknown);
+            }
+            catch (const TransactionFailedException& ex) {
+                b.m_Tx.OnFailed(ex.GetReason(), ex.ShouldNofify());
+            }
         });
 
         return true;
