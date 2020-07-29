@@ -101,6 +101,8 @@ namespace beam::wallet
 
         void VerifyAssetsEnabled(); // throws exc if disabled
 
+        void SignSplit();
+
     protected:
 
         void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
@@ -132,9 +134,6 @@ namespace beam::wallet
             dest = source;
             m_Tx.SetParameter(parameterID, dest, m_SubTxID);
         }
-
-        void GenerateInputsStd();
-        void GenerateInputsShielded();
 
         struct HandlerInOuts;
     };

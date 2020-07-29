@@ -52,6 +52,36 @@ namespace beam::wallet::lelantus
         return true;
     }
 
+    struct PullTransaction::MyBuilder
+        :public BaseTxBuilder
+    {
+        TxKernelStd* m_pKrn = nullptr;
+
+        void RefreshKrn()
+        {
+            TxKernelStd::Ptr pKrn;
+            m_Tx.GetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
+
+            if (pKrn)
+            {
+                m_pKrn = pKrn.get();
+                m_pTransaction->m_vKernels.push_back(std::move(pKrn));
+            }
+        }
+
+        MyBuilder(BaseTransaction& tx, SubTxID subTxID)
+            :BaseTxBuilder(tx, subTxID)
+        {
+            RefreshKrn();
+
+            if (m_pKrn)
+            {
+                m_Signing = Stage::Done;
+                m_pTransaction->Normalize();
+            }
+        }
+    };
+
     void PullTransaction::UpdateImpl()
     {
         Transaction::FeeSettings fs;
@@ -59,20 +89,18 @@ namespace beam::wallet::lelantus
 
         if (!m_TxBuilder)
         {
-            AmountList amoutList; // dummy
-            amoutList.push_back(0);
-
-            Amount fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
+            m_TxBuilder = std::make_shared<MyBuilder>(*this, GetSubTxID());
 
             // by convention the fee now includes ALL the fee, whereas our code will add the minimal shielded fee.
-            if (fee >= feeShielded)
-                fee -= feeShielded;
-            std::setmax(fee, fs.m_Kernel);
 
-            m_TxBuilder = std::make_shared<MutualTxBuilder>(*this, GetSubTxID(), amoutList, fee);
+            if (m_TxBuilder->m_Fee >= feeShielded)
+                m_TxBuilder->m_Fee -= feeShielded;
+            std::setmax(m_TxBuilder->m_Fee, fs.m_Kernel);
         }
 
-        if (m_TxBuilder->m_Coins.IsEmpty())
+        auto& builder = *m_TxBuilder;
+
+        if (builder.m_Coins.IsEmpty())
         {
             UpdateTxDescription(TxStatus::InProgress);
 
@@ -83,71 +111,83 @@ namespace beam::wallet::lelantus
                 throw TransactionFailedException(false, TxFailureReason::NoInputs);
 
             ShieldedCoin& sc = *shieldedCoin;
+            Asset::ID aid = sc.m_CoinID.m_AssetID;
 
-            const auto unitName = m_TxBuilder->IsAssetTx() ? kAmountASSET : "";
-            const auto nthName = m_TxBuilder->IsAssetTx() ? kAmountAGROTH : "";
+            const auto unitName = aid ? kAmountASSET : "";
+            const auto nthName = aid ? kAmountAGROTH : "";
 
             LOG_INFO() << m_Context << " Extracting from shielded pool:"
                 << " ID - " << shieldedId << ", amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
-                << ", receiving amount - " << PrintableAmount(m_TxBuilder->GetAmount(), false, unitName, nthName)
-                << " (fee: " << PrintableAmount(m_TxBuilder->GetFee()) << ")";
+                << ", receiving amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
+                << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
-            auto& vInp = m_TxBuilder->m_Coins.m_InputShielded;
+            auto& vInp = builder.m_Coins.m_InputShielded;
             Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = sc.m_CoinID;
             vInp.back().m_Fee = feeShielded;
-            m_TxBuilder->m_Balance.Add(vInp.back());
+            builder.m_Balance.Add(vInp.back());
 
             sc.m_spentTxId = GetTxID();
             GetWalletDB()->saveShieldedCoin(sc);
 
-            m_TxBuilder->MakeInputsAndChanges(); 
+            if (aid)
+                builder.MakeInputsAndChange(0, aid);
+
+            builder.MakeInputsAndChange(builder.m_Fee, 0);
         }
 
-        m_TxBuilder->GenerateInOuts();
-        m_TxBuilder->SignSplit();
+        builder.GenerateInOuts();
 
-        if (m_TxBuilder->IsGeneratingInOuts() || m_TxBuilder->IsSigning())
+        if (!builder.m_pKrn)
+        {
+            builder.SignSplit();
+            if (BaseTxBuilder::Stage::Done == builder.m_Signing)
+                builder.RefreshKrn();
+
+            if (!builder.m_pKrn)
+                return;
+        }
+
+        if (m_TxBuilder->IsGeneratingInOuts())
             return;
 
-        uint8_t nRegistered = proto::TxStatus::Unspecified;
-        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+        State state = State::Initial;
+        GetParameter(TxParameterID::State, state, GetSubTxID());
+
+        if (State::Initial == state)
         {
-            if (CheckExpired())
+            builder.m_pTransaction->Normalize();
+            if (!builder.VerifyTx())
             {
+                OnFailed(TxFailureReason::InvalidTransaction);
                 return;
             }
 
-            // Construct transaction
-            auto transaction = m_TxBuilder->CreateTransaction();
-
-            // Verify final transaction
-            TxBase::Context::Params pars;
-            TxBase::Context ctx(pars);
-            ctx.m_Height.m_Min = m_TxBuilder->GetMinHeight();
-            if (!transaction->IsValid(ctx))
-            {
-                OnFailed(TxFailureReason::InvalidTransaction, true);
-                return;
-            }
-
-            // register TX
-            GetGateway().register_tx(GetTxID(), transaction, GetSubTxID());
-            return;
+            SetState(State::Registration);
+            state = State::Registration;
         }
 
-        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+        if (State::Registration == state)
         {
-            Height lastUnconfirmedHeight = 0;
-            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            uint8_t nRegistered = proto::TxStatus::Unspecified;
+            if (GetParameter(TxParameterID::TransactionRegistered, nRegistered))
             {
-                OnFailed(TxFailureReason::FailedToRegister, true);
+                if (proto::TxStatus::Ok != nRegistered)
+                {
+                    OnFailed(TxFailureReason::FailedToRegister, true);
+                    return;
+                }
+
+                SetState(State::KernelConfirmation);
+            }
+            else
+            {
+                if (CheckExpired())
+                    return;
+
+                // register TX
+                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
                 return;
             }
-        }
-        else if (proto::TxStatus::Ok != nRegistered)
-        {
-            OnFailed(TxFailureReason::FailedToRegister, true);
-            return;
         }
 
         // get Kernel proof
@@ -155,16 +195,9 @@ namespace beam::wallet::lelantus
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
         {
-            ConfirmKernel(m_TxBuilder->GetKernelID());
+            if (!CheckExpired())
+                ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
             return;
-        }
-
-        // update "m_spentHeight" for shieldedCoin
-        auto shieldedCoinModified = GetWalletDB()->getShieldedCoin(GetTxID());
-        if (shieldedCoinModified)
-        {
-            shieldedCoinModified->m_spentHeight = std::min(shieldedCoinModified->m_spentHeight, hProof);
-            GetWalletDB()->saveShieldedCoin(shieldedCoinModified.get());
         }
 
         SetCompletedTxCoinStatuses(hProof);

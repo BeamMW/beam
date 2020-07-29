@@ -37,6 +37,13 @@ namespace beam::wallet::lelantus
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         };
 
+        enum State : uint8_t
+        {
+            Initial,
+            Registration,
+            KernelConfirmation,
+        };
+
     public:
         PullTransaction(const TxContext& context);
 
@@ -47,6 +54,7 @@ namespace beam::wallet::lelantus
         void RollbackTx() override;
 
     private:
-        std::shared_ptr<MutualTxBuilder> m_TxBuilder;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> m_TxBuilder;
     };
 } // namespace beam::wallet::lelantus

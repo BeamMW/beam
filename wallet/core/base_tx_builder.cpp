@@ -518,8 +518,6 @@ namespace beam::wallet
         x.CheckAllDone(*this);
     }
 
-
-
     bool BaseTxBuilder::HandlerInOuts::InputsShielded::MoveNextSafe(BaseTxBuilder& b)
     {
         if (IsAllDone(b))
@@ -636,6 +634,39 @@ namespace beam::wallet
         b.m_Tx.get_KeyKeeperStrict()->InvokeAsync(m_Method, get_ParentObj().shared_from_this());
 
         return true;
+    }
+
+    void BaseTxBuilder::SignSplit()
+    {
+        if (Stage::None != m_Signing)
+            return;
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::SignSplit m_Method;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b) override
+            {
+                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
+                kOffs += m_Method.m_kOffset;
+                b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+
+                b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
+
+                OnAllDone(b);
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+
+        SetCommon(x.m_Method);
+        m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
     void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::InOuts& m)
