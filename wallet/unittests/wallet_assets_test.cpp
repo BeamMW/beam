@@ -99,7 +99,6 @@ void TestAssets() {
     const auto feeAmount          = beam::Amount(100);
     const auto issueChange        = initialAmount - issueAmount - feeAmount;
     const auto consumeAmount      = Amount(200);
-    const auto consumeChange      = issueChange - feeAmount;
     const auto consumeAssetChange = issueAmount - consumeAmount;
 
     // this will be converted to 400 assets + fee + change
@@ -276,7 +275,6 @@ void TestAssets() {
     LOG_INFO() << "\nTesting send asset to self...";
 
     const auto selfSendAmount      = consumeAssetChange;
-    const auto selfSendAssetChange = consumeAssetChange - selfSendAmount;
     const auto selfSendBeamChange  = consumeAmount - feeAmount;
 
     sw.start();
@@ -343,7 +341,6 @@ void TestAssets() {
 
     const auto srConsumeAmount = Amount(200);
     const auto srAssetChange   = selfSendAmount - srConsumeAmount;
-    const auto srBeamChange    = 0;
 
     sw.start();
     const auto srConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
@@ -437,7 +434,6 @@ void TestAssets() {
 
     sw.start();
     const auto send3rpAmount      = srAssetChange;
-    const auto send3rpAssetChange = 0;
     const auto send3rpBeamChange  = srConsumeAmount - feeAmount;
 
     auto send3rpTxId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
@@ -532,8 +528,6 @@ void TestAssets() {
     WALLET_CHECK(rcvCoins[1].getAmount()  == feeAmount);
 
     const auto nonOwnedConsumeAmount = send3rpAmount;
-    const auto nonOwnedAssetChange   = 0;
-    const auto nonOwnedBeamChange    = 0;
 
     sw.start();
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
@@ -563,8 +557,6 @@ void TestAssets() {
     LOG_INFO() << "\nTesting returning assets from third-party...";
 
     const auto recv3rpAmount = send3rpAmount;
-    const auto recv3rpBeamChange = Amount(0);
-    const auto recv3rpAssetChange = send3rpAmount - recv3rpAmount;
 
     sw.start();
     auto recv3rpTxId = receiver.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
@@ -636,8 +628,6 @@ void TestAssets() {
     LOG_INFO() << "\nTesting received assets consume...";
 
     const auto recvConsumeAmount = recv3rpAmount;
-    const auto recvAssetChange   = 0;
-    const auto recvBeamChange    = 0;
 
     sw.start();
     const auto recvConsumeTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
