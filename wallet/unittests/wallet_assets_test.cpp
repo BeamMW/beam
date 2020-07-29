@@ -115,10 +115,23 @@ void TestAssets() {
     helpers::StopWatch sw;
     sw.start();
 
+    const auto assetMeta = std::string("just for test");
+
+    Asset::Full ai;
+    ai.m_Metadata.m_Value = toByteBuffer(assetMeta);
+    ai.m_Metadata.UpdateHash();
+    ai.m_ID = assetId;
+    ai.m_LockHeight = 6;
+    ai.m_Value = Zero;
+    ai.m_Metadata.get_Owner(ai.m_Owner, *sender.m_WalletDB->get_MasterKdf());
+
+    sender.m_WalletDB->saveAsset(ai, 6);
+    
+
     auto issueTxId = sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
                 .SetParameter(TxParameterID::Amount,   issueAmount)
                 .SetParameter(TxParameterID::Fee,      feeAmount)
-                //.SetParameter(TxParameterID::AssetOwnerIdx, assetOwnerIdx)
+                .SetParameter(TxParameterID::AssetMetadata, assetMeta)
                 .SetParameter(TxParameterID::Lifetime, Height(200)));
 
     waitCount = 1;
@@ -535,7 +548,6 @@ void TestAssets() {
     const auto nonOwnedConsumeAmount = send3rpAmount;
     const auto nonOwnedAssetChange   = 0;
     const auto nonOwnedBeamChange    = 0;
-    const auto assetMeta = std::string("just for test");
 
     sw.start();
     const auto nonOwnedConsumeTxId = receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)

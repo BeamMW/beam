@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "aunregister_transaction.h"
-#include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
