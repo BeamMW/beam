@@ -97,6 +97,7 @@ namespace beam::wallet
 
         Amount m_Fee = 0;
 
+        void VerifyAssetsEnabled(); // throws exc if disabled
 
     protected:
 

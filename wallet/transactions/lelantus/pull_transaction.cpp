@@ -81,9 +81,6 @@ namespace beam::wallet::lelantus
             TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
-            if (shieldedCoin->m_CoinID.m_AssetID && !m_withAssets)
-                throw TransactionFailedException(false, TxFailureReason::AssetsDisabled);
-
             auto& vInp = m_TxBuilder->m_Coins.m_InputShielded;
             if (vInp.empty())
             {

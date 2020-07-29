@@ -226,6 +226,9 @@ namespace beam::wallet
         if (x.IsEnoughNetTx(val))
             return;
 
+        if (aid)
+            VerifyAssetsEnabled();
+
         uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
         uint32_t nShieldedInUse = static_cast<uint32_t>(m_Coins.m_InputShielded.size());
 
@@ -631,6 +634,13 @@ namespace beam::wallet
         TxBase::Context ctx(pars);
         ctx.m_Height.m_Min = m_Height.m_Min;
         return m_pTransaction->IsValid(ctx);
+    }
+
+    void BaseTxBuilder::VerifyAssetsEnabled()
+    {
+        TxFailureReason res = CheckAssetsEnabled(m_Height.m_Min);
+        if (TxFailureReason::Count != res)
+            throw TransactionFailedException(!m_Tx.IsInitiator(), res);
     }
 
     void MutualTxBuilder::MakeInputsAndChanges()

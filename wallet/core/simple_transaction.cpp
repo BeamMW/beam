@@ -95,21 +95,6 @@ namespace beam::wallet
         builder.GetPeerInputsAndOutputs();
         const bool isAsset = builder.GetAssetId() != Asset::s_InvalidID;
 
-        if (isAsset)
-        {
-            if (!Rules::get().CA.Enabled)
-            {
-                OnFailed(TxFailureReason::AssetsDisabledFork2, true);
-                return;
-            }
-
-            if(!m_withAssets)
-            {
-                OnFailed(isSender ? TxFailureReason::AssetsDisabled : TxFailureReason::AssetsDisabledReceiver, true);
-                return;
-            }
-        }
-
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
          || (!isSender && (!builder.HasKernelID() || txState == State::Initial)))
