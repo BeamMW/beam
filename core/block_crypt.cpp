@@ -1018,10 +1018,10 @@ namespace beam
 
 		ECC::Hash::Processor()
 			<< "ac.sk"
-			<< m_Internal.m_ID
-			>> m_Internal.m_ID;
+			<< m_Msg
+			>> m_Msg;
 
-		kdf.DeriveKey(sk, m_Internal.m_ID);
+		kdf.DeriveKey(sk, m_Msg);
 	}
 
 	/////////////
