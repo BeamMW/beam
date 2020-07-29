@@ -104,6 +104,32 @@ namespace beam::wallet
         b.m_Tx.Update(); // may complete transaction
     }
 
+    void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, Key::IKdf::Ptr& pMasterKdf) const
+    {
+        ECC::Scalar::Native sk;
+        for (const CoinID& cid : m_Input)
+        {
+            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(pMasterKdf));
+            kOffs += sk;
+        }
+
+        for (const auto& si : m_InputShielded)
+        {
+            si.get_SkOut(sk, si.m_Fee, *pMasterKdf);
+            kOffs += sk;
+        }
+
+        kOffs = -kOffs;
+
+        for (const CoinID& cid : m_Output)
+        {
+            CoinID::Worker(cid).Create(sk, *cid.get_ChildKdf(pMasterKdf));
+            kOffs += sk;
+        }
+
+        kOffs = -kOffs;
+    }
+
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         :m_Tx(tx)
         ,m_SubTxID(subTxID)
