@@ -18,9 +18,7 @@
 #include "wallet/client/wallet_model_async.h"
 #include "wallet/core/default_peers.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include "wallet/transactions/lelantus/pull_transaction.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
-#include "wallet/transactions/lelantus/unlink_transaction.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/common_utils.h"
 
@@ -115,33 +113,40 @@ extern "C" {
     return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
  }
 
- JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(generateToken)(JNIEnv *env, jobject thiz)
+ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateToken)(JNIEnv *env, jobject thiz, jboolean maxPrivacy, jboolean nonInteractive, jboolean isPermanentAddress, jlong amount, jstring walletId, jlong ownId)
  {
+    WalletID m_walletID(Zero);
+    m_walletID.FromHex(JString(env, walletId).value());
     
-    LOG_DEBUG() << "generateToken()";
-
-    auto address = walletModel->generateToken(walletDB);
-
+    PeerID m_Identity = m_walletID.m_Pk;
+    
     TxParameters params;
-    params.SetParameter(TxParameterID::PeerID, address.m_walletID);
-    params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-    params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+    params.SetParameter(TxParameterID::PeerID, m_walletID);
+    params.SetParameter(TxParameterID::PeerWalletIdentity, m_Identity);
+    params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanentAddress);
 
-    auto token = to_string(params);
-
-    jobject jAddress = env->AllocObject(WalletAddressClass);
-
-    {
-        setStringField(env, WalletAddressClass, jAddress, "walletID", to_string(address.m_walletID));
-        setStringField(env, WalletAddressClass, jAddress, "label", address.m_label);
-        setStringField(env, WalletAddressClass, jAddress, "category", address.m_category);
-        setLongField(env, WalletAddressClass, jAddress, "createTime", address.m_createTime);
-        setLongField(env, WalletAddressClass, jAddress, "duration", address.m_duration);
-        setLongField(env, WalletAddressClass, jAddress, "own", 1L);
-        setStringField(env, WalletAddressClass, jAddress, "token", token);
+    if (amount > 0) {
+        params.SetParameter(TxParameterID::Amount, amount);
+    }
+    
+    if (maxPrivacy) {
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+    }
+    else {
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+    }
+    
+    if(nonInteractive) {
+        auto vouchers = walletModel->generateVouchers(ownId, 20);
+        if (!vouchers.empty())
+        {
+            params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        }
     }
 
-    return jAddress;
+    auto token = to_string(params);
+    jstring tokenString = env->NewStringUTF(token.c_str());
+    return tokenString;
  }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
@@ -218,16 +223,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         jobject walletObj = env->AllocObject(WalletClass);
 
         auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
-        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
-        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>();
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        additionalTxCreators->emplace(TxType::PullTransaction, pullTxCreator);
-        additionalTxCreators->emplace(TxType::UnlinkFunds, unlinkTxCreator);
         
         
-        walletModel->start(initNotifications(false), true, additionalTxCreators);
+        walletModel->start(initNotifications(true), true, additionalTxCreators);
 
         return walletObj;
     }
@@ -292,15 +293,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         jobject walletObj = env->AllocObject(WalletClass);
 
         auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
-        auto pullTxCreator = std::make_shared<lelantus::PullTransaction::Creator>();
-        auto unlinkTxCreator = std::make_shared<lelantus::UnlinkFundsTransaction::Creator>();
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        additionalTxCreators->emplace(TxType::PullTransaction, pullTxCreator);
-        additionalTxCreators->emplace(TxType::UnlinkFunds, unlinkTxCreator);
         
-        walletModel->start(initNotifications(false), true, additionalTxCreators);
+        walletModel->start(initNotifications(true), true, additionalTxCreators);
 
         return walletObj;
     }

@@ -1281,21 +1281,7 @@ namespace beam::wallet
         }
 
         if (!m_pSharedBuiler || (m_pSharedBuiler->GetSubTxID() != subTxID))
-        {
-            Height h = 0;
-            if (!GetParameter(TxParameterID::MinHeight, h, subTxID))
-            {
-                // Get MinHeight from Lock TX
-                h = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
-
-                if (SubTxIndex::BEAM_REFUND_TX == subTxID)
-                    h += kBeamLockTimeInBlocks;
-
-                SetParameter(TxParameterID::MinHeight, h, subTxID);
-            }
-
             m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
-        }
 
         SharedTxBuilder* builder = m_pSharedBuiler.get();
 

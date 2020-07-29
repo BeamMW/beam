@@ -274,13 +274,6 @@ WalletModel::~WalletModel()
     stopReactor();
 }
 
-beam::wallet::WalletAddress WalletModel::generateToken(beam::wallet::IWalletDB::Ptr walletDB) 
-{
-    auto address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-    return address;
-}
-
-
 void WalletModel::onStatus(const WalletStatus& status)
 {
     JNIEnv* env = Android_JNI_getEnv();
@@ -605,7 +598,7 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
 
 void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
-    LOG_DEBUG() << "onExchangeRates";
+    LOG_DEBUG() << "onExchangeRates(" << rates.size() << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
