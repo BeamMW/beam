@@ -1011,6 +1011,19 @@ namespace beam
 		Sign_(sk, skAsset);
 	}
 
+	void TxKernelAssetControl::get_Sk(ECC::Scalar::Native& sk, Key::IKdf& kdf)
+	{
+		m_Commitment = Zero;
+		UpdateMsg();
+
+		ECC::Hash::Processor()
+			<< "ac.sk"
+			<< m_Internal.m_ID
+			>> m_Internal.m_ID;
+
+		kdf.DeriveKey(sk, m_Internal.m_ID);
+	}
+
 	/////////////
 	// TxKernelAssetEmit
 	void TxKernelAssetEmit::HashSelfForMsg(ECC::Hash::Processor& hp) const
