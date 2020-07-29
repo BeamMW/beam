@@ -713,12 +713,6 @@ namespace beam::wallet
                     case TxParameterID::Message:
                         fromByteBuffer(*value, m_message);
                         break;
-                    case TxParameterID::ChangeBeam:
-                        fromByteBuffer(*value, m_changeBeam);
-                        break;
-                    case TxParameterID::ChangeAsset:
-                        fromByteBuffer(*value, m_changeAsset);
-                        break;
                     case TxParameterID::ModifyTime:
                         fromByteBuffer(*value, m_modifyTime);
                         break;

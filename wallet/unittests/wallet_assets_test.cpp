@@ -145,8 +145,6 @@ void TestAssets() {
     WALLET_CHECK(issueTx.m_txId        == issueTxId);
     WALLET_CHECK(issueTx.m_amount      == issueAmount);
     WALLET_CHECK(issueTx.m_fee         == feeAmount);
-    WALLET_CHECK(issueTx.m_changeBeam  == issueChange);
-    WALLET_CHECK(issueTx.m_changeAsset == 0);
     WALLET_CHECK(issueTx.m_status      == TxStatus::Completed);
     //WALLET_CHECK(issueTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(issueTx.m_assetId     == assetId);
@@ -197,8 +195,6 @@ void TestAssets() {
     WALLET_CHECK(consumeTx.m_txId        == consumeTxId);
     WALLET_CHECK(consumeTx.m_amount      == consumeAmount);
     WALLET_CHECK(consumeTx.m_fee         == feeAmount);
-    WALLET_CHECK(consumeTx.m_changeBeam  == consumeChange);
-    WALLET_CHECK(consumeTx.m_changeAsset == consumeAssetChange);
     WALLET_CHECK(consumeTx.m_status      == TxStatus::Completed);
     //WALLET_CHECK(consumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(consumeTx.m_assetId     == assetId);
@@ -262,7 +258,6 @@ void TestAssets() {
         if (loadedIssueTx) {
             WALLET_CHECK(loadedIssueTx->m_assetId     == issueTx.m_assetId);
             //WALLET_CHECK(loadedIssueTx->m_assetOwnerIdx == issueTx.m_assetOwnerIdx);
-            WALLET_CHECK(loadedIssueTx->m_changeAsset == issueTx.m_changeAsset);
         }
 
         const auto loadedConsumeTx = importDB->getTx(consumeTx.m_txId);
@@ -270,7 +265,6 @@ void TestAssets() {
         if (loadedConsumeTx) {
             WALLET_CHECK(loadedConsumeTx->m_assetId     == consumeTx.m_assetId);
             //WALLET_CHECK(loadedConsumeTx->m_assetOwnerIdx == consumeTx.m_assetOwnerIdx);
-            WALLET_CHECK(loadedConsumeTx->m_changeAsset == consumeTx.m_changeAsset);
         }
 
         LOG_INFO() << "Finished testing assets tx serialization...";
@@ -303,8 +297,6 @@ void TestAssets() {
     WALLET_CHECK(selfSendTx.m_txId        == selfSendTxId);
     WALLET_CHECK(selfSendTx.m_amount      == selfSendAmount);
     WALLET_CHECK(selfSendTx.m_fee         == feeAmount);
-    WALLET_CHECK(selfSendTx.m_changeBeam  == selfSendBeamChange);
-    WALLET_CHECK(selfSendTx.m_changeAsset == selfSendAssetChange);
     WALLET_CHECK(selfSendTx.m_status      == TxStatus::Completed);
     WALLET_CHECK(selfSendTx.m_assetId     == assetId);
     WALLET_CHECK(selfSendTx.m_peerId      == sender.m_WalletID);
@@ -370,8 +362,6 @@ void TestAssets() {
     WALLET_CHECK(srConsumeTx.m_txId          == srConsumeTxId);
     WALLET_CHECK(srConsumeTx.m_amount        == srConsumeAmount);
     WALLET_CHECK(srConsumeTx.m_fee           == feeAmount);
-    WALLET_CHECK(srConsumeTx.m_changeBeam    == srBeamChange);
-    WALLET_CHECK(srConsumeTx.m_changeAsset   == srAssetChange);
     WALLET_CHECK(srConsumeTx.m_status        == TxStatus::Completed);
     //WALLET_CHECK(srConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(srConsumeTx.m_assetId       == assetId);
@@ -469,8 +459,6 @@ void TestAssets() {
     WALLET_CHECK(send3rpTx.m_txId         == send3rpTxId);
     WALLET_CHECK(send3rpTx.m_amount       == send3rpAmount);
     WALLET_CHECK(send3rpTx.m_fee          == feeAmount);
-    WALLET_CHECK(send3rpTx.m_changeBeam   == send3rpBeamChange);
-    WALLET_CHECK(send3rpTx.m_changeAsset  == send3rpAssetChange);
     WALLET_CHECK(send3rpTx.m_status       == TxStatus::Completed);
     WALLET_CHECK(send3rpTx.m_sender       == true);
     WALLET_CHECK(send3rpTx.m_selfTx       == false);
@@ -483,8 +471,6 @@ void TestAssets() {
     WALLET_CHECK(send3rpRTx.m_txId         == send3rpTxId);
     WALLET_CHECK(send3rpRTx.m_amount       == send3rpAmount);
     WALLET_CHECK(send3rpRTx.m_fee          == feeAmount);
-    WALLET_CHECK(send3rpRTx.m_changeBeam   == 0);
-    WALLET_CHECK(send3rpRTx.m_changeAsset  == 0);
     WALLET_CHECK(send3rpRTx.m_status       == TxStatus::Completed);
     WALLET_CHECK(send3rpRTx.m_sender       == false);
     WALLET_CHECK(send3rpRTx.m_selfTx       == false);
@@ -564,8 +550,6 @@ void TestAssets() {
     WALLET_CHECK(nonOwnedConsumeTx.m_txId          == nonOwnedConsumeTxId);
     WALLET_CHECK(nonOwnedConsumeTx.m_amount        == nonOwnedConsumeAmount);
     WALLET_CHECK(nonOwnedConsumeTx.m_fee           == feeAmount);
-    WALLET_CHECK(nonOwnedConsumeTx.m_changeBeam    == nonOwnedBeamChange);
-    WALLET_CHECK(nonOwnedConsumeTx.m_changeAsset   == nonOwnedAssetChange);
     WALLET_CHECK(nonOwnedConsumeTx.m_status        == TxStatus::Failed);
     WALLET_CHECK(nonOwnedConsumeTx.m_failureReason == TxFailureReason::NoInputs);
     WALLET_CHECK(nonOwnedConsumeTx.m_assetMeta     == assetMeta);
@@ -602,8 +586,6 @@ void TestAssets() {
     WALLET_CHECK(recv3rpTx.m_txId         == recv3rpTxId);
     WALLET_CHECK(recv3rpTx.m_amount       == recv3rpAmount);
     WALLET_CHECK(recv3rpTx.m_fee          == feeAmount);
-    WALLET_CHECK(recv3rpTx.m_changeBeam   == recv3rpBeamChange);
-    WALLET_CHECK(recv3rpTx.m_changeAsset  == recv3rpAssetChange);
     WALLET_CHECK(recv3rpTx.m_status       == TxStatus::Completed);
     WALLET_CHECK(recv3rpTx.m_sender       == false);
     WALLET_CHECK(recv3rpTx.m_selfTx       == false);
@@ -615,8 +597,6 @@ void TestAssets() {
     WALLET_CHECK(recv3rpRTx.m_txId         == recv3rpTxId);
     WALLET_CHECK(recv3rpRTx.m_amount       == recv3rpAmount);
     WALLET_CHECK(recv3rpRTx.m_fee          == feeAmount);
-    WALLET_CHECK(recv3rpRTx.m_changeBeam   == 0);
-    WALLET_CHECK(recv3rpRTx.m_changeAsset  == 0);
     WALLET_CHECK(recv3rpRTx.m_status       == TxStatus::Completed);
     WALLET_CHECK(recv3rpRTx.m_sender       == true);
     WALLET_CHECK(recv3rpRTx.m_selfTx       == false);
@@ -676,8 +656,6 @@ void TestAssets() {
     WALLET_CHECK(recvConsumeTx.m_txId          == recvConsumeTxId);
     WALLET_CHECK(recvConsumeTx.m_amount        == recvConsumeAmount);
     WALLET_CHECK(recvConsumeTx.m_fee           == feeAmount);
-    WALLET_CHECK(recvConsumeTx.m_changeBeam    == recvBeamChange);
-    WALLET_CHECK(recvConsumeTx.m_changeAsset   == recvAssetChange);
     WALLET_CHECK(recvConsumeTx.m_status        == TxStatus::Completed);
     //WALLET_CHECK(recvConsumeTx.m_assetOwnerIdx == assetOwnerIdx);
     WALLET_CHECK(recvConsumeTx.m_assetId       == assetId);

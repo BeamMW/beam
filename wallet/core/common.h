@@ -343,8 +343,6 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
-        ChangeAsset = 149,
-        ChangeBeam = 150,
         Status = 151,
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
@@ -535,8 +533,6 @@ namespace beam::wallet
             , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
-            , m_changeBeam{0}
-            , m_changeAsset{0}
             , m_assetId{assetId}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
@@ -569,8 +565,6 @@ namespace beam::wallet
         wallet::TxType m_txType = wallet::TxType::Simple;
         Amount m_amount = 0;
         Amount m_fee = 0;
-        Amount m_changeBeam = 0;
-        Amount m_changeAsset = 0;
         Asset::ID m_assetId = Asset::s_InvalidID;
         std::string m_assetMeta;
         Height m_minHeight = 0;
@@ -595,8 +589,6 @@ namespace beam::wallet
             TxParameterID::CreateTime,
             TxParameterID::IsSender,
             TxParameterID::Message,
-            TxParameterID::ChangeBeam,
-            TxParameterID::ChangeAsset,
             TxParameterID::ModifyTime,
             TxParameterID::Status,
             TxParameterID::KernelID,
