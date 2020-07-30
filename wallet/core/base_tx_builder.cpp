@@ -29,6 +29,17 @@
 #include <numeric>
 #include "utility/logger.h"
 
+namespace Cast
+{
+    template <typename TT, typename T> inline TT& Reinterpret(T& x)
+    {
+        // type are unrelated. But must have the same size
+        static_assert(sizeof(TT) == sizeof(T));
+        return (TT&) x;
+    }
+
+}
+
 namespace beam::wallet
 {
     using namespace ECC;
@@ -1686,7 +1697,7 @@ namespace beam::wallet
             CreateKernel(m.m_pKernel);
         else
         {
-            m_pKrn->Clone((TxKernel::Ptr&) m.m_pKernel);
+            m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
 
             m_Tx.GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement, m_SubTxID);
             if (m.m_UserAgreement == Zero)
@@ -1750,7 +1761,7 @@ namespace beam::wallet
         IPrivateKeyKeeper2::Method::SignReceiver& m = x.m_Method;
 
         SetInOuts(m);
-        m_pKrn->Clone((TxKernel::Ptr&) m.m_pKernel);
+        m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
 
         m.m_Peer = Zero;
         m.m_MyIDKey = 0;
@@ -1845,9 +1856,9 @@ namespace beam::wallet
         //g.m_pPtr.reset(m_pKrn);
 
         //m_Tx.SetParameter(TxParameterID::Kernel, g.m_pPtr, m_SubTxID);
-
-        static_assert(sizeof(TxKernelStd::Ptr) == sizeof(m_pKrn), "this is ugly hack, but should work without extra code generated");
-        m_Tx.SetParameter(TxParameterID::Kernel, (TxKernelStd::Ptr&) m_pKrn, m_SubTxID);
+        
+        // this is ugly hack, but should work without extra code generated
+        m_Tx.SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn), m_SubTxID);
     }
 
     void MutualTxBuilder2::SaveKernelID()

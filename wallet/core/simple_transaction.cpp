@@ -150,7 +150,6 @@ namespace beam::wallet
 
     void SimpleTransaction::UpdateImpl()
     {
-        const auto txState  = GetState();
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
