@@ -636,6 +636,18 @@ namespace beam::wallet
         return true;
     }
 
+    void BaseTxBuilder::Aggregate(ECC::Scalar& kDst, const ECC::Scalar& kSrc)
+    {
+        Aggregate(kDst, ECC::Scalar::Native(kSrc));
+    }
+
+    void BaseTxBuilder::Aggregate(ECC::Scalar& kDst, const ECC::Scalar::Native& kSrc)
+    {
+        ECC::Scalar::Native k(kDst);
+        k += kSrc;
+        kDst = k;
+    }
+
     void BaseTxBuilder::SignSplit()
     {
         if (Stage::None != m_Signing)
@@ -652,9 +664,8 @@ namespace beam::wallet
 
             virtual void OnSuccess(BaseTxBuilder& b) override
             {
-                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                kOffs += m_Method.m_kOffset;
-                b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+                b.Aggregate(b.m_pTransaction->m_Offset, m_Method.m_kOffset);
+                b.Store(b.m_pTransaction->m_Offset, TxParameterID::Offset);
 
                 b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
 
