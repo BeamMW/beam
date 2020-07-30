@@ -113,8 +113,76 @@ extern "C" {
     return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
  }
 
+JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(JNIEnv *env, jobject thiz, jstring token)
+{
+    LOG_DEBUG() << "getTransactionParameters()";
+
+    auto params = beam::wallet::ParseParameters(JString(env, token).value());
+    auto amount = params->GetParameter<Amount>(TxParameterID::Amount);
+    auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
+    auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+
+    jobject jParameters = env->AllocObject(TransactionParametersClass);		
+    {
+            if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", *isPermanentAddress);
+            }
+            else {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", false);
+            }
+
+            if(amount) 
+            {
+                setLongField(env, TransactionParametersClass, jParameters, "amount", *amount);
+            }
+            else 
+            {
+                setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
+            }
+
+            if (auto walletIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerID); walletIdentity)
+            {
+                setStringField(env, TransactionParametersClass, jParameters, "identity", std::to_string(*walletIdentity));
+            }
+            else 
+            {
+                setStringField(env, TransactionParametersClass, jParameters, "identity", "");
+            }
+            
+            if (auto peerIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); peerIdentity)
+            {
+                setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerIdentity));
+            }
+            else {
+                setStringField(env, TransactionParametersClass, jParameters, "address", "");
+            }
+
+            if(type == TxType::PushTransaction) 
+            {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isMaxPrivacy", true);
+            }
+            else 
+            {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isMaxPrivacy", false);
+            }
+
+            if(vouchers) 
+            {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isOffline", true);
+            }
+            else 
+            {
+                setBooleanField(env, TransactionParametersClass, jParameters, "isOffline", false);
+            }
+    }
+ 
+    return jParameters;
+}
+
  JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateToken)(JNIEnv *env, jobject thiz, jboolean maxPrivacy, jboolean nonInteractive, jboolean isPermanentAddress, jlong amount, jstring walletId, jlong ownId)
  {
+    LOG_DEBUG() << "generateToken()";
+
     WalletID m_walletID(Zero);
     m_walletID.FromHex(JString(env, walletId).value());
     
@@ -815,6 +883,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO");
         WalletAddressClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/TransactionParametersDTO");
+        TransactionParametersClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
 
