@@ -1160,7 +1160,10 @@ namespace beam::wallet
         if (lockTxBuilder->m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
         {
             if (isBeamOwner)
+            {
                 lockTxBuilder->MakeInputsAndChanges();
+                lockTxBuilder->SaveCoins();
+            }
         }
 
         lockTxBuilder->GenerateInOuts();

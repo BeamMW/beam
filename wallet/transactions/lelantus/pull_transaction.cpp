@@ -133,6 +133,7 @@ namespace beam::wallet::lelantus
                 builder.MakeInputsAndChange(0, aid);
 
             builder.MakeInputsAndChange(builder.m_Fee, 0);
+            builder.SaveCoins();
         }
 
         builder.GenerateInOuts();

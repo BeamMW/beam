@@ -132,6 +132,7 @@ namespace beam::wallet
         if (builder.m_Coins.IsEmpty())
         {
             builder.MakeInputsAndChange(Rules::get().CA.DepositForList + builder.m_Fee, 0);
+            builder.SaveCoins();
 
             UpdateTxDescription(TxStatus::InProgress);
             SetState(State::Making);

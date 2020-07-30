@@ -193,6 +193,8 @@ namespace beam::wallet
             }
             else
                 builder.MakeInputsAndChange(builder.m_Fee - Rules::get().CA.DepositForList, 0);
+
+            builder.SaveCoins();
         }
 
         builder.GenerateInOuts();

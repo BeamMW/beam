@@ -201,6 +201,8 @@ namespace beam::wallet
             }
             else
                 builder.MakeInputsAndChange(builder.m_Value, wa.m_ID);
+
+            builder.SaveCoins();
         }
 
         builder.GenerateInOuts();
