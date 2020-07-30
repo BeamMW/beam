@@ -151,6 +151,7 @@ namespace beam::wallet
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+        void onShieldedCoinsChanged(ChangeAction, const std::vector<ShieldedCoin>& coins) override;
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
 

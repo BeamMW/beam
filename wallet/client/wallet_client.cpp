@@ -16,10 +16,13 @@
 #include "wallet/core/simple_transaction.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
-//#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+
+#ifdef BEAM_LELANTUS_SUPPORT
+#include "wallet/transactions/lelantus/push_transaction.h"
+#endif // BEAM_LELANTUS_SUPPORT
 
 using namespace std;
 
@@ -568,6 +571,37 @@ namespace beam::wallet
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
         m_AddressChangesCollector.CollectItems(action, items);
+    }
+
+    void WalletClient::onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& coins)
+    {
+        // add virtual transaction for receiver
+#ifdef BEAM_LELANTUS_SUPPORT
+        if (action != ChangeAction::Added)
+        {
+            return;
+        }
+        auto s = m_wallet.lock();
+        if (!s)
+        {
+            return;
+        }
+        for (const auto& c : coins)
+        {
+            WalletAddress tempAddress;
+            m_walletDB->createAddress(tempAddress);
+            auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID)
+                .SetParameter(TxParameterID::Status, TxStatus::Completed)
+                .SetParameter(TxParameterID::Amount, c.m_CoinID.m_Value)
+                .SetParameter(TxParameterID::IsSender, false);
+            auto packed = params.Pack();
+            for (const auto& p : packed)
+            {
+                storage::setTxParameter(*m_walletDB, *params.GetTxID(), p.first, p.second, true);
+            }
+        }
+        
+#endif // BEAM_LELANTUS_SUPPORT
     }
 
     void WalletClient::onSyncProgress(int done, int total)
