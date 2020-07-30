@@ -543,16 +543,16 @@ namespace beam::wallet
         {
             for (const auto& tx : items)
             {
-                if (tx.m_txType == TxType::Simple)
+                if (!memis0(&tx.m_txId.front(), tx.m_txId.size())) // not special transaction
                 {
                     assert(!m_exchangeRateProvider.expired());
                     if (auto p = m_exchangeRateProvider.lock())
                     {
-                        m_walletDB->setTxParameter( tx.m_txId,
-                                                    kDefaultSubTxID,
-                                                    TxParameterID::ExchangeRates,
-                                                    toByteBuffer(p->getRates()),
-                                                    false);
+                        m_walletDB->setTxParameter(tx.m_txId,
+                            kDefaultSubTxID,
+                            TxParameterID::ExchangeRates,
+                            toByteBuffer(p->getRates()),
+                            false);
                     }
                 }
             }
