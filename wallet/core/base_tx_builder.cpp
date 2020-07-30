@@ -216,6 +216,30 @@ namespace beam::wallet
         return (m_In >= m_Out) && (m_In - m_Out >= val);
     }
 
+    void BaseTxBuilder::TagInput(const CoinID& cid)
+    {
+        Coin coin;
+        coin.m_ID = cid;
+        if (m_Tx.GetWalletDB()->findCoin(coin))
+        {
+            coin.m_spentTxId = m_Tx.GetTxID();
+            m_Tx.GetWalletDB()->saveCoin(coin);
+        }
+    }
+
+    void BaseTxBuilder::AddPreselectedCoins()
+    {
+        CoinIDList cidl;
+        m_Tx.GetParameter(TxParameterID::PreselectedCoins, cidl, m_SubTxID);
+
+        for (const auto& cid : cidl)
+        {
+            m_Coins.m_Input.push_back(cid);
+            m_Balance.Add(cid, false);
+            TagInput(cid);
+        }
+    }
+
     void BaseTxBuilder::SaveCoins()
     {
         m_Tx.SetParameter(TxParameterID::InputCoins, m_Coins.m_Input, m_SubTxID);
@@ -292,15 +316,7 @@ namespace beam::wallet
         }
 
         for (auto& cid : m_Coins.m_Input)
-        {
-            Coin coin;
-            coin.m_ID = cid;
-            if (m_Tx.GetWalletDB()->findCoin(coin))
-            {
-                coin.m_spentTxId = m_Tx.GetTxID();
-                m_Tx.GetWalletDB()->saveCoin(coin);
-            }
-        }
+            TagInput(cid);
 
         for (auto& cid : m_Coins.m_InputShielded)
         {
@@ -680,11 +696,13 @@ namespace beam::wallet
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
-    void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::InOuts& m)
+    void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::TxCommon& m)
     {
         m.m_vInputs = m_Coins.m_Input;
         m.m_vOutputs = m_Coins.m_Output;
         m.m_vInputsShielded = m_Coins.m_InputShielded;
+
+        m.m_NonConventional = !IsConventional();
     }
 
     void BaseTxBuilder::SetCommon(IPrivateKeyKeeper2::Method::TxCommon& m)

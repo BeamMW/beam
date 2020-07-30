@@ -74,6 +74,7 @@ namespace beam::wallet
 
         void RefreshBalance();
 
+        void AddPreselectedCoins();
         Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
         Amount MakeInputsAndChange(Amount, Asset::ID); // same as above, auto creates a change if necessary
         void SaveCoins();
@@ -105,6 +106,8 @@ namespace beam::wallet
 
     protected:
 
+        virtual bool IsConventional() { return true; }
+
         void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
 
         struct KeyKeeperHandler
@@ -125,7 +128,9 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
-        void SetInOuts(IPrivateKeyKeeper2::Method::InOuts&);
+        void TagInput(const CoinID&);
+
+        void SetInOuts(IPrivateKeyKeeper2::Method::TxCommon&);
         void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
 
         template<typename T1, typename T2>
