@@ -452,7 +452,7 @@ namespace beam::wallet
                 MoveIntoVec1(b.m_pTransaction->m_vKernels, m_InputsShielded.m_Done);
 
                 b.m_Tx.SetParameter(TxParameterID::Inputs, b.m_pTransaction->m_vInputs);
-                b.m_Tx.SetParameter(TxParameterID::InputCoinsShielded, b.m_pTransaction->m_vKernels);
+                b.m_Tx.SetParameter(TxParameterID::InputsShielded, b.m_pTransaction->m_vKernels);
                 b.m_Tx.SetParameter(TxParameterID::Outputs, b.m_pTransaction->m_vOutputs);
 
                 OnAllDone(b);
