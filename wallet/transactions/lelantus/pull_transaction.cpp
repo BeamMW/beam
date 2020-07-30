@@ -157,11 +157,7 @@ namespace beam::wallet::lelantus
         if (State::Initial == state)
         {
             builder.m_pTransaction->Normalize();
-            if (!builder.VerifyTx())
-            {
-                OnFailed(TxFailureReason::InvalidTransaction);
-                return;
-            }
+            builder.VerifyTx();
 
             SetState(State::Registration);
             state = State::Registration;

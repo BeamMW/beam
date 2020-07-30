@@ -695,12 +695,13 @@ namespace beam::wallet
         m.m_pKernel->m_Height = m_Height;
     }
 
-    bool BaseTxBuilder::VerifyTx()
+    void BaseTxBuilder::VerifyTx()
     {
         TxBase::Context::Params pars;
         TxBase::Context ctx(pars);
         ctx.m_Height.m_Min = m_Height.m_Min;
-        return m_pTransaction->IsValid(ctx);
+        if (!m_pTransaction->IsValid(ctx))
+            throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
     }
 
     void BaseTxBuilder::VerifyAssetsEnabled()

@@ -81,7 +81,7 @@ namespace beam::wallet
         void AddOutput(const Coin::ID&);
         void CreateAddNewOutput(Coin::ID&);
 
-        bool VerifyTx();
+        void VerifyTx(); // throws exc if invalid
 
         void GenerateInOuts();
 
