@@ -19,7 +19,7 @@
 
 namespace beam::wallet
 {
-    class LockTxBuilder : public BaseTxBuilder
+    class LockTxBuilder : public MutualTxBuilder
     {
     public:
         LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);

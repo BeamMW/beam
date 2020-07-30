@@ -121,7 +121,7 @@ namespace beam::wallet
         using UpdateCompletedAction = std::function<void()>;
         using TxVisitor = std::function<void (const TxID&, BaseTransaction::Ptr)>;
 
-        Wallet(IWalletDB::Ptr walletDB, bool withAssets, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
@@ -340,6 +340,7 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB; 
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         struct VoucherManager
         {
@@ -393,13 +394,9 @@ namespace beam::wallet
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
-        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
-
-        // Confidential assets enable/disable flag
-        bool m_withAssets;
     };
 }

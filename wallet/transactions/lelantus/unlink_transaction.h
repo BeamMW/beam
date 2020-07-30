@@ -28,19 +28,13 @@ namespace beam::wallet::lelantus
     public:
         class Creator : public BaseTransaction::Creator
         {
-        public:
-            Creator(bool withAssets) : m_withAssets (withAssets) {}
-
-        private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-            bool m_withAssets;
         };
 
     public:
-        UnlinkFundsTransaction(const TxContext& context
-            , bool withAssets);
+        UnlinkFundsTransaction(const TxContext& context);
 
     private:
 
@@ -75,6 +69,5 @@ namespace beam::wallet::lelantus
     private:
         BaseTransaction::Ptr m_ActiveTransaction;
         std::unique_ptr<INegotiatorGateway> m_ActiveGateway;
-        bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

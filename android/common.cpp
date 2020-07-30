@@ -27,6 +27,7 @@ jclass PaymentInfoClass = 0;
 jclass NotificationClass = 0;
 jclass ExchangeRateClass = 0;
 jclass VersionInfoClass = 0;
+jclass TransactionParametersClass = 0;
 
 namespace
 {

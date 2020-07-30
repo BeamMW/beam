@@ -41,15 +41,14 @@ namespace beam::wallet
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
 
-    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB, bool withAssets)
+    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
         : m_WalletDB(walletDB)
-        , m_withAssets(withAssets)
     {
     }
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(context, m_withAssets));
+        return BaseTransaction::Ptr(new SimpleTransaction(context));
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -59,9 +58,8 @@ namespace beam::wallet
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
-    SimpleTransaction::SimpleTransaction(const TxContext& context, bool withAssets)
+    SimpleTransaction::SimpleTransaction(const TxContext& context)
         : BaseTransaction{ context }
-        , m_withAssets(withAssets)
     {
     }
 
@@ -88,28 +86,12 @@ namespace beam::wallet
         }
 
         if (!m_TxBuilder)
-        {
-            m_TxBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
-        }
+            m_TxBuilder = make_shared<MutualTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+
         auto sharedBuilder = m_TxBuilder;
-        BaseTxBuilder& builder = *sharedBuilder;
+        MutualTxBuilder& builder = *sharedBuilder;
         builder.GetPeerInputsAndOutputs();
         const bool isAsset = builder.GetAssetId() != Asset::s_InvalidID;
-
-        if (isAsset)
-        {
-            if (!Rules::get().CA.Enabled)
-            {
-                OnFailed(TxFailureReason::AssetsDisabledFork2, true);
-                return;
-            }
-
-            if(!m_withAssets)
-            {
-                OnFailed(isSender ? TxFailureReason::AssetsDisabled : TxFailureReason::AssetsDisabledReceiver, true);
-                return;
-            }
-        }
 
         // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
@@ -137,7 +119,7 @@ namespace beam::wallet
                 }
             }
 
-            if (!builder.GetInitialTxParams() && txState == State::Initial)
+            if (builder.m_Coins.IsEmpty() && txState == State::Initial)
             {
                 PeerID myWalletID, peerWalletID;
                 bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
@@ -168,39 +150,33 @@ namespace beam::wallet
                         LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                     }
 
-                    builder.SelectInputs();
-                    builder.AddChange();
-                    builder.GenerateNonce();
+                    builder.MakeInputsAndChanges();
                 }
 
                 if (isSelfTx || !isSender)
                 {
+                    CoinID cid;
+                    cid.m_AssetID = builder.GetAssetId();
+                    cid.m_Type = Key::Type::Regular;
+
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        if (builder.GetAssetId() != 0)
-                        {
-                            builder.GenerateAssetCoin(amount, false);
-                        }
-                        else
-                        {
-                            builder.GenerateBeamCoin(amount, false);
-                        }
+                        cid.m_Value = amount;
+                        builder.CreateAddNewOutput(cid);
                     }
                 }
             }
 
-            bool bI = builder.CreateInputs();
-            bool bO = builder.CreateOutputs();
-            if (bI || bO)
-                return;
+            builder.GenerateInOuts();
 
             if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
             {
                 assert(IsInitiator());
                 if (txState == State::Initial)
                 {
-                    if (builder.SignSender(true))
+                    builder.SignSender(true);
+                    if (builder.IsSigning())
                         return;
 
                     SendInvitation(builder, isSender);
@@ -225,7 +201,8 @@ namespace beam::wallet
                     // invited participant
                     assert(!IsInitiator());
 
-                    if (builder.SignReceiver())
+                    builder.SignReceiver();
+                    if (builder.IsSigning())
                         return;
 
                     //
@@ -266,15 +243,12 @@ namespace beam::wallet
             }
 
             if (!isSelfTx)
-            {
-                if (builder.SignSender(false))
-                    return;
-            }
+                builder.SignSender(false);
             else
-            {
-                if (builder.SignSplit())
-                    return;
-            }
+                builder.SignSplit();
+
+            if (builder.IsGeneratingInOuts() || builder.IsSigning())
+                return;
 
             if (IsInitiator() && !builder.IsPeerSignatureValid())
             {
@@ -334,7 +308,7 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(const BaseTxBuilder& builder)
+    SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(const MutualTxBuilder& builder)
     {
         const auto assetId = builder.GetAssetId();
         if (assetId == Asset::s_InvalidID)
@@ -462,7 +436,7 @@ namespace beam::wallet
         return AssetCheckResult::Fail;
     }
 
-    void SimpleTransaction::SendInvitation(const BaseTxBuilder& builder, bool isSender)
+    void SimpleTransaction::SendInvitation(const MutualTxBuilder& builder, bool isSender)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
@@ -482,7 +456,7 @@ namespace beam::wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder)
+    void SimpleTransaction::ConfirmInvitation(const MutualTxBuilder& builder)
     {
         LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
@@ -492,9 +466,9 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
             .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
-            .AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
-            .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
-            .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
+            .AddParameter(TxParameterID::PeerInputs, builder.m_pTransaction->m_vInputs)
+            .AddParameter(TxParameterID::PeerOutputs, builder.m_pTransaction->m_vOutputs)
+            .AddParameter(TxParameterID::PeerOffset, builder.m_pTransaction->m_Offset);
 
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))

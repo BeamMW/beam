@@ -713,12 +713,6 @@ namespace beam::wallet
                     case TxParameterID::Message:
                         fromByteBuffer(*value, m_message);
                         break;
-                    case TxParameterID::ChangeBeam:
-                        fromByteBuffer(*value, m_changeBeam);
-                        break;
-                    case TxParameterID::ChangeAsset:
-                        fromByteBuffer(*value, m_changeAsset);
-                        break;
                     case TxParameterID::ModifyTime:
                         fromByteBuffer(*value, m_modifyTime);
                         break;
@@ -1341,4 +1335,22 @@ namespace beam::wallet
         string timestampedPath = ss.str();
         return timestampedPath;
     }
+
+    bool g_AssetsEnabled = false; // OFF by default
+
+    TxFailureReason CheckAssetsEnabled(Height h)
+    {
+        const Rules& r = Rules::get();
+        if (h < r.pForks[2].m_Height)
+            return TxFailureReason::AssetsDisabledFork2;
+
+        if (!r.CA.Enabled)
+            return TxFailureReason::AssetsDisabledInRules;
+
+        if (!g_AssetsEnabled)
+            return TxFailureReason::AssetsDisabledInWallet;
+
+        return TxFailureReason::Count;
+    }
+
 }  // namespace beam::wallet

@@ -28,21 +28,19 @@ namespace beam::wallet::lelantus
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(IWalletDB::Ptr walletDB, bool withAssets) 
+            Creator(IWalletDB::Ptr walletDB) 
                 : m_walletDB(walletDB)
-                , m_withAssets (withAssets) {}
+                {}
 
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
             IWalletDB::Ptr m_walletDB;
-            bool m_withAssets;
         };
 
     public:
-        PushTransaction(const TxContext& context
-            , bool withAssets);
+        PushTransaction(const TxContext& context);
 
     private:
         TxType GetType() const override;
@@ -53,6 +51,5 @@ namespace beam::wallet::lelantus
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
         bool m_waitingShieldedProof = true;
-        bool m_withAssets;
     };
 } // namespace beam::wallet::lelantus

@@ -58,7 +58,6 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
         setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
-        setLongField(env, TxDescriptionClass, tx, "change", txDescription.m_changeBeam);
         setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
 
         setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
@@ -273,13 +272,6 @@ WalletModel::~WalletModel()
 {
     stopReactor();
 }
-
-beam::wallet::WalletAddress WalletModel::generateToken(beam::wallet::IWalletDB::Ptr walletDB) 
-{
-    auto address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-    return address;
-}
-
 
 void WalletModel::onStatus(const WalletStatus& status)
 {
@@ -605,7 +597,7 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
 
 void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
-    LOG_DEBUG() << "onExchangeRates";
+    LOG_DEBUG() << "onExchangeRates(" << rates.size() << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 

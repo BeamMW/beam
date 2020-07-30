@@ -1157,28 +1157,21 @@ namespace beam::wallet
             m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
         LockTxBuilder* lockTxBuilder = m_pLockBuiler.get();
 
-        if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
+        if (lockTxBuilder->m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
         {
             if (isBeamOwner)
-            {
-                lockTxBuilder->SelectInputs();
-                lockTxBuilder->AddChange();
-            }
+                lockTxBuilder->MakeInputsAndChanges();
         }
 
-        bool bI = lockTxBuilder->CreateInputs();
-        bool bO = (isBeamOwner && lockTxBuilder->CreateOutputs());
-        if (bI || bO)
-            return lockTxState;
-
-        lockTxBuilder->GenerateNonce();
+        lockTxBuilder->GenerateInOuts();
         lockTxBuilder->LoadSharedParameters();
 
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
-                if (lockTxBuilder->SignSender(true, false))
+                lockTxBuilder->SignSender(true, false);
+                if (lockTxBuilder->IsSigning())
                     return lockTxState;
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
@@ -1191,15 +1184,12 @@ namespace beam::wallet
         lockTxBuilder->CreateKernel();
 
         if (isBeamOwner)
-        {
-            if (lockTxBuilder->SignSender(false, false))
-                return lockTxState;
-        }
+            lockTxBuilder->SignSender(false, false);
         else
-        {
-            if (lockTxBuilder->SignReceiver(false))
-                return lockTxState;
-        }
+            lockTxBuilder->SignReceiver(false);
+
+        if (lockTxBuilder->IsGeneratingInOuts() || lockTxBuilder->IsSigning())
+            return lockTxState;
 
         if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
         {
@@ -1291,20 +1281,33 @@ namespace beam::wallet
         }
 
         if (!m_pSharedBuiler || (m_pSharedBuiler->GetSubTxID() != subTxID))
+        {
+            Height h = 0;
+            if (!GetParameter(TxParameterID::MinHeight, h, subTxID))
+            {
+                // Get MinHeight from Lock TX
+                h = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+
+                if (SubTxIndex::BEAM_REFUND_TX == subTxID)
+                    h += kBeamLockTimeInBlocks;
+
+                SetParameter(TxParameterID::MinHeight, h, subTxID);
+            }
+
             m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
+        }
+
         SharedTxBuilder* builder = m_pSharedBuiler.get();
 
         if (!builder->GetSharedParameters())
-        {
             return subTxState;
-        }
 
-        bool hasInputs = builder->GetInputs();
-        bool hasOutputs = builder->GetOutputs();
-        // send invite to get 
-        if ((!builder->GetInitialTxParams() || !(hasInputs || hasOutputs)) && subTxState == SubTxState::Initial)
-        {
+        if (builder->m_pTransaction->m_vInputs.empty())
             builder->InitTx(isTxOwner);
+
+        // send invite to get 
+        if (subTxState == SubTxState::Initial)
+        {
             {
                 // validate minHeight
                 auto minHeightLockTx = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
@@ -1318,14 +1321,14 @@ namespace beam::wallet
             }
         }
 
-        builder->GenerateNonce();
         builder->CreateKernel();
 
         if (!builder->GetPeerPublicExcessAndNonce())
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                if (builder->SignSender(true, false))
+                builder->SignSender(true, false);
+                if (builder->IsSigning())
                     return subTxState;
                 SendSharedTxInvitation(*builder);
                 SetState(SubTxState::Invitation, subTxID);
@@ -1339,7 +1342,8 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
-                if (builder->SignReceiver(false))
+                builder->SignReceiver(false);
+                if (builder->IsSigning())
                     return subTxState;
                 // invited participant
                 ConfirmSharedTxInvitation(*builder);
@@ -1353,7 +1357,8 @@ namespace beam::wallet
             return subTxState;
         }
 
-        if (builder->SignSender(false, false))
+        builder->SignSender(false, false);
+        if (builder->IsGeneratingInOuts() || builder->IsSigning())
             return subTxState;
 
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
@@ -1620,7 +1625,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
             .AddParameter(TxParameterID::PeerSignature, lockBuilder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerOffset, lockBuilder.GetOffset())
+            .AddParameter(TxParameterID::PeerOffset, lockBuilder.m_pTransaction->m_Offset)
             .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
             .AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3)
             .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
@@ -1631,7 +1636,7 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendSharedTxInvitation(const BaseTxBuilder& builder)
+    void AtomicSwapTransaction::SendSharedTxInvitation(const MutualTxBuilder& builder)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
@@ -1647,14 +1652,14 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::ConfirmSharedTxInvitation(const BaseTxBuilder& builder)
+    void AtomicSwapTransaction::ConfirmSharedTxInvitation(const MutualTxBuilder& builder)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
+            .AddParameter(TxParameterID::PeerOffset, builder.m_pTransaction->m_Offset);
 
         if (!SendTxParameters(std::move(msg)))
         {
@@ -1712,11 +1717,10 @@ namespace beam::wallet
 
         SharedTxBuilder builder{ *this, subTxID };
         builder.GetSharedParameters();
-        builder.GetInitialTxParams();
         builder.GetPeerPublicExcessAndNonce();
-        builder.GenerateNonce();
         builder.CreateKernel();
-        if (builder.SignSender(false, false))
+        builder.SignSender(false, false);
+        if (builder.IsSigning())
             return;
 
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);

@@ -24,39 +24,142 @@
 
 namespace beam::wallet
 {
-
-    class BaseTxBuilder : public std::enable_shared_from_this<BaseTxBuilder>
+    class BaseTxBuilder
+        :public std::enable_shared_from_this<BaseTxBuilder>
     {
     public:
-        BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
+        BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID);
         virtual ~BaseTxBuilder() = default;
-        void SelectInputs();
-        void AddChange();
-        void GenerateAssetCoin(Amount amount, bool change);
-        void GenerateBeamCoin(Amount amount, bool change);
-        bool CreateOutputs();
-        bool FinalizeOutputs();
+
+        BaseTransaction& m_Tx;
+        SubTxID m_SubTxID;
+
+        HeightRange m_Height;
+
+        struct Coins
+        {
+            std::vector<Coin::ID> m_Input;
+            std::vector<Coin::ID> m_Output;
+            std::vector<IPrivateKeyKeeper2::ShieldedInput> m_InputShielded;
+
+            bool IsEmpty() const {
+                return m_Input.empty() && m_Output.empty() && m_InputShielded.empty();
+            }
+
+            void AddOffset(ECC::Scalar::Native&, Key::IKdf::Ptr& pMasterKdf) const;
+
+        } m_Coins;
+
+        Transaction::Ptr m_pTransaction;
+
+        struct Balance
+        {
+            struct Entry
+            {
+                Amount m_In = 0;
+                Amount m_Out = 0;
+
+                bool IsEnoughNetTx(Amount) const;
+            };
+
+            typedef std::map<Asset::ID, Entry> Map;
+
+            Map m_Map;
+            Amount m_Fees = 0;
+
+            void Add(const Coin::ID&, bool bOutp);
+            void Add(const IPrivateKeyKeeper2::ShieldedInput&);
+
+        } m_Balance;
+
+        void RefreshBalance();
+
+        Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
+        Amount MakeInputsAndChange(Amount, Asset::ID); // same as above, auto creates a change if necessary
+        void SaveCoins();
+
+        void AddOutput(const Coin::ID&);
+        void CreateAddNewOutput(Coin::ID&);
+
+        bool VerifyTx();
+
+        void GenerateInOuts();
+
+        enum struct Stage {
+            None,
+            Done,
+            InProgress
+        };
+
+        Stage m_GeneratingInOuts = Stage::None;
+        Stage m_Signing = Stage::None;
+
+        bool IsGeneratingInOuts() const;
+        bool IsSigning() const;
+
+        Amount m_Fee = 0;
+
+        void VerifyAssetsEnabled(); // throws exc if disabled
+
+        void SignSplit();
+
+    protected:
+
+        void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
+
+        struct KeyKeeperHandler
+            :public IPrivateKeyKeeper2::Handler
+        {
+            std::weak_ptr<BaseTxBuilder> m_pBuilder;
+            Stage* m_pStage;
+
+            KeyKeeperHandler(BaseTxBuilder&, Stage& s);
+            ~KeyKeeperHandler();
+
+            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
+
+            virtual void OnSuccess(BaseTxBuilder&) = 0;
+            virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
+
+            void Detach(BaseTxBuilder&, Stage);
+            void OnAllDone(BaseTxBuilder&);
+        };
+
+        void SetInOuts(IPrivateKeyKeeper2::Method::InOuts&);
+        void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
+
+        template<typename T1, typename T2>
+        void SaveAndStore(T2& dest, TxParameterID parameterID, const T1& source)
+        {
+            dest = source;
+            m_Tx.SetParameter(parameterID, dest, m_SubTxID);
+        }
+
+        struct HandlerInOuts;
+    };
+
+    class MutualTxBuilder : public BaseTxBuilder
+    {
+    public:
+        MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
+        virtual ~MutualTxBuilder() = default;
+        void MakeInputsAndChanges();
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         Asset::ID GetAssetId() const;
         bool IsAssetTx() const;
-        virtual bool GetInitialTxParams();
-        bool GetInputs();
-        bool GetOutputs();
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
         void FinalizeSignature();
-        bool CreateInputs();
         void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
-        bool SignSender(bool initial, bool bIsConventional = true);
-        bool SignReceiver(bool bIsConventional = true);
-        bool SignSplit();
+        void SignSender(bool initial, bool bIsConventional = true);
+        void SignReceiver(bool bIsConventional = true);
+        void SignSplit();
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
@@ -65,9 +168,6 @@ namespace beam::wallet
         Height GetLifetime() const;
         Height GetMinHeight() const;
         virtual Height GetMaxHeight() const;
-        const std::vector<Input::Ptr>& GetInputs() const;
-        const std::vector<Output::Ptr>& GetOutputs() const;
-        const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
         const Merkle::Hash& GetKernelID() const;
@@ -75,71 +175,21 @@ namespace beam::wallet
         void ResetKernelID();
         std::string GetKernelIDString() const;
         bool UpdateMaxHeight();
-        bool IsAcceptableMaxHeight() const;
+        bool IsAcceptableMaxHeight(Height) const;
         ECC::Hash::Value GetLockImage() const;
         SubTxID GetSubTxID() const;
-
-        const std::vector<Coin::ID>& GetInputCoins() const;
-        const std::vector<Coin::ID>& GetOutputCoins() const;
-        std::vector<IPrivateKeyKeeper2::ShieldedInput>& get_InputCoinsShielded() { return m_InputCoinsShielded; }
-
-    protected:
-
-        struct KeyKeeperHandler
-            :public IPrivateKeyKeeper2::Handler
-        {
-            std::weak_ptr<BaseTxBuilder> m_pBuilder;
-            bool* m_pLink;
-
-            KeyKeeperHandler(BaseTxBuilder&, bool& bLink);
-            ~KeyKeeperHandler();
-
-            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
-
-            virtual void OnSuccess(BaseTxBuilder&) = 0;
-            virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
-
-            void Detach(BaseTxBuilder&);
-            void OnAllDone(BaseTxBuilder&);
-        };
-
-        void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
 
     private:
         Amount GetMinimumFee() const;
         void CheckMinimumFee();
-        bool SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
-
-        template<typename T1, typename T2>
-        void StoreAndLoad(TxParameterID parameterID, const T1& source, T2& dest)
-        {
-            m_Tx.SetParameter(parameterID, source, m_SubTxID);
-            m_Tx.GetParameter(parameterID, dest, m_SubTxID);
-        }
-
-        void CreateInputsStd();
-        void CreateInputsShielded();
+        void SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
 
     protected:
-        BaseTransaction& m_Tx;
-        SubTxID m_SubTxID;
 
         // input
         AmountList m_AmountList;
-        Amount m_Fee;
-        Amount m_ChangeBeam;
-        Amount m_ChangeAsset;
         Height m_Lifetime;
-        Height m_MinHeight;
-        Height m_MaxHeight;
-        std::vector<Input::Ptr> m_Inputs;
-        std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_Offset; // goes to offset
-        std::vector<TxKernelShieldedInput::Ptr> m_InputsShielded;
 
-        std::vector<Coin::ID> m_InputCoins;
-        std::vector<Coin::ID> m_OutputCoins;
-        std::vector<IPrivateKeyKeeper2::ShieldedInput> m_InputCoinsShielded;
         ECC::Point::Native m_PublicNonce;
         ECC::Point::Native m_PublicExcess;
 
@@ -150,19 +200,11 @@ namespace beam::wallet
         std::vector<Input::Ptr> m_PeerInputs;
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
-        Height m_PeerMaxHeight;
 
         // deduced values,
         TxKernelStd::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-
-        bool m_CreatingInputs = false;
-        bool m_CreatingInputsShielded = false;
-        bool m_CreatingOutputs = false;
-        bool m_Signing = false;
-
-        struct ShieldedInputContext;
     };
 }

@@ -198,7 +198,7 @@ class WalletApiServer
 {
 public:
     WalletApiServer(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, io::Reactor& reactor,
-        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist, bool withAssets)
+        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
         : _reactor(reactor)
         , _bindAddress(listenTo)
         , _useHttp(useHttp)
@@ -207,7 +207,6 @@ public:
         , _wallet(wallet)
         , _acl(acl)
         , _whitelist(whitelist)
-        , _withAssets(withAssets)
     {
         start();
     }
@@ -432,8 +431,7 @@ private:
             std::make_shared<T>(*this
                                 , std::move(newStream)
                                 , *_walletData
-                                , _acl
-                                , _withAssets));
+                                , _acl));
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -471,11 +469,8 @@ private:
                     , io::TcpStream::Ptr&& newStream
                     , IWalletData& walletData
                     , WalletApi::ACL acl
-                    , bool withAssets
         )
-        : WalletApiHandler(walletData
-                      , acl
-                      , withAssets)
+        : WalletApiHandler(walletData , acl)
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -536,12 +531,10 @@ private:
                         , io::TcpStream::Ptr&& newStream
                         , IWalletData& walletData
                         , WalletApi::ACL acl
-                        , bool withAssets
             )
             : WalletApiHandler(
                   walletData
-                , acl
-                , withAssets)
+                , acl)
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -666,7 +659,6 @@ private:
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;
-    bool _withAssets;
 };
 }  // namespace
 
@@ -703,7 +695,6 @@ int main(int argc, char* argv[])
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
-        bool withAssets = false;
 
         {
             po::options_description desc("Wallet API general options");
@@ -837,7 +828,7 @@ int main(int argc, char* argv[])
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
-            withAssets = vm[cli::WITH_ASSETS].as<bool>();
+            wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -845,7 +836,7 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-        auto wallet = std::make_shared<Wallet>(walletDB, withAssets);
+        auto wallet = std::make_shared<Wallet>(walletDB);
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -872,14 +863,14 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(walletDB, wallet, *reactor, 
-            listenTo, options.useHttp, acl, tlsOptions, whitelist, withAssets);
+            listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-        if (Rules::get().CA.Enabled && withAssets)
+        if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAssetCreators(*wallet);
         }

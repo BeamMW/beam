@@ -48,8 +48,7 @@ namespace beam::litecoin
                 "backup.electrum-ltc.org:443",
                 "btc.cihar.com:60002",
                 "electrum-ltc.bysh.me:50002",
-                "electrum.ltc.xurious.com:50002",
-                "ltc.litepay.ch.org:50022"
+                "electrum.ltc.xurious.com:50002"
 #else // MASTERNET and TESTNET
                 "electrum.ltc.xurious.com:51002",
                 "electrum-ltc.bysh.me:51002"

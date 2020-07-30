@@ -1795,19 +1795,6 @@ namespace
         return true;
     }
 
-    bool ReadWindowBegin(const po::variables_map& vm, TxoID& windowBegin)
-    {
-        if (vm.count(cli::WINDOW_BEGIN) == 0)
-        {
-            LOG_ERROR() << kErrorWindowBeginMissing;
-            return false;
-        }
-
-        windowBegin = vm[cli::WINDOW_BEGIN].as<Nonnegative<TxoID>>().value;
-
-        return true;
-    }
-
     bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
@@ -2527,15 +2514,9 @@ namespace
 
     void CheckAssetsAllowed(const po::variables_map& vm)
     {
-        if (!Rules::get().CA.Enabled)
-        {
-            throw std::runtime_error(kErrorAssetsFork2);
-        }
-
-        if (!vm[cli::WITH_ASSETS].as<bool>())
-        {
-            throw std::runtime_error(kErrorAssetsDisabled);
-        }
+        TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
+        if (TxFailureReason::Count != res)
+            throw std::runtime_error(GetFailureMessage(res));
     }
 
     std::string ReadAssetMeta(const po::variables_map& vm, bool allow_v5_0)
@@ -2773,10 +2754,9 @@ namespace
             io::Reactor::get_Current().stop();
         };
 
-        const auto withAssets = vm[cli::WITH_ASSETS].as<bool>();
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
 
-        auto wallet = std::make_shared<Wallet>(walletDB, withAssets,
+        auto wallet = std::make_shared<Wallet>(walletDB,
                       std::move(txCompletedAction),
                       Wallet::UpdateCompletedAction());
         {
@@ -2784,14 +2764,14 @@ namespace
 
 #ifdef BEAM_LELANTUS_SUPPORT
             // Forcibly disable starting from v5.1
-            // lelantus::RegisterCreators(*wallet, walletDB, withAssets);
+            // lelantus::RegisterCreators(*wallet, walletDB);
 #endif
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-           if (Rules::get().CA.Enabled && withAssets)
+           if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
             {
                 RegisterAssetCreators(*wallet);
             }
@@ -3113,11 +3093,6 @@ namespace
             .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
             .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 
-        if (TxoID windowBegin = 0; ReadWindowBegin(vm, windowBegin))
-        {
-            txParams.SetParameter(TxParameterID::WindowBegin, windowBegin);
-        }
-
         return wallet.StartTransaction(txParams);
     }
 
@@ -3252,6 +3227,9 @@ int main_impl(int argc, char* argv[])
             unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
             clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
             Rules::get().UpdateChecksum();
+
+            wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
+
 
             {
                 reactor = io::Reactor::create();
