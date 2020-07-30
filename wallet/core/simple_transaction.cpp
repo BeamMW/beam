@@ -373,7 +373,7 @@ namespace beam::wallet
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
             if (auHeight)
             {
-                OnFailed(TxFailureReason::AssetConfirmFailed);
+                OnFailed(TxFailureReason::AssetConfirmFailed, true);
                 return AssetCheckResult::Fail;
             }
 
@@ -394,14 +394,14 @@ namespace beam::wallet
             Asset::Full infoFull;
             if (!GetParameter(TxParameterID::AssetInfoFull, infoFull) || !infoFull.IsValid())
             {
-                OnFailed(TxFailureReason::NoAssetInfo);
+                OnFailed(TxFailureReason::NoAssetInfo, true);
                 return AssetCheckResult::Fail;
             }
 
             Height acHeight = 0;
             if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || !acHeight)
             {
-                OnFailed(TxFailureReason::NoAssetInfo);
+                OnFailed(TxFailureReason::NoAssetInfo, true);
                 return AssetCheckResult::Fail;
             }
 
@@ -458,7 +458,7 @@ namespace beam::wallet
         }
 
         assert(!"Wrong logic in SimpleTransaction::CheckAsset");
-        OnFailed(TxFailureReason::Unknown);
+        OnFailed(TxFailureReason::Unknown, true);
         return AssetCheckResult::Fail;
     }
 
