@@ -135,16 +135,10 @@ namespace beam::wallet
             m_Tx.SetParameter(parameterID, dest, m_SubTxID);
         }
 
-        template<typename T2>
-        void Store(T2& dest, TxParameterID parameterID)
-        {
-            m_Tx.SetParameter(parameterID, dest, m_SubTxID);
-        }
-
         struct HandlerInOuts;
 
-        static void Aggregate(ECC::Scalar&, const ECC::Scalar&);
-        static void Aggregate(ECC::Scalar&, const ECC::Scalar::Native&);
+        void AddOffset(const ECC::Scalar&);
+        void AddOffset(const ECC::Scalar::Native&);
     };
 
     class MutualTxBuilder : public BaseTxBuilder

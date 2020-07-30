@@ -636,16 +636,18 @@ namespace beam::wallet
         return true;
     }
 
-    void BaseTxBuilder::Aggregate(ECC::Scalar& kDst, const ECC::Scalar& kSrc)
+    void BaseTxBuilder::AddOffset(const ECC::Scalar& k1)
     {
-        Aggregate(kDst, ECC::Scalar::Native(kSrc));
+        AddOffset(ECC::Scalar::Native(k1));
     }
 
-    void BaseTxBuilder::Aggregate(ECC::Scalar& kDst, const ECC::Scalar::Native& kSrc)
+    void BaseTxBuilder::AddOffset(const ECC::Scalar::Native& k1)
     {
-        ECC::Scalar::Native k(kDst);
-        k += kSrc;
-        kDst = k;
+        ECC::Scalar::Native k(m_pTransaction->m_Offset);
+        k += k1;
+        m_pTransaction->m_Offset = k;
+
+        m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
     }
 
     void BaseTxBuilder::SignSplit()
@@ -664,9 +666,7 @@ namespace beam::wallet
 
             virtual void OnSuccess(BaseTxBuilder& b) override
             {
-                b.Aggregate(b.m_pTransaction->m_Offset, m_Method.m_kOffset);
-                b.Store(b.m_pTransaction->m_Offset, TxParameterID::Offset);
-
+                b.AddOffset(m_Method.m_kOffset);
                 b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
 
                 OnAllDone(b);
@@ -892,10 +892,7 @@ namespace beam::wallet
                 else
                 {
                     b.SaveAndStore(b.m_PartialSignature, TxParameterID::PartialSignature, krn.m_Signature.m_k);
-
-                    ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                    kOffs += m_Method.m_kOffset;
-                    b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+                    b.AddOffset(m_Method.m_kOffset);
 
                     b.StoreKernelID();
 
@@ -1021,9 +1018,7 @@ namespace beam::wallet
                 b.m_PublicExcess -= b.m_PeerPublicExcess;
                 b.m_Tx.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess, b.m_SubTxID);
 
-                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                kOffs += m_Method.m_kOffset;
-                b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+                b.AddOffset(m_Method.m_kOffset);
 
                 if (m_Method.m_MyIDKey)
                     b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
