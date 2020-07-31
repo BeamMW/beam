@@ -1413,13 +1413,12 @@ namespace beam::wallet
         MakeInputsAndChange(val, 0);
     }
 
-    bool SimpleTxBuilder::UpdateSplitLogic()
+    bool SimpleTxBuilder::SignTx()
     {
-        // should obtain the full tx
-        if (Status::FullTx != m_Status)
-        {
-            GenerateInOuts();
+        GenerateInOuts();
 
+        if (!IsTxSigned())
+        {
             if (!m_pKrn)
             {
                 if (Stage::Done == m_Signing)
@@ -1431,18 +1430,38 @@ namespace beam::wallet
                     return false;
             }
 
-            if (IsGeneratingInOuts())
-                return false;
-
-            FinalyzeTxBase();
+            SetStatus(Status::Signed);
             // done
         }
 
         assert(m_pKrn);
-        return true;
+
+        return !IsGeneratingInOuts();
     }
 
-    void SimpleTxBuilder::FinalyzeTxBase()
+    bool SimpleTxBuilder::IsTxSigned() const
+    {
+        switch (m_Status)
+        {
+        case Status::Signed:
+        case Status::FullTx:
+            return true;
+        }
+        return false;
+    }
+
+    void SimpleTxBuilder::FinalyzeTx()
+    {
+        if (Status::FullTx == m_Status)
+            return;
+
+        assert(Status::Signed == m_Status);
+        assert(!IsGeneratingInOuts());
+
+        FinalyzeTxInternal();
+    }
+
+    void SimpleTxBuilder::FinalyzeTxInternal()
     {
         m_pTransaction->Normalize();
         VerifyTx();
@@ -1591,10 +1610,8 @@ namespace beam::wallet
             SignSender(false);
     }
 
-    void MutualTxBuilder2::FinalyzeTx()
+    void MutualTxBuilder2::FinalyzeTxInternal()
     {
-        assert(Status::Signed == m_Status);
-
         // add peer in/out/offs
         ECC::Scalar k;
         if (m_Tx.GetParameter(TxParameterID::PeerOffset, k, m_SubTxID))
@@ -1614,7 +1631,7 @@ namespace beam::wallet
             m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
         }
 
-        FinalyzeTxBase();
+        SimpleTxBuilder::FinalyzeTxInternal();
     }
 
     void MutualTxBuilder2::SignSender(bool initial)
@@ -1865,16 +1882,17 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID, m_SubTxID);
     }
 
-    bool MutualTxBuilder2::UpdateLogic()
+    bool MutualTxBuilder2::SignTx()
     {
+        GenerateInOuts();
+
         if (m_IsSender)
         {
             // should obtain the full tx
-            if (Status::FullTx != m_Status)
+            if (!IsTxSigned())
             {
                 m_Tx.UpdateOnNextTip();
 
-                GenerateInOuts();
                 UpdateSigning();
 
                 if (Status::Half == m_Status)
@@ -1891,10 +1909,7 @@ namespace beam::wallet
 
                 if (Status::Signed != m_Status)
                     return false;
-                if (IsGeneratingInOuts())
-                    return false;
 
-                FinalyzeTx();
                 // done
             }
         }
@@ -1904,7 +1919,6 @@ namespace beam::wallet
 
             if (Status::HalfSent != m_Status)
             {
-                GenerateInOuts();
                 UpdateSigning();
 
                 if (MutualTxBuilder2::Status::Half != m_Status)
@@ -1933,7 +1947,8 @@ namespace beam::wallet
         }
 
         assert(m_pKrn);
-        return true;
+
+        return !IsGeneratingInOuts();
     }
 
 

@@ -263,16 +263,8 @@ namespace beam::wallet
             builder.SaveCoins();
         }
 
-        if (pMutualBuilder)
-        {
-            if (!pMutualBuilder->UpdateLogic())
-                return;
-        }
-        else
-        {
-            if (!builder.UpdateSplitLogic())
-                return;
-        }
+        if (!builder.SignTx())
+            return;
 
         assert(builder.m_pKrn);
 
@@ -284,6 +276,8 @@ namespace beam::wallet
             {
                 if (CheckExpired())
                     return;
+
+                builder.FinalyzeTx();
 
                 GetGateway().register_tx(GetTxID(), builder.m_pTransaction);
                 SetState(State::Registration);

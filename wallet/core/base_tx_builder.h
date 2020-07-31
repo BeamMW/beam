@@ -242,7 +242,7 @@ namespace beam::wallet
 
         std::string GetKernelIDString() const;
 
-        bool UpdateSplitLogic(); // returns if negotiation is complete
+        virtual bool SignTx(); // returns if negotiation is complete and all specified in/outs are generated
 
         struct Status {
             typedef uint8_t Type;
@@ -254,11 +254,16 @@ namespace beam::wallet
 
         Status::Type m_Status = Status::None;
 
+        bool IsTxSigned() const; // Signed or FullTx
+
+        void FinalyzeTx(); // normalize, verify, and set status
+        // Call when all tx elements are added
+
     protected:
         void SetStatus(Status::Type);
         void ReadKernel();
         void AddKernel(TxKernelStd::Ptr&);
-        void FinalyzeTxBase();
+        virtual void FinalyzeTxInternal();
     };
 
 
@@ -279,7 +284,7 @@ namespace beam::wallet
             static const Type PreSigned = 7; // almost full, ID is valid, only sender signature is missing
         };
 
-        bool UpdateLogic(); // returns if negotiation is complete
+        virtual bool SignTx() override;
 
     protected:
         void SaveKernel();
@@ -291,8 +296,7 @@ namespace beam::wallet
         void SignReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
-        virtual void FinalyzeTx(); // Adds peer's in/outs (if provided), normalizes and validates the tx.
-        // override it to add more elements to tx
+        virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
     };
 
 }
