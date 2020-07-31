@@ -141,9 +141,14 @@ void TestAssets() {
 
     const auto checkOwnerTotals = [&] (Amount beam, Amount asset1, Amount asset2) {
         storage::Totals allTotals(*ownerDB);
-        WALLET_CHECK(allTotals.GetBeamTotals().Avail == AmountBig::Type(beam));
-        WALLET_CHECK(allTotals.GetTotals(ASSET1_ID).Avail == AmountBig::Type(asset1));
-        WALLET_CHECK(allTotals.GetTotals(ASSET2_ID).Avail == AmountBig::Type(asset2));
+
+        auto availBM = AmountBig::get_Lo(allTotals.GetBeamTotals().Avail);
+        auto availA1 = AmountBig::get_Lo(allTotals.GetTotals(ASSET1_ID).Avail);
+        auto availA2 = AmountBig::get_Lo(allTotals.GetTotals(ASSET2_ID).Avail);
+
+        WALLET_CHECK( availBM == beam);
+        WALLET_CHECK(availA1 == asset1);
+        WALLET_CHECK(availA2 == asset2);
     };
 
     checkOwnerTotals(0, 0, 0);
@@ -177,8 +182,41 @@ void TestAssets() {
     };
 
     //
+    // Assets flag not set, fail any asset tx
+    //
+    runTest("assets flag is false", [&] {
+        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+            .SetParameter(TxParameterID::Amount, beam::Amount(0))
+            .SetParameter(TxParameterID::Fee, beam::Amount(100))
+            .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
+    });
+    WALLET_CHECK(tx.m_status        == TxStatus::Failed);
+    WALLET_CHECK(tx.m_failureReason == TxFailureReason::AssetsDisabledInWallet);
+    g_AssetsEnabled = true;
+
+    //
     // ASSET REGISTER
     //
+
+    // not enough beam
+    runTest("register, not enough BEAM", [&] {
+        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+            .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
+            .SetParameter(TxParameterID::Fee, beam::Amount(100))
+            .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
+    });
+    WALLET_CHECK(tx.m_status        == TxStatus::Failed);
+    WALLET_CHECK(tx.m_failureReason == TxFailureReason::NoInputs);
+
+    // send some beam to the owner's wallet
+    runTest("send BEAM to owner", [&] {
+       return receiver.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::Amount, initial)
+            .SetParameter(TxParameterID::Fee, beam::Amount(100))
+            .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, owner.m_WalletID));
+    }, 2, false);
+    LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB).GetBeamTotals().Avail);
 
     // amount too small
     runTest("register, amount is too small", [&] {
@@ -221,26 +259,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status        == TxStatus::Failed);
     WALLET_CHECK(tx.m_failureReason == TxFailureReason::NoAssetMeta);
 
-    // not enough beam
-    runTest("register, not enough BEAM", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
-            .SetParameter(TxParameterID::Fee, beam::Amount(100))
-            .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
-    });
-    WALLET_CHECK(tx.m_status        == TxStatus::Failed);
-    WALLET_CHECK(tx.m_failureReason == TxFailureReason::NoInputs);
-
-    // send some beam to the owner's wallet
-    runTest("send BEAM to owner", [&] {
-       return receiver.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::Amount, initial)
-            .SetParameter(TxParameterID::Fee, beam::Amount(100))
-            .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, owner.m_WalletID));
-    }, 2, false);
-    LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB).GetBeamTotals().Avail);
-
     // successfully register asset #1
     auto currBM = initial;
     auto currA1 = Amount(0);
@@ -258,8 +276,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
     WALLET_CHECK(tx.m_amount      == deposit);
     WALLET_CHECK(tx.m_fee         == fee);
-    WALLET_CHECK(tx.m_changeBeam  == currBM);
-    WALLET_CHECK(tx.m_changeAsset == 0);
     WALLET_CHECK(tx.m_assetId     == ASSET1_ID);
     WALLET_CHECK(tx.m_peerId      == Zero);
     WALLET_CHECK(tx.m_myId        == Zero);
@@ -292,8 +308,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
     WALLET_CHECK(tx.m_amount      == deposit);
     WALLET_CHECK(tx.m_fee         == fee);
-    WALLET_CHECK(tx.m_changeBeam  == currBM);
-    WALLET_CHECK(tx.m_changeAsset == 0);
     WALLET_CHECK(tx.m_assetId     == ASSET2_ID);
     WALLET_CHECK(tx.m_peerId      == Zero);
     WALLET_CHECK(tx.m_myId        == Zero);
@@ -394,8 +408,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET1_META);
-    WALLET_CHECK(tx.m_changeBeam == currBM);
-    WALLET_CHECK(tx.m_changeAsset == 0);
     WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
@@ -404,7 +416,7 @@ void TestAssets() {
     currA1 -= amount;
     currBM -= fee;
 
-    runTest("issue asset #1", [&] {
+    runTest("consume asset #1", [&] {
         return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
@@ -414,8 +426,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET1_META);
-    WALLET_CHECK(tx.m_changeBeam == currBM);
-    WALLET_CHECK(tx.m_changeAsset == currA1);
     WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
@@ -434,8 +444,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET2_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET2_META);
-    WALLET_CHECK(tx.m_changeBeam == currBM);
-    WALLET_CHECK(tx.m_changeAsset == 0);
     WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
@@ -458,6 +466,14 @@ void TestAssets() {
     WALLET_CHECK(txr.m_failureReason == TxFailureReason::AssetLocked);
     WALLET_CHECK(txo.m_assetId == ASSET1_ID);
     WALLET_CHECK(txr.m_assetId == ASSET1_ID);
+
+    // confirm asset #2 by meta
+    runTest("confirm asset #2 by meta again", [&] {
+        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+            .SetParameter(TxParameterID::Amount, deposit)
+            .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
+    });
+    checkConfirmTx(ASSET2_ID, ASSET2_META);
 
     // wait until asset2 becomes unlocked (asset1 becomes unlocked earlier)
     auto asset2 = ownerDB->findAsset(ASSET2_ID);
@@ -482,8 +498,6 @@ void TestAssets() {
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
-    WALLET_CHECK(tx.m_changeBeam == currBM);
-    WALLET_CHECK(tx.m_changeAsset == currA1);
     checkOwnerTotals(currBM, currA1, currA2);
 
     // send the rest of asset #1
@@ -502,8 +516,6 @@ void TestAssets() {
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
-    WALLET_CHECK(tx.m_changeBeam == currBM);
-    WALLET_CHECK(tx.m_changeAsset == currA1);
     WALLET_CHECK(currA1 == 0);
     checkOwnerTotals(currBM, currA1, currA2);
 
@@ -534,8 +546,17 @@ void TestAssets() {
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
-    WALLET_CHECK(tx.m_changeAsset == 0);
     checkOwnerTotals(currBM, currA1, currA2);
+
+    // unregister used asset
+    runTest("unregister used asset", [&] {
+        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
+            .SetParameter(TxParameterID::Amount, deposit)
+            .SetParameter(TxParameterID::Fee, fee)
+            .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
+    });
+    WALLET_CHECK(tx.m_status == TxStatus::Failed);
+    WALLET_CHECK(tx.m_failureReason == TxFailureReason::AssetInUse);
 
     // consume asset #1
     amount  = currA1;
