@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <boost/filesystem.hpp>
-#include "utility/logger.h"
 #include "wallet/core/common.h"
+#include "utility/logger.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/simple_transaction.h"
