@@ -474,7 +474,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     auto messageString = JString(env, comment).value();
     
-    uint64_t bAmount = round(amount * Rules::Coin);
+    uint64_t bAmount = amount;
     uint64_t bfee = fee;
     
     auto peer = txParameters->GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
