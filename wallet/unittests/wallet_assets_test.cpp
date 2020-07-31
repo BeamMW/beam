@@ -87,14 +87,18 @@ void TestAssets() {
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height) {
             LOG_INFO () << "Reached fork 2...";
             reactor->stop();
+            return;
         }
         if (waitBlock && cursor.m_Sid.m_Height == waitBlock) {
             LOG_INFO () << "Reached block " << waitBlock << "...";
             reactor->stop();
+            return;
         }
         if (cursor.m_Sid.m_Height >= 100) {
             LOG_INFO () << "Reached max allowed block...";
             WALLET_CHECK(!"Test should complete before block 100. Something went wrong.");
+            reactor->stop();
+            return;
         }
     });
 
@@ -447,7 +451,7 @@ void TestAssets() {
     WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
-    // send locked asset, tx should fail on both sides, rejected by the receiver
+    // send locked asset, tx should fail on SENDER size, thus only 1 transaction wait
     runTest("send locked asset", [&] {
         return owner.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, currA1)
@@ -455,17 +459,11 @@ void TestAssets() {
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
             .SetParameter(TxParameterID::MyID, owner.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID));
-    }, 2);
+    }, 1);
 
-    auto txo = getTx(owner.m_WalletDB, tx.m_txId);
-    auto txr = getTx(receiver.m_WalletDB, tx.m_txId);
-    WALLET_CHECK(txo.m_txId == txr.m_txId);
-    WALLET_CHECK(txo.m_status == TxStatus::Failed);
-    WALLET_CHECK(txr.m_status == TxStatus::Failed);
-    WALLET_CHECK(txo.m_failureReason == TxFailureReason::AssetLocked);
-    WALLET_CHECK(txr.m_failureReason == TxFailureReason::AssetLocked);
-    WALLET_CHECK(txo.m_assetId == ASSET1_ID);
-    WALLET_CHECK(txr.m_assetId == ASSET1_ID);
+    WALLET_CHECK(tx.m_status == TxStatus::Failed);
+    WALLET_CHECK(tx.m_failureReason == TxFailureReason::AssetLocked);
+    WALLET_CHECK(tx.m_assetId == ASSET1_ID);
 
     // confirm asset #2 by meta
     runTest("confirm asset #2 by meta again", [&] {
