@@ -166,8 +166,6 @@ void TestAssets() {
     };
 
     TxDescription tx;
-    size_t receiverTxCnt = 0;
-    size_t ownerTxCnt = 0;
     auto runTest = [&](const char* name, const std::function<TxID ()>& test, int wcnt = 1, bool owner = true) {
         LOG_INFO() << "\nTesting " << name << "...";
 
@@ -182,7 +180,6 @@ void TestAssets() {
         auto db = owner ? ownerDB : receiverDB;
         tx = getTx(db, txid);
         WALLET_CHECK(tx.m_txId == txid);
-        WALLET_CHECK(db->getTxHistory(wallet::TxType::ALL).size() == (owner ? ++ownerTxCnt : ++receiverTxCnt));
     };
 
     //
