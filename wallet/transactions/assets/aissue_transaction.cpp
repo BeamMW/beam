@@ -127,8 +127,7 @@ namespace beam::wallet
             m_pTransaction->m_Offset = sk;
             m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
 
-            if (!VerifyTx())
-                throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
+            VerifyTx();
         }
     };
 
@@ -201,6 +200,8 @@ namespace beam::wallet
             }
             else
                 builder.MakeInputsAndChange(builder.m_Value, wa.m_ID);
+
+            builder.SaveCoins();
         }
 
         builder.GenerateInOuts();

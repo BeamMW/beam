@@ -133,6 +133,7 @@ namespace beam::wallet::lelantus
                 builder.MakeInputsAndChange(0, aid);
 
             builder.MakeInputsAndChange(builder.m_Fee, 0);
+            builder.SaveCoins();
         }
 
         builder.GenerateInOuts();
@@ -156,11 +157,7 @@ namespace beam::wallet::lelantus
         if (State::Initial == state)
         {
             builder.m_pTransaction->Normalize();
-            if (!builder.VerifyTx())
-            {
-                OnFailed(TxFailureReason::InvalidTransaction);
-                return;
-            }
+            builder.VerifyTx();
 
             SetState(State::Registration);
             state = State::Registration;

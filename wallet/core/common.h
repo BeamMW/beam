@@ -354,6 +354,7 @@ namespace beam::wallet
         NonceSlot = 163,
         PublicNonce = 164,
         PublicExcess = 165,
+        MutualTxState = 166,
         SharedBulletProof = 171,
         SharedCoinID = 172,
         SharedSeed = 173,

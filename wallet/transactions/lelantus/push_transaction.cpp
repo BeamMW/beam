@@ -76,6 +76,8 @@ namespace beam::wallet::lelantus
             }
             else
                 builder.MakeInputsAndChange(builder.m_Value + builder.m_Fee, 0);
+
+            builder.SaveCoins();
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;

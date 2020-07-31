@@ -74,6 +74,7 @@ namespace beam::wallet
 
         void RefreshBalance();
 
+        void AddPreselectedCoins();
         Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
         Amount MakeInputsAndChange(Amount, Asset::ID); // same as above, auto creates a change if necessary
         void SaveCoins();
@@ -81,7 +82,7 @@ namespace beam::wallet
         void AddOutput(const Coin::ID&);
         void CreateAddNewOutput(Coin::ID&);
 
-        bool VerifyTx();
+        void VerifyTx(); // throws exc if invalid
 
         void GenerateInOuts();
 
@@ -105,6 +106,8 @@ namespace beam::wallet
 
     protected:
 
+        virtual bool IsConventional() { return true; }
+
         void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
 
         struct KeyKeeperHandler
@@ -125,7 +128,9 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
-        void SetInOuts(IPrivateKeyKeeper2::Method::InOuts&);
+        void TagInput(const CoinID&);
+
+        void SetInOuts(IPrivateKeyKeeper2::Method::TxCommon&);
         void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
 
         template<typename T1, typename T2>
@@ -136,6 +141,12 @@ namespace beam::wallet
         }
 
         struct HandlerInOuts;
+
+        void AddOffset(const ECC::Scalar&);
+        void AddOffset(const ECC::Scalar::Native&);
+
+        static bool Aggregate(ECC::Point&, const ECC::Point::Native&);
+        static bool Aggregate(ECC::Point&, ECC::Point::Native&, const ECC::Point&);
     };
 
     class MutualTxBuilder : public BaseTxBuilder
@@ -147,7 +158,7 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        virtual ECC::Point::Native GetPublicExcess() const;
+        ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         Asset::ID GetAssetId() const;
         bool IsAssetTx() const;
@@ -207,4 +218,63 @@ namespace beam::wallet
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
     };
+
+
+
+
+
+
+    class MutualTxBuilder2 : public BaseTxBuilder
+    {
+    public:
+        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
+        virtual ~MutualTxBuilder2() = default;
+
+        void MakeInputsAndChanges();
+        void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
+
+        Amount GetAmount() const;
+
+        std::string GetKernelIDString() const;
+
+        AmountList m_AmountList;
+        Asset::ID m_AssetID = 0;
+
+        Height m_Lifetime;
+
+        bool m_IsSender = false;
+        bool m_IsSelfTx = false;
+
+        TxKernelStd* m_pKrn = nullptr;
+
+        enum struct Status {
+            None,
+            Half, // sender/receiver: done its part
+            HalfSent,
+            PreSigned, // almost full, ID is valid, only sender signature is missing
+            Signed, // kernel fully signed
+            FullTx, // peer elements are added, transaction is fully built and validated
+
+        } m_Status = Status::None;
+
+        bool IsTxOwner() const;
+        bool UpdateLogic(); // returns if negotiation is complete
+
+    protected:
+        void SetStatus(Status);
+        void SaveKernel();
+        void SaveKernelID();
+        void FinalyzeMaxHeight();
+        void ReadKernel();
+        void CreateKernel(TxKernelStd::Ptr&);
+        void AddKernel(TxKernelStd::Ptr&);
+        void UpdateSigning();
+        void SignSender(bool initial);
+        void SignReceiver();
+
+        virtual void SendToPeer(SetTxParameter&&) = 0;
+        virtual void FinalyzeTx(); // Adds peer's in/outs (if provided), normalizes and validates the tx.
+        // override it to add more elements to tx
+    };
+
 }

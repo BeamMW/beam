@@ -29,6 +29,17 @@
 #include <numeric>
 #include "utility/logger.h"
 
+namespace Cast
+{
+    template <typename TT, typename T> inline TT& Reinterpret(T& x)
+    {
+        // type are unrelated. But must have the same size
+        static_assert(sizeof(TT) == sizeof(T));
+        return (TT&) x;
+    }
+
+}
+
 namespace beam::wallet
 {
     using namespace ECC;
@@ -216,6 +227,30 @@ namespace beam::wallet
         return (m_In >= m_Out) && (m_In - m_Out >= val);
     }
 
+    void BaseTxBuilder::TagInput(const CoinID& cid)
+    {
+        Coin coin;
+        coin.m_ID = cid;
+        if (m_Tx.GetWalletDB()->findCoin(coin))
+        {
+            coin.m_spentTxId = m_Tx.GetTxID();
+            m_Tx.GetWalletDB()->saveCoin(coin);
+        }
+    }
+
+    void BaseTxBuilder::AddPreselectedCoins()
+    {
+        CoinIDList cidl;
+        m_Tx.GetParameter(TxParameterID::PreselectedCoins, cidl, m_SubTxID);
+
+        for (const auto& cid : cidl)
+        {
+            m_Coins.m_Input.push_back(cid);
+            m_Balance.Add(cid, false);
+            TagInput(cid);
+        }
+    }
+
     void BaseTxBuilder::SaveCoins()
     {
         m_Tx.SetParameter(TxParameterID::InputCoins, m_Coins.m_Input, m_SubTxID);
@@ -292,15 +327,7 @@ namespace beam::wallet
         }
 
         for (auto& cid : m_Coins.m_Input)
-        {
-            Coin coin;
-            coin.m_ID = cid;
-            if (m_Tx.GetWalletDB()->findCoin(coin))
-            {
-                coin.m_spentTxId = m_Tx.GetTxID();
-                m_Tx.GetWalletDB()->saveCoin(coin);
-            }
-        }
+            TagInput(cid);
 
         for (auto& cid : m_Coins.m_InputShielded)
         {
@@ -452,7 +479,7 @@ namespace beam::wallet
                 MoveIntoVec1(b.m_pTransaction->m_vKernels, m_InputsShielded.m_Done);
 
                 b.m_Tx.SetParameter(TxParameterID::Inputs, b.m_pTransaction->m_vInputs);
-                b.m_Tx.SetParameter(TxParameterID::InputCoinsShielded, b.m_pTransaction->m_vKernels);
+                b.m_Tx.SetParameter(TxParameterID::InputsShielded, b.m_pTransaction->m_vKernels);
                 b.m_Tx.SetParameter(TxParameterID::Outputs, b.m_pTransaction->m_vOutputs);
 
                 OnAllDone(b);
@@ -636,6 +663,38 @@ namespace beam::wallet
         return true;
     }
 
+    void BaseTxBuilder::AddOffset(const ECC::Scalar& k1)
+    {
+        AddOffset(ECC::Scalar::Native(k1));
+    }
+
+    void BaseTxBuilder::AddOffset(const ECC::Scalar::Native& k1)
+    {
+        ECC::Scalar::Native k(m_pTransaction->m_Offset);
+        k += k1;
+        m_pTransaction->m_Offset = k;
+
+        m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
+    }
+
+    bool BaseTxBuilder::Aggregate(ECC::Point& ptDst, const ECC::Point::Native& ptSrcN)
+    {
+        ECC::Point::Native pt;
+        if (!pt.Import(ptDst))
+            return false;
+
+        pt += ptSrcN;
+        pt.Export(ptDst);
+        return true;
+    }
+
+    bool BaseTxBuilder::Aggregate(ECC::Point& ptDst, ECC::Point::Native& ptSrcN, const ECC::Point& ptSrc)
+    {
+        return
+            ptSrcN.Import(ptSrc) &&
+            Aggregate(ptDst, ptSrcN);
+    }
+
     void BaseTxBuilder::SignSplit()
     {
         if (Stage::None != m_Signing)
@@ -652,10 +711,7 @@ namespace beam::wallet
 
             virtual void OnSuccess(BaseTxBuilder& b) override
             {
-                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                kOffs += m_Method.m_kOffset;
-                b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
-
+                b.AddOffset(m_Method.m_kOffset);
                 b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
 
                 OnAllDone(b);
@@ -669,11 +725,13 @@ namespace beam::wallet
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
-    void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::InOuts& m)
+    void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::TxCommon& m)
     {
         m.m_vInputs = m_Coins.m_Input;
         m.m_vOutputs = m_Coins.m_Output;
         m.m_vInputsShielded = m_Coins.m_InputShielded;
+
+        m.m_NonConventional = !IsConventional();
     }
 
     void BaseTxBuilder::SetCommon(IPrivateKeyKeeper2::Method::TxCommon& m)
@@ -684,12 +742,13 @@ namespace beam::wallet
         m.m_pKernel->m_Height = m_Height;
     }
 
-    bool BaseTxBuilder::VerifyTx()
+    void BaseTxBuilder::VerifyTx()
     {
         TxBase::Context::Params pars;
         TxBase::Context ctx(pars);
         ctx.m_Height.m_Min = m_Height.m_Min;
-        return m_pTransaction->IsValid(ctx);
+        if (!m_pTransaction->IsValid(ctx))
+            throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
     }
 
     void BaseTxBuilder::VerifyAssetsEnabled()
@@ -881,10 +940,7 @@ namespace beam::wallet
                 else
                 {
                     b.SaveAndStore(b.m_PartialSignature, TxParameterID::PartialSignature, krn.m_Signature.m_k);
-
-                    ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                    kOffs += m_Method.m_kOffset;
-                    b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+                    b.AddOffset(m_Method.m_kOffset);
 
                     b.StoreKernelID();
 
@@ -1010,9 +1066,7 @@ namespace beam::wallet
                 b.m_PublicExcess -= b.m_PeerPublicExcess;
                 b.m_Tx.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess, b.m_SubTxID);
 
-                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                kOffs += m_Method.m_kOffset;
-                b.SaveAndStore(b.m_pTransaction->m_Offset, TxParameterID::Offset, kOffs);
+                b.AddOffset(m_Method.m_kOffset);
 
                 if (m_Method.m_MyIDKey)
                     b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
@@ -1311,4 +1365,592 @@ namespace beam::wallet
             }
         }
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    void MutualTxBuilder2::MakeInputsAndChanges()
+    {
+        Amount val = GetAmount();
+
+        if (m_AssetID)
+        {
+            MakeInputsAndChange(val, m_AssetID);
+            val = m_Fee;
+        }
+        else
+            val += m_Fee;
+
+        MakeInputsAndChange(val, 0);
+    }
+
+    void MutualTxBuilder2::CreateKernel(TxKernelStd::Ptr& pKrn)
+    {
+        pKrn = make_unique<TxKernelStd>();
+        pKrn->m_Fee = m_Fee;
+        pKrn->m_Height.m_Min = m_Height.m_Min;
+        pKrn->m_Height.m_Max = m_Height.m_Max;
+        pKrn->m_Commitment = Zero;
+        ZeroObject(pKrn->m_Signature);
+
+        // load kernel's extra data
+        Hash::Value hv;
+        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, hv, m_SubTxID))
+        {
+			pKrn->m_pHashLock = make_unique<TxKernelStd::HashLock>();
+			pKrn->m_pHashLock->m_IsImage = true;
+			pKrn->m_pHashLock->m_Value = hv;
+        }
+
+        if (m_Tx.GetParameter(TxParameterID::PreImage, hv, m_SubTxID))
+        {
+			pKrn->m_pHashLock = make_unique<TxKernelStd::HashLock>();
+			pKrn->m_pHashLock->m_Value = hv;
+		}
+    }
+
+    MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList)
+        :BaseTxBuilder(tx, subTxID)
+        , m_AmountList{ amountList }
+        , m_Lifetime{ kDefaultTxLifetime }
+    {
+        m_Fee = 0;
+        m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
+
+        if (m_AmountList.empty())
+            m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
+
+        m_IsSender = m_Tx.GetMandatoryParameter<bool>(TxParameterID::IsSender);
+
+        {
+            WalletID peerID = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::PeerID, m_SubTxID);
+            auto address = m_Tx.GetWalletDB()->getAddress(peerID);
+            m_IsSelfTx = address.is_initialized() && address->isOwn();
+        }
+
+        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID, m_SubTxID);
+
+        Height responseTime = 0;
+        if (m_Tx.GetParameter(TxParameterID::PeerResponseTime, responseTime, m_SubTxID))
+        {
+            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
+            // adjust response height, if min height din not set then then it should be equal to responce time
+            m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight, m_SubTxID);
+        }
+
+        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
+
+        m_Tx.GetParameter(TxParameterID::MutualTxState, m_Status);
+
+        ReadKernel();
+
+        if (Status::FullTx == m_Status)
+            m_pTransaction->Normalize();
+    }
+
+    void MutualTxBuilder2::AddKernel(TxKernelStd::Ptr& pKrn)
+    {
+        m_pKrn = pKrn.get();
+        m_pTransaction->m_vKernels.push_back(std::move(pKrn));
+    }
+
+    void MutualTxBuilder2::SetStatus(Status s)
+    {
+        SaveAndStore(m_Status, TxParameterID::MutualTxState, s);
+    }
+
+    void MutualTxBuilder2::ReadKernel()
+    {
+        assert(!m_pKrn);
+
+        TxKernelStd::Ptr pKrn;
+        m_Tx.GetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
+
+        if (pKrn)
+        {
+            AddKernel(pKrn);
+            if (Status::FullTx == m_Status)
+                m_pTransaction->Normalize();
+        }
+    }
+
+    void MutualTxBuilder2::UpdateSigning()
+    {
+        if (Stage::InProgress == m_Signing)
+            return;
+        m_Signing = Stage::None;
+
+        if (!m_pKrn)
+        {
+            ReadKernel();
+            if (!m_pKrn)
+            {
+                if (m_IsSelfTx)
+                {
+                    FinalyzeMaxHeight();
+                    SignSplit();
+                }
+                else
+                {
+                    if (m_IsSender)
+                        SignSender(true);
+                    else
+                    {
+                        ECC::Point ptNonce, ptExc;
+
+                        if (m_Tx.GetParameter(TxParameterID::PeerPublicNonce, ptNonce, m_SubTxID) &&
+                            m_Tx.GetParameter(TxParameterID::PeerPublicExcess, ptExc, m_SubTxID))
+                        {
+                            FinalyzeMaxHeight();
+
+                            TxKernelStd::Ptr pKrn;
+                            CreateKernel(pKrn);
+                            pKrn->m_Commitment = ptExc;
+                            pKrn->m_Signature.m_NoncePub = ptNonce;
+
+                            AddKernel(pKrn);
+                            SaveKernel();
+                        }
+                    }
+                }
+
+                if (!m_pKrn)
+                    return;
+            }
+        }
+
+        if (m_IsSelfTx)
+        {
+            if (Status::None == m_Status)
+            {
+                SetStatus(Status::Signed);
+                SaveKernelID();
+            }
+            return;
+        }
+
+        if (!m_IsSender)
+        {
+            if (Status::None == m_Status)
+                SignReceiver();
+            return;
+        }
+
+        if (Status::HalfSent == m_Status)
+        {
+            // check if receiver part is ready
+            ECC::Point ptNonce, ptExc;
+            ECC::Scalar k;
+
+            if (m_Tx.GetParameter(TxParameterID::PeerPublicNonce, ptNonce, m_SubTxID) &&
+                m_Tx.GetParameter(TxParameterID::PeerPublicExcess, ptExc, m_SubTxID) &&
+                m_Tx.GetParameter(TxParameterID::PeerSignature, k, m_SubTxID))
+            {
+                FinalyzeMaxHeight();
+                m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
+
+                ECC::Point::Native ptNonce_, ptExc_;
+
+                if (!Aggregate(m_pKrn->m_Commitment, ptExc_, ptExc) ||
+                    !Aggregate(m_pKrn->m_Signature.m_NoncePub, ptNonce_, ptNonce))
+                    throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
+
+                m_pKrn->UpdateID(); // must be valid already
+                m_pKrn->m_Signature.m_k = k;
+
+                if (!m_pKrn->m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce_, ptExc_))
+                    throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
+
+                // ok
+                SaveKernel();
+                SaveKernelID();
+                SetStatus(Status::PreSigned);
+            }
+        }
+
+        if (Status::PreSigned == m_Status)
+            SignSender(false);
+    }
+
+    void MutualTxBuilder2::FinalyzeTx()
+    {
+        assert(Status::Signed == m_Status);
+
+        if (!m_IsSelfTx)
+        {
+            // add peer in/out/offs
+            ECC::Scalar k;
+            if (m_Tx.GetParameter(TxParameterID::PeerOffset, k, m_SubTxID))
+                AddOffset(k);
+
+            std::vector<Input::Ptr> vIns;
+            if (m_Tx.GetParameter(TxParameterID::PeerInputs, vIns, m_SubTxID))
+            {
+                MoveIntoVec(m_pTransaction->m_vInputs, vIns);
+                m_Tx.SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs, m_SubTxID);
+            }
+
+            std::vector<Output::Ptr> vOuts;
+            if (m_Tx.GetParameter(TxParameterID::PeerOutputs, vOuts, m_SubTxID))
+            {
+                MoveIntoVec(m_pTransaction->m_vOutputs, vOuts);
+                m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
+            }
+        }
+
+        m_pTransaction->Normalize();
+        VerifyTx();
+
+        SetStatus(Status::FullTx);
+    }
+
+    void MutualTxBuilder2::SignSender(bool initial)
+    {
+        assert(Stage::None == m_Signing);
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::SignSender m_Method;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b_) override
+            {
+                MutualTxBuilder2& b = Cast::Up<MutualTxBuilder2>(b_);
+
+                if (b.m_pKrn)
+                {
+                    // final, update the signature only
+                    b.m_pKrn->m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
+                    b.SetStatus(Status::Signed);
+
+                    b.m_Tx.FreeSlotSafe(); // release it ASAP
+
+                    b.AddOffset(m_Method.m_kOffset);
+                }
+                else
+                {
+                    // initial
+                    b.m_Tx.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement, b.m_SubTxID);
+
+                    b.AddKernel(m_Method.m_pKernel);
+                    b.SetStatus(Status::Half);
+                }
+
+                b.SaveKernel();
+                OnAllDone(b);
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+        IPrivateKeyKeeper2::Method::SignSender& m = x.m_Method;
+
+        SetInOuts(m);
+
+        m.m_Slot = m_Tx.GetSlotSafe(true);
+
+        if (m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
+            m_Tx.GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
+        {
+            // newer scheme
+            m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
+        }
+        else
+        {
+            // legacy. Will fail for trustless key keeper.
+            m.m_MyIDKey = 0;
+
+            WalletID widMy, widPeer;
+            if (!m_Tx.GetParameter(TxParameterID::PeerID, widPeer) ||
+                !m_Tx.GetParameter(TxParameterID::MyID, widMy))
+            {
+                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+            }
+
+            m.m_Peer = widPeer.m_Pk;
+            m.m_MyID = widMy.m_Pk;
+        }
+
+        ZeroObject(m.m_PaymentProofSignature);
+        m.m_UserAgreement = Zero;
+
+        if (initial)
+            CreateKernel(m.m_pKernel);
+        else
+        {
+            m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
+
+            m_Tx.GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement, m_SubTxID);
+            if (m.m_UserAgreement == Zero)
+                throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+
+            m_Tx.GetParameter(TxParameterID::PaymentConfirmation, m.m_PaymentProofSignature, m_SubTxID);
+        }
+
+
+        m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
+    }
+
+    void MutualTxBuilder2::SignReceiver()
+    {
+        assert(Stage::None == m_Signing);
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::SignReceiver m_Method;
+
+            virtual ~MyHandler() {} // auto
+
+            void AssignExtractDiff(BaseTxBuilder& b, ECC::Point& dst, const ECC::Point& src, TxParameterID par)
+            {
+                dst.m_Y ^= 1;
+
+                ECC::Point::Native pt;
+                b.Aggregate(dst, pt, src);
+                b.m_Tx.SetParameter(par, dst, b.m_SubTxID);
+
+                dst = src;
+            }
+
+            virtual void OnSuccess(BaseTxBuilder& b_) override
+            {
+                MutualTxBuilder2& b = Cast::Up<MutualTxBuilder2>(b_);
+
+                AssignExtractDiff(b, b.m_pKrn->m_Commitment, m_Method.m_pKernel->m_Commitment, TxParameterID::PublicExcess);
+                AssignExtractDiff(b, b.m_pKrn->m_Signature.m_NoncePub, m_Method.m_pKernel->m_Signature.m_NoncePub, TxParameterID::PublicNonce);
+                b.m_pKrn->m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
+
+                b.m_pKrn->UpdateID();
+                b.SaveKernel();
+                b.SaveKernelID();
+                b.SetStatus(Status::Half);
+
+                b.AddOffset(m_Method.m_kOffset);
+
+                if (m_Method.m_MyIDKey)
+                    b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
+
+                OnAllDone(b);
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+        IPrivateKeyKeeper2::Method::SignReceiver& m = x.m_Method;
+
+        SetInOuts(m);
+        m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
+
+        m.m_Peer = Zero;
+        m.m_MyIDKey = 0;
+
+        m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
+
+        if (m.m_Peer != Zero)
+            m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
+
+        m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
+    }
+
+
+    Amount MutualTxBuilder2::GetAmount() const
+    {
+        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
+    }
+
+    string MutualTxBuilder2::GetKernelIDString() const
+    {
+        Merkle::Hash kernelID;
+        m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        char sz[Merkle::Hash::nTxtLen + 1];
+        kernelID.Print(sz);
+        return string(sz);
+    }
+
+    void MutualTxBuilder2::FinalyzeMaxHeight()
+    {
+        if (MaxHeight != m_Height.m_Max)
+            return; // already decided
+
+        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_Height.m_Max, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID); // refresh it too
+
+        // receiver is allowed to adjust what was suggested by the sender
+        if ((!m_IsSender || m_IsSelfTx) && m_Lifetime)
+        {
+            // we're allowed to adjust peer's sugggested max height
+            Block::SystemState::Full s;
+            if (m_Tx.GetTip(s))
+                m_Height.m_Max = s.m_Height + m_Lifetime;
+        }
+
+        // sanity check
+        Height hPeerResponce = 0;
+        m_Tx.GetParameter(TxParameterID::PeerResponseHeight, hPeerResponce, m_SubTxID);
+
+        if (hPeerResponce && (m_Height.m_Max > m_Lifetime + hPeerResponce))
+            throw TransactionFailedException(true, TxFailureReason::MaxHeightIsUnacceptable);
+
+        m_Tx.SetParameter(TxParameterID::MaxHeight, m_Height.m_Max, m_SubTxID);
+    }
+
+    void MutualTxBuilder2::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
+    {
+        // after 1st fork fee should be >= minimal fee
+        if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
+        {
+            // don't account for shielded inputs, they carry their fee individually
+            TxStats ts;
+            ts.m_Kernels = 1;
+            ts.m_Outputs = m_Coins.m_Output.size();
+
+            if (pFromPeer)
+                ts += *pFromPeer;
+
+            Transaction::FeeSettings fs;
+            Amount minFee = fs.Calculate(ts);
+
+            if (m_Fee < minFee)
+            {
+                stringstream ss;
+                ss << "The minimum fee must be: " << minFee << " .";
+                throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
+            }
+        }
+    }
+
+    void MutualTxBuilder2::SaveKernel()
+    {
+        //struct Guard
+        //{
+        //    TxKernelStd::Ptr m_pPtr;
+        //    ~Guard()
+        //    {
+        //        m_pPtr.release();
+        //    }
+        //};
+
+        //Guard g;
+        //g.m_pPtr.reset(m_pKrn);
+
+        //m_Tx.SetParameter(TxParameterID::Kernel, g.m_pPtr, m_SubTxID);
+        
+        // this is ugly hack, but should work without extra code generated
+        m_Tx.SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn), m_SubTxID);
+    }
+
+    void MutualTxBuilder2::SaveKernelID()
+    {
+        assert(m_pKrn);
+        m_Tx.SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID, m_SubTxID);
+    }
+
+    bool MutualTxBuilder2::IsTxOwner() const
+    {
+        return m_IsSelfTx || m_IsSender;
+    }
+
+    bool MutualTxBuilder2::UpdateLogic()
+    {
+        if (IsTxOwner())
+        {
+            // should obtain the full tx
+            if (Status::FullTx != m_Status)
+            {
+                m_Tx.UpdateOnNextTip();
+
+                GenerateInOuts();
+                UpdateSigning();
+
+                if (Status::Half == m_Status)
+                {
+                    assert(!m_IsSelfTx);
+
+                    SetTxParameter msg;
+                    msg
+                        .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->m_Commitment)
+                        .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->m_Signature.m_NoncePub);
+
+                    SendToPeer(std::move(msg));
+
+                    SetStatus(Status::HalfSent);
+                }
+
+                if (Status::Signed != m_Status)
+                    return false;
+                if (IsGeneratingInOuts())
+                    return false;
+
+                FinalyzeTx();
+                // done
+            }
+        }
+        else
+        {
+            m_Tx.UpdateOnNextTip();
+
+            if (Status::HalfSent != m_Status)
+            {
+                GenerateInOuts();
+                UpdateSigning();
+
+                if (MutualTxBuilder2::Status::Half != m_Status)
+                    return false;
+                if (IsGeneratingInOuts())
+                    return false;
+
+                SetTxParameter msg;
+                msg
+                    .AddParameter(TxParameterID::PeerPublicExcess, m_Tx.GetMandatoryParameter<ECC::Point>(TxParameterID::PublicExcess, m_SubTxID))
+                    .AddParameter(TxParameterID::PeerPublicNonce, m_Tx.GetMandatoryParameter<ECC::Point>(TxParameterID::PublicNonce, m_SubTxID))
+                    .AddParameter(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k)
+                    .AddParameter(TxParameterID::PeerInputs, m_pTransaction->m_vInputs)
+                    .AddParameter(TxParameterID::PeerOutputs, m_pTransaction->m_vOutputs)
+                    .AddParameter(TxParameterID::PeerOffset, m_pTransaction->m_Offset);
+
+                Signature sig;
+                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
+                    msg.AddParameter(TxParameterID::PaymentConfirmation, sig);
+
+                SendToPeer(std::move(msg));
+
+                SetStatus(Status::HalfSent);
+                // done
+            }
+        }
+
+        assert(m_pKrn);
+        return true;
+    }
+
+
+
+
+
+
+
+
+
 }

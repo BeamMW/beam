@@ -47,21 +47,17 @@ namespace beam::wallet::lelantus
             {
                 PushTxBuilder& b = Cast::Up<PushTxBuilder>(b_);
 
-                ECC::Scalar::Native kOffs(b.m_pTransaction->m_Offset);
-                kOffs += m_Method.m_kOffset;
-                b.m_pTransaction->m_Offset = kOffs;
+                b.AddOffset(m_Method.m_kOffset);
 
                 b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel, b.m_SubTxID);
                 b.m_Tx.SetParameter(TxParameterID::KernelID, m_Method.m_pKernel->m_Internal.m_ID, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::Offset, b.m_pTransaction->m_Offset, b.m_SubTxID);
                 b.m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, m_Method.m_Voucher.m_Ticket.m_SerialPub);
 
                 b.m_pTransaction->m_vKernels.push_back(std::move(m_Method.m_pKernel));
+                b.m_pTransaction->Normalize();
+                b.VerifyTx();
 
-                if (b.VerifyTx())
-                    OnAllDone(b);
-                else
-                    OnFailed(b, IPrivateKeyKeeper2::Status::Unspecified);
+                OnAllDone(b);
             }
         };
 

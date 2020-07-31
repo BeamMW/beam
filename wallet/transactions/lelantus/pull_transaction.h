@@ -17,10 +17,6 @@
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/base_tx_builder.h"
 
-namespace beam::wallet {
-    class MutualTxBuilder;
-}
-
 namespace beam::wallet::lelantus
 {
     TxParameters CreatePullTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
