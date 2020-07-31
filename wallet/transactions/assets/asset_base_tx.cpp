@@ -52,6 +52,13 @@ namespace beam::wallet {
             SetParameter(TxParameterID::MinHeight, minHeight);
         }
 
+        TxFailureReason enableReason = CheckAssetsEnabled(minHeight);
+        if (TxFailureReason::Count != enableReason)
+        {
+            OnFailed(enableReason);
+            return false;
+        }
+
         Height maxHeight = 0;
         if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
         {
@@ -64,7 +71,7 @@ namespace beam::wallet {
 
         if (!IsLoopbackTransaction())
         {
-            OnFailed(TxFailureReason::NotLoopback, true);
+            OnFailed(TxFailureReason::NotLoopback);
             return false;
         }
 

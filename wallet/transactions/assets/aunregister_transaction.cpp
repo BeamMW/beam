@@ -148,7 +148,7 @@ namespace beam::wallet
 
         if (builder.m_Coins.IsEmpty())
         {
-            // refresh asset state before destroying
+            // ALWAYS refresh asset state before destroying
             Height h = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
             if (h)
@@ -163,22 +163,26 @@ namespace beam::wallet
             {
                 SetState(State::AssetCheck);
                 GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
+                return;
             }
 
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
                 return;
+
             WalletAsset& wa = *pInfo;
+            SetParameter(TxParameterID::AssetID, wa.m_ID);
 
             if (wa.m_Value != Zero)
             {
-                OnFailed(TxFailureReason::AssetInUse, true);
+                LOG_INFO () << "AID " << wa.m_ID << " value " << AmountBig::get_Lo(wa.m_Value);
+                OnFailed(TxFailureReason::AssetInUse);
                 return;
             }
 
             if (wa.CanRollback(builder.m_Height.m_Min))
             {
-                OnFailed(TxFailureReason::AssetLocked, true);
+                OnFailed(TxFailureReason::AssetLocked);
                 return;
             }
 
@@ -212,7 +216,7 @@ namespace beam::wallet
 
         if (proto::TxStatus::Ok != registered)
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
+            OnFailed(TxFailureReason::FailedToRegister);
             return;
         }
 
@@ -225,6 +229,7 @@ namespace beam::wallet
             return;
         }
 
+        SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
     }
 

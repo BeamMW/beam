@@ -76,6 +76,12 @@ namespace beam::wallet
         MyBuilder(AssetRegisterTransaction& tx)
             :BaseTxBuilder(tx, kDefaultSubTxID)
         {
+            const auto amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID);
+            if (amount < Rules::get().CA.DepositForList)
+            {
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::RegisterAmountTooSmall);
+            }
+
             std::unique_ptr<TxKernelAssetCreate> pKrn;
             m_Tx.GetParameter(TxParameterID::Kernel, pKrn);
             if (pKrn)
@@ -166,7 +172,7 @@ namespace beam::wallet
 
         if (proto::TxStatus::Ok != registered)
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
+            OnFailed(TxFailureReason::FailedToRegister);
             return;
         }
 
@@ -213,13 +219,13 @@ namespace beam::wallet
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
             }
 
             if(builder.m_pKrn->m_Owner != info.m_Owner)
             {
-                OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                OnFailed(TxFailureReason::InvalidAssetOwnerId);
                 return;
             }
 
@@ -227,21 +233,7 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            if (coin.m_createTxId == GetTxID())
-            {
-                std::setmin(coin.m_confirmHeight, kpHeight);
-                coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-            }
-            if (coin.m_spentTxId == GetTxID())
-            {
-                std::setmin(coin.m_spentHeight, kpHeight);
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
     }
 

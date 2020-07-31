@@ -219,7 +219,7 @@ namespace beam::wallet
 
         if (proto::TxStatus::Ok != registered)
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
+            OnFailed(TxFailureReason::FailedToRegister);
             return;
         }
 
@@ -232,6 +232,7 @@ namespace beam::wallet
             return;
         }
 
+        SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
     }
 
