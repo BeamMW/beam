@@ -512,6 +512,12 @@ namespace beam::wallet
         if (Stage::None != m_GeneratingInOuts)
             return;
 
+        if (m_Coins.IsEmpty())
+        {
+            m_GeneratingInOuts = Stage::Done;
+            return;
+        }
+
         KeyKeeperHandler::Ptr pHandler = std::make_shared<HandlerInOuts>(*this, m_GeneratingInOuts);
         HandlerInOuts& x = Cast::Up<HandlerInOuts>(*pHandler);
 
@@ -541,8 +547,6 @@ namespace beam::wallet
         x.m_InputsShielded.m_Done.reserve(m_Coins.m_InputShielded.size());
         if (!x.m_InputsShielded.MoveNextSafe(*this))
             throw TransactionFailedException(true, TxFailureReason::Unknown);
-
-        x.CheckAllDone(*this);
     }
 
     bool BaseTxBuilder::HandlerInOuts::InputsShielded::MoveNextSafe(BaseTxBuilder& b)
