@@ -108,8 +108,6 @@ namespace beam::wallet
         {
             LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
 
-            assert(!m_IsSelfTx);
-
             Signature sig;
             if (!m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
             {
@@ -141,8 +139,7 @@ namespace beam::wallet
             }
         }
 
-        if (!Cast::Up<SimpleTransaction>(m_Tx).SendTxParameters(move(msg))) // the cast is necessary to access protected base class method
-            throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
+        m_Tx.SendTxParametersStrict(move(msg));
     }
 
 
@@ -157,11 +154,18 @@ namespace beam::wallet
         }
 
         if (!m_TxBuilder)
-            m_TxBuilder = make_shared<MyBuilder>(*this, kDefaultSubTxID, amoutList);
+        {
+            m_IsSelfTx = IsSelfTx();
 
-        auto sharedBuilder = m_TxBuilder;
-        MyBuilder& builder = *sharedBuilder;
+            m_TxBuilder = m_IsSelfTx ?
+                make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID, amoutList) :
+                make_shared<MyBuilder>(*this, kDefaultSubTxID, amoutList);
+        }
 
+        auto sharedBuilder = m_TxBuilder; // extra ref?
+
+        SimpleTxBuilder& builder = *m_TxBuilder;
+        MyBuilder* pMutualBuilder = m_IsSelfTx ? nullptr : &Cast::Up<MyBuilder>(builder);
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -195,7 +199,7 @@ namespace beam::wallet
             bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
                 && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
             stringstream ss;
-            ss << GetTxID() << (builder.m_IsSender ? " Sending " : " Receiving ")
+            ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
                 << PrintableAmount(builder.GetAmount(), false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
@@ -211,18 +215,18 @@ namespace beam::wallet
 
             builder.AddPreselectedCoins();
 
-            if (builder.m_IsSender)
+            if (!pMutualBuilder || pMutualBuilder->m_IsSender)
+                builder.MakeInputsAndChanges();
+
+            if (pMutualBuilder && pMutualBuilder->m_IsSender)
             {
                 Height maxResponseHeight = 0;
                 if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
                 {
                     LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                 }
-
-                builder.MakeInputsAndChanges();
             }
-
-            if (builder.m_IsSelfTx || !builder.m_IsSender)
+            else
             {
                 CoinID cid;
                 cid.m_AssetID = builder.m_AssetID;
@@ -236,25 +240,45 @@ namespace beam::wallet
                 }
             }
 
-            if (builder.m_IsSender)
+            if (!pMutualBuilder || pMutualBuilder->m_IsSender)
             {
                 TxStats tsExtra;
-                if (!builder.m_IsSelfTx)
+                if (pMutualBuilder)
                     tsExtra.m_Outputs = 1; // normally peer adds 1 output
 
                 builder.CheckMinimumFee(&tsExtra);
             }
 
+            if (!pMutualBuilder && (MaxHeight == builder.m_Height.m_Max) && builder.m_Lifetime)
+            {
+                // for split tx we finalyze the max height immediately
+                Block::SystemState::Full s;
+                if (GetTip(s))
+                {
+                    builder.m_Height.m_Max = s.m_Height + builder.m_Lifetime;
+                    SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+                }
+            }
+
             builder.SaveCoins();
         }
 
-        if (!builder.UpdateLogic())
-            return;
+        if (pMutualBuilder)
+        {
+            if (!pMutualBuilder->UpdateLogic())
+                return;
+        }
+        else
+        {
+            if (!builder.UpdateSplitLogic())
+                return;
+        }
 
         assert(builder.m_pKrn);
 
-        if (builder.IsTxOwner())
+        if (!pMutualBuilder || pMutualBuilder->m_IsSender)
         {
+            // We're the tx owner
             uint8_t nRegistered = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
             {

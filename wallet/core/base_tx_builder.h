@@ -221,14 +221,19 @@ namespace beam::wallet
 
 
 
-
-
-
-    class MutualTxBuilder2 : public BaseTxBuilder
+    class SimpleTxBuilder
+        :public BaseTxBuilder
     {
     public:
-        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
-        virtual ~MutualTxBuilder2() = default;
+        SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
+        virtual ~SimpleTxBuilder() = default;
+
+        AmountList m_AmountList;
+        Asset::ID m_AssetID = 0;
+
+        Height m_Lifetime;
+
+        TxKernelStd* m_pKrn = nullptr;
 
         void MakeInputsAndChanges();
         void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
@@ -237,37 +242,50 @@ namespace beam::wallet
 
         std::string GetKernelIDString() const;
 
-        AmountList m_AmountList;
-        Asset::ID m_AssetID = 0;
+        bool UpdateSplitLogic(); // returns if negotiation is complete
 
-        Height m_Lifetime;
+        struct Status {
+            typedef uint8_t Type;
+
+            static const Type None = 0;
+            static const Type Signed = 1; // kernel fully signed
+            static const Type FullTx = 2; //  transaction is fully built and validated
+        };
+
+        Status::Type m_Status = Status::None;
+
+    protected:
+        void SetStatus(Status::Type);
+        void ReadKernel();
+        void AddKernel(TxKernelStd::Ptr&);
+        void FinalyzeTxBase();
+    };
+
+
+    class MutualTxBuilder2
+        :public SimpleTxBuilder
+    {
+    public:
+        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
+        virtual ~MutualTxBuilder2() = default;
 
         bool m_IsSender = false;
-        bool m_IsSelfTx = false;
 
-        TxKernelStd* m_pKrn = nullptr;
+        struct Status
+            :public SimpleTxBuilder::Status
+        {
+            static const Type Half = 5; // sender/receiver: done its part
+            static const Type HalfSent = 6;
+            static const Type PreSigned = 7; // almost full, ID is valid, only sender signature is missing
+        };
 
-        enum struct Status {
-            None,
-            Half, // sender/receiver: done its part
-            HalfSent,
-            PreSigned, // almost full, ID is valid, only sender signature is missing
-            Signed, // kernel fully signed
-            FullTx, // peer elements are added, transaction is fully built and validated
-
-        } m_Status = Status::None;
-
-        bool IsTxOwner() const;
         bool UpdateLogic(); // returns if negotiation is complete
 
     protected:
-        void SetStatus(Status);
         void SaveKernel();
         void SaveKernelID();
         void FinalyzeMaxHeight();
-        void ReadKernel();
         void CreateKernel(TxKernelStd::Ptr&);
-        void AddKernel(TxKernelStd::Ptr&);
         void UpdateSigning();
         void SignSender(bool initial);
         void SignReceiver();
