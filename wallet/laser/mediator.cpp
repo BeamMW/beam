@@ -746,6 +746,7 @@ void Mediator::GracefulCloseInternal(const Channel::Ptr& channel)
             for (auto observer : m_observers)
                 observer->OnCloseFailed(p_channelID);
         }
+        UpdateChannelExterior(channel);
         channel->Subscribe();
     }
     else

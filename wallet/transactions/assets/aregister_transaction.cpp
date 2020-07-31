@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "aregister_transaction.h"
-#include "aissue_tx_builder.h"
+#include "../../core/base_tx_builder.h"
 #include "core/block_crypt.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
@@ -61,61 +61,118 @@ namespace beam::wallet
     {
     }
 
+    struct AssetRegisterTransaction::MyBuilder
+        :public BaseTxBuilder
+    {
+        TxKernelAssetCreate* m_pKrn = nullptr;
+
+        void OnKrn(std::unique_ptr<TxKernelAssetCreate>& pKrn)
+        {
+            m_pKrn = pKrn.get();
+            m_pTransaction->m_vKernels.push_back(std::move(pKrn));
+            m_pTransaction->Normalize(); // tx is ready
+        }
+
+        MyBuilder(AssetRegisterTransaction& tx)
+            :BaseTxBuilder(tx, kDefaultSubTxID)
+        {
+            const auto amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID);
+            if (amount < Rules::get().CA.DepositForList)
+            {
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::RegisterAmountTooSmall);
+            }
+
+            std::unique_ptr<TxKernelAssetCreate> pKrn;
+            m_Tx.GetParameter(TxParameterID::Kernel, pKrn);
+            if (pKrn)
+                OnKrn(pKrn);
+        }
+
+        void Sign()
+        {
+            if (m_pKrn)
+                return;
+
+            std::string sMd = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
+            if (sMd.empty())
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
+
+            auto pKdf = m_Tx.get_MasterKdfStrict();
+
+            std::unique_ptr<TxKernelAssetCreate> pKrn = std::make_unique<TxKernelAssetCreate>();
+            pKrn->m_Fee = m_Fee;
+            pKrn->m_Height = m_Height;
+
+            pKrn->m_MetaData.m_Value = toByteBuffer(sMd);
+            pKrn->m_MetaData.UpdateHash();
+            pKrn->m_MetaData.get_Owner(pKrn->m_Owner, *pKdf);
+
+            ECC::Scalar::Native sk;
+            pKrn->get_Sk(sk, *pKdf);
+            pKrn->Sign(sk, *pKdf);
+
+            m_Tx.SetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
+            OnKrn(pKrn);
+
+            sk = -sk;
+            m_Coins.AddOffset(sk, pKdf);
+
+            m_pTransaction->m_Offset = sk;
+            m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
+
+            VerifyTx();
+        }
+    };
+
     void AssetRegisterTransaction::UpdateImpl()
     {
         if (!AssetTransaction::BaseUpdate())
-        {
             return;
+
+        if (!_builder)
+            _builder = std::make_shared<MyBuilder>(*this);
+
+        auto& builder = *_builder;
+
+        if (builder.m_Coins.IsEmpty())
+        {
+            builder.MakeInputsAndChange(Rules::get().CA.DepositForList + builder.m_Fee, 0);
+            builder.SaveCoins();
+
+            UpdateTxDescription(TxStatus::InProgress);
+            SetState(State::Making);
         }
 
-        auto& builder = GetTxBuilder();
-        if (!builder.LoadKernel() && GetState() == State::Initial)
+        builder.GenerateInOuts();
+        if (builder.IsGeneratingInOuts())
+            return; // Sign() would verify the tx, but it can't be verified until all in/outs are prepared
+
+        if (!builder.m_pKrn)
         {
-            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.GetAssetOwnerId()
-                       << ". Cost is " << PrintableAmount(builder.GetAmountBeam(), false)
-                       << ". Fee is "  << PrintableAmount(builder.GetFee(), false);
+            builder.Sign();
 
-            if (!builder.GetInitialTxParams())
-            {
-                builder.SelectInputCoins();
-                builder.AddChange();
-                UpdateTxDescription(TxStatus::InProgress);
-            }
-
-            SetState(State::Making);
-            builder.CreateInputs();
-            builder.CreateOutputs();
-            builder.MakeKernel();
+            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->m_Owner
+                << ". Cost is " << PrintableAmount(Rules::get().CA.DepositForList, false)
+                << ". Fee is " << PrintableAmount(builder.m_Fee, false);
         }
 
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
-            if(const auto ainfo = GetWalletDB()->findAsset(builder.GetAssetOwnerId()))
+            if(const auto ainfo = GetWalletDB()->findAsset(builder.m_pKrn->m_Owner))
             {
                 OnFailed(TxFailureReason::AssetExists);
                 return;
             }
 
-            auto transaction = builder.CreateTransaction();
-            TxBase::Context::Params params;
-			TxBase::Context ctx(params);
-			ctx.m_Height.m_Min = builder.GetMinHeight();
-
-			if (!transaction->IsValid(ctx))
-            {
-                OnFailed(TxFailureReason::InvalidTransaction, true);
-                return;
-            }
-
 			SetState(State::Registration);
-            GetGateway().register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), builder.m_pTransaction);
             return;
         }
 
         if (proto::TxStatus::Ok != registered)
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
+            OnFailed(TxFailureReason::FailedToRegister);
             return;
         }
 
@@ -124,13 +181,13 @@ namespace beam::wallet
         if (!kpHeight)
         {
             SetState(State::KernelConfirmation);
-            ConfirmKernel(builder.GetKernelID());
+            ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
             return;
         }
 
         if (GetState() == State::KernelConfirmation)
         {
-            LOG_INFO() << GetTxID() << " Asset with the owner ID " << _builder->GetAssetOwnerId() << " successfully registered";
+            LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->m_Owner << " successfully registered";
             SetState(State::AssetConfirmation);
             ConfirmAsset();
             return;
@@ -162,13 +219,13 @@ namespace beam::wallet
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
             }
 
-            if(_builder->GetAssetOwnerId() != info.m_Owner)
+            if(builder.m_pKrn->m_Owner != info.m_Owner)
             {
-                OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                OnFailed(TxFailureReason::InvalidAssetOwnerId);
                 return;
             }
 
@@ -176,27 +233,13 @@ namespace beam::wallet
         }
 
         SetState(State::Finalizing);
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            if (coin.m_createTxId == GetTxID())
-            {
-                std::setmin(coin.m_confirmHeight, kpHeight);
-                coin.m_maturity = kpHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-            }
-            if (coin.m_spentTxId == GetTxID())
-            {
-                std::setmin(coin.m_spentHeight, kpHeight);
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
     }
 
     void AssetRegisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->GetAssetOwnerId(), kDefaultSubTxID);
+        GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->m_Owner, kDefaultSubTxID);
     }
 
     bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
@@ -226,15 +269,6 @@ namespace beam::wallet
         State state = State::Initial;
         GetParameter(TxParameterID::State, state);
         return state;
-    }
-
-    AssetRegisterTxBuilder& AssetRegisterTransaction::GetTxBuilder()
-    {
-        if (!_builder)
-        {
-            _builder = std::make_shared<AssetRegisterTxBuilder>(*this, kDefaultSubTxID);
-        }
-        return *_builder;
     }
 
     bool AssetRegisterTransaction::IsInSafety() const

@@ -17,10 +17,6 @@
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/base_tx_builder.h"
 
-namespace beam::wallet {
-    class BaseTxBuilder;
-}
-
 namespace beam::wallet::lelantus
 {
     TxParameters CreatePullTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
@@ -32,18 +28,20 @@ namespace beam::wallet::lelantus
     public:
         class Creator : public BaseTransaction::Creator
         {
-        public:
-            Creator(bool withAssets): m_withAssets(withAssets) {}
-
-        private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-            bool m_withAssets;
+        };
+
+        enum State : uint8_t
+        {
+            Initial,
+            Registration,
+            KernelConfirmation,
         };
 
     public:
-        PullTransaction(const TxContext& context, bool withAssets);
+        PullTransaction(const TxContext& context);
 
     private:
         TxType GetType() const override;
@@ -52,7 +50,7 @@ namespace beam::wallet::lelantus
         void RollbackTx() override;
 
     private:
-        std::shared_ptr<BaseTxBuilder> m_TxBuilder;
-        bool m_withAssets;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> m_TxBuilder;
     };
 } // namespace beam::wallet::lelantus

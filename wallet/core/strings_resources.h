@@ -237,8 +237,6 @@ namespace beam
     extern const char kErrorAssetNotFound[];
     extern const char kErrorAssetNotOwned[];
     extern const char kErrorAssetLoadMeta[];
-    extern const char kErrorAssetsFork2[];
-    extern const char kErrorAssetsDisabled[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT

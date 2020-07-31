@@ -22,8 +22,6 @@
 
 namespace beam::wallet
 {
-    class BaseTxBuilder;
-
     TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
     TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
 
@@ -46,23 +44,20 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(IWalletDB::Ptr walletDB, bool withAssets);
+            Creator(IWalletDB::Ptr walletDB);
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
         private:
             IWalletDB::Ptr m_WalletDB;
-            bool m_withAssets;
         };
     private:
-        SimpleTransaction(const TxContext& context, bool withAssets);
+        SimpleTransaction(const TxContext& context);
     private:
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        void SendInvitation(const BaseTxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const BaseTxBuilder& builder);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
@@ -80,11 +75,10 @@ namespace beam::wallet
             OK,
         };
 
-        AssetCheckResult CheckAsset(const BaseTxBuilder& builder);
+        AssetCheckResult CheckAsset(Asset::ID);
         AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
-        bool m_withAssets;
 
-    private:
-        std::shared_ptr<BaseTxBuilder> m_TxBuilder;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> m_TxBuilder;
     };
 }

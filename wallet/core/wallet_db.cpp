@@ -2297,18 +2297,12 @@ namespace beam::wallet
         return selectCoinsEx(amount, assetId, false);
     }
 
-    static void DecreaseAmount(Amount& x, Amount val)
+    void WalletDB::selectCoins2(Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
-        if (x > val)
-            x -= val;
-        else
-            x = 0;
-    }
-
-    void WalletDB::selectCoins2(Amount amount, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
-    {
-        if (!amount)
+        if (!nTrg)
             return;
+
+        Amount nSel = 0;
 
         vector<ShieldedCoin> vShielded;
         size_t iPosShielded = 0;
@@ -2342,13 +2336,13 @@ namespace beam::wallet
                 if (n < 0) // don't spend unless have to
                     break;
 
-                if (!n && !amount) // don't spend if amount already reached
+                if (!n && (nSel >= nTrg)) // don't spend if amount already reached
                     break;
 
                 if (!aid)
-                    amount += feeShielded;
+                    nTrg += feeShielded;
 
-                DecreaseAmount(amount, x.m_CoinID.m_Value);
+                nSel += x.m_CoinID.m_Value;
                 vSelShielded.push_back(x);
 
                 if (vSelShielded.size() == nMaxShielded)
@@ -2356,32 +2350,52 @@ namespace beam::wallet
             }
         }
 
-        if (amount)
-        {
-            vSelStd = selectCoinsEx(amount, aid, true);
+        Amount nSelStd = selectCoinsStd(nTrg, nSel, aid, vSelStd);
+        nSel += nSelStd;
 
-            for (size_t i = 0; i < vSelStd.size(); i++)
-                DecreaseAmount(amount, vSelStd[i].m_ID.m_Value);
-        }
-        else
-            vSelStd.clear();
+        if (nSel >= nTrg)
+            return; // ok
 
-        for (; amount && (iPosShielded < vShielded.size()) && (vSelShielded.size() < nMaxShielded); iPosShielded++)
+        for (; (nSel < nTrg) && (iPosShielded < vShielded.size()) && (vSelShielded.size() < nMaxShielded); iPosShielded++)
         {
             if (!aid)
-                amount += feeShielded;
+                nTrg += feeShielded;
 
             const ShieldedCoin& x = vShielded[iPosShielded];
-            DecreaseAmount(amount, x.m_CoinID.m_Value);
+            nSel += x.m_CoinID.m_Value;
             vSelShielded.push_back(x);
         }
 
-        if (amount && !bCanReturnLess)
+        if (nSel > nTrg)
+        {
+            // re-select the std coins. Maybe less would be neeed now
+            nSel -= nSelStd;
+            nSelStd = selectCoinsStd(nTrg, nSel, aid, vSelStd);
+            nSel += nSelStd;
+        }
+
+        if ((nSel < nTrg) && !bCanReturnLess)
         {
             // failed to select needed amount. By convention don't return anything
             vSelStd.clear();
             vSelShielded.clear();
         }
+    }
+
+    Amount WalletDB::selectCoinsStd(Amount nTrg, Amount nSel, Asset::ID aid, std::vector<Coin>& vSelStd)
+    {
+        Amount nSelStd = 0;
+        if (nSel < nTrg)
+        {
+            vSelStd = selectCoinsEx(nTrg - nSel, aid, true);
+
+            for (size_t i = 0; i < vSelStd.size(); i++)
+                nSelStd += vSelStd[i].m_ID.m_Value;
+        }
+        else
+            vSelStd.clear();
+
+        return nSelStd;
     }
 
     vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool bCanReturnLess)
@@ -3213,8 +3227,6 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::TransactionType, p.m_txType, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Amount, p.m_amount, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Fee, p.m_fee, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetMetadata, p.m_assetMeta, false);
         if (p.m_minHeight)
@@ -3696,6 +3708,8 @@ namespace beam::wallet
 
             saveAddress(ch.get_myAddr(), true);
         }
+
+        flushDB();
     }
 
     bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,

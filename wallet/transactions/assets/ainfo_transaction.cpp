@@ -102,7 +102,7 @@ namespace beam::wallet
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
             }
 
@@ -110,7 +110,7 @@ namespace beam::wallet
             {
                 if (GetAssetID() != info.m_ID)
                 {
-                    OnFailed(TxFailureReason::InvalidAssetId, true);
+                    OnFailed(TxFailureReason::InvalidAssetId);
                     return;
                 }
             }
@@ -119,7 +119,7 @@ namespace beam::wallet
             {
                 if(GetAssetOwnerID() != info.m_Owner)
                 {
-                    OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                    OnFailed(TxFailureReason::InvalidAssetOwnerId);
                     return;
                 }
             }

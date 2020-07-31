@@ -18,12 +18,9 @@
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "aunregister_tx_builder.h"
 
 namespace beam::wallet
 {
-    class BaseTxBuilder;
-
     class AssetUnregisterTransaction : public AssetTransaction
     {
     public:
@@ -43,15 +40,11 @@ namespace beam::wallet
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        void ConfirmAsset();
-        AssetUnregisterTxBuilder& GetTxBuilder();
 
         enum State : uint8_t
         {
             Initial,
-            AssetConfirmation,
             AssetCheck,
-            Making,
             Registration,
             KernelConfirmation,
             Finalizing
@@ -59,6 +52,7 @@ namespace beam::wallet
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetUnregisterTxBuilder> _builder;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> _builder;
     };
 }

@@ -113,7 +113,7 @@ namespace beam::wallet::lelantus
 
     BaseTransaction::Ptr UnlinkFundsTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new UnlinkFundsTransaction(context, m_withAssets));
+        return BaseTransaction::Ptr(new UnlinkFundsTransaction(context));
     }
 
     TxParameters UnlinkFundsTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -121,10 +121,8 @@ namespace beam::wallet::lelantus
         return parameters;
     }
 
-    UnlinkFundsTransaction::UnlinkFundsTransaction(const TxContext& context
-        , bool withAssets)
+    UnlinkFundsTransaction::UnlinkFundsTransaction(const TxContext& context)
         : BaseTransaction(context)
-        , m_withAssets(withAssets)
     {
 
     }
@@ -245,7 +243,7 @@ namespace beam::wallet::lelantus
 
     void UnlinkFundsTransaction::CreateInsertTransaction()
     {
-        PushTransaction::Creator creator(GetWalletDB(), m_withAssets);
+        PushTransaction::Creator creator(GetWalletDB());
         BaseTransaction::Creator& baseCreator = creator;
 
         struct PushTxGateway : public UnlinkTxBaseGateway
@@ -296,7 +294,7 @@ namespace beam::wallet::lelantus
 
     void UnlinkFundsTransaction::CreateExtractTransaction()
     {
-        PullTransaction::Creator creator(m_withAssets);
+        PullTransaction::Creator creator;
         BaseTransaction::Creator& baseCreator = creator;
 
         struct PullTxGateway : public UnlinkTxBaseGateway

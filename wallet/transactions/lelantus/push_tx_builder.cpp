@@ -18,18 +18,21 @@
 
 namespace beam::wallet::lelantus
 {
-    PushTxBuilder::PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets)
-        : BaseTxBuilder(tx, kDefaultSubTxID, amount, fee)
+    PushTxBuilder::PushTxBuilder(BaseTransaction& tx)
+        : BaseTxBuilder(tx, kDefaultSubTxID)
     {
+        m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
+        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID);
+
+        ECC::Hash::Value hv;
+        if (m_Tx.GetParameter(TxParameterID::KernelID, hv, m_SubTxID))
+            m_Signing = Stage::Done;
     }
 
-    bool PushTxBuilder::SignSendShielded()
+    void PushTxBuilder::SignSendShielded()
     {
-        if (m_Kernel || m_pTransaction)
-            return false; // already signed
-
-        if (m_Signing)
-            return true;
+        if (Stage::None != m_Signing)
+            return;
 
         struct MyHandler
             :public KeyKeeperHandler
@@ -43,12 +46,16 @@ namespace beam::wallet::lelantus
             virtual void OnSuccess(BaseTxBuilder& b_) override
             {
                 PushTxBuilder& b = Cast::Up<PushTxBuilder>(b_);
-                b.m_Kernel = std::move(m_Method.m_pKernel);
 
-                b.m_Offset += m_Method.m_kOffset;
-                b.m_Tx.SetParameter(TxParameterID::Offset, b.m_Offset, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::KernelID, b.m_Kernel->m_Internal.m_ID, b.m_SubTxID);
+                b.AddOffset(m_Method.m_kOffset);
+
+                b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel, b.m_SubTxID);
+                b.m_Tx.SetParameter(TxParameterID::KernelID, m_Method.m_pKernel->m_Internal.m_ID, b.m_SubTxID);
                 b.m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, m_Method.m_Voucher.m_Ticket.m_SerialPub);
+
+                b.m_pTransaction->m_vKernels.push_back(std::move(m_Method.m_pKernel));
+                b.m_pTransaction->Normalize();
+                b.VerifyTx();
 
                 OnAllDone(b);
             }
@@ -100,11 +107,9 @@ namespace beam::wallet::lelantus
                     m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
 
                     if (!res)
-                        return true;
+                        return;
 
                     vouchers.push_back(std::move(*res));
-
-                    return true;
                 }
             }
 
@@ -135,8 +140,8 @@ namespace beam::wallet::lelantus
         {
             // sending to yourself
             pars.m_Output.m_User = m.m_User;
-            pars.m_Output.m_Value = GetAmount();
-            pars.m_Output.m_AssetID = GetAssetId();
+            pars.m_Output.m_Value = m_Value;
+            pars.m_Output.m_AssetID = m_AssetID;
 
 
             // save shielded Coin
@@ -150,8 +155,6 @@ namespace beam::wallet::lelantus
         }
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(m, pHandler);
-
-        return true;
 
     }
 

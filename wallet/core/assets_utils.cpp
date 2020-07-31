@@ -65,7 +65,7 @@ namespace beam::wallet {
     void WalletAssetMeta::Parse()
     {
         _std = false;
-        _parsed = false;
+        _parsed = true;
 
         const auto STD_LEN = std::size(STD_META_MARK) - 1;
         if(strncmp(_meta.c_str(), STD_META_MARK, STD_LEN) != 0) return;
@@ -121,7 +121,6 @@ namespace beam::wallet {
         };
 
         _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid();
-        _parsed = true;
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const

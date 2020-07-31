@@ -196,8 +196,8 @@ namespace beam::wallet
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
         void SendLockTxConfirmation(const LockTxBuilder& lockBuilder);
 
-        void SendSharedTxInvitation(const BaseTxBuilder& builder);
-        void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+        void SendSharedTxInvitation(const MutualTxBuilder& builder);
+        void ConfirmSharedTxInvitation(const MutualTxBuilder& builder);
         void SendQuickRefundPrivateKey();
 
 

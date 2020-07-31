@@ -799,6 +799,8 @@ namespace beam
 		void Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset);
 		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&, const Asset::Metadata&);
 
+		void get_Sk(ECC::Scalar::Native&, Key::IKdf&); // pseudo-random sk for this kernel
+
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);

@@ -243,8 +243,6 @@ namespace beam
     const char kErrorAssetNotFound[]         = "Asset not found in a local database. Check asset ID, update asset info using asset_info command or provide asset metadata";
     const char kErrorAssetNotOwned[]         = "You do not own the asset";
     const char kErrorAssetLoadMeta[]         = "Cannot load asset metadata";
-    const char kErrorAssetsFork2[]           = "Confidential assets can be used only after fork2";
-    const char kErrorAssetsDisabled[]        = "Confidential assets are disabled. Add --enable_assets to command line";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
