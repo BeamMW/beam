@@ -74,7 +74,7 @@ void TestAssets() {
     };
 
     const auto  receiverDB = createSqliteWalletDB("receiver_wallet.db", false, true);
-    const AmountList kDefaultTestAmounts = {50000000};
+    const AmountList kDefaultTestAmounts = {50000000000, 50000000000, 50000000000, 50000000000, 50000000000, 50000000000};
     const auto receiverTreasury = createTreasury(receiverDB, kDefaultTestAmounts);
 
     Node node;
@@ -674,8 +674,8 @@ int main () {
     rules.CA.LockPeriod       = 20;
     rules.MaxRollback         = 20;
     rules.FakePoW             = true;
-    rules.pForks[1].m_Height  = 2;
-    rules.pForks[2].m_Height  = 4;
+    rules.pForks[1].m_Height  = 5;
+    rules.pForks[2].m_Height  = 10;
     rules.UpdateChecksum();
 
     TestAssets();
