@@ -182,7 +182,7 @@ void TestAssets() {
         auto db = owner ? ownerDB : receiverDB;
         tx = getTx(db, txid);
         WALLET_CHECK(tx.m_txId == txid);
-        WALLET_CHECK(db->getTxHistory(wallet::TxType::ALL).size() == owner ? ++ownerTxCnt : ++receiverTxCnt);
+        WALLET_CHECK(db->getTxHistory(wallet::TxType::ALL).size() == (owner ? ++ownerTxCnt : ++receiverTxCnt));
     };
 
     //
