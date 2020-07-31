@@ -161,8 +161,8 @@ void TestAssets() {
 
     const auto getTx = [&](const IWalletDB::Ptr& db, TxID txid) -> auto {
       const auto otx = db->getTx(txid);
-      WALLET_CHECK(otx.has_value());
-      return otx.has_value() ? otx.value(): TxDescription();
+      WALLET_CHECK(otx.is_initialized());
+      return otx.is_initialized() ? *otx : TxDescription();
     };
 
     TxDescription tx;
@@ -475,8 +475,8 @@ void TestAssets() {
 
     // wait until asset2 becomes unlocked (asset1 becomes unlocked earlier)
     auto asset2 = ownerDB->findAsset(ASSET2_ID);
-    WALLET_CHECK(asset2.has_value());
-    waitBlock = asset2.value().m_LockHeight + Rules::get().CA.LockPeriod + 1;
+    WALLET_CHECK(asset2.is_initialized());
+    waitBlock = asset2->m_LockHeight + Rules::get().CA.LockPeriod + 1;
     reactor->run();
 
     // send half of asset #1
@@ -626,8 +626,8 @@ void TestAssets() {
 
     // wait until asset2 becomes unlocked (asset1 becomes unlocked earlier)
     asset2 = ownerDB->findAsset(ASSET2_ID);
-    WALLET_CHECK(asset2.has_value());
-    waitBlock = asset2.value().m_LockHeight + Rules::get().CA.LockPeriod + 1;
+    WALLET_CHECK(asset2.is_initialized());
+    waitBlock = asset2->m_LockHeight + Rules::get().CA.LockPeriod + 1;
     reactor->run();
 
     // unregister asset #1
