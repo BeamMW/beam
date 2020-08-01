@@ -1136,122 +1136,72 @@ namespace beam::wallet
 
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamLockTx()
     {
-        // load state
-        SubTxState lockTxState = SubTxState::Initial;
-        GetParameter(TxParameterID::State, lockTxState, SubTxIndex::BEAM_LOCK_TX);
+        SubTxState state0 = SubTxState::Initial;
+        GetParameter(TxParameterID::State, state0, SubTxIndex::BEAM_LOCK_TX);
+        SubTxState state = state0;
 
-        bool isBeamOwner = IsBeamSide();
-        Amount fee = 0;
-        // Receiver must get fee along with LockTX invitation, beam owner should have fee
-        if (!GetParameter<Amount>(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX))
-        {
-            if (isBeamOwner)
-            {
-                OnSubTxFailed(TxFailureReason::FailedToGetParameter, SubTxIndex::BEAM_LOCK_TX, true);
-            }
-            // else receiver don't have invitation from Beam side
-            return lockTxState;
+        try {
+            BuildBeamLockTxGuarded(state);
         }
+        catch (const TransactionFailedException& ex)
+        {
+            OnSubTxFailed(ex.GetReason(), SubTxIndex::BEAM_LOCK_TX, ex.ShouldNofify());
+        }
+
+        if (state != state0)
+            SetState(state, SubTxIndex::BEAM_LOCK_TX);
+
+        return state;
+    }
+
+    void AtomicSwapTransaction::BuildBeamLockTxGuarded(SubTxState& lockTxState)
+    {
+        bool isBeamOwner = IsBeamSide();
 
         if (!m_pLockBuiler)
-            m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
-        LockTxBuilder* lockTxBuilder = m_pLockBuiler.get();
+        {
+            Amount fee = 0;
+            // Receiver must get fee along with LockTX invitation, beam owner should have fee
+            if (!GetParameter<Amount>(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX))
+            {
+                if (isBeamOwner)
+                    OnSubTxFailed(TxFailureReason::FailedToGetParameter, SubTxIndex::BEAM_LOCK_TX, true);
+                // else receiver don't have invitation from Beam side
+                return;
+            }
 
-        if (lockTxBuilder->m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
+            m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount());
+        }
+        LockTxBuilder& builder = *m_pLockBuiler.get();
+
+        if (builder.m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
         {
             if (isBeamOwner)
             {
-                lockTxBuilder->MakeInputsAndChanges();
-                lockTxBuilder->SaveCoins();
+                builder.MakeInputsAndChanges();
+                builder.SaveCoins();
             }
         }
 
-        lockTxBuilder->GenerateInOuts();
-        lockTxBuilder->LoadSharedParameters();
-
-        if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
+        if (!builder.SignTx())
         {
-            if (lockTxState == SubTxState::Initial && isBeamOwner)
-            {
-                lockTxBuilder->SignSender(true, false);
-                if (lockTxBuilder->IsSigning())
-                    return lockTxState;
-                SendLockTxInvitation(*lockTxBuilder);
-                SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
+            if (MutualTxBuilder2::Status::None != builder.m_Status)
+                UpdateTxDescription(TxStatus::InProgress);
+
+            if (MutualTxBuilder2::Status::HalfSent == builder.m_Status)
                 lockTxState = SubTxState::Invitation;
-            }
-            return lockTxState;
+
+            return;
         }
 
-        assert(fee);
-        lockTxBuilder->CreateKernel();
-
-        if (isBeamOwner)
-            lockTxBuilder->SignSender(false, false);
-        else
-            lockTxBuilder->SignReceiver(false);
-
-        if (lockTxBuilder->IsGeneratingInOuts() || lockTxBuilder->IsSigning())
-            return lockTxState;
-
-        if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
-        {
-            if (!lockTxBuilder->CreateSharedUTXOProofPart2(isBeamOwner))
-            {
-                OnSubTxFailed(TxFailureReason::FailedToCreateMultiSig, SubTxIndex::BEAM_LOCK_TX, true);
-                return lockTxState;
-            }
-
-            if (!lockTxBuilder->CreateSharedUTXOProofPart3(isBeamOwner))
-            {
-                OnSubTxFailed(TxFailureReason::FailedToCreateMultiSig, SubTxIndex::BEAM_LOCK_TX, true);
-                return lockTxState;
-            }
-
-            SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
-            lockTxState = SubTxState::Constructed;
-
-            UpdateTxDescription(TxStatus::InProgress);
-
-            if (!isBeamOwner)
-            {
-                // send part2/part3!
-                SendLockTxConfirmation(*lockTxBuilder);
-                return lockTxState;
-            }
-        }
-
-        if (!lockTxBuilder->GetPeerSignature())
-        {
-            return lockTxState;
-        }
-
-        if (!lockTxBuilder->IsPeerSignatureValid())
-        {
-            OnSubTxFailed(TxFailureReason::InvalidPeerSignature, SubTxIndex::BEAM_LOCK_TX, true);
-            return lockTxState;
-        }
-
-        lockTxBuilder->FinalizeSignature();
+        lockTxState = SubTxState::Constructed;
 
         if (isBeamOwner)
         {
-            assert(lockTxState == SubTxState::Constructed);
-            // Create TX
-            auto transaction = lockTxBuilder->CreateTransaction();
-            TxBase::Context::Params pars;
-            TxBase::Context context(pars);
-            context.m_Height.m_Min = lockTxBuilder->GetMinHeight();
-            if (!transaction->IsValid(context))
-            {
-                OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::BEAM_LOCK_TX, true);
-                return lockTxState;
-            }
-
-            m_LockTx = transaction;
+            builder.FinalyzeTx();
+            m_LockTx = builder.m_pTransaction;
         }
 
-        return lockTxState;
     }
 
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx)
@@ -1591,47 +1541,6 @@ namespace beam::wallet
     {
         SetTxParameter msg;
         m_secondSide->AddTxDetails(msg);
-
-        if (!SendTxParameters(std::move(msg)))
-        {
-            OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
-
-    void AtomicSwapTransaction::SendLockTxInvitation(const LockTxBuilder& lockBuilder)
-    {
-        auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
-
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion)
-            .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
-            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
-            .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
-            .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
-            .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
-
-        if (!SendTxParameters(std::move(msg)))
-        {
-            OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
-
-    void AtomicSwapTransaction::SendLockTxConfirmation(const LockTxBuilder& lockBuilder)
-    {
-        auto bulletProof = lockBuilder.GetSharedProof();
-
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion)
-            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
-            .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerSignature, lockBuilder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerOffset, lockBuilder.m_pTransaction->m_Offset)
-            .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
-            .AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3)
-            .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
 
         if (!SendTxParameters(std::move(msg)))
         {
