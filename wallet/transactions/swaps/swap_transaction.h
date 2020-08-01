@@ -203,6 +203,8 @@ namespace beam::wallet
         void BuildBeamRefundTxGuarded(SubTxState&, Transaction::Ptr&);
         bool SetWithdrawParams(bool bTxOwner, SubTxID);
 
+        SubTxState BuildBeamSubTx(SubTxID subTxID, Transaction::Ptr& pRes);
+
         SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
         bool CompleteBeamWithdrawTx(SubTxID subTxID);
                 

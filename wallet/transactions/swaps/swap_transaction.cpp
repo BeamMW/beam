@@ -1134,24 +1134,41 @@ namespace beam::wallet
         return true;
     }
 
-    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamLockTx()
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamSubTx(SubTxID subTxID, Transaction::Ptr& pRes)
     {
         SubTxState state0 = SubTxState::Initial;
-        GetParameter(TxParameterID::State, state0, SubTxIndex::BEAM_LOCK_TX);
+        GetParameter(TxParameterID::State, state0, subTxID);
         SubTxState state = state0;
 
         try {
-            BuildBeamLockTxGuarded(state);
+
+            switch (subTxID)
+            {
+            case SubTxIndex::BEAM_LOCK_TX:
+                BuildBeamLockTxGuarded(state);
+                break;
+
+            case SubTxIndex::BEAM_REFUND_TX:
+                BuildBeamRefundTxGuarded(state, pRes);
+                break;
+            }
+
         }
         catch (const TransactionFailedException& ex)
         {
-            OnSubTxFailed(ex.GetReason(), SubTxIndex::BEAM_LOCK_TX, ex.ShouldNofify());
+            OnSubTxFailed(ex.GetReason(), subTxID, ex.ShouldNofify());
         }
 
         if (state != state0)
-            SetState(state, SubTxIndex::BEAM_LOCK_TX);
+            SetState(state, subTxID);
 
         return state;
+    }
+
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamLockTx()
+    {
+        Transaction::Ptr pTx;
+        return BuildBeamSubTx(SubTxIndex::BEAM_LOCK_TX, pTx);
     }
 
     void AtomicSwapTransaction::BuildBeamLockTxGuarded(SubTxState& lockTxState)
@@ -1341,26 +1358,10 @@ namespace beam::wallet
 
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx)
     {
-        SubTxState subTxState = GetSubTxState(subTxID);
-
         if (SubTxIndex::BEAM_REFUND_TX == subTxID)
-        {
-            SubTxState state0 = subTxState;
+            return BuildBeamSubTx(SubTxIndex::BEAM_REFUND_TX, resultTx);
 
-            try {
-                BuildBeamRefundTxGuarded(subTxState, resultTx);
-            }
-            catch (const TransactionFailedException& ex)
-            {
-                OnSubTxFailed(ex.GetReason(), SubTxIndex::BEAM_REFUND_TX, ex.ShouldNofify());
-            }
-
-            if (subTxState != state0)
-                SetState(subTxState, SubTxIndex::BEAM_REFUND_TX);
-
-            return subTxState;
-
-        }
+        SubTxState subTxState = GetSubTxState(subTxID);
 
         assert(SubTxIndex::BEAM_REDEEM_TX == subTxID);
         bool isTxOwner = !IsBeamSide();
