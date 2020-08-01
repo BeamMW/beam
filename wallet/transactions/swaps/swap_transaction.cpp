@@ -1192,25 +1192,22 @@ namespace beam::wallet
         }
         LockTxBuilder& builder = *m_pLockBuiler.get();
 
-        if (builder.m_Coins.IsEmpty() && lockTxState == SubTxState::Initial)
+        if (SubTxState::Initial == lockTxState)
         {
+            assert(builder.m_Coins.IsEmpty());
+
             if (isBeamOwner)
             {
                 builder.MakeInputsAndChanges();
                 builder.SaveCoins();
             }
+
+            lockTxState = SubTxState::Invitation;
+            UpdateTxDescription(TxStatus::InProgress);
         }
 
         if (!builder.SignTx())
-        {
-            if (MutualTxBuilder2::Status::None != builder.m_Status)
-                UpdateTxDescription(TxStatus::InProgress);
-
-            if (MutualTxBuilder2::Status::HalfSent == builder.m_Status)
-                lockTxState = SubTxState::Invitation;
-
             return;
-        }
 
         lockTxState = SubTxState::Constructed;
 
@@ -1320,27 +1317,26 @@ namespace beam::wallet
         if (!builder.AddSharedOffset())
             return;
 
-        if (builder.m_Coins.IsEmpty() && isBeamOwner)
+        if (SubTxState::Initial == subTxState)
         {
-            CoinID cid;
-            cid.m_Type = Key::Type::Regular;
-            cid.m_Value = builder.m_Amount;
-            builder.CreateAddNewOutput(cid);
+            assert(builder.m_Coins.IsEmpty());
 
-            builder.SaveCoins();
+            if (isBeamOwner)
+            {
+                CoinID cid;
+                cid.m_Type = Key::Type::Regular;
+                cid.m_Value = builder.m_Amount;
+                builder.CreateAddNewOutput(cid);
+
+                builder.SaveCoins();
+            }
+
+            subTxState = SubTxState::Invitation;
+            UpdateTxDescription(TxStatus::InProgress);
         }
-
 
         if (!builder.SignTx())
-        {
-            if (MutualTxBuilder2::Status::None != builder.m_Status)
-                UpdateTxDescription(TxStatus::InProgress);
-
-            if (MutualTxBuilder2::Status::HalfSent == builder.m_Status)
-                subTxState = SubTxState::Invitation;
-
             return;
-        }
 
         subTxState = SubTxState::Constructed;
 
