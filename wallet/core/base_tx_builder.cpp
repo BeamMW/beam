@@ -1377,13 +1377,11 @@ namespace beam::wallet
 
 
 
-    SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList)
+    SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         :BaseTxBuilder(tx, subTxID)
-        , m_AmountList{ amountList }
-        , m_Lifetime{ kDefaultTxLifetime }
+        ,m_Lifetime(kDefaultTxLifetime)
     {
-        if (m_AmountList.empty())
-            GetParameter(TxParameterID::AmountList, m_AmountList);
+        GetParameter(TxParameterID::Amount, m_Amount);
 
         GetParameter(TxParameterID::AssetID, m_AssetID);
         GetParameter(TxParameterID::Lifetime, m_Lifetime);
@@ -1398,7 +1396,7 @@ namespace beam::wallet
 
     void SimpleTxBuilder::MakeInputsAndChanges()
     {
-        Amount val = GetAmount();
+        Amount val = m_Amount;
 
         if (m_AssetID)
         {
@@ -1492,8 +1490,8 @@ namespace beam::wallet
 		}
     }
 
-    MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList)
-        :SimpleTxBuilder(tx, subTxID, amountList)
+    MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID)
+        :SimpleTxBuilder(tx, subTxID)
     {
         GetParameterStrict(TxParameterID::IsSender, m_IsSender);
 
@@ -1791,12 +1789,6 @@ namespace beam::wallet
             GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
-    }
-
-
-    Amount SimpleTxBuilder::GetAmount() const
-    {
-        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
     }
 
     string SimpleTxBuilder::GetKernelIDString() const

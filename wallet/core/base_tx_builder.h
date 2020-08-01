@@ -248,10 +248,10 @@ namespace beam::wallet
         :public BaseTxBuilder
     {
     public:
-        SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
+        SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID);
         virtual ~SimpleTxBuilder() = default;
 
-        AmountList m_AmountList;
+        Amount m_Amount = 0;
         Asset::ID m_AssetID = 0;
 
         Height m_Lifetime;
@@ -260,8 +260,6 @@ namespace beam::wallet
 
         void MakeInputsAndChanges();
         void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
-
-        Amount GetAmount() const;
 
         std::string GetKernelIDString() const;
 
@@ -294,7 +292,7 @@ namespace beam::wallet
         :public SimpleTxBuilder
     {
     public:
-        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
+        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID);
         virtual ~MutualTxBuilder2() = default;
 
         bool m_IsSender = false;

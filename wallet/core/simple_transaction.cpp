@@ -96,7 +96,7 @@ namespace beam::wallet
         if (m_IsSender)
         {
             msg
-                .AddParameter(TxParameterID::Amount, GetAmount())
+                .AddParameter(TxParameterID::Amount, m_Amount)
                 .AddParameter(TxParameterID::AssetID, m_AssetID)
                 .AddParameter(TxParameterID::Fee, m_Fee)
                 .AddParameter(TxParameterID::MinHeight, m_Height.m_Min)
@@ -122,7 +122,7 @@ namespace beam::wallet
                 if (bSuccess)
                 {
                     pc.m_Sender = widPeer.m_Pk;
-                    pc.m_Value = GetAmount();
+                    pc.m_Value = m_Amount;
                     pc.m_AssetID = m_AssetID;
                     pc.m_KernelID = m_pKrn->m_Internal.m_ID;
 
@@ -147,19 +147,13 @@ namespace beam::wallet
 
     void SimpleTransaction::UpdateImpl()
     {
-        AmountList amoutList;
-        if (!GetParameter(TxParameterID::AmountList, amoutList))
-        {
-            amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
-        }
-
         if (!m_TxBuilder)
         {
             m_IsSelfTx = IsSelfTx();
 
             m_TxBuilder = m_IsSelfTx ?
-                make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID, amoutList) :
-                make_shared<MyBuilder>(*this, kDefaultSubTxID, amoutList);
+                make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID) :
+                make_shared<MyBuilder>(*this, kDefaultSubTxID);
         }
 
         auto sharedBuilder = m_TxBuilder; // extra ref?
@@ -200,7 +194,7 @@ namespace beam::wallet
                 && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
             stringstream ss;
             ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
-                << PrintableAmount(builder.GetAmount(), false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
+                << PrintableAmount(builder.m_Amount, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             if (builder.m_AssetID)
@@ -228,12 +222,16 @@ namespace beam::wallet
             }
             else
             {
+                AmountList amoutList;
+                if (!GetParameter(TxParameterID::AmountList, amoutList))
+                    amoutList = AmountList{ builder.m_Amount };
+
                 CoinID cid;
                 cid.m_AssetID = builder.m_AssetID;
                 cid.m_Type = Key::Type::Regular;
 
                 // create receiver utxo
-                for (const auto& amount : builder.m_AmountList)
+                for (const auto& amount : amoutList)
                 {
                     cid.m_Value = amount;
                     builder.CreateAddNewOutput(cid);

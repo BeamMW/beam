@@ -1225,8 +1225,8 @@ namespace beam::wallet
     struct AtomicSwapTransaction::WithdrawTxBuilder
         :public MutualTxBuilder2
     {
-        WithdrawTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount)
-            :MutualTxBuilder2(tx, subTxID, amount)
+        WithdrawTxBuilder(BaseTransaction& tx, SubTxID subTxID)
+            :MutualTxBuilder2(tx, subTxID)
         {
             m_Lifetime = 0; // disable auto max height adjustment
         }
@@ -1268,7 +1268,7 @@ namespace beam::wallet
             if (m_IsSender)
             {
                 msg
-                    .AddParameter(TxParameterID::Amount, GetAmount())
+                    .AddParameter(TxParameterID::Amount, m_Amount) // legacy
                     .AddParameter(TxParameterID::Fee, m_Fee)
                     .AddParameter(TxParameterID::MinHeight, m_Height.m_Min); // legacy, for older peers. Current proto automatically deduces it on both sides
             }
@@ -1313,9 +1313,7 @@ namespace beam::wallet
             if (!SetWithdrawParams(isTxOwner, SubTxIndex::BEAM_REFUND_TX))
                 return;
 
-            AmountList lst;
-            lst.push_back(GetMandatoryParameter<Amount>(TxParameterID::Amount, SubTxIndex::BEAM_REFUND_TX));
-            m_pRefundBuiler = std::make_shared<WithdrawTxBuilder>(*this, SubTxIndex::BEAM_REFUND_TX, lst);
+            m_pRefundBuiler = std::make_shared<WithdrawTxBuilder>(*this, SubTxIndex::BEAM_REFUND_TX);
         }
 
         WithdrawTxBuilder& builder = *m_pRefundBuiler;
@@ -1326,7 +1324,7 @@ namespace beam::wallet
         {
             CoinID cid;
             cid.m_Type = Key::Type::Regular;
-            cid.m_Value = builder.GetAmount();
+            cid.m_Value = builder.m_Amount;
             builder.CreateAddNewOutput(cid);
 
             builder.SaveCoins();

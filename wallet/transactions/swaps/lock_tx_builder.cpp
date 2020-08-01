@@ -20,8 +20,9 @@ using namespace ECC;
 namespace beam::wallet
 {
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount)
-        : MutualTxBuilder2(tx, SubTxIndex::BEAM_LOCK_TX, { amount })
+        :MutualTxBuilder2(tx, SubTxIndex::BEAM_LOCK_TX)
     {
+        m_Amount = amount;
         if (!GetParameter(TxParameterID::SharedBlindingFactor, m_Sk))
         {
             ECC::Hash::Value& tmp = m_SeedSk.V;
@@ -89,7 +90,7 @@ namespace beam::wallet
 
         // Shared seed: Hash(A_commitment | B_commitment)
         ECC::RangeProof::CreatorParams cp;
-        cp.m_Value = GetAmount();
+        cp.m_Value = m_Amount;
 
         GetParameterStrict(TxParameterID::PeerPublicSharedBlindingFactor, outp.m_Commitment);
 
