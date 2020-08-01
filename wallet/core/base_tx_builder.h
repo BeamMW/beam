@@ -269,13 +269,12 @@ namespace beam::wallet
             typedef uint8_t Type;
 
             static const Type None = 0;
-            static const Type Signed = 1; // kernel fully signed
-            static const Type FullTx = 2; //  transaction is fully built and validated
+            static const Type FullTx = 100; //  transaction is fully built and validated
+
+            static const Type SimpleSigned = 1; // kernel fully signed, in/outs ready
         };
 
         Status::Type m_Status = Status::None;
-
-        bool IsTxSigned() const; // Signed or FullTx
 
         void FinalyzeTx(); // normalize, verify, and set status
         // Call when all tx elements are added
@@ -300,9 +299,15 @@ namespace beam::wallet
         struct Status
             :public SimpleTxBuilder::Status
         {
-            static const Type Half = 5; // sender/receiver: done its part
-            static const Type HalfSent = 6;
-            static const Type PreSigned = 7; // almost full, ID is valid, only sender signature is missing
+            static const Type SndHalf = 1;
+            static const Type SndHalfSent = 2;
+            static const Type SndFullHalfSig = 3;
+            static const Type SndFull = 4;
+
+            static const Type RcvHalf = 1;
+            static const Type RcvFullHalfSig = 2;
+            static const Type RcvFullHalfSigSent = 3;
+
         };
 
         virtual bool SignTx() override;
@@ -312,12 +317,18 @@ namespace beam::wallet
         void SaveKernelID();
         void FinalyzeMaxHeight();
         void CreateKernel(TxKernelStd::Ptr&);
-        void UpdateSigning();
+        //void UpdateSigning();
         void SignSender(bool initial);
         void SignReceiver();
+        bool LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc);
+
+        void SignTxSender();
+        void SignTxReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
         virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
+        virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
+
     };
 
 }

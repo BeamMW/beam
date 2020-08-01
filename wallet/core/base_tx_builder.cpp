@@ -1411,39 +1411,27 @@ namespace beam::wallet
 
     bool SimpleTxBuilder::SignTx()
     {
-        GenerateInOuts();
-
-        if (!IsTxSigned())
-        {
-            if (!m_pKrn)
-            {
-                if (Stage::Done == m_Signing)
-                    ReadKernel();
-                else
-                    SignSplit();
-
-                if (!m_pKrn)
-                    return false;
-            }
-
-            SetStatus(Status::Signed);
-            // done
-        }
-
-        assert(m_pKrn);
-
-        return !IsGeneratingInOuts();
-    }
-
-    bool SimpleTxBuilder::IsTxSigned() const
-    {
-        switch (m_Status)
-        {
-        case Status::Signed:
-        case Status::FullTx:
+        if (m_Status >= Status::SimpleSigned)
             return true;
+
+        if (!m_pKrn)
+        {
+            if (Stage::Done == m_Signing)
+                ReadKernel();
+            else
+                SignSplit();
+
+            if (!m_pKrn)
+                return false;
         }
-        return false;
+
+        GenerateInOuts();
+        if (IsGeneratingInOuts())
+            return false;
+
+        SetStatus(Status::SimpleSigned);
+        return true;
+
     }
 
     void SimpleTxBuilder::FinalyzeTx()
@@ -1451,7 +1439,6 @@ namespace beam::wallet
         if (Status::FullTx == m_Status)
             return;
 
-        assert(Status::Signed == m_Status);
         assert(!IsGeneratingInOuts());
 
         FinalyzeTxInternal();
@@ -1526,84 +1513,23 @@ namespace beam::wallet
             AddKernel(pKrn);
     }
 
-    void MutualTxBuilder2::UpdateSigning()
+    void MutualTxBuilder2::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
     {
-        if (Stage::InProgress == m_Signing)
-            return;
-        m_Signing = Stage::None;
+        GetParameterStrict(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k);
 
-        if (!m_pKrn)
-        {
-            ReadKernel();
-            if (!m_pKrn)
-            {
-                if (m_IsSender)
-                    SignSender(true);
-                else
-                {
-                    ECC::Point ptNonce, ptExc;
+        if (!m_pKrn->m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce, ptExc))
+            throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
 
-                    if (GetParameter(TxParameterID::PeerPublicNonce, ptNonce) &&
-                        GetParameter(TxParameterID::PeerPublicExcess, ptExc))
-                    {
-                        FinalyzeMaxHeight();
+    }
 
-                        TxKernelStd::Ptr pKrn;
-                        CreateKernel(pKrn);
-                        pKrn->m_Commitment = ptExc;
-                        pKrn->m_Signature.m_NoncePub = ptNonce;
-
-                        AddKernel(pKrn);
-                        SaveKernel();
-                    }
-                }
-
-                if (!m_pKrn)
-                    return;
-            }
-        }
-
-        if (!m_IsSender)
-        {
-            if (Status::None == m_Status)
-                SignReceiver();
-            return;
-        }
-
-        if (Status::HalfSent == m_Status)
-        {
-            // check if receiver part is ready
-            ECC::Point ptNonce, ptExc;
-            ECC::Scalar k;
-
-            if (GetParameter(TxParameterID::PeerPublicNonce, ptNonce) &&
-                GetParameter(TxParameterID::PeerPublicExcess, ptExc) &&
-                GetParameter(TxParameterID::PeerSignature, k))
-            {
-                FinalyzeMaxHeight();
-                m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
-
-                ECC::Point::Native ptNonce_, ptExc_;
-
-                if (!Aggregate(m_pKrn->m_Commitment, ptExc_, ptExc) ||
-                    !Aggregate(m_pKrn->m_Signature.m_NoncePub, ptNonce_, ptNonce))
-                    throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
-
-                m_pKrn->UpdateID(); // must be valid already
-                m_pKrn->m_Signature.m_k = k;
-
-                if (!m_pKrn->m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce_, ptExc_))
-                    throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
-
-                // ok
-                SaveKernel();
-                SaveKernelID();
-                SetStatus(Status::PreSigned);
-            }
-        }
-
-        if (Status::PreSigned == m_Status)
-            SignSender(false);
+    bool MutualTxBuilder2::LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc)
+    {
+        ECC::Point pt;
+        return
+            GetParameter(TxParameterID::PeerPublicNonce, pt) &&
+            ptNonce.Import(pt) &&
+            GetParameter(TxParameterID::PeerPublicExcess, pt) &&
+            ptExc.Import(pt);
     }
 
     void MutualTxBuilder2::FinalyzeTxInternal()
@@ -1632,7 +1558,9 @@ namespace beam::wallet
 
     void MutualTxBuilder2::SignSender(bool initial)
     {
-        assert(Stage::None == m_Signing);
+        if (Stage::InProgress == m_Signing)
+            return;
+        m_Signing = Stage::None;
 
         struct MyHandler
             :public KeyKeeperHandler
@@ -1651,11 +1579,11 @@ namespace beam::wallet
                 {
                     // final, update the signature only
                     b.m_pKrn->m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
-                    b.SetStatus(Status::Signed);
+                    b.AddOffset(m_Method.m_kOffset);
 
                     b.m_Tx.FreeSlotSafe(); // release it ASAP
 
-                    b.AddOffset(m_Method.m_kOffset);
+                    b.SetStatus(Status::SndFull);
                 }
                 else
                 {
@@ -1663,7 +1591,7 @@ namespace beam::wallet
                     b.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement);
 
                     b.AddKernel(m_Method.m_pKernel);
-                    b.SetStatus(Status::Half);
+                    b.SetStatus(Status::SndHalf);
                 }
 
                 b.SaveKernel();
@@ -1729,7 +1657,9 @@ namespace beam::wallet
 
     void MutualTxBuilder2::SignReceiver()
     {
-        assert(Stage::None == m_Signing);
+        if (Stage::InProgress == m_Signing)
+            return;
+        m_Signing = Stage::None;
 
         struct MyHandler
             :public KeyKeeperHandler
@@ -1762,7 +1692,7 @@ namespace beam::wallet
                 b.m_pKrn->UpdateID();
                 b.SaveKernel();
                 b.SaveKernelID();
-                b.SetStatus(Status::Half);
+                b.SetStatus(Status::RcvFullHalfSig);
 
                 b.AddOffset(m_Method.m_kOffset);
 
@@ -1878,49 +1808,117 @@ namespace beam::wallet
         SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
     }
 
+
+
     bool MutualTxBuilder2::SignTx()
     {
         GenerateInOuts();
 
         if (m_IsSender)
         {
-            // should obtain the full tx
-            if (!IsTxSigned())
-            {
-                m_Tx.UpdateOnNextTip();
-
-                UpdateSigning();
-
-                if (Status::Half == m_Status)
-                {
-                    SetTxParameter msg;
-                    msg
-                        .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->m_Commitment)
-                        .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->m_Signature.m_NoncePub);
-
-                    SendToPeer(std::move(msg));
-
-                    SetStatus(Status::HalfSent);
-                }
-
-                if (Status::Signed != m_Status)
-                    return false;
-
-                // done
-            }
+            SignTxSender();
+            if ((m_Status >= Status::SndFull) && !IsGeneratingInOuts())
+                return true;
         }
         else
         {
-            m_Tx.UpdateOnNextTip();
-
-            if (Status::HalfSent != m_Status)
+            SignTxReceiver();
+            if (m_Status >= Status::RcvFullHalfSigSent)
             {
-                UpdateSigning();
+                assert(!IsGeneratingInOuts());
+                return true;
+            }
+        }
 
-                if (MutualTxBuilder2::Status::Half != m_Status)
-                    return false;
+        m_Tx.UpdateOnNextTip();
+        return false;
+    }
+
+    void MutualTxBuilder2::SignTxSender()
+    {
+        switch (m_Status)
+        {
+        case Status::None:
+            SignSender(true);
+            break;
+
+        case Status::SndHalf:
+            {
+                SetTxParameter msg;
+                msg
+                    .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->m_Commitment)
+                    .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->m_Signature.m_NoncePub);
+
+                SendToPeer(std::move(msg));
+
+                SetStatus(Status::SndHalfSent);
+            }
+            // no break;
+
+        case Status::SndHalfSent:
+            {
+                // check if receiver part is ready
+                ECC::Point::Native ptNonce, ptExc;
+                if (!LoadPeerPart(ptNonce, ptExc))
+                    break;
+
+                Aggregate(m_pKrn->m_Commitment, ptExc);
+                Aggregate(m_pKrn->m_Signature.m_NoncePub, ptNonce);
+
+                FinalyzeMaxHeight();
+                m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
+
+                m_pKrn->UpdateID(); // must be valid already
+                SaveKernelID();
+
+                AddPeerSignature(ptNonce, ptExc);
+
+                SaveKernel();
+
+                SetStatus(Status::SndFullHalfSig);
+
+            }
+            // no break;
+
+        case Status::SndFullHalfSig:
+            SignSender(false);
+        }
+    }
+
+    void MutualTxBuilder2::SignTxReceiver()
+    {
+        switch (m_Status)
+        {
+        case Status::None:
+            {
+                ECC::Point ptNonce, ptExc;
+
+                if (!GetParameter(TxParameterID::PeerPublicNonce, ptNonce) ||
+                    !GetParameter(TxParameterID::PeerPublicExcess, ptExc))
+                    break;
+
+                FinalyzeMaxHeight();
+
+                TxKernelStd::Ptr pKrn;
+                CreateKernel(pKrn);
+                pKrn->m_Commitment = ptExc;
+                pKrn->m_Signature.m_NoncePub = ptNonce;
+
+                AddKernel(pKrn);
+                SaveKernel();
+
+                SetStatus(Status::RcvHalf);
+            }
+            // no break;
+
+        case Status::RcvHalf:
+            SignReceiver();
+            break;
+
+        case Status::RcvFullHalfSig:
+            {
                 if (IsGeneratingInOuts())
-                    return false;
+                    break;
 
                 SetTxParameter msg;
                 msg
@@ -1937,22 +1935,10 @@ namespace beam::wallet
 
                 SendToPeer(std::move(msg));
 
-                SetStatus(Status::HalfSent);
-                // done
+                SetStatus(Status::RcvFullHalfSigSent);
             }
+
         }
-
-        assert(m_pKrn);
-
-        return !IsGeneratingInOuts();
     }
-
-
-
-
-
-
-
-
 
 }
