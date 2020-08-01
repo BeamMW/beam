@@ -1251,7 +1251,8 @@ namespace beam::wallet
             {
                 msg
                     .AddParameter(TxParameterID::Amount, GetAmount())
-                    .AddParameter(TxParameterID::Fee, m_Fee);
+                    .AddParameter(TxParameterID::Fee, m_Fee)
+                    .AddParameter(TxParameterID::MinHeight, m_Height.m_Min); // legacy, for older peers. Current proto automatically deduces it on both sides
             }
 
             std::move(msgSub.m_Parameters.begin(), msgSub.m_Parameters.end(), std::back_inserter(msg.m_Parameters));
@@ -1260,7 +1261,7 @@ namespace beam::wallet
 
     };
 
-    bool AtomicSwapTransaction::SetRefundParams(bool bTxOwner, SubTxID subTxID)
+    bool AtomicSwapTransaction::SetWithdrawParams(bool bTxOwner, SubTxID subTxID)
     {
         Amount val = 0;
 
@@ -1289,11 +1290,11 @@ namespace beam::wallet
 
         if (!m_pRefundBuiler)
         {
-            if (!SetRefundParams(isTxOwner, SubTxIndex::BEAM_REFUND_TX))
+            if (!SetWithdrawParams(isTxOwner, SubTxIndex::BEAM_REFUND_TX))
                 return;
 
             AmountList lst;
-            lst.push_back(GetMandatoryParameter<Height>(TxParameterID::Amount, SubTxIndex::BEAM_REFUND_TX));
+            lst.push_back(GetMandatoryParameter<Amount>(TxParameterID::Amount, SubTxIndex::BEAM_REFUND_TX));
             m_pRefundBuiler = std::make_shared<WithdrawTxBuilder>(*this, SubTxIndex::BEAM_REFUND_TX, lst);
         }
 
@@ -1361,47 +1362,17 @@ namespace beam::wallet
 
         }
 
-        bool isTxOwner = (IsBeamSide() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!IsBeamSide() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
-
-        Amount withdrawAmount = 0;
-        Amount withdrawFee = 0;
-        // Peer must get fee and amount along with WithdrawTX invitation, txOwner should have fee
-        if (!GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
-        {
-            if (isTxOwner)
-            {
-                OnSubTxFailed(TxFailureReason::FailedToGetParameter, subTxID, true);
-            }
-            return subTxState;
-        }
-
-        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID))
-        {
-            if (!isTxOwner)
-            {
-                // we don't have invitation from other side
-                return subTxState;
-            }
-            // initialize withdrawAmount
-            withdrawAmount = GetAmount() - withdrawFee;
-            SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
-        }
+        assert(SubTxIndex::BEAM_REDEEM_TX == subTxID);
+        bool isTxOwner = !IsBeamSide();
 
         if (!m_pSharedBuiler || (m_pSharedBuiler->GetSubTxID() != subTxID))
         {
-            Height h = 0;
-            if (!GetParameter(TxParameterID::MinHeight, h, subTxID))
-            {
-                // Get MinHeight from Lock TX
-                h = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+            if (!SetWithdrawParams(isTxOwner, subTxID))
+                return subTxState;
 
-                if (SubTxIndex::BEAM_REFUND_TX == subTxID)
-                    h += kBeamLockTimeInBlocks;
-
-                SetParameter(TxParameterID::MinHeight, h, subTxID);
-            }
-
-            m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID, withdrawAmount, withdrawFee);
+            m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID,
+                GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID),
+                GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID));
         }
 
         SharedTxBuilder* builder = m_pSharedBuiler.get();
@@ -1411,22 +1382,6 @@ namespace beam::wallet
 
         if (builder->m_pTransaction->m_vInputs.empty())
             builder->InitTx(isTxOwner);
-
-        // send invite to get 
-        if (subTxState == SubTxState::Initial)
-        {
-            {
-                // validate minHeight
-                auto minHeightLockTx = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
-                auto minHeight = builder->GetMinHeight();
-                if ((SubTxIndex::BEAM_REFUND_TX == subTxID && minHeight != minHeightLockTx + kBeamLockTimeInBlocks) ||
-                    (SubTxIndex::BEAM_REDEEM_TX == subTxID && minHeight != minHeightLockTx))
-                {
-                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, subTxID, true);
-                    return subTxState;
-                }
-            }
-        }
 
         builder->CreateKernel();
 
@@ -1454,12 +1409,6 @@ namespace beam::wallet
                     return subTxState;
                 // invited participant
                 ConfirmSharedTxInvitation(*builder);
-
-                if (subTxID == SubTxIndex::BEAM_REFUND_TX)
-                {
-                    SetState(SubTxState::Constructed, subTxID);
-                    subTxState = SubTxState::Constructed;
-                }
             }
             return subTxState;
         }
