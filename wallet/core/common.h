@@ -356,7 +356,6 @@ namespace beam::wallet
         PublicExcess = 165,
         MutualTxState = 166,
         SharedCoinID = 172,
-        SharedSeed = 173,
         SharedCommitment = 174,
 
         Inputs = 180,
