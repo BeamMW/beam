@@ -104,6 +104,29 @@ namespace beam::wallet
 
         void SignSplit();
 
+        template <typename T>
+        bool GetParameter(TxParameterID paramID, T& value) const {
+            return m_Tx.GetParameter(paramID, value, m_SubTxID);
+        }
+
+        template <typename T>
+        void GetParameterStrict(TxParameterID paramID, T& value) const {
+            if (!GetParameter(paramID, value))
+                throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        }
+
+        template <typename T>
+        T GetParameterStrict(TxParameterID paramID) const {
+            T value;
+            GetParameterStrict(paramID, value);
+            return std::move(value);
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value) {
+            return m_Tx.SetParameter(paramID, value, m_SubTxID);
+        }
+
     protected:
 
         virtual bool IsConventional() { return true; }
@@ -137,7 +160,7 @@ namespace beam::wallet
         void SaveAndStore(T2& dest, TxParameterID parameterID, const T1& source)
         {
             dest = source;
-            m_Tx.SetParameter(parameterID, dest, m_SubTxID);
+            SetParameter(parameterID, dest);
         }
 
         struct HandlerInOuts;

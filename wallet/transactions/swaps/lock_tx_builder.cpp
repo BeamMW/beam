@@ -22,12 +22,12 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount)
         : MutualTxBuilder2(tx, SubTxIndex::BEAM_LOCK_TX, { amount })
     {
-        if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_Sk, m_SubTxID))
+        if (!GetParameter(TxParameterID::SharedBlindingFactor, m_Sk))
         {
             ECC::Hash::Value& tmp = m_SeedSk.V;
             ECC::GenRandom(tmp);
             m_Tx.get_MasterKdfStrict()->DeriveKey(m_Sk, tmp);
-            m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_Sk, m_SubTxID);
+            SetParameter(TxParameterID::SharedBlindingFactor, m_Sk);
 
             AddOffset(-m_Sk);
         }
@@ -91,8 +91,7 @@ namespace beam::wallet
         ECC::RangeProof::CreatorParams cp;
         cp.m_Value = GetAmount();
 
-        if (!m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, outp.m_Commitment, m_SubTxID))
-            throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        GetParameterStrict(TxParameterID::PeerPublicSharedBlindingFactor, outp.m_Commitment);
 
         ECC::Hash::Processor()
             << (m_IsSender ? m_PubKey : outp.m_Commitment)
@@ -109,11 +108,10 @@ namespace beam::wallet
 
         pt.Export(outp.m_Commitment);
 
-        m_Tx.SetParameter(TxParameterID::SharedCommitment, outp.m_Commitment, m_SubTxID);
+        SetParameter(TxParameterID::SharedCommitment, outp.m_Commitment);
 
         // proof: Part1, aggregated Part2
-        if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, proof.m_Part2, m_SubTxID))
-            throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        GetParameterStrict(TxParameterID::PeerSharedBulletProofPart2, proof.m_Part2);
 
         Oracle o1;
         outp.Prepare(o1, m_Height.m_Min);
@@ -125,8 +123,7 @@ namespace beam::wallet
         if (m_IsSender)
         {
             // complete proof: 
-            if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, proof.m_Part3, m_SubTxID))
-                throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+            GetParameterStrict(TxParameterID::PeerSharedBulletProofPart3, proof.m_Part3);
 
             if (!proof.CoSign(m_SeedSk.V, m_Sk, cp, o2, RangeProof::Confidential::Phase::Finalize))
                 throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);

@@ -1187,6 +1187,7 @@ namespace beam::wallet
                 return;
             }
 
+            SetParameter(TxParameterID::IsSender, isBeamOwner, SubTxIndex::BEAM_LOCK_TX);
             m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount());
         }
         LockTxBuilder& builder = *m_pLockBuiler.get();
@@ -1296,6 +1297,8 @@ namespace beam::wallet
         if (SubTxIndex::BEAM_REFUND_TX == subTxID)
             h += kBeamLockTimeInBlocks;
         SetParameter(TxParameterID::MinHeight, h, subTxID);
+
+        SetParameter(TxParameterID::IsSender, bTxOwner, subTxID);
 
         return true;
     }

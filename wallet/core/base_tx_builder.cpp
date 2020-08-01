@@ -145,7 +145,7 @@ namespace beam::wallet
         :m_Tx(tx)
         ,m_SubTxID(subTxID)
     {
-        m_Tx.GetParameter(TxParameterID::MinHeight, m_Height.m_Min, m_SubTxID);
+        GetParameter(TxParameterID::MinHeight, m_Height.m_Min);
         if (!m_Height.m_Min)
         {
             // automatically set current height
@@ -155,22 +155,22 @@ namespace beam::wallet
 
         }
 
-        m_Tx.GetParameter(TxParameterID::InputCoins, m_Coins.m_Input, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::OutputCoins, m_Coins.m_Output, m_SubTxID);
+        GetParameter(TxParameterID::InputCoins, m_Coins.m_Input);
+        GetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded);
+        GetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
         RefreshBalance();
 
         m_pTransaction = std::make_shared<Transaction>();
 
-        m_Tx.GetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
+        GetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
+        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
+        GetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
 
-        if (!m_Tx.GetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID))
+        if (!GetParameter(TxParameterID::Offset, m_pTransaction->m_Offset))
             m_pTransaction->m_Offset = Zero;
 
-        m_Tx.GetParameter(TxParameterID::MaxHeight, m_Height.m_Max, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
+        GetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
+        GetParameter(TxParameterID::Fee, m_Fee);
 
         bool bEmpty = m_pTransaction->m_vInputs.empty() && m_pTransaction->m_vOutputs.empty() && m_pTransaction->m_vKernels.empty();
         m_GeneratingInOuts = bEmpty ? Stage::None : Stage::Done;
@@ -241,7 +241,7 @@ namespace beam::wallet
     void BaseTxBuilder::AddPreselectedCoins()
     {
         CoinIDList cidl;
-        m_Tx.GetParameter(TxParameterID::PreselectedCoins, cidl, m_SubTxID);
+        GetParameter(TxParameterID::PreselectedCoins, cidl);
 
         for (const auto& cid : cidl)
         {
@@ -253,9 +253,9 @@ namespace beam::wallet
 
     void BaseTxBuilder::SaveCoins()
     {
-        m_Tx.SetParameter(TxParameterID::InputCoins, m_Coins.m_Input, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded, m_SubTxID);
-        m_Tx.SetParameter(TxParameterID::OutputCoins, m_Coins.m_Output, m_SubTxID);
+        SetParameter(TxParameterID::InputCoins, m_Coins.m_Input);
+        SetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded);
+        SetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
     }
 
     Amount BaseTxBuilder::MakeInputsAndChange(Amount val, Asset::ID aid)
@@ -478,9 +478,9 @@ namespace beam::wallet
                 MoveIntoVec(b.m_pTransaction->m_vInputs, m_Inputs.m_Done);
                 MoveIntoVec1(b.m_pTransaction->m_vKernels, m_InputsShielded.m_Done);
 
-                b.m_Tx.SetParameter(TxParameterID::Inputs, b.m_pTransaction->m_vInputs);
-                b.m_Tx.SetParameter(TxParameterID::InputsShielded, b.m_pTransaction->m_vKernels);
-                b.m_Tx.SetParameter(TxParameterID::Outputs, b.m_pTransaction->m_vOutputs);
+                b.SetParameter(TxParameterID::Inputs, b.m_pTransaction->m_vInputs);
+                b.SetParameter(TxParameterID::InputsShielded, b.m_pTransaction->m_vKernels);
+                b.SetParameter(TxParameterID::Outputs, b.m_pTransaction->m_vOutputs);
 
                 OnAllDone(b);
             }
@@ -678,7 +678,7 @@ namespace beam::wallet
         k += k1;
         m_pTransaction->m_Offset = k;
 
-        m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
+        SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
     }
 
     bool BaseTxBuilder::Aggregate(ECC::Point& ptDst, const ECC::Point::Native& ptSrcN)
@@ -716,7 +716,7 @@ namespace beam::wallet
             virtual void OnSuccess(BaseTxBuilder& b) override
             {
                 b.AddOffset(m_Method.m_kOffset);
-                b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
+                b.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
 
                 OnAllDone(b);
             }
@@ -789,11 +789,11 @@ namespace beam::wallet
         m_Kernel->m_Height.m_Max = GetMaxHeight();
         m_Kernel->m_Commitment = Zero;
 
-        m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight(), m_SubTxID);
+        SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
 
         // load kernel's extra data
         Hash::Value hv;
-        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, hv, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerLockImage, hv))
         {
 			m_Kernel->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			m_Kernel->m_pHashLock->m_IsImage = true;
@@ -801,7 +801,7 @@ namespace beam::wallet
         }
 
         uintBig preImage;
-        if (m_Tx.GetParameter(TxParameterID::PreImage, preImage, m_SubTxID))
+        if (GetParameter(TxParameterID::PreImage, preImage))
         {
 			m_Kernel->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			m_Kernel->m_pHashLock->m_Value = hv;
@@ -821,7 +821,7 @@ namespace beam::wallet
     Asset::ID MutualTxBuilder::GetAssetId() const
     {
         Asset::ID assetId = Asset::s_InvalidID;
-        m_Tx.GetParameter(TxParameterID::AssetID, assetId);
+        GetParameter(TxParameterID::AssetID, assetId);
         return assetId;
     }
 
@@ -832,13 +832,13 @@ namespace beam::wallet
 
     bool MutualTxBuilder::GetPeerPublicExcessAndNonce()
     {
-        return m_Tx.GetParameter(TxParameterID::PeerPublicExcess, m_PeerPublicExcess, m_SubTxID)
-            && m_Tx.GetParameter(TxParameterID::PeerPublicNonce, m_PeerPublicNonce, m_SubTxID);
+        return GetParameter(TxParameterID::PeerPublicExcess, m_PeerPublicExcess)
+            && GetParameter(TxParameterID::PeerPublicNonce, m_PeerPublicNonce);
     }
 
     bool MutualTxBuilder::GetPeerSignature()
     {
-        if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
         {
             LOG_DEBUG() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
@@ -855,33 +855,32 @@ namespace beam::wallet
         m_Fee = fee;
 
         if (m_AmountList.empty())
-            m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
+            GetParameter(TxParameterID::AmountList, m_AmountList);
 
         if (m_Fee == 0)
-            m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
+            GetParameter(TxParameterID::Fee, m_Fee);
 
         Height responseTime = 0;
-        if (m_Tx.GetParameter(TxParameterID::PeerResponseTime, responseTime, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
         {
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
             // adjust response height, if min height din not set then then it should be equal to responce time
-            m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight, m_SubTxID);
+            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
         }
 
-        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
+        GetParameter(TxParameterID::Lifetime, m_Lifetime);
 
         CheckMinimumFee();
 
-        m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID);
+        GetParameter(TxParameterID::PublicExcess, m_PublicExcess);
+        GetParameter(TxParameterID::PublicNonce, m_PublicNonce);
     }
 
     bool MutualTxBuilder::GetPeerInputsAndOutputs()
     {
         // used temporary vars to avoid non-short circuit evaluation
-        bool hasInputs = m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs, m_SubTxID);
-        bool hasOutputs = (m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs, m_SubTxID)
-            && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID));
+        bool hasInputs = GetParameter(TxParameterID::PeerInputs, m_PeerInputs);
+        bool hasOutputs = (GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs) && GetParameter(TxParameterID::PeerOffset, m_PeerOffset));
         return hasInputs || hasOutputs;
     }
 
@@ -892,7 +891,7 @@ namespace beam::wallet
 
         if (!initial)
         {
-            if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+            if (GetParameter(TxParameterID::PartialSignature, m_PartialSignature))
             {
                 Point::Native comm = GetPublicExcess();
                 comm += m_PeerPublicExcess;
@@ -907,8 +906,8 @@ namespace beam::wallet
         }
         else
         {
-            if (m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID) &&
-                m_Tx.GetParameter(TxParameterID::PublicExcess, m_PublicExcess, m_SubTxID))
+            if (GetParameter(TxParameterID::PublicNonce, m_PublicNonce) &&
+                GetParameter(TxParameterID::PublicExcess, m_PublicExcess))
             {
                 m_Signing = Stage::Done;
                 return;
@@ -937,9 +936,9 @@ namespace beam::wallet
                     b.m_PublicNonce.Import(krn.m_Signature.m_NoncePub);
                     b.m_PublicExcess.Import(krn.m_Commitment);
 
-                    b.m_Tx.SetParameter(TxParameterID::PublicNonce, krn.m_Signature.m_NoncePub, b.m_SubTxID);
-                    b.m_Tx.SetParameter(TxParameterID::PublicExcess, krn.m_Commitment, b.m_SubTxID);
-                    b.m_Tx.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement, b.m_SubTxID);
+                    b.SetParameter(TxParameterID::PublicNonce, krn.m_Signature.m_NoncePub);
+                    b.SetParameter(TxParameterID::PublicExcess, krn.m_Commitment);
+                    b.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement);
                 }
                 else
                 {
@@ -969,11 +968,11 @@ namespace beam::wallet
 
         if (bIsConventional)
         {
-            if (m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
-                m_Tx.GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
+            if (GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
+                GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
             {
                 // newer scheme
-                m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
+                GetParameterStrict(TxParameterID::MyAddressID, m.m_MyIDKey);
             }
             else
             {
@@ -981,8 +980,8 @@ namespace beam::wallet
                 m.m_MyIDKey = 0;
 
                 WalletID widMy, widPeer;
-                if (!m_Tx.GetParameter(TxParameterID::PeerID, widPeer) ||
-                    !m_Tx.GetParameter(TxParameterID::MyID, widMy))
+                if (!GetParameter(TxParameterID::PeerID, widPeer) ||
+                    !GetParameter(TxParameterID::MyID, widMy))
                 {
                     throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
                 }
@@ -1005,7 +1004,7 @@ namespace beam::wallet
 
         if (!initial)
         {
-            m_Tx.GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement, m_SubTxID);
+            GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement);
             if (m.m_UserAgreement == Zero)
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
 
@@ -1017,7 +1016,7 @@ namespace beam::wallet
             comm += m_PeerPublicNonce;
             krn.m_Signature.m_NoncePub = comm;
 
-            m_Tx.GetParameter(TxParameterID::PaymentConfirmation, m.m_PaymentProofSignature, m_SubTxID);
+            GetParameter(TxParameterID::PaymentConfirmation, m.m_PaymentProofSignature);
         }
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
@@ -1038,7 +1037,7 @@ namespace beam::wallet
         if (Stage::InProgress == m_Signing)
             return;
 
-        if (m_Tx.GetParameter(TxParameterID::PartialSignature, m_PartialSignature, m_SubTxID))
+        if (GetParameter(TxParameterID::PartialSignature, m_PartialSignature))
         {
             m_Signing = Stage::Done;
             return;
@@ -1064,16 +1063,16 @@ namespace beam::wallet
 
                 b.m_PublicNonce.Import(krn.m_Signature.m_NoncePub);
                 b.m_PublicNonce -= b.m_PeerPublicNonce;
-                b.m_Tx.SetParameter(TxParameterID::PublicNonce, b.m_PublicNonce, b.m_SubTxID);
+                b.SetParameter(TxParameterID::PublicNonce, b.m_PublicNonce);
 
                 b.m_PublicExcess.Import(krn.m_Commitment);
                 b.m_PublicExcess -= b.m_PeerPublicExcess;
-                b.m_Tx.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess, b.m_SubTxID);
+                b.SetParameter(TxParameterID::PublicExcess, b.m_PublicExcess);
 
                 b.AddOffset(m_Method.m_kOffset);
 
                 if (m_Method.m_MyIDKey)
-                    b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
+                    b.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
 
                 b.m_Kernel = std::move(m_Method.m_pKernel);
                 b.StoreKernelID();
@@ -1106,10 +1105,10 @@ namespace beam::wallet
         }
         else
         {
-            m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
+            GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
 
             if (m.m_Peer != Zero)
-                m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
+                GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
 
             krn.m_Commitment = m_PeerPublicExcess;
             krn.m_Signature.m_NoncePub = m_PeerPublicNonce;
@@ -1125,12 +1124,12 @@ namespace beam::wallet
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
 
-        m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
+        SetParameter(TxParameterID::Kernel, m_Kernel);
     }
 
     bool MutualTxBuilder::LoadKernel()
     {
-        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID))
+        if (GetParameter(TxParameterID::Kernel, m_Kernel))
             return true;
 
         return false;
@@ -1139,7 +1138,7 @@ namespace beam::wallet
     bool MutualTxBuilder::HasKernelID() const
     {
         Merkle::Hash kernelID;
-        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        return GetParameter(TxParameterID::KernelID, kernelID);
     }
 
     Transaction::Ptr MutualTxBuilder::CreateTransaction()
@@ -1244,7 +1243,7 @@ namespace beam::wallet
         if (!m_KernelID)
         {
             Merkle::Hash kernelID;
-            if (m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID))
+            if (GetParameter(TxParameterID::KernelID, kernelID))
             {
                 m_KernelID = kernelID;
             }
@@ -1264,20 +1263,20 @@ namespace beam::wallet
         m_Kernel->m_Commitment = totalPublicExcess;
 
         m_Kernel->UpdateID();
-        m_Tx.SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID, m_SubTxID);
+        SetParameter(TxParameterID::KernelID, m_Kernel->m_Internal.m_ID);
     }
 
     void MutualTxBuilder::ResetKernelID()
     {
         Merkle::Hash emptyHash = Zero;
-        m_Tx.SetParameter(TxParameterID::KernelID, emptyHash, m_SubTxID);
+        SetParameter(TxParameterID::KernelID, emptyHash);
         m_KernelID.reset();
     }
 
     string MutualTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;
-        m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        GetParameter(TxParameterID::KernelID, kernelID);
         char sz[Merkle::Hash::nTxtLen + 1];
         kernelID.Print(sz);
         return string(sz);
@@ -1291,14 +1290,14 @@ namespace beam::wallet
     bool MutualTxBuilder::UpdateMaxHeight()
     {
         //Merkle::Hash kernelId;
-        //if (m_Tx.GetParameter(TxParameterID::MaxHeight, m_Height.m_Max, m_SubTxID) ||
-        //    m_Tx.GetParameter(TxParameterID::KernelID, kernelId, m_SubTxID))
+        //if (GetParameter(TxParameterID::MaxHeight, m_Height.m_Max) ||
+        //    GetParameter(TxParameterID::KernelID, kernelId))
         //    return true;
         if (MaxHeight != m_Height.m_Max)
             return true;
 
         Height hPeerMax = MaxHeight;
-        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, hPeerMax, m_SubTxID);
+        GetParameter(TxParameterID::PeerMaxHeight, hPeerMax);
 
         bool isInitiator = m_Tx.IsInitiator();
 
@@ -1306,7 +1305,7 @@ namespace beam::wallet
 
         if (!isInitiator)
         {
-            if (m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID))
+            if (GetParameter(TxParameterID::Lifetime, m_Lifetime))
             {
                 Block::SystemState::Full state;
                 if (m_Tx.GetTip(state))
@@ -1334,8 +1333,7 @@ namespace beam::wallet
     {
         Height lifetime = 0;
         Height peerResponceHeight = 0;
-        if (!m_Tx.GetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID)
-            || !m_Tx.GetParameter(TxParameterID::PeerResponseHeight, peerResponceHeight, m_SubTxID))
+        if (!GetParameter(TxParameterID::Lifetime, lifetime) || !GetParameter(TxParameterID::PeerResponseHeight, peerResponceHeight))
         {
             // possible situation during update from older version
             return true;
@@ -1358,7 +1356,7 @@ namespace beam::wallet
         {
             auto minimalFee = GetMinimumFee();
             Amount userFee = 0;
-            if (m_Tx.GetParameter(TxParameterID::Fee, userFee, m_SubTxID))
+            if (GetParameter(TxParameterID::Fee, userFee))
             {
                 if (userFee < minimalFee)
                 {
@@ -1385,12 +1383,12 @@ namespace beam::wallet
         , m_Lifetime{ kDefaultTxLifetime }
     {
         if (m_AmountList.empty())
-            m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
+            GetParameter(TxParameterID::AmountList, m_AmountList);
 
-        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
+        GetParameter(TxParameterID::AssetID, m_AssetID);
+        GetParameter(TxParameterID::Lifetime, m_Lifetime);
 
-        m_Tx.GetParameter(TxParameterID::MutualTxState, m_Status);
+        GetParameter(TxParameterID::MutualTxState, m_Status);
 
         ReadKernel();
 
@@ -1480,14 +1478,14 @@ namespace beam::wallet
 
         // load kernel's extra data
         Hash::Value hv;
-        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, hv, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerLockImage, hv))
         {
 			pKrn->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			pKrn->m_pHashLock->m_IsImage = true;
 			pKrn->m_pHashLock->m_Value = hv;
         }
 
-        if (m_Tx.GetParameter(TxParameterID::PreImage, hv, m_SubTxID))
+        if (GetParameter(TxParameterID::PreImage, hv))
         {
 			pKrn->m_pHashLock = make_unique<TxKernelStd::HashLock>();
 			pKrn->m_pHashLock->m_Value = hv;
@@ -1497,14 +1495,14 @@ namespace beam::wallet
     MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList)
         :SimpleTxBuilder(tx, subTxID, amountList)
     {
-        m_IsSender = m_Tx.GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        GetParameterStrict(TxParameterID::IsSender, m_IsSender);
 
         Height responseTime = 0;
-        if (m_Tx.GetParameter(TxParameterID::PeerResponseTime, responseTime, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
         {
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
             // adjust response height, if min height din not set then then it should be equal to responce time
-            m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight, m_SubTxID);
+            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
         }
     }
 
@@ -1524,7 +1522,7 @@ namespace beam::wallet
         assert(!m_pKrn);
 
         TxKernelStd::Ptr pKrn;
-        m_Tx.GetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
+        GetParameter(TxParameterID::Kernel, pKrn);
 
         if (pKrn)
             AddKernel(pKrn);
@@ -1547,8 +1545,8 @@ namespace beam::wallet
                 {
                     ECC::Point ptNonce, ptExc;
 
-                    if (m_Tx.GetParameter(TxParameterID::PeerPublicNonce, ptNonce, m_SubTxID) &&
-                        m_Tx.GetParameter(TxParameterID::PeerPublicExcess, ptExc, m_SubTxID))
+                    if (GetParameter(TxParameterID::PeerPublicNonce, ptNonce) &&
+                        GetParameter(TxParameterID::PeerPublicExcess, ptExc))
                     {
                         FinalyzeMaxHeight();
 
@@ -1580,9 +1578,9 @@ namespace beam::wallet
             ECC::Point ptNonce, ptExc;
             ECC::Scalar k;
 
-            if (m_Tx.GetParameter(TxParameterID::PeerPublicNonce, ptNonce, m_SubTxID) &&
-                m_Tx.GetParameter(TxParameterID::PeerPublicExcess, ptExc, m_SubTxID) &&
-                m_Tx.GetParameter(TxParameterID::PeerSignature, k, m_SubTxID))
+            if (GetParameter(TxParameterID::PeerPublicNonce, ptNonce) &&
+                GetParameter(TxParameterID::PeerPublicExcess, ptExc) &&
+                GetParameter(TxParameterID::PeerSignature, k))
             {
                 FinalyzeMaxHeight();
                 m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
@@ -1614,21 +1612,21 @@ namespace beam::wallet
     {
         // add peer in/out/offs
         ECC::Scalar k;
-        if (m_Tx.GetParameter(TxParameterID::PeerOffset, k, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerOffset, k))
             AddOffset(k);
 
         std::vector<Input::Ptr> vIns;
-        if (m_Tx.GetParameter(TxParameterID::PeerInputs, vIns, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerInputs, vIns))
         {
             MoveIntoVec(m_pTransaction->m_vInputs, vIns);
-            m_Tx.SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs, m_SubTxID);
+            SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
         }
 
         std::vector<Output::Ptr> vOuts;
-        if (m_Tx.GetParameter(TxParameterID::PeerOutputs, vOuts, m_SubTxID))
+        if (GetParameter(TxParameterID::PeerOutputs, vOuts))
         {
             MoveIntoVec(m_pTransaction->m_vOutputs, vOuts);
-            m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
+            SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
         }
 
         SimpleTxBuilder::FinalyzeTxInternal();
@@ -1664,7 +1662,7 @@ namespace beam::wallet
                 else
                 {
                     // initial
-                    b.m_Tx.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement, b.m_SubTxID);
+                    b.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement);
 
                     b.AddKernel(m_Method.m_pKernel);
                     b.SetStatus(Status::Half);
@@ -1683,11 +1681,11 @@ namespace beam::wallet
 
         m.m_Slot = m_Tx.GetSlotSafe(true);
 
-        if (m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
-            m_Tx.GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
+        if (GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
+            GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
         {
             // newer scheme
-            m.m_MyIDKey = m_Tx.GetMandatoryParameter<WalletIDKey>(TxParameterID::MyAddressID, m_SubTxID);
+            GetParameterStrict(TxParameterID::MyAddressID, m.m_MyIDKey);
         }
         else
         {
@@ -1695,14 +1693,20 @@ namespace beam::wallet
             m.m_MyIDKey = 0;
 
             WalletID widMy, widPeer;
-            if (!m_Tx.GetParameter(TxParameterID::PeerID, widPeer) ||
-                !m_Tx.GetParameter(TxParameterID::MyID, widMy))
+            if (GetParameter(TxParameterID::PeerID, widPeer) && GetParameter(TxParameterID::MyID, widMy))
             {
-                throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                m.m_Peer = widPeer.m_Pk;
+                m.m_MyID = widMy.m_Pk;
+            }
+            else
+            {
+                if (!m.m_NonConventional)
+                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+
+                ZeroObject(m.m_Peer);
+                ZeroObject(m.m_MyID);
             }
 
-            m.m_Peer = widPeer.m_Pk;
-            m.m_MyID = widMy.m_Pk;
         }
 
         ZeroObject(m.m_PaymentProofSignature);
@@ -1714,11 +1718,11 @@ namespace beam::wallet
         {
             m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
 
-            m_Tx.GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement, m_SubTxID);
+            GetParameter(TxParameterID::UserConfirmationToken, m.m_UserAgreement);
             if (m.m_UserAgreement == Zero)
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
 
-            m_Tx.GetParameter(TxParameterID::PaymentConfirmation, m.m_PaymentProofSignature, m_SubTxID);
+            GetParameter(TxParameterID::PaymentConfirmation, m.m_PaymentProofSignature);
         }
 
 
@@ -1744,7 +1748,7 @@ namespace beam::wallet
 
                 ECC::Point::Native pt;
                 b.Aggregate(dst, pt, src);
-                b.m_Tx.SetParameter(par, dst, b.m_SubTxID);
+                b.SetParameter(par, dst);
 
                 dst = src;
             }
@@ -1765,7 +1769,7 @@ namespace beam::wallet
                 b.AddOffset(m_Method.m_kOffset);
 
                 if (m_Method.m_MyIDKey)
-                    b.m_Tx.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
+                    b.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
 
                 OnAllDone(b);
             }
@@ -1781,10 +1785,10 @@ namespace beam::wallet
         m.m_Peer = Zero;
         m.m_MyIDKey = 0;
 
-        m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
+        GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
 
         if (m.m_Peer != Zero)
-            m_Tx.GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
+            GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
@@ -1798,7 +1802,7 @@ namespace beam::wallet
     string SimpleTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;
-        m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        GetParameter(TxParameterID::KernelID, kernelID);
         char sz[Merkle::Hash::nTxtLen + 1];
         kernelID.Print(sz);
         return string(sz);
@@ -1809,8 +1813,8 @@ namespace beam::wallet
         if (MaxHeight != m_Height.m_Max)
             return; // already decided
 
-        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_Height.m_Max, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID); // refresh it too
+        GetParameter(TxParameterID::PeerMaxHeight, m_Height.m_Max);
+        GetParameter(TxParameterID::Lifetime, m_Lifetime); // refresh it too
 
         // receiver is allowed to adjust what was suggested by the sender
         if (!m_IsSender && m_Lifetime)
@@ -1823,12 +1827,12 @@ namespace beam::wallet
 
         // sanity check
         Height hPeerResponce = 0;
-        m_Tx.GetParameter(TxParameterID::PeerResponseHeight, hPeerResponce, m_SubTxID);
+        GetParameter(TxParameterID::PeerResponseHeight, hPeerResponce);
 
         if (hPeerResponce && (m_Height.m_Max > m_Lifetime + hPeerResponce))
             throw TransactionFailedException(true, TxFailureReason::MaxHeightIsUnacceptable);
 
-        m_Tx.SetParameter(TxParameterID::MaxHeight, m_Height.m_Max, m_SubTxID);
+        SetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
     }
 
     void SimpleTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
@@ -1870,16 +1874,16 @@ namespace beam::wallet
         //Guard g;
         //g.m_pPtr.reset(m_pKrn);
 
-        //m_Tx.SetParameter(TxParameterID::Kernel, g.m_pPtr, m_SubTxID);
+        //SetParameter(TxParameterID::Kernel, g.m_pPtr);
         
         // this is ugly hack, but should work without extra code generated
-        m_Tx.SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn), m_SubTxID);
+        SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn));
     }
 
     void MutualTxBuilder2::SaveKernelID()
     {
         assert(m_pKrn);
-        m_Tx.SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID, m_SubTxID);
+        SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
     }
 
     bool MutualTxBuilder2::SignTx()
@@ -1928,15 +1932,15 @@ namespace beam::wallet
 
                 SetTxParameter msg;
                 msg
-                    .AddParameter(TxParameterID::PeerPublicExcess, m_Tx.GetMandatoryParameter<ECC::Point>(TxParameterID::PublicExcess, m_SubTxID))
-                    .AddParameter(TxParameterID::PeerPublicNonce, m_Tx.GetMandatoryParameter<ECC::Point>(TxParameterID::PublicNonce, m_SubTxID))
+                    .AddParameter(TxParameterID::PeerPublicExcess, GetParameterStrict<ECC::Point>(TxParameterID::PublicExcess))
+                    .AddParameter(TxParameterID::PeerPublicNonce, GetParameterStrict<ECC::Point>(TxParameterID::PublicNonce))
                     .AddParameter(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k)
                     .AddParameter(TxParameterID::PeerInputs, m_pTransaction->m_vInputs)
                     .AddParameter(TxParameterID::PeerOutputs, m_pTransaction->m_vOutputs)
                     .AddParameter(TxParameterID::PeerOffset, m_pTransaction->m_Offset);
 
                 Signature sig;
-                if (m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
+                if (GetParameter(TxParameterID::PaymentConfirmation, sig))
                     msg.AddParameter(TxParameterID::PaymentConfirmation, sig);
 
                 SendToPeer(std::move(msg));
