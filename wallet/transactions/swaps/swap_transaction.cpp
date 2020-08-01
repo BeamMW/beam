@@ -1204,9 +1204,163 @@ namespace beam::wallet
 
     }
 
+    struct AtomicSwapTransaction::WithdrawTxBuilder
+        :public MutualTxBuilder2
+    {
+        WithdrawTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount)
+            :MutualTxBuilder2(tx, subTxID, amount)
+        {
+            m_Lifetime = 0; // disable auto max height adjustment
+        }
+
+        bool IsConventional() override { return false; }
+
+        bool AddSharedOffset()
+        {
+            if (m_pTransaction->m_Offset.m_Value == Zero)
+            {
+                NoLeak<Scalar> k;
+                if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, k.V, SubTxIndex::BEAM_LOCK_TX))
+                    return false;
+
+                AddOffset(k.V);
+            }
+            return true;
+        }
+
+        bool AddSharedInput()
+        {
+            if (m_pTransaction->m_vInputs.empty())
+            {
+                Input::Ptr pInp(std::make_unique<Input>());
+                if (!m_Tx.GetParameter(TxParameterID::SharedCommitment, pInp->m_Commitment, SubTxIndex::BEAM_LOCK_TX))
+                    return false;
+
+                m_pTransaction->m_vInputs.push_back(std::move(pInp));
+            }
+
+            return true;
+        }
+
+        void SendToPeer(SetTxParameter&& msgSub) override
+        {
+            SetTxParameter msg;
+            msg.AddParameter(TxParameterID::SubTxIndex, m_SubTxID);
+
+            if (m_IsSender)
+            {
+                msg
+                    .AddParameter(TxParameterID::Amount, GetAmount())
+                    .AddParameter(TxParameterID::Fee, m_Fee);
+            }
+
+            std::move(msgSub.m_Parameters.begin(), msgSub.m_Parameters.end(), std::back_inserter(msg.m_Parameters));
+            m_Tx.SendTxParametersStrict(std::move(msg));
+        }
+
+    };
+
+    bool AtomicSwapTransaction::SetRefundParams(bool bTxOwner, SubTxID subTxID)
+    {
+        Amount val = 0;
+
+        // Peer must get fee and amount along with WithdrawTX invitation, txOwner should have fee
+        if (!GetParameter(TxParameterID::Fee, val, subTxID))
+        {
+            if (!bTxOwner)
+                return false;
+            throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        }
+
+        SetParameter(TxParameterID::Amount, GetAmount() - val, subTxID);
+
+        Height h = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
+            h += kBeamLockTimeInBlocks;
+        SetParameter(TxParameterID::MinHeight, h, subTxID);
+
+        return true;
+    }
+
+    void AtomicSwapTransaction::BuildBeamRefundTxGuarded(SubTxState& subTxState, Transaction::Ptr& pRes)
+    {
+        bool isBeamOwner = IsBeamSide();
+        bool isTxOwner = isBeamOwner;
+
+        if (!m_pRefundBuiler)
+        {
+            if (!SetRefundParams(isTxOwner, SubTxIndex::BEAM_REFUND_TX))
+                return;
+
+            AmountList lst;
+            lst.push_back(GetMandatoryParameter<Height>(TxParameterID::Amount, SubTxIndex::BEAM_REFUND_TX));
+            m_pRefundBuiler = std::make_shared<WithdrawTxBuilder>(*this, SubTxIndex::BEAM_REFUND_TX, lst);
+        }
+
+        WithdrawTxBuilder& builder = *m_pRefundBuiler;
+        if (!builder.AddSharedOffset())
+            return;
+
+        if (builder.m_Coins.IsEmpty() && isBeamOwner)
+        {
+            CoinID cid;
+            cid.m_Type = Key::Type::Regular;
+            cid.m_Value = builder.GetAmount();
+            builder.CreateAddNewOutput(cid);
+
+            builder.SaveCoins();
+        }
+
+
+        if (!builder.SignTx())
+        {
+            if (MutualTxBuilder2::Status::None != builder.m_Status)
+                UpdateTxDescription(TxStatus::InProgress);
+
+            if (MutualTxBuilder2::Status::HalfSent == builder.m_Status)
+                subTxState = SubTxState::Invitation;
+
+            return;
+        }
+
+        subTxState = SubTxState::Constructed;
+
+        if (isBeamOwner)
+        {
+            if (!builder.AddSharedInput())
+                return;
+
+            builder.FinalyzeTx();
+            pRes = builder.m_pTransaction;
+        }
+
+    }
+
+
+
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx)
     {
         SubTxState subTxState = GetSubTxState(subTxID);
+
+        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
+        {
+            SubTxState state0 = subTxState;
+
+            try {
+                BuildBeamRefundTxGuarded(subTxState, resultTx);
+            }
+            catch (const TransactionFailedException& ex)
+            {
+                OnSubTxFailed(ex.GetReason(), SubTxIndex::BEAM_REFUND_TX, ex.ShouldNofify());
+            }
+
+            if (subTxState != state0)
+                SetState(subTxState, SubTxIndex::BEAM_REFUND_TX);
+
+            return subTxState;
+
+        }
+
         bool isTxOwner = (IsBeamSide() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!IsBeamSide() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
 
         Amount withdrawAmount = 0;

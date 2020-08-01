@@ -198,9 +198,11 @@ namespace beam::wallet
         void ConfirmSharedTxInvitation(const MutualTxBuilder& builder);
         void SendQuickRefundPrivateKey();
 
-
         SubTxState BuildBeamLockTx();
         void BuildBeamLockTxGuarded(SubTxState&);
+        void BuildBeamRefundTxGuarded(SubTxState&, Transaction::Ptr&);
+        bool SetRefundParams(bool bTxOwner, SubTxID);
+
         SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
         bool CompleteBeamWithdrawTx(SubTxID subTxID);
                 
@@ -230,7 +232,10 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
 
+        struct WithdrawTxBuilder;
+
         std::shared_ptr<LockTxBuilder> m_pLockBuiler;
+        std::shared_ptr<WithdrawTxBuilder> m_pRefundBuiler;
         std::shared_ptr<SharedTxBuilder> m_pSharedBuiler;
 
         WrapperSecondSide m_secondSide;
