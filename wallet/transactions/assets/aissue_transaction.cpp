@@ -62,38 +62,14 @@ namespace beam::wallet
     }
 
     struct AssetIssueTransaction::MyBuilder
-        :public BaseTxBuilder
+        :public AssetTransaction::Builder
     {
-        TxKernelAssetEmit* m_pKrn = nullptr;
-        Asset::Metadata m_Md;
-
         Amount m_Value;
-        ECC::Scalar::Native m_skAsset;
-        PeerID m_pidAsset;
-
-        void OnKrn(std::unique_ptr<TxKernelAssetEmit>& pKrn)
-        {
-            m_pKrn = pKrn.get();
-            m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-            m_pTransaction->Normalize(); // tx is ready
-        }
 
         MyBuilder(AssetIssueTransaction& tx)
-            :BaseTxBuilder(tx, kDefaultSubTxID)
+            :Builder(tx, kDefaultSubTxID)
         {
-            std::unique_ptr<TxKernelAssetEmit> pKrn;
-            m_Tx.GetParameter(TxParameterID::Kernel, pKrn);
-            if (pKrn)
-                OnKrn(pKrn);
-
             m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
-
-            std::string sMeta = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
-            m_Md.m_Value = toByteBuffer(sMeta);
-            m_Md.UpdateHash();
-
-            m_Tx.get_MasterKdfStrict()->DeriveKey(m_skAsset, m_Md.m_Hash);
-            m_pidAsset.FromSk(m_skAsset);
         }
 
         void Sign(bool bIssue)
@@ -101,33 +77,15 @@ namespace beam::wallet
             if (m_pKrn)
                 return;
 
-            auto pKdf = m_Tx.get_MasterKdfStrict();
-
             std::unique_ptr<TxKernelAssetEmit> pKrn = std::make_unique<TxKernelAssetEmit>();
-            pKrn->m_Fee = m_Fee;
-            pKrn->m_Height = m_Height;
-
-            pKrn->m_Owner = m_pidAsset;
             pKrn->m_AssetID = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID);
 
             pKrn->m_Value = m_Value;
             if (!bIssue)
                 pKrn->m_Value = -pKrn->m_Value;
 
-            ECC::Scalar::Native sk;
-            pKrn->get_Sk(sk, *pKdf);
-            pKrn->Sign_(sk, m_skAsset);
-
-            m_Tx.SetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
-            OnKrn(pKrn);
-
-            sk = -sk;
-            m_Coins.AddOffset(sk, pKdf);
-
-            m_pTransaction->m_Offset = sk;
-            m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
-
-            VerifyTx();
+            AddKernel(std::move(pKrn));
+            FinalyzeTx();
         }
     };
 
