@@ -102,8 +102,6 @@ namespace beam::wallet
 
         void VerifyAssetsEnabled(); // throws exc if disabled
 
-        void SignSplit();
-
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const {
             return m_Tx.GetParameter(paramID, value, m_SubTxID);
@@ -127,9 +125,29 @@ namespace beam::wallet
             return m_Tx.SetParameter(paramID, value, m_SubTxID);
         }
 
+        TxKernelStd* m_pKrn = nullptr;
+        std::string GetKernelIDString() const;
+
+        void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
+
+        virtual bool SignTx(); // returns if negotiation is complete and all specified in/outs are generated
+
+        struct Status {
+            typedef uint8_t Type;
+
+            static const Type None = 0;
+            static const Type FullTx = 100; //  transaction is fully built and validated
+        };
+
+        Status::Type m_Status = Status::None;
+
+        void FinalyzeTx(); // normalize, verify, and set status
+        // Call when all tx elements are added
+
     protected:
 
         virtual bool IsConventional() { return true; }
+        virtual void FinalyzeTxInternal();
 
         void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
 
@@ -164,12 +182,19 @@ namespace beam::wallet
         }
 
         struct HandlerInOuts;
+        void SaveInOuts();
 
         void AddOffset(const ECC::Scalar&);
         void AddOffset(const ECC::Scalar::Native&);
 
         static bool Aggregate(ECC::Point&, const ECC::Point::Native&);
         static bool Aggregate(ECC::Point&, ECC::Point::Native&, const ECC::Point&);
+
+        void AddKernel(TxKernelStd::Ptr&);
+        void SaveKernel();
+        void SaveKernelID();
+
+        void SetStatus(Status::Type);
     };
 
 
@@ -186,34 +211,18 @@ namespace beam::wallet
 
         Height m_Lifetime;
 
-        TxKernelStd* m_pKrn = nullptr;
-
         void MakeInputsAndChanges();
-        void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
 
-        std::string GetKernelIDString() const;
-
-        virtual bool SignTx(); // returns if negotiation is complete and all specified in/outs are generated
-
-        struct Status {
-            typedef uint8_t Type;
-
-            static const Type None = 0;
-            static const Type FullTx = 100; //  transaction is fully built and validated
-
-            static const Type SimpleSigned = 1; // kernel fully signed, in/outs ready
+        struct Status
+            :public BaseTxBuilder::Status
+        {
+            static const Type SelfSigned = 1; // kernel fully signed, in/outs ready
         };
 
-        Status::Type m_Status = Status::None;
-
-        void FinalyzeTx(); // normalize, verify, and set status
-        // Call when all tx elements are added
+        virtual bool SignTx() override;
 
     protected:
-        void SetStatus(Status::Type);
-        void ReadKernel();
-        void AddKernel(TxKernelStd::Ptr&);
-        virtual void FinalyzeTxInternal();
+        void SignSplit();
     };
 
 
@@ -243,8 +252,6 @@ namespace beam::wallet
         virtual bool SignTx() override;
 
     protected:
-        void SaveKernel();
-        void SaveKernelID();
         void FinalyzeMaxHeight();
         void CreateKernel(TxKernelStd::Ptr&);
         void SignSender(bool initial);

@@ -53,33 +53,9 @@ namespace beam::wallet::lelantus
     }
 
     struct PullTransaction::MyBuilder
-        :public BaseTxBuilder
+        :public SimpleTxBuilder
     {
-        TxKernelStd* m_pKrn = nullptr;
-
-        void RefreshKrn()
-        {
-            TxKernelStd::Ptr pKrn;
-            m_Tx.GetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
-
-            if (pKrn)
-            {
-                m_pKrn = pKrn.get();
-                m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-            }
-        }
-
-        MyBuilder(BaseTransaction& tx, SubTxID subTxID)
-            :BaseTxBuilder(tx, subTxID)
-        {
-            RefreshKrn();
-
-            if (m_pKrn)
-            {
-                m_Signing = Stage::Done;
-                m_pTransaction->Normalize();
-            }
-        }
+        using SimpleTxBuilder::SimpleTxBuilder;
     };
 
     void PullTransaction::UpdateImpl()
@@ -136,20 +112,10 @@ namespace beam::wallet::lelantus
             builder.SaveCoins();
         }
 
-        builder.GenerateInOuts();
-
-        if (!builder.m_pKrn)
-        {
-            builder.SignSplit();
-            if (BaseTxBuilder::Stage::Done == builder.m_Signing)
-                builder.RefreshKrn();
-
-            if (!builder.m_pKrn)
-                return;
-        }
-
-        if (m_TxBuilder->IsGeneratingInOuts())
+        if (!builder.SignTx())
             return;
+
+        builder.FinalyzeTx();
 
         State state = State::Initial;
         GetParameter(TxParameterID::State, state, GetSubTxID());

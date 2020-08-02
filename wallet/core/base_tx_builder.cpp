@@ -174,6 +174,18 @@ namespace beam::wallet
 
         bool bEmpty = m_pTransaction->m_vInputs.empty() && m_pTransaction->m_vOutputs.empty() && m_pTransaction->m_vKernels.empty();
         m_GeneratingInOuts = bEmpty ? Stage::None : Stage::Done;
+
+        GetParameter(TxParameterID::MutualTxState, m_Status);
+
+        TxKernelStd::Ptr pKrn;
+        GetParameter(TxParameterID::Kernel, pKrn);
+        if (pKrn)
+        {
+            AddKernel(pKrn);
+
+            if (Status::FullTx == m_Status)
+                m_pTransaction->NormalizeE(); // everything else must have already been normalized
+        }
     }
 
     void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
@@ -478,9 +490,7 @@ namespace beam::wallet
                 MoveIntoVec(b.m_pTransaction->m_vInputs, m_Inputs.m_Done);
                 MoveIntoVec1(b.m_pTransaction->m_vKernels, m_InputsShielded.m_Done);
 
-                b.SetParameter(TxParameterID::Inputs, b.m_pTransaction->m_vInputs);
-                b.SetParameter(TxParameterID::InputsShielded, b.m_pTransaction->m_vKernels);
-                b.SetParameter(TxParameterID::Outputs, b.m_pTransaction->m_vOutputs);
+                b.SaveInOuts();
 
                 OnAllDone(b);
             }
@@ -506,6 +516,46 @@ namespace beam::wallet
                 OnFailed(b, IPrivateKeyKeeper2::Status::Unspecified); // although shouldn't happen
         }
     };
+
+    struct MyWrapper
+    {
+        const TxKernel::Ptr* m_p0;
+        size_t m_Count;
+        TxKernel* m_pSkip;
+
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            size_t n = m_Count - (!!m_pSkip);
+            ar & n;
+
+            for (size_t i = 0; i < m_Count; i++)
+            {
+                const auto& pKrn = m_p0[i];
+                if (pKrn.get() != m_pSkip)
+                    ar & pKrn;
+            }
+        }
+    };
+
+    void BaseTxBuilder::SaveInOuts()
+    {
+        SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
+        SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
+
+        // serialize kernels, except the 'main' one
+        const auto& v = m_pTransaction->m_vKernels;
+
+        MyWrapper wr;
+        wr.m_pSkip = m_pKrn;
+        wr.m_Count = v.size();
+        if (wr.m_Count)
+            wr.m_p0 = &v.front();
+
+
+        SetParameter(TxParameterID::InputsShielded, wr);
+
+    }
 
     void BaseTxBuilder::GenerateInOuts()
     {
@@ -699,7 +749,7 @@ namespace beam::wallet
             Aggregate(ptDst, ptSrcN);
     }
 
-    void BaseTxBuilder::SignSplit()
+    void SimpleTxBuilder::SignSplit()
     {
         if (Stage::None != m_Signing)
             return;
@@ -713,10 +763,14 @@ namespace beam::wallet
 
             virtual ~MyHandler() {} // auto
 
-            virtual void OnSuccess(BaseTxBuilder& b) override
+            virtual void OnSuccess(BaseTxBuilder& b_) override
             {
+                SimpleTxBuilder& b = Cast::Up<SimpleTxBuilder>(b_);
                 b.AddOffset(m_Method.m_kOffset);
-                b.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel);
+                b.AddKernel(m_Method.m_pKernel);
+                b.SaveKernel();
+                b.SaveKernelID();
+                b.SetStatus(Status::SelfSigned);
 
                 OnAllDone(b);
             }
@@ -771,13 +825,6 @@ namespace beam::wallet
 
         GetParameter(TxParameterID::AssetID, m_AssetID);
         GetParameter(TxParameterID::Lifetime, m_Lifetime);
-
-        GetParameter(TxParameterID::MutualTxState, m_Status);
-
-        ReadKernel();
-
-        if (Status::FullTx == m_Status)
-            m_pTransaction->Normalize();
     }
 
     void SimpleTxBuilder::MakeInputsAndChanges()
@@ -795,32 +842,20 @@ namespace beam::wallet
         MakeInputsAndChange(val, 0);
     }
 
-    bool SimpleTxBuilder::SignTx()
+    bool BaseTxBuilder::SignTx()
     {
-        if (m_Status >= Status::SimpleSigned)
-            return true;
-
-        if (!m_pKrn)
-        {
-            if (Stage::Done == m_Signing)
-                ReadKernel();
-            else
-                SignSplit();
-
-            if (!m_pKrn)
-                return false;
-        }
-
-        GenerateInOuts();
-        if (IsGeneratingInOuts())
-            return false;
-
-        SetStatus(Status::SimpleSigned);
         return true;
-
     }
 
-    void SimpleTxBuilder::FinalyzeTx()
+    bool SimpleTxBuilder::SignTx()
+    {
+        GenerateInOuts();
+        SignSplit();
+
+        return (m_Status >= Status::SelfSigned) && !IsGeneratingInOuts();
+    }
+
+    void BaseTxBuilder::FinalyzeTx()
     {
         if (Status::FullTx == m_Status)
             return;
@@ -830,10 +865,12 @@ namespace beam::wallet
         FinalyzeTxInternal();
     }
 
-    void SimpleTxBuilder::FinalyzeTxInternal()
+    void BaseTxBuilder::FinalyzeTxInternal()
     {
         m_pTransaction->Normalize();
         VerifyTx();
+
+        SaveInOuts();
 
         SetStatus(Status::FullTx);
     }
@@ -877,26 +914,15 @@ namespace beam::wallet
         }
     }
 
-    void SimpleTxBuilder::AddKernel(TxKernelStd::Ptr& pKrn)
+    void BaseTxBuilder::AddKernel(TxKernelStd::Ptr& pKrn)
     {
         m_pKrn = pKrn.get();
         m_pTransaction->m_vKernels.push_back(std::move(pKrn));
     }
 
-    void SimpleTxBuilder::SetStatus(Status::Type s)
+    void BaseTxBuilder::SetStatus(Status::Type s)
     {
         SaveAndStore(m_Status, TxParameterID::MutualTxState, s);
-    }
-
-    void SimpleTxBuilder::ReadKernel()
-    {
-        assert(!m_pKrn);
-
-        TxKernelStd::Ptr pKrn;
-        GetParameter(TxParameterID::Kernel, pKrn);
-
-        if (pKrn)
-            AddKernel(pKrn);
     }
 
     void MutualTxBuilder2::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
@@ -932,17 +958,11 @@ namespace beam::wallet
 
         std::vector<Input::Ptr> vIns;
         if (GetParameter(TxParameterID::PeerInputs, vIns))
-        {
             MoveIntoVec(m_pTransaction->m_vInputs, vIns);
-            SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
-        }
 
         std::vector<Output::Ptr> vOuts;
         if (GetParameter(TxParameterID::PeerOutputs, vOuts))
-        {
             MoveIntoVec(m_pTransaction->m_vOutputs, vOuts);
-            SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
-        }
 
         SimpleTxBuilder::FinalyzeTxInternal();
     }
@@ -1112,7 +1132,7 @@ namespace beam::wallet
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
-    string SimpleTxBuilder::GetKernelIDString() const
+    string BaseTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;
         GetParameter(TxParameterID::KernelID, kernelID);
@@ -1148,7 +1168,7 @@ namespace beam::wallet
         SetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
     }
 
-    void SimpleTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
+    void BaseTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
     {
         // after 1st fork fee should be >= minimal fee
         if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
@@ -1173,7 +1193,7 @@ namespace beam::wallet
         }
     }
 
-    void MutualTxBuilder2::SaveKernel()
+    void BaseTxBuilder::SaveKernel()
     {
         //struct Guard
         //{
@@ -1193,7 +1213,7 @@ namespace beam::wallet
         SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn));
     }
 
-    void MutualTxBuilder2::SaveKernelID()
+    void BaseTxBuilder::SaveKernelID()
     {
         assert(m_pKrn);
         SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
