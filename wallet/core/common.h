@@ -350,7 +350,7 @@ namespace beam::wallet
         PartialSignature = 159,
 
         SharedBlindingFactor = 160,
-        MyNonce = 162,
+        AggregateSignature = 161,
         NonceSlot = 163,
         PublicNonce = 164,
         PublicExcess = 165,

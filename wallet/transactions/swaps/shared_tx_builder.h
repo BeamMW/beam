@@ -21,26 +21,40 @@
 
 namespace beam::wallet
 {
-    class SharedTxBuilder : public MutualTxBuilder
+
+    class SharedTxBuilder
+        :public MutualTxBuilder2
     {
     public:
-        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount = 0, Amount fee = 0);
+        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID);
 
-        void InitTx(bool isTxOwner);
-        Transaction::Ptr CreateTransaction() override;
-        Height GetMaxHeight() const override;
+        bool IsRedeem() const {
+            return SubTxIndex::BEAM_REDEEM_TX == m_SubTxID;
+        }
 
-        bool GetSharedParameters();
+        bool AddSharedOffset();
+        bool AddSharedInput();
+
+        struct Status
+            :public MutualTxBuilder2::Status
+        {
+            static const Type SndSigSent = 10;
+            static const Type SndFull2 = 11;
+
+            static const Type RcvSigSent2 = 10;
+        };
 
     protected:
 
-        void InitInput();
-        void InitOutput();
+        bool IsConventional() override { return false; }
+        void SendToPeer(SetTxParameter&& msgSub) override;
+        bool SignTxSender() override;
+        bool SignTxReceiver() override;
+        void FinalyzeTxInternal() override;
+        void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc) override;
 
-        void LoadPeerOffset();
-
-
-        ECC::Scalar::Native m_SharedBlindingFactor;
-        ECC::Point::Native m_PeerPublicSharedBlindingFactor;
     };
+
+
+
 }
