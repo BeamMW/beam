@@ -125,7 +125,7 @@ namespace beam::wallet
             return m_Tx.SetParameter(paramID, value, m_SubTxID);
         }
 
-        TxKernelStd* m_pKrn = nullptr;
+        TxKernel* m_pKrn = nullptr;
         std::string GetKernelIDString() const;
 
         void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
@@ -190,7 +190,7 @@ namespace beam::wallet
         static bool Aggregate(ECC::Point&, const ECC::Point::Native&);
         static bool Aggregate(ECC::Point&, ECC::Point::Native&, const ECC::Point&);
 
-        void AddKernel(TxKernelStd::Ptr&);
+        void AddKernel(TxKernel::Ptr&&);
         void SaveKernel();
         void SaveKernelID();
 

@@ -81,7 +81,7 @@ namespace beam::wallet
         {
             case Status::SndFull:
             {
-                ECC::Scalar::Native kSig = m_pKrn->m_Signature.m_k; // full sig
+                ECC::Scalar::Native kSig = m_pKrn->CastTo_Std().m_Signature.m_k; // full sig
 
                 Scalar k;
                 GetParameterStrict(TxParameterID::PeerSignature, k);
@@ -124,7 +124,7 @@ namespace beam::wallet
                     break; // shouldn't happen actually
 
                 Scalar::Native e;
-                m_pKrn->m_Signature.get_Challenge(e, m_pKrn->m_Internal.m_ID);
+                m_pKrn->CastTo_Std().m_Signature.get_Challenge(e, m_pKrn->m_Internal.m_ID);
 
                 ptNonce += ptExc * e;
                 ptNonce += Context::get().G * k;
@@ -138,7 +138,7 @@ namespace beam::wallet
 
                 // save the aggregate signature (later our kernel will be overwritten)
                 ECC::Scalar::Native sk(k);
-                sk += m_pKrn->m_Signature.m_k;
+                sk += m_pKrn->CastTo_Std().m_Signature.m_k;
                 k = sk;
 
                 SetParameter(TxParameterID::AggregateSignature, k);

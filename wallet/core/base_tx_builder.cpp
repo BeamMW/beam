@@ -207,11 +207,11 @@ namespace beam::wallet
 
         GetParameter(TxParameterID::MutualTxState, m_Status);
 
-        TxKernelStd::Ptr pKrn;
+        TxKernel::Ptr pKrn;
         GetParameter(TxParameterID::Kernel, pKrn);
         if (pKrn)
         {
-            AddKernel(pKrn);
+            AddKernel(std::move(pKrn));
 
             if (Status::FullTx == m_Status)
                 m_pTransaction->NormalizeE(); // everything else must have already been normalized
@@ -764,7 +764,7 @@ namespace beam::wallet
     void BaseTxBuilder::SaveKernel()
     {
         // this is ugly hack, but should work without extra code generated
-        SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn));
+        SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernel::Ptr>(m_pKrn));
     }
 
     void BaseTxBuilder::SaveKernelID()
@@ -831,7 +831,7 @@ namespace beam::wallet
         SetStatus(Status::FullTx);
     }
 
-    void BaseTxBuilder::AddKernel(TxKernelStd::Ptr& pKrn)
+    void BaseTxBuilder::AddKernel(TxKernel::Ptr&& pKrn)
     {
         m_pKrn = pKrn.get();
         m_pTransaction->m_vKernels.push_back(std::move(pKrn));
@@ -908,7 +908,7 @@ namespace beam::wallet
             {
                 SimpleTxBuilder& b = Cast::Up<SimpleTxBuilder>(b_);
                 b.AddOffset(m_Method.m_kOffset);
-                b.AddKernel(m_Method.m_pKernel);
+                b.AddKernel(std::move(m_Method.m_pKernel));
                 b.SaveKernel();
                 b.SaveKernelID();
                 b.SetStatus(Status::SelfSigned);
@@ -991,9 +991,9 @@ namespace beam::wallet
 
     void MutualTxBuilder::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
     {
-        GetParameterStrict(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k);
+        GetParameterStrict(TxParameterID::PeerSignature, m_pKrn->CastTo_Std().m_Signature.m_k);
 
-        if (!m_pKrn->m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce, ptExc))
+        if (!m_pKrn->CastTo_Std().m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce, ptExc))
             throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
 
     }
@@ -1053,7 +1053,7 @@ namespace beam::wallet
                 if (b.m_pKrn)
                 {
                     // final, update the signature only
-                    b.m_pKrn->m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
+                    b.m_pKrn->CastTo_Std().m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
                     b.AddOffset(m_Method.m_kOffset);
 
                     b.m_Tx.FreeSlotSafe(); // release it ASAP
@@ -1065,7 +1065,7 @@ namespace beam::wallet
                     // initial
                     b.SetParameter(TxParameterID::UserConfirmationToken, m_Method.m_UserAgreement);
 
-                    b.AddKernel(m_Method.m_pKernel);
+                    b.AddKernel(std::move(m_Method.m_pKernel));
                     b.SetStatus(Status::SndHalf);
                 }
 
@@ -1160,9 +1160,9 @@ namespace beam::wallet
             {
                 MutualTxBuilder& b = Cast::Up<MutualTxBuilder>(b_);
 
-                AssignExtractDiff(b, b.m_pKrn->m_Commitment, m_Method.m_pKernel->m_Commitment, TxParameterID::PublicExcess);
-                AssignExtractDiff(b, b.m_pKrn->m_Signature.m_NoncePub, m_Method.m_pKernel->m_Signature.m_NoncePub, TxParameterID::PublicNonce);
-                b.m_pKrn->m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
+                AssignExtractDiff(b, b.m_pKrn->CastTo_Std().m_Commitment, m_Method.m_pKernel->m_Commitment, TxParameterID::PublicExcess);
+                AssignExtractDiff(b, b.m_pKrn->CastTo_Std().m_Signature.m_NoncePub, m_Method.m_pKernel->m_Signature.m_NoncePub, TxParameterID::PublicNonce);
+                b.m_pKrn->CastTo_Std().m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
 
                 b.m_pKrn->UpdateID();
                 b.SaveKernel();
@@ -1250,8 +1250,8 @@ namespace beam::wallet
             {
                 SetTxParameter msg;
                 msg
-                    .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->m_Commitment)
-                    .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->m_Signature.m_NoncePub);
+                    .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->CastTo_Std().m_Commitment)
+                    .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->CastTo_Std().m_Signature.m_NoncePub);
 
                 SendToPeer(std::move(msg));
 
@@ -1266,8 +1266,8 @@ namespace beam::wallet
                 if (!LoadPeerPart(ptNonce, ptExc))
                     break;
 
-                Aggregate(m_pKrn->m_Commitment, ptExc);
-                Aggregate(m_pKrn->m_Signature.m_NoncePub, ptNonce);
+                Aggregate(m_pKrn->CastTo_Std().m_Commitment, ptExc);
+                Aggregate(m_pKrn->CastTo_Std().m_Signature.m_NoncePub, ptNonce);
 
                 FinalyzeMaxHeight();
                 m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
@@ -1311,7 +1311,7 @@ namespace beam::wallet
                 pKrn->m_Commitment = ptExc;
                 pKrn->m_Signature.m_NoncePub = ptNonce;
 
-                AddKernel(pKrn);
+                AddKernel(std::move(pKrn));
                 SaveKernel();
 
                 SetStatus(Status::RcvHalf);
@@ -1331,7 +1331,7 @@ namespace beam::wallet
                 msg
                     .AddParameter(TxParameterID::PeerPublicExcess, GetParameterStrict<ECC::Point>(TxParameterID::PublicExcess))
                     .AddParameter(TxParameterID::PeerPublicNonce, GetParameterStrict<ECC::Point>(TxParameterID::PublicNonce))
-                    .AddParameter(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k)
+                    .AddParameter(TxParameterID::PeerSignature, m_pKrn->CastTo_Std().m_Signature.m_k)
                     .AddParameter(TxParameterID::PeerInputs, m_pTransaction->m_vInputs)
                     .AddParameter(TxParameterID::PeerOutputs, m_pTransaction->m_vOutputs)
                     .AddParameter(TxParameterID::PeerOffset, m_pTransaction->m_Offset);
