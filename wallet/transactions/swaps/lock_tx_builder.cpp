@@ -20,7 +20,7 @@ using namespace ECC;
 namespace beam::wallet
 {
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount)
-        :MutualTxBuilder2(tx, SubTxIndex::BEAM_LOCK_TX)
+        :MutualTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX)
     {
         m_Amount = amount;
         if (!GetParameter(TxParameterID::SharedBlindingFactor, m_Sk))
@@ -160,7 +160,7 @@ namespace beam::wallet
 
         m_pTransaction->m_vOutputs.push_back(std::move(pOutp));
 
-        MutualTxBuilder2::FinalyzeTxInternal();
+        MutualTxBuilder::FinalyzeTxInternal();
     }
 
 }

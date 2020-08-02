@@ -226,12 +226,12 @@ namespace beam::wallet
     };
 
 
-    class MutualTxBuilder2
+    class MutualTxBuilder
         :public SimpleTxBuilder
     {
     public:
-        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID);
-        virtual ~MutualTxBuilder2() = default;
+        MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID);
+        virtual ~MutualTxBuilder() = default;
 
         bool m_IsSender = false;
 

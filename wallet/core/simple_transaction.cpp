@@ -75,9 +75,9 @@ namespace beam::wallet
     }
 
     struct SimpleTransaction::MyBuilder
-        :public MutualTxBuilder2
+        :public MutualTxBuilder
     {
-        using MutualTxBuilder2::MutualTxBuilder2;
+        using MutualTxBuilder::MutualTxBuilder;
 
         void SendToPeer(SetTxParameter&&) override;
     };

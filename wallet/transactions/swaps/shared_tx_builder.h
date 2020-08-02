@@ -23,7 +23,7 @@ namespace beam::wallet
 {
 
     class SharedTxBuilder
-        :public MutualTxBuilder2
+        :public MutualTxBuilder
     {
     public:
         SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID);
@@ -36,7 +36,7 @@ namespace beam::wallet
         bool AddSharedInput();
 
         struct Status
-            :public MutualTxBuilder2::Status
+            :public MutualTxBuilder::Status
         {
             static const Type SndSig2Sent = 10;
             static const Type RcvSig2Received = 10;

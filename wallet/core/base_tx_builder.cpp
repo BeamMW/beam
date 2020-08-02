@@ -45,6 +45,9 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    ///////////////////////////////////////
+    // BaseTxBuilder::KeyKeeperHandler
+
     BaseTxBuilder::KeyKeeperHandler::KeyKeeperHandler(BaseTxBuilder& b, Stage& s)
     {
         m_pBuilder = b.weak_from_this();
@@ -115,6 +118,8 @@ namespace beam::wallet
         b.m_Tx.Update(); // may complete transaction
     }
 
+    ///////////////////////////////////////
+    // BaseTxBuilder::Coins
     void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, Key::IKdf::Ptr& pMasterKdf) const
     {
         ECC::Scalar::Native sk;
@@ -140,6 +145,31 @@ namespace beam::wallet
 
         kOffs = -kOffs;
     }
+
+
+    ///////////////////////////////////////
+    // BaseTxBuilder::Balance
+    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
+    {
+        Entry& x = m_Map[cid.m_AssetID];
+        (bOutp ? x.m_Out : x.m_In) += cid.m_Value;
+    }
+
+    void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
+    {
+        m_Map[si.m_AssetID].m_In += si.m_Value;
+        m_Map[0].m_Out += si.m_Fee;
+        m_Fees += si.m_Fee;
+    }
+
+    bool BaseTxBuilder::Balance::Entry::IsEnoughNetTx(Amount val) const
+    {
+        return (m_In >= m_Out) && (m_In - m_Out >= val);
+    }
+
+
+    ///////////////////////////////////////
+    // BaseTxBuilder
 
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID)
         :m_Tx(tx)
@@ -188,19 +218,6 @@ namespace beam::wallet
         }
     }
 
-    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
-    {
-        Entry& x = m_Map[cid.m_AssetID];
-        (bOutp ? x.m_Out : x.m_In) += cid.m_Value;
-    }
-
-    void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
-    {
-        m_Map[si.m_AssetID].m_In += si.m_Value;
-        m_Map[0].m_Out += si.m_Fee;
-        m_Fees += si.m_Fee;
-    }
-
     void BaseTxBuilder::AddOutput(const Coin::ID& cid)
     {
         m_Coins.m_Output.push_back(cid);
@@ -232,11 +249,6 @@ namespace beam::wallet
 
         for (const auto& si : m_Coins.m_InputShielded)
             m_Balance.Add(si);
-    }
-
-    bool BaseTxBuilder::Balance::Entry::IsEnoughNetTx(Amount val) const
-    {
-        return (m_In >= m_Out) && (m_In - m_Out >= val);
     }
 
     void BaseTxBuilder::TagInput(const CoinID& cid)
@@ -749,38 +761,16 @@ namespace beam::wallet
             Aggregate(ptDst, ptSrcN);
     }
 
-    void SimpleTxBuilder::SignSplit()
+    void BaseTxBuilder::SaveKernel()
     {
-        if (Stage::None != m_Signing)
-            return;
+        // this is ugly hack, but should work without extra code generated
+        SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn));
+    }
 
-        struct MyHandler
-            :public KeyKeeperHandler
-        {
-            using KeyKeeperHandler::KeyKeeperHandler;
-
-            IPrivateKeyKeeper2::Method::SignSplit m_Method;
-
-            virtual ~MyHandler() {} // auto
-
-            virtual void OnSuccess(BaseTxBuilder& b_) override
-            {
-                SimpleTxBuilder& b = Cast::Up<SimpleTxBuilder>(b_);
-                b.AddOffset(m_Method.m_kOffset);
-                b.AddKernel(m_Method.m_pKernel);
-                b.SaveKernel();
-                b.SaveKernelID();
-                b.SetStatus(Status::SelfSigned);
-
-                OnAllDone(b);
-            }
-        };
-
-        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
-        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
-
-        SetCommon(x.m_Method);
-        m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
+    void BaseTxBuilder::SaveKernelID()
+    {
+        assert(m_pKrn);
+        SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
     }
 
     void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::TxCommon& m)
@@ -816,43 +806,9 @@ namespace beam::wallet
             throw TransactionFailedException(!m_Tx.IsInitiator(), res);
     }
 
-
-    SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID)
-        :BaseTxBuilder(tx, subTxID)
-        ,m_Lifetime(kDefaultTxLifetime)
-    {
-        GetParameter(TxParameterID::Amount, m_Amount);
-
-        GetParameter(TxParameterID::AssetID, m_AssetID);
-        GetParameter(TxParameterID::Lifetime, m_Lifetime);
-    }
-
-    void SimpleTxBuilder::MakeInputsAndChanges()
-    {
-        Amount val = m_Amount;
-
-        if (m_AssetID)
-        {
-            MakeInputsAndChange(val, m_AssetID);
-            val = m_Fee;
-        }
-        else
-            val += m_Fee;
-
-        MakeInputsAndChange(val, 0);
-    }
-
     bool BaseTxBuilder::SignTx()
     {
         return true;
-    }
-
-    bool SimpleTxBuilder::SignTx()
-    {
-        GenerateInOuts();
-        SignSplit();
-
-        return (m_Status >= Status::SelfSigned) && !IsGeneratingInOuts();
     }
 
     void BaseTxBuilder::FinalyzeTx()
@@ -875,7 +831,140 @@ namespace beam::wallet
         SetStatus(Status::FullTx);
     }
 
-    void MutualTxBuilder2::CreateKernel(TxKernelStd::Ptr& pKrn)
+    void BaseTxBuilder::AddKernel(TxKernelStd::Ptr& pKrn)
+    {
+        m_pKrn = pKrn.get();
+        m_pTransaction->m_vKernels.push_back(std::move(pKrn));
+    }
+
+    void BaseTxBuilder::SetStatus(Status::Type s)
+    {
+        SaveAndStore(m_Status, TxParameterID::MutualTxState, s);
+    }
+
+    string BaseTxBuilder::GetKernelIDString() const
+    {
+        Merkle::Hash kernelID;
+        GetParameter(TxParameterID::KernelID, kernelID);
+        char sz[Merkle::Hash::nTxtLen + 1];
+        kernelID.Print(sz);
+        return string(sz);
+    }
+
+    void BaseTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
+    {
+        // after 1st fork fee should be >= minimal fee
+        if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
+        {
+            // don't account for shielded inputs, they carry their fee individually
+            TxStats ts;
+            ts.m_Kernels = 1;
+            ts.m_Outputs = m_Coins.m_Output.size();
+
+            if (pFromPeer)
+                ts += *pFromPeer;
+
+            Transaction::FeeSettings fs;
+            Amount minFee = fs.Calculate(ts);
+
+            if (m_Fee < minFee)
+            {
+                stringstream ss;
+                ss << "The minimum fee must be: " << minFee << " .";
+                throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
+            }
+        }
+    }
+
+
+    ///////////////////////////////////////
+    // SimpleTxBuilder
+
+    SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID)
+        :BaseTxBuilder(tx, subTxID)
+        , m_Lifetime(kDefaultTxLifetime)
+    {
+        GetParameter(TxParameterID::Amount, m_Amount);
+
+        GetParameter(TxParameterID::AssetID, m_AssetID);
+        GetParameter(TxParameterID::Lifetime, m_Lifetime);
+    }
+
+    void SimpleTxBuilder::SignSplit()
+    {
+        if (Stage::None != m_Signing)
+            return;
+
+        struct MyHandler
+            :public KeyKeeperHandler
+        {
+            using KeyKeeperHandler::KeyKeeperHandler;
+
+            IPrivateKeyKeeper2::Method::SignSplit m_Method;
+
+            virtual ~MyHandler() {} // auto
+
+            virtual void OnSuccess(BaseTxBuilder& b_) override
+            {
+                SimpleTxBuilder& b = Cast::Up<SimpleTxBuilder>(b_);
+                b.AddOffset(m_Method.m_kOffset);
+                b.AddKernel(m_Method.m_pKernel);
+                b.SaveKernel();
+                b.SaveKernelID();
+                b.SetStatus(Status::SelfSigned);
+
+                OnAllDone(b);
+            }
+        };
+
+        KeyKeeperHandler::Ptr pHandler = std::make_shared<MyHandler>(*this, m_Signing);
+        MyHandler& x = Cast::Up<MyHandler>(*pHandler);
+
+        SetCommon(x.m_Method);
+        m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
+    }
+
+    void SimpleTxBuilder::MakeInputsAndChanges()
+    {
+        Amount val = m_Amount;
+
+        if (m_AssetID)
+        {
+            MakeInputsAndChange(val, m_AssetID);
+            val = m_Fee;
+        }
+        else
+            val += m_Fee;
+
+        MakeInputsAndChange(val, 0);
+    }
+
+    bool SimpleTxBuilder::SignTx()
+    {
+        GenerateInOuts();
+        SignSplit();
+
+        return (m_Status >= Status::SelfSigned) && !IsGeneratingInOuts();
+    }
+
+    ///////////////////////////////////////
+    // MutualTxBuilder
+
+    MutualTxBuilder::MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID)
+        :SimpleTxBuilder(tx, subTxID)
+    {
+        GetParameter(TxParameterID::IsSender, m_IsSender);
+
+        Height responseTime = 0;
+        if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
+        {
+            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
+            // adjust response height, if min height din not set then then it should be equal to responce time
+            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
+        }
+    }
+
+    void MutualTxBuilder::CreateKernel(TxKernelStd::Ptr& pKrn)
     {
         pKrn = make_unique<TxKernelStd>();
         pKrn->m_Fee = m_Fee;
@@ -900,32 +989,7 @@ namespace beam::wallet
 		}
     }
 
-    MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID)
-        :SimpleTxBuilder(tx, subTxID)
-    {
-        GetParameter(TxParameterID::IsSender, m_IsSender);
-
-        Height responseTime = 0;
-        if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
-        {
-            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
-            // adjust response height, if min height din not set then then it should be equal to responce time
-            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
-        }
-    }
-
-    void BaseTxBuilder::AddKernel(TxKernelStd::Ptr& pKrn)
-    {
-        m_pKrn = pKrn.get();
-        m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-    }
-
-    void BaseTxBuilder::SetStatus(Status::Type s)
-    {
-        SaveAndStore(m_Status, TxParameterID::MutualTxState, s);
-    }
-
-    void MutualTxBuilder2::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
+    void MutualTxBuilder::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
     {
         GetParameterStrict(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k);
 
@@ -934,7 +998,7 @@ namespace beam::wallet
 
     }
 
-    bool MutualTxBuilder2::LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc)
+    bool MutualTxBuilder::LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc)
     {
         ECC::Point pt;
         return
@@ -944,14 +1008,14 @@ namespace beam::wallet
             ptExc.Import(pt);
     }
 
-    void MutualTxBuilder2::AddPeerOffset()
+    void MutualTxBuilder::AddPeerOffset()
     {
         ECC::Scalar k;
         if (GetParameter(TxParameterID::PeerOffset, k))
             AddOffset(k);
     }
 
-    void MutualTxBuilder2::FinalyzeTxInternal()
+    void MutualTxBuilder::FinalyzeTxInternal()
     {
         // add peer in/out/offs
         AddPeerOffset();
@@ -967,7 +1031,7 @@ namespace beam::wallet
         SimpleTxBuilder::FinalyzeTxInternal();
     }
 
-    void MutualTxBuilder2::SignSender(bool initial)
+    void MutualTxBuilder::SignSender(bool initial)
     {
         if (Stage::InProgress == m_Signing)
             return;
@@ -984,7 +1048,7 @@ namespace beam::wallet
 
             virtual void OnSuccess(BaseTxBuilder& b_) override
             {
-                MutualTxBuilder2& b = Cast::Up<MutualTxBuilder2>(b_);
+                MutualTxBuilder& b = Cast::Up<MutualTxBuilder>(b_);
 
                 if (b.m_pKrn)
                 {
@@ -1066,7 +1130,7 @@ namespace beam::wallet
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
-    void MutualTxBuilder2::SignReceiver()
+    void MutualTxBuilder::SignReceiver()
     {
         if (Stage::InProgress == m_Signing)
             return;
@@ -1094,7 +1158,7 @@ namespace beam::wallet
 
             virtual void OnSuccess(BaseTxBuilder& b_) override
             {
-                MutualTxBuilder2& b = Cast::Up<MutualTxBuilder2>(b_);
+                MutualTxBuilder& b = Cast::Up<MutualTxBuilder>(b_);
 
                 AssignExtractDiff(b, b.m_pKrn->m_Commitment, m_Method.m_pKernel->m_Commitment, TxParameterID::PublicExcess);
                 AssignExtractDiff(b, b.m_pKrn->m_Signature.m_NoncePub, m_Method.m_pKernel->m_Signature.m_NoncePub, TxParameterID::PublicNonce);
@@ -1132,16 +1196,7 @@ namespace beam::wallet
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
 
-    string BaseTxBuilder::GetKernelIDString() const
-    {
-        Merkle::Hash kernelID;
-        GetParameter(TxParameterID::KernelID, kernelID);
-        char sz[Merkle::Hash::nTxtLen + 1];
-        kernelID.Print(sz);
-        return string(sz);
-    }
-
-    void MutualTxBuilder2::FinalyzeMaxHeight()
+    void MutualTxBuilder::FinalyzeMaxHeight()
     {
         if (MaxHeight != m_Height.m_Max)
             return; // already decided
@@ -1168,59 +1223,8 @@ namespace beam::wallet
         SetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
     }
 
-    void BaseTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
-    {
-        // after 1st fork fee should be >= minimal fee
-        if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
-        {
-            // don't account for shielded inputs, they carry their fee individually
-            TxStats ts;
-            ts.m_Kernels = 1;
-            ts.m_Outputs = m_Coins.m_Output.size();
 
-            if (pFromPeer)
-                ts += *pFromPeer;
-
-            Transaction::FeeSettings fs;
-            Amount minFee = fs.Calculate(ts);
-
-            if (m_Fee < minFee)
-            {
-                stringstream ss;
-                ss << "The minimum fee must be: " << minFee << " .";
-                throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
-            }
-        }
-    }
-
-    void BaseTxBuilder::SaveKernel()
-    {
-        //struct Guard
-        //{
-        //    TxKernelStd::Ptr m_pPtr;
-        //    ~Guard()
-        //    {
-        //        m_pPtr.release();
-        //    }
-        //};
-
-        //Guard g;
-        //g.m_pPtr.reset(m_pKrn);
-
-        //SetParameter(TxParameterID::Kernel, g.m_pPtr);
-        
-        // this is ugly hack, but should work without extra code generated
-        SetParameter(TxParameterID::Kernel, Cast::Reinterpret<TxKernelStd::Ptr>(m_pKrn));
-    }
-
-    void BaseTxBuilder::SaveKernelID()
-    {
-        assert(m_pKrn);
-        SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
-    }
-
-
-    bool MutualTxBuilder2::SignTx()
+    bool MutualTxBuilder::SignTx()
     {
         GenerateInOuts();
 
@@ -1234,7 +1238,7 @@ namespace beam::wallet
         return bRes;
     }
 
-    bool MutualTxBuilder2::SignTxSender()
+    bool MutualTxBuilder::SignTxSender()
     {
         switch (m_Status)
         {
@@ -1288,7 +1292,7 @@ namespace beam::wallet
 
     }
 
-    bool MutualTxBuilder2::SignTxReceiver()
+    bool MutualTxBuilder::SignTxReceiver()
     {
         switch (m_Status)
         {

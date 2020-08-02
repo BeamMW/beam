@@ -21,7 +21,7 @@ namespace beam::wallet
 {
 
     SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID)
-        :MutualTxBuilder2(tx, subTxID)
+        :MutualTxBuilder(tx, subTxID)
     {
         m_Lifetime = 0; // disable auto max height adjustment
     }
@@ -72,7 +72,7 @@ namespace beam::wallet
 
     bool SharedTxBuilder::SignTxSender()
     {
-        if (!MutualTxBuilder2::SignTxSender())
+        if (!MutualTxBuilder::SignTxSender())
             return false;
         if (!IsRedeem())
             return true;
@@ -105,7 +105,7 @@ namespace beam::wallet
 
     bool SharedTxBuilder::SignTxReceiver()
     {
-        if (!MutualTxBuilder2::SignTxReceiver())
+        if (!MutualTxBuilder::SignTxReceiver())
             return false;
         if (!IsRedeem())
             return true;
