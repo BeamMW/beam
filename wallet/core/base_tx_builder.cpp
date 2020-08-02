@@ -866,7 +866,7 @@ namespace beam::wallet
     MutualTxBuilder2::MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID)
         :SimpleTxBuilder(tx, subTxID)
     {
-        GetParameterStrict(TxParameterID::IsSender, m_IsSender);
+        GetParameter(TxParameterID::IsSender, m_IsSender);
 
         Height responseTime = 0;
         if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
