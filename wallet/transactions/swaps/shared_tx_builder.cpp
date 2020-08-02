@@ -66,24 +66,6 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::MinHeight, m_Height.m_Min); // legacy, for older peers. Current proto automatically deduces it on both sides
         }
 
-        if (!m_IsSender && (Status::RcvFullHalfSig == m_Status) && IsRedeem())
-        {
-            // remove the partial signature from the response!
-            size_t iDst = 0;
-            for (size_t iSrc = 0; iSrc < msgSub.m_Parameters.size(); iSrc++)
-            {
-                auto& src = msgSub.m_Parameters[iSrc];
-                if (TxParameterID::PeerSignature == src.first)
-                    continue;
-
-                if (iDst != iSrc)
-                    msgSub.m_Parameters[iDst] = std::move(src);
-                iDst++;
-            }
-
-            msgSub.m_Parameters.resize(iDst);
-        }
-
         std::move(msgSub.m_Parameters.begin(), msgSub.m_Parameters.end(), std::back_inserter(msg.m_Parameters));
         m_Tx.SendTxParametersStrict(std::move(msg));
     }
@@ -97,42 +79,28 @@ namespace beam::wallet
 
         switch (m_Status)
         {
-        case Status::SndFull: // not really full, rcv sig is missing
-        {
-            ECC::Scalar::Native kSig = m_pKrn->m_Signature.m_k; // my partial
+            case Status::SndFull:
+            {
+                ECC::Scalar::Native kSig = m_pKrn->m_Signature.m_k; // full sig
 
+                Scalar k;
+                GetParameterStrict(TxParameterID::PeerSignature, k);
+                kSig -= k; // my partial
 
-            // Send BTC side partial sign with secret
-            NoLeak<Scalar> kSecret;
-            GetParameterStrict(TxParameterID::AtomicSwapSecretPrivateKey, kSecret.V);
-            kSig += kSecret.V;
-            kSecret.V = kSig;
+                // Send BTC side partial sign with secret
+                GetParameterStrict(TxParameterID::AtomicSwapSecretPrivateKey, k);
+                kSig += k; // my partial + BTC sign secret
+                k = kSig;
 
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::PeerSignature, kSecret.V);
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::PeerSignature, k);
+                SendToPeer(std::move(msg));
 
-            SendToPeer(std::move(msg));
-
-            SetStatus(Status::SndSigSent);
-
-        }
-        // no break;
-
-        case Status::SndSigSent:
-        {
-            ECC::Scalar k;
-            if (!GetParameter(TxParameterID::PeerSignature, k))
-                break;
-
-            ECC::Scalar::Native kSig = m_pKrn->m_Signature.m_k;
-            kSig += k;
-            m_pKrn->m_Signature.m_k = kSig;
-
-            SetStatus(Status::SndFull2);
-        }
+                SetStatus(Status::SndSig2Sent);
+            }
         }
 
-        return (m_Status >= Status::SndFull2) && !IsGeneratingInOuts();
+        return (m_Status >= Status::SndSig2Sent) && !IsGeneratingInOuts();
     }
 
     bool SharedTxBuilder::SignTxReceiver()
@@ -158,8 +126,6 @@ namespace beam::wallet
                 Scalar::Native e;
                 m_pKrn->m_Signature.get_Challenge(e, m_pKrn->m_Internal.m_ID);
 
-                // k*G + e*Nonce + 
-
                 ptNonce += ptExc * e;
                 ptNonce += Context::get().G * k;
 
@@ -168,12 +134,7 @@ namespace beam::wallet
 
                 Point ptPubKey;
                 ptNonce.Export(ptPubKey);
-
                 SetParameter(TxParameterID::AtomicSwapSecretPublicKey, ptPubKey);
-
-                SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, m_pKrn->m_Signature.m_k);
-                SendToPeer(std::move(msg));
 
                 // save the aggregate signature (later our kernel will be overwritten)
                 ECC::Scalar::Native sk(k);
@@ -182,12 +143,11 @@ namespace beam::wallet
 
                 SetParameter(TxParameterID::AggregateSignature, k);
 
-                SetStatus(Status::RcvSigSent2);
+                SetStatus(Status::RcvSig2Received);
             }
-            // no break;
         }
 
-        return (m_Status >= Status::RcvSigSent2);
+        return (m_Status >= Status::RcvSig2Received);
     }
 
     void SharedTxBuilder::FinalyzeTxInternal()
@@ -198,12 +158,5 @@ namespace beam::wallet
         AddPeerOffset();
         SimpleTxBuilder::FinalyzeTxInternal();
     }
-
-    void SharedTxBuilder::AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc)
-    {
-        if (!IsRedeem()) // for redeem it's omitted at this stage
-            MutualTxBuilder2::AddPeerSignature(ptNonce, ptExc);
-    }
-
 
 }

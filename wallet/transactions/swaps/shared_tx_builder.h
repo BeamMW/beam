@@ -38,10 +38,8 @@ namespace beam::wallet
         struct Status
             :public MutualTxBuilder2::Status
         {
-            static const Type SndSigSent = 10;
-            static const Type SndFull2 = 11;
-
-            static const Type RcvSigSent2 = 10;
+            static const Type SndSig2Sent = 10;
+            static const Type RcvSig2Received = 10;
         };
 
     protected:
@@ -51,8 +49,6 @@ namespace beam::wallet
         bool SignTxSender() override;
         bool SignTxReceiver() override;
         void FinalyzeTxInternal() override;
-        void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc) override;
-
     };
 
 
