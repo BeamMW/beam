@@ -91,7 +91,12 @@ namespace beam::wallet {
     AssetTransaction::Builder::Builder(BaseTransaction& tx, SubTxID subTxID)
         :BaseTxBuilder(tx, subTxID)
     {
-        std::string sMeta = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
+        std::string sMeta;
+        GetParameterStrict(TxParameterID::AssetMetadata, sMeta);
+
+        if (sMeta.empty())
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
+
         m_Md.m_Value = toByteBuffer(sMeta);
         m_Md.UpdateHash();
 
@@ -121,7 +126,7 @@ namespace beam::wallet {
         m_Coins.AddOffset(sk, pKdf);
 
         m_pTransaction->m_Offset = sk;
-        m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
+        SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
 
         BaseTxBuilder::FinalyzeTxInternal();
     }
