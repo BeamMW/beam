@@ -317,13 +317,12 @@ namespace beam::wallet
         void SaveKernelID();
         void FinalyzeMaxHeight();
         void CreateKernel(TxKernelStd::Ptr&);
-        //void UpdateSigning();
         void SignSender(bool initial);
         void SignReceiver();
         bool LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc);
-
-        void SignTxSender();
-        void SignTxReceiver();
+        void AddPeerOffset();
+        virtual bool SignTxSender();
+        virtual bool SignTxReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
         virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base

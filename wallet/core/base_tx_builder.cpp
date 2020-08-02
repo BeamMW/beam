@@ -1532,12 +1532,17 @@ namespace beam::wallet
             ptExc.Import(pt);
     }
 
-    void MutualTxBuilder2::FinalyzeTxInternal()
+    void MutualTxBuilder2::AddPeerOffset()
     {
-        // add peer in/out/offs
         ECC::Scalar k;
         if (GetParameter(TxParameterID::PeerOffset, k))
             AddOffset(k);
+    }
+
+    void MutualTxBuilder2::FinalyzeTxInternal()
+    {
+        // add peer in/out/offs
+        AddPeerOffset();
 
         std::vector<Input::Ptr> vIns;
         if (GetParameter(TxParameterID::PeerInputs, vIns))
@@ -1809,32 +1814,21 @@ namespace beam::wallet
     }
 
 
-
     bool MutualTxBuilder2::SignTx()
     {
         GenerateInOuts();
 
-        if (m_IsSender)
-        {
-            SignTxSender();
-            if ((m_Status >= Status::SndFull) && !IsGeneratingInOuts())
-                return true;
-        }
-        else
-        {
+        bool bRes = m_IsSender ?
+            SignTxSender() :
             SignTxReceiver();
-            if (m_Status >= Status::RcvFullHalfSigSent)
-            {
-                assert(!IsGeneratingInOuts());
-                return true;
-            }
-        }
 
-        m_Tx.UpdateOnNextTip();
-        return false;
+        if (!bRes)
+            m_Tx.UpdateOnNextTip();
+
+        return bRes;
     }
 
-    void MutualTxBuilder2::SignTxSender()
+    bool MutualTxBuilder2::SignTxSender()
     {
         switch (m_Status)
         {
@@ -1883,9 +1877,12 @@ namespace beam::wallet
         case Status::SndFullHalfSig:
             SignSender(false);
         }
+
+        return (m_Status >= Status::SndFull) && !IsGeneratingInOuts();
+
     }
 
-    void MutualTxBuilder2::SignTxReceiver()
+    bool MutualTxBuilder2::SignTxReceiver()
     {
         switch (m_Status)
         {
@@ -1939,6 +1936,9 @@ namespace beam::wallet
             }
 
         }
+
+        return (m_Status >= Status::RcvFullHalfSigSent);
+
     }
 
 }
