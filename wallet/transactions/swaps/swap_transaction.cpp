@@ -1261,9 +1261,16 @@ namespace beam::wallet
             if (isTxOwner)
             {
                 CoinID cid;
-                cid.m_Type = Key::Type::Regular;
-                cid.m_Value = builder.m_Amount;
-                builder.CreateAddNewOutput(cid);
+                if (GetParameter(TxParameterID::SharedCoinID, cid))
+                    cid.m_Value = builder.m_Amount;
+                else
+                {
+                    Coin newUtxo = GetWalletDB()->generateNewCoin(builder.m_Amount, 0);
+                    cid = newUtxo.m_ID;
+                    SetParameter(TxParameterID::SharedCoinID, cid);
+                }
+
+                builder.AddOutput(cid);
 
                 builder.SaveCoins();
             }
@@ -1352,16 +1359,20 @@ namespace beam::wallet
             return false;
         }
 
-        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
+        switch (subTxID)
         {
-            // store Coin in DB
-            auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);
-            Coin withdrawUtxo(amount);
+        case SubTxIndex::BEAM_REFUND_TX:
+        case SubTxIndex::BEAM_REDEEM_TX:
+            {
+                // store Coin in DB
+                auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);
+                Coin withdrawUtxo(amount);
 
-            withdrawUtxo.m_createTxId = GetTxID();
-            withdrawUtxo.m_ID = GetMandatoryParameter<Coin::ID>(TxParameterID::SharedCoinID, subTxID);
+                withdrawUtxo.m_createTxId = GetTxID();
+                withdrawUtxo.m_ID = GetMandatoryParameter<Coin::ID>(TxParameterID::SharedCoinID);
 
-            GetWalletDB()->saveCoin(withdrawUtxo);
+                GetWalletDB()->saveCoin(withdrawUtxo);
+            }
         }
 
         SetCompletedTxCoinStatuses(hProof);
