@@ -462,9 +462,9 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, job
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jboolean maxPrivacy)
 {
-    LOG_DEBUG() << "sendMoneyToToken(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
     auto txParameters = beam::wallet::ParseParameters(JString(env, receiverAddr).value());
     if (!txParameters)
@@ -474,7 +474,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     auto messageString = JString(env, comment).value();
     
-    uint64_t bAmount = round(amount * Rules::Coin);
+    uint64_t bAmount = amount;
     uint64_t bfee = fee;
     
     auto peer = txParameters->GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
@@ -502,6 +502,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     if (identity)
     {
         p.SetParameter(beam::wallet::TxParameterID::PeerWalletIdentity, *identity);
+    }
+
+    if (maxPrivacy) {
+        p.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+    }
+    else {
+        p.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
     }
     
     walletModel->getAsync()->startTransaction(std::move(p));
