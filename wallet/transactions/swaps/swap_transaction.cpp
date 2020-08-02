@@ -1445,36 +1445,6 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendSharedTxInvitation(const MutualTxBuilder& builder)
-    {
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
-            .AddParameter(TxParameterID::Amount, builder.GetAmount())
-            .AddParameter(TxParameterID::Fee, builder.GetFee())
-            .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
-            .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
-    
-        if (!SendTxParameters(std::move(msg)))
-        {
-            OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
-
-    void AtomicSwapTransaction::ConfirmSharedTxInvitation(const MutualTxBuilder& builder)
-    {
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
-            .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerOffset, builder.m_pTransaction->m_Offset);
-
-        if (!SendTxParameters(std::move(msg)))
-        {
-            OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
 
     void AtomicSwapTransaction::SendQuickRefundPrivateKey()
     {

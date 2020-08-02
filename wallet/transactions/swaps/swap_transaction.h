@@ -194,8 +194,6 @@ namespace beam::wallet
         void SendInvitation();
         void SendExternalTxDetails();
 
-        void SendSharedTxInvitation(const MutualTxBuilder& builder);
-        void ConfirmSharedTxInvitation(const MutualTxBuilder& builder);
         void SendQuickRefundPrivateKey();
 
         SubTxState BuildBeamLockTx();
