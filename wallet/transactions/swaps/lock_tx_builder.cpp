@@ -42,6 +42,9 @@ namespace beam::wallet
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::PeerProtoVersion, kSwapProtoVersion);
 
+        if (m_IsSender)
+            msg.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey));
+
         // for our subtx
         EvaluateSelfFields();
 
