@@ -1022,7 +1022,7 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestStateSummary& r)
     {
         // TODO: save full response?
-        storage::setVar(*m_WalletDB, kStateSummaryShieldedOutsDBPath, r.m_Res.m_ShieldedOuts);
+        m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()

@@ -2269,6 +2269,18 @@ namespace beam::wallet
         pid = ECC::Point(pt).m_X;
     }
 
+    TxoID IWalletDB::get_ShieldedOuts() const
+    {
+        TxoID ret = 0;
+        storage::getVar(*this, kStateSummaryShieldedOutsDBPath, ret);
+        return ret;
+    }
+
+    void IWalletDB::set_ShieldedOuts(TxoID val)
+    {
+        storage::setVar(*this, kStateSummaryShieldedOutsDBPath, val);
+    }
+
     void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
     {
         m_statusInterpreterCreators[txType] = interpreterCreator;
@@ -2755,8 +2767,7 @@ namespace beam::wallet
         ShieldedStatusCtx(const WalletDB& db)
         {
             m_hTip = db.getCurrentHeight();
-            if (!storage::getVar(db, kStateSummaryShieldedOutsDBPath, m_nShieldedOuts))
-                m_nShieldedOuts = 0;
+            m_nShieldedOuts = db.get_ShieldedOuts();
         }
     };
 

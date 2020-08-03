@@ -654,9 +654,7 @@ namespace beam::wallet
         if (!m_N)
             return false;
 
-        TxoID nShieldedCurrently = 0;
-        storage::getVar(*b.m_Tx.GetWalletDB(), kStateSummaryShieldedOutsDBPath, nShieldedCurrently);
-
+        TxoID nShieldedCurrently = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
         std::setmax(nShieldedCurrently, c.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
 
         m_Method.m_iIdx = c.get_WndIndex(m_N);
