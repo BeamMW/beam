@@ -262,7 +262,7 @@ namespace beam::wallet
         m_Channel = ch;
     }
 
-    boost::optional<PeerID> FromHex(const std::string& s)
+    boost::optional<PeerID> GetPeerIDFromHex(const std::string& s)
     {
         boost::optional<PeerID> res;
         bool isValid = false;
@@ -859,7 +859,7 @@ namespace beam::wallet
         {
             return "";
         }
-        auto identity = FromHex(identityStr);
+        auto identity = GetPeerIDFromHex(identityStr);
         if (!identity)
         {
             return "";
@@ -884,7 +884,7 @@ namespace beam::wallet
         if (!pKdf || count == 0)
             return res;
 
-        const size_t MAX_VOUCHERS = 20;
+        const size_t MAX_VOUCHERS = 30;
 
         if (MAX_VOUCHERS < count)
         {

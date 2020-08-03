@@ -91,7 +91,7 @@ namespace beam::wallet
     };
 #pragma pack (pop)
 
-    boost::optional<PeerID> FromHex(const std::string& s);
+    boost::optional<PeerID> GetPeerIDFromHex(const std::string& s);
 
     bool CheckReceiverAddress(const std::string& addr);
 
