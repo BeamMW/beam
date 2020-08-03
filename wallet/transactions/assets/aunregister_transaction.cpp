@@ -142,15 +142,13 @@ namespace beam::wallet
 
             SetParameter(TxParameterID::AssetConfirmedHeight, wa.m_RefreshHeight);
 
-            if (builder.m_Fee < Rules::get().CA.DepositForList)
-            {
-                CoinID cid;
-                cid.m_Value = Rules::get().CA.DepositForList - builder.m_Fee;
-                cid.m_Type = Key::Type::Regular;
-                builder.CreateAddNewOutput(cid);
-            }
-            else
-                builder.MakeInputsAndChange(builder.m_Fee - Rules::get().CA.DepositForList, 0);
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;
+
+            if (bb.m_Map[0].m_Value > 0)
+                bb.CreateOutput(bb.m_Map[0].m_Value, 0, Key::Type::Regular); // it would better be regular, than "Change"
+
+            bb.CompleteBalance();
 
             builder.SaveCoins();
         }

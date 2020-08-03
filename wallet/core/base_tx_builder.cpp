@@ -149,24 +149,141 @@ namespace beam::wallet
 
     ///////////////////////////////////////
     // BaseTxBuilder::Balance
-    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
+
+    BaseTxBuilder::Balance::Balance(BaseTxBuilder& b)
+        :m_Builder(b)
+    {
+        for (const auto& cid : b.m_Coins.m_Input)
+            Add_(cid, false);
+
+        for (const auto& cid : b.m_Coins.m_Output)
+            Add_(cid, true);
+
+        for (const auto& si : b.m_Coins.m_InputShielded)
+            Add_(si);
+    }
+
+    void BaseTxBuilder::Balance::Add_(const Coin::ID& cid, bool bOutp)
     {
         Entry& x = m_Map[cid.m_AssetID];
-        (bOutp ? x.m_Out : x.m_In) += cid.m_Value;
+        if (bOutp)
+            x.m_Value -= cid.m_Value;
+        else
+            x.m_Value += cid.m_Value;
+    }
+
+    void BaseTxBuilder::Balance::Add_(const IPrivateKeyKeeper2::ShieldedInput& si)
+    {
+        m_Map[si.m_AssetID].m_Value += si.m_Value;
+        m_Map[0].m_Value -= si.m_Fee;
+    }
+
+    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
+    {
+        Add_(cid, bOutp);
+        (bOutp ? m_Builder.m_Coins.m_Output : m_Builder.m_Coins.m_Input).push_back(cid);
     }
 
     void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
     {
-        m_Map[si.m_AssetID].m_In += si.m_Value;
-        m_Map[0].m_Out += si.m_Fee;
-        m_Fees += si.m_Fee;
+        Add_(si);
+        m_Builder.m_Coins.m_InputShielded.push_back(si);
     }
 
-    bool BaseTxBuilder::Balance::Entry::IsEnoughNetTx(Amount val) const
+    void BaseTxBuilder::Balance::Add(const ShieldedTxo::ID& sid)
     {
-        return (m_In >= m_Out) && (m_In - m_Out >= val);
+        Transaction::FeeSettings fs;
+
+        IPrivateKeyKeeper2::ShieldedInput si;
+        Cast::Down<ShieldedTxo::ID>(si) = sid;
+        si.m_Fee = fs.m_Kernel + fs.m_ShieldedInput; // auto-fee for shielded inputs
+        Add(si);
     }
 
+    void BaseTxBuilder::Balance::CreateOutput(Amount val, Asset::ID aid, Key::Type type)
+    {
+        Coin newUtxo = m_Builder.m_Tx.GetWalletDB()->generateNewCoin(val, aid);
+        newUtxo.m_ID.m_Type = type;
+
+        newUtxo.m_createTxId = m_Builder.m_Tx.GetTxID();
+        m_Builder.m_Tx.GetWalletDB()->storeCoin(newUtxo);
+
+        Add(newUtxo.m_ID, true);
+    }
+
+    void BaseTxBuilder::Balance::AddPreselected()
+    {
+        CoinIDList cidl;
+        m_Builder.GetParameter(TxParameterID::PreselectedCoins, cidl);
+
+        for (const auto& cid : cidl)
+            Add(cid, false);
+    }
+
+    void BaseTxBuilder::Balance::CompleteBalance()
+    {
+        uint32_t nNeedInputs = 0;
+
+        for (const auto& v : m_Map)
+        {
+            if (v.second.m_Value < 0)
+                nNeedInputs++;
+        }
+
+        if (nNeedInputs)
+        {
+            if (m_Map[0].m_Value >= 0)
+                nNeedInputs++; // although there's no dificiency in def asset, assume it may arise due to involuntary fees
+
+            // go by asset type in reverse order, to reach the def asset last
+            for (auto it = m_Map.rbegin(); m_Map.rend() != it; it++)
+            {
+                if (it->second.m_Value >= 0)
+                    continue;
+
+                uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
+                uint32_t nShieldedInUse = static_cast<uint32_t>(m_Builder.m_Coins.m_InputShielded.size()); // preselected?
+
+                if (nShieldedMax <= nShieldedInUse)
+                    nShieldedMax = 0;
+                else
+                    nShieldedMax -= nShieldedInUse;
+
+                assert(nNeedInputs);
+                nShieldedMax = (nShieldedMax + nNeedInputs - 1) / nNeedInputs; // leave some reserve to other assets
+
+                Asset::ID aid = it->first;
+                AmountSigned& val = it->second.m_Value;
+
+                std::vector<Coin> vSelStd;
+                std::vector<ShieldedCoin> vSelShielded;
+                m_Builder.m_Tx.GetWalletDB()->selectCoins2(-val, aid, vSelStd, vSelShielded, nShieldedMax, true);
+
+                for (const auto& c : vSelStd)
+                    Add(c.m_ID, false);
+
+                for (const auto& c : vSelShielded)
+                    Add(c.m_CoinID);
+
+                if (val < 0)
+                {
+                    LOG_ERROR() << m_Builder.m_Tx.GetTxID() << "[" << m_Builder.m_SubTxID << "]" << " Missing " << PrintableAmount(Amount(-val), false, kAmountASSET, kAmountAGROTH);
+                    throw TransactionFailedException(!m_Builder.m_Tx.IsInitiator(), TxFailureReason::NoInputs);
+                }
+
+                nNeedInputs--;
+            }
+
+        }
+
+        for (const auto& v : m_Map)
+        {
+            if (v.second.m_Value > 0)
+                CreateOutput(v.second.m_Value, v.first, Key::Type::Change);
+
+            assert(!v.second.m_Value);
+        }
+    }
 
     ///////////////////////////////////////
     // BaseTxBuilder
@@ -188,7 +305,6 @@ namespace beam::wallet
         GetParameter(TxParameterID::InputCoins, m_Coins.m_Input);
         GetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded);
         GetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
-        RefreshBalance();
 
         m_pTransaction = std::make_shared<Transaction>();
 
@@ -218,140 +334,40 @@ namespace beam::wallet
         }
     }
 
-    void BaseTxBuilder::AddOutput(const Coin::ID& cid)
-    {
-        m_Coins.m_Output.push_back(cid);
-        m_Balance.Add(cid, true);
-    }
-
-    void BaseTxBuilder::CreateAddNewOutput(Coin::ID& cid)
-    {
-        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(cid.m_Value, cid.m_AssetID);
-        newUtxo.m_ID.m_Type = cid.m_Type;
-
-        newUtxo.m_createTxId = m_Tx.GetTxID();
-        m_Tx.GetWalletDB()->storeCoin(newUtxo);
-
-        cid = newUtxo.m_ID;
-        AddOutput(cid);
-    }
-
-    void BaseTxBuilder::RefreshBalance()
-    {
-        m_Balance.m_Map.clear();
-        m_Balance.m_Fees = 0;
-
-        for (const auto& cid : m_Coins.m_Input)
-            m_Balance.Add(cid, false);
-
-        for (const auto& cid : m_Coins.m_Output)
-            m_Balance.Add(cid, true);
-
-        for (const auto& si : m_Coins.m_InputShielded)
-            m_Balance.Add(si);
-    }
-
-    void BaseTxBuilder::TagInput(const CoinID& cid)
-    {
-        Coin coin;
-        coin.m_ID = cid;
-        if (m_Tx.GetWalletDB()->findCoin(coin))
-        {
-            coin.m_spentTxId = m_Tx.GetTxID();
-            m_Tx.GetWalletDB()->saveCoin(coin);
-        }
-    }
-
-    void BaseTxBuilder::AddPreselectedCoins()
-    {
-        CoinIDList cidl;
-        GetParameter(TxParameterID::PreselectedCoins, cidl);
-
-        for (const auto& cid : cidl)
-        {
-            m_Coins.m_Input.push_back(cid);
-            m_Balance.Add(cid, false);
-            TagInput(cid);
-        }
-    }
-
     void BaseTxBuilder::SaveCoins()
     {
+        bool bAssets = false;
+
+        for (const auto& cid : m_Coins.m_Input)
+            if (cid.m_AssetID)
+                bAssets = true;
+
+        for (const auto& si : m_Coins.m_Input)
+            if (si.m_AssetID)
+                bAssets = true;
+
+        for (const auto& cid : m_Coins.m_Output)
+            if (cid.m_AssetID)
+                bAssets = true;
+
+        if (bAssets)
+            VerifyAssetsEnabled();
+
         SetParameter(TxParameterID::InputCoins, m_Coins.m_Input);
         SetParameter(TxParameterID::InputCoinsShielded, m_Coins.m_InputShielded);
         SetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
-    }
 
-    Amount BaseTxBuilder::MakeInputsAndChange(Amount val, Asset::ID aid)
-    {
-        Amount v = MakeInputs(val, aid);
-        if (v > val)
+        // tag inputs
+        for (const auto& cid : m_Coins.m_Input)
         {
-            CoinID cid;
-            cid.m_Value = v - val;
-            cid.m_AssetID = aid;
-            cid.m_Type = Key::Type::Change;
-
-            CreateAddNewOutput(cid);
+            Coin coin;
+            coin.m_ID = cid;
+            if (m_Tx.GetWalletDB()->findCoin(coin))
+            {
+                coin.m_spentTxId = m_Tx.GetTxID();
+                m_Tx.GetWalletDB()->saveCoin(coin);
+            }
         }
-
-        return v;
-    }
-
-    Amount BaseTxBuilder::MakeInputs(Amount val, Asset::ID aid)
-    {
-        Balance::Entry& x = m_Balance.m_Map[aid];
-        MakeInputs(x, val, aid);
-        return x.m_In - x.m_Out;
-    }
-
-    void BaseTxBuilder::MakeInputs(Balance::Entry& x, Amount val, Asset::ID aid)
-    {
-        if (x.IsEnoughNetTx(val))
-            return;
-
-        if (aid)
-            VerifyAssetsEnabled();
-
-        uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
-        uint32_t nShieldedInUse = static_cast<uint32_t>(m_Coins.m_InputShielded.size());
-
-        if (aid)
-            nShieldedInUse += nShieldedMax / 2; // leave at least half for beams
-
-        if (nShieldedMax <= nShieldedInUse)
-            nShieldedMax = 0;
-        else
-            nShieldedMax -= nShieldedInUse;
-
-        Transaction::FeeSettings fs;
-        Amount feeShielded = fs.m_Kernel + fs.m_ShieldedInput;
-
-        std::vector<Coin> vSelStd;
-        std::vector<ShieldedCoin> vSelShielded;
-        m_Tx.GetWalletDB()->selectCoins2(val, aid, vSelStd, vSelShielded, nShieldedMax, true);
-
-        for (const auto& c : vSelStd)
-        {
-            m_Coins.m_Input.push_back(c.m_ID);
-            m_Balance.Add(c.m_ID, false);
-        }
-
-        for (const auto& c : vSelShielded)
-        {
-            Cast::Down<ShieldedTxo::ID>(m_Coins.m_InputShielded.emplace_back()) = c.m_CoinID;
-            m_Coins.m_InputShielded.back().m_Fee = feeShielded;
-            m_Balance.Add(m_Coins.m_InputShielded.back());
-        }
-
-        if (!x.IsEnoughNetTx(val))
-        {
-            LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(x.m_In, false, kAmountASSET, kAmountAGROTH);
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
-        }
-
-        for (auto& cid : m_Coins.m_Input)
-            TagInput(cid);
 
         for (auto& cid : m_Coins.m_InputShielded)
         {
@@ -922,21 +938,6 @@ namespace beam::wallet
 
         SetCommon(x.m_Method);
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
-    }
-
-    void SimpleTxBuilder::MakeInputsAndChanges()
-    {
-        Amount val = m_Amount;
-
-        if (m_AssetID)
-        {
-            MakeInputsAndChange(val, m_AssetID);
-            val = m_Fee;
-        }
-        else
-            val += m_Fee;
-
-        MakeInputsAndChange(val, 0);
     }
 
     bool SimpleTxBuilder::SignTx()

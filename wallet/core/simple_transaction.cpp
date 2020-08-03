@@ -207,46 +207,6 @@ namespace beam::wallet
 
             UpdateTxDescription(TxStatus::InProgress);
 
-            builder.AddPreselectedCoins();
-
-            if (!pMutualBuilder || pMutualBuilder->m_IsSender)
-                builder.MakeInputsAndChanges();
-
-            if (pMutualBuilder && pMutualBuilder->m_IsSender)
-            {
-                Height maxResponseHeight = 0;
-                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-                {
-                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
-                }
-            }
-            else
-            {
-                AmountList amoutList;
-                if (!GetParameter(TxParameterID::AmountList, amoutList))
-                    amoutList = AmountList{ builder.m_Amount };
-
-                CoinID cid;
-                cid.m_AssetID = builder.m_AssetID;
-                cid.m_Type = Key::Type::Regular;
-
-                // create receiver utxo
-                for (const auto& amount : amoutList)
-                {
-                    cid.m_Value = amount;
-                    builder.CreateAddNewOutput(cid);
-                }
-            }
-
-            if (!pMutualBuilder || pMutualBuilder->m_IsSender)
-            {
-                TxStats tsExtra;
-                if (pMutualBuilder)
-                    tsExtra.m_Outputs = 1; // normally peer adds 1 output
-
-                builder.CheckMinimumFee(&tsExtra);
-            }
-
             if (!pMutualBuilder && (MaxHeight == builder.m_Height.m_Max) && builder.m_Lifetime)
             {
                 // for split tx we finalyze the max height immediately
@@ -256,6 +216,51 @@ namespace beam::wallet
                     builder.m_Height.m_Max = s.m_Height + builder.m_Lifetime;
                     SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
                 }
+            }
+
+            BaseTxBuilder::Balance bb(builder);
+            bb.AddPreselected();
+
+            if (pMutualBuilder && pMutualBuilder->m_IsSender)
+            {
+                // snd
+                bb.m_Map[builder.m_AssetID].m_Value -= builder.m_Amount;
+
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight)) {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+            }
+            else
+            {
+                // rcv or split. Create TXOs explicitly
+                AmountList amoutList;
+                if (!GetParameter(TxParameterID::AmountList, amoutList))
+                    amoutList = AmountList{ builder.m_Amount };
+
+                // rcv or split: create tx output utxo(s)
+                for (const auto& amount : amoutList)
+                    bb.CreateOutput(amount, builder.m_AssetID, Key::Type::Regular);
+            }
+
+            bool bPayFee = !pMutualBuilder || pMutualBuilder->m_IsSender;
+            if (bPayFee)
+                bb.m_Map[0].m_Value -= builder.m_Fee;
+            else
+                // rcv
+                bb.m_Map[builder.m_AssetID].m_Value += builder.m_Amount;
+
+            bb.CompleteBalance();
+
+            if (bPayFee)
+            {
+                // snd or split. Take care of fee
+                TxStats tsExtra;
+                if (pMutualBuilder)
+                    tsExtra.m_Outputs = 1; // normally peer adds 1 output
+
+                // split or sender, pay the fee
+                builder.CheckMinimumFee(&tsExtra);
             }
 
             builder.SaveCoins();

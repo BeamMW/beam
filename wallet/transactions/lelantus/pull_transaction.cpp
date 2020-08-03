@@ -97,18 +97,17 @@ namespace beam::wallet::lelantus
                 << ", receiving amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
-            auto& vInp = builder.m_Coins.m_InputShielded;
-            Cast::Down<ShieldedTxo::ID>(vInp.emplace_back()) = sc.m_CoinID;
-            vInp.back().m_Fee = feeShielded;
-            builder.m_Balance.Add(vInp.back());
+            IPrivateKeyKeeper2::ShieldedInput si;
+            Cast::Down<ShieldedTxo::ID>(si) = sc.m_CoinID;
+            si.m_Fee = feeShielded;
 
-            sc.m_spentTxId = GetTxID();
-            GetWalletDB()->saveShieldedCoin(sc);
+            BaseTxBuilder::Balance bb(builder);
 
-            if (aid)
-                builder.MakeInputsAndChange(0, aid);
+            bb.m_Map[0].m_Value -= builder.m_Fee;
+            bb.Add(si);
 
-            builder.MakeInputsAndChange(builder.m_Fee, 0);
+            bb.CompleteBalance();
+
             builder.SaveCoins();
         }
 

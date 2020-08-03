@@ -146,18 +146,17 @@ namespace beam::wallet
 
             SetState(State::Making);
 
-            builder.MakeInputsAndChange(builder.m_Fee, 0);
-
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value -= builder.m_Fee;
             if (_issue)
             {
-                CoinID cid;
-                cid.m_Value = builder.m_Value;
-                cid.m_AssetID = wa.m_ID;
-                cid.m_Type = Key::Type::Regular;
-                builder.CreateAddNewOutput(cid);
+                bb.m_Map[wa.m_ID].m_Value += builder.m_Value;
+                bb.CreateOutput(builder.m_Value, wa.m_ID, Key::Type::Regular);
             }
             else
-                builder.MakeInputsAndChange(builder.m_Value, wa.m_ID);
+                bb.m_Map[wa.m_ID].m_Value -= builder.m_Value;
+
+            bb.CompleteBalance();
 
             builder.SaveCoins();
         }

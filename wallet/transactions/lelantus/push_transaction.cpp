@@ -69,13 +69,11 @@ namespace beam::wallet::lelantus
                  << PrintableAmount(builder.m_Value, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
                  << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
-            if (builder.m_AssetID)
-            {
-                builder.MakeInputsAndChange(builder.m_Value, builder.m_AssetID);
-                builder.MakeInputsAndChange(builder.m_Fee, 0);
-            }
-            else
-                builder.MakeInputsAndChange(builder.m_Value + builder.m_Fee, 0);
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value -= builder.m_Fee;
+            bb.m_Map[builder.m_AssetID].m_Value -= builder.m_Value;
+
+            bb.CompleteBalance();
 
             builder.SaveCoins();
         }

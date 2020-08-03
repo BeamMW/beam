@@ -173,13 +173,13 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 24);
 
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 24);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 14);
 
         cout << "\nFinish of testing Tx to himself...\n";
     }
@@ -694,21 +694,21 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 11);
 
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 12);
 
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 13);
 
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 2);
 
         cout << "\nFinish of testing split Tx...\n";
     }
@@ -814,21 +814,21 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 100);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 11);
 
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 12);
 
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 13);
 
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 14);
     }
 
     void TestExpiredTransaction()

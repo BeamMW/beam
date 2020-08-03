@@ -1191,7 +1191,11 @@ namespace beam::wallet
 
             if (isBeamOwner)
             {
-                builder.MakeInputsAndChanges();
+                BaseTxBuilder::Balance bb(builder);
+                bb.m_Map[0].m_Value -= builder.m_Fee;
+                bb.m_Map[builder.m_AssetID].m_Value -= builder.m_Amount;
+                bb.CompleteBalance();
+
                 builder.SaveCoins();
             }
 
@@ -1270,7 +1274,7 @@ namespace beam::wallet
                     SetParameter(TxParameterID::SharedCoinID, cid);
                 }
 
-                builder.AddOutput(cid);
+                builder.m_Coins.m_Output.push_back(cid);
 
                 builder.SaveCoins();
             }

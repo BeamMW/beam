@@ -99,7 +99,10 @@ namespace beam::wallet
 
         if (builder.m_Coins.IsEmpty())
         {
-            builder.MakeInputsAndChange(Rules::get().CA.DepositForList + builder.m_Fee, 0);
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value -= (Rules::get().CA.DepositForList + builder.m_Fee);
+            bb.CompleteBalance();
+
             builder.SaveCoins();
 
             UpdateTxDescription(TxStatus::InProgress);

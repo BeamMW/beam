@@ -34,8 +34,15 @@ namespace beam::wallet
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
+        // "main" kernel params
         HeightRange m_Height;
+        Amount m_Fee = 0;
 
+        TxKernel* m_pKrn = nullptr;
+
+        Transaction::Ptr m_pTransaction;
+
+        // coins used in a tx.
         struct Coins
         {
             std::vector<Coin::ID> m_Input;
@@ -50,37 +57,37 @@ namespace beam::wallet
 
         } m_Coins;
 
-        Transaction::Ptr m_pTransaction;
 
         struct Balance
         {
+            BaseTxBuilder& m_Builder;
+            Balance(BaseTxBuilder&);
+
             struct Entry
             {
-                Amount m_In = 0;
-                Amount m_Out = 0;
+                AmountSigned m_Value = 0; // ins - outs. Outs account for involuntary fees (such as shielded fees).
 
-                bool IsEnoughNetTx(Amount) const;
+                //bool IsEnoughNetTx(Amount) const;
             };
 
             typedef std::map<Asset::ID, Entry> Map;
 
             Map m_Map;
-            Amount m_Fees = 0;
 
+            void AddPreselected();
+            void CreateOutput(Amount, Asset::ID, Key::Type);
             void Add(const Coin::ID&, bool bOutp);
             void Add(const IPrivateKeyKeeper2::ShieldedInput&);
+            void Add(const ShieldedTxo::ID&); // same as above, assuming default fee
 
-        } m_Balance;
+            void CompleteBalance(); // completes the balance.
 
-        void RefreshBalance();
+        private:
+            void Add_(const Coin::ID&, bool bOutp);
+            void Add_(const IPrivateKeyKeeper2::ShieldedInput&);
+        };
 
-        void AddPreselectedCoins();
-        Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
-        Amount MakeInputsAndChange(Amount, Asset::ID); // same as above, auto creates a change if necessary
         void SaveCoins();
-
-        void AddOutput(const Coin::ID&);
-        void CreateAddNewOutput(Coin::ID&);
 
         void VerifyTx(); // throws exc if invalid
 
@@ -97,8 +104,6 @@ namespace beam::wallet
 
         bool IsGeneratingInOuts() const;
         bool IsSigning() const;
-
-        Amount m_Fee = 0;
 
         void VerifyAssetsEnabled(); // throws exc if disabled
 
@@ -125,7 +130,6 @@ namespace beam::wallet
             return m_Tx.SetParameter(paramID, value, m_SubTxID);
         }
 
-        TxKernel* m_pKrn = nullptr;
         std::string GetKernelIDString() const;
 
         void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
@@ -169,8 +173,6 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
-        void TagInput(const CoinID&);
-
         void SetInOuts(IPrivateKeyKeeper2::Method::TxCommon&);
         void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
 
@@ -210,8 +212,6 @@ namespace beam::wallet
         Asset::ID m_AssetID = 0;
 
         Height m_Lifetime;
-
-        void MakeInputsAndChanges();
 
         struct Status
             :public BaseTxBuilder::Status
