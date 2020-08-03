@@ -47,7 +47,6 @@ namespace beam::wallet::lelantus
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
-        bool IsSelfTx() const;
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
         bool m_waitingShieldedProof = true;

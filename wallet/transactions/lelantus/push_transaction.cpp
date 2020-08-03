@@ -78,6 +78,14 @@ namespace beam::wallet::lelantus
             builder.SaveCoins();
         }
 
+        builder.GenerateInOuts();
+        builder.SignSendShielded();
+
+        if (builder.IsGeneratingInOuts() || builder.IsSigning())
+            return;
+
+        builder.FinalyzeTx();
+
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered)
             || nRegistered == proto::TxStatus::Unspecified)
@@ -86,12 +94,6 @@ namespace beam::wallet::lelantus
             {
                 return;
             }
-
-            builder.GenerateInOuts();
-            builder.SignSendShielded();
-
-            if (builder.IsGeneratingInOuts() || (BaseTxBuilder::Stage::Done != builder.m_Signing))
-                return;
 
             GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
             return;
@@ -190,15 +192,4 @@ namespace beam::wallet::lelantus
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
     }
 
-    bool PushTransaction::IsSelfTx() const
-    {
-        WalletID peerID;
-        if (GetParameter(TxParameterID::PeerID, peerID))
-        {
-            auto address = GetWalletDB()->getAddress(peerID);
-            return address.is_initialized() && address->isOwn();
-        }
-        ShieldedVoucherList vouchers;
-        return !GetParameter(TxParameterID::ShieldedVoucherList, vouchers); // if we have vouchers then this is not self tx
-    }
 } // namespace beam::wallet::lelantus

@@ -21,11 +21,10 @@ namespace beam::wallet::lelantus
     PushTxBuilder::PushTxBuilder(BaseTransaction& tx)
         : BaseTxBuilder(tx, kDefaultSubTxID)
     {
-        m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID);
+        m_Value = GetParameterStrict<Amount>(TxParameterID::Amount);
+        GetParameter(TxParameterID::AssetID, m_AssetID);
 
-        ECC::Hash::Value hv;
-        if (m_Tx.GetParameter(TxParameterID::KernelID, hv, m_SubTxID))
+        if (m_pKrn)
             m_Signing = Stage::Done;
     }
 
@@ -49,13 +48,11 @@ namespace beam::wallet::lelantus
 
                 b.AddOffset(m_Method.m_kOffset);
 
-                b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::KernelID, m_Method.m_pKernel->m_Internal.m_ID, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, m_Method.m_Voucher.m_Ticket.m_SerialPub);
+                b.AddKernel(std::move(m_Method.m_pKernel));
+                b.SaveKernel();
+                b.SaveKernelID();
 
-                b.m_pTransaction->m_vKernels.push_back(std::move(m_Method.m_pKernel));
-                b.m_pTransaction->Normalize();
-                b.VerifyTx();
+                b.SetParameter(TxParameterID::ShieldedSerialPub, m_Method.m_Voucher.m_Ticket.m_SerialPub);
 
                 OnAllDone(b);
             }
@@ -67,11 +64,11 @@ namespace beam::wallet::lelantus
 
         SetCommon(m);
 
-        WalletID widMy = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID);
+        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyID);
         WalletID widPeer;
-        bool bHasWidPeer = m_Tx.GetParameter(TxParameterID::PeerID, widPeer);
+        bool bHasWidPeer = GetParameter(TxParameterID::PeerID, widPeer);
 
-        if (!m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
+        if (!GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
         {
             auto wa = m_Tx.GetWalletDB()->getAddress(bHasWidPeer ? widPeer : widMy);
             if (!wa)
@@ -82,9 +79,9 @@ namespace beam::wallet::lelantus
         }
 
         ShieldedVoucherList vouchers;
-        if (!m_Tx.GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
+        if (!GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
         {
-            if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+            if (!GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
             {
                 if (m.m_MyIDKey)
                 {
@@ -113,12 +110,12 @@ namespace beam::wallet::lelantus
                 }
             }
 
-            m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
+            SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
         }
 
         m.m_Voucher = vouchers.back();
         vouchers.pop_back();
-        m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
+        SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
 
         ZeroObject(m.m_User);
 
@@ -130,7 +127,7 @@ namespace beam::wallet::lelantus
         }
 
         // TODO: add ShieldedMessage if needed
-        // m.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
+        // m.m_User.m_Message = GetParameterStrict<WalletID>(TxParameterID::ShieldedMessage);
 
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
