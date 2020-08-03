@@ -872,10 +872,14 @@ namespace beam::wallet
         // after 1st fork fee should be >= minimal fee
         if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
         {
-            // don't account for shielded inputs, they carry their fee individually
+            Amount feeInps = 0;
+            for (const auto& si : m_Coins.m_InputShielded)
+                feeInps += si.m_Fee; // account for shielded inputs, they carry their fee individually
+
             TxStats ts;
-            ts.m_Kernels = 1;
             ts.m_Outputs = m_Coins.m_Output.size();
+            ts.m_InputsShielded = m_Coins.m_InputShielded.size();
+            ts.m_Kernels = 1 + m_Coins.m_InputShielded.size();
 
             if (pFromPeer)
                 ts += *pFromPeer;
@@ -883,10 +887,10 @@ namespace beam::wallet
             Transaction::FeeSettings fs;
             Amount minFee = fs.Calculate(ts);
 
-            if (m_Fee < minFee)
+            if (m_Fee + feeInps < minFee)
             {
                 stringstream ss;
-                ss << "The minimum fee must be: " << minFee << " .";
+                ss << "The minimum fee must be: " << (minFee - feeInps) << " .";
                 throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
             }
         }
