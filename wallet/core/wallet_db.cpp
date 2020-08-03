@@ -1983,7 +1983,7 @@ namespace beam::wallet
             TxParameterID::CreateTime,
             TxParameterID::IsSender }
     {
-        if (!storage::getVar(*this, LAST_READ_IM_ID, m_lastReadIMId))
+        if (m_Initialized && !storage::getVar(*this, LAST_READ_IM_ID, m_lastReadIMId))
             m_lastReadIMId = 0;
     }
 
