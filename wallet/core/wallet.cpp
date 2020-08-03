@@ -701,14 +701,23 @@ namespace beam::wallet
                 std::vector<ShieldedTxo::Voucher> res;
                 msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
                 if (res.empty())
+                {
+                    LOG_WARNING() << "Received an empty voucher list";
                     return;
+                }
 
                 auto address = m_WalletDB->getAddress(msg.m_From);
                 if (!address.is_initialized())
+                {
+                    LOG_WARNING() << "Received vouchers for unknown address";
                     return;
+                }
 
                 if (!IsValidVoucherList(res, address->m_Identity))
+                {
+                    LOG_WARNING() << "Invalid voucher list received";
                     return;
+                }
 
                 OnVouchersFrom(*address, myID, std::move(res));
 
