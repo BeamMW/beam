@@ -62,16 +62,13 @@ namespace beam::bitcoin
             "2AZZARITA.hopto.org:50006",
             "bitcoin.grey.pw:50004",
             "bitcoin.lukechilds.co:50002",
-            "bitcoin.lukechilds.co:50002",
             "blkhub.net:50002",
             "btc.electroncash.dk:60002",
             "e5a8f0d103c23.not.fyi:50002",
             "electrumx.electricnewyear.net:50002",
             "electrumx.schulzemic.net:50002",
             "fortress.qtornado.com:443",
-            "thanos.xskyx.net:50002",
-            "vps4.hsmiths.com:50002",
-            "satoshi.fan:50002"
+            "vps4.hsmiths.com:50002"
 #else // MASTERNET and TESTNET
             "testnet.hsmiths.com:53012",
             "tn.not.fyi:55002"
