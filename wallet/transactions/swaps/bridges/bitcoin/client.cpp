@@ -145,6 +145,21 @@ namespace beam::bitcoin
                 {
                     SetStatus(Status::Connecting);
                 }
+                else if (m_settingsProvider->GetSettings().IsInitialized())
+                {
+                    SetStatus(Status::Initialized);
+                }
+                else
+                {
+                    SetStatus(Status::Uninitialized);
+                }
+            }
+            else if (!m_settingsProvider->GetSettings().IsActivated())
+            {
+                if (m_settingsProvider->GetSettings().IsInitialized())
+                {
+                    SetStatus(Status::Initialized);
+                }
                 else
                 {
                     SetStatus(Status::Uninitialized);
