@@ -1443,7 +1443,7 @@ namespace
         }
         {
             std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
-            auto identity = FromHex(s);
+            auto identity = GetPeerIDFromHex(s);
             WALLET_CHECK(identity.is_initialized());
             auto r = std::to_string(*identity);
             WALLET_CHECK(r == s);
@@ -1466,7 +1466,7 @@ namespace
             WalletID address;
             WALLET_CHECK(address.FromHex(sbbsAddressStr));
             WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerID) == address);
-            auto  identity = FromHex(identityStr);
+            auto  identity = GetPeerIDFromHex(identityStr);
             WALLET_CHECK(identity.is_initialized());
             WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
