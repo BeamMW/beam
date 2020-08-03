@@ -252,22 +252,32 @@ namespace beam::wallet
         };
 
         Status m_Status = Unavailable;
-        uint32_t m_UnlinkProgress = 0; // 0-100: cleaning
-        uint32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
-        uint32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+        void DeduceStatus(const IWalletDB&, Height hTop);
 
-        void DeduceStatus(const IWalletDB&, Height hTop, TxoID nShieldedOuts);
+        uint32_t get_WndIndex(uint32_t N) const; // preferred index within a window of the specified size
 
-        bool IsLargeSpendWindowLost() const;
-        int get_SpendPriority() const;
-        // -1: don't spend unless have to
-        // 0: spend as much as needed atm
-        // 1: spend even more than needed (ideal spend window)
-        // 2: Spend urgently, or the window will close
+        struct UnlinkStatus
+        {
+            UnlinkStatus() {}
+            UnlinkStatus(const ShieldedCoin& sc, TxoID nShieldedOuts) { Init(sc, nShieldedOuts); }
 
-        static void Sort(std::vector<ShieldedCoin>&);
+            void Init(const ShieldedCoin& sc, TxoID nShieldedOuts);
 
-        uint32_t get_WndIndex(uint32_t N) const;
+            uint32_t m_Progress = 0; // 0-100: cleaning
+            uint32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
+            uint32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+
+            bool IsLargeSpendWindowLost() const;
+            int get_SpendPriority() const;
+            // -1: don't spend unless have to
+            // 0: spend as much as needed atm
+            // 1: spend even more than needed (ideal spend window)
+            // 2: Spend urgently, or the window will close
+        };
+
+        typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
+
+        static void Sort(std::vector<WithStatus>&);
 
     private:
         Status get_StatusInternal(const IWalletDB&, Height hTop) const;

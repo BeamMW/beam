@@ -2316,7 +2316,7 @@ namespace beam::wallet
 
         Amount nSel = 0;
 
-        vector<ShieldedCoin> vShielded;
+        vector<ShieldedCoin::WithStatus> vShielded;
         size_t iPosShielded = 0;
 
         Transaction::FeeSettings fs;
@@ -2332,18 +2332,26 @@ namespace beam::wallet
                         // skip dust
                         bool bDust = !aid && (coin.m_CoinID.m_Value <= feeShielded);
                         if (!bDust)
-                            vShielded.push_back(coin);
+                            vShielded.emplace_back().first = coin;
                     }
                     return true;
                 }
             );
 
-            ShieldedCoin::Sort(vShielded);
+            if (!vShielded.empty())
+            {
+                TxoID nOuts = get_ShieldedOuts();
+                for (auto& x : vShielded)
+                    x.second.Init(x.first, nOuts);
+
+                ShieldedCoin::Sort(vShielded);
+            }
+
 
             for (; iPosShielded < vShielded.size(); iPosShielded++)
             {
-                const ShieldedCoin& x = vShielded[iPosShielded];
-                int n = x.get_SpendPriority();
+                const auto& x = vShielded[iPosShielded];
+                int n = x.second.get_SpendPriority();
 
                 if (n < 0) // don't spend unless have to
                     break;
@@ -2354,8 +2362,8 @@ namespace beam::wallet
                 if (!aid)
                     nTrg += feeShielded;
 
-                nSel += x.m_CoinID.m_Value;
-                vSelShielded.push_back(x);
+                nSel += x.first.m_CoinID.m_Value;
+                vSelShielded.push_back(x.first);
 
                 if (vSelShielded.size() == nMaxShielded)
                     break;
@@ -2373,9 +2381,9 @@ namespace beam::wallet
             if (!aid)
                 nTrg += feeShielded;
 
-            const ShieldedCoin& x = vShielded[iPosShielded];
-            nSel += x.m_CoinID.m_Value;
-            vSelShielded.push_back(x);
+            const auto& x = vShielded[iPosShielded];
+            nSel += x.first.m_CoinID.m_Value;
+            vSelShielded.push_back(x.first);
         }
 
         if (nSel > nTrg)
@@ -2762,12 +2770,10 @@ namespace beam::wallet
     struct WalletDB::ShieldedStatusCtx
     {
         Height m_hTip;
-        TxoID m_nShieldedOuts;
 
         ShieldedStatusCtx(const WalletDB& db)
         {
             m_hTip = db.getCurrentHeight();
-            m_nShieldedOuts = db.get_ShieldedOuts();
         }
     };
 
@@ -2783,7 +2789,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             if (!func(coin))
                 break;
         }
@@ -2801,7 +2807,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             if (!func(coin))
                 break;
         }
@@ -2973,7 +2979,7 @@ namespace beam::wallet
             auto& coin = coins.emplace_back();
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
         }
 
         return coins;
@@ -2991,7 +2997,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             return coin;
         }
 
@@ -3010,7 +3016,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             return coin;
         }
 
@@ -3029,7 +3035,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             return coin;
         }
         return {};
@@ -3066,7 +3072,7 @@ namespace beam::wallet
             coin.m_spentHeight = MaxHeight;
             updateShieldedCoinRaw(coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+            coin.DeduceStatus(*this, ssc.m_hTip);
             changedCoins.push_back(std::move(coin));
         }
 
@@ -3091,7 +3097,7 @@ namespace beam::wallet
                 coin.m_confirmHeight = MaxHeight;
                 updateShieldedCoinRaw(coin);
 
-                coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+                coin.DeduceStatus(*this, ssc.m_hTip);
             }
 
             // TODO: erase coins completely with "Unavail" status
@@ -3385,7 +3391,7 @@ namespace beam::wallet
                 ShieldedCoin& coin = deletedItems.emplace_back();
                 int colIdx = 0;
                 ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-                coin.DeduceStatus(*this, ssc.m_hTip, ssc.m_nShieldedOuts);
+                coin.DeduceStatus(*this, ssc.m_hTip);
 
                 DeleteShieldedCoin(coin.m_CoinID.m_Key);
             }
@@ -5459,11 +5465,11 @@ namespace beam::wallet
         return nIdx;
     }
 
-    void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop, TxoID nShieldedOuts)
+    void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
     {
-        if (kTxoInvalidID == m_TxoID)
+        if (kTxoInvalidID == sc.m_TxoID)
         {
-            m_UnlinkProgress = 0;
+            m_Progress = 0;
             m_WndReserve0 = 0;
             m_WndReserve1 = 0;
         }
@@ -5472,10 +5478,10 @@ namespace beam::wallet
             const Rules& r = Rules::get();
             const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
 
-            uint32_t nRemaining = N - get_WndIndex(N) - 1;
+            uint32_t nRemaining = N - sc.get_WndIndex(N) - 1;
 
-            std::setmax(nShieldedOuts, m_TxoID + 1);
-            nShieldedOuts -= m_TxoID; // to relative
+            std::setmax(nShieldedOuts, sc.m_TxoID + 1);
+            nShieldedOuts -= sc.m_TxoID; // to relative
             assert(nShieldedOuts);
 
             if (nShieldedOuts <= nRemaining)
@@ -5485,22 +5491,25 @@ namespace beam::wallet
                 uint32_t n = static_cast<uint32_t>(nShieldedOuts) - 1;
                 assert(n < nRemaining);
 
-                m_UnlinkProgress = 1 + 99U * n / nRemaining;
+                m_Progress = 1 + 99U * n / nRemaining;
             }
             else
-                m_UnlinkProgress = 100;
+                m_Progress = 100;
 
             m_WndReserve0 = get_Reserve(nRemaining + 1, nShieldedOuts);
             m_WndReserve1 = get_Reserve(N, nShieldedOuts);
         }
-
-        m_Status = get_StatusInternal(db, hTop);
     }
 
     uint32_t ShieldedCoin::get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel)
     {
         nEndRel += Rules::get().Shielded.MaxWindowBacklog;
         return (nEndRel > nShieldedOutsRel) ? static_cast<uint32_t>(nEndRel - nShieldedOutsRel) : 0;
+    }
+
+    void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop)
+    {
+        m_Status = get_StatusInternal(db, hTop);
     }
 
     ShieldedCoin::Status ShieldedCoin::get_StatusInternal(const IWalletDB& db, Height hTop) const
@@ -5520,13 +5529,13 @@ namespace beam::wallet
         return Status::Available;
     }
 
-    bool ShieldedCoin::IsLargeSpendWindowLost() const
+    bool ShieldedCoin::UnlinkStatus::IsLargeSpendWindowLost() const
     {
         const uint32_t nThreshold = Rules::get().Shielded.MaxIns;
         return m_WndReserve1 < nThreshold;
     }
 
-    int ShieldedCoin::get_SpendPriority() const
+    int ShieldedCoin::UnlinkStatus::get_SpendPriority() const
     {
         if (IsLargeSpendWindowLost())
             return 0;
@@ -5535,21 +5544,21 @@ namespace beam::wallet
         if (m_WndReserve1 < nWndThresholdHi)
             return 2;
 
-        if (100 == m_UnlinkProgress)
+        if (100 == m_Progress)
             return 1;
 
         return -1;
     }
 
-    void ShieldedCoin::Sort(std::vector<ShieldedCoin>& v)
+    void ShieldedCoin::Sort(std::vector<ShieldedCoin::WithStatus>& v)
     {
         struct MyCmp
         {
-            bool operator ()(const ShieldedCoin& a, const ShieldedCoin& b) const
+            bool operator ()(const WithStatus& a, const WithStatus& b) const
             {
                 // return if a should be spend before b
-                int na = a.get_SpendPriority();
-                int nb = b.get_SpendPriority();
+                int na = a.second.get_SpendPriority();
+                int nb = b.second.get_SpendPriority();
                 if (na < nb)
                     return false;
                 if (na > nb)
@@ -5558,14 +5567,14 @@ namespace beam::wallet
                 if (-1 == na)
                 {
                     // if both are washing - spend the one that is cleaner
-                    if (a.m_WndReserve0 < b.m_WndReserve0)
+                    if (a.second.m_WndReserve0 < b.second.m_WndReserve0)
                         return true;
-                    if (a.m_WndReserve0 > b.m_WndReserve0)
+                    if (a.second.m_WndReserve0 > b.second.m_WndReserve0)
                         return false;
                 }
 
                 // not really important, but for steady sort let's resolve ambiguity by coin unique ID
-                return a.m_TxoID < b.m_TxoID;
+                return a.first.m_TxoID < b.first.m_TxoID;
             }
         } mcmp;
 

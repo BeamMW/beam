@@ -289,7 +289,8 @@ namespace beam::wallet::lelantus
     {
         auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
         ShieldedCoin& c = *coin;
-        return 100 == c.m_UnlinkProgress;
+        ShieldedCoin::UnlinkStatus us(c, GetWalletDB()->get_ShieldedOuts());
+        return 100 == us.m_Progress;
     }
 
     void UnlinkFundsTransaction::CreateExtractTransaction()

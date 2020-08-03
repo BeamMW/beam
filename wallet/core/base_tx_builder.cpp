@@ -645,7 +645,12 @@ namespace beam::wallet
         m_Method.m_pKernel = std::make_unique<TxKernelShieldedInput>();
         m_Method.m_pKernel->m_Fee = si.m_Fee;
 
-        bool bWndLost = c.IsLargeSpendWindowLost();
+        TxoID nShieldedCurrently = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
+        std::setmax(nShieldedCurrently, c.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
+
+        ShieldedCoin::UnlinkStatus us(c, nShieldedCurrently);
+
+        bool bWndLost = us.IsLargeSpendWindowLost();
         m_Method.m_pKernel->m_SpendProof.m_Cfg = bWndLost ?
             Rules::get().Shielded.m_ProofMin :
             Rules::get().Shielded.m_ProofMax;
@@ -653,9 +658,6 @@ namespace beam::wallet
         m_N = m_Method.m_pKernel->m_SpendProof.m_Cfg.get_N();
         if (!m_N)
             return false;
-
-        TxoID nShieldedCurrently = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
-        std::setmax(nShieldedCurrently, c.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
 
         m_Method.m_iIdx = c.get_WndIndex(m_N);
         m_Wnd0 = c.m_TxoID - m_Method.m_iIdx;
