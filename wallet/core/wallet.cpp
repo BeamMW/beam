@@ -114,43 +114,43 @@ namespace beam::wallet
                 throw ReceiverAddressExpiredException();
             }
 
-            //// update address comment if changed
-            //if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            //{
-            //    auto messageStr = std::string(message->begin(), message->end());
-            //    if (messageStr != receiverAddr->m_label)
-            //    {
-            //        receiverAddr->m_label = messageStr;
-            //        walletDB->saveAddress(*receiverAddr);
-            //    }
-            //}
+            // update address comment if changed
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                auto messageStr = std::string(message->begin(), message->end());
+                if (messageStr != receiverAddr->m_label)
+                {
+                    receiverAddr->m_label = messageStr;
+                    walletDB->saveAddress(*receiverAddr);
+                }
+            }
             
             TxParameters temp{ parameters };
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
-        //else
-        //{
-            //WalletAddress address;
-            //address.m_walletID = *peerID;
-            //address.m_createTime = getTimestamp();
-            //if (auto message = parameters.GetParameter(TxParameterID::Message); message)
-            //{
-            //    address.m_label = std::string(message->begin(), message->end());
-            //}
-            //if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
-            //{
-            //    address.m_Identity = *identity;
-            //}
-            //
-            //walletDB->saveAddress(address);
-        //}
+        else
+        {
+            WalletAddress address;
+            address.m_walletID = *peerID;
+            address.m_createTime = getTimestamp();
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                address.m_label = std::string(message->begin(), message->end());
+            }
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            {
+                address.m_Identity = *identity;
+            }
+            
+            walletDB->saveAddress(address);
+        }
         return parameters;
     }
 
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{ move(action) }
         , m_UpdateCompleted{ move(updateCompleted) }
@@ -159,7 +159,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB, withAssets));
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
     }
 
     Wallet::~Wallet()

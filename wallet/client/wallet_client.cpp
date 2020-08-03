@@ -16,10 +16,13 @@
 #include "wallet/core/simple_transaction.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
-//#include "keykeeper/trezor_key_keeper.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+
+#ifdef BEAM_LELANTUS_SUPPORT
+#include "wallet/transactions/lelantus/push_transaction.h"
+#endif // BEAM_LELANTUS_SUPPORT
 
 using namespace std;
 
@@ -312,11 +315,10 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
-                              bool withAssets,
                               bool isSecondCurrencyEnabled,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, withAssets, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
         {
             try
             {
@@ -327,7 +329,7 @@ namespace beam::wallet
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                auto wallet = make_shared<Wallet>(m_walletDB, withAssets);
+                auto wallet = make_shared<Wallet>(m_walletDB);
                 m_wallet = wallet;
 
                 if (txCreators)
@@ -541,16 +543,16 @@ namespace beam::wallet
         {
             for (const auto& tx : items)
             {
-                if (tx.m_txType == TxType::Simple)
+                if (!memis0(&tx.m_txId.front(), tx.m_txId.size())) // not special transaction
                 {
                     assert(!m_exchangeRateProvider.expired());
                     if (auto p = m_exchangeRateProvider.lock())
                     {
-                        m_walletDB->setTxParameter( tx.m_txId,
-                                                    kDefaultSubTxID,
-                                                    TxParameterID::ExchangeRates,
-                                                    toByteBuffer(p->getRates()),
-                                                    false);
+                        m_walletDB->setTxParameter(tx.m_txId,
+                            kDefaultSubTxID,
+                            TxParameterID::ExchangeRates,
+                            toByteBuffer(p->getRates()),
+                            false);
                     }
                 }
             }
@@ -569,6 +571,37 @@ namespace beam::wallet
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
         m_AddressChangesCollector.CollectItems(action, items);
+    }
+
+    void WalletClient::onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& coins)
+    {
+        // add virtual transaction for receiver
+#ifdef BEAM_LELANTUS_SUPPORT
+        if (action != ChangeAction::Added)
+        {
+            return;
+        }
+        auto s = m_wallet.lock();
+        if (!s)
+        {
+            return;
+        }
+        for (const auto& c : coins)
+        {
+            WalletAddress tempAddress;
+            m_walletDB->createAddress(tempAddress);
+            auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID)
+                .SetParameter(TxParameterID::Status, TxStatus::Completed)
+                .SetParameter(TxParameterID::Amount, c.m_CoinID.m_Value)
+                .SetParameter(TxParameterID::IsSender, false);
+            auto packed = params.Pack();
+            for (const auto& p : packed)
+            {
+                storage::setTxParameter(*m_walletDB, *params.GetTxID(), p.first, p.second, true);
+            }
+        }
+        
+#endif // BEAM_LELANTUS_SUPPORT
     }
 
     void WalletClient::onSyncProgress(int done, int total)

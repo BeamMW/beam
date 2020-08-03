@@ -365,10 +365,13 @@ bool Channel::Open(Height hOpenTxDh)
 bool Channel::TransformLastState()
 {
     auto state = get_State();
+    if(state == State::Closing1 && m_gracefulClose && !m_lastUpdateStart)
+        m_lastUpdateStart = get_Tip();
+
     if (m_lastState == state)
         return false;
 
-    if (state == State::Updating || (state == State::Closing1 && m_gracefulClose))
+    if (state == State::Updating)
     {
         m_lastUpdateStart = get_Tip();
     }

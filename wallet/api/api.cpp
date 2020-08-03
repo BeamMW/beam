@@ -845,9 +845,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         return "unknown error.";
     }
 
-    WalletApi::WalletApi(IWalletApiHandler& handler, bool withAssets, ACL acl)
+    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
         : Api(handler, acl)
-        , m_withAssets(withAssets)
     {
         #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -1087,15 +1086,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::checkCAEnabled(const JsonRpcId& id)
     {
-        if (!Rules::get().CA.Enabled)
-        {
-            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are not supported until fork2.", id};
-        }
-
-        if (!m_withAssets)
-        {
-            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, "Confidential assets are disabled. Add --enable_assets to command line.", id};
-        }
+        TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
+        if (TxFailureReason::Count != res)
+            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, GetFailureMessage(res), id};
     }
 
     template<typename T>

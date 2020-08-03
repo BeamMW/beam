@@ -722,6 +722,18 @@ namespace beam
 			bool Process(const TxKernel&);
 		};
 
+#define THE_MACRO(id, name) \
+		TxKernel##name & CastTo_##name() { \
+			assert(get_Subtype() == Subtype::name); \
+			return Cast::Up<TxKernel##name>(*this); \
+		} \
+		const TxKernel##name & CastTo_##name() const { \
+			return Cast::NotConst(*this).CastTo_##name(); \
+		}
+
+		BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
 	protected:
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;
@@ -798,6 +810,8 @@ namespace beam
 
 		void Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset);
 		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&, const Asset::Metadata&);
+
+		void get_Sk(ECC::Scalar::Native&, Key::IKdf&); // pseudo-random sk for this kernel
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:

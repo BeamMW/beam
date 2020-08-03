@@ -99,7 +99,7 @@ namespace
         WalletApiHandler handler;
         handler.func = func;
 
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
@@ -123,7 +123,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -170,7 +170,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -238,7 +238,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -278,7 +278,7 @@ namespace
         };
 
         WalletApiHandler handler(onError, onSuccess);
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -312,7 +312,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -335,7 +335,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
 
@@ -360,7 +360,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
         {
@@ -393,7 +393,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
         {
@@ -438,7 +438,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
         {
@@ -473,7 +473,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -515,7 +515,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -550,7 +550,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -576,7 +576,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -614,7 +614,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -644,7 +644,7 @@ namespace
         };
 
         WalletApiHandler handler(valid);
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -684,7 +684,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -724,7 +724,7 @@ namespace
 
         WalletApiHandler handler;
 
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
 
@@ -764,7 +764,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
         
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -813,7 +813,7 @@ namespace
         };
 
         WalletApiHandler handler(value);
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
     }
@@ -840,7 +840,7 @@ namespace
         };
 
         WalletApiHandler handler;
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -890,7 +890,7 @@ namespace
         };
 
         WalletApiHandler handler(kToken);
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -954,7 +954,7 @@ namespace
         };
 
         WalletApiHandler handler(kTxId);
-        WalletApi api(handler, true);
+        WalletApi api(handler);
 
 
         WALLET_CHECK(api.parse(msg.data(), msg.size()));
@@ -1362,6 +1362,8 @@ void TestAssetsAPI()
 
 int main()
 {
+    wallet::g_AssetsEnabled = true;
+
     auto logger = beam::Logger::create();
     testInvalidJsonRpc([](const json& msg)
     {

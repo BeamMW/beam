@@ -83,8 +83,8 @@ namespace
 
         TestNodeNetwork::Shared tnns;
 
-        Wallet sender(senderWalletDB, true, f);
-        Wallet receiver(receiverWalletDB, true, f);
+        Wallet sender(senderWalletDB, f);
+        Wallet receiver(receiverWalletDB, f);
 
         auto twn = make_shared<TestWalletNetwork>();
         auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
@@ -156,7 +156,6 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 24);
-        WALLET_CHECK(txHistory[0].m_changeBeam == 14);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
 
@@ -679,7 +678,6 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 36);
-        WALLET_CHECK(txHistory[0].m_changeBeam == 2);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
 
@@ -771,7 +769,6 @@ namespace
             WALLET_CHECK(txHistory.size() == 1);
             WALLET_CHECK(txHistory[0].m_txId == txId);
             WALLET_CHECK(txHistory[0].m_amount == 36);
-            WALLET_CHECK(txHistory[0].m_changeBeam == 0);
             WALLET_CHECK(txHistory[0].m_fee == 2);
             WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Failed);
         }
@@ -789,7 +786,6 @@ namespace
             auto tx = *senderWalletDB->getTx(txId);
             WALLET_CHECK(tx.m_txId == txId);
             WALLET_CHECK(tx.m_amount == 36);
-            WALLET_CHECK(tx.m_changeBeam == 0);
             WALLET_CHECK(tx.m_fee == 42);
             WALLET_CHECK(tx.m_status == wallet::TxStatus::Failed);
         }
@@ -806,7 +802,6 @@ namespace
             WALLET_CHECK(tx);
             WALLET_CHECK(tx->m_txId == txId);
             WALLET_CHECK(tx->m_amount == 36);
-            WALLET_CHECK(tx->m_changeBeam == 14);
             WALLET_CHECK(tx->m_fee == 50);
             WALLET_CHECK(tx->m_status == wallet::TxStatus::Completed);
         }
@@ -942,7 +937,7 @@ namespace
         TestWalletRig receiver(createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB, true);
+        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
         BaseTransaction::Creator& creator = simpleCreator;
         auto tx = creator.Create(BaseTransaction::TxContext(gateway, sender.m_WalletDB, txID));
 
@@ -993,7 +988,7 @@ namespace
         TestWalletRig receiver(createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
-        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB, true);
+        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB);
         BaseTransaction::Creator& txCreator = simpleTxCreator;
         // process TransactionFailedException
         {
@@ -1448,7 +1443,7 @@ namespace
         }
         {
             std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
-            auto identity = FromHex(s);
+            auto identity = GetPeerIDFromHex(s);
             WALLET_CHECK(identity.is_initialized());
             auto r = std::to_string(*identity);
             WALLET_CHECK(r == s);
@@ -1471,7 +1466,7 @@ namespace
             WalletID address;
             WALLET_CHECK(address.FromHex(sbbsAddressStr));
             WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerID) == address);
-            auto  identity = FromHex(identityStr);
+            auto  identity = GetPeerIDFromHex(identityStr);
             WALLET_CHECK(identity.is_initialized());
             WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
@@ -1586,7 +1581,7 @@ namespace
                 { Notification::Type::TransactionFailed, true },
                 { Notification::Type::TransactionCompleted, true }
             };
-            client.start(activeNotifications, true);
+            client.start(activeNotifications);
         }
         auto timer = io::Timer::create(*mainReactor);
         
@@ -1745,14 +1740,6 @@ namespace
         Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
         Amount nValNetto = 135;
 
-        wallet::ShieldedCoin sc;
-        sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
-        sc.m_CoinID.m_Key.m_nIdx = 0;
-        ZeroObject(sc.m_CoinID.m_User);
-        sc.m_TxoID = 12;
-        sc.m_CoinID.m_Value = nValNetto + nInpFee + 100;
-        sc.m_confirmHeight = 0;
-
         ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
         ECC::Point::Storage ptS;
         ptN.Export(ptS);
@@ -1760,40 +1747,55 @@ namespace
         node.m_vShieldedPool.resize(50, ptS);
 
         // calculate shielded element commitment
+        const uint32_t nShieldedCoins = 3;
         {
+            Key::Index nShIdx = 0;
             ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), sc.m_CoinID.m_Key.m_nIdx);
+            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), nShIdx);
 
-            ShieldedTxo::Ticket tkt;
-            ShieldedTxo::DataParams sdp;
-            sdp.m_Ticket.Generate(tkt, viewer, 12323U);
-            sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+            for (uint32_t i = 0; i < nShieldedCoins; i++)
+            {
+                wallet::ShieldedCoin sc;
 
-            sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
-            sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
-            sdp.m_Output.m_User = sc.m_CoinID.m_User;
+                ShieldedTxo::Ticket tkt;
+                ShieldedTxo::DataParams sdp;
+                sdp.m_Ticket.Generate(tkt, viewer, 12323U + i);
+                sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
 
-            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+                sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
+                sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
+                sdp.m_Output.m_User = sc.m_CoinID.m_User;
 
-            WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
+                sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
-            ptN += ECC::Context::get().G * sdp.m_Output.m_k;
-            CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+                WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
 
-            ptN.Export(ptS);
+                ptN += ECC::Context::get().G * sdp.m_Output.m_k;
+                CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+
+                ptN.Export(ptS);
+
+                sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
+                sc.m_CoinID.m_Key.m_nIdx = nShIdx;
+                ZeroObject(sc.m_CoinID.m_User);
+                sc.m_TxoID = 12 + i;
+                sc.m_CoinID.m_Value = nValNetto + nInpFee + 1;
+                sc.m_confirmHeight = 0;
+
+                node.m_vShieldedPool[sc.m_TxoID] = ptS;
+
+                sender.m_WalletDB->saveShieldedCoin(sc);
+            }
         }
 
-        node.m_vShieldedPool[sc.m_TxoID] = ptS;
-
-        sender.m_WalletDB->saveShieldedCoin(sc);
 
         auto txId  = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-            .SetParameter(TxParameterID::Amount, nValNetto + Amount(3))
-            .SetParameter(TxParameterID::Fee, Amount(100))
+            .SetParameter(TxParameterID::Amount, nValNetto * nShieldedCoins  - 15)
+            .SetParameter(TxParameterID::Fee, Amount(30))
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
@@ -2415,7 +2417,7 @@ void TestVouchers()
         TestNodeNetwork::Ptr m_MyNetwork;
 
         MyWallet(IWalletDB::Ptr pDb, const std::shared_ptr<TestWalletNetwork>& pTwn, TestNodeNetwork::Shared& tnns)
-            :Wallet(pDb, true)
+            :Wallet(pDb)
         {
             pDb->createAddress(m_MyAddr);
             pDb->saveAddress(m_MyAddr);
@@ -2698,6 +2700,8 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
+
+    wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
 

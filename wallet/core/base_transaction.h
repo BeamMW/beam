@@ -247,6 +247,12 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
+        void SendTxParametersStrict(SetTxParameter&& msg) const
+        {
+            if (!SendTxParameters(std::move(msg)))
+                throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
+        }
+
     protected:
 
         virtual bool CheckExpired();

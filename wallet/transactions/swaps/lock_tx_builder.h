@@ -19,41 +19,25 @@
 
 namespace beam::wallet
 {
-    class LockTxBuilder : public BaseTxBuilder
+    class LockTxBuilder
+        :public MutualTxBuilder
     {
     public:
-        LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+        LockTxBuilder(BaseTransaction& tx, Amount amount);
 
-        Transaction::Ptr CreateTransaction() override;
-        Height GetMaxHeight() const override;
-
-        void LoadSharedParameters();
-        bool CreateSharedUTXOProofPart2(bool isBeamOwner);
-        bool CreateSharedUTXOProofPart3(bool isBeamOwner);
-
-        ECC::RangeProof::Confidential::Part2 GetRangeProofInitialPart2() const;
-        const ECC::RangeProof::Confidential& GetSharedProof() const;
-        const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
-        ECC::Point::Native GetPublicSharedBlindingFactor() const;
 
     private:
 
-        void AddSharedOutput();
-        void LoadPeerOffset();
+        bool IsConventional() override { return false; }
+        void SendToPeer(SetTxParameter&&) override;
+        void FinalyzeTxInternal() override;
 
-        const ECC::uintBig& GetSharedSeed() const;
-        const ECC::Scalar::Native& GetSharedBlindingFactor() const;
-        const ECC::RangeProof::CreatorParams& GetProofCreatorParams(bool isBeamOwner);
+        ECC::Scalar::Native m_Sk; // blinding factor
+        ECC::Point::Native m_PubKeyN;
+        ECC::Point m_PubKey;
+        ECC::NoLeak<ECC::uintBig> m_SeedSk;
 
-        ECC::Point::Native GetSharedCommitment();
-
-        ECC::Scalar::Native m_SharedBlindingFactor;
-        ECC::NoLeak<ECC::uintBig> m_SharedSeed;
-        Coin m_SharedCoin;
-        ECC::RangeProof::Confidential m_SharedProof;
-
-        // deduced values, 
-        boost::optional<ECC::RangeProof::CreatorParams> m_CreatorParams;
-        ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
+        void EvaluateSelfFields();
+        void EvaluateOutput(Output&, ECC::RangeProof::Confidential& proof);
     };
 }

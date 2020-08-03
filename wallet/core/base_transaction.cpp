@@ -291,27 +291,26 @@ namespace beam::wallet
     bool BaseTransaction::CheckExternalFailures()
     {
         TxFailureReason reason = TxFailureReason::Unknown;
-        if (GetParameter(TxParameterID::FailureReason, reason))
+        if (!GetParameter(TxParameterID::FailureReason, reason))
+            return false;
+
+        TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
+        if (s == TxStatus::InProgress)
         {
-            TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
-            if (s == TxStatus::InProgress)
+            if (reason == TxFailureReason::AssetsDisabledInWallet)
             {
-                // hack for old wallets. Should be removed in future
-                if (reason == TxFailureReason::AssetsDisabled)
+                bool isSender = false;
+                if (GetParameter(TxParameterID::IsSender, isSender) && isSender)
                 {
-                    bool isSender = false;
-                    if (GetParameter(TxParameterID::IsSender, isSender) && isSender)
-                    {
-                        // overwrite the reason if it was sent by old client
-                        reason = TxFailureReason::AssetsDisabledReceiver;
-                    }
+                    // overwrite the reason if it was sent by old client
+                    reason = TxFailureReason::AssetsDisabledReceiver;
                 }
-                
-                OnFailed(reason);
-                return true;
             }
+                
+            OnFailed(reason);
         }
-        return false;
+
+        return true;
     }
 
     void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)

@@ -193,15 +193,16 @@ namespace beam::wallet
         bool CheckExternalFailures() override;
         void SendInvitation();
         void SendExternalTxDetails();
-        void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
-        void SendLockTxConfirmation(const LockTxBuilder& lockBuilder);
 
-        void SendSharedTxInvitation(const BaseTxBuilder& builder);
-        void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
         void SendQuickRefundPrivateKey();
 
-
         SubTxState BuildBeamLockTx();
+        void BuildBeamLockTxGuarded(SubTxState&);
+        void BuildBeamWithdrawTxGuarded(SubTxState&, SubTxID, Transaction::Ptr&);
+        bool SetWithdrawParams(bool bTxOwner, SubTxID);
+
+        SubTxState BuildBeamSubTx(SubTxID subTxID, Transaction::Ptr& pRes);
+
         SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
         bool CompleteBeamWithdrawTx(SubTxID subTxID);
                 
