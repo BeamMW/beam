@@ -24,6 +24,7 @@ public class WalletAddressDTO
     public long createTime;
     public long duration;
     public long own;
+    public String identity;
 
     public enum WalletAddressExpirationStatus
     {
