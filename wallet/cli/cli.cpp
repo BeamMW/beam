@@ -1174,6 +1174,7 @@ namespace
         const auto displayCoins = [&](const std::vector<ShieldedCoin>& coins) {
             for (const auto& c : coins)
             {
+                ShieldedCoin::UnlinkStatus us(c, walletDB->get_ShieldedOuts());
                 cout << boost::format(kShieldedCoinsTableHeadFormat)
                     % boost::io::group(left, setw(columnWidths[0]),  c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID))
                     % boost::io::group(right, setw(columnWidths[1]), c.m_CoinID.m_Value / Rules::Coin)
@@ -1182,7 +1183,7 @@ namespace
                     % boost::io::group(left, setw(columnWidths[4]),  c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
                     % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
                     % boost::io::group(right, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
-                    % boost::io::group(right, setw(columnWidths[7]), std::to_string(c.m_UnlinkProgress))
+                    % boost::io::group(right, setw(columnWidths[7]), std::to_string(us.m_Progress))
                     % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.m_ProofMax.get_N())
                     << std::endl;
             }
