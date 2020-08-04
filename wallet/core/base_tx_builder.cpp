@@ -342,7 +342,7 @@ namespace beam::wallet
             if (cid.m_AssetID)
                 bAssets = true;
 
-        for (const auto& si : m_Coins.m_Input)
+        for (const auto& si : m_Coins.m_InputShielded)
             if (si.m_AssetID)
                 bAssets = true;
 
@@ -362,10 +362,16 @@ namespace beam::wallet
         {
             Coin coin;
             coin.m_ID = cid;
-            if (m_Tx.GetWalletDB()->findCoin(coin))
+            if (m_Tx.GetWalletDB()->findCoin(coin) && coin.m_status == Coin::Status::Available)
             {
                 coin.m_spentTxId = m_Tx.GetTxID();
                 m_Tx.GetWalletDB()->saveCoin(coin);
+            }
+            else
+            {
+                auto message("Coin with ID: " + toString(coin.m_ID) + " is unreachable.");
+                LOG_ERROR() << message;
+                throw TransactionFailedException(true, TxFailureReason::NoInputs, message.c_str());
             }
         }
 
