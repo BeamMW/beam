@@ -33,6 +33,7 @@ namespace beam::wallet
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount amount) = 0;
+        virtual void calcChangeConsideringShielded(Amount amount) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;

@@ -74,6 +74,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::calcChange, amount);
     }
 
+    void calcChangeConsideringShielded(Amount amount) override
+    {
+        call_async(&IWalletModelAsync::calcChangeConsideringShielded, amount);
+    }
+
     void getWalletStatus() override
     {
         call_async(&IWalletModelAsync::getWalletStatus);
@@ -763,6 +768,34 @@ namespace beam::wallet
         {
             onChangeCalculated(sum - amount);
         }
+    }
+
+    void WalletClient::calcChangeConsideringShielded(Amount amount)
+    {
+        std::vector<Coin> vSelStd;
+        std::vector<ShieldedCoin> vSelShielded;
+        m_walletDB->selectCoins2(amount, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, false);
+
+        Amount sum = 0;
+        for (auto& c : vSelStd)
+        {
+            sum += c.m_ID.m_Value;
+        }
+        for (auto& c : vSelShielded)
+        {
+            sum += c.m_CoinID.m_Value;
+        }
+
+        if (sum <= amount)
+        {
+            onChangeCalculated(0);
+        }
+        else
+        {
+            onChangeCalculated(sum - amount);
+        }
+
+        onNeedExtractShieldedCoins(!vSelShielded.empty());
     }
 
     void WalletClient::getWalletStatus()

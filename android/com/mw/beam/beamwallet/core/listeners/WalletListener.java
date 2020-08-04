@@ -89,6 +89,11 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
 	}
 
+	static void onNeedExtractShieldedCoins(boolean val)
+	{
+		System.out.println(">>>>>>>>>>> onNeedExtractShieldedCoins(" + val + ") called");
+	}
+
 	static void onAllUtxoChanged(UtxoDTO[] utxos)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onAllUtxoChanged in Java");
