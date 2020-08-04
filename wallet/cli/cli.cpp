@@ -653,8 +653,7 @@ namespace
     {
         if (auto it = vm.find(cli::VOUCHER_COUNT); it != vm.end())
         {
-            auto kdf = db->get_MasterKdf();
-            auto vouchers = GenerateVoucherList(kdf, ownID, it->second.as<Positive<uint32_t>>().value);
+            auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
             {
                 // add voucher parameter

@@ -670,9 +670,9 @@ namespace beam::wallet
         {
         case TxType::VoucherRequest:
             {
-                Key::IKdf::Ptr pKdf = m_WalletDB->get_MasterKdf();
-                if (!pKdf)
-                    return; // without master Kdf we can create the ticket, but can't sign it.
+                auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
+                if (!pKeyKeeper)
+                    return; // We can generate the ticket with OwnerKey, but can't sign it.
 
                 uint32_t nCount = 0;
                 msg.GetParameter((TxParameterID) 0, nCount);
@@ -684,7 +684,7 @@ namespace beam::wallet
                 if (!address.is_initialized() || !address->m_OwnID)
                     return;
 
-                auto res = GenerateVoucherList(pKdf, address->m_OwnID, nCount);
+                auto res = GenerateVoucherList(pKeyKeeper, address->m_OwnID, nCount);
 
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;

@@ -100,7 +100,8 @@ namespace beam::wallet
             {
                 WalletIDKey m_MyIDKey;
                 ECC::Hash::Value m_Nonce;
-                ShieldedTxo::Voucher m_Voucher;
+                uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
+                std::vector<ShieldedTxo::Voucher> m_Res;
             };
 
             struct InOuts

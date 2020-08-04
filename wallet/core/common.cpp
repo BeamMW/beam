@@ -878,47 +878,21 @@ namespace beam::wallet
         return std::to_string(parameters);
     }
 
-    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count)
+    ShieldedVoucherList GenerateVoucherList(const std::shared_ptr<IPrivateKeyKeeper2>& pKeeper, uint64_t ownID, size_t count)
     {
         ShieldedVoucherList res;
-        if (!pKdf || count == 0)
-            return res;
 
-        const size_t MAX_VOUCHERS = 30;
-
-        if (MAX_VOUCHERS < count)
+        if (pKeeper && count)
         {
-            LOG_WARNING() << "You are trying to generate more than " << MAX_VOUCHERS << ". The list of vouchers will be truncated.";
+            IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
+            m.m_MyIDKey = ownID;
+            m.m_Count = static_cast<uint32_t>(count);
+            ECC::GenRandom(m.m_Nonce);
+
+            if (IPrivateKeyKeeper2::Status::Success == pKeeper->InvokeSync(m))
+                res = std::move(m.m_Res);
         }
 
-        res.reserve(std::min(count, MAX_VOUCHERS));
-
-        ECC::Scalar::Native sk;
-        pKdf->DeriveKey(sk, Key::ID(ownID, Key::Type::WalletID));
-        PeerID pid;
-        pid.FromSk(sk);
-
-        ECC::Hash::Value hv;
-        ShieldedTxo::Viewer viewer;
-        viewer.FromOwner(*pKdf, 0);
-        for (size_t i = 0; i < res.capacity(); ++i)
-        {
-            if (res.empty())
-                ECC::GenRandom(hv);
-            else
-                ECC::Hash::Processor() << hv >> hv;
-
-            ShieldedTxo::Voucher& voucher = res.emplace_back();
-
-            ShieldedTxo::Data::TicketParams tp;
-            tp.Generate(voucher.m_Ticket, viewer, hv);
-
-            voucher.m_SharedSecret = tp.m_SharedSecret;
-
-            ECC::Hash::Value hvMsg;
-            voucher.get_Hash(hvMsg);
-            voucher.m_Signature.Sign(hvMsg, sk);
-        }
         return res;
     }
 

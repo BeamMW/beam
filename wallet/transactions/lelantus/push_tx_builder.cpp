@@ -90,10 +90,11 @@ namespace beam::wallet::lelantus
                     m2.m_MyIDKey = m.m_MyIDKey;
                     ECC::GenRandom(m2.m_Nonce);
 
-                    if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2))
+                    if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) ||
+                        m2.m_Res.empty())
                         throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
 
-                    vouchers.push_back(std::move(m2.m_Voucher));
+                    vouchers = std::move(m2.m_Res);
                 }
                 else
                 {

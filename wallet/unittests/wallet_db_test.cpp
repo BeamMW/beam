@@ -1449,7 +1449,7 @@ void TestVouchers()
     auto voucher = db->grabVoucher(receiverID);
     WALLET_CHECK(!voucher);
     WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
-    auto vouchers = GenerateVoucherList(db->get_MasterKdf(), address.m_OwnID, VOUCHERS_COUNT);
+    auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), address.m_OwnID, VOUCHERS_COUNT);
     WALLET_CHECK(vouchers.size() == VOUCHERS_COUNT);
     for (const auto& v : vouchers)
     {

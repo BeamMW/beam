@@ -758,7 +758,8 @@ namespace beam::wallet
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
 
-    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count);
+    struct IPrivateKeyKeeper2;
+    ShieldedVoucherList GenerateVoucherList(const std::shared_ptr<IPrivateKeyKeeper2>&, uint64_t ownID, size_t count);
     bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity);
 
     std::string ConvertTokenToJson(const std::string& token);

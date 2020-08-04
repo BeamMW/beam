@@ -340,7 +340,7 @@ void TestDirectAnonymousPayment()
 
     receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
-    auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_MasterKdf(), receiver.m_OwnID, 2);
+    auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), receiver.m_OwnID, 2);
     WALLET_CHECK(IsValidVoucherList(vouchers, receiver.m_SecureWalletID));
     WALLET_CHECK(!IsValidVoucherList(vouchers, sender.m_SecureWalletID));
 

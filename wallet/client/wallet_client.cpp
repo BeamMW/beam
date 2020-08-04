@@ -505,14 +505,11 @@ namespace beam::wallet
 
     ByteBuffer WalletClient::generateVouchers(uint64_t ownID, size_t count) const
     {
-        // save master kdf is readonly 
-        auto kdf = m_walletDB->get_MasterKdf();
-        if (kdf)
-        {
-            auto vouchers = GenerateVoucherList(kdf, ownID, count);
-            return toByteBuffer(vouchers);
-        }
-        return {};
+        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
+        if (vouchers.empty())
+            return {};
+
+        return toByteBuffer(vouchers);
     }
 
     void WalletClient::setCoinConfirmationsOffset(uint32_t offset)
