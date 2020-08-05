@@ -320,7 +320,7 @@ void TestDirectAnonymousPayment()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    int completedCount = 5;
+    int completedCount = 3;
     auto completeAction = [&mainReactor, &completedCount](auto)
     {
         --completedCount;
@@ -353,7 +353,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
 
                 sender.m_Wallet.StartTransaction(parameters);
@@ -364,7 +364,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
             
                 sender.m_Wallet.StartTransaction(parameters);
@@ -375,7 +375,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::ShieldedVoucherList, vouchers)
+                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
             
                 sender.m_Wallet.StartTransaction(parameters);
@@ -414,7 +414,7 @@ void TestDirectAnonymousPayment()
         std::sort(txHistory.begin(), txHistory.end(), [](const auto& left, const auto& right) {return left.m_status < right.m_status; });
         WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
         WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
-        WALLET_CHECK(txHistory[2].m_txType == TxType::PushTransaction && txHistory[2].m_status == TxStatus::Failed);
+        WALLET_CHECK(txHistory[2].m_txType == TxType::PushTransaction && txHistory[2].m_status == TxStatus::Completed);
     }
     
     {
@@ -1146,7 +1146,7 @@ int main()
     //TestCancelUnlinkTx();
 
     TestSimpleTx();
-    //TestDirectAnonymousPayment();
+    TestDirectAnonymousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
     TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
