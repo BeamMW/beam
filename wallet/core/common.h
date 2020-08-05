@@ -659,7 +659,7 @@ namespace beam::wallet
     struct INegotiatorGateway : IAsyncContext
     {
         using ShieldedListCallback = std::function<void(TxoID, uint32_t, proto::ShieldedList&)>;
-        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp)>;
+        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp&)>;
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void on_tx_failed(const TxID&) = 0;
