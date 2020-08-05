@@ -167,13 +167,14 @@ namespace beam::wallet
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
     MACRO(AssetsDisabledInWallet,        43, "Asset transactions are disabled in the wallet") \
-    MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
+    MACRO(NoVoucher,                     44, "No voucher, no address to receive it") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
     MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
     MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
-    MACRO(Count,                         50, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(NoPeerIdentity,                50, "Peer Identity required") \
+    MACRO(Count,                         51, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {
@@ -312,6 +313,7 @@ namespace beam::wallet
     /* Lelantus */ \
     MACRO(ShieldedOutputId,                122, TxoID) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
+    MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
     MACRO(ClientVersion,                   126, std::string) \
     MACRO(LibraryVersion,                  127, std::string) 
@@ -376,8 +378,6 @@ namespace beam::wallet
 
         InternalFailureReason = 210,
     
-        ShieldedSerialPub = 220,
-        UnusedShieldedVoucherList = 221,
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
         State = 255

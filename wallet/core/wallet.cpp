@@ -749,11 +749,11 @@ namespace beam::wallet
 
         for (auto p : m_ActiveTransactions)
         {
-            ShieldedVoucherList vouchers;
+            ShieldedTxo::Voucher voucher;
             const auto& tx = p.second;
             if (tx->GetType() == TxType::PushTransaction
                 && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == addr.m_walletID
-                && !tx->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList, vouchers))
+                && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
             {
                 UpdateTransaction(tx);
             }

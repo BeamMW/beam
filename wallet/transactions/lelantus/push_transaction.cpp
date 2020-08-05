@@ -81,7 +81,7 @@ namespace beam::wallet::lelantus
         builder.GenerateInOuts();
         builder.SignSendShielded();
 
-        if (builder.IsGeneratingInOuts() || builder.IsSigning())
+        if (builder.IsGeneratingInOuts() || !builder.m_pKrn)
             return;
 
         builder.FinalyzeTx();
@@ -151,9 +151,9 @@ namespace beam::wallet::lelantus
         // getProofShieldedOutp
         if (m_waitingShieldedProof)
         {
-            ECC::Point serialPub = GetMandatoryParameter<ECC::Point>(TxParameterID::ShieldedSerialPub);
+            ShieldedTxo::Voucher voucher = GetMandatoryParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
 
-            GetGateway().get_proof_shielded_output(GetTxID(), serialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp proof)
+            GetGateway().get_proof_shielded_output(GetTxID(), voucher.m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp proof)
                 {
                     if (weak.expired())
                     {

@@ -1009,6 +1009,7 @@ namespace beam::wallet
         MACRO(std::vector<Input::Ptr>) \
         MACRO(std::vector<Output::Ptr>) \
         MACRO(std::vector<ExchangeRate>) \
+        MACRO(ShieldedTxo::Voucher) \
         MACRO(ShieldedVoucherList)
 
 #define MACRO(type) \
