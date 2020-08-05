@@ -29,6 +29,7 @@ namespace beam::bitcoin
 
         virtual void GetStatus() = 0;
         virtual void GetBalance() = 0;
+        virtual void EstimateFeeRate() = 0;
         virtual void ChangeSettings(const Settings& settings) = 0;
     };
 
@@ -76,6 +77,7 @@ namespace beam::bitcoin
     protected:
         virtual void OnStatus(Status status) = 0;
         virtual void OnBalance(const Balance& balance) = 0;
+        virtual void OnEstimatedFeeRate(Amount feeRate) = 0;
         virtual void OnCanModifySettingsChanged(bool canModify) = 0;
         virtual void OnChangedSettings() = 0;
         virtual void OnConnectionError(IBridge::ErrorType error) = 0;
@@ -88,6 +90,7 @@ namespace beam::bitcoin
         // IClientAsync
         void GetStatus() override;
         void GetBalance() override;
+        void EstimateFeeRate() override;
         void ChangeSettings(const Settings& settings) override;
 
         void SetStatus(const Status& status);

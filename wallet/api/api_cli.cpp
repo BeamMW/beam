@@ -177,6 +177,10 @@ private:
     {
         _balance = balance;
     }
+    void OnEstimatedFeeRate(Amount feeRate) override
+    {
+        // TODO need to implement
+    }
     void OnCanModifySettingsChanged(bool canModify) override {}
     void OnChangedSettings() override {}
     void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}

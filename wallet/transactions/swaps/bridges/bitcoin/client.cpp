@@ -58,6 +58,11 @@ namespace beam::bitcoin
             call_async(&IClientAsync::GetBalance);
         }
 
+        void EstimateFeeRate()
+        {
+            call_async(&IClientAsync::EstimateFeeRate);
+        }
+
         void ChangeSettings(const Settings& settings)
         {
             call_async(&IClientAsync::ChangeSettings, settings);
@@ -126,6 +131,31 @@ namespace beam::bitcoin
             balance.m_immature = immature;
 
             OnBalance(balance);
+        });
+    }
+
+    void Client::EstimateFeeRate()
+    {
+        auto bridge = GetBridge();
+
+        if (!bridge)
+        {
+            return;
+        }
+
+        // TODO need to investigate block amount
+        bridge->estimateFee(1, [this, weak = this->weak_from_this()](const IBridge::Error& error, Amount feeRate)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+            OnEstimatedFeeRate(feeRate);
         });
     }
 

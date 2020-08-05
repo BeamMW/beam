@@ -22,11 +22,14 @@
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/secstring.h"
 #include "wallet/core/strings_resources.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/electrum.h"
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -2220,6 +2223,83 @@ namespace
         return -1;
     }
 
+    template<typename SettingsProvider, typename Electrum, typename Core>
+    void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::IBridge::Ptr)> callback)
+    {
+        SettingsProvider settingsProvider{ walletDB };
+
+        settingsProvider.Initialize();
+
+        auto settings = settingsProvider.GetSettings();
+
+        if (settings.IsActivated())
+        {
+            bitcoin::BridgeHolder<Electrum, Core> bridgeHolder;
+            callback(bridgeHolder.Get(io::Reactor::get_Current(), settingsProvider));
+        }
+        
+        // TODO implement. process error
+    }
+
+    Amount EstimateSwapFeerate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
+    {
+        Amount result = 0;
+        auto callback = [&result](beam::bitcoin::IBridge::Ptr bridge)
+        {
+            bridge->estimateFee(1, [&result](const bitcoin::IBridge::Error& error, Amount feeRate)
+            {
+                result = feeRate;
+                io::Reactor::get_Current().stop();
+
+                // TODO process connection error
+            });
+
+            io::Reactor::get_Current().run();
+        };
+
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+        {
+            RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>(walletDB, callback);
+            break;
+        }
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+        {
+            RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>(walletDB, callback);
+            break;
+        }
+        case beam::wallet::AtomicSwapCoin::Qtum:
+        {
+            RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>(walletDB, callback);
+            break;
+        }
+        default:
+        {
+            throw std::runtime_error("Unsupported coin for swap");
+            break;
+        }
+        }
+
+        return result;
+    }
+
+    int EstimateSwapFeerate(const po::variables_map& vm)
+    {
+        if (vm.count(cli::SWAP_COIN) > 0)
+        {
+            auto walletDB = OpenDataBase(vm);
+            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+            Amount feeRate = EstimateSwapFeerate(swapCoin, walletDB);
+
+            cout << "estimate fee rate = " << feeRate;
+            return 0;
+        }
+
+        LOG_ERROR() << "swap_coin should be specified";
+        return -1;
+    }
+
     boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -3141,6 +3221,7 @@ int main_impl(int argc, char* argv[])
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
         {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
+        {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
