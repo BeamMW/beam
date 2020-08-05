@@ -1008,10 +1008,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
-        if (!r.m_Res.m_Proof.empty())
-        {
-            r.m_callback(r.m_Res);
-        }
+        r.m_callback(r.m_Res); // either successful or not
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)

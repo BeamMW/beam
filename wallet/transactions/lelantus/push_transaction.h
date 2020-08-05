@@ -49,6 +49,9 @@ namespace beam::wallet::lelantus
         void RollbackTx() override;
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
-        bool m_waitingShieldedProof = true;
+        TxoID m_OutpID = 0;
+        Height m_OutpHeight = 0;
+
+        void OnOutpProof(proto::ProofShieldedOutp&);
     };
 } // namespace beam::wallet::lelantus

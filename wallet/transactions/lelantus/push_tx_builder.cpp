@@ -145,4 +145,54 @@ namespace beam::wallet::lelantus
 
     }
 
+    void PushTxBuilder::ResetSig()
+    {
+        if (!m_pKrn)
+            return;
+
+        m_pTransaction->m_vKernels.clear();
+        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
+
+        m_pKrn = nullptr;
+        m_Signing = Stage::None;
+        SaveKernel();
+        SetParameter(TxParameterID::KernelID, Zero);
+        SetStatus(Status::None);
+
+        m_pTransaction->m_Offset = Zero;
+        SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
+
+        SetParameter(TxParameterID::Voucher, Zero);
+
+        SetParameter(TxParameterID::KernelProofHeight, Zero);
+        SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
+
+        SetParameter(TxParameterID::TransactionRegisteredInternal, Zero);
+    }
+
+    const ShieldedTxo* PushTxBuilder::get_Txo()
+    {
+        if (!m_pKrn)
+            return nullptr;
+
+        if (TxKernel::Subtype::ShieldedOutput == m_pKrn->get_Subtype())
+            return &m_pKrn->CastTo_ShieldedOutput().m_Txo;
+
+        for (const auto& p : m_pKrn->m_vNested)
+        {
+            if (TxKernel::Subtype::ShieldedOutput == p->get_Subtype())
+                return &p->CastTo_ShieldedOutput().m_Txo;
+        }
+
+        return nullptr;
+    }
+
+    const ShieldedTxo& PushTxBuilder::get_TxoStrict()
+    {
+        const ShieldedTxo* pTxo = get_Txo();
+        if (!pTxo)
+            throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        return *pTxo;
+    }
+
 } // namespace beam::wallet::lelantus

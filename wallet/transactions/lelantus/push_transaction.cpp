@@ -87,8 +87,8 @@ namespace beam::wallet::lelantus
         builder.FinalyzeTx();
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
-        if (!GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered)
-            || nRegistered == proto::TxStatus::Unspecified)
+        GetParameter(TxParameterID::TransactionRegisteredInternal, nRegistered);
+        if (nRegistered == proto::TxStatus::Unspecified)
         {
             if (CheckExpired())
             {
@@ -99,92 +99,91 @@ namespace beam::wallet::lelantus
             return;
         }
 
-/*        if (proto::TxStatus::InvalidContext == nRegistered ||   // we have to ensure that this transaction hasn't already added to blockchain
-            proto::TxStatus::InvalidInput == nRegistered)       // transaction could be sent to node previously
+        if (!m_OutpHeight)
         {
-            Height lastUnconfirmedHeight = 0;
-            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            m_OutpHeight = MaxHeight;
+            GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
-                ShieldedVoucherList vouchers;
-                if (proto::TxStatus::InvalidContext == nRegistered
-                    && GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
-                {
-                    if (!vouchers.empty())
-                    {
-                        // reset transaction state and try another vouchers left
-                        SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
-                        SetParameter(TxParameterID::Kernel, TxKernelShieldedOutput::Ptr());
-                        builder.ResetKernelID();
-
-                        const auto internalStatus = proto::TxStatus::Unspecified;
-                        SetParameter(TxParameterID::TransactionRegisteredInternal, internalStatus);
-
-                        UpdateAsync();
-                    }
-                    else
-                    {
-                        OnFailed(TxFailureReason::NoVouchers);
-                    }
+                if (weak.expired())
                     return;
+
+                try {
+                    m_OutpHeight = 0;
+                    OnOutpProof(proof);
                 }
+                catch (const TransactionFailedException& ex) {
+                    OnFailed(ex.GetReason(), ex.ShouldNofify());
+                }
+            });
+        }
 
-                OnFailed(TxFailureReason::FailedToRegister, true);
-                return;
+        if (MaxHeight == m_OutpHeight)
+            return;
+
+        Height h = 0;
+        GetParameter(TxParameterID::KernelProofHeight, h);
+        if (h == m_OutpHeight)
+        {
+            auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
+            if (coin) // payment to ourself
+            {
+                coin->m_TxoID = m_OutpID;
+                coin->m_confirmHeight = std::min(coin->m_confirmHeight, h);
+                // save shielded output to DB
+                GetWalletDB()->saveShieldedCoin(*coin);
             }
+
+            SetCompletedTxCoinStatuses(h);
+            CompleteTx();
         }
-        else */if (proto::TxStatus::Ok != nRegistered)
+        else
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
-            return;
+            GetParameter(TxParameterID::KernelUnconfirmedHeight, h);
+            if (h >= m_OutpHeight)
+            {
+                // reset everything, try again!
+                m_OutpHeight = 0;
+                builder.ResetSig();
+                UpdateAsync();
+            }
+            else
+                ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
         }
-
-        Height hProof = 0;
-        GetParameter(TxParameterID::KernelProofHeight, hProof);
-        if (!hProof)
-        {
-            ECC::Hash::Value hv;
-            if (GetParameter(TxParameterID::KernelID, hv))
-                ConfirmKernel(hv);
-            return;
-        }
-
-        // getProofShieldedOutp
-        if (m_waitingShieldedProof)
-        {
-            ShieldedTxo::Voucher voucher = GetMandatoryParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-
-            GetGateway().get_proof_shielded_output(GetTxID(), voucher.m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp proof)
-                {
-                    if (weak.expired())
-                    {
-                        return;
-                    }
-
-                    if (m_waitingShieldedProof)
-                    {
-                        m_waitingShieldedProof = false;
-
-                        // update shielded output
-                        auto coin = GetWalletDB()->getShieldedCoin(GetTxID());
-                        if (coin) // payment to ourself
-                        {
-                            coin->m_TxoID = proof.m_ID;
-                            coin->m_confirmHeight = std::min(coin->m_confirmHeight, proof.m_Height);
-
-                            // save shielded output to DB
-                            GetWalletDB()->saveShieldedCoin(*coin);
-                        }
-                    }
-                    UpdateAsync();
-                });
-            return;
-        }
-
-        SetCompletedTxCoinStatuses(hProof);
-
-        CompleteTx();
     }
     
+    void PushTransaction::OnOutpProof(proto::ProofShieldedOutp& p)
+    {
+        if (p.m_Proof.empty())
+        {
+            if (!CheckExpired())
+                UpdateOnNextTip();
+            return;
+        }
+
+        assert(m_TxBuilder);
+        auto& builder = *m_TxBuilder;
+
+        // make sure this voucher was indeed used with our output
+        const ShieldedTxo& txo = builder.get_TxoStrict();
+
+        if ((txo.m_Commitment == p.m_Commitment) && builder.m_pKrn->m_Height.IsInRange(p.m_Height))
+        {
+            // chances this outp is part of our kernel
+            m_OutpID = p.m_ID;
+            m_OutpHeight = p.m_Height;
+        }
+        else
+        {
+            if (CheckExpired())
+                return;
+
+            // reset everything, try again!
+            builder.ResetSig();
+        }
+
+        Update();
+    }
+
     void PushTransaction::RollbackTx()
     {
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
