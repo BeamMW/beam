@@ -234,6 +234,7 @@ namespace beam
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* ESTIMATE_SWAP_FEERATE = "estimate_swap_feerate";
+        const char* GET_BALANCE = "get_balance";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";

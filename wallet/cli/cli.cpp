@@ -2300,6 +2300,65 @@ namespace
         return -1;
     }
 
+    Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
+    {
+        Amount result = 0;
+        auto callback = [&result](beam::bitcoin::IBridge::Ptr bridge)
+        {
+            bridge->getDetailedBalance([&result](const bitcoin::IBridge::Error& error, Amount balance, Amount, Amount)
+            {
+                result = balance;
+                io::Reactor::get_Current().stop();
+
+                // TODO process connection error
+            });
+
+            io::Reactor::get_Current().run();
+        };
+
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+        {
+            RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>(walletDB, callback);
+            break;
+        }
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+        {
+            RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>(walletDB, callback);
+            break;
+        }
+        case beam::wallet::AtomicSwapCoin::Qtum:
+        {
+            RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>(walletDB, callback);
+            break;
+        }
+        default:
+        {
+            throw std::runtime_error("Unsupported coin for swap");
+            break;
+        }
+        }
+
+        return result;
+    }
+
+    int GetBalance(const po::variables_map& vm)
+    {
+        if (vm.count(cli::SWAP_COIN) > 0)
+        {
+            auto walletDB = OpenDataBase(vm);
+            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+            Amount balance = GetBalance(swapCoin, walletDB);
+
+            cout << "avaible: " << balance;
+            return 0;
+        }
+
+        LOG_ERROR() << "swap_coin should be specified";
+        return -1;
+    }
+
     boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -3222,6 +3281,7 @@ int main_impl(int argc, char* argv[])
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
         {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
         {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
+        {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
