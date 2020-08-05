@@ -2374,7 +2374,19 @@ namespace
             swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
         }
 
-        Amount swapFeeRate = GetSwapFeeRate(walletDB, swapCoin);
+        if (vm.count(cli::SWAP_FEERATE) == 0)
+        {
+            throw std::runtime_error("swap_feerate should be specified");
+        }
+
+        Amount estimatedFeeRate = EstimateSwapFeerate(swapCoin, walletDB);
+        Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+        if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
+        }
+
         bool isSwapAmountValid =
             IsSwapAmountValid(swapCoin, swapAmount, swapFeeRate);
         if (!isSwapAmountValid)
@@ -2464,7 +2476,18 @@ namespace
             throw std::runtime_error("swap transaction token is invalid.");
         }
 
-        Amount swapFeeRate = 0;
+        if (vm.count(cli::SWAP_FEERATE) == 0)
+        {
+            throw std::runtime_error("swap_feerate should be specified");
+        }
+
+        Amount estimatedFeeRate = EstimateSwapFeerate(*swapCoin, walletDB);
+        Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+        if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
+        }
 
         if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
         {
@@ -2476,11 +2499,10 @@ namespace
                 throw std::runtime_error("BTC settings should be initialized.");
             }
 
-            if (!BitcoinSide::CheckAmount(*swapAmount, btcSettings.GetFeeRate()))
+            if (!BitcoinSide::CheckAmount(*swapAmount, swapFeeRate))
             {
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
-            swapFeeRate = btcSettings.GetFeeRate();
         }
         else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
         {
@@ -2492,11 +2514,10 @@ namespace
                 throw std::runtime_error("LTC settings should be initialized.");
             }
 
-            if (!LitecoinSide::CheckAmount(*swapAmount, ltcSettings.GetFeeRate()))
+            if (!LitecoinSide::CheckAmount(*swapAmount, swapFeeRate))
             {
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
-            swapFeeRate = ltcSettings.GetFeeRate();
         }
         else if (swapCoin == wallet::AtomicSwapCoin::Qtum)
         {
@@ -2508,11 +2529,10 @@ namespace
                 throw std::runtime_error("Qtum settings should be initialized.");
             }
 
-            if (!QtumSide::CheckAmount(*swapAmount, qtumSettings.GetFeeRate()))
+            if (!QtumSide::CheckAmount(*swapAmount, swapFeeRate))
             {
                 throw std::runtime_error("The swap amount must be greater than the redemption fee.");
             }
-            swapFeeRate = qtumSettings.GetFeeRate();
         }
         else
         {
