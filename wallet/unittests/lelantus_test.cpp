@@ -354,6 +354,7 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
 
                 sender.m_Wallet.StartTransaction(parameters);
@@ -365,6 +366,7 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
             
                 sender.m_Wallet.StartTransaction(parameters);
