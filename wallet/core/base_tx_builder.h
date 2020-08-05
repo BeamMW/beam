@@ -153,8 +153,6 @@ namespace beam::wallet
         virtual bool IsConventional() { return true; }
         virtual void FinalyzeTxInternal();
 
-        void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
-
         struct KeyKeeperHandler
             :public IPrivateKeyKeeper2::Handler
         {

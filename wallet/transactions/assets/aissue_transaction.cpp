@@ -127,7 +127,6 @@ namespace beam::wallet
                     OnFailed(TxFailureReason::AssetConfirmFailed);
                 else
                 {
-                    h = 0;
                     GetParameter(TxParameterID::AssetConfirmedHeight, h);
                     if (!h)
                     {
