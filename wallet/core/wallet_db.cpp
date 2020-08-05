@@ -4056,6 +4056,30 @@ namespace beam::wallet
         return true;
     }
 
+    bool WalletDB::delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID)
+    {
+        if (auto txIter = m_TxParametersCache.find(txID); txIter != m_TxParametersCache.end())
+        {
+            if (auto subTxIter = txIter->second.find(subTxID); subTxIter != txIter->second.end())
+            {
+                if (auto pit = subTxIter->second.find(paramID); pit != subTxIter->second.end())
+                {
+                    subTxIter->second.erase(pit);
+                }
+            }
+        }
+
+        sqlite::Statement stm(this, "DELETE FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
+
+        stm.bind(1, txID);
+        stm.bind(2, subTxID);
+        stm.bind(3, paramID);
+
+        stm.step();
+
+        return true;
+    }
+
     bool WalletDB::getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const
     {
         if (auto txIter = m_TxParametersCache.find(txID); txIter != m_TxParametersCache.end())

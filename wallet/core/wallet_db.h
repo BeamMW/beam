@@ -468,6 +468,7 @@ namespace beam::wallet
         virtual void deleteTx(const TxID& txId) = 0;
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
+        virtual bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual std::vector<TxParameter> getAllTxParameters() const = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
@@ -650,6 +651,7 @@ namespace beam::wallet
 
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
+        bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
         std::vector<TxParameter> getAllTxParameters() const override;
 
@@ -801,6 +803,11 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
             return db.setTxParameter(txID, subTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+        }
+
+        inline bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, Zero_, bool)
+        {
+            return db.delTxParameter(txID, subTxID, paramID);
         }
 
         bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
