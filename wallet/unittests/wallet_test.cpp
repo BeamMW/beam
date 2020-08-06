@@ -1358,6 +1358,12 @@ namespace
         }
     }
 
+    struct MyZeroInit {
+        static void Do(std::string&) {}
+        template <typename T> static void Do(std::vector<T>&) {}
+        template <typename T> static void Do(T& x) { ZeroObject(x);  }
+    };
+
     void TestTxParameters()
     {
         std::cout << "Testing tx parameters and token...\n";
@@ -1424,9 +1430,13 @@ namespace
             }
 
             {
+                // don't save uninitialized variables
                 TxParameters allParams;
-#define MACRO(name, index, type) \
-                allParams.SetParameter(TxParameterID::name, type{}); \
+#define MACRO(name, index, type) { \
+                    type var; \
+                    MyZeroInit::Do(var); \
+                    allParams.SetParameter(TxParameterID::name, var); \
+                }
 
                 BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
 #undef MACRO
