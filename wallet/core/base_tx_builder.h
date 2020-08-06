@@ -122,7 +122,7 @@ namespace beam::wallet
         T GetParameterStrict(TxParameterID paramID) const {
             T value;
             GetParameterStrict(paramID, value);
-            return std::move(value);
+            return value;
         }
 
         template <typename T>

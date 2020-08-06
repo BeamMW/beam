@@ -36,7 +36,6 @@ namespace beam::wallet {
     WalletAssetMeta::WalletAssetMeta(std::string meta)
         : _std(false)
         , _std_v5_0(false)
-        , _parsed(false)
         , _meta(std::move(meta))
     {
         Parse();
@@ -45,7 +44,6 @@ namespace beam::wallet {
     WalletAssetMeta::WalletAssetMeta(const Asset::Full& info)
         : _std(false)
         , _std_v5_0(false)
-        , _parsed(false)
     {
         const auto& mval = info.m_Metadata.m_Value;
         if (mval.empty())
@@ -65,7 +63,6 @@ namespace beam::wallet {
     void WalletAssetMeta::Parse()
     {
         _std = false;
-        _parsed = true;
 
         const auto STD_LEN = std::size(STD_META_MARK) - 1;
         if(strncmp(_meta.c_str(), STD_META_MARK, STD_LEN) != 0) return;
@@ -125,8 +122,6 @@ namespace beam::wallet {
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
     {
-        assert(_parsed);
-
         const auto prefix = pref.empty() ? pref : pref + " ";
         const auto isPrintable = [](const std::string& str) -> bool {
             std::locale loc("");
@@ -150,47 +145,40 @@ namespace beam::wallet {
 
     bool WalletAssetMeta::isStd() const
     {
-        assert(_parsed);
         return _std;
     }
 
     bool WalletAssetMeta::isStd_v5_0() const
     {
-        assert(_parsed);
         return _std_v5_0;
     }
 
     std::string WalletAssetMeta::GetUnitName() const
     {
-        assert(_parsed);
         const auto it = _values.find(UNIT_NAME_KEY);
         return it != _values.end() ? it->second : std::string(kAmountASSET);
     }
 
     std::string WalletAssetMeta::GetNthUnitName() const
     {
-        assert(_parsed);
         const auto it = _values.find(NTH_UNIT_NAME_KEY);
         return it != _values.end() ? it->second : std::string(kAmountAGROTH);
     }
 
     std::string WalletAssetMeta::GetName() const
     {
-        assert(_parsed);
         const auto it = _values.find(NAME_KEY);
         return it != _values.end() ? it->second : std::string(kNA);
     }
 
     std::string WalletAssetMeta::GetShortName() const
     {
-        assert(_parsed);
         const auto it = _values.find(SHORT_NAME_KEY);
         return it != _values.end() ? it->second : std::string(kNA);
     }
 
     unsigned WalletAssetMeta::GetSchemaVersion() const
     {
-        assert(_parsed);
         const auto it = _values.find(SHORT_NAME_KEY);
         return it != _values.end() ? std::to_unsigned(it->second, false) : 0;
     }

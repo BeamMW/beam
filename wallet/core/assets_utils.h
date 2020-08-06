@@ -40,7 +40,6 @@ namespace beam::wallet {
         SMap _values;
         bool _std;
         bool _std_v5_0;
-        bool _parsed;
         std::string _meta;
     };
 
