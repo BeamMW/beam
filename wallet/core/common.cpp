@@ -119,13 +119,13 @@ namespace std
 
             if (intval >= Rules::Coin)
             {
-                ss << coin << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName);
+                ss << coin << " " << (amount.m_coinName.empty() ? "BEAMs" : amount.m_coinName);
             }
 
             if (groth > 0 || intval == 0)
             {
                 ss << (intval >= Rules::Coin ? (" ") : "")
-                   << groth << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName);
+                   << groth << " " << (amount.m_grothName.empty() ? "GROTH" : amount.m_grothName);
             }
 
             return ss.str();
