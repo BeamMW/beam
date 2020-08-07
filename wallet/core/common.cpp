@@ -640,6 +640,22 @@ namespace beam::wallet
         return status;
     }
 
+    std::string MaxPrivacyTxStatusInterpreter::getStatus() const
+    {
+        const auto& status = TxStatusInterpreter::getStatus();
+        if (status == "receiving" || status == "sending")
+            return "in progress max privacy";
+        else if (status == "sent")
+            return "sent max privacy";
+        else if (status == "received")
+            return "received max privacy";
+        else if (status == "cancelled")
+            return "canceled max privacy";
+        else if (status == "failed")
+            return "failed max privacy";
+        return status;
+    }
+
     AssetTxStatusInterpreter::AssetTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
     {
         boost::optional<ByteBuffer> value = txParams.GetParameter(TxParameterID::TransactionType);
