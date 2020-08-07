@@ -588,14 +588,32 @@ namespace beam::wallet
         {
             return;
         }
+        beam::Block::SystemState::Full tip;
+        m_walletDB->get_History().get_Tip(tip);
         for (const auto& c : coins)
         {
+            if (c.m_spentHeight != MaxHeight || c.m_confirmHeight == MaxHeight)
+            {
+                continue;
+            }
+            Timestamp ts = tip.m_TimeStamp;
+            if (tip.m_Height > c.m_confirmHeight)
+            {
+                auto delta = (tip.m_Height - c.m_confirmHeight);
+                ts -= delta * Rules::get().DA.Target_s;
+            }
+            else if (tip.m_Height < c.m_confirmHeight)
+            {
+                auto delta = c.m_confirmHeight - tip.m_Height;
+                ts += delta * Rules::get().DA.Target_s;
+            }
             WalletAddress tempAddress;
             m_walletDB->createAddress(tempAddress);
             auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID)
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, c.m_CoinID.m_Value)
-                .SetParameter(TxParameterID::IsSender, false);
+                .SetParameter(TxParameterID::IsSender, false)
+                .SetParameter(TxParameterID::CreateTime, ts);
             auto packed = params.Pack();
             for (const auto& p : packed)
             {
