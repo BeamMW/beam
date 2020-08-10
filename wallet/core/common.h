@@ -503,6 +503,12 @@ namespace beam::wallet
         std::string getStatus() const override;
     };
 
+    struct MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
+    {
+        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        std::string getStatus() const override;
+    };
+
     struct AssetTxStatusInterpreter : public TxStatusInterpreter
     {
         explicit AssetTxStatusInterpreter(const TxParameters& txParams);

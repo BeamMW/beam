@@ -4635,7 +4635,6 @@ namespace beam::wallet
                     break;
 
                 case Coin::Status::Maturing:
-                    assert(!c.isAsset());
                     totals.Maturing += value;
                     totals.Unspent += value;
                     break;
