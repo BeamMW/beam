@@ -50,57 +50,14 @@ namespace
         Amount swapAmount, Amount swapFeeRate)
     {
         beam::Amount total = swapAmount + swapFeeRate;
-        switch (swapCoin)
-        {
-        case AtomicSwapCoin::Bitcoin:
-        {
-            return swapProvider.getBtcAvailable() > total;
-        }
-        case AtomicSwapCoin::Litecoin:
-        {
-            return swapProvider.getLtcAvailable() > total;
-        }
-        case AtomicSwapCoin::Qtum:
-        {
-            return swapProvider.getQtumAvailable() > total;
-        }
-        default:
-        {
-            assert(false);
-            return true;
-        }
-        }
+
+        return swapProvider.getBalance(swapCoin) > total;
     }
 
     void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
     {
-        switch (swapCoin)
-        {
-            case AtomicSwapCoin::Bitcoin:
-            {
-                if (swapProvider.isBtcConnected())
-                    return;
-                break;
-            }
-            case AtomicSwapCoin::Litecoin:
-            {
-                if (swapProvider.isLtcConnected())
-                    return;
-                break;
-            }
-            case AtomicSwapCoin::Qtum:
-            {
-                if (swapProvider.isQtumConnected())
-                    return;
-                break;
-            }
-            default:
-            {
-                assert(false && "Process new coin");
-                break;
-            }
-        }
-        throw FailToConnectSwap(std::to_string(swapCoin));
+        if (!swapProvider.isConnected(swapCoin))
+            throw FailToConnectSwap(std::to_string(swapCoin));
     }
 
     boost::optional<SwapOffer> getOfferFromBoardByTxId(
@@ -1510,32 +1467,27 @@ namespace beam::wallet
         {
             checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
 
-            Amount available = 0;
-            switch (data.coin)
-            {
-            case AtomicSwapCoin::Bitcoin:
-            {
-                available = _walletData.getAtomicSwapProvider().getBtcAvailable();
-                break;
-            }
-            case AtomicSwapCoin::Litecoin:
-            {
-                available = _walletData.getAtomicSwapProvider().getLtcAvailable();
-                break;
-            }
-            case AtomicSwapCoin::Qtum:
-            {
-                available = _walletData.getAtomicSwapProvider().getQtumAvailable();
-                break;
-            }
-            default:
-                assert(false && "process new coin");
-                break;
-            }
+            Amount available = _walletData.getAtomicSwapProvider().getBalance(data.coin);
 
             doResponse(id, GetBalance::Response{ available });
         }
         catch (const FailToConnectSwap & e)
+        {
+            doError(id, ApiError::SwapFailToConnect, e.what());
+        }
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const RecommendedFeeRate& data)
+    {
+        try
+        {
+            checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
+
+            Amount feeRate = _walletData.getAtomicSwapProvider().getRecommendedFeeRate(data.coin);
+
+            doResponse(id, RecommendedFeeRate::Response{ feeRate });
+        }
+        catch (const FailToConnectSwap& e)
         {
             doError(id, ApiError::SwapFailToConnect, e.what());
         }
