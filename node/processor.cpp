@@ -5190,4 +5190,84 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 	return 1;
 }
 
+void NodeProcessor::ValidatedCache::ShrinkTo(uint32_t n)
+{
+	while (m_Mru.size() > n)
+		Delete(m_Mru.back().get_ParentObj());
+}
+
+void NodeProcessor::ValidatedCache::OnShLo(const Entry::ShLo::Type& nShLo)
+{
+	while (true)
+	{
+		ShLoSet::reverse_iterator it = m_ShLo.rbegin();
+		if (m_ShLo.rend() == it)
+			break;
+		Entry::ShLo& x = *it;
+
+		if (x.m_End <= nShLo)
+			break;
+
+		Delete(x.get_ParentObj());
+	}
+}
+
+void NodeProcessor::ValidatedCache::RemoveRaw(Entry& x)
+{
+	m_Keys.erase(KeySet::s_iterator_to(x.m_Key));
+	m_ShLo.erase(ShLoSet::s_iterator_to(x.m_ShLo));
+	m_Mru.erase(MruList::s_iterator_to(x.m_Mru));
+}
+
+void NodeProcessor::ValidatedCache::Delete(Entry& x)
+{
+	RemoveRaw(x);
+	delete &x;
+}
+
+void NodeProcessor::ValidatedCache::MoveToFront(Entry& x)
+{
+	m_Mru.erase(MruList::s_iterator_to(x.m_Mru));
+	m_Mru.push_front(x.m_Mru);
+}
+
+bool NodeProcessor::ValidatedCache::Find(const Entry::Key::Type& val)
+{
+	Entry::Key key;
+	key.m_Value = val;
+
+	KeySet::iterator it = m_Keys.find(key);
+	if (m_Keys.end() == it)
+		return false;
+
+	MoveToFront(it->get_ParentObj());
+	return true;
+}
+
+void NodeProcessor::ValidatedCache::Insert(const Entry::Key::Type& val, const Entry::ShLo::Type& nShLo)
+{
+	Entry* pEntry(new Entry);
+	pEntry->m_Key.m_Value = val;
+	pEntry->m_ShLo.m_End = nShLo;
+
+	InsertRaw(*pEntry);
+}
+
+void NodeProcessor::ValidatedCache::InsertRaw(Entry& x)
+{
+	m_Keys.insert(x.m_Key);
+	m_ShLo.insert(x.m_ShLo);
+	m_Mru.push_front(x.m_Mru);
+}
+
+void NodeProcessor::ValidatedCache::MoveInto(ValidatedCache& dst)
+{
+	while (!m_Mru.empty())
+	{
+		Entry& x = m_Mru.back().get_ParentObj();
+		RemoveRaw(x);
+		dst.InsertRaw(x);
+	}
+}
+
 } // namespace beam

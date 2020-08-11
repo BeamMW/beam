@@ -538,6 +538,64 @@ public:
 
 	} m_Mmr;
 
+	struct ValidatedCache
+	{
+		struct Entry
+		{
+			struct Key
+				:public boost::intrusive::set_base_hook<>
+			{
+				typedef ECC::Hash::Value Type;
+				Type m_Value;
+				bool operator < (const Key& x) const { return m_Value < x.m_Value; }
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
+			} m_Key;
+
+			struct Mru
+				:public boost::intrusive::list_base_hook<>
+			{
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Mru)
+			} m_Mru;
+
+			struct ShLo
+				:public boost::intrusive::set_base_hook<>
+			{
+				typedef TxoID Type;
+				Type m_End;
+				bool operator < (const ShLo& x) const { return m_End < x.m_End; }
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_ShLo)
+			} m_ShLo;
+		};
+
+		typedef boost::intrusive::multiset<Entry::Key> KeySet;
+		typedef boost::intrusive::multiset<Entry::ShLo> ShLoSet;
+		typedef boost::intrusive::list<Entry::Mru> MruList;
+
+		KeySet m_Keys;
+		ShLoSet m_ShLo;
+		MruList m_Mru;
+
+		~ValidatedCache() {
+			ShrinkTo(0);
+		}
+
+		void Delete(Entry&);
+		void MoveToFront(Entry&);
+
+		void ShrinkTo(uint32_t);
+		void OnShLo(const Entry::ShLo::Type& nShLo);
+
+		bool Find(const Entry::Key::Type&); // modifies MRU if found
+		void Insert(const Entry::Key::Type&, const Entry::ShLo::Type& nShLo);
+
+		void MoveInto(ValidatedCache& dst);
+
+	protected:
+		void InsertRaw(Entry&);
+		void RemoveRaw(Entry&);
+
+	} m_ValCache;
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);
