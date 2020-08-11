@@ -462,10 +462,12 @@ namespace beam::bitcoin
 
             if (error.m_type == IBridge::None)
             {
-                if (!result["errors"].empty())
+                json::const_iterator itErr = result.find("errors");
+
+                if ((result.end() != itErr) && !itErr->empty())
                 {
                     error.m_type = IBridge::BitcoinError;
-                    error.m_message = result["errors"].front().get<std::string>();
+                    error.m_message = itErr->front().get<std::string>();
                 }
                 else
                 {
