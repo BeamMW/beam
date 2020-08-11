@@ -4512,6 +4512,12 @@ void Node::PrintTxos()
         pid.Import(ptN);
     }
 
+    struct PerAsset {
+        Amount m_Avail = 0;
+        Amount m_Locked = 0;
+    };
+    typedef std::map<Asset::ID, PerAsset> AssetMap;
+
     std::ostringstream os;
     os << "Printing Events for Key=" << pid << std::endl;
 
@@ -4522,23 +4528,76 @@ void Node::PrintTxos()
     if (hSerif0 >= Rules::HeightGenesis)
         os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
+    struct MyParser :public proto::Event::IParser
+    {
+        std::ostringstream& m_os;
+        AssetMap m_Map;
+        Height m_Height;
+
+        MyParser(std::ostringstream& os) :m_os(os) {}
+
+        virtual void OnEvent(proto::Event::Base& x) override
+        {
+            x.Dump(m_os);
+
+            switch (x.get_Type())
+            {
+#define THE_MACRO(id, name) \
+                case id: \
+                    OnEventEx(Cast::Up<proto::Event::name>(x)); \
+                    break;
+
+            BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+            }
+        }
+
+        void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
+        {
+            PerAsset& pa = m_Map[aid];
+
+            if (proto::Event::Flags::Add & nFlags)
+                (bMature ? pa.m_Avail : pa.m_Locked) += v;
+            else
+                pa.m_Avail -= v;
+        }
+
+        void OnEventEx(const proto::Event::Utxo& x)
+        {
+            OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
+        }
+
+        void OnEventEx(const proto::Event::Shielded& x)
+        {
+            OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
+        }
+
+        void OnEventEx(const proto::Event::AssetCtl&)
+        {
+            // ignore
+        }
+
+    } p(os);
+    p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
+
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        struct MyParser :public proto::Event::IParser
-        {
-            std::ostringstream& m_os;
-            MyParser(std::ostringstream& os) :m_os(os) {}
-
-            virtual void OnEvent(proto::Event::Base& x) override {
-                x.Dump(m_os);
-            }
-
-        } p(os);
-
         os << "\tHeight=" << wlk.m_Height << ", ";
         p.ProceedOnce(wlk.m_Body);
         os << std::endl;
+    }
+
+    os << "Totals:" << std::endl;
+
+    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; it++)
+    {
+        const PerAsset& pa = it->second;
+        if (pa.m_Avail || pa.m_Locked)
+        {
+            os << "\tAssetID=" << it->first << ", Avail=" << pa.m_Avail << ", Locked=" << pa.m_Locked << std::endl;
+
+        }
     }
 
     LOG_INFO() << os.str();
