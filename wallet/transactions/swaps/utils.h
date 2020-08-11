@@ -32,7 +32,6 @@ TxParameters InitNewSwap(
 
 void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB);
 
-Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin);
 bool IsSwapAmountValid(
     AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate);
 #endif // BEAM_ATOMIC_SWAP_SUPPORT

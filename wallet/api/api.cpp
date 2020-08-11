@@ -344,7 +344,7 @@ Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
 Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
 {
     Api::ParameterReader reader{ id, params };
-    return reader.readAmount("fee_rate", false);
+    return reader.readAmount("fee_rate", true);
 }
 
 static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)

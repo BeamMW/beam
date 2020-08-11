@@ -292,6 +292,30 @@ public:
         }
     }
 
+    Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
+    }
+
     const SwapOffersBoard& getSwapOffersBoard() const override
     {
         return *_offersBulletinBoard;

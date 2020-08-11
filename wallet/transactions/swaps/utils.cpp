@@ -167,56 +167,6 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
     }
 }
 
-Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
-{
-    switch (swapCoin)
-    {
-    case AtomicSwapCoin::Bitcoin:
-    {
-        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-        btcSettingsProvider->Initialize();
-
-        auto btcSettings = btcSettingsProvider->GetSettings();
-        if (!btcSettings.IsInitialized())
-        {
-            throw std::runtime_error("BTC settings should be initialized.");
-        }
-
-        return btcSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Litecoin:
-    {
-        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-        ltcSettingsProvider->Initialize();
-
-        auto ltcSettings = ltcSettingsProvider->GetSettings();
-        if (!ltcSettings.IsInitialized())
-        {
-            throw std::runtime_error("LTC settings should be initialized.");
-        }
-
-        return ltcSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Qtum:
-    {
-        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-        qtumSettingsProvider->Initialize();
-
-        auto qtumSettings = qtumSettingsProvider->GetSettings();
-        if (!qtumSettings.IsInitialized())
-        {
-            throw std::runtime_error("Qtum settings should be initialized.");
-        }
-
-        return qtumSettings.GetFeeRate();
-    }
-    default:
-    {
-        throw std::runtime_error("Unsupported coin for swap");
-    }
-    }
-}
-
 bool IsSwapAmountValid(
     AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
 {

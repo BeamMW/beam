@@ -24,6 +24,7 @@ class IAtomicSwapProvider
 public:
     virtual Amount getBalance(AtomicSwapCoin swapCoin) const = 0;
     virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
+    virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
     virtual bool isConnected(AtomicSwapCoin swapCoin) const = 0;
 };
