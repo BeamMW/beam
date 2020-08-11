@@ -2282,6 +2282,42 @@ namespace
         return -1;
     }
 
+    template<typename SettingsProvider>
+    Amount GetMinSwapFeeRate(IWalletDB::Ptr walletDB)
+    {
+        SettingsProvider settingsProvider{ walletDB };
+
+        settingsProvider.Initialize();
+
+        auto settings = settingsProvider.GetSettings();
+        return settings.GetMinFeeRate();
+
+    }
+
+    Amount GetMinSwapFeeRate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
+    {
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+        {
+            return GetMinSwapFeeRate<bitcoin::SettingsProvider>(walletDB);
+        }
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+        {
+            return GetMinSwapFeeRate<litecoin::SettingsProvider>(walletDB);
+        }
+        case beam::wallet::AtomicSwapCoin::Qtum:
+        {
+            return GetMinSwapFeeRate<qtum::SettingsProvider>(walletDB);
+        }
+        default:
+        {
+            throw std::runtime_error("Unsupported coin for swap");
+            return 0;
+        }
+        }
+    }
+
     Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     {
         Amount result = 0;
@@ -2366,7 +2402,14 @@ namespace
 
         if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
         {
-            throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
+            throw std::runtime_error("swap_feerate must be greater than the recommended fee rate.");
+        }
+
+        Amount minFeeRate = GetMinSwapFeeRate(swapCoin, walletDB);
+
+        if (minFeeRate > 0 && minFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
         }
 
         bool isSwapAmountValid =
@@ -2469,6 +2512,14 @@ namespace
         if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
         {
             throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
+        }
+
+        // TODO need to unite with InitSwap
+        Amount minFeeRate = GetMinSwapFeeRate(*swapCoin, walletDB);
+
+        if (minFeeRate > 0 && minFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
         }
 
         if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
