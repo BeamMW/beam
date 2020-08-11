@@ -14,7 +14,6 @@
 
 #include "wallet/transactions/swaps/utils.h"
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
@@ -22,11 +21,9 @@
 #include "wallet/transactions/swaps/bridges/qtum/electrum.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 const char* getSwapTxStatus(AtomicSwapTransaction::State state)
 {
     static const char* Initial = "waiting for peer";
@@ -182,5 +179,4 @@ bool IsSwapAmountValid(
         throw std::runtime_error("Unsupported coin for swap");
     }
 }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 } // namespace beam::wallet

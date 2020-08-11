@@ -32,11 +32,9 @@ namespace beam::qtum
             constexpr double kBlocksPerHour = 28.125;
             constexpr uint32_t kDefaultLockTimeInBlocks = static_cast<uint32_t>(12 * kBlocksPerHour);  // 12h
             constexpr Amount kMinFeeRate = 400000;
-            constexpr Amount kDefaultFeeRate = 500000;
 
             SetTxMinConfirmations(kDefaultTxMinConfirmations);
             SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
-            SetFeeRate(kDefaultFeeRate);
             SetMinFeeRate(kMinFeeRate);
             SetBlocksPerHour(kBlocksPerHour);
             SetAddressVersion(getAddressVersion());

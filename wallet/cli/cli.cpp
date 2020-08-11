@@ -29,10 +29,10 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
-
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
@@ -2044,24 +2044,6 @@ namespace
             return -1;
         }
 
-        if (vm.count(cli::SWAP_FEERATE) == 0 && settings.GetFeeRate() == 0)
-        {
-            throw std::runtime_error(kErrorSwapFeeRateMissing);
-        }
-
-        if (vm.count(cli::SWAP_FEERATE))
-        {
-            Amount feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-            if (feeRate < settings.GetMinFeeRate())
-            {
-                ostringstream stream;
-                stream << "Error: you set fee rate less than minimun. For " << swapCoin << " it should be > " << settings.GetMinFeeRate();
-                throw std::runtime_error(stream.str());
-            }
-            settings.SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
-            isChanged = true;
-        }
-
         if (vm.count(cli::ACTIVE_CONNECTION))
         {
             auto typeConnection = bitcoin::from_string(vm[cli::ACTIVE_CONNECTION].as<string>());
@@ -2119,7 +2101,6 @@ namespace
                 stream << "Amount of receiving addresses: " << settings.GetElectrumConnectionOptions().m_receivingAddressAmount << '\n';
                 stream << "Amount of change addresses: " << settings.GetElectrumConnectionOptions().m_changeAddressAmount << '\n';
             }
-            stream << "Fee rate: " << settings.GetFeeRate() << '\n';
             stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 
             LOG_INFO() << stream.str();

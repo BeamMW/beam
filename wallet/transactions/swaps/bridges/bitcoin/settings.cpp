@@ -71,11 +71,6 @@ namespace beam::bitcoin
                GetCurrentConnectionType() == ISettings::ConnectionType::Electrum;
     }
 
-    Amount Settings::GetFeeRate() const
-    {
-        return m_feeRate;
-    }
-
     Amount Settings::GetMinFeeRate() const
     {
         return m_minFeeRate;
@@ -129,11 +124,6 @@ namespace beam::bitcoin
     void Settings::SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings)
     {
         m_electrumConnectionSettings = connectionSettings;
-    }
-
-    void Settings::SetFeeRate(Amount feeRate)
-    {
-        m_feeRate = feeRate;
     }
 
     void Settings::SetMinFeeRate(beam::Amount feeRate)
