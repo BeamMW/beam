@@ -5,11 +5,19 @@ set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 set(CLI_SRC
     cli.cpp
+    utils.cpp
 )
 if(BEAM_LASER_SUPPORT)
     set(CLI_SRC
         ${CLI_SRC}
         laser.cpp
+    )
+endif()
+
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    set(CLI_SRC
+        ${CLI_SRC}
+        swaps.cpp
     )
 endif()
 
