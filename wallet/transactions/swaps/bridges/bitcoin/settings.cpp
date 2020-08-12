@@ -170,4 +170,14 @@ namespace beam::bitcoin
     {
         m_genesisBlockHashes = genesisBlockHashes;
     }
+
+    void Settings::DisableElectrum()
+    {
+        m_isSupportedElectrum = false;
+    }
+
+    bool Settings::IsSupportedElectrum() const
+    {
+        return m_isSupportedElectrum;
+    }
 } // namespace beam::bitcoin

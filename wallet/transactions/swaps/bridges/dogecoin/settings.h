@@ -38,6 +38,7 @@ namespace beam::dogecoin
             SetBlocksPerHour(kDogeBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
+            DisableElectrum();
         }
     };
 } //namespace beam::dogecoin
