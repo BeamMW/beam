@@ -75,6 +75,10 @@ namespace
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
 
+        auto vouchers = txDescription.GetParameter<ShieldedVoucherList>(wallet::TxParameterID::ShieldedVoucherList);
+        setBooleanField(env, TxDescriptionClass, tx, "isOffline", (vouchers && !vouchers->empty()));
+        setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", txDescription.m_txType == wallet::TxType::PushTransaction);
+
         return tx;
     }
 
