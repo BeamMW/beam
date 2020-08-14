@@ -3130,13 +3130,15 @@ namespace beam::wallet
 
     void WalletDB::saveShieldedCoinRaw(const ShieldedCoin& coin)
     {
+        std::vector<ShieldedCoin> v = { coin };
+        v[0].DeduceStatus(*this, getCurrentHeight());
         if (!updateShieldedCoinRaw(coin))
         {
             insertShieldedCoinRaw(coin);
-            notifyShieldedCoinsChanged(ChangeAction::Added, {coin});
+            notifyShieldedCoinsChanged(ChangeAction::Added, v);
             return;
         }
-        notifyShieldedCoinsChanged(ChangeAction::Updated, {coin});
+        notifyShieldedCoinsChanged(ChangeAction::Updated, v);
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -3360,10 +3362,12 @@ namespace beam::wallet
             vector<ShieldedCoin> updatedCoins;
             updatedCoins.reserve(updatedRows.size());
 
+            auto currentHeight = getCurrentHeight();
             for (const auto& key : updatedRows)
             {
-                updatedCoins.emplace_back(getShieldedCoin(key).value());
-            }            
+                auto& coin = updatedCoins.emplace_back(getShieldedCoin(key).value());
+                coin.DeduceStatus(*this, currentHeight);
+            }
 
             notifyShieldedCoinsChanged(ChangeAction::Updated, updatedCoins);
         }

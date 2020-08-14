@@ -117,6 +117,7 @@ namespace beam::wallet
         virtual void onChangeCalculated(Amount change) {}
         virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
+        virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
@@ -206,6 +207,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos() const;
+        
 
         void updateClientState();
         void updateClientTxState();
@@ -238,9 +240,16 @@ namespace beam::wallet
         struct CoinKey
         {
             typedef Coin::ID type;
-            const Coin::ID& operator()(const Coin& c) const { return c.m_ID; }
+            const type& operator()(const Coin& c) const { return c.m_ID; }
         };
         ChangesCollector <Coin, CoinKey> m_CoinChangesCollector;
+
+        struct ShieldedCoinKey
+        {
+            typedef TxoID type;
+            const type& operator()(const ShieldedCoin& c) const { return c.m_TxoID; }
+        };
+        ChangesCollector <ShieldedCoin, ShieldedCoinKey> m_ShieldedCoinChangesCollector;
 
         struct AddressKey
         {

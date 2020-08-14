@@ -229,6 +229,11 @@ namespace beam::wallet
             return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight && !m_spentTxId;
         }
 
+        bool IsAsset() const
+        {
+            return m_CoinID.m_AssetID != 0;
+        }
+
         ShieldedTxo::ID m_CoinID;
         TxoID m_TxoID = kTxoInvalidID;
 

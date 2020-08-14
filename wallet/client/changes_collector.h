@@ -21,7 +21,6 @@ namespace beam::wallet
     class ChangesCollector
     {
         using FlushFunc = std::function<void(ChangeAction, const std::vector<T>&)>;
-        
 
         struct Comparator
         {

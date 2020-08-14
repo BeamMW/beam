@@ -260,6 +260,7 @@ namespace beam::wallet
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
+        , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
@@ -579,6 +580,10 @@ namespace beam::wallet
     {
         // add virtual transaction for receiver
 #ifdef BEAM_LELANTUS_SUPPORT
+
+        m_ShieldedCoinChangesCollector.CollectItems(action, coins);
+        m_DeferredBalanceUpdate.start();
+
         if (action != ChangeAction::Added)
         {
             return;
@@ -829,6 +834,7 @@ namespace beam::wallet
     void WalletClient::getUtxosStatus()
     {
         onAllUtxoChanged(ChangeAction::Reset, getUtxos());
+        onShieldedCoinChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(0));
     }
 
     void WalletClient::getAddresses(bool own)
