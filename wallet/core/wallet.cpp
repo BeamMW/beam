@@ -36,7 +36,7 @@ namespace beam::wallet
 
     namespace
     {
-        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource)
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
@@ -51,19 +51,13 @@ namespace beam::wallet
                     continue;
                 }
 
-                if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
+                if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
                 {
-                    if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
-                    {
-                        LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
-                        continue;
-                    }
-                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                    LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
+                    continue;
                 }
-                else
-                {
-                    LOG_WARNING() << "Attempt to set private tx parameter";
-                }
+
+                txChanged |= tx->SetParameter(p.first, p.second, subTxID);
             }
             return txChanged;
         }

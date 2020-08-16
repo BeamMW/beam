@@ -146,7 +146,7 @@ namespace beam::wallet
 
         virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
         {
-            return true;
+            return false;
         }
 
         template <typename T>

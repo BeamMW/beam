@@ -143,7 +143,38 @@ namespace beam::wallet
     }
 
 
+    bool SimpleTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+    {
+        if (kDefaultSubTxID != subTxID)
+            return false; // irrelevant
 
+        switch (paramID)
+        {
+        case TxParameterID::IsSender: // TODO - change this. It should be checked and set by Creator during construction
+        case TxParameterID::Amount:
+        case TxParameterID::AssetID:
+        case TxParameterID::Fee:
+        case TxParameterID::MinHeight:
+        case TxParameterID::MaxHeight:
+        case TxParameterID::Message:
+        case TxParameterID::Lifetime:
+        case TxParameterID::PaymentConfirmation:
+        case TxParameterID::PeerProtoVersion:
+        case TxParameterID::PeerWalletIdentity:
+        case TxParameterID::PeerMaxHeight:
+        case TxParameterID::PeerPublicExcess:
+        case TxParameterID::PeerPublicNonce:
+        case TxParameterID::PeerSignature:
+        case TxParameterID::PeerInputs:
+        case TxParameterID::PeerOutputs:
+        case TxParameterID::PeerOffset:
+            return true;
+
+        default:
+            return false;
+        }
+
+    }
 
     void SimpleTransaction::UpdateImpl()
     {
