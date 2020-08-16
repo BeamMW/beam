@@ -773,19 +773,9 @@ namespace beam::wallet
             {
                 LOG_WARNING() << "Special msg failed: " << exc.what();
             }
-
-            return;
         }
-
-        auto t = GetTransaction(myID, msg);
-        if (!t)
-        {
-            return;
-        }
-
-        if (ApplyTransactionParameters(t, msg.m_Parameters, false))
-        {
-            UpdateTransaction(msg.m_TxID);
+        else {
+            OnTransactionMsg(myID, msg);
         }
     }
 
@@ -1470,66 +1460,70 @@ namespace beam::wallet
         m_WalletDB->Unsubscribe(observer);
     }
 
-    BaseTransaction::Ptr Wallet::GetTransaction(const WalletID& myID, const SetTxParameter& msg)
+    void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
     {
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
-            if (it->second->GetType() != msg.m_Type)
+            const auto& pTx = it->second;
+
+            if (pTx->GetType() != msg.m_Type)
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
+                return;
             }
-            if (WalletID peerID; it->second->GetParameter(TxParameterID::PeerID, peerID) && peerID != msg.m_From)
+
+            WalletID peerID;
+            if (pTx->GetParameter(TxParameterID::PeerID, peerID))
             {
-                // if we already have PeerID, we should ignore messages from others
-                return BaseTransaction::Ptr();
+                if (peerID != msg.m_From)
+                    return; // if we already have PeerID, we should ignore messages from others
             }
             else
             {
-                it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+                pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
             }
-            return it->second;
+
+            if (ApplyTransactionParameters(pTx, msg.m_Parameters, false))
+                UpdateTransaction(pTx);
+
+            return;
         }
 
         TxType type = TxType::Simple;
         if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
-        {
             // we return only active transactions
-            return BaseTransaction::Ptr();
-        }
+            return;
 
         if (msg.m_Type == TxType::AtomicSwap)
-        {
-            // we don't create swap from SBBS message
-            return BaseTransaction::Ptr();
-        }
+            return; // we don't create swap from SBBS message
 
         bool isSender = false;
         if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
+            return;
+
+        BaseTransaction::Ptr pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
+        if (!pTx)
+            return;
+
+        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
+        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+        pTx->SetParameter(TxParameterID::MyID, myID, false);
+        pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+        pTx->SetParameter(TxParameterID::IsInitiator, false, false);
+        pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+        auto address = m_WalletDB->getAddress(myID);
+        if (address.is_initialized())
         {
-            return BaseTransaction::Ptr();
+            ByteBuffer message(address->m_label.begin(), address->m_label.end());
+            pTx->SetParameter(TxParameterID::Message, message);
         }
 
-        auto t = ConstructTransactionFromParameters(msg);
-        if (t)
-        {
-            t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-            t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-            t->SetParameter(TxParameterID::MyID, myID, false);
-            t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-            t->SetParameter(TxParameterID::IsInitiator, false, false);
-            t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+        MakeTransactionActive(pTx);
+        ApplyTransactionParameters(pTx, msg.m_Parameters, false);
 
-            auto address = m_WalletDB->getAddress(myID);
-            if (address.is_initialized())
-            {
-                ByteBuffer message(address->m_label.begin(), address->m_label.end());
-                t->SetParameter(TxParameterID::Message, message);
-            }
-
-            MakeTransactionActive(t);
-        }
-        return t;
+        UpdateTransaction(pTx);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)
@@ -1542,11 +1536,6 @@ namespace beam::wallet
         }
 
         return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
-    }
-
-    BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
-    {
-        return ConstructTransaction(msg.m_TxID, msg.m_Type);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)

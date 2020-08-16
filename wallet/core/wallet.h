@@ -220,9 +220,8 @@ namespace beam::wallet
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
 
-        BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
+        void OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
-        BaseTransaction::Ptr ConstructTransactionFromParameters(const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransactionFromParameters(const TxParameters& parameters);
 
         void MakeTransactionActive(BaseTransaction::Ptr tx);
