@@ -162,7 +162,7 @@ public:
 
     Amount GetRecommendedFeeRate() const
     {
-        return _balance.m_available;
+        return _recommendedFeeRate;
     }
 
     bool IsConnected() const
