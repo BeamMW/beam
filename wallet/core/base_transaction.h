@@ -183,8 +183,7 @@ namespace beam::wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID)
         {
-            bool shouldNotifyAboutChanges = ShouldNotifyAboutChanges(paramID);
-            return SetParameter(paramID, value, shouldNotifyAboutChanges, subTxID);
+            return SetParameter(paramID, value, true, subTxID);
         }
 
         template <typename T>
@@ -266,7 +265,6 @@ namespace beam::wallet
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
 
-        virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
         void SetCompletedTxCoinStatuses(Height proofHeight);
         void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
     protected:

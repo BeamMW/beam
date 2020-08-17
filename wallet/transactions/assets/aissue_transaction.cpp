@@ -193,24 +193,6 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    bool AssetIssueTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Amount:
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-            return true;
-        default:
-            return false;
-        }
-    }
-
     TxType AssetIssueTransaction::GetType() const
     {
         return _issue ? TxType::AssetIssue : TxType::AssetConsume;

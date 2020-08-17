@@ -187,23 +187,6 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    bool AssetUnregisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-            return true;
-        default:
-            return false;
-        }
-    }
-
     TxType AssetUnregisterTransaction::GetType() const
     {
         return TxType::AssetUnreg;

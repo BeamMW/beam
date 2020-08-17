@@ -208,23 +208,6 @@ namespace beam::wallet
         GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->CastTo_AssetCreate().m_Owner, kDefaultSubTxID);
     }
 
-    bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-            return true;
-        default:
-            return false;
-        }
-    }
-
     TxType AssetRegisterTransaction::GetType() const
     {
         return TxType::AssetReg;

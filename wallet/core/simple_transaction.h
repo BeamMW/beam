@@ -59,7 +59,6 @@ namespace beam::wallet
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
-        bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;

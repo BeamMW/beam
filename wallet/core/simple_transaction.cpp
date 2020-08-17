@@ -491,24 +491,4 @@ namespace beam::wallet
         return state;
     }
 
-    bool SimpleTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Amount:
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::PeerID:
-        case TxParameterID::MyID:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-        case TxParameterID::AssetID:
-            return true;
-        default:
-            return false;
-        }
-    }
 }
