@@ -554,6 +554,10 @@ namespace beam::wallet
             }
             res &= true;
         }
+        if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
+        {
+            params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
+        }
 
 #ifdef BEAM_LIB_VERSION
         if (auto libVersion = receiverParams.GetParameter(beam::wallet::TxParameterID::LibraryVersion); libVersion)

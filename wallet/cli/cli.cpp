@@ -2042,8 +2042,7 @@ namespace
             wallet::AsyncContextHolder holder(*wallet);
 
 #ifdef BEAM_LELANTUS_SUPPORT
-            // Forcibly disable starting from v5.1
-            // lelantus::RegisterCreators(*wallet, walletDB);
+            lelantus::RegisterCreators(*wallet, walletDB);
 #endif
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

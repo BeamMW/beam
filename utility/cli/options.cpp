@@ -313,11 +313,12 @@ namespace beam
         const char* EXCHANGE_UNIT     = "exch_unit";
 
         // lelantus
-        const char* INSERT_TO_POOL = "insert_to_pool";
-        const char* EXTRACT_FROM_POOL = "extract_from_pool";
-        const char* SHIELDED_UTXOS = "shielded_utxos";
-        const char* SHIELDED_ID = "shielded_id";
+        const char* INSERT_TO_POOL      = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL   = "extract_from_pool";
+        const char* SHIELDED_UTXOS      = "shielded_utxos";
+        const char* SHIELDED_ID         = "shielded_id";
         const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
+        const char* MAX_PRIVACY         = "max_privacy";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -425,7 +426,8 @@ namespace beam
             (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
-            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address");
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
+            (cli::MAX_PRIVACY, po::bool_switch(), "send max privacy transaction");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
