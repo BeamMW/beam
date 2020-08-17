@@ -1062,14 +1062,12 @@ void TestTxParameters()
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
-    ECC::Point p;
+    ECC::Point p, p2;
     p.m_X = unsigned(143521);
     p.m_Y = 0;
-    ECC::Point::Native pt, pt2;
-    pt.Import(p);
-    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
-    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
-    WALLET_CHECK(p == pt2);
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p2));
+    WALLET_CHECK(p == p2);
 }
 
 void TestSelect3()
