@@ -472,7 +472,7 @@ namespace beam::wallet
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
-            const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
+            const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) = 0;
         virtual bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual std::vector<TxParameter> getAllTxParameters() const = 0;
@@ -655,7 +655,7 @@ namespace beam::wallet
         void changePassword(const SecString& password) override;
 
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
-            const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
+            const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) override;
         bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
         std::vector<TxParameter> getAllTxParameters() const override;

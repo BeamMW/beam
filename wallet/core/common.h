@@ -328,7 +328,6 @@ namespace beam::wallet
 #undef MACRO
 
         // private parameters
-        PrivateFirstParam = 128,
 
         ModifyTime = 128,
         KernelProofHeight = 129,

@@ -3987,7 +3987,7 @@ namespace beam::wallet
         throwIfError(ret, _db);
     }
 
-    bool WalletDB::setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& blob, bool shouldNotifyAboutChanges)
+    bool WalletDB::setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify /* = true */)
     {
         if (auto txIter = m_TxParametersCache.find(txID); txIter != m_TxParametersCache.end())
         {
@@ -4014,10 +4014,8 @@ namespace beam::wallet
             if (stm.step())
             {
                 // already set
-                if (paramID < TxParameterID::PrivateFirstParam)
-                {
+                if (!allowModify)
                     return false;
-                }
 
                 sqlite::Statement stm2(this, "UPDATE " TX_PARAMS_NAME  " SET value = ?4 WHERE txID = ?1 AND subTxID=?2 AND paramID = ?3;");
                 stm2.bind(1, txID);

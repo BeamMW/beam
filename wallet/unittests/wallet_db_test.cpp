@@ -295,14 +295,14 @@ void TestStoreTxRecord()
     
     auto t = walletDB->getTxHistory();
     WALLET_CHECK(t.size() == 1);
-    WALLET_CHECK(t[0].m_txId == tr.m_txId);
-    WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_minHeight == tr.m_minHeight);
-    WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
-    WALLET_CHECK(t[0].m_myId == tr.m_myId);
-    WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
+    WALLET_CHECK(t[0].m_txId == tr2.m_txId);
+    WALLET_CHECK(t[0].m_amount == tr2.m_amount);
+    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
+    WALLET_CHECK(t[0].m_peerId == tr2.m_peerId);
+    WALLET_CHECK(t[0].m_myId == tr2.m_myId);
+    WALLET_CHECK(t[0].m_createTime == tr2.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
-    WALLET_CHECK(t[0].m_sender == tr.m_sender);
+    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
@@ -1033,9 +1033,9 @@ void TestTxParameters()
     WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
-    WALLET_CHECK(amount == 8765);
+    WALLET_CHECK(amount == 786);
 
     // private parameter can be overriten
     TxStatus status = TxStatus::Pending;

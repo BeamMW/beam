@@ -57,7 +57,7 @@ namespace beam::wallet
                     continue;
                 }
 
-                txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                txChanged |= tx->GetWalletDB()->setTxParameter(tx->GetTxID(), subTxID, p.first, p.second, true, isInternalSource);
             }
             return txChanged;
         }
