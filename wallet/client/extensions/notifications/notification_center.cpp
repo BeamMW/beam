@@ -65,12 +65,14 @@ namespace beam::wallet
     void NotificationCenter::switchOnOffNotifications(Notification::Type type, bool onOff)
     {
         m_activeNotifications[type] = onOff;
+        notifySubscribers(ChangeAction::Reset, getNotifications());
     }
 
     size_t NotificationCenter::getUnreadCount(
-        std::function<size_t(Cache::const_iterator, Cache::const_iterator)> counter) const
+        std::function<size_t(std::vector<Notification>::const_iterator, std::vector<Notification>::const_iterator)> counter)
     {
-        return counter(m_cache.begin(), m_cache.end());
+        const auto& notifications = getNotifications();
+        return counter(notifications.begin(), notifications.end());
     }
 
     void NotificationCenter::createNotification(const Notification& notification)

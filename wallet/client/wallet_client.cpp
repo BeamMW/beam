@@ -1280,19 +1280,19 @@ namespace beam::wallet
     void WalletClient::updateNotifications()
     {
         size_t count = m_notificationCenter->getUnreadCount(
-            [this] (NotificationCenter::Cache::const_iterator first, NotificationCenter::Cache::const_iterator last)
+            [this] (std::vector<Notification>::const_iterator first, std::vector<Notification>::const_iterator last)
             {
                 auto currentLibVersion = getLibVersion();
                 auto currentClientRevision = getClientRevision();
                 return std::count_if(first, last,
                     [&currentLibVersion, &currentClientRevision](const auto& p)
                     {
-                        if (p.second.m_state == Notification::State::Unread)
+                        if (p.m_state == Notification::State::Unread)
                         {
-                            if (p.second.m_type == Notification::Type::WalletImplUpdateAvailable)
+                            if (p.m_type == Notification::Type::WalletImplUpdateAvailable)
                             {
                                 WalletImplVerInfo info;
-                                if (fromByteBuffer(p.second.m_content, info) &&
+                                if (fromByteBuffer(p.m_content, info) &&
                                     VersionInfo::Application::DesktopWallet == info.m_application &&
                                     (currentLibVersion < info.m_version ||
                                     (currentLibVersion == info.m_version && currentClientRevision < info.m_UIrevision)))
@@ -1300,7 +1300,7 @@ namespace beam::wallet
                                     return true;
                                 }
                             }
-                            if (p.second.m_type == Notification::Type::TransactionFailed)
+                            if (p.m_type == Notification::Type::TransactionFailed)
                             {
                                 return true;
                             }
