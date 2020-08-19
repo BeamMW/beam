@@ -448,6 +448,10 @@ namespace beam::wallet
                 LOG_ERROR() << ex.what();
                 FailedToStartWallet();
             }
+            catch (const std::exception& ex)
+            {
+                LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
+            }
             catch (...) {
                 LOG_UNHANDLED_EXCEPTION();
             }
@@ -1109,7 +1113,7 @@ namespace beam::wallet
             m_walletDB->ImportRecovery(path, *this);
             return;
         }
-        catch (const std::runtime_error& e)
+        catch (const std::exception& e)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
