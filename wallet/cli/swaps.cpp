@@ -288,7 +288,7 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 }
 
 template<typename SettingsProvider>
-void ShowSwapSettings(const IWalletDB::Ptr& walletDB, const char* coinName)
+void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
 {
     SettingsProvider settingsProvider{ walletDB };
 
@@ -298,7 +298,7 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, const char* coinName)
     if (settings.IsInitialized())
     {
         ostringstream stream;
-        stream << "\n" << coinName << " settings" << '\n';
+        stream << "\n" << GetCoinName(swapCoin) << " settings" << '\n';
         if (settings.GetConnectionOptions().IsInitialized())
         {
             stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
@@ -325,11 +325,11 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, const char* coinName)
         return;
     }
 
-    LOG_INFO() << coinName << " settings are not initialized.";
+    LOG_INFO() << GetCoinName(swapCoin) << " settings are not initialized.";
 }
 
 template<typename SettingsProvider, typename Electrum, typename Core>
-void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::IBridge::Ptr)> callback)
+void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::IBridge::Ptr)> callback, AtomicSwapCoin swapCoin)
 {
     SettingsProvider settingsProvider{ walletDB };
 
@@ -343,7 +343,7 @@ void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::
         callback(bridgeHolder.Get(io::Reactor::get_Current(), settingsProvider));
     }
 
-    // TODO roman.strilets do need to process error?
+    throw std::runtime_error(GetCoinName(swapCoin) + " settings are not initialized.");
 }
 
 template<typename SettingsProvider>
@@ -396,17 +396,20 @@ Amount EstimateSwapFeerate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr
     {
     case beam::wallet::AtomicSwapCoin::Bitcoin:
     {
-        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>(walletDB, callback);
+        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Litecoin:
     {
-        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>(walletDB, callback);
+        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
-        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>(walletDB, callback);
+        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     default:
@@ -463,17 +466,20 @@ Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB
     {
     case beam::wallet::AtomicSwapCoin::Bitcoin:
     {
-        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>(walletDB, callback);
+        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Litecoin:
     {
-        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>(walletDB, callback);
+        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
-        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>(walletDB, callback);
+        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
+            (walletDB, callback, swapCoin);
         break;
     }
     default:
@@ -777,17 +783,17 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     {
     case beam::wallet::AtomicSwapCoin::Bitcoin:
     {
-        ShowSwapSettings<bitcoin::SettingsProvider>(walletDB, "bitcoin");
+        ShowSwapSettings<bitcoin::SettingsProvider>(walletDB, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Litecoin:
     {
-        ShowSwapSettings<litecoin::SettingsProvider>(walletDB, "litecoin");
+        ShowSwapSettings<litecoin::SettingsProvider>(walletDB, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
-        ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+        ShowSwapSettings<qtum::SettingsProvider>(walletDB, swapCoin);
         break;
     }
     default:

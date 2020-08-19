@@ -44,6 +44,30 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     }
     }
 }
+
+std::string GetCoinName(AtomicSwapCoin swapCoin)
+{
+    switch (swapCoin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+    {
+        return "Bitcoin";
+    }
+    case AtomicSwapCoin::Litecoin:
+    {
+        return "Litecoin";
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        return "Qtum";
+    }
+    default:
+    {
+        assert(false && "unexpected swap coin!");
+        return "Unknown";
+    }
+    }
+}
 }  // namespace beam::wallet
 
 namespace std
