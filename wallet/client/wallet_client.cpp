@@ -616,13 +616,18 @@ namespace beam::wallet
                 auto delta = c.m_confirmHeight - tip.m_Height;
                 ts += delta * Rules::get().DA.Target_s;
             }
+            const auto* message = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
+            TxID txID;
+            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
             WalletAddress tempAddress;
             m_walletDB->createAddress(tempAddress);
-            auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID)
+            auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID, txID)
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, c.m_CoinID.m_Value)
                 .SetParameter(TxParameterID::IsSender, false)
-                .SetParameter(TxParameterID::CreateTime, ts);
+                .SetParameter(TxParameterID::CreateTime, ts)
+                .SetParameter(TxParameterID::PeerWalletIdentity, c.m_CoinID.m_User.m_Sender);
+
             auto packed = params.Pack();
             for (const auto& p : packed)
             {

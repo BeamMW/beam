@@ -606,6 +606,23 @@ namespace beam
 			PeerID m_Sender;
 			ECC::uintBig m_pMessage[2];
 
+#pragma pack (push, 1)
+			struct PackedMessage
+			{
+				uintBig_t<16> m_TxID;
+				uint8_t m_Padding[64 - 16];
+			};
+#pragma pack (pop)
+			static PackedMessage* ToPackedMessage(User& user)
+			{
+				return reinterpret_cast<PackedMessage*>(user.m_pMessage);
+			}
+
+			static const PackedMessage* ToPackedMessage(const User& user)
+			{
+				return reinterpret_cast<const PackedMessage*>(user.m_pMessage);
+			}
+
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{

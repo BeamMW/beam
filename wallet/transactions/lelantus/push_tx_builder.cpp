@@ -118,6 +118,7 @@ namespace beam::wallet::lelantus
 
         // TODO: add ShieldedMessage if needed
         // m.m_User.m_Message = GetParameterStrict<WalletID>(TxParameterID::ShieldedMessage);
+        ShieldedTxo::User::ToPackedMessage(m.m_User)->m_TxID = Blob(m_Tx.GetTxID());
 
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
