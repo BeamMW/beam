@@ -619,6 +619,10 @@ namespace beam::wallet
             const auto* message = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
             TxID txID;
             std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+            if (m_walletDB->getTx(txID))
+            {
+                continue;
+            }
             WalletAddress tempAddress;
             m_walletDB->createAddress(tempAddress);
             auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID, txID)
