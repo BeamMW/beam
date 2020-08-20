@@ -496,6 +496,17 @@ namespace beam
 		{
 		}
 
+		struct User
+		{
+			ECC::Scalar m_pExtra[2];
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar & m_pExtra;
+			}
+		};
+
 		static const Amount s_MinimumValue = 1;
 
 		// one of the following *must* be specified
@@ -512,9 +523,9 @@ namespace beam
 			};
 		};
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard, const User* = nullptr);
 
-		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&, User* = nullptr) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;
 
 		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;

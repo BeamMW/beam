@@ -937,8 +937,15 @@ void TestRangeProof(bool bCustomTag)
 		WriteSizeSerialized("Out-UTXO-Public-RecoveryOnly", outp);
 	}
 	{
+		beam::Output::User user, user2;
+		for (size_t i = 0; i < _countof(user.m_pExtra); i++)
+		{
+			ECC::Scalar::Native s;
+			SetRandom(s);
+			user.m_pExtra[i] = s;
+		}
 		beam::Output outp;
-		outp.Create(g_hFork, sk, kdf, cid, kdf);
+		outp.Create(g_hFork, sk, kdf, cid, kdf, beam::Output::OpCode::Standard, &user);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 
@@ -946,8 +953,11 @@ void TestRangeProof(bool bCustomTag)
 		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
 
 		CoinID cid2;
-		verify_test(outp.Recover(g_hFork, kdf, cid2));
+		verify_test(outp.Recover(g_hFork, kdf, cid2, &user2));
 		verify_test(cid == cid2);
+
+		for (size_t i = 0; i < _countof(user.m_pExtra); i++)
+			verify_test(user.m_pExtra[i] == user2.m_pExtra[i]);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
