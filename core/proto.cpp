@@ -1021,6 +1021,12 @@ void Event::Utxo::Dump(std::ostringstream& os) const
     os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
 }
 
+void Event::Utxo0::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
+}
+
 void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';

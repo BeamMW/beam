@@ -2603,6 +2603,7 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	evt.m_Cid = cid;
 	evt.m_Commitment = x.m_Commitment;
 	evt.m_Maturity = x.get_MinMaturity(h);
+	evt.m_User = user;
 
 	const EventKey::Utxo& key = x.m_Commitment;
 	AddEvent(h, EventKey::s_IdxOutput, evt, key);
@@ -2723,6 +2724,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_Cid = cid;
 			evt.m_Commitment = outp.m_Commitment;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
+			evt.m_User = user;
 
 			const EventKey::Utxo& key = outp.m_Commitment;
 			m_This.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
