@@ -1030,7 +1030,7 @@ namespace beam::wallet
     {
         try
         {
-            onGetAddress(id, m_walletDB->getAddress(id));
+            onGetAddress(id, m_walletDB->getAddress(id), m_walletDB->getVoucherCount(id));
         }
         catch (const std::exception& e)
         {

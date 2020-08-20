@@ -121,7 +121,7 @@ namespace beam::wallet
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
-        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address) {}
+        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
