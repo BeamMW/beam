@@ -278,7 +278,7 @@ namespace beam::wallet
         x.m_pResult.reset(new Output);
 
         Scalar::Native sk;
-        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
+        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf, Output::OpCode::Standard, &x.m_User);
 
         return Status::Success;
     }
