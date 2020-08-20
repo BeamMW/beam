@@ -2586,7 +2586,8 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_
 void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 {
 	CoinID cid;
-	if (!x.Recover(h, keyViewer, cid))
+	Output::User user;
+	if (!x.Recover(h, keyViewer, cid, &user))
 		return;
 
 	// filter-out dummies
@@ -2709,7 +2710,7 @@ void NodeProcessor::RescanOwnedTxos()
 		{
 		}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const CoinID& cid) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const CoinID& cid, const Output::User& user) override
 		{
 			if (IsDummy(cid))
 			{
@@ -4814,10 +4815,11 @@ bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCre
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	CoinID cid;
+	Output::User user;
 	if (!outp.Recover(hCreate, m_Key, cid))
 		return true;
 
-	return OnTxo(wlk, hCreate, outp, cid);
+	return OnTxo(wlk, hCreate, outp, cid, user);
 }
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)

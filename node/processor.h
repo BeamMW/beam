@@ -444,7 +444,7 @@ public:
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) = 0;
 	};
 
 	struct ITxoWalker_UnspentNaked

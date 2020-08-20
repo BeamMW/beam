@@ -2592,7 +2592,7 @@ namespace beam
 
 			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
 
-			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) override
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
 				m_Recovered++;
 				return true;
