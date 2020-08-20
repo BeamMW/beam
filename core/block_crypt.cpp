@@ -589,6 +589,9 @@ namespace beam
 
 			Cast::Down<Key::ID>(cid) = kid;
 			cid.m_AssetID = 0; // can't be recovered atm
+
+			if (pUser)
+				ZeroObject(*pUser); // can't be recovered
 		}
 
 
