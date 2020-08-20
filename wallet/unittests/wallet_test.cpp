@@ -2438,6 +2438,8 @@ void TestVouchers()
             SetNodeEndpoint(m_MyNetwork);
 
             pTwn->m_Map[m_MyAddr.m_walletID].m_pSink = this;
+
+            Cast::Down<FlyClient>(*this).OnOwnedNode(Zero, true); // hack, disable wallet's logic according to which it won't reply with voucher without owned node.
         }
 
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myAddr, std::vector<ShieldedTxo::Voucher>&& res) override
