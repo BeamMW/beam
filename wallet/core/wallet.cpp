@@ -1086,39 +1086,26 @@ namespace beam::wallet
             Wallet& m_This;
             MyParser(Wallet& x) :m_This(x) {}
 
-            virtual void OnEvent(proto::Event::Base& evt_) override
+            virtual void OnEventType(proto::Event::Shielded& evt) override
             {
-                switch (evt_.get_Type())
-                {
-                    case proto::Event::Type::Shielded:
-                    {
-                        proto::Event::Shielded& shieldedEvt = Cast::Up<proto::Event::Shielded>(evt_);
-                        m_This.ProcessEventShieldedUtxo(shieldedEvt, m_Height);
-                        return;
-                    }
-                    case proto::Event::Type::AssetCtl:
-                    {
-                        proto::Event::AssetCtl& assetEvt = Cast::Up<proto::Event::AssetCtl>(evt_);
-                        m_This.ProcessEventAsset(assetEvt, m_Height);
-                        return;
-                    }
-                    case proto::Event::Type::Utxo:
-                    {
-                        proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
-
-                        // filter-out false positives
-
-                        if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
-                            return;
-
-                        bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                        m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
-                        return;
-                    }
-                    default:
-                        break;
-                }
+                m_This.ProcessEventShieldedUtxo(evt, m_Height);
             }
+
+            virtual void OnEventType(proto::Event::AssetCtl& evt) override
+            {
+                m_This.ProcessEventAsset(evt, m_Height);
+            }
+
+            virtual void OnEventType(proto::Event::Utxo& evt) override
+            {
+                // filter-out false positives
+                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
+                    return;
+
+                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
+                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+            }
+
         } p(*this);
         
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);

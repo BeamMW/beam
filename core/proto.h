@@ -431,7 +431,12 @@ namespace proto {
         {
             void ProceedOnce(Deserializer&);
             void ProceedOnce(const Blob&);
-            virtual void OnEvent(Base&) {}
+
+            virtual void OnEventBase(Base&) {}
+
+#define THE_MACRO(id, name) \
+            virtual void OnEventType(name& evt) { OnEventBase(evt); }
+            BeamEventsAll(THE_MACRO)
         };
 
         struct IGroupParser

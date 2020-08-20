@@ -4536,20 +4536,9 @@ void Node::PrintTxos()
 
         MyParser(std::ostringstream& os) :m_os(os) {}
 
-        virtual void OnEvent(proto::Event::Base& x) override
+        virtual void OnEventBase(proto::Event::Base& x) override
         {
             x.Dump(m_os);
-
-            switch (x.get_Type())
-            {
-#define THE_MACRO(id, name) \
-                case id: \
-                    OnEventEx(Cast::Up<proto::Event::name>(x)); \
-                    break;
-
-            BeamEventsAll(THE_MACRO)
-#undef THE_MACRO
-            }
         }
 
         void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
@@ -4562,19 +4551,16 @@ void Node::PrintTxos()
                 pa.m_Avail -= v;
         }
 
-        void OnEventEx(const proto::Event::Utxo& x)
+        virtual void OnEventType(proto::Event::Utxo& x) override
         {
+            OnEventBase(x);
             OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
         }
 
-        void OnEventEx(const proto::Event::Shielded& x)
+        virtual void OnEventType(proto::Event::Shielded& x) override
         {
+            OnEventBase(x);
             OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
-        }
-
-        void OnEventEx(const proto::Event::AssetCtl&)
-        {
-            // ignore
         }
 
     } p(os);

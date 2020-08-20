@@ -982,7 +982,7 @@ void Event::IParser::ProceedOnce(Deserializer& der)
         { \
             name evt; \
             der & evt; \
-            OnEvent(evt); \
+            OnEventType(evt); \
         } \
         break;
 

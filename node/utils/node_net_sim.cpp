@@ -251,20 +251,7 @@ struct Context
                 Context& m_This;
                 MyParser(Context& x) :m_This(x) {}
 
-                virtual void OnEvent(proto::Event::Base& evt) override
-                {
-                    if (MaxHeight == m_Height)
-                        return; // it shouldn't be anyway!
-
-                    if (proto::Event::Type::Utxo == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
-                    if (proto::Event::Type::Shielded == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
-                    if (proto::Event::Type::AssetCtl == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
-                }
-
-                void OnEventType(proto::Event::Utxo& evt)
+                virtual void OnEventType(proto::Event::Utxo& evt) override
                 {
                     TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
@@ -291,7 +278,7 @@ struct Context
                     }
                 }
 
-                void OnEventType(proto::Event::Shielded& evt)
+                virtual void OnEventType(proto::Event::Shielded& evt) override
                 {
                     TxoSH::ID cid;
                     cid.m_Value = evt.m_TxoID;
@@ -316,10 +303,6 @@ struct Context
                             // update txs?
                         }
                     }
-                }
-
-                void OnEventType(proto::Event::AssetCtl& evt)
-                {
                 }
 
             } p(get_ParentObj());
