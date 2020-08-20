@@ -333,7 +333,7 @@ namespace proto {
             // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
-            // 6 - Newer Event::AssetCtl
+            // 6 - Newer Event::AssetCtl, newer Utxo events
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 6;
@@ -431,8 +431,7 @@ namespace proto {
 #undef THE_MACRO_SER
 #undef THE_MACRO_DECL
 
-
-        struct IParser
+        struct IParserBase
         {
             void ProceedOnce(Deserializer&);
             void ProceedOnce(const Blob&);
@@ -442,6 +441,13 @@ namespace proto {
 #define THE_MACRO(id, name) \
             virtual void OnEventType(name& evt) { OnEventBase(evt); }
             BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+        };
+
+        struct IParser
+            :public IParserBase
+        {
+            virtual void OnEventType(Utxo0&) override;
         };
 
         struct IGroupParser

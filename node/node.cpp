@@ -3514,10 +3514,12 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         bool bSkipAssets = (proto::LoginFlags::Extension::get(m_LoginFlags) < 6);
         static_assert(proto::LoginFlags::Extension::Minimum < 6); // remove this logic when older protocol won't be supported
 
+        bool bUtxo0 = bSkipAssets;
+
         // we'll send up to s_Max num of events, even to older clients, they won't complain
         static_assert(proto::Event::s_Max > proto::Event::s_Max0);
 
-        Serializer ser;
+        Serializer ser, serCvt;
 
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
@@ -3527,15 +3529,36 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            if (bSkipAssets)
+            if (bSkipAssets || bUtxo0)
             {
                 Deserializer der;
                 der.reset(wlk.m_Body.p, wlk.m_Body.n);
 
                 proto::Event::Type::Enum eType;
                 der & eType;
-                if (proto::Event::Type::AssetCtl == eType)
+                if (bSkipAssets && (proto::Event::Type::AssetCtl == eType))
                     continue; // skip
+
+                if (bUtxo0 && (proto::Event::Type::Utxo == eType))
+                {
+                    proto::Event::Utxo evt;
+                    der & evt;
+
+                    // convert to Utxo0.
+                    proto::Event::Utxo0 evt0;
+#define THE_MACRO(type, name) evt0.m_##name = std::move(evt.m_##name);
+                    BeamEvent_Utxo0(THE_MACRO)
+#undef THE_MACRO
+
+                    serCvt.reset();
+
+                    eType = proto::Event::Type::Utxo0;
+                    serCvt & eType;
+                    serCvt & evt0;
+
+                    wlk.m_Body.p = serCvt.buffer().first;
+                    wlk.m_Body.n = static_cast<uint32_t>(serCvt.buffer().second);
+                }
             }
 
             ser & wlk.m_Height;

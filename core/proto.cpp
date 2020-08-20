@@ -970,7 +970,7 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // Event
-void Event::IParser::ProceedOnce(Deserializer& der)
+void Event::IParserBase::ProceedOnce(Deserializer& der)
 {
     Type::Enum eType;
     der & eType;
@@ -994,7 +994,19 @@ void Event::IParser::ProceedOnce(Deserializer& der)
     }
 }
 
-void Event::IParser::ProceedOnce(const Blob& blob)
+void Event::IParser::OnEventType(Utxo0& evt0)
+{
+    Utxo evt;
+
+#define THE_MACRO(type, name) evt.m_##name = std::move(evt0.m_##name);
+    BeamEvent_Utxo0(THE_MACRO)
+#undef THE_MACRO
+
+    ZeroObject(evt.m_User);
+    Cast::Down<IParserBase>(*this).OnEventType(evt);
+}
+
+void Event::IParserBase::ProceedOnce(const Blob& blob)
 {
     Deserializer der;
     der.reset(blob.p, blob.n);
