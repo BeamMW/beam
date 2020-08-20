@@ -665,14 +665,21 @@ namespace beam::wallet
         case TxType::VoucherRequest:
             {
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
-                if (!pKeyKeeper)
-                    return; // We can generate the ticket with OwnerKey, but can't sign it.
+                if (!pKeyKeeper             // We can generate the ticket with OwnerKey, but can't sign it.
+                 || !m_OwnedNodesOnline)    // The wallet has no ability to recognoize received shielded coin
+                {
+                    FailVoucherRequest(msg.m_From, myID);
+                    return; 
+                }
 
                 uint32_t nCount = 0;
                 msg.GetParameter((TxParameterID) 0, nCount);
 
                 if (!nCount)
+                {
+                    FailVoucherRequest(msg.m_From, myID);
                     return; //?!
+                }
 
                 auto address = m_WalletDB->getAddress(myID);
                 if (!address.is_initialized() || !address->m_OwnID)
@@ -697,6 +704,7 @@ namespace beam::wallet
                 if (res.empty())
                 {
                     LOG_WARNING() << "Received an empty voucher list";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
 
@@ -704,12 +712,14 @@ namespace beam::wallet
                 if (!address.is_initialized())
                 {
                     LOG_WARNING() << "Received vouchers for unknown address";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
 
                 if (!IsValidVoucherList(res, address->m_Identity))
                 {
                     LOG_WARNING() << "Invalid voucher list received";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
 
@@ -721,6 +731,43 @@ namespace beam::wallet
         default: // suppress watning
             break;
         }
+    }
+
+    std::vector<BaseTransaction::Ptr> Wallet::FindTxWaitingForVouchers(const WalletID& peerID) const
+    {
+        std::vector<BaseTransaction::Ptr> res;
+        for (auto p : m_ActiveTransactions)
+        {
+            ShieldedTxo::Voucher voucher;
+            const auto& tx = p.second;
+            if (tx->GetType() == TxType::PushTransaction
+                && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == peerID
+                && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
+            {
+                res.push_back(tx);
+            }
+        }
+        return res;
+    }
+
+    void Wallet::FailTxWaitingForVouchers(const WalletID& peerID)
+    {
+        auto transactions = FindTxWaitingForVouchers(peerID);
+        for (auto tx : transactions)
+        {
+            tx->SetParameter(TxParameterID::FailureReason, TxFailureReason::CannotGetVouchers);
+            UpdateTransaction(tx);
+        }
+    }
+
+    void Wallet::FailVoucherRequest(const WalletID& peerID, const WalletID& myID)
+    {
+        SetTxParameter msgOut;
+        msgOut.m_Type = TxType::VoucherResponse;
+        msgOut.m_From = myID;
+        msgOut.AddParameter(TxParameterID::FailureReason, TxFailureReason::CannotGetVouchers);
+
+        SendSpecialMsg(peerID, msgOut);
     }
 
     void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)
@@ -741,16 +788,10 @@ namespace beam::wallet
         for (const auto& v : res)
             m_WalletDB->saveVoucher(v, addr.m_walletID);
 
-        for (auto p : m_ActiveTransactions)
+        auto transactions = FindTxWaitingForVouchers(addr.m_walletID);
+        for (auto tx : transactions)
         {
-            ShieldedTxo::Voucher voucher;
-            const auto& tx = p.second;
-            if (tx->GetType() == TxType::PushTransaction
-                && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == addr.m_walletID
-                && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
-            {
-                UpdateTransaction(tx);
-            }
+            UpdateTransaction(tx);
         }
     }
 

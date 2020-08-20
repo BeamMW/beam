@@ -230,6 +230,9 @@ namespace beam::wallet
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
+        std::vector<BaseTransaction::Ptr> FindTxWaitingForVouchers(const WalletID& peerID) const;
+        void FailTxWaitingForVouchers(const WalletID& peerID);
+        void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
 
     private:
 
