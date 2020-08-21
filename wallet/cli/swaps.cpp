@@ -341,6 +341,7 @@ void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::
     {
         bitcoin::BridgeHolder<Electrum, Core> bridgeHolder;
         callback(bridgeHolder.Get(io::Reactor::get_Current(), settingsProvider));
+        return;
     }
 
     throw std::runtime_error(GetCoinName(swapCoin) + " settings are not initialized.");
