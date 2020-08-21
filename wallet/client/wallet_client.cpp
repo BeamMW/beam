@@ -1050,6 +1050,11 @@ namespace beam::wallet
     {
         try
         {
+            if (m_walletDB->getVoucherCount(walletID) > 0)
+            {
+                // don't save vouchers if we already have to avoid zombie vouchers
+                return;
+            }
             for (const auto& v : vouchers)
             {
                 m_walletDB->saveVoucher(v, walletID);
