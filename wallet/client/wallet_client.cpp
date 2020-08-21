@@ -165,6 +165,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAddress, id);
     }
 
+    void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
+    {
+        call_async(&IWalletModelAsync::saveVouchers, v, walletID);
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::setNodeAddress, addr);
@@ -1037,6 +1042,27 @@ namespace beam::wallet
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::saveVouchers(const ShieldedVoucherList& vouchers, const WalletID& walletID)
+    {
+        try
+        {
+            for (const auto& v : vouchers)
+            {
+                m_walletDB->saveVoucher(v, walletID);
+            }
+            // notify client about voucher count changes
+            onGetAddress(walletID, m_walletDB->getAddress(walletID), m_walletDB->getVoucherCount(walletID));
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) 
+        {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
