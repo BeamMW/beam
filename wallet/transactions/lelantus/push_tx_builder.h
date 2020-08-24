@@ -31,5 +31,7 @@ namespace beam::wallet::lelantus
 
         const ShieldedTxo* get_Txo();
         const ShieldedTxo& get_TxoStrict();
+    private:
+        void FillUserData(Output::User::Packed* user) override;
     };
 } // namespace beam::wallet::lelantus

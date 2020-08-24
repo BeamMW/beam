@@ -269,7 +269,6 @@ namespace beam::wallet
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
-        //m_keyKeeper->subscribe(this);
     }
 
     WalletClient::~WalletClient()
@@ -592,58 +591,6 @@ namespace beam::wallet
 
         m_ShieldedCoinChangesCollector.CollectItems(action, coins);
         m_DeferredBalanceUpdate.start();
-
-        if (action != ChangeAction::Added)
-        {
-            return;
-        }
-        auto s = m_wallet.lock();
-        if (!s)
-        {
-            return;
-        }
-        beam::Block::SystemState::Full tip;
-        m_walletDB->get_History().get_Tip(tip);
-        for (const auto& c : coins)
-        {
-            if (c.m_spentHeight != MaxHeight || c.m_confirmHeight == MaxHeight)
-            {
-                continue;
-            }
-            Timestamp ts = tip.m_TimeStamp;
-            if (tip.m_Height > c.m_confirmHeight)
-            {
-                auto delta = (tip.m_Height - c.m_confirmHeight);
-                ts -= delta * Rules::get().DA.Target_s;
-            }
-            else if (tip.m_Height < c.m_confirmHeight)
-            {
-                auto delta = c.m_confirmHeight - tip.m_Height;
-                ts += delta * Rules::get().DA.Target_s;
-            }
-            const auto* message = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
-            TxID txID;
-            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
-            if (m_walletDB->getTx(txID))
-            {
-                continue;
-            }
-            WalletAddress tempAddress;
-            m_walletDB->createAddress(tempAddress);
-            auto params = lelantus::CreatePushTransactionParameters(tempAddress.m_walletID, txID)
-                .SetParameter(TxParameterID::Status, TxStatus::Completed)
-                .SetParameter(TxParameterID::Amount, c.m_CoinID.m_Value)
-                .SetParameter(TxParameterID::IsSender, false)
-                .SetParameter(TxParameterID::CreateTime, ts)
-                .SetParameter(TxParameterID::PeerWalletIdentity, c.m_CoinID.m_User.m_Sender);
-
-            auto packed = params.Pack();
-            for (const auto& p : packed)
-            {
-                storage::setTxParameter(*m_walletDB, *params.GetTxID(), p.first, p.second, true);
-            }
-        }
-        
 #endif // BEAM_LELANTUS_SUPPORT
     }
 

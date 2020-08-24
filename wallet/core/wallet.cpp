@@ -61,6 +61,22 @@ namespace beam::wallet
             }
             return txChanged;
         }
+
+        Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)
+        {
+            Timestamp ts = tip.m_TimeStamp;
+            if (tip.m_Height > confirmHeight)
+            {
+                auto delta = (tip.m_Height - confirmHeight);
+                ts -= delta * Rules::get().DA.Target_s;
+            }
+            else if (tip.m_Height < confirmHeight)
+            {
+                auto delta = confirmHeight - tip.m_Height;
+                ts += delta * Rules::get().DA.Target_s;
+            }
+            return ts;
+        }
     }
 
     // @param SBBS address as string
@@ -908,7 +924,7 @@ namespace beam::wallet
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
         // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
-        ProcessEventUtxo(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
+        ProcessEventUtxo(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true, {});
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -1103,7 +1119,7 @@ namespace beam::wallet
                     return;
 
                 bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
+                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd, evt.m_User);
             }
 
         } p(*this);
@@ -1142,13 +1158,20 @@ namespace beam::wallet
         return h;
     }
 
-    void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
+    void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd, const Output::User& user)
     {
         Coin c;
         c.m_ID = cid;
-
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = hMaturity;
+
+
+        const auto* data = Output::User::ToPacked(user);
+        if (!memis0(data->m_TxID.m_pData, sizeof(TxID)))
+        {
+            c.m_createTxId.emplace();
+            std::copy_n(data->m_TxID.m_pData, sizeof(TxID), c.m_createTxId->begin());
+        }
 
         LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
 
@@ -1179,6 +1202,7 @@ namespace beam::wallet
         }
 
         m_WalletDB->saveCoin(c);
+        RestoreTransactionFromCoin(c, user);
     }
 
     void Wallet::ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h)
@@ -1210,6 +1234,7 @@ namespace beam::wallet
         m_WalletDB->saveShieldedCoin(*shieldedCoin);
 
         LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        RestoreTransactionFromShieldedCoin(*shieldedCoin);
     }
 
     void Wallet::OnRolledBack()
@@ -1633,5 +1658,103 @@ namespace beam::wallet
     {
         MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
         PostReqUnique(*pReq);
+    }
+
+    void Wallet::RestoreTransactionFromCoin(const Coin& coin, const Output::User& user)
+    {
+        // restoring transaction info, it's not complete, added for consistency with shielded
+        beam::Block::SystemState::Full tip;
+        m_WalletDB->get_History().get_Tip(tip);
+
+        if (coin.isReward() || !coin.m_createTxId)
+            return;
+
+        auto status = storage::GetCoinStatus(*m_WalletDB, coin, tip.m_Height);
+        if (status != Coin::Status::Available)
+            return;
+
+        const auto* userData = Output::User::ToPacked(user);
+        bool hasAmount = userData->m_Amount > 0;
+        const TxID& txID = *coin.m_createTxId;
+        if (auto tx = m_WalletDB->getTx(txID); tx)
+        {
+            if (!hasAmount)
+            {
+                Amount amount = tx->m_amount;
+                amount += coin.m_ID.m_Value;
+                storage::setTxParameter(*m_WalletDB, txID, kDefaultSubTxID, TxParameterID::Amount, amount, true);
+            }
+        }
+        else 
+        {
+            WalletAddress tempAddress;
+            m_WalletDB->createAddress(tempAddress);
+            auto params = wallet::CreateSimpleTransactionParameters(coin.m_createTxId)
+                .SetParameter(TxParameterID::Status, TxStatus::Completed)
+                .SetParameter(TxParameterID::Amount, coin.m_ID.m_Value)
+                .SetParameter(TxParameterID::IsSender, hasAmount && coin.isChange())
+                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
+                .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
+                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity);
+            if (userData->m_Amount)
+            {
+                params.SetParameter(TxParameterID::Amount, userData->m_Amount);
+            }
+            if (userData->m_Fee)
+            {
+                params.SetParameter(TxParameterID::Fee, userData->m_Fee);
+            }
+            if (userData->m_Peer != Zero)
+            {
+                params.SetParameter(TxParameterID::PeerWalletIdentity, userData->m_Peer);
+            }
+            auto packed = params.Pack();
+            for (const auto& p : packed)
+            {
+                storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
+            }
+        }
+    }
+
+    void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
+    {
+        // add virtual transaction for receiver
+        beam::Block::SystemState::Full tip;
+        m_WalletDB->get_History().get_Tip(tip);
+
+        coin.DeduceStatus(*m_WalletDB, tip.m_Height);
+        if (coin.m_Status != ShieldedCoin::Status::Available)
+        {
+            return;
+        }
+        const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+        TxID txID;
+        std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+        auto tx = m_WalletDB->getTx(txID);
+        if (tx)
+        {
+            Amount amount = tx->m_amount;
+            amount += coin.m_CoinID.m_Value;
+            storage::setTxParameter(*m_WalletDB, txID, kDefaultSubTxID, TxParameterID::Amount, amount, true);
+        }
+        else
+        {
+            WalletAddress tempAddress;
+            m_WalletDB->createAddress(tempAddress);
+            auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
+                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
+                .SetParameter(TxParameterID::Status, TxStatus::Completed)
+                .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
+                .SetParameter(TxParameterID::IsSender, false)
+                .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
+                .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
+                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity);
+
+            auto packed = params.Pack();
+            for (const auto& p : packed)
+            {
+                storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
+            }
+        }
     }
 }

@@ -925,6 +925,11 @@ namespace beam::wallet
         }
     }
 
+    bool Coin::isChange() const
+    {
+        return m_ID.m_Type == Key::Type::Change;
+    }
+
     bool Coin::isAsset() const
     {
         return m_ID.m_AssetID != 0;
@@ -2574,10 +2579,14 @@ namespace beam::wallet
         return sqlite3_changes(_db) > 0;
     }
 
-    void WalletDB::saveCoinRaw(const Coin& coin)
+    bool WalletDB::saveCoinRaw(const Coin& coin)
     {
         if (!updateCoinRaw(coin))
+        {
             insertCoinRaw(coin);
+            return false; // inserted
+        }
+        return true; // updated
     }
 
     vector<Coin> WalletDB::getCoinsByRowIDs(const vector<int>& rowIDs) const
@@ -2654,8 +2663,8 @@ namespace beam::wallet
 
     void WalletDB::saveCoin(const Coin& coin)
     {
-        saveCoinRaw(coin);
-        notifyCoinsChanged(ChangeAction::Updated, getUpdatedCoins({coin}));
+        bool updated = saveCoinRaw(coin);
+        notifyCoinsChanged(updated ? ChangeAction::Updated : ChangeAction::Added, getUpdatedCoins({coin}));
     }
 
     void WalletDB::saveCoins(const vector<Coin>& coins)

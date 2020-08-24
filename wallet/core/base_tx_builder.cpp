@@ -617,7 +617,7 @@ namespace beam::wallet
         {
             x.m_Outputs.m_vMethods[i].m_hScheme = m_Height.m_Min;
             x.m_Outputs.m_vMethods[i].m_Cid = m_Coins.m_Output[i];
-
+            FillUserData(Output::User::ToPacked(x.m_Outputs.m_vMethods[i].m_User));
             m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Outputs.m_vMethods[i], pHandler);
         }
 
@@ -869,6 +869,12 @@ namespace beam::wallet
         SaveAndStore(m_Status, TxParameterID::MutualTxState, s);
     }
 
+    void BaseTxBuilder::FillUserData(Output::User::Packed* user)
+    {
+        user->m_TxID = Blob(m_Tx.GetTxID().data(), (uint32_t)m_Tx.GetTxID().size());
+        user->m_Fee = m_Fee;
+    }
+
     string BaseTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;
@@ -961,6 +967,12 @@ namespace beam::wallet
         SignSplit();
 
         return (m_Status >= Status::SelfSigned) && !IsGeneratingInOuts();
+    }
+
+    void SimpleTxBuilder::FillUserData(Output::User::Packed* user)
+    {
+        BaseTxBuilder::FillUserData(user);
+        user->m_Amount = m_Amount;
     }
 
     ///////////////////////////////////////
@@ -1364,7 +1376,13 @@ namespace beam::wallet
         }
 
         return (m_Status >= Status::RcvFullHalfSigSent);
-
     }
-
+    
+    void MutualTxBuilder::FillUserData(Output::User::Packed* user)
+    {
+        SimpleTxBuilder::FillUserData(user);
+        PeerID peerID = Zero;
+        m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, peerID);
+        user->m_Peer = peerID;
+    }
 }

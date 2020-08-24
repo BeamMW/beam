@@ -4818,7 +4818,7 @@ bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCre
 {
 	CoinID cid;
 	Output::User user;
-	if (!outp.Recover(hCreate, m_Key, cid))
+	if (!outp.Recover(hCreate, m_Key, cid, &user))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, cid, user);

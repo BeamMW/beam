@@ -196,4 +196,13 @@ namespace beam::wallet::lelantus
         return *pTxo;
     }
 
+    void PushTxBuilder::FillUserData(Output::User::Packed* user)
+    {
+        BaseTxBuilder::FillUserData(user);
+        user->m_Amount = m_Value;
+        PeerID peerID = Zero;
+        GetParameter(TxParameterID::PeerWalletIdentity, peerID);
+        user->m_Peer = peerID;
+    }
+
 } // namespace beam::wallet::lelantus

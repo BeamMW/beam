@@ -499,6 +499,29 @@ namespace beam
 		struct User
 		{
 			ECC::Scalar m_pExtra[2];
+			User()
+			{
+				ZeroObject(m_pExtra);
+			}
+#pragma pack (push, 1)
+			struct Packed
+			{
+				typedef uintBig_t<16> TxID;
+				Amount m_Fee;
+				Amount m_Amount;
+				TxID m_TxID;
+				PeerID m_Peer;
+			};
+#pragma pack (pop)
+			static Packed* ToPacked(User& user)
+			{
+				return reinterpret_cast<Packed*>(user.m_pExtra);
+			}
+
+			static const Packed* ToPacked(const User& user)
+			{
+				return reinterpret_cast<const Packed*>(user.m_pExtra);
+			}
 
 			template <typename Archive>
 			void serialize(Archive& ar)
@@ -620,8 +643,9 @@ namespace beam
 #pragma pack (push, 1)
 			struct PackedMessage
 			{
-				uintBig_t<16> m_TxID;
-				uint8_t m_Padding[64 - 16];
+				typedef uintBig_t<16> TxID;
+				TxID m_TxID;
+				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID)];
 			};
 #pragma pack (pop)
 			static PackedMessage* ToPackedMessage(User& user)

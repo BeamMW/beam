@@ -213,7 +213,7 @@ namespace beam::wallet
         void saveKnownState();
         void RequestEvents();
         void AbortEvents();
-        void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd);
+        void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd, const Output::User& user);
         void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
         Height GetEventsHeightNext();
@@ -233,6 +233,8 @@ namespace beam::wallet
         std::vector<BaseTransaction::Ptr> FindTxWaitingForVouchers(const WalletID& peerID) const;
         void FailTxWaitingForVouchers(const WalletID& peerID);
         void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
+        void RestoreTransactionFromCoin(const Coin& coin, const Output::User& user);
+        void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
 
     private:
 

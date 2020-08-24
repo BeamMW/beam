@@ -195,6 +195,7 @@ namespace beam::wallet
         void SaveKernelID();
 
         void SetStatus(Status::Type);
+        virtual void FillUserData(Output::User::Packed* user);
     };
 
 
@@ -221,6 +222,7 @@ namespace beam::wallet
 
     protected:
         void SignSplit();
+        void FillUserData(Output::User::Packed* user) override;
     };
 
 
@@ -262,6 +264,7 @@ namespace beam::wallet
         virtual void SendToPeer(SetTxParameter&&) = 0;
         virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
         virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
+        void FillUserData(Output::User::Packed* user) override;
 
     };
 

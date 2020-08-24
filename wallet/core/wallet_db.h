@@ -67,6 +67,7 @@ namespace beam::wallet
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
+        bool isChange() const;
         bool isAsset() const;
         bool isAsset(Asset::ID) const;
         std::string toStringID() const;
@@ -711,7 +712,7 @@ namespace beam::wallet
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
         void insertNewCoin(Coin&);
-        void saveCoinRaw(const Coin&);
+        bool saveCoinRaw(const Coin&);
         std::vector<Coin> getCoinsByRowIDs(const std::vector<int>& rowIDs) const;
         std::vector<Coin> getUpdatedCoins(const std::vector<Coin>& coins) const;
 
