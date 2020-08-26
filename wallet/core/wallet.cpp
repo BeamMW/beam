@@ -1670,7 +1670,7 @@ namespace beam::wallet
             return;
 
         auto status = storage::GetCoinStatus(*m_WalletDB, coin, tip.m_Height);
-        if (status != Coin::Status::Available)
+        if (status != Coin::Status::Available && status != Coin::Status::Spent)
             return;
 
         const auto* userData = Output::User::ToPacked(user);
@@ -1723,7 +1723,7 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(tip);
 
         coin.DeduceStatus(*m_WalletDB, tip.m_Height);
-        if (coin.m_Status != ShieldedCoin::Status::Available)
+        if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
         {
             return;
         }
@@ -1733,9 +1733,7 @@ namespace beam::wallet
         auto tx = m_WalletDB->getTx(txID);
         if (tx)
         {
-            Amount amount = tx->m_amount;
-            amount += coin.m_CoinID.m_Value;
-            storage::setTxParameter(*m_WalletDB, txID, kDefaultSubTxID, TxParameterID::Amount, amount, true);
+            return;
         }
         else
         {

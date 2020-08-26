@@ -5308,7 +5308,12 @@ namespace beam::wallet
                << "Token" << ","
                << "Payment proof" << std::endl;
 
-            for (const auto& tx : db.getTxHistory())
+            auto transactions = db.getTxHistory(TxType::Simple);
+            auto maxPrivacyTx = db.getTxHistory(TxType::PushTransaction);
+            transactions.reserve(transactions.size() + maxPrivacyTx.size());
+            copy(maxPrivacyTx.begin(), maxPrivacyTx.end(), back_inserter(transactions));
+            
+            for (const auto& tx : transactions)
             {
                 string strProof;
                 if (tx.m_status == TxStatus::Completed &&
