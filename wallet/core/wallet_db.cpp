@@ -189,7 +189,10 @@
 
 #define ENUM_VOUCHERS_FIELDS(each, sep, obj) \
     each(WalletID,  WalletID,  BLOB NOT NULL, obj) sep \
-    each(Voucher,   Voucher,   BLOB NOT NULL UNIQUE, obj)
+    each(Voucher,   Voucher,   BLOB NOT NULL UNIQUE, obj) sep \
+    each(Flags,     Flags,     INTEGER, obj)
+
+
 
 #define VOUCHERS_FIELDS ENUM_VOUCHERS_FIELDS(LIST, COMMA, )
 
@@ -214,6 +217,13 @@ namespace beam::wallet
 
     namespace
     {
+        struct VoucherFlags
+        {
+            static constexpr uint16_t Default  = 0;
+            static constexpr uint16_t Preserve = 1;
+            static constexpr uint16_t Deleted  = 2;
+        };
+
         void throwIfError(int res, sqlite3* db)
         {
             if (res == SQLITE_OK)
@@ -885,7 +895,8 @@ namespace beam::wallet
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 23;
+        const int DbVersion   = 24;
+        const int DbVersion23 = 23;
         const int DbVersion22 = 22;
         const int DbVersion21 = 21;
         const int DbVersion20 = 20;
@@ -1232,6 +1243,12 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void AddVouchersFlagsColumn(sqlite3* db)
+        {
+            const char* req = "ALTER TABLE " VOUCHERS_NAME " ADD Flags INTEGER NULL;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
@@ -1813,6 +1830,10 @@ namespace beam::wallet
 
                 case DbVersion22:
                     CreateShieldedCoinsTableIndex(db);
+
+                case DbVersion23:
+                    LOG_INFO() << "Converting DB from format 23...";
+                    AddVouchersFlagsColumn(db);
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -3936,9 +3957,11 @@ namespace beam::wallet
 
     boost::optional<ShieldedTxo::Voucher> WalletDB::grabVoucher(const WalletID& peerID)
     {
+        int f = VoucherFlags::Deleted;
         boost::optional<ShieldedTxo::Voucher> res;
-        sqlite::Statement stm(this, "SELECT rowid, Voucher FROM " VOUCHERS_NAME " WHERE WalletID=?1;");
+        sqlite::Statement stm(this, "SELECT rowid, Voucher, Flags FROM " VOUCHERS_NAME " WHERE WalletID=?1 AND (Flags&?2)!=?2 ;");
         stm.bind(1, peerID);
+        stm.bind(2, f);
 
         if (stm.step())
         {
@@ -3946,27 +3969,43 @@ namespace beam::wallet
             int rowID = 0;
             stm.get(0, rowID);
             stm.get(1, *res);
+            stm.get(2, f);
             
-            sqlite::Statement delStm(this, "DELETE FROM " VOUCHERS_NAME " WHERE rowid=?1;");
-            delStm.bind(1, rowID);
-            delStm.step();
+            if ((f & VoucherFlags::Preserve) == 0)
+            {
+                sqlite::Statement delStm(this, "DELETE FROM " VOUCHERS_NAME " WHERE rowid=?1;");
+                delStm.bind(1, rowID);
+                delStm.step();
+            }
+            else
+            {
+                f |= VoucherFlags::Deleted;
+                sqlite::Statement stm2(this, "UPDATE " VOUCHERS_NAME  " SET Flags=?2 WHERE rowid=?1;");
+                stm2.bind(1, rowID);
+                stm2.bind(2, f);
+                stm2.step();
+            }
         }
         return res;
     }
 
-    void WalletDB::saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID)
+    void WalletDB::saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab)
     {
-        sqlite::Statement stm(this, "INSERT INTO " VOUCHERS_NAME " (" ENUM_VOUCHERS_FIELDS(LIST, COMMA, ) ") VALUES(?,?);");
+        uint16_t flags = (preserveOnGrab) ? VoucherFlags::Preserve : VoucherFlags::Default;
+        sqlite::Statement stm(this, "INSERT INTO " VOUCHERS_NAME " (" ENUM_VOUCHERS_FIELDS(LIST, COMMA, ) ") VALUES(?,?,?);");
         stm.bind(1, walletID);
         stm.bind(2, v);
+        stm.bind(3, flags);
         stm.step();
     }
 
     size_t WalletDB::getVoucherCount(const WalletID& peerID) const
     {
         int res = 0;
-        sqlite::Statement stm(this, "SELECT COUNT(Voucher) FROM " VOUCHERS_NAME " WHERE WalletID=?1;");
+        uint16_t f = VoucherFlags::Deleted | VoucherFlags::Preserve;
+        sqlite::Statement stm(this, "SELECT COUNT(Voucher) FROM " VOUCHERS_NAME " WHERE WalletID=?1 AND (Flags & ?2)!=?2;");
         stm.bind(1, peerID);
+        stm.bind(2, f);
         if (stm.step())
         {
             stm.get(0, res);

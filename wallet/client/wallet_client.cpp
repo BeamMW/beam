@@ -1005,7 +1005,7 @@ namespace beam::wallet
             }
             for (const auto& v : vouchers)
             {
-                m_walletDB->saveVoucher(v, walletID);
+                m_walletDB->saveVoucher(v, walletID, true);
             }
             // notify client about voucher count changes
             onGetAddress(walletID, m_walletDB->getAddress(walletID), m_walletDB->getVoucherCount(walletID));

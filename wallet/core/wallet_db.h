@@ -540,7 +540,7 @@ namespace beam::wallet
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
-        virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) = 0;
+        virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
@@ -690,7 +690,7 @@ namespace beam::wallet
         void saveExchangeRate(const ExchangeRate&) override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
-        void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID) override;
+        void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
     private:

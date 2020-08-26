@@ -1449,9 +1449,18 @@ void TestVouchers()
     WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
     auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), address.m_OwnID, VOUCHERS_COUNT);
     WALLET_CHECK(vouchers.size() == VOUCHERS_COUNT);
+    size_t preserveCounter = 2;
     for (const auto& v : vouchers)
     {
-        db->saveVoucher(v, receiverID);
+        if (preserveCounter)
+        {
+            db->saveVoucher(v, receiverID, true);
+            --preserveCounter;
+        }
+        else
+        {
+            db->saveVoucher(v, receiverID);
+        }
     }
 
     WALLET_CHECK(db->getVoucherCount(receiverID) == VOUCHERS_COUNT);
@@ -1467,6 +1476,15 @@ void TestVouchers()
         WALLET_CHECK(!v);
     }
     WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID, true));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID, true));
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID));
+    
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[2], receiverID, true));
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[3], receiverID));
 }
 
 }
