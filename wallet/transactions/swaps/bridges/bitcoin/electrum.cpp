@@ -517,7 +517,12 @@ namespace beam::bitcoin
             {
                 try
                 {
-                    feeRate = btc_to_satoshi(result.get<double>());
+                    // sometimes electrum server returns -1
+                    double rawFeeRate = result.get<double>();
+                    if (rawFeeRate >= 0)
+                    {
+                        feeRate = btc_to_satoshi(rawFeeRate);
+                    }
                 }
                 catch (const std::exception& ex)
                 {
