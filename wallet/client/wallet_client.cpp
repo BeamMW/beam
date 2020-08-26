@@ -1028,20 +1028,20 @@ namespace beam::wallet
                 LOG_ERROR() << "Unable to resolve node address: " << addr;
                 onWalletError(ErrorType::HostResolvedError);
             }
-            }
+        }
         else
         {
             io::Address address;
             if (address.resolve(addr.c_str()))
             {
                 m_initialNodeAddrStr = addr;
+            }
+            else
+            {
+                LOG_ERROR() << "Unable to resolve node address: " << addr;
+                onWalletError(ErrorType::HostResolvedError);
+            }
         }
-        else
-        {
-            LOG_ERROR() << "Unable to resolve node address: " << addr;
-            onWalletError(ErrorType::HostResolvedError);
-        }
-    }
     }
 
     void WalletClient::changeWalletPassword(const SecString& pass)

@@ -271,7 +271,7 @@ void NodeClient::runLocalNode()
                 node.m_Cfg.m_Connect.emplace_back(peer_addr);
             }
             else
-             {
+            {
                 LOG_ERROR() << "Unable to resolve node address: " << peer;
             }
         }
