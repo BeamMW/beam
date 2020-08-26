@@ -789,6 +789,25 @@ namespace beam::wallet
             return db.getVarRaw(name, &var, sizeof(var));
         }
 
+        template <typename Var>
+        void setBlobVar(IWalletDB& db, const char* name, const Var& var)
+        {
+            auto b = toByteBuffer(var);
+            db.setVarRaw(name, b.data(), b.size());
+        }
+
+        template <typename Var>
+        bool getBlobVar(const IWalletDB& db, const char* name, Var& var)
+        {
+            ByteBuffer b;
+            if (db.getBlob(name, b))
+            {
+                fromByteBuffer(b, var);
+                return true;
+            }
+            return false;
+        }
+
         template <typename T>
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value)
         {

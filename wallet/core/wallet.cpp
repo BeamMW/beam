@@ -1331,6 +1331,19 @@ namespace beam::wallet
 
     }
 
+    void Wallet::OnNewPeer(const PeerID& id, io::Address address)
+    {
+        constexpr size_t MaxPeers = 10;
+        std::deque<io::Address> addresses;
+        storage::getBlobVar(*m_WalletDB, FallbackPeers, addresses);
+        addresses.push_back(address);
+        if (addresses.size() > MaxPeers)
+        {
+            addresses.pop_front();
+        }
+        storage::setBlobVar(*m_WalletDB, FallbackPeers, addresses);
+    }
+
     void Wallet::OnNewTip()
     {
         m_WalletDB->ShrinkHistory();

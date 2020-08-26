@@ -107,6 +107,8 @@ namespace beam::wallet
         virtual void Unlisten(const WalletID&) {}
     };
 
+    inline constexpr char FallbackPeers[] = "FallbackPeers";
+
     // Extends FlyClient protocol for communication with own or remote node
     class Wallet
         : public proto::FlyClient
@@ -193,6 +195,7 @@ namespace beam::wallet
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
         void OnEventsSerif(const ECC::Hash::Value&, Height) override;
+        void OnNewPeer(const PeerID& id, io::Address address) override;
 
         struct RequestHandler
             : public proto::FlyClient::Request::IHandler

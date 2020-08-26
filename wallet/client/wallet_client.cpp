@@ -353,8 +353,9 @@ namespace beam::wallet
                 wallet->ResumeAllTransactions();
 
                 updateClientState();
-
-                auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr);
+                std::vector<io::Address> fallbackAddresses;
+                storage::getBlobVar(*m_walletDB, FallbackPeers, fallbackAddresses);
+                auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr, std::move(fallbackAddresses));
                 m_nodeNetwork = nodeNetwork;
 
                 using NodeNetworkSubscriber = ScopedSubscriber<INodeConnectionObserver, NodeNetwork>;

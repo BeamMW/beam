@@ -55,7 +55,6 @@ namespace beam::wallet
     constexpr Amount kMinFeeInGroth = 100;
     constexpr Amount kShieldedCoinMinFeeInGroth = Transaction::FeeSettings::MinShieldedFee;
     constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
-    inline const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
 
 #pragma pack (push, 1)
     struct WalletID

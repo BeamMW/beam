@@ -883,6 +883,7 @@ namespace beam::wallet
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
+        const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const int BusyTimeoutMs = 5000;
         const int DbVersion   = 23;
         const int DbVersion22 = 22;
