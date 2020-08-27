@@ -466,14 +466,17 @@ namespace beam::bitcoin
 
                 if ((result.end() != itErr) && !itErr->empty())
                 {
-                    error.m_type = IBridge::BitcoinError;
-                    error.m_message = itErr->front().get<std::string>();
+                    LOG_INFO() << "Bitcoin Core returns message: " << error.m_message;
                 }
                 else
                 {
                     try
                     {
-                        feeRate = btc_to_satoshi(result["feerate"].get<double>());
+                        double rawFeeRate = result["feerate"].get<double>();
+                        if (rawFeeRate >= 0)
+                        {
+                            feeRate = btc_to_satoshi(rawFeeRate);
+                        }
                     }
                     catch (const std::exception& ex)
                     {
