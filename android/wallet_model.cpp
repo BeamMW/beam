@@ -364,7 +364,7 @@ void WalletModel::onChangeCalculated(Amount change)
 
 void WalletModel::onMinFeeForShieldedCalculated(Amount minimalFee, Amount shieldedFee)
 {
-    LOG_DEBUG() << "onMinFeeForShieldedCalculated(" << minimalFee << "," << shieldedFee, << ")";
+    LOG_DEBUG() << "onMinFeeForShieldedCalculated(" << minimalFee << ", " << shieldedFee << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
