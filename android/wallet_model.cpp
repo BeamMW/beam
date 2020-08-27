@@ -362,15 +362,15 @@ void WalletModel::onChangeCalculated(Amount change)
     env->CallStaticVoidMethod(WalletListenerClass, callback, change);
 }
 
-void WalletModel::onNeedExtractShieldedCoins(bool val)
+void WalletModel::onMinFeeForShieldedCalculated(Amount minimalFee, Amount shieldedFee)
 {
-    LOG_DEBUG() << "onNeedExtractShieldedCoins()";
+    LOG_DEBUG() << "onMinFeeForShieldedCalculated(" << minimalFee << "," << shieldedFee, << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMinFeeForShieldedCalculated", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, val);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, minimalFee, shieldedFee);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)

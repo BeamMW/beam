@@ -115,7 +115,8 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(Amount change) {}
-        virtual void onNeedExtractShieldedCoins(bool val) {}
+        virtual void onChangeForShieldedCalculated(Amount sum, Amount change, Amount fee) {}
+        virtual void onMinFeeForShieldedCalculated(Amount minlFee, Amount shieldedFee) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
@@ -162,7 +163,8 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount) override;
-        void calcChangeConsideringShielded(Amount amount) override;
+        void calcChangeConsideringShielded(Amount amount, Amount fee) override;
+        void calcMinimalFee(Amount amount, Amount beforehandMinFee) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;

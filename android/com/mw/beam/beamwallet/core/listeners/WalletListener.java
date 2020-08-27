@@ -89,9 +89,9 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
 	}
 
-	static void onNeedExtractShieldedCoins(boolean val)
+	static void onMinFeeForShieldedCalculated(long minFee, long shieldedFee)
 	{
-		System.out.println(">>>>>>>>>>> onNeedExtractShieldedCoins(" + val + ") called");
+		System.out.println(">>>>>>>>>>> onMinFeeForShieldedCalculated(" + minFee + ", " + shieldedFee + ") called");
 	}
 
 	static void onAllUtxoChanged(UtxoDTO[] utxos)

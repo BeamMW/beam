@@ -24,6 +24,8 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #endif // BEAM_LELANTUS_SUPPORT
 
+#include <numeric>
+
 using namespace std;
 
 namespace
@@ -74,9 +76,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::calcChange, amount);
     }
 
-    void calcChangeConsideringShielded(Amount amount) override
+    void calcChangeConsideringShielded(Amount amount, Amount fee) override
     {
-        call_async(&IWalletModelAsync::calcChangeConsideringShielded, amount);
+        call_async(&IWalletModelAsync::calcChangeConsideringShielded, amount, fee);
+    }
+
+    void calcMinimalFee(Amount amount, Amount beforehandMinFee) override
+    {
+        call_async(&IWalletModelAsync::calcMinimalFee, amount, beforehandMinFee);
     }
 
     void getWalletStatus() override
@@ -778,11 +785,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::calcChangeConsideringShielded(Amount amount)
+    void WalletClient::calcChangeConsideringShielded(Amount amount, Amount fee)
     {
         std::vector<Coin> vSelStd;
         std::vector<ShieldedCoin> vSelShielded;
-        m_walletDB->selectCoins2(amount, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, false);
+        m_walletDB->selectCoins2(amount + fee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
 
         Amount sum = 0;
         for (auto& c : vSelStd)
@@ -794,16 +801,58 @@ namespace beam::wallet
             sum += c.m_CoinID.m_Value;
         }
 
-        if (sum <= amount)
+        TxStats ts;
+        ts.m_Outputs = 1;
+        ts.m_InputsShielded = vSelShielded.size();
+        ts.m_Kernels = 1 + ts.m_InputsShielded;
+        Transaction::FeeSettings fs;
+        Amount minFee = fs.Calculate(ts);
+
+        if (sum && sum >= amount + fee && fee >= minFee)
         {
-            onChangeCalculated(0);
+            ++ts.m_Outputs;
+            minFee = fs.Calculate(ts);
+            onChangeCalculated(sum - fee - amount);
         }
         else
         {
-            onChangeCalculated(sum - amount);
+            onChangeCalculated(std::numeric_limits<Amount>::max());
+        }
+    }
+
+    void WalletClient::calcMinimalFee(Amount amount, Amount beforehandMinFee)
+    {
+        std::vector<Coin> vSelStd;
+        std::vector<ShieldedCoin> vSelShielded;
+        m_walletDB->selectCoins2(amount + beforehandMinFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+
+        Amount sum = accumulate(vSelStd.begin(), vSelStd.end(), (Amount)0, [] (Amount sum, const Coin& c) {
+            return sum + c.m_ID.m_Value;
+        });
+
+        sum = accumulate(vSelShielded.begin(), vSelShielded.end(), sum, [] (Amount sum, const ShieldedCoin& c) {
+            return sum + c.m_CoinID.m_Value;
+        });
+
+        if (sum < amount + beforehandMinFee) 
+        {
+            onMinFeeForShieldedCalculated(0, 0);
+            return;
         }
 
-        onNeedExtractShieldedCoins(!vSelShielded.empty());
+        TxStats ts;
+        ts.m_Outputs = sum > amount ? 2 : 1;
+        ts.m_InputsShielded = vSelShielded.size();
+        ts.m_Kernels = 1 + ts.m_InputsShielded;
+
+        Transaction::FeeSettings fs;
+        Amount minFee = fs.Calculate(ts);
+        Amount shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
+
+        if (beforehandMinFee >= minFee || !beforehandMinFee)
+            onMinFeeForShieldedCalculated(minFee, shieldedFee);
+        else
+            calcMinimalFee(amount, minFee);
     }
 
     void WalletClient::getWalletStatus()
