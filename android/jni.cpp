@@ -113,7 +113,7 @@ extern "C" {
     return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
  }
 
-JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(JNIEnv *env, jobject thiz, jstring token)
+JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(JNIEnv *env, jobject thiz, jstring token, jboolean requestInfo)
 {
     LOG_DEBUG() << "getTransactionParameters()";
 
@@ -140,7 +140,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
             }
 
-            if (auto walletIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerID); walletIdentity)
+            if (auto walletIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); walletIdentity)
             {
                 setStringField(env, TransactionParametersClass, jParameters, "identity", std::to_string(*walletIdentity));
             }
@@ -149,7 +149,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setStringField(env, TransactionParametersClass, jParameters, "identity", "");
             }
             
-            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerWalletIdentity); peerIdentity)
+            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
             {
                 setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerIdentity));
             }
@@ -176,19 +176,19 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
             }
     }
 
-    if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerID); peerId)
+    if(requestInfo) 
     {
-        if (params->GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+        if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerID); peerId)
+        {
+            ShieldedVoucherList trVouchers;
+            if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers))
             {
                 walletModel->getAsync()->getAddress(*peerId);
-                
-                ShieldedVoucherList vouchers;
-                
-                if (*peerId != Zero) {
-                    walletModel->getAsync()->saveVouchers(vouchers, *peerId);
-                }
+                walletModel->getAsync()->saveVouchers(trVouchers, *peerId);
             }
+        }
     }
+
  
     return jParameters;
 }
