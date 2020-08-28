@@ -625,3 +625,21 @@ void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 
     env->DeleteLocalRef(jRates);
 }
+
+void WalletModel::onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) 
+{
+    LOG_DEBUG() << "onGetAddress()";
+        
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGetAddress", "(Ljava/lang/int;)V");
+
+    jint jdata = static_cast<jint>(offlinePayments);
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+}
+
+void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>& items) 
+{
+    LOG_DEBUG() << "onShieldedCoinChanged()";
+}

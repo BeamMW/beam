@@ -149,7 +149,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setStringField(env, TransactionParametersClass, jParameters, "identity", "");
             }
             
-            if (auto peerIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); peerIdentity)
+            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerWalletIdentity); peerIdentity)
             {
                 setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerIdentity));
             }
@@ -173,6 +173,20 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
             else 
             {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isOffline", false);
+            }
+    }
+
+    if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerID); peerId)
+    {
+        if (params->GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+            {
+                walletModel->getAsync()->getAddress(*peerId);
+                
+                ShieldedVoucherList vouchers;
+                
+                if (*peerId != Zero) {
+                    walletModel->getAsync()->saveVouchers(vouchers, *peerId);
+                }
             }
     }
  
