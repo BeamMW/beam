@@ -25,8 +25,9 @@ WalletAddress GenerateNewAddress(
         WalletAddress::ExpirationStatus expirationStatus
             = WalletAddress::ExpirationStatus::OneDay,
         bool saveRequired = true);
-
 bool ReadTreasury(ByteBuffer&, const std::string& sPath);
-
 std::string TxIDToString(const TxID& txId);
+Amount accumulateCoinsSum(
+        const std::vector<Coin>& vSelStd,
+        const std::vector<ShieldedCoin>& vSelShielded);
 }  // namespace beam::wallet

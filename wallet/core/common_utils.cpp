@@ -19,6 +19,7 @@
 #include "utility/logger.h"
 
 #include <boost/format.hpp>
+#include <numeric>
 
 namespace beam::wallet
 {
@@ -66,5 +67,18 @@ bool ReadTreasury(ByteBuffer& bb, const std::string& sPath)
 std::string TxIDToString(const TxID& txId)
 {
     return to_hex(txId.data(), txId.size());
+}
+
+Amount accumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded)
+{
+    Amount sum = accumulate(vSelStd.begin(), vSelStd.end(), (Amount)0, [] (Amount sum, const Coin& c) {
+        return sum + c.m_ID.m_Value;
+    });
+
+    sum = accumulate(vSelShielded.begin(), vSelShielded.end(), sum, [] (Amount sum, const ShieldedCoin& c) {
+        return sum + c.m_CoinID.m_Value;
+    });
+
+    return sum;
 }
 }  // namespace beam::wallet

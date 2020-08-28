@@ -16,6 +16,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
+#include "wallet/core/common_utils.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
@@ -23,8 +24,6 @@
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
 #endif // BEAM_LELANTUS_SUPPORT
-
-#include <numeric>
 
 using namespace std;
 
@@ -790,16 +789,7 @@ namespace beam::wallet
         std::vector<Coin> vSelStd;
         std::vector<ShieldedCoin> vSelShielded;
         m_walletDB->selectCoins2(amount + fee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
-
-        Amount sum = 0;
-        for (auto& c : vSelStd)
-        {
-            sum += c.m_ID.m_Value;
-        }
-        for (auto& c : vSelShielded)
-        {
-            sum += c.m_CoinID.m_Value;
-        }
+        Amount sum  = accumulateCoinsSum(vSelStd, vSelShielded);
 
         TxStats ts;
         ts.m_Outputs = 1;
@@ -825,14 +815,7 @@ namespace beam::wallet
         std::vector<Coin> vSelStd;
         std::vector<ShieldedCoin> vSelShielded;
         m_walletDB->selectCoins2(amount + beforehandMinFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
-
-        Amount sum = accumulate(vSelStd.begin(), vSelStd.end(), (Amount)0, [] (Amount sum, const Coin& c) {
-            return sum + c.m_ID.m_Value;
-        });
-
-        sum = accumulate(vSelShielded.begin(), vSelShielded.end(), sum, [] (Amount sum, const ShieldedCoin& c) {
-            return sum + c.m_CoinID.m_Value;
-        });
+        Amount sum  = accumulateCoinsSum(vSelStd, vSelShielded);
 
         if (sum < amount + beforehandMinFee) 
         {

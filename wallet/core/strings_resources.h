@@ -64,6 +64,7 @@ namespace beam
     extern const char kErrorTooBigAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
+    extern const char kErrorFeeForShieldedToLow[];
     extern const char kErrorSwapFeeRateMissing[];
     extern const char kErrorSwapWalletAddrNotResolved[];
     extern const char kErrorSwapWalletAddrUnspecified[];
@@ -96,6 +97,7 @@ namespace beam
     extern const char kErrorImportPathInvalid[];
     extern const char kErrorFileLocationParamReqired[];
     extern const char kErrorConnectionFailed[];
+    extern const char kErrorNotEnoughtCoins[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
