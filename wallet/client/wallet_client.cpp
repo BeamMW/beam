@@ -589,6 +589,7 @@ namespace beam::wallet
                 return "unexpected";
             }
         };
+        LOG_DEBUG() << "onTransactionChanged";
         for (const auto& tx : items)
         {
             LOG_DEBUG() << *tx.GetTxID() << f(action);
@@ -1054,10 +1055,18 @@ namespace beam::wallet
                 // don't save vouchers if we already have to avoid zombie vouchers
                 return;
             }
-            for (const auto& v : vouchers)
+            try
             {
-                m_walletDB->saveVoucher(v, walletID, true);
+                for (const auto& v : vouchers)
+                {
+                    m_walletDB->saveVoucher(v, walletID, true);
+                }
             }
+            catch (const DatabaseException&)
+            {
+                // probably, we are trying to insert an existing voucher, ingnore
+            }
+            
             // notify client about voucher count changes
             onGetAddress(walletID, m_walletDB->getAddress(walletID), m_walletDB->getVoucherCount(walletID));
         }
