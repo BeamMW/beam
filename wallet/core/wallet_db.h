@@ -270,8 +270,8 @@ namespace beam::wallet
             void Init(const ShieldedCoin& sc, TxoID nShieldedOuts);
 
             uint32_t m_Progress = 0; // 0-100: cleaning
-            uint32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
-            uint32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+            int32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
+            int32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
 
             bool IsLargeSpendWindowLost() const;
             int get_SpendPriority() const;
@@ -287,7 +287,7 @@ namespace beam::wallet
 
     private:
         Status get_StatusInternal(const IWalletDB&, Height hTop) const;
-        static uint32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
+        static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
     // Notifications for all collection changes

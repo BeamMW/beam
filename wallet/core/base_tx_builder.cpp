@@ -671,12 +671,21 @@ namespace beam::wallet
             return false;
 
         m_Method.m_iIdx = c.get_WndIndex(m_N);
+
+        if (!bWndLost && (us.m_WndReserve0 < 0))
+        {
+            // move the selected window forward
+            m_Method.m_iIdx += us.m_WndReserve0; // actually decrease
+            assert(m_Method.m_iIdx < m_N);
+        }
+
         m_Wnd0 = c.m_TxoID - m_Method.m_iIdx;
         m_Count = m_N;
 
         TxoID nWndEnd = m_Wnd0 + m_N;
         if (nWndEnd > nShieldedCurrently)
         {
+            // move the selected window backward
             uint32_t nExtra = static_cast<uint32_t>(nWndEnd - nShieldedCurrently);
             if (nExtra < m_Wnd0)
                 m_Wnd0 -= nExtra;

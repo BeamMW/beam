@@ -5549,10 +5549,25 @@ namespace beam::wallet
         }
     }
 
-    uint32_t ShieldedCoin::get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel)
+    template <typename TDst, typename TSrc>
+    TDst CastSaturated(const TSrc& x)
     {
-        nEndRel += Rules::get().Shielded.MaxWindowBacklog;
-        return (nEndRel > nShieldedOutsRel) ? static_cast<uint32_t>(nEndRel - nShieldedOutsRel) : 0;
+        return
+            (x > std::numeric_limits<TDst>::max()) ? std::numeric_limits<TDst>::max() :
+            (x < std::numeric_limits<TDst>::min()) ? std::numeric_limits<TDst>::min() :
+            static_cast<TDst>(x);
+    }
+
+    int32_t ShieldedCoin::get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel)
+    {
+        int64_t n = nEndRel;
+        n += Rules::get().Shielded.MaxWindowBacklog;
+        n -= Rules::get().Shielded.MaxIns; // safety thershold.
+
+        static_assert(sizeof(n) == sizeof(nShieldedOutsRel)); // both should be 64bit
+        n -= nShieldedOutsRel;
+
+        return CastSaturated<int32_t>(n);
     }
 
     void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop)
@@ -5579,8 +5594,7 @@ namespace beam::wallet
 
     bool ShieldedCoin::UnlinkStatus::IsLargeSpendWindowLost() const
     {
-        const uint32_t nThreshold = Rules::get().Shielded.MaxIns;
-        return m_WndReserve1 < nThreshold;
+        return m_WndReserve1 < 0;
     }
 
     int ShieldedCoin::UnlinkStatus::get_SpendPriority() const
@@ -5588,7 +5602,7 @@ namespace beam::wallet
         if (IsLargeSpendWindowLost())
             return 0;
 
-        const uint32_t nWndThresholdHi = 100; // Urgently spend if window will close in less than this
+        const int32_t nWndThresholdHi = 100; // Urgently spend if window will close in less than this
         if (m_WndReserve1 < nWndThresholdHi)
             return 2;
 
