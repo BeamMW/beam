@@ -699,6 +699,8 @@ namespace beam::wallet
             m_Count += nExtra;
         }
 
+        LOG_INFO() << "ShieldedInput window N=" << m_N << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID << ", PoolSize=" << nShieldedCurrently;
+
         b.m_Tx.GetGateway().get_shielded_list(b.m_Tx.GetTxID(), m_Wnd0, m_Count,
             [pHandler = get_ParentObj().shared_from_this(), weakTx = b.m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
         {
