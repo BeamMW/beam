@@ -1202,7 +1202,6 @@ namespace beam::wallet
         }
 
         m_WalletDB->saveCoin(c);
-        RestoreTransactionFromCoin(c, user);
     }
 
     void Wallet::ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h)
@@ -1671,62 +1670,6 @@ namespace beam::wallet
     {
         MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
         PostReqUnique(*pReq);
-    }
-
-    void Wallet::RestoreTransactionFromCoin(const Coin& coin, const Output::User& user)
-    {
-        // restoring transaction info, it's not complete, added for consistency with shielded
-        beam::Block::SystemState::Full tip;
-        m_WalletDB->get_History().get_Tip(tip);
-
-        if (coin.isReward() || !coin.m_createTxId)
-            return;
-
-        auto status = storage::GetCoinStatus(*m_WalletDB, coin, tip.m_Height);
-        if (status != Coin::Status::Available && status != Coin::Status::Spent)
-            return;
-
-        const auto* userData = Output::User::ToPacked(user);
-        bool hasAmount = userData->m_Amount > 0;
-        const TxID& txID = *coin.m_createTxId;
-        if (auto tx = m_WalletDB->getTx(txID); tx)
-        {
-            if (!hasAmount)
-            {
-                Amount amount = tx->m_amount;
-                amount += coin.m_ID.m_Value;
-                storage::setTxParameter(*m_WalletDB, txID, kDefaultSubTxID, TxParameterID::Amount, amount, true);
-            }
-        }
-        else 
-        {
-            WalletAddress tempAddress;
-            m_WalletDB->createAddress(tempAddress);
-            auto params = wallet::CreateSimpleTransactionParameters(coin.m_createTxId)
-                .SetParameter(TxParameterID::Status, TxStatus::Completed)
-                .SetParameter(TxParameterID::Amount, coin.m_ID.m_Value)
-                .SetParameter(TxParameterID::IsSender, hasAmount && coin.isChange())
-                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
-                .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
-                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity);
-            if (userData->m_Amount)
-            {
-                params.SetParameter(TxParameterID::Amount, userData->m_Amount);
-            }
-            if (userData->m_Fee)
-            {
-                params.SetParameter(TxParameterID::Fee, userData->m_Fee);
-            }
-            if (userData->m_Peer != Zero)
-            {
-                params.SetParameter(TxParameterID::PeerWalletIdentity, userData->m_Peer);
-            }
-            auto packed = params.Pack();
-            for (const auto& p : packed)
-            {
-                storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
-            }
-        }
     }
 
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
