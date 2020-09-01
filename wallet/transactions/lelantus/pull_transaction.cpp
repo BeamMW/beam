@@ -80,10 +80,10 @@ namespace beam::wallet::lelantus
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            TxoID shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
+            auto shieldedId = GetMandatoryParameter<TxoID>(TxParameterID::ShieldedOutputId);
             auto shieldedCoin = GetWalletDB()->getShieldedCoin(shieldedId);
 
-            if (!shieldedCoin || !shieldedCoin->IsAvailable())
+            if (!shieldedCoin || shieldedCoin->m_Status != ShieldedCoin::Status::Available)
                 throw TransactionFailedException(false, TxFailureReason::NoInputs);
 
             ShieldedCoin& sc = *shieldedCoin;

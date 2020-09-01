@@ -317,7 +317,6 @@ namespace beam
         const char* EXTRACT_FROM_POOL   = "extract_from_pool";
         const char* SHIELDED_UTXOS      = "shielded_utxos";
         const char* SHIELDED_ID         = "shielded_id";
-        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
         const char* MAX_PRIVACY         = "max_privacy";
 
         // Defaults

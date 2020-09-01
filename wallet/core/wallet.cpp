@@ -1677,8 +1677,8 @@ namespace beam::wallet
         // add virtual transaction for receiver
         beam::Block::SystemState::Full tip;
         m_WalletDB->get_History().get_Tip(tip);
+        storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
 
-        coin.DeduceStatus(*m_WalletDB, tip.m_Height);
         if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
         {
             return;

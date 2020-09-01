@@ -225,11 +225,6 @@ namespace beam::wallet
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
-        bool IsAvailable() const
-        {
-            return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight && !m_spentTxId;
-        }
-
         bool IsAsset() const
         {
             return m_CoinID.m_AssetID != 0;
@@ -253,18 +248,16 @@ namespace beam::wallet
             Maturing, // relevant if confirmation offset is used. Not related to unlink state
             Outgoing,
             Spent,
-
+            Consumed,
             count
         };
 
         Status m_Status = Unavailable;
-        void DeduceStatus(const IWalletDB&, Height hTop);
-
         uint32_t get_WndIndex(uint32_t N) const; // preferred index within a window of the specified size
 
         struct UnlinkStatus
         {
-            UnlinkStatus() {}
+            UnlinkStatus() = default;
             UnlinkStatus(const ShieldedCoin& sc, TxoID nShieldedOuts) { Init(sc, nShieldedOuts); }
 
             void Init(const ShieldedCoin& sc, TxoID nShieldedOuts);
@@ -282,11 +275,9 @@ namespace beam::wallet
         };
 
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
-
         static void Sort(std::vector<WithStatus>&);
 
     private:
-        Status get_StatusInternal(const IWalletDB&, Height hTop) const;
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
@@ -860,8 +851,8 @@ namespace beam::wallet
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
 
-        Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
+        void DeduceStatus(const IWalletDB&, ShieldedCoin&, Height hTop);
 
         // Used in statistics
         struct Totals
@@ -880,8 +871,14 @@ namespace beam::wallet
                 AmountBig::Type AvailFee = 0U;
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
-                AmountBig::Type Shielded = 0U;
-                Height MinCoinHeight = 0;
+                AmountBig::Type AvailShielded = 0U;
+                AmountBig::Type UnspentShielded = 0U;
+                AmountBig::Type MaturingShielded = 0U;
+                AmountBig::Type UnavailShielded = 0U;
+                AmountBig::Type OutgoingShielded = 0U;
+                AmountBig::Type IncomingShielded = 0U;
+                Height MinCoinHeightMW = 0;
+                Height MinCoinHeightShielded = 0;
             };
 
             Totals();

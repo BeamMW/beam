@@ -2820,7 +2820,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             if (!func(coin))
                 break;
         }
@@ -2838,7 +2838,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             if (!func(coin))
                 break;
         }
@@ -3010,7 +3010,7 @@ namespace beam::wallet
             auto& coin = coins.emplace_back();
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
         }
 
         return coins;
@@ -3028,7 +3028,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             return coin;
         }
 
@@ -3047,7 +3047,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             return coin;
         }
 
@@ -3066,7 +3066,7 @@ namespace beam::wallet
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             return coin;
         }
         return {};
@@ -3103,7 +3103,7 @@ namespace beam::wallet
             coin.m_spentHeight = MaxHeight;
             updateShieldedCoinRaw(coin);
 
-            coin.DeduceStatus(*this, ssc.m_hTip);
+            storage::DeduceStatus(*this, coin, ssc.m_hTip);
             changedCoins.push_back(std::move(coin));
         }
 
@@ -3127,8 +3127,7 @@ namespace beam::wallet
                 ShieldedCoin& coin = changedCoins[i];
                 coin.m_confirmHeight = MaxHeight;
                 updateShieldedCoinRaw(coin);
-
-                coin.DeduceStatus(*this, ssc.m_hTip);
+                storage::DeduceStatus(*this, coin, ssc.m_hTip);
             }
 
             // TODO: erase coins completely with "Unavail" status
@@ -3162,7 +3161,7 @@ namespace beam::wallet
     void WalletDB::saveShieldedCoinRaw(const ShieldedCoin& coin)
     {
         std::vector<ShieldedCoin> v = { coin };
-        v[0].DeduceStatus(*this, getCurrentHeight());
+        storage::DeduceStatus(*this, v[0], getCurrentHeight());
         if (!updateShieldedCoinRaw(coin))
         {
             insertShieldedCoinRaw(coin);
@@ -3397,7 +3396,7 @@ namespace beam::wallet
             for (const auto& key : updatedRows)
             {
                 auto& coin = updatedCoins.emplace_back(getShieldedCoin(key).value());
-                coin.DeduceStatus(*this, currentHeight);
+                storage::DeduceStatus(*this, coin, currentHeight);
             }
 
             notifyShieldedCoinsChanged(ChangeAction::Updated, updatedCoins);
@@ -3426,8 +3425,7 @@ namespace beam::wallet
                 ShieldedCoin& coin = deletedItems.emplace_back();
                 int colIdx = 0;
                 ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-                coin.DeduceStatus(*this, ssc.m_hTip);
-
+                storage::DeduceStatus(*this, coin, ssc.m_hTip);
                 DeleteShieldedCoin(coin.m_CoinID.m_Key);
             }
         }
@@ -4623,15 +4621,8 @@ namespace beam::wallet
             walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
                 auto& totals = getTotalsRef(c.m_ID.m_AssetID);
-
-                if (totals.MinCoinHeight == 0)
-                {
-                    totals.MinCoinHeight = c.m_confirmHeight;
-                }
-                else
-                {
-                    totals.MinCoinHeight = std::min(c.m_confirmHeight, totals.MinCoinHeight);
-                }
+                totals.MinCoinHeightMW = totals.MinCoinHeightMW == 0 ? c.m_confirmHeight :
+                                         std::min(c.m_confirmHeight, totals.MinCoinHeightMW);
 
                 const AmountBig::Type value = c.m_ID.m_Value;
                 switch (c.m_status)
@@ -4699,13 +4690,34 @@ namespace beam::wallet
                 return true;
             });
 
-            walletDB.visitShieldedCoinsUnspent([getTotalsRef](const ShieldedCoin& coin) -> bool {
-                // always add to totals even if there will be no available coins
-                auto& totals = getTotalsRef(coin.m_CoinID.m_AssetID);
-                if(coin.IsAvailable())
-                {
-                    const AmountBig::Type value = coin.m_CoinID.m_Value;
-                    totals.Shielded += value;
+            walletDB.visitShieldedCoins([getTotalsRef](const ShieldedCoin& c) -> bool {
+                auto& totals = getTotalsRef(c.m_CoinID.m_AssetID);
+                totals.MinCoinHeightShielded = totals.MinCoinHeightShielded == 0 ? c.m_confirmHeight :
+                                               std::min(c.m_confirmHeight, totals.MinCoinHeightShielded);
+
+                const AmountBig::Type value = c.m_CoinID.m_Value;
+                switch(c.m_Status) {
+                    case ShieldedCoin::Status::Available:
+                        totals.AvailShielded += value;
+                        totals.UnspentShielded += value;
+                        break;
+                    case ShieldedCoin::Status::Maturing:
+                        totals.MaturingShielded += value;
+                        totals.UnspentShielded += value;
+                        break;
+                    case ShieldedCoin::Status::Unavailable:
+                        totals.UnavailShielded += value;
+                        break;
+                    case ShieldedCoin::Status::Outgoing:
+                        totals.OutgoingShielded += value;
+                        break;
+                    case ShieldedCoin::Status::Incoming:
+                        totals.IncomingShielded += value;
+                        break;
+                    case ShieldedCoin::Status::Spent:
+                        break; // this is not necessary
+                    default:
+                        assert(false); // should never happen
                 }
                 return true;
             });
@@ -4735,13 +4747,6 @@ namespace beam::wallet
         bool Totals::HasTotals(Asset::ID assetId) const
         {
             return allTotals.find(assetId) != allTotals.end();
-        }
-
-        void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
-        {
-            c.m_status = GetCoinStatus(walletDB, c, hTop);
-            if (c.m_status == Coin::Status::Available && c.m_confirmHeight > hTop - walletDB.getCoinConfirmationsOffset())
-                c.m_status = Coin::Status::Maturing;
         }
 
         bool IsOngoingTx(const IWalletDB& walletDB, const boost::optional<TxID>& txID)
@@ -4780,32 +4785,88 @@ namespace beam::wallet
             return false;
         }
 
-        Coin::Status GetCoinStatus(const IWalletDB& walletDB, const Coin& c, Height hTop)
+        void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
         {
             if (c.m_spentHeight != MaxHeight)
             {
                 if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
                 {
-                    return Coin::Status::Consumed;
+                    c.m_status = Coin::Status::Consumed;
                 }
-                return Coin::Status::Spent;
+                else
+                {
+                    c.m_status = Coin::Status::Spent;
+                }
+                return;
             }
 
             if (c.m_confirmHeight != MaxHeight)
             {
-                if (c.m_maturity > hTop)
-                    return Coin::Status::Maturing;
-
                 if (IsOngoingTx(walletDB, c.m_spentTxId))
-                    return Coin::Status::Outgoing;
+                {
+                    c.m_status = Coin::Status::Outgoing;
+                    return;
+                }
 
-                return Coin::Status::Available;
+                if (hTop - walletDB.getCoinConfirmationsOffset() < c.m_maturity)
+                {
+                    c.m_status = Coin::Status::Maturing;
+                    return;
+                }
+
+                c.m_status = Coin::Status::Available;
+                return;
             }
 
             if (IsOngoingTx(walletDB, c.m_createTxId))
-                return Coin::Status::Incoming;
+            {
+                c.m_status = Coin::Status::Incoming;
+                return;
+            }
 
-            return Coin::Status::Unavailable;
+            c.m_status = Coin::Status::Unavailable;
+        }
+
+        void DeduceStatus(const IWalletDB& walletDB, ShieldedCoin& c, Height hTop)
+        {
+            if (c.m_spentHeight != MaxHeight)
+            {
+                if (c.IsAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                {
+                    c.m_Status = ShieldedCoin::Status::Consumed;
+                }
+                else
+                {
+                    c.m_Status = ShieldedCoin::Status::Spent;
+                }
+                return;
+            }
+
+            if (c.m_confirmHeight != MaxHeight)
+            {
+                if(storage::IsOngoingTx(walletDB, c.m_createTxId))
+                {
+                    c.m_Status = ShieldedCoin::Status::Outgoing;
+                    return;
+                }
+
+                if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
+                {
+                    c.m_Status = ShieldedCoin::Status::Maturing;
+                    return;
+                }
+
+                c.m_Status = ShieldedCoin::Status::Available;
+                return;
+            }
+
+            if (storage::IsOngoingTx(walletDB, c.m_spentTxId))
+            {
+                c.m_Status = ShieldedCoin::Status::Incoming;
+                return;
+            }
+
+            c.m_Status = ShieldedCoin::Status::Unavailable;
         }
 
         Height DeduceTxProofHeight(const IWalletDB& walletDB, const TxDescription &tx)
@@ -5568,28 +5629,6 @@ namespace beam::wallet
         n -= nShieldedOutsRel;
 
         return CastSaturated<int32_t>(n);
-    }
-
-    void ShieldedCoin::DeduceStatus(const IWalletDB& db, Height hTop)
-    {
-        m_Status = get_StatusInternal(db, hTop);
-    }
-
-    ShieldedCoin::Status ShieldedCoin::get_StatusInternal(const IWalletDB& db, Height hTop) const
-    {
-        if (MaxHeight != m_spentHeight)
-            return Status::Spent;
-
-        if (MaxHeight == m_confirmHeight)
-            return storage::IsOngoingTx(db, m_createTxId) ? Status::Incoming : Status::Unavailable;
-
-        if (storage::IsOngoingTx(db, m_spentTxId))
-            return Status::Outgoing;
-
-        if (hTop - m_confirmHeight < db.getCoinConfirmationsOffset())
-            return Status::Maturing;
-
-        return Status::Available;
     }
 
     bool ShieldedCoin::UnlinkStatus::IsLargeSpendWindowLost() const

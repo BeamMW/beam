@@ -83,19 +83,20 @@ namespace beam
 {
     const char kElectrumSeparateSymbol = ' ';
 
-    string getCoinStatus(Coin::Status s)
+    template<typename TStatusEnum>
+    string getCoinStatus(TStatusEnum s)
     {
         stringstream ss;
         ss << "[";
         switch (s)
         {
-        case Coin::Available: ss << kCoinStatusAvailable; break;
-        case Coin::Unavailable: ss << kCoinStatusUnavailable; break;
-        case Coin::Spent: ss << kCoinStatusSpent; break;
-        case Coin::Maturing: ss << kCoinStatusMaturing; break;
-        case Coin::Outgoing: ss << kCoinStatusOutgoing; break;
-        case Coin::Incoming: ss << kCoinStatusIncoming; break;
-        case Coin::Consumed: ss << kCoinStatusConsumed; break;
+        case TStatusEnum::Available:   ss << kCoinStatusAvailable; break;
+        case TStatusEnum::Unavailable: ss << kCoinStatusUnavailable; break;
+        case TStatusEnum::Spent:       ss << kCoinStatusSpent; break;
+        case TStatusEnum::Maturing:    ss << kCoinStatusMaturing; break;
+        case TStatusEnum::Outgoing:    ss << kCoinStatusOutgoing; break;
+        case TStatusEnum::Incoming:    ss << kCoinStatusIncoming; break;
+        case TStatusEnum::Consumed:    ss << kCoinStatusConsumed; break;
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownCoinStatus);
         }
@@ -699,6 +700,7 @@ namespace
         }
         else if (isMaxPrivacyToken)
         {
+            LOG_INFO() << "Generating max privacy token";
             address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         }
@@ -880,11 +882,12 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
              // % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
 
+        auto minHeight = std::min(totals.MinCoinHeightMW, totals.MinCoinHeightShielded);
         if (!info.is_initialized())
         {
             cout << kWalletNoInfo;
         }
-        else if (totals.MinCoinHeight && info->m_LockHeight > totals.MinCoinHeight)
+        else if (minHeight && info->m_LockHeight > minHeight)
         {
             cout << boost::format(kWalletUnreliableAsset) % info->m_LockHeight;
         }
@@ -921,6 +924,86 @@ namespace
         return 0;
     }
 
+    void ShowShilededCoins( IWalletDB::Ptr walletDB, Asset::ID assetId)
+    {
+        // TODO should implement
+        const char kShieldedCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% | %8% | %9% |";
+        const char kShieldedCreateTxID[]    = "createTxID";
+        const char kShieldedSpentTxID[]     = "spentTxID";
+        const char kShieldedConfirmHeight[] = "confirmHeight";
+        const char kShieldedSpentHeight[]   = "spentHeight";
+        const char kUnlinkProgress[]          = "unlink(%)";
+        const char kTargetAnonymitySet[]    = "targetAnonymitySet";
+
+        auto shieldedCoins = walletDB->getShieldedCoins(assetId);
+        if (shieldedCoins.empty())
+        {
+            std::cout << kNoShieldedCoins << std::endl;
+            return;
+        }
+
+        const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
+        auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+
+        std::vector<ShieldedCoin> reliable;
+        std::vector<ShieldedCoin> unreliable;
+
+        for (const auto& c: shieldedCoins) {
+            if (c.m_confirmHeight < lockHeight)
+            {
+                unreliable.push_back(c);
+            }
+            else
+            {
+                reliable.push_back(c);
+            }
+        }
+
+        const uint8_t nameWidth = std::max<uint8_t>(10, static_cast<uint8_t>(unitName.size()));
+        const uint8_t nthWidth  = std::max<uint8_t>(10, static_cast<uint8_t>(nthName.size()));
+
+        const array<uint8_t, 9> columnWidths{ { 10, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
+        cout << "SHIELDED COINS\n\n"
+             << boost::format(kShieldedCoinsTableHeadFormat)
+                % boost::io::group(left, setw(columnWidths[0]),  kCoinColumnId)
+                % boost::io::group(right, setw(columnWidths[1]), unitName)
+                % boost::io::group(right, setw(columnWidths[2]), nthName)
+                % boost::io::group(right, setw(columnWidths[3]), kShieldedCreateTxID)
+                % boost::io::group(right, setw(columnWidths[4]), kShieldedSpentTxID)
+                % boost::io::group(right, setw(columnWidths[5]), kShieldedConfirmHeight)
+                % boost::io::group(right, setw(columnWidths[6]), kShieldedSpentHeight)
+                % boost::io::group(right, setw(columnWidths[7]), kUnlinkProgress)
+                % boost::io::group(right, setw(columnWidths[8]), kTargetAnonymitySet)
+             << std::endl;
+
+        const auto displayCoins = [&](const std::vector<ShieldedCoin>& coins) {
+            for (const auto& c : coins)
+            {
+                ShieldedCoin::UnlinkStatus us(c, walletDB->get_ShieldedOuts());
+                cout << boost::format(kShieldedCoinsTableHeadFormat)
+                    % boost::io::group(left, setw(columnWidths[0]),  c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID))
+                    % boost::io::group(right, setw(columnWidths[1]), c.m_CoinID.m_Value / Rules::Coin)
+                    % boost::io::group(right, setw(columnWidths[2]), c.m_CoinID.m_Value % Rules::Coin)
+                    % boost::io::group(left, setw(columnWidths[3]),  c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
+                    % boost::io::group(left, setw(columnWidths[4]),  c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
+                    % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
+                    % boost::io::group(right, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
+                    % boost::io::group(right, setw(columnWidths[7]), std::to_string(us.m_Progress))
+                    % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.m_ProofMax.get_N())
+                    << std::endl;
+            }
+        };
+
+        displayCoins(reliable);
+        if (!unreliable.empty())
+        {
+            cout << kTxHistoryUnreliableCoins;
+            displayCoins(unreliable);
+        }
+
+        cout << std::endl;
+    }
+
     void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
         const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
@@ -928,39 +1011,83 @@ namespace
         const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 20, 8}};
 
         const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
-        std::vector<Coin> reliable;
-        std::vector<Coin> unreliable;
+        std::vector<boost::any> reliable;
+        std::vector<boost::any> unreliable;
 
         walletDB->visitCoins([&](const Coin& c)->bool {
             if (c.m_ID.m_AssetID == assetId)
             {
                 if (c.m_confirmHeight < lockHeight)
                 {
-                    unreliable.push_back(c);
+                    unreliable.emplace_back(c);
                 }
                 else
                 {
-                    reliable.push_back(c);
+                    reliable.emplace_back(c);
+                }
+            }
+            return true;
+        });
+
+        walletDB->visitShieldedCoins([&](const ShieldedCoin& c)->bool {
+            if (c.m_CoinID.m_AssetID == assetId)
+            {
+                if (c.m_confirmHeight < lockHeight)
+                {
+                    unreliable.emplace_back(c);
+                }
+                else
+                {
+                    reliable.emplace_back(c);
                 }
             }
             return true;
         });
 
         auto offset = walletDB->getCoinConfirmationsOffset();
-        const auto displayCoins = [&](const std::vector<Coin>& coins) {
+        const auto displayCoins = [&](const std::vector<boost::any>& coins) {
             if (coins.empty())
             {
                 return;
             }
-            for(const auto& c: coins) {
-                 cout << boost::format(kCoinsTableFormat)
-                        % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
-                        % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
-                        % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                        % boost::io::group(left, setw(columnWidths[3]),  (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.get_Maturity(offset))) : "-"))
-                        % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
-                        % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
-                      << std::endl;
+            for(const auto& ca: coins) {
+                Amount     value = 0;
+                std::string coinId;
+                std::string coinStatus;
+                std::string coinMaturity;
+                std::string coinType;
+
+                if (ca.type() == typeid(Coin))
+                {
+                    const auto& c = boost::any_cast<Coin>(ca);
+                    value        = c.m_ID.m_Value;
+                    coinId       = c.toStringID();
+                    coinStatus   = getCoinStatus(c.m_status);
+                    coinType     = FourCC::Text(c.m_ID.m_Type);
+                    coinMaturity = c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.get_Maturity(offset))) : "-";
+                }
+                else if(ca.type() == typeid(ShieldedCoin))
+                {
+                    const auto& c = boost::any_cast<ShieldedCoin>(ca);
+                    value         = c.m_CoinID.m_Value;
+                    coinId        = c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID);
+                    coinStatus    = getCoinStatus(c.m_Status);
+                    coinType      = "shld";
+                }
+                else
+                {
+                    assert(false); // this should never happen
+                    continue;
+                }
+
+                cout << boost::format(kCoinsTableFormat)
+                    % boost::io::group(right,setw(columnWidths[0]),  coinId)
+                    % boost::io::group(right,setw(columnWidths[1]), value / Rules::Coin)
+                    % boost::io::group(right,setw(columnWidths[2]), value % Rules::Coin)
+                    % boost::io::group(left, setw(columnWidths[3]),  coinMaturity)
+                    % boost::io::group(left, setw(columnWidths[4]),  coinStatus)
+                    % boost::io::group(left, setw(columnWidths[5]),  coinType)
+                  << std::endl;
             }
         };
 
@@ -968,9 +1095,9 @@ namespace
         if (hasCoins)
         {
             cout << boost::format(kCoinsTableHeadFormat)
-                     % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
-                     % boost::io::group(right, setw(columnWidths[1]), unitName)
-                     % boost::io::group(right, setw(columnWidths[2]), nthName)
+                     % boost::io::group(right,setw(columnWidths[0]), kCoinColumnId)
+                     % boost::io::group(right,setw(columnWidths[1]), unitName)
+                     % boost::io::group(right,setw(columnWidths[2]), nthName)
                      % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
                      % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
                      % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
@@ -989,12 +1116,12 @@ namespace
         }
 
         cout << endl;
+        // ShowShilededCoins(walletDB, assetId);
     }
 
     void ShowAssetTxs(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Asset::ID assetId)
     {
-        // Lelantus basic ops disabled starting from v5.1
-        bool show = vm.count(cli::TX_HISTORY); // || vm.count(cli::SHIELDED_TX_HISTORY);
+        const bool show = vm.count(cli::TX_HISTORY);
         if (!show) return;
 
         std::vector<TxDescription> txHistory;
@@ -1019,19 +1146,6 @@ namespace
             txHistory.insert(txHistory.end(), txUnreg.begin(), txUnreg.end());
             txHistory.insert(txHistory.end(), txInfo.begin(), txInfo.end());
         }
-
-        // Lelantus basic ops disabled starting from v5.1
-        //if (vm.count(cli::SHIELDED_TX_HISTORY))
-        //{
-        //    // there cannot be 'orphaned' asset push/pull transactions but beam only, so skip in this case
-        //    if (assetId != Asset::s_InvalidID)
-        //    {
-        //        auto pushTxHistory = walletDB->getTxHistory(TxType::PushTransaction);
-        //        auto pullTxHistory = walletDB->getTxHistory(TxType::PullTransaction);
-        //        txHistory.insert(txHistory.end(), pushTxHistory.begin(), pushTxHistory.end());
-        //        txHistory.insert(txHistory.end(), pullTxHistory.begin(), pullTxHistory.end());
-        //    }
-        //}
 
         std::sort(txHistory.begin(), txHistory.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
             return a.m_createTime > b.m_createTime;
@@ -1123,91 +1237,6 @@ namespace
         }
     }
 
-    void ShowShilededCoins(const po::variables_map& vm, IWalletDB::Ptr walletDB, Asset::ID assetId)
-    {
-        if (!vm.count(cli::SHIELDED_UTXOS))
-        {
-            return;
-        }
-
-        // TODO should implement
-        const char kShieldedCoinsTableHeadFormat[] = "  | %1% | %2% | %3% | %4% | %5% | %6% | %7% | %8% | %9% |";
-        const char kShieldedCreateTxID[]    = "createTxID";
-        const char kShieldedSpentTxID[]     = "spentTxID";
-        const char kShieldedConfirmHeight[] = "confirmHeight";
-        const char kShieldedSpentHeight[]   = "spentHeight";
-        const char kUnlinkProgress[]          = "unlink(%)";
-        const char kTargetAnonymitySet[]    = "targetAnonymitySet";
-
-        auto shieldedCoins = walletDB->getShieldedCoins(assetId);
-        if (shieldedCoins.empty())
-        {
-            std::cout << kNoShieldedCoins << std::endl;
-            return;
-        }
-
-        const auto lockHeight = GetAssetLockHeight(walletDB, assetId);
-        auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
-
-        std::vector<ShieldedCoin> reliable;
-        std::vector<ShieldedCoin> unreliable;
-
-        for (const auto& c: shieldedCoins) {
-            if (c.m_confirmHeight < lockHeight)
-            {
-                unreliable.push_back(c);
-            }
-            else
-            {
-                reliable.push_back(c);
-            }
-        }
-
-        const uint8_t nameWidth = std::max<uint8_t>(10, static_cast<uint8_t>(unitName.size()));
-        const uint8_t nthWidth  = std::max<uint8_t>(10, static_cast<uint8_t>(nthName.size()));
-
-        const array<uint8_t, 9> columnWidths{ { 10, nameWidth, nthWidth, 32, 32, 13, 11, 20, 18} };
-        cout << "SHIELDED COINS\n\n"
-             << boost::format(kShieldedCoinsTableHeadFormat)
-                % boost::io::group(left, setw(columnWidths[0]),  kCoinColumnId)
-                % boost::io::group(right, setw(columnWidths[1]), unitName)
-                % boost::io::group(right, setw(columnWidths[2]), nthName)
-                % boost::io::group(right, setw(columnWidths[3]), kShieldedCreateTxID)
-                % boost::io::group(right, setw(columnWidths[4]), kShieldedSpentTxID)
-                % boost::io::group(right, setw(columnWidths[5]), kShieldedConfirmHeight)
-                % boost::io::group(right, setw(columnWidths[6]), kShieldedSpentHeight)
-                % boost::io::group(right, setw(columnWidths[7]), kUnlinkProgress)
-                % boost::io::group(right, setw(columnWidths[8]), kTargetAnonymitySet)
-             << std::endl;
-
-        const auto displayCoins = [&](const std::vector<ShieldedCoin>& coins) {
-            for (const auto& c : coins)
-            {
-                ShieldedCoin::UnlinkStatus us(c, walletDB->get_ShieldedOuts());
-                cout << boost::format(kShieldedCoinsTableHeadFormat)
-                    % boost::io::group(left, setw(columnWidths[0]),  c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID))
-                    % boost::io::group(right, setw(columnWidths[1]), c.m_CoinID.m_Value / Rules::Coin)
-                    % boost::io::group(right, setw(columnWidths[2]), c.m_CoinID.m_Value % Rules::Coin)
-                    % boost::io::group(left, setw(columnWidths[3]),  c.m_createTxId ? to_hex(c.m_createTxId->data(), c.m_createTxId->size()) : "")
-                    % boost::io::group(left, setw(columnWidths[4]),  c.m_spentTxId ? to_hex(c.m_spentTxId->data(), c.m_spentTxId->size()) : "")
-                    % boost::io::group(right, setw(columnWidths[5]), (c.m_confirmHeight != MaxHeight) ? std::to_string(c.m_confirmHeight) : "--")
-                    % boost::io::group(right, setw(columnWidths[6]), (c.m_spentHeight != MaxHeight) ? std::to_string(c.m_spentHeight) : "--")
-                    % boost::io::group(right, setw(columnWidths[7]), std::to_string(us.m_Progress))
-                    % boost::io::group(right, setw(columnWidths[8]), Rules::get().Shielded.m_ProofMax.get_N())
-                    << std::endl;
-            }
-        };
-
-        displayCoins(reliable);
-        if (!unreliable.empty())
-        {
-            cout << kTxHistoryUnreliableCoins;
-            displayCoins(unreliable);
-        }
-
-        cout << std::endl;
-    }
-
     void ShowAssetsInfo(const po::variables_map& vm)
     {
         auto showAssetId = Asset::s_InvalidID;
@@ -1225,7 +1254,6 @@ namespace
             cout << endl;
             ShowAssetInfo(walletDB, totals);
             ShowAssetCoins(walletDB, totals.AssetId);
-            ShowShilededCoins(vm, walletDB, totals.AssetId);
             ShowAssetTxs(vm, walletDB, totals.AssetId);
         };
 
@@ -1313,23 +1341,29 @@ namespace
         // Show info about BEAM
         const auto& totals = totalsCalc.GetBeamTotals();
         const unsigned kWidth = 26;
+
+        auto avail    = totals.Avail;    avail    += totals.AvailShielded;
+        auto unspent  = totals.Unspent;  unspent  += totals.UnspentShielded;
+        auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
+        auto unavail  = totals.Unavail;  unavail  += totals.UnavailShielded;
+        auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
+        auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
+
         cout << boost::format(kWalletSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurStateID) % stateID.m_Hash
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(avail))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(incoming))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(unavail))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailableCoinbase) % to_string(PrintableAmount(totals.AvailCoinbase))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalCoinbase) % to_string(PrintableAmount(totals.Coinbase))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent));
 
         ShowAssetCoins(walletDB, Zero);
-        ShowShilededCoins(vm, walletDB, Zero);
 
-        // Lelantus basic ops disabled starting from v5.1
         if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
         {
             std::vector<TxDescription> txHistory;
