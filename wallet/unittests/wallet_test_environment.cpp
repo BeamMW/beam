@@ -133,7 +133,6 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, toByteBuffer(p.m_status), false);
     };
     void deleteTx(const TxID&) override {};
-    void rollbackTx(const TxID&) override {}
 
     std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override { return {}; }
 

@@ -563,7 +563,8 @@ void TestTxRollback()
     WALLET_CHECK(coins[2].m_status == Coin::Incoming);
     WALLET_CHECK(coins[2].m_createTxId == id);
 
-    walletDB->rollbackTx(id2);
+    walletDB->restoreCoinsSpentByTx(id2);
+    walletDB->deleteCoinsCreatedByTx(id2);
 
     coins.clear();
     walletDB->visitCoins([&coins](const Coin& c)->bool
@@ -584,7 +585,10 @@ void TestTxRollback()
         w.m_changes.push({ ChangeAction::Removed, { c } });
 
         walletDB->Subscribe(&w);
-        walletDB->rollbackTx(id);
+
+        walletDB->restoreCoinsSpentByTx(id);
+        walletDB->deleteCoinsCreatedByTx(id);
+
         walletDB->Unsubscribe(&w);
     }
 

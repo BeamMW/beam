@@ -186,7 +186,6 @@ namespace beam::wallet
         SubTxState GetSubTxState(SubTxID subTxID) const;
         Amount GetWithdrawFee() const;
         void UpdateImpl() override;
-        void RollbackTx() override;
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
         bool CheckExpired() override;
