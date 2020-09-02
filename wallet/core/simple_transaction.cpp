@@ -168,6 +168,7 @@ namespace beam::wallet
         case TxParameterID::PeerInputs:
         case TxParameterID::PeerOutputs:
         case TxParameterID::PeerOffset:
+        case TxParameterID::FailureReason: // to be able to cancel transaction until we haven't sent any response
             return true;
 
         default:
