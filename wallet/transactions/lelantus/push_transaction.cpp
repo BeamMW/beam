@@ -98,6 +98,16 @@ namespace beam::wallet::lelantus
             GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
             return;
         }
+        else if (nRegistered == proto::TxStatus::LowFee)
+        {
+            OnFailed(TxFailureReason::FeeIsTooSmall);
+            return;
+        }
+        else if (nRegistered == proto::TxStatus::InvalidContext)
+        {
+            OnFailed(TxFailureReason::InvalidTransaction);
+            return;
+        }
 
         if (!m_OutpHeight)
         {
