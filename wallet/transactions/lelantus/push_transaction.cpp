@@ -98,6 +98,16 @@ namespace beam::wallet::lelantus
             GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
             return;
         }
+        else if (nRegistered == proto::TxStatus::LowFee)
+        {
+            OnFailed(TxFailureReason::FeeIsTooSmall);
+            return;
+        }
+        else if (nRegistered == proto::TxStatus::InvalidContext)
+        {
+            OnFailed(TxFailureReason::InvalidTransaction);
+            return;
+        }
 
         if (!m_OutpHeight)
         {
@@ -187,7 +197,8 @@ namespace beam::wallet::lelantus
     void PushTransaction::RollbackTx()
     {
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
-        GetWalletDB()->rollbackTx(GetTxID());
+        m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
+        m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
     }
 

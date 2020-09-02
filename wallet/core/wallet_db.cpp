@@ -3313,7 +3313,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::rollbackTx(const TxID& txId)
+    void WalletDB::restoreCoinsSpentByTx(const TxID& txId)
     {
         std::vector<int> updatedRows;
         {
@@ -3336,8 +3336,6 @@ namespace beam::wallet
             }
             notifyCoinsChanged(ChangeAction::Updated, getCoinsByRowIDs(updatedRows));
         }
-
-        deleteCoinsCreatedByTx(txId);
     }
 
     void WalletDB::deleteCoinsCreatedByTx(const TxID& txId)

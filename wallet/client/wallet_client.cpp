@@ -575,27 +575,6 @@ namespace beam::wallet
                 }
             }
         }
-
-        // TODO: REMOVE THIS
-        auto f = [](const auto& a)
-        {
-            switch (a)
-            {
-            case ChangeAction::Added: return "[added]";
-            case ChangeAction::Reset: return "[reset]";
-            case ChangeAction::Removed: return "[removed]";
-            case ChangeAction::Updated: return "[Updated]";
-            default:
-                return "unexpected";
-            }
-        };
-        LOG_DEBUG() << "onTransactionChanged";
-        for (const auto& tx : items)
-        {
-            LOG_DEBUG() << *tx.GetTxID() << f(action);
-        }
-        ///
-
         m_TransactionChangesCollector.CollectItems(action, items);
         updateClientTxState();
     }
@@ -846,7 +825,7 @@ namespace beam::wallet
 
     void WalletClient::getTransactions()
     {
-        onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
+        onTransactionChanged(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
     }
 
     void WalletClient::getUtxosStatus()

@@ -871,13 +871,6 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::RollbackTx()
-    {
-        LOG_INFO() << GetTxID() << " Rollback...";
-
-        GetWalletDB()->rollbackTx(GetTxID());
-    }
-
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason reason)
     {
         SetTxParameter msg;

@@ -475,7 +475,7 @@ namespace beam::wallet
         virtual bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual std::vector<TxParameter> getAllTxParameters() const = 0;
-        virtual void rollbackTx(const TxID& txId) = 0;
+        virtual void restoreCoinsSpentByTx(const TxID& txId) = 0;
         virtual void deleteCoinsCreatedByTx(const TxID& txId) = 0;
 
         virtual void restoreShieldedCoinsSpentByTx(const TxID& txId) = 0;
@@ -627,7 +627,7 @@ namespace beam::wallet
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
-        void rollbackTx(const TxID& txId) override;
+        void restoreCoinsSpentByTx(const TxID& txId) override;
         void deleteCoinsCreatedByTx(const TxID& txId) override;
         void restoreShieldedCoinsSpentByTx(const TxID& txId) override;
         void deleteShieldedCoinsCreatedByTx(const TxID& txId) override;
