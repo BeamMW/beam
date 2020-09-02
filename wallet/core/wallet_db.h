@@ -225,9 +225,16 @@ namespace beam::wallet
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
-        bool IsAsset() const
-        {
+        bool IsAsset() const {
             return m_CoinID.m_AssetID != 0;
+        }
+
+        bool IsMaturityValid() const {
+            return m_Status != Status::Unavailable && m_Status != Status::Incoming;
+        }
+
+        Height get_Maturity(Height offset) const {
+            return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
         }
 
         ShieldedTxo::ID m_CoinID;
