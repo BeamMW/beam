@@ -1488,16 +1488,21 @@ namespace
             LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
             return -1;
         }
-        auto token = tx->getToken();
-        auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
-        LOG_INFO()
-            << boost::format(kTxDetailsFormat)
-                % storage::TxDetailsInfo(walletDB, *txId) % statusInterpreter->getStatus()
-            << (tx->m_status == TxStatus::Failed
-                    ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
-                    : boost::format(""))
-            << (!token.empty() ? "\nToken: " : "") << token;
 
+        const auto txdetails = storage::TxDetailsInfo(walletDB, *txId);
+        if (txdetails.empty()) {
+            // storage::TxDetailsInfo already printed an error
+            return -1;
+        }
+
+        const auto token = tx->getToken();
+        const auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
+        const auto txstatus = statusInterpreter->getStatus();
+
+        LOG_INFO()
+            << boost::format(kTxDetailsFormat) % txdetails % txstatus
+            << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
+            << (!token.empty() ? "\nToken: " : "") << token;
 
         return 0;
     }
