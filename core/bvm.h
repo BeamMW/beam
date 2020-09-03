@@ -34,6 +34,12 @@ namespace bvm {
 		typedef uintBigFor<Size>::Type uintSize; // big-endian
 	};
 
+	struct Limits
+	{
+		static const uint32_t FarCallDepth = 32;
+		static const uint32_t StackSize = 0x10000; // 64K
+	};
+
 	enum class OpCode : uint8_t
 	{
 #define THE_MACRO(name) name,
@@ -105,15 +111,13 @@ namespace bvm {
 
 	class Processor
 	{
-		static const uint32_t s_StackSize = 0x10000; // 64K
-
 		Buf m_Data;
 
 		int m_Flags = 0;
 		Type::Size m_Sp;
 		Type::Size m_Ip;
 
-		uint8_t m_pStack[s_StackSize];
+		uint8_t m_pStack[Limits::StackSize];
 
 		struct Ptr
 			:public Buf
@@ -205,8 +209,6 @@ namespace bvm {
 				void Pop();
 
 			} m_Stack;
-
-			static const Type::Size s_MaxDepth = 32;
 
 		} m_FarCalls;
 

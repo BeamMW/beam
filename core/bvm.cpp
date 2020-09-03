@@ -23,9 +23,9 @@ namespace bvm {
 
 	void Processor::InitStack(const Buf& args)
 	{
-		Test(args.n <= s_StackSize - sizeof(StackFrame));
+		Test(args.n <= Limits::StackSize - sizeof(StackFrame));
 		memcpy(m_pStack, args.p, args.n);
-		memset0(m_pStack + args.n, s_StackSize - args.n);
+		memset0(m_pStack + args.n, Limits::StackSize - args.n);
 
 		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
 		m_Ip = 0;
@@ -46,7 +46,7 @@ namespace bvm {
 
 	void Processor::CallFar(const ContractID& cid, Type::Size iMethod)
 	{
-		Test(m_FarCalls.m_Stack.size() < m_FarCalls.s_MaxDepth);
+		Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 
 		LoadFarFrame(cid);
 
@@ -119,12 +119,12 @@ namespace bvm {
 	{
 		n += m_Sp; // wraparound is ok, negative stack offsets are allowed
 
-		static_assert(static_cast<Type::Size>(-1) < s_StackSize, "uncomment the next line when this fails");
-		//Test(n <= s_StackSize);
+		static_assert(static_cast<Type::Size>(-1) < Limits::StackSize, "uncomment the next line when this fails");
+		//Test(n <= Limits::StackSize);
 
 		out.m_Writable = true;
 		out.p = m_pStack + n;
-		out.n = s_StackSize - n;
+		out.n = Limits::StackSize - n;
 	}
 
 	void Processor::SetPtrData(Ptr& out, Type::Size n)
