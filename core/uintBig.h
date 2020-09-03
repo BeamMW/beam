@@ -24,7 +24,7 @@ namespace beam
 
 	class uintBigImpl {
 	protected:
-		void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
+		static void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
 		// all those return carry (exceeding byte)
 		static uint8_t _Inc(uint8_t* pDst, uint32_t nDst);
