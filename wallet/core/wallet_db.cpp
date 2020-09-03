@@ -2313,7 +2313,7 @@ namespace beam::wallet
         m_statusInterpreterCreators[txType] = interpreterCreator;
     }
 
-    TxStatusInterpreter IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
+    TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
     {
         if (auto txTypeO = txParams.GetParameter(TxParameterID::TransactionType); txTypeO)
         {
@@ -2328,7 +2328,7 @@ namespace beam::wallet
             }
         }
 
-        return TxStatusInterpreter(txParams);
+        return std::make_shared<TxStatusInterpreter>(txParams);
     }
 
     vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
@@ -5434,7 +5434,7 @@ namespace beam::wallet
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
                    << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
-                   << statusInterpreter.getStatus() << ","                                          // Status
+                   << statusInterpreter->getStatus() << ","                                         // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
                    << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID

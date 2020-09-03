@@ -155,39 +155,48 @@ namespace
         }
 
         auto walletDB = WalletDB::open(walletPath, pass);
-        walletDB->addStatusInterpreterCreator(TxType::Simple, [] (const TxParameters& txParams) {
-            return TxStatusInterpreter(txParams);
-        });
 
-        auto assetsStatusIterpreterCreator = [] (const TxParameters& txParams)
-        {
-            return AssetTxStatusInterpreter(txParams);
+        auto assetsSICreator = [] (const TxParameters& txParams) {
+            return std::make_shared<AssetTxStatusInterpreter>(txParams);
         };
 
-        walletDB->addStatusInterpreterCreator(TxType::AssetIssue, assetsStatusIterpreterCreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetConsume, assetsStatusIterpreterCreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetReg, assetsStatusIterpreterCreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetUnreg, assetsStatusIterpreterCreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetInfo, assetsStatusIterpreterCreator);
+        auto simpleSICreator = [] (const TxParameters& txParams) {
+            return std::make_shared<TxStatusInterpreter>(txParams);
+        };
+
+        auto maxPrivSICreator = [] (const TxParameters& txParams) {
+            return std::make_shared<MaxPrivacyTxStatusInterpreter>(txParams);
+        };
+
+        walletDB->addStatusInterpreterCreator(TxType::Simple,          simpleSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::AssetIssue,      assetsSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::AssetConsume,    assetsSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::AssetReg,        assetsSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::AssetUnreg,      assetsSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::AssetInfo,       assetsSICreator);
+        walletDB->addStatusInterpreterCreator(TxType::PushTransaction, maxPrivSICreator);
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         walletDB->addStatusInterpreterCreator(TxType::AtomicSwap, [] (const TxParameters& txParams) {
-            struct CliSwapTxStatusInterpreter : public TxStatusInterpreter
+            class CliSwapTxStatusInterpreter: public TxStatusInterpreter
             {
+            public:
                 explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
                 {
                     auto value = txParams.GetParameter(wallet::TxParameterID::State);
                     if (value) fromByteBuffer(*value, m_state);
                 }
-                virtual ~CliSwapTxStatusInterpreter() {}
-                std::string getStatus() const override
+
+                ~CliSwapTxStatusInterpreter() override = default;
+
+                [[nodiscard]] std::string getStatus() const override
                 {
                     return wallet::getSwapTxStatus(m_state);
                 }
+            private:
                 wallet::AtomicSwapTransaction::State m_state = wallet::AtomicSwapTransaction::State::Initial;
-
             };
-            return CliSwapTxStatusInterpreter(txParams);
+            return std::make_shared<CliSwapTxStatusInterpreter>(txParams);
         });
         #endif
 
@@ -1164,14 +1173,18 @@ namespace
                     cout << kTxHistoryUnreliableTxs;
                 }
 
-                auto statusInterpreter = walletDB->getStatusInterpreter(tx);
+                const auto statusInterpreter = walletDB->getStatusInterpreter(tx);
+                const auto status = statusInterpreter->getStatus();
+                const auto tstamp = format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false);
+                const auto txid   = to_hex(tx.m_txId.data(), tx.m_txId.size());
+
                 cout << boost::format(kTxHistoryTableFormat)
-                        % boost::io::group(left,  setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(left,  setw(columnWidths[0]),  tstamp)
                         % boost::io::group(left,  setw(columnWidths[1]),  static_cast<int64_t>(height))
                         % boost::io::group(left,  setw(columnWidths[2]),  direction)
                         % boost::io::group(right, setw(columnWidths[3]),  amount)
-                        % boost::io::group(left,  setw(columnWidths[4]),  statusInterpreter.getStatus())
-                        % boost::io::group(left,  setw(columnWidths[5]),  to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        % boost::io::group(left,  setw(columnWidths[4]),  status)
+                        % boost::io::group(left,  setw(columnWidths[5]),  txid)
                         % boost::io::group(left,  setw(columnWidths[6]),  kernelId)
                      << std::endl;
             }
@@ -1344,19 +1357,22 @@ namespace
                     << std::endl;
 
                 for (auto& tx : txHistory) {
-                    auto statusInterpreter = walletDB->getStatusInterpreter(tx);
+                    const auto statusInterpreter = walletDB->getStatusInterpreter(tx);
+                    const auto tstamp    = format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false);
+                    const auto direction = tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
+                    const auto amount    = to_string(PrintableAmount(tx.m_amount, true));
+                    const auto status    = statusInterpreter->getStatus();
+                    const auto txid      = to_hex(tx.m_txId.data(), tx.m_txId.size());
+                    const auto krnid     = to_string(tx.m_kernelID);
+                    const auto token     = tx.getToken();
                     cout << boost::format(kTxHistoryTableFormat)
-                        % boost::io::group(left, setw(columnWidths[0]),
-                            format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                        % boost::io::group(left, setw(columnWidths[1]),
-                        (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
-                            : kTxDirectionIn)))
-                        % boost::io::group(right, setw(columnWidths[2]),
-                            to_string(PrintableAmount(tx.m_amount, true)))
-                        % boost::io::group(left, setw(columnWidths[3]), statusInterpreter.getStatus())
-                        % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                        % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
-                            % boost::io::group(left, setw(columnWidths[6]), tx.getToken())
+                        % boost::io::group(left,  setw(columnWidths[0]), tstamp)
+                        % boost::io::group(left,  setw(columnWidths[1]), direction)
+                        % boost::io::group(right, setw(columnWidths[2]), amount)
+                        % boost::io::group(left, setw(columnWidths[3]),  status)
+                        % boost::io::group(left, setw(columnWidths[4]),  txid)
+                        % boost::io::group(left, setw(columnWidths[5]),  krnid)
+                        % boost::io::group(left, setw(columnWidths[6]),  token)
                         << std::endl;
                 }
             }
@@ -1406,7 +1422,7 @@ namespace
                             to_string(PrintableAmount(tx.m_amount, true)))
                         % boost::io::group(right, setw(columnWidths[2]), swapAmount)
                         % boost::io::group(right, setw(columnWidths[3]), ss.str())
-                        % boost::io::group(left, setw(columnWidths[4]), statusInterpreter.getStatus())
+                        % boost::io::group(left, setw(columnWidths[4]), statusInterpreter->getStatus())
                         % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
                         << std::endl;
                 }
@@ -1476,7 +1492,7 @@ namespace
         auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
         LOG_INFO()
             << boost::format(kTxDetailsFormat)
-                % storage::TxDetailsInfo(walletDB, *txId) % statusInterpreter.getStatus()
+                % storage::TxDetailsInfo(walletDB, *txId) % statusInterpreter->getStatus()
             << (tx->m_status == TxStatus::Failed
                     ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
                     : boost::format(""))
@@ -1709,7 +1725,7 @@ namespace
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
     public:
-        CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
+        explicit CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
             LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
@@ -2202,7 +2218,7 @@ namespace
                         return 0;
                     }
                     auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
-                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << statusInterpreter.getStatus();
+                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << statusInterpreter->getStatus();
                     return -1;
                 }
                 LOG_ERROR() << kErrorTxIdUnknown;
@@ -2607,7 +2623,7 @@ int main_impl(int argc, char* argv[])
 
                 auto command = vm[cli::COMMAND].as<string>();
 
-                auto cit = find_if(begin(commands), end(commands), [&command](auto& p) {return p.name == command; });
+                auto cit = find_if(begin(commands), end(commands), [&command](const auto& p) {return p.name == command; });
                 if (cit == end(commands))
                 {
                     LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;

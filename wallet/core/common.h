@@ -64,9 +64,9 @@ namespace beam::wallet
 
         WalletID() {}
         WalletID(Zero_)
-        {
-            m_Channel = Zero;
-            m_Pk = Zero;
+            : m_Channel(Zero)
+            , m_Pk(Zero)
+        {            
         }
 
         template <typename Archive>
@@ -482,38 +482,45 @@ namespace beam::wallet
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
-    struct TxStatusInterpreter
+    class TxStatusInterpreter
     {
-        using Creator = std::function<TxStatusInterpreter(const TxParameters& txParams)>;
-        explicit TxStatusInterpreter(const TxParameters& txParams);
-        virtual ~TxStatusInterpreter() {}
-        virtual std::string getStatus() const;
+    public:
+        typedef std::shared_ptr<TxStatusInterpreter> Ptr;
+        using Creator = std::function<Ptr (const TxParameters& txParams)>;
 
-        const TxParameters& m_txParams;
+        explicit TxStatusInterpreter(const TxParameters& txParams);
+        virtual ~TxStatusInterpreter() = default;
+        [[nodiscard]] virtual std::string getStatus() const;
+
+    protected:
         TxStatus m_status = TxStatus::Pending;
         bool m_sender = false;
         bool m_selfTx = false;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
     };
 
-    struct SimpleTxStatusInterpreter : public TxStatusInterpreter
+    class SimpleTxStatusInterpreter : public TxStatusInterpreter
     {
+    public:
         explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        std::string getStatus() const override;
+        [[nodiscard]] std::string getStatus() const override;
     };
 
-    struct MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
+    class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
     {
+    public:
         explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        std::string getStatus() const override;
+        ~MaxPrivacyTxStatusInterpreter() override = default;
+        [[nodiscard]] std::string getStatus() const override;
     };
 
-    struct AssetTxStatusInterpreter : public TxStatusInterpreter
+    class AssetTxStatusInterpreter : public TxStatusInterpreter
     {
+    public:
         explicit AssetTxStatusInterpreter(const TxParameters& txParams);
-        virtual ~AssetTxStatusInterpreter() {}
-        std::string getStatus() const override;
-
+        ~AssetTxStatusInterpreter() override = default;
+        [[nodiscard]] std::string getStatus() const override;
+    protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
 
@@ -552,7 +559,7 @@ namespace beam::wallet
             , m_failureReason{ TxFailureReason::Unknown }
         {
         }
-        explicit TxDescription(const TxParameters);
+        explicit TxDescription(const TxParameters&);
         void fillFromTxParameters(const TxParameters&);
 
         [[nodiscard]] bool canResume() const;

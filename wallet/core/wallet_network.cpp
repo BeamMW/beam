@@ -30,9 +30,9 @@ namespace beam::wallet {
     BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
+        , m_pKdfSbbs(pWalletDB->get_SbbsKdf())
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
     {
-        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 

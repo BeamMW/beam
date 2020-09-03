@@ -597,7 +597,7 @@ namespace beam::wallet
         return true;
     }
 
-    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams) : m_txParams(txParams)
+    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams)
     {
         auto value = txParams.GetParameter(TxParameterID::Status);
         if (value) fromByteBuffer(*value, m_status);
@@ -616,14 +616,16 @@ namespace beam::wallet
     {
         switch (m_status)
         {
-            case TxStatus::Pending: return "pending";
+            case TxStatus::Pending:
+                return "pending";
             case TxStatus::InProgress:
                 return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
             case TxStatus::Registering: 
-                return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
+                return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving" );
             case TxStatus::Failed: 
                 return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
-            case TxStatus::Canceled: return "cancelled";
+            case TxStatus::Canceled:
+                return "cancelled";
             case TxStatus::Completed:
                 return m_selfTx ? "completed" : (m_sender ? "sent" : "received");
             default:
@@ -685,7 +687,7 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
-    TxDescription::TxDescription(const TxParameters p)
+    TxDescription::TxDescription(const TxParameters& p)
         : TxParameters(p)
     {
         fillFromTxParameters(*this);

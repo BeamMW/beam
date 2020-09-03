@@ -542,7 +542,7 @@ namespace beam::wallet
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
-        TxStatusInterpreter getStatusInterpreter(const TxParameters& txParams) const;
+        TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
 
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
