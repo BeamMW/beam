@@ -65,7 +65,7 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
             }
 
             if (!vm.count(cli::ELECTRUM_ADDR) &&
-                (!vm.count(cli::SELECT_SERVER_AUTOMATICALLY) || (vm.count(cli::SELECT_SERVER_AUTOMATICALLY) && !vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>())))
+                (!vm.count(cli::SELECT_SERVER_AUTOMATICALLY) || !vm[cli::SELECT_SERVER_AUTOMATICALLY].as<bool>()))
             {
                 throw std::runtime_error("electrum address should be specified");
             }
@@ -121,7 +121,7 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
             // TODO roman.strilets need to check words
             auto strSeed = std::accumulate(
                 std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
-                [](std::string a, std::string b)
+                [](const std::string& a, const std::string& b)
             {
                 return a + kElectrumSeparateSymbol + b;
             });
@@ -416,7 +416,6 @@ Amount EstimateSwapFeerate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
-        break;
     }
     }
 
@@ -486,7 +485,6 @@ Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
-        break;
     }
     }
 
@@ -773,7 +771,6 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
-        break;
     }
     }
 }
@@ -800,7 +797,6 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
-        break;
     }
     }
 }

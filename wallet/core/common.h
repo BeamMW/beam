@@ -64,9 +64,9 @@ namespace beam::wallet
 
         WalletID() {}
         WalletID(Zero_)
-        {
-            m_Channel = Zero;
-            m_Pk = Zero;
+            : m_Channel(Zero)
+            , m_Pk(Zero)
+        {            
         }
 
         template <typename Archive>

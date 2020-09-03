@@ -383,7 +383,7 @@ namespace beam::wallet
                 struct MyNotificationsObserver : INotificationsObserver
                 {
                     WalletClient& m_client;
-                    MyNotificationsObserver(WalletClient& client) : m_client(client) {}
+                    explicit MyNotificationsObserver(WalletClient& client) : m_client(client) {}
                     void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& items) override
                     {
                         m_client.updateNotifications();

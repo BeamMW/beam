@@ -26,11 +26,13 @@ namespace
     {
         uint32_t reminder = 0;
         size_t i = 0;
+        size_t count = input.size();
+        
         // skip leading zeroes
-        for (i = 0; i < input.size() && input[i] == 0; ++i);
+        for (i = 0; i < count && input[i] == 0; ++i);
 
         // divide
-        for (; i < input.size(); ++i)
+        for (; i < count; ++i)
         {
             auto k = input[i] + reminder * fromBase;
             input[i] = uint8_t(k / divider);
