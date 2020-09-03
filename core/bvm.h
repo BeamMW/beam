@@ -302,6 +302,8 @@ namespace bvm {
 		void ParseParam_Ptr(MyBlob&);
 		void ParseParam_uintBig(MyBlob&, uint32_t nBytes);
 
+		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
+
 		template <uint32_t nBytes>
 		void ParseParam_uintBig_t(MyBlob& line)
 		{

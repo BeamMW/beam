@@ -522,19 +522,40 @@ namespace bvm {
 
 	void Compiler::ParseParam_PtrDirect(MyBlob& x, uint8_t p)
 	{
-		int nVal = 0;
-		if (1 != sscanf(reinterpret_cast<const char*>(x.p), "%d", &nVal))
-			Fail("");
+		ParseSignedNumber(x, sizeof(Type::Size));
+		BwAdd('d' == p);
+	}
 
-		auto nVal2 = static_cast<Type::PtrDiff>(nVal);
-		if (nVal != nVal2)
+	void Compiler::ParseSignedNumber(MyBlob& x, uint32_t nBytes)
+	{
+		uint8_t neg = (x.n && ('-' == *x.p));
+		if (neg)
+			x.Move1();
+
+		uint64_t val = 0;
+		assert(nBytes <= sizeof(val));
+		while (x.n)
+		{
+			uint8_t c = *x.p;
+			c -= '0';
+			if (c > 9)
+				Fail("");
+
+			val = val * 10 + c;
+
+			x.Move1();
+		}
+
+		if ((nBytes < sizeof(val)) && (val >> (nBytes << 3)))
 			Fail("overflow");
 
-		Type::uintSize val = static_cast<Type::Size>(nVal2);
+		uintBigFor<uint64_t>::Type val2 = val;
+		if (neg)
+			val2.Negate();
 
-		m_Result.push_back(val.m_pData[0]);
-		m_Result.push_back(val.m_pData[1]);
-		BwAdd('d' == p);
+		for (uint32_t i = 0; i < nBytes; i++)
+			m_Result.push_back(val2.m_pData[val2.nBytes - nBytes + i]);
+
 	}
 
 	void Compiler::ParseParam_uintBig(MyBlob& line, uint32_t nBytes)
@@ -565,8 +586,6 @@ namespace bvm {
 			if (!x.n)
 				Fail("");
 
-			uintBigFor<uint64_t>::Type val2;
-
 			if ((Type::uintSize::nBytes == nBytes) && ('.' == p1))
 			{
 				// must be a label
@@ -577,30 +596,13 @@ namespace bvm {
 				Label& lbl = m_mapLabels[x.as_Blob()];
 				lbl.m_Refs.push_back(ToSize(m_Result.size()));
 
-				val2 = Zero;
+				Type::uintSize val = Zero;
+				for (uint32_t i = 0; i < val.nBytes; i++)
+					m_Result.push_back(val.m_pData[i]);
+
 			}
 			else
-			{
-				uint64_t val = 0;
-				assert(nBytes <= sizeof(val));
-				while (x.n)
-				{
-					char c = *x.p;
-					c -= '0';
-					if (c > 9)
-						Fail("");
-
-					val = val * 10 + c;
-
-					x.Move1();
-				}
-
-				val2 = val;
-			}
-
-			for (uint32_t i = 0; i < nBytes; i++)
-				m_Result.push_back(val2.m_pData[val2.nBytes - nBytes + i]);
-
+				ParseSignedNumber(x, nBytes);
 		}
 	}
 
@@ -610,6 +612,9 @@ namespace bvm {
 		line.ExtractToken(opcode, ' ');
 		if (!opcode.n)
 			return;
+
+		if ('#' == *opcode.p)
+			return; // comment
 
 		if ('.' == *opcode.p)
 		{
