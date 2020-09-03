@@ -31,8 +31,8 @@ namespace beam::wallet {
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
+        , m_pKdfSbbs(pWalletDB->get_SbbsKdf())
     {
-        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 

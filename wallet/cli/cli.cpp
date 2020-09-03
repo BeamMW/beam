@@ -1725,7 +1725,7 @@ namespace
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
     public:
-        CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
+        explicit CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
             LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
@@ -2623,7 +2623,7 @@ int main_impl(int argc, char* argv[])
 
                 auto command = vm[cli::COMMAND].as<string>();
 
-                auto cit = find_if(begin(commands), end(commands), [&command](auto& p) {return p.name == command; });
+                auto cit = find_if(begin(commands), end(commands), [&command](const auto& p) {return p.name == command; });
                 if (cit == end(commands))
                 {
                     LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
