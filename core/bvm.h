@@ -67,6 +67,10 @@ namespace bvm {
 			n = static_cast<uint32_t>(bb.size());
 			p = n ? &Cast::NotConst(bb.front()) : nullptr;
 		}
+		Buf(Zero_) {
+			p = nullptr;
+			n = 0;
+		}
 
 		uint8_t* p;
 		uint32_t n;
@@ -103,8 +107,8 @@ namespace bvm {
 		Buf m_Data;
 
 		int m_Flags = 0;
-		Type::Size m_Sp = 0;
-		Type::Size m_Ip = 0;
+		Type::Size m_Sp;
+		Type::Size m_Ip;
 
 		uint8_t m_pStack[s_StackSize];
 
@@ -182,10 +186,13 @@ namespace bvm {
 		virtual bool SaveVar(const uint8_t* pKey, Type::Size nKey, const uint8_t* pVal, Type::Size nVal) { return false; }
 		virtual bool DelVar(const uint8_t* pKey, Type::Size nKey) { return false; }
 
-		bool m_Fin = false;
+		bool IsDone() const { return !m_Ip; }
 		Amount m_Charge = 0;
 
-		void Setup(const Buf&, Type::Size ip);
+		void InitStack(const Buf& args); // initial arguments
+		void InitIp(Type::Size iMethod);
+
+		void Setup(const Buf&);
 		void RunOnce();
 	};
 

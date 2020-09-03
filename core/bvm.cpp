@@ -21,10 +21,35 @@ namespace bvm {
 	/////////////////////////////////////////////
 	// Processor
 
-	void Processor::Setup(const Buf& b, Type::Size ip)
+	void Processor::InitStack(const Buf& args)
+	{
+		Test(args.n <= s_StackSize - sizeof(StackFrame));
+		memcpy(m_pStack, args.p, args.n);
+		memset0(m_pStack + args.n, s_StackSize - args.n);
+
+		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
+	}
+
+	void Processor::InitIp(Type::Size iMethod)
+	{
+		Ptr ptr;
+		Cast::Down<Buf>(ptr) = m_Data;
+		ptr.m_Writable = false;
+
+		const auto* pHdr = ptr.RGet<Header>();
+
+		Type::Size n;
+		pHdr->m_NumMethods.Export(n);
+		Test(iMethod < n);
+
+		Test(ptr.Move(sizeof(Header) - sizeof(Header::MethodEntry) * Header::s_MethodsMin + sizeof(Header::MethodEntry) * iMethod));
+
+		DoJmp(*ptr.RGet<Header::MethodEntry>());
+	}
+
+	void Processor::Setup(const Buf& b)
 	{
 		m_Data = b;
-		m_Ip = ip;
 	}
 
 	const uint8_t* Processor::FetchInstruction(Type::Size n)
@@ -276,11 +301,7 @@ namespace bvm {
 
 	BVM_METHOD(ret)
 	{
-		if (m_Sp < sizeof(StackFrame))
-		{
-			m_Fin = true;
-			return;
-		}
+		Test(m_Sp >= sizeof(StackFrame));
 
 		m_Sp -= sizeof(StackFrame);
 		auto* pFrame = reinterpret_cast<StackFrame*>(m_pStack + m_Sp);
