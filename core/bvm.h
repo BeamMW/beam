@@ -218,7 +218,7 @@ namespace bvm {
 
 	public:
 
-		bool IsDone() const { return !m_Ip; }
+		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 		Amount m_Charge = 0;
 
 		void InitStack(const Buf& args); // initial arguments
