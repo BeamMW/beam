@@ -5265,40 +5265,42 @@ namespace beam::wallet
             PaymentInfo pi;
             auto tx = walletDB->getTx(txID);
 
-            bool bSuccess =
-                storage::getTxParameter(*walletDB,
-                                        txID,
-                                        tx->m_sender
-                                            ? TxParameterID::PeerID
-                                            : TxParameterID::MyID,
-                                        pi.m_Receiver) &&
-                storage::getTxParameter(*walletDB,
-                                        txID,
-                                        tx->m_sender
-                                            ? TxParameterID::MyID
-                                            : TxParameterID::PeerID,
-                                        pi.m_Sender) &&
-                storage::getTxParameter(
-                    *walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
-                storage::getTxParameter(
-                    *walletDB, txID, TxParameterID::Amount, pi.m_Amount);
+            bool bSuccess = storage::getTxParameter(*walletDB,
+                                txID,
+                                tx->m_sender
+                                    ? TxParameterID::PeerID
+                                    : TxParameterID::MyID,
+                                pi.m_Receiver);
+
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB,
+                                txID,
+                                tx->m_sender
+                                    ? TxParameterID::MyID
+                                    : TxParameterID::PeerID,
+                                pi.m_Sender);
+
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::KernelID, pi.m_KernelID);
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::Amount, pi.m_Amount);
 
             if (bSuccess)
             {
-                auto senderIdentity = tx->getSenderIdentity();
+                auto senderIdentity   = tx->getSenderIdentity();
                 auto receiverIdentity = tx->getReceiverIdentity();
-                bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+                bool showIdentity     = !senderIdentity.empty() && !receiverIdentity.empty();
+
                 std::ostringstream s;
                 s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
                 if (showIdentity)
                 {
                     s << "Sender identity: " << senderIdentity << std::endl;
                 }
+
                 s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
                 if (showIdentity)
                 {
                     s << "Receiver identity: " << receiverIdentity << std::endl;
                 }
+
                 s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
                 s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
 
@@ -5307,7 +5309,6 @@ namespace beam::wallet
 
             LOG_WARNING() << "Can't get transaction details";
             return "";
-
         }
 
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
