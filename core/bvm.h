@@ -53,13 +53,47 @@ namespace bvm {
 	};
 #pragma pack (pop)
 
+	struct Buf
+	{
+		Buf() {}
+		Buf(const ByteBuffer& bb) {
+			n = static_cast<uint32_t>(bb.size());
+			p = n ? &Cast::NotConst(bb.front()) : nullptr;
+		}
 
+		uint8_t* p;
+		uint32_t n;
+
+		void MoveRaw(uint32_t x) {
+			p += x;
+			n -= x;
+		}
+
+		void Move1() {
+			MoveRaw(1);
+		}
+
+		bool Move(uint32_t x) {
+			if (x > n)
+				return false;
+			MoveRaw(x);
+			return true;
+		}
+
+		template <typename T>
+		T* get_As(Type::Size nCount = 1) const
+		{
+			if (sizeof(T) * nCount > n)
+				return nullptr;
+			return reinterpret_cast<T*>(p);
+		}
+	};
 
 	class Processor
 	{
 		static const uint32_t s_StackSize = 0x10000; // 64K
 
-		Blob m_Data;
+		Buf m_Data;
 
 		int m_Flags = 0;
 		Type::Size m_Sp = 0;
@@ -68,15 +102,16 @@ namespace bvm {
 		uint8_t m_pStack[s_StackSize];
 
 		struct Ptr
-			:public Blob // ptr + max accessible size
+			:public Buf
 		{
 			bool m_Writable;
 
 			template <typename T>
 			const T* RGet(Type::Size nCount = 1) const
 			{
-				Test(sizeof(T) * nCount <= n);
-				return static_cast<const T*>(p);
+				auto* ret = get_As<T>(nCount);
+				Test(ret != nullptr);
+				return ret;
 			}
 
 			template <typename T>
@@ -144,7 +179,7 @@ namespace bvm {
 		bool m_Fin = false;
 		Amount m_Charge = 0;
 
-		void Setup(const Blob&, Type::Size ip);
+		void Setup(const Buf&, Type::Size ip);
 		void RunOnce();
 	};
 
@@ -181,16 +216,22 @@ namespace bvm {
 	public:
 
 		struct MyBlob
-			:public Blob
+			:public Buf
 		{
 			void StripBeg(char);
 
-			void ExtractToken(MyBlob& res, char chSep);
+			void ExtractToken(Buf& res, char chSep);
 			bool operator == (const char* sz) const
 			{
 				return
 					!memcmp(p, sz, n) &&
 					!sz[n];
+			}
+
+			const Blob& as_Blob() const
+			{
+				static_assert(sizeof(*this) == sizeof(Blob));
+				return *reinterpret_cast<const Blob*>(this);
 			}
 		};
 

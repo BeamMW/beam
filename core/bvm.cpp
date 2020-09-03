@@ -21,7 +21,7 @@ namespace bvm {
 	/////////////////////////////////////////////
 	// Processor
 
-	void Processor::Setup(const Blob& b, Type::Size ip)
+	void Processor::Setup(const Buf& b, Type::Size ip)
 	{
 		m_Data = b;
 		m_Ip = ip;
@@ -32,7 +32,7 @@ namespace bvm {
 		Type::Size nIp = m_Ip + n;
 		Test((nIp >= m_Ip) && (nIp <= m_Data.n));
 
-		const uint8_t* pRet = static_cast<const uint8_t*>(m_Data.p) + m_Ip;
+		const uint8_t* pRet = m_Data.p + m_Ip;
 		m_Ip = nIp;
 
 		return pRet;
@@ -74,8 +74,8 @@ namespace bvm {
 
 	void Processor::SetPtrStack(Ptr& out, Type::Size n)
 	{
-		n += m_Sp;
-		Test((n >= m_Sp) && (n <= s_StackSize));
+		n += m_Sp; // wraparound is ok, negative stack offsets are allowed
+		Test(n <= s_StackSize);
 
 		out.m_Writable = true;
 		out.p = m_pStack + n;
@@ -86,7 +86,7 @@ namespace bvm {
 	{
 		Test(n <= m_Data.n);
 		out.m_Writable = false;
-		out.p = reinterpret_cast<const uint8_t*>(m_Data.p) + n;
+		out.p = m_Data.p + n;
 		out.n = m_Data.n - n;
 	}
 
@@ -112,7 +112,7 @@ namespace bvm {
 			Test(ptr.n >= nSize);
 		}
 		else
-			ptr.p = FetchInstruction(nSize);
+			ptr.p = Cast::NotConst(FetchInstruction(nSize));
 
 		memcpy(pBuf, ptr.p, nSize);
 	}
@@ -344,27 +344,24 @@ namespace bvm {
 
 	void Compiler::MyBlob::StripBeg(char ch)
 	{
-		while (n && reinterpret_cast<const uint8_t*>(p)[0] == ch)
-		{
-			reinterpret_cast<const uint8_t*&>(p)++;
-			n--;
-		}
+		while (n && (*p == ch))
+			Move1();
 	}
 
-	void Compiler::MyBlob::ExtractToken(MyBlob& res, char chSep)
+	void Compiler::MyBlob::ExtractToken(Buf& res, char chSep)
 	{
 		StripBeg(chSep);
 
 		res.p = p;
 
-		const void* pPtr = memchr(p, chSep, n);
+		auto* pPtr = static_cast<uint8_t*>(memchr(p, chSep, n));
 		if (pPtr)
 		{
-			ptrdiff_t nDiff = reinterpret_cast<const uint8_t*>(pPtr) - reinterpret_cast<const uint8_t*>(p);
+			ptrdiff_t nDiff = pPtr - p;
 			res.n = static_cast<uint32_t>(nDiff);
 			assert(res.n);
 
-			p = reinterpret_cast<const uint8_t*>(pPtr) + 1;
+			p = pPtr + 1;
 			n -= (res.n + 1);
 		}
 		else
@@ -399,7 +396,7 @@ namespace bvm {
 		if (x.n < 2)
 			Fail("");
 
-		uint8_t p1 = *reinterpret_cast<const uint8_t*>(x.p);
+		uint8_t p1 = *x.p;
 		switch (p1)
 		{
 		case 's':
@@ -409,17 +406,15 @@ namespace bvm {
 			Fail("");
 		}
 
-		x.n--;
-		reinterpret_cast<const uint8_t*&>(x.p)++;
+		x.Move1();
 
-		uint8_t p2 = *reinterpret_cast<const uint8_t*>(x.p);
+		uint8_t p2 = *x.p;
 		uint8_t bIndirect = 0;
 		switch (p2)
 		{
 		case 's':
 		case 'd':
-			x.n--;
-			reinterpret_cast<const uint8_t*&>(x.p)++;
+			x.Move1();
 			bIndirect = 1;
 			std::swap(p1, p2);
 		}
@@ -457,14 +452,13 @@ namespace bvm {
 		if (!x.n)
 			Fail("");
 
-		uint8_t p1 = *reinterpret_cast<const uint8_t*>(x.p);
+		uint8_t p1 = *x.p;
 		uint8_t bIndirect = 0;
 		switch (p1)
 		{
 		case 's':
 		case 'd':
-			x.n--;
-			reinterpret_cast<const uint8_t*&>(x.p)++;
+			x.Move1();
 			bIndirect = 1;
 		}
 
@@ -482,12 +476,11 @@ namespace bvm {
 			if ((Type::uintSize::nBytes == nBytes) && ('.' == p1))
 			{
 				// must be a label
-				x.n--;
-				reinterpret_cast<const uint8_t*&>(x.p)++;
+				x.Move1();
 				if (!x.n)
 					Fail("");
 
-				Label& lbl = m_mapLabels[x];
+				Label& lbl = m_mapLabels[x.as_Blob()];
 				lbl.m_Refs.push_back(ToSize(m_Result.size()));
 
 				val2 = Zero;
@@ -498,15 +491,14 @@ namespace bvm {
 				assert(nBytes <= sizeof(val));
 				while (x.n)
 				{
-					char c = *reinterpret_cast<const char*>(x.p);
+					char c = *x.p;
 					c -= '0';
 					if (c > 9)
 						Fail("");
 
 					val = val * 10 + c;
 
-					x.n--;
-					reinterpret_cast<const uint8_t*&>(x.p)++;
+					x.Move1();
 				}
 
 				val2 = val;
@@ -525,16 +517,15 @@ namespace bvm {
 		if (!opcode.n)
 			return;
 
-		if ('.' == *reinterpret_cast<const uint8_t*>(opcode.p))
+		if ('.' == *opcode.p)
 		{
-			reinterpret_cast<const uint8_t*&>(opcode.p)++;
-			opcode.n--;
+			opcode.Move1();
 			opcode.StripBeg(' ');
 
 			if (!opcode.n)
 				Fail("empty label");
 
-			Label& x = m_mapLabels[opcode];
+			Label& x = m_mapLabels[opcode.as_Blob()];
 			if (Label::s_Invalid != x.m_Pos)
 				Fail("duplicated label");
 
