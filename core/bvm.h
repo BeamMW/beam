@@ -15,6 +15,7 @@
 #pragma once
 #include "block_crypt.h"
 #include "bvm_opcodes.h"
+#include <boost/intrusive/list.hpp>
 
 #define BVM_ParamType_p Ptr
 #define BVM_ParamType_f1 uintBig_t<1>
@@ -59,6 +60,8 @@ namespace bvm {
 		MethodEntry m_pMethod[s_MethodsMin]; // var size
 	};
 #pragma pack (pop)
+
+	typedef ECC::uintBig ContractID;
 
 	struct Buf
 	{
@@ -179,20 +182,48 @@ namespace bvm {
 		void SetPtrStack(Ptr& out, Type::Size n);
 		void SetPtrData(Ptr& out, Type::Size n);
 
-	public:
+		void PushFrame(const Type::uintSize& frame);
+
+	protected:
+
+		struct FarCalls
+		{
+			struct Frame
+				:public boost::intrusive::list_base_hook<>
+			{
+				virtual ~Frame() {}
+
+				Buf m_Data;
+				Type::Size m_LocalDepth;
+			};
+
+			struct Stack
+				:public boost::intrusive::list<Frame>
+			{
+				~Stack() { Clear(); }
+				void Clear();
+				void Pop();
+
+			} m_Stack;
+
+			static const Type::Size s_MaxDepth = 32;
+
+		} m_FarCalls;
 
 		virtual void AddSig(const ECC::Point&) {}
 		virtual bool LoadVar(const uint8_t* pKey, Type::Size nKey, uint8_t* pVal, Type::Size nVal) { return false; }
 		virtual bool SaveVar(const uint8_t* pKey, Type::Size nKey, const uint8_t* pVal, Type::Size nVal) { return false; }
 		virtual bool DelVar(const uint8_t* pKey, Type::Size nKey) { return false; }
+		virtual void LoadFarFrame(const ContractID&) { Exc::Throw(); }
+
+	public:
 
 		bool IsDone() const { return !m_Ip; }
 		Amount m_Charge = 0;
 
 		void InitStack(const Buf& args); // initial arguments
-		void InitIp(Type::Size iMethod);
+		void CallFar(const ContractID&, Type::Size iMethod);
 
-		void Setup(const Buf&);
 		void RunOnce();
 	};
 

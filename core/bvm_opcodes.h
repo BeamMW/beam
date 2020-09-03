@@ -66,6 +66,11 @@
 	macro(addr, f2) \
 	macro(frame, f2) \
 
+#define BVMOp_call_far(macro) \
+	macro(trgContract, p) \
+	macro(iMethod, f2) \
+	macro(frame, f2) \
+
 #define BVMOp_jmp(macro) \
 	macro(addr, f2) \
 
@@ -129,5 +134,6 @@
 	macro(jbz) \
 	macro(fail) \
 	macro(ret) \
+	macro(call_far) \
 	macro(add_sig)
 

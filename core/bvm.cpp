@@ -28,10 +28,33 @@ namespace bvm {
 		memset0(m_pStack + args.n, s_StackSize - args.n);
 
 		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
+		m_Ip = 0;
 	}
 
-	void Processor::InitIp(Type::Size iMethod)
+	void Processor::FarCalls::Stack::Clear()
 	{
+		while (!empty())
+			Pop();
+	}
+
+	void Processor::FarCalls::Stack::Pop()
+	{
+		auto* p = &back();
+		pop_back();
+		delete p;
+	}
+
+	void Processor::CallFar(const ContractID& cid, Type::Size iMethod)
+	{
+		Test(m_FarCalls.m_Stack.size() < m_FarCalls.s_MaxDepth);
+
+		LoadFarFrame(cid);
+
+		assert(!m_FarCalls.m_Stack.empty());
+		auto& x = m_FarCalls.m_Stack.back();
+		x.m_LocalDepth = 0;
+		m_Data = x.m_Data;
+
 		Ptr ptr;
 		Cast::Down<Buf>(ptr) = m_Data;
 		ptr.m_Writable = false;
@@ -45,11 +68,6 @@ namespace bvm {
 		Test(ptr.Move(sizeof(Header) - sizeof(Header::MethodEntry) * Header::s_MethodsMin + sizeof(Header::MethodEntry) * iMethod));
 
 		DoJmp(*ptr.RGet<Header::MethodEntry>());
-	}
-
-	void Processor::Setup(const Buf& b)
-	{
-		m_Data = b;
 	}
 
 	const uint8_t* Processor::FetchInstruction(Type::Size n)
@@ -279,7 +297,7 @@ namespace bvm {
 		Test(m_Ip < m_Data.n);
 	}
 
-	BVM_METHOD(call)
+	void Processor::PushFrame(const Type::uintSize& frame)
 	{
 		Type::Size nFrame;
 		frame.Export(nFrame);
@@ -292,7 +310,24 @@ namespace bvm {
 		pFrame->m_RetAddr = m_Ip;
 
 		m_Sp += nFrame + sizeof(StackFrame);
+	}
+
+	BVM_METHOD(call)
+	{
+		PushFrame(frame);
 		DoJmp(addr);
+		m_FarCalls.m_Stack.back().m_LocalDepth++;
+	}
+
+	BVM_METHOD(call_far)
+	{
+		PushFrame(frame);
+
+		const auto* pID = trgContract.RGet<ContractID>();
+		Type::Size nM;
+		iMethod.Export(nM);
+
+		CallFar(*pID, nM);
 	}
 
 	BVM_METHOD(fail) {
@@ -311,6 +346,18 @@ namespace bvm {
 
 		Test(m_Sp >= nFrame);
 		m_Sp -= nFrame;
+
+		Type::Size& nDepth = m_FarCalls.m_Stack.back().m_LocalDepth;
+		if (nDepth)
+			nDepth--;
+		else
+		{
+			m_FarCalls.m_Stack.Pop();
+			if (m_FarCalls.m_Stack.empty())
+				return; // finished
+
+			m_Data = m_FarCalls.m_Stack.back().m_Data;
+		}
 
 		DoJmp(pFrame->m_RetAddr);
 	}
