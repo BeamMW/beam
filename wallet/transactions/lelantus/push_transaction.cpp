@@ -103,11 +103,6 @@ namespace beam::wallet::lelantus
             OnFailed(TxFailureReason::FeeIsTooSmall);
             return;
         }
-        else if (nRegistered == proto::TxStatus::InvalidContext)
-        {
-            OnFailed(TxFailureReason::InvalidTransaction);
-            return;
-        }
 
         if (!m_OutpHeight)
         {
