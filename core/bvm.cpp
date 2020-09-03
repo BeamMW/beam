@@ -250,22 +250,31 @@ namespace bvm {
 
 	void Processor::DoCmp(const uint8_t* p1, const uint8_t* p2, Type::Size nSize)
 	{
-		for (uint32_t i = 0; i < nSize; i++)
-		{
-			if (p1[i] < p2[i])
-			{
-				m_Flags = -1;
-				return;
-			}
+		int n = memcmp(p1, p2, nSize);
+		m_Flags = (n < 0) ? -1 : (n > 0);
+	}
 
-			if (p1[i] < p2[i])
-			{
-				m_Flags = 1;
-				return;
-			}
-		}
+	BVM_METHOD(add)
+	{
+		Type::Size nSize;
+		size.Export(nSize);
+		DoAdd(dst, src.RGet<uint8_t>(nSize), nSize);
+	}
 
-		m_Flags = 0;
+	BVM_METHOD(add1) { DoAdd(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(add2) { DoAdd(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(add4) { DoAdd(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(add8) { DoAdd(dst, src.m_pData, src.nBytes); }
+
+	void Processor::DoAdd(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	{
+		struct Dummy :public uintBigImpl {
+			static uint8_t Do(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize) {
+				return _Inc(dst.WGet<uint8_t>(nSize), nSize, pSrc);
+			}
+		};
+
+		m_Flags = Dummy::Do(dst, pSrc, nSize);
 	}
 
 	BVM_METHOD(jmp) {
