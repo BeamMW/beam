@@ -48,11 +48,16 @@ namespace bvm {
 	{
 		Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 
-		LoadFarFrame(cid);
-
-		assert(!m_FarCalls.m_Stack.empty());
+		m_FarCalls.m_Stack.push_back(*new FarCalls::Frame);
 		auto& x = m_FarCalls.m_Stack.back();
+
+		x.m_Cid = cid;
 		x.m_LocalDepth = 0;
+
+		VarKey vk;
+		SetVarKey(vk);
+		LoadVar(vk, x.m_Data);
+
 		m_Data = x.m_Data;
 
 		Ptr ptr;
@@ -362,32 +367,51 @@ namespace bvm {
 		DoJmp(pFrame->m_RetAddr);
 	}
 
+	void Processor::SetVarKey(VarKey& vk)
+	{
+		memcpy(vk.m_p, m_FarCalls.m_Stack.back().m_Cid.m_pData, ContractID::nBytes);
+		vk.m_Size = static_cast<Type::Size>(ContractID::nBytes);
+	}
+
+	void Processor::SetVarKey(VarKey& vk, const Ptr& key, const Type::uintSize& nKey)
+	{
+		Type::Size nKey_;
+		nKey.Export(nKey_);
+		Test(nKey_ <= Limits::VarKeySize);
+
+		SetVarKey(vk);
+		vk.m_p[vk.m_Size++] = 0;
+
+		memcpy(vk.m_p + vk.m_Size, key.RGet<uint8_t>(nKey_), nKey_);
+		vk.m_Size += nKey_;
+	}
+
 	BVM_METHOD(load_var)
 	{
-		Type::Size nDst_, nKey_;
-		nDst.Export(nDst_);
-		nKey.Export(nKey_);
+		VarKey vk;
+		SetVarKey(vk, key, nKey);
 
-		bool b = LoadVar(key.RGet<uint8_t>(nKey_), nKey_, dst.WGet<uint8_t>(nDst_), nDst_);
-		m_Flags = !!b;
+		auto* pSizeDst = pnDst.WGet<Type::uintSize>();
+
+		Type::Size nDst_;
+		pSizeDst->Export(nDst_);
+		Test(nDst_ <= Limits::VarSize);
+
+		LoadVar(vk, dst.WGet<uint8_t>(nDst_), nDst_);
+
+		*pSizeDst = nDst_;
 	}
 
 	BVM_METHOD(save_var)
 	{
-		Type::Size nDst_, nKey_;
+		VarKey vk;
+		SetVarKey(vk, key, nKey);
+
+		Type::Size nDst_;
 		nDst.Export(nDst_);
-		nKey.Export(nKey_);
+		Test(nDst_ <= Limits::VarSize);
 
-		bool b = SaveVar(key.RGet<uint8_t>(nKey_), nKey_, dst.RGet<uint8_t>(nDst_), nDst_);
-		m_Flags = !!b;
-	}
-
-	BVM_METHOD(del_var)
-	{
-		Type::Size nKey_;
-		nKey.Export(nKey_);
-
-		bool b = DelVar(key.RGet<uint8_t>(nKey_), nKey_);
+		bool b = SaveVar(vk, dst.RGet<uint8_t>(nDst_), nDst_);
 		m_Flags = !!b;
 	}
 

@@ -89,17 +89,13 @@
 
 #define BVMOp_load_var(macro) \
 	macro(dst, p) \
-	macro(nDst, f2) \
+	macro(pnDst, p) \
 	macro(key, p) \
 	macro(nKey, f2)
 
 #define BVMOp_save_var(macro) \
 	macro(dst, p) \
 	macro(nDst, f2) \
-	macro(key, p) \
-	macro(nKey, f2)
-
-#define BVMOp_del_var(macro) \
 	macro(key, p) \
 	macro(nKey, f2)
 
@@ -123,7 +119,6 @@
 	macro(cmp8) \
 	macro(load_var) \
 	macro(save_var) \
-	macro(del_var) \
 	macro(call) \
 	macro(jmp) \
 	macro(jz) \

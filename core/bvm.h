@@ -38,6 +38,8 @@ namespace bvm {
 	{
 		static const uint32_t FarCallDepth = 32;
 		static const uint32_t StackSize = 0x10000; // 64K
+		static const uint32_t VarKeySize = 256;
+		static const uint32_t VarSize = 0x2000; // 8K
 	};
 
 	enum class OpCode : uint8_t
@@ -190,14 +192,22 @@ namespace bvm {
 
 	protected:
 
+		struct VarKey
+		{
+			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
+			Type::Size m_Size;
+		};
+
+		void SetVarKey(VarKey&);
+		void SetVarKey(VarKey&, const Ptr& key, const Type::uintSize& nKey);
+
 		struct FarCalls
 		{
 			struct Frame
 				:public boost::intrusive::list_base_hook<>
 			{
-				virtual ~Frame() {}
-
-				Buf m_Data;
+				ContractID m_Cid;
+				ByteBuffer m_Data;
 				Type::Size m_LocalDepth;
 			};
 
@@ -213,10 +223,9 @@ namespace bvm {
 		} m_FarCalls;
 
 		virtual void AddSig(const ECC::Point&) {}
-		virtual bool LoadVar(const uint8_t* pKey, Type::Size nKey, uint8_t* pVal, Type::Size nVal) { return false; }
-		virtual bool SaveVar(const uint8_t* pKey, Type::Size nKey, const uint8_t* pVal, Type::Size nVal) { return false; }
-		virtual bool DelVar(const uint8_t* pKey, Type::Size nKey) { return false; }
-		virtual void LoadFarFrame(const ContractID&) { Exc::Throw(); }
+		virtual void LoadVar(const VarKey&, uint8_t* pVal, Type::Size& nValInOut) {}
+		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
+		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, Type::Size nVal) { return false; }
 
 	public:
 
