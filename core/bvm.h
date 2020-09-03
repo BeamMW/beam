@@ -33,7 +33,14 @@ namespace bvm {
 		typedef uintBigFor<Size>::Type uintSize; // big-endian
 	};
 
+	enum class OpCode : uint8_t
+	{
+#define THE_MACRO(name) name,
+		BVM_OpCodes(THE_MACRO)
+#undef THE_MACRO
 
+		count
+	};
 
 #pragma pack (push, 1)
 	struct StackFrame
@@ -134,9 +141,8 @@ namespace bvm {
 				Exc::Throw();
 		}
 
-
 #define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name,
-#define THE_MACRO(id, name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
+#define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
 		BVM_OpCodes(THE_MACRO)
 #undef THE_MACRO
 #undef THE_MACRO_ParamDecl

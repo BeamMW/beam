@@ -101,33 +101,33 @@
 
 
 #define BVM_OpCodes(macro) \
-	macro(0x01, mov) \
-	macro(0x02, mov1) \
-	macro(0x03, mov2) \
-	macro(0x04, mov4) \
-	macro(0x05, mov8) \
-	macro(0x09, xor) \
-	macro(0x0a, xor1) \
-	macro(0x0b, xor2) \
-	macro(0x0c, xor4) \
-	macro(0x0d, xor8) \
-	macro(0x11, cmp) \
-	macro(0x12, cmp1) \
-	macro(0x13, cmp2) \
-	macro(0x14, cmp4) \
-	macro(0x15, cmp8) \
-	macro(0x31, load_var) \
-	macro(0x32, save_var) \
-	macro(0x33, del_var) \
-	macro(0x20, call) \
-	macro(0x21, jmp) \
-	macro(0x22, jz) \
-	macro(0x23, jnz) \
-	macro(0x24, jg) \
-	macro(0x25, jb) \
-	macro(0x26, jgz) \
-	macro(0x27, jbz) \
-	macro(0x38, fail) \
-	macro(0x39, ret) \
-	macro(0x3a, add_sig)
+	macro(mov) \
+	macro(mov1) \
+	macro(mov2) \
+	macro(mov4) \
+	macro(mov8) \
+	macro(xor) \
+	macro(xor1) \
+	macro(xor2) \
+	macro(xor4) \
+	macro(xor8) \
+	macro(cmp) \
+	macro(cmp1) \
+	macro(cmp2) \
+	macro(cmp4) \
+	macro(cmp8) \
+	macro(load_var) \
+	macro(save_var) \
+	macro(del_var) \
+	macro(call) \
+	macro(jmp) \
+	macro(jz) \
+	macro(jnz) \
+	macro(jg) \
+	macro(jb) \
+	macro(jgz) \
+	macro(jbz) \
+	macro(fail) \
+	macro(ret) \
+	macro(add_sig)
 

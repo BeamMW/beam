@@ -129,8 +129,8 @@ namespace bvm {
 #define THE_MACRO_ParamPass(name, type) par##name,
 #define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; FetchParam(br, par##name);
 
-#define THE_MACRO(id, name) \
-		case id: \
+#define THE_MACRO(name) \
+		case OpCode::name: \
 			{ \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
@@ -541,10 +541,10 @@ namespace bvm {
 #define MY_TOKENIZE2(a, b) a##b
 #define MY_TOKENIZE1(a, b) MY_TOKENIZE2(a, b)
 #define THE_MACRO_ParamCompile(name, type) MY_TOKENIZE1(ParseParam_, BVM_ParamType_##type)(line);
-#define THE_MACRO(id, name) \
+#define THE_MACRO(name) \
 		if (opcode == #name) \
 		{ \
-			m_Result.push_back(id); \
+			m_Result.push_back(static_cast<uint8_t>(OpCode::name)); \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
 		}
