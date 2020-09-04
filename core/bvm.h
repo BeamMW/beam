@@ -37,7 +37,7 @@ namespace bvm {
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
-		static const uint32_t StackSize = 0x10000; // 64K
+		static const uint32_t StackSize = 0x8000; // 32K
 		static const uint32_t VarKeySize = 256;
 		static const uint32_t VarSize = 0x2000; // 8K
 	};
@@ -195,6 +195,9 @@ namespace bvm {
 		void SetPtrData(Ptr& out, Type::Size n);
 
 		void PushFrame(const Type::uintSize& frame);
+
+		template <bool>
+		void TestStackPtr(Type::Size);
 
 	protected:
 

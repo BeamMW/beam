@@ -120,12 +120,19 @@ namespace bvm {
 			SetPtrStack(out, n);
 	}
 
+	template <> void Processor::TestStackPtr<true>(Type::Size n) {
+		Test(n <= Limits::StackSize);
+	}
+
+	template <> void Processor::TestStackPtr<false>(Type::Size) {
+	}
+
 	void Processor::SetPtrStack(Ptr& out, Type::Size n)
 	{
 		n += m_Sp; // wraparound is ok, negative stack offsets are allowed
 
-		static_assert(static_cast<Type::Size>(-1) < Limits::StackSize, "uncomment the next line when this fails");
-		//Test(n <= Limits::StackSize);
+		constexpr bool bAlwaysInRage = (static_cast<Type::Size>(-1) <= Limits::StackSize);
+		TestStackPtr<!bAlwaysInRage>(n);
 
 		out.m_Writable = true;
 		out.p = m_pStack + n;
