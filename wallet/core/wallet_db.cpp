@@ -5288,8 +5288,14 @@ namespace beam::wallet
                 auto receiverIdentity = tx->getReceiverIdentity();
                 bool showIdentity     = !senderIdentity.empty() && !receiverIdentity.empty();
 
+                auto sender = std::to_string(pi.m_Sender);
+                if (tx->m_txType == wallet::TxType::PushTransaction && !tx->m_sender)
+                {
+                    sender = "shielded pool";
+                }
+
                 std::ostringstream s;
-                s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
+                s << "Sender: " << sender << std::endl;
                 if (showIdentity)
                 {
                     s << "Sender identity: " << senderIdentity << std::endl;
