@@ -146,7 +146,7 @@ bool LoadLaserParams(const po::variables_map& vm,
     if (vm.count(cli::LASER_FEE))
     {
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
-        if (*fee < cli::kMinimumFee)
+        if (*fee < kMinFeeInGroth)
         {
             LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
             return false;
@@ -221,7 +221,7 @@ bool LaserOpen(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
+    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
     WalletID receiverWalletID(Zero);
 
     if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID))
@@ -238,7 +238,7 @@ bool LaserWait(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
+    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
     WalletID receiverWalletID(Zero);
 
     if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, true))

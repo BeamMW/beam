@@ -126,10 +126,10 @@ namespace beam
         extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-		extern const char* FAST_SYNC;
-		extern const char* GENERATE_RECOVERY_PATH;
-		extern const char* RECOVERY_AUTO_PATH;
-		extern const char* RECOVERY_AUTO_PERIOD;
+        extern const char* FAST_SYNC;
+        extern const char* GENERATE_RECOVERY_PATH;
+        extern const char* RECOVERY_AUTO_PATH;
+        extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* SWAP_INIT;
         extern const char* SWAP_ACCEPT;
         extern const char* SWAP_TOKEN;
@@ -219,9 +219,6 @@ namespace beam
         extern const char* SHIELDED_ID;
         extern const char* VOUCHER_COUNT;
         extern const char* MAX_PRIVACY;
-
-        // Defaults that should be accessible outside
-        extern const Amount kMinimumFee;
     }
 
     enum OptionsFlag : int
