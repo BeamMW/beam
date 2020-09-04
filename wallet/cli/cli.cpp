@@ -2094,7 +2094,7 @@ namespace
                 Amount shieldedFee = 0;
                 if (!vSelShielded.empty())
                 {
-                    Amount sum  = accumulateCoinsSum(vSelStd, vSelShielded);
+                    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
 
                     if (sum < amount + fee) 
                     {

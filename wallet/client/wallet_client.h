@@ -20,6 +20,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
+#include "wallet/core/common_utils.h"
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
 #include "wallet/client/extensions/notifications/notification_observer.h"
@@ -115,8 +116,8 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(Amount change) {}
-        virtual void onChangeForShieldedCalculated(Amount sum, Amount change, Amount fee) {}
-        virtual void onMinFeeForShieldedCalculated(Amount minlFee, Amount shieldedFee) {}
+        virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
+        virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
@@ -163,8 +164,7 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount) override;
-        void calcChangeConsideringShielded(Amount amount, Amount fee) override;
-        void calcMinimalFee(Amount amount, Amount beforehandMinFee) override;
+        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
@@ -273,5 +273,6 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
+        ShieldedCoinsSelectionInfo _shieldedCoinsSelectionResult;
     };
 }
