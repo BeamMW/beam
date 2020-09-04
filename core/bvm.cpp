@@ -178,7 +178,7 @@ namespace bvm {
 #define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; FetchParam(br, par##name);
 
 #define THE_MACRO(name) \
-		case OpCode::name: \
+		case OpCode::n_##name: \
 			{ \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
@@ -650,7 +650,7 @@ namespace bvm {
 #define THE_MACRO(name) \
 		if (opcode == #name) \
 		{ \
-			m_Result.push_back(static_cast<uint8_t>(OpCode::name)); \
+			m_Result.push_back(static_cast<uint8_t>(OpCode::n_##name)); \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
 		}

@@ -44,7 +44,7 @@ namespace bvm {
 
 	enum class OpCode : uint8_t
 	{
-#define THE_MACRO(name) name,
+#define THE_MACRO(name) n_##name,
 		BVM_OpCodes(THE_MACRO)
 #undef THE_MACRO
 
