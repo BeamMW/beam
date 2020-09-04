@@ -282,7 +282,7 @@ namespace bvm {
 		struct MyBlob
 			:public Buf
 		{
-			void StripBeg(char);
+			static bool IsWhitespace(char);
 
 			void ExtractToken(Buf& res, char chSep);
 			bool operator == (const char* sz) const
@@ -299,6 +299,7 @@ namespace bvm {
 			}
 		};
 
+		uint32_t m_iLine = 0;
 		MyBlob m_Input;
 		ByteBuffer m_Result; // without the header
 

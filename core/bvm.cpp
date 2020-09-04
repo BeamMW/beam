@@ -452,16 +452,19 @@ namespace bvm {
 		return ret;
 	}
 
-	void Compiler::MyBlob::StripBeg(char ch)
+	bool Compiler::MyBlob::IsWhitespace(char c)
 	{
-		while (n && (*p == ch))
-			Move1();
+		switch (c)
+		{
+		case ' ':
+		case '\t':
+			return true;
+		}
+		return false;
 	}
 
 	void Compiler::MyBlob::ExtractToken(Buf& res, char chSep)
 	{
-		StripBeg(chSep);
-
 		res.p = p;
 
 		auto* pPtr = static_cast<uint8_t*>(memchr(p, chSep, n));
@@ -469,7 +472,6 @@ namespace bvm {
 		{
 			ptrdiff_t nDiff = pPtr - p;
 			res.n = static_cast<uint32_t>(nDiff);
-			assert(res.n);
 
 			p = pPtr + 1;
 			n -= (res.n + 1);
@@ -479,17 +481,27 @@ namespace bvm {
 			res.n = n;
 			n = 0;
 		}
+
+		// delete whitespaces
+		while (n && IsWhitespace(*p))
+			Move1();
+		while (n && IsWhitespace(p[n - 1]))
+			n--;
+
 	}
 
 	bool Compiler::ParseOnce()
 	{
-		MyBlob line;
-		m_Input.ExtractToken(line, '\n');
-		if (!line.n)
+		if (!m_Input.n)
 			return false;
 
-		line.StripBeg('\t');
-		ParseLine(line);
+		MyBlob line1, line2;
+		m_Input.ExtractToken(line1, '\n');
+		m_iLine++;
+
+		line1.ExtractToken(line2, '#'); // remove comments
+
+		ParseLine(line2);
 
 		if (m_BitWriter.m_Bits)
 			BwFlushStrict();
@@ -501,7 +513,6 @@ namespace bvm {
 	{
 		MyBlob x;
 		line.ExtractToken(x, ',');
-		x.StripBeg(' ');
 
 		if (x.n < 2)
 			Fail("");
@@ -578,7 +589,6 @@ namespace bvm {
 	{
 		MyBlob x;
 		line.ExtractToken(x, ',');
-		x.StripBeg(' ');
 
 		if (!x.n)
 			Fail("");
@@ -629,13 +639,9 @@ namespace bvm {
 		if (!opcode.n)
 			return;
 
-		if ('#' == *opcode.p)
-			return; // comment
-
 		if ('.' == *opcode.p)
 		{
 			opcode.Move1();
-			opcode.StripBeg(' ');
 
 			if (!opcode.n)
 				Fail("empty label");
