@@ -185,7 +185,7 @@ namespace bvm {
 #define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; FetchParam(br, par##name);
 
 #define THE_MACRO(name) \
-		case OpCode::n_##name: \
+		case static_cast<uint8_t>(OpCode::n_##name): \
 			{ \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
