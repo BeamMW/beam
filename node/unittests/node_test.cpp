@@ -24,6 +24,7 @@
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../core/unittest/mini_blockchain.h"
+#include "../../core/bvm.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -2940,6 +2941,204 @@ namespace beam
 		}
 	}
 
+
+	struct MyBvmProcessor
+		:public bvm::Processor
+	{
+		bvm::VariableMem::Set m_Vars;
+
+		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override
+		{
+			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
+			if (pE && !pE->m_Data.empty())
+			{
+				auto n0 = static_cast<bvm::Type::Size>(pE->m_Data.size());
+				memcpy(pVal, &pE->m_Data.front(), std::min(n0, nValInOut));
+				nValInOut = n0;
+			}
+			else
+				nValInOut = 0;
+		}
+
+		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override
+		{
+			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
+			if (pE)
+				res = pE->m_Data;
+			else
+				res.clear();
+		}
+
+		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override
+		{
+			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
+		}
+
+		bool SaveVar(const Blob& key, const uint8_t* pVal, bvm::Type::Size nVal)
+		{
+			auto* pE = m_Vars.Find(key);
+			bool bNew = !pE;
+
+			if (nVal)
+			{
+				if (!pE)
+					pE = m_Vars.Create(key);
+
+				Blob(pVal, nVal).Export(pE->m_Data);
+			}
+			else
+			{
+				if (pE)
+					m_Vars.Delete(*pE);
+			}
+
+			return !bNew;
+		}
+
+		void SaveContract(const bvm::ContractID& cid, const ByteBuffer& b)
+		{
+			SaveVar(cid, &b.front(), static_cast<bvm::Type::Size>(b.size()));
+		}
+
+
+		uint32_t RunMany(const bvm::ContractID& cid, bvm::Type::Size iMethod, const bvm::Buf& args)
+		{
+			std::ostringstream os;
+			m_pDbg = &os;
+
+			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
+
+			InitStack(args);
+			CallFar(cid, iMethod);
+
+			uint32_t nCycles = 0;
+			for (; !IsDone(); nCycles++)
+				RunOnce();
+
+			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
+
+			std::cout << os.str();
+
+			return nCycles;
+		}
+	};
+
+	void TestContracts()
+	{
+
+		bvm::Compiler c;
+
+		static const char szProg[] = "\
+.method_0                     # c'tor                 \n\
+    #    u2, s-6,  nNumOracles                        \n\
+    #    u8, s-14, nRate                              \n\
+    #    pk[],     oracles pks (var size)             \n\
+    mov2 s0, s-6              # iOracle = nNumOracles \n\
+    mov2 s2, -14              # ppPk, end of array    \n\
+.loop_0                                               \n\
+    cmp2 s0, 0                                        \n\
+    jz .loop_0_end            # iOracle == 0          \n\
+    add2 s0, -1               # iOracle--             \n\
+    add2 s2, -33              # ppPk--                \n\
+    add_sig ss2               # add_sig(*ppPk)        \n\
+    save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
+    jmp .loop_0                                       \n\
+.loop_0_end                                           \n\
+    save_var s-14, 8, s0, 1   # V=nRate, K=(u1)0      \n\
+    ret                                               \n\
+                                                      \n\
+.method_1                     # d'tor                 \n\
+    # No arguments, just remove all the vars          \n\
+    mov2 s0, 0                # iOracle = 0           \n\
+    save_var s0, 0, s0, 1     # del rate variable     \n\
+    mov2 s2, 33                                       \n\
+.loop_1                                               \n\
+    load_var s4, s2, s0, 2                            \n\
+    cmp2 s2, 33               # pk loaded ok?         \n\
+    jz .loop_1_end                                    \n\
+    save_var s0, 0, s0, 2     # del pk variable       \n\
+    add_sig s4                                        \n\
+    add2 s0, 1                # iOracle++             \n\
+    jmp .loop_1                                       \n\
+.loop_1_end                                           \n\
+    ret                                               \n\
+                                                      \n\
+.error                                                \n\
+    fail                                              \n\
+                                                      \n\
+.method_2                     # SetRate               \n\
+    #    iOracle, u2, s-6                             \n\
+    #    rate, u8 s-14                                \n\
+    mov2 s0, 33                                       \n\
+    load_var s2, s0, s-6, 2                           \n\
+    cmp2 s0, 33                                       \n\
+    jnz .error                                        \n\
+    add_sig s2                                        \n\
+    mov1 s0, 0                                        \n\
+    save_var s-14, 8, s0, 1                           \n\
+    ret                                               \n\
+";
+
+
+
+
+
+		c.m_Input.p = (uint8_t*)szProg;
+		c.m_Input.n = sizeof(szProg) - sizeof(szProg[0]);
+
+		while (c.ParseOnce())
+			;
+
+		c.Finalyze();
+
+
+		MyBvmProcessor proc;
+		bvm::ContractID cid;
+
+		{
+			// c'tor
+
+#pragma pack (push, 1)
+			struct Args {
+				ECC::Point m_pPk[3];
+				uintBigFor<Amount>::Type m_Rate;
+				bvm::Type::uintSize m_Oracles;
+			} args;
+#pragma pack (pop)
+
+			args.m_Oracles = (bvm::Type::Size) 3U;
+			args.m_Rate = 77216U;
+			for (size_t i = 0; i < _countof(args.m_pPk); i++)
+			{
+				ECC::Scalar::Native k;
+				ECC::SetRandom(k);
+
+				ECC::Point::Native pt = ECC::Context::get().G * k;
+				args.m_pPk[i] = pt;
+			}
+
+			bvm::get_Cid(cid, c.m_Result, Blob(&args, sizeof(args)));
+			proc.SaveContract(cid, c.m_Result);
+
+			proc.RunMany(cid, 0, bvm::Buf(&args, sizeof(args)));
+		}
+
+		{
+			// method_2: set rate
+#pragma pack (push, 1)
+			struct Args {
+				uintBigFor<Amount>::Type m_Rate;
+				bvm::Type::uintSize m_iOracle;
+			} args;
+#pragma pack (pop)
+
+			args.m_Rate = 277216U;
+			args.m_iOracle = (bvm::Type::Size) 2;
+
+			proc.RunMany(cid, 2, bvm::Buf(&args, sizeof(args)));
+		}
+	}
+
 }
 
 void TestAll()
@@ -2971,6 +3170,7 @@ void TestAll()
 	{
 		beam::TestHalving();
 		beam::TestChainworkProof();
+		beam::TestContracts();
 	}
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
