@@ -1611,6 +1611,61 @@ namespace beam
 	}
 
 
+	namespace bvm
+	{
+		static const char g_szProg[] = "\
+.method_0                     # c'tor                 \n\
+    #    u2, s-6,  nNumOracles                        \n\
+    #    u8, s-14, nRate                              \n\
+    #    pk[],     oracles pks (var size)             \n\
+    mov2 s0, s-6              # iOracle = nNumOracles \n\
+    mov2 s2, -14              # ppPk, end of array    \n\
+.loop_0                                               \n\
+    cmp2 s0, 0                                        \n\
+    jz .loop_0_end            # iOracle == 0          \n\
+    add2 s0, -1               # iOracle--             \n\
+    add2 s2, -33              # ppPk--                \n\
+    add_sig ss2               # add_sig(*ppPk)        \n\
+    save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
+    jmp .loop_0                                       \n\
+.loop_0_end                                           \n\
+    save_var s-14, 8, s0, 1   # V=nRate, K=(u1)0      \n\
+    ret                                               \n\
+                                                      \n\
+.method_1                     # d'tor                 \n\
+    # No arguments, just remove all the vars          \n\
+    mov2 s0, 0                # iOracle = 0           \n\
+    save_var s0, 0, s0, 1     # del rate variable     \n\
+    mov2 s2, 33                                       \n\
+.loop_1                                               \n\
+    load_var s4, s2, s0, 2                            \n\
+    cmp2 s2, 33               # pk loaded ok?         \n\
+    jz .loop_1_end                                    \n\
+    save_var s0, 0, s0, 2     # del pk variable       \n\
+    add_sig s4                                        \n\
+    add2 s0, 1                # iOracle++             \n\
+    jmp .loop_1                                       \n\
+.loop_1_end                                           \n\
+    ret                                               \n\
+                                                      \n\
+.error                                                \n\
+    fail                                              \n\
+                                                      \n\
+.method_2                     # SetRate               \n\
+    #    iOracle, u2, s-6                             \n\
+    #    rate, u8 s-14                                \n\
+    mov2 s0, 33                                       \n\
+    load_var s2, s0, s-6, 2                           \n\
+    cmp2 s0, 33                                       \n\
+    jnz .error                                        \n\
+    add_sig s2                                        \n\
+    mov1 s0, 0                                        \n\
+    save_var s-14, 8, s0, 1                           \n\
+    ret                                               \n\
+";
+	}
+
+
 
 	void TestNodeClientProto()
 	{
@@ -1669,6 +1724,13 @@ namespace beam
 				bool m_EvtEmitted = false;
 
 			} m_Assets;
+
+			struct
+			{
+				bool m_SentCreation = 0;
+				bvm::ContractID m_Cid;
+
+			} m_Contract;
 
 			Height m_hEvts = 0;
 			bool m_bEvtsPending = false;
@@ -2160,6 +2222,7 @@ namespace beam
 
 					MaybeCreateAsset(msgTx, val);
 					MaybeEmitAsset(msgTx, val);
+					MaybeCreateContract(msgTx, val);
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
@@ -2264,6 +2327,78 @@ namespace beam
 
 				m_Assets.m_Emitted = true;
 				printf("Emitting asset...\n");
+
+				return true;
+			}
+
+			bool MaybeCreateContract(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Contract.m_SentCreation)
+					return false;
+
+				const Amount nFee = 120;
+				if (val < nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
+					return false;
+
+				val -= nFee;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
+				pKrn->m_Fee = nFee;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+
+				pKrn->m_Commitment = ECC::Context::get().G * sk;
+				ZeroObject(pKrn->m_Signature);
+
+				{
+					bvm::Compiler c;
+
+					c.m_Input.p = (uint8_t*)bvm::g_szProg;
+					c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
+
+					while (c.ParseOnce())
+						;
+
+					c.Finalyze();
+
+					pKrn->m_Data = std::move(c.m_Result);
+				}
+
+#pragma pack (push, 1)
+				struct Ctor {
+					ECC::Point m_pPk[3];
+					uintBigFor<Amount>::Type m_Rate;
+					bvm::Type::uintSize m_Oracles;
+				};
+#pragma pack (pop)
+
+				pKrn->m_Args.resize(sizeof(Ctor));
+				Ctor& args = reinterpret_cast<Ctor&>(pKrn->m_Args.front());
+
+				args.m_Oracles = (bvm::Type::Size) 3U;
+				args.m_Rate = 77216U;
+				for (size_t i = 0; i < _countof(args.m_pPk); i++)
+				{
+					ECC::Scalar::Native k;
+					ECC::SetRandom(k);
+
+					ECC::Point::Native pt = ECC::Context::get().G * k;
+					args.m_pPk[i] = pt;
+				}
+
+				bvm::get_Cid(m_Contract.m_Cid, pKrn->m_Data, pKrn->m_Args);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Contract.m_SentCreation = true;
+				printf("Creating contract...\n");
 
 				return true;
 			}
@@ -3061,63 +3196,8 @@ namespace beam
 
 		bvm::Compiler c;
 
-		static const char szProg[] = "\
-.method_0                     # c'tor                 \n\
-    #    u2, s-6,  nNumOracles                        \n\
-    #    u8, s-14, nRate                              \n\
-    #    pk[],     oracles pks (var size)             \n\
-    mov2 s0, s-6              # iOracle = nNumOracles \n\
-    mov2 s2, -14              # ppPk, end of array    \n\
-.loop_0                                               \n\
-    cmp2 s0, 0                                        \n\
-    jz .loop_0_end            # iOracle == 0          \n\
-    add2 s0, -1               # iOracle--             \n\
-    add2 s2, -33              # ppPk--                \n\
-    add_sig ss2               # add_sig(*ppPk)        \n\
-    save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
-    jmp .loop_0                                       \n\
-.loop_0_end                                           \n\
-    save_var s-14, 8, s0, 1   # V=nRate, K=(u1)0      \n\
-    ret                                               \n\
-                                                      \n\
-.method_1                     # d'tor                 \n\
-    # No arguments, just remove all the vars          \n\
-    mov2 s0, 0                # iOracle = 0           \n\
-    save_var s0, 0, s0, 1     # del rate variable     \n\
-    mov2 s2, 33                                       \n\
-.loop_1                                               \n\
-    load_var s4, s2, s0, 2                            \n\
-    cmp2 s2, 33               # pk loaded ok?         \n\
-    jz .loop_1_end                                    \n\
-    save_var s0, 0, s0, 2     # del pk variable       \n\
-    add_sig s4                                        \n\
-    add2 s0, 1                # iOracle++             \n\
-    jmp .loop_1                                       \n\
-.loop_1_end                                           \n\
-    ret                                               \n\
-                                                      \n\
-.error                                                \n\
-    fail                                              \n\
-                                                      \n\
-.method_2                     # SetRate               \n\
-    #    iOracle, u2, s-6                             \n\
-    #    rate, u8 s-14                                \n\
-    mov2 s0, 33                                       \n\
-    load_var s2, s0, s-6, 2                           \n\
-    cmp2 s0, 33                                       \n\
-    jnz .error                                        \n\
-    add_sig s2                                        \n\
-    mov1 s0, 0                                        \n\
-    save_var s-14, 8, s0, 1                           \n\
-    ret                                               \n\
-";
-
-
-
-
-
-		c.m_Input.p = (uint8_t*)szProg;
-		c.m_Input.n = sizeof(szProg) - sizeof(szProg[0]);
+		c.m_Input.p = (uint8_t*) bvm::g_szProg;
+		c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
 
 		while (c.ParseOnce())
 			;
@@ -3255,6 +3335,7 @@ void TestAll()
 	}
 
 	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().pForks[3].m_Height = 32;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
