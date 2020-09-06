@@ -995,6 +995,7 @@ namespace beam
 	struct TxKernelContractInvoke
 		:public TxKernelContractControl
 	{
+		ECC::uintBig m_Cid;
 		uint32_t m_iMethod;
 
 		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;

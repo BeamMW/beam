@@ -1577,6 +1577,7 @@ namespace detail
 		{
 			saveBase(ar, val);
 			ar
+				& val.m_Cid
 				& val.m_iMethod;
 			return ar;
 		}
@@ -1586,6 +1587,7 @@ namespace detail
 		{
 			load0Base(ar, val, nRecursion);
 			ar
+				& val.m_Cid
 				& val.m_iMethod;
 		}
 

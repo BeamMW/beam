@@ -1385,7 +1385,9 @@ namespace beam
 	void TxKernelContractInvoke::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelContractControl::HashSelfForID(hp);
-		hp << m_iMethod;
+		hp
+			<< m_Cid
+			<< m_iMethod;
 	}
 
 	/////////////
