@@ -2756,9 +2756,9 @@ bool NodeDB::ContractDataFind(const Blob& key, Blob& data, Recordset& rs)
 	return true;
 }
 
-bool NodeDB::ContractDataFindMin(Blob& key, Recordset& rs)
+bool NodeDB::ContractDataFindNext(Blob& key, Recordset& rs)
 {
-	rs.Reset(*this, Query::ContractDataFindMin, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">=?");
+	rs.Reset(*this, Query::ContractDataFindNext, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">?");
 	rs.put(0, key);
 	if (!rs.Step())
 		return false;

@@ -2758,17 +2758,31 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 			// d'tor called. Make sure no variables are left except for the contract data
 			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
 
-			NodeDB::Recordset rs;
 			Blob key(krn.m_Cid);
-			if (m_DB.ContractDataFindMin(key, rs) && (key.n >= krn.m_Cid.nBytes))
+			while (true)
 			{
-				key.n = krn.m_Cid.nBytes;
-				if (Blob(krn.m_Cid) == key)
+				NodeDB::Recordset rs;
+				if (!m_DB.ContractDataFindNext(key, rs) || (key.n < krn.m_Cid.nBytes))
+					break; // ok
+
+				if (Blob(krn.m_Cid) != Blob(key.p, krn.m_Cid.nBytes))
+					break;
+
+				if (bic.m_ValidateOnly)
 				{
-					// not all variables have been removed.
-					proc.UndoVars();
-					return false;
+					// actual DB data is intact, make sure cached data is erased
+					auto* pE = bic.m_ContractVars.Find(key);
+					if (pE && pE->m_Data.empty())
+					{
+						key = pE->m_KeyIdx; // this buf will survive the next iteration
+						continue; // ok
+					}
 				}
+				else
+					proc.UndoVars();
+
+				// not all variables have been removed.
+				return false;
 			}
 		}
 	}

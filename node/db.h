@@ -181,7 +181,7 @@ public:
 			AssetEvtsDeleteFrom,
 
 			ContractDataFind,
-			ContractDataFindMin,
+			ContractDataFindNext,
 			ContractDataInsert,
 			ContractDataUpdate,
 			ContractDataDel,
@@ -625,7 +625,7 @@ public:
 	void AssetEvtsDeleteFrom(Height);
 
 	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
-	bool ContractDataFindMin(Blob& key, Recordset&); // key in-out
+	bool ContractDataFindNext(Blob& key, Recordset&); // key in-out
 	void ContractDataInsert(const Blob& key, const Blob&);
 	void ContractDataUpdate(const Blob& key, const Blob&);
 	void ContractDataDel(const Blob& key);
