@@ -1828,6 +1828,11 @@ namespace beam
 			<< Asset::ID(Asset::s_MaxCount)
 			// out
 			>> pForks[2].m_Hash;
+
+		oracle
+			<< "fork3"
+			<< pForks[3].m_Height
+			<< pForks[3].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
