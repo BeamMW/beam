@@ -1640,7 +1640,7 @@ namespace beam
 .loop_1                                               \n\
     load_var s4, s2, s0, 2                            \n\
     cmp2 s2, 33               # pk loaded ok?         \n\
-    jz .loop_1_end                                    \n\
+    jnz .loop_1_end                                   \n\
     save_var s0, 0, s0, 2     # del pk variable       \n\
     add_sig s4                                        \n\
     add2 s0, 1                # iOracle++             \n\
