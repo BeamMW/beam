@@ -15,6 +15,7 @@
 #include "processor.h"
 #include "../core/treasury.h"
 #include "../core/shielded.h"
+#include "../core/bvm.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
@@ -2080,6 +2081,29 @@ struct NodeProcessor::BlockInterpretCtx
 	typedef std::set<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
 	BlobPtrSet* m_pDupIDs;
 
+	struct BvmProcessor
+		:public bvm::Processor
+	{
+		BlockInterpretCtx& m_Bic;
+		NodeDB& m_DB;
+
+		BvmProcessor(BlockInterpretCtx& bic, NodeDB& db);
+
+		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override;
+		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
+		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override;
+
+		bool SaveVar(const Blob& key, const Blob& data);
+
+		bool Invoke(const bvm::ContractID&, bvm::Type::Size iMethod, const TxKernelContractControl&);
+
+		void UndoVars();
+	};
+
+	bvm::VariableMem::Set m_ContractVars;
+	bvm::VariableMem::Entry& get_ContractVar(const Blob& key, NodeDB& db);
+
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
@@ -2686,7 +2710,31 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t 
 
 bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
 {
-	return false;
+	if (bic.m_Fwd)
+	{
+		bvm::ContractID cid;
+		bvm::get_Cid(cid, krn.m_Data, krn.m_Args);
+
+		auto& e = bic.get_ContractVar(cid, m_DB);
+		if (!e.m_Data.empty())
+			return false; // contract already exists
+
+		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		proc.SaveVar(cid, krn.m_Data);
+
+		if (!proc.Invoke(cid, 0, krn))
+			return false;
+
+	}
+	else
+	{
+		assert(!bic.m_ValidateOnly);
+
+		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		proc.UndoVars();
+	}
+
+	return true;
 }
 
 void NodeProcessor::Recognize(const TxKernelContractCreate& v, Height h, uint32_t nKrnIdx)
@@ -2695,7 +2743,44 @@ void NodeProcessor::Recognize(const TxKernelContractCreate& v, Height h, uint32_
 
 bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInterpretCtx& bic)
 {
-	return false;
+	if (bic.m_Fwd)
+	{
+		bvm::Type::Size iMethod = static_cast<bvm::Type::Size>(krn.m_iMethod);
+		if (!iMethod || (krn.m_iMethod != iMethod))
+			return false; // overflow or c'tor call attempt
+
+		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		if (!proc.Invoke(krn.m_Cid, iMethod, krn))
+			return false;
+
+		if (1 == iMethod)
+		{
+			// d'tor called. Make sure no variables are left except for the contract data
+			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
+
+			NodeDB::Recordset rs;
+			Blob key(krn.m_Cid);
+			if (m_DB.ContractDataFindMin(key, rs) && (key.n >= krn.m_Cid.nBytes))
+			{
+				key.n = krn.m_Cid.nBytes;
+				if (Blob(krn.m_Cid) == key)
+				{
+					// not all variables have been removed.
+					proc.UndoVars();
+					return false;
+				}
+			}
+		}
+	}
+	else
+	{
+		assert(!bic.m_ValidateOnly);
+
+		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		proc.UndoVars();
+	}
+
+	return true;
 }
 
 void NodeProcessor::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
@@ -3737,6 +3822,157 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	bic.m_pDups->Add(key);
 
 	return true;
+}
+
+NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& bic, NodeDB& db)
+	:m_Bic(bic)
+	,m_DB(db)
+{
+	if (bic.m_Fwd && !bic.m_ValidateOnly)
+	{
+		BlockInterpretCtx::Ser ser(bic);
+
+		uint8_t n = 0; // terminator
+		ser & n;
+	}
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractID& cid, bvm::Type::Size iMethod, const TxKernelContractControl& krn)
+{
+	try
+	{
+		InitStack(krn.m_Args);
+		CallFar(cid, iMethod);
+
+		while (!IsDone())
+			RunOnce();
+	}
+	catch (const std::exception&)
+	{
+		UndoVars();
+		return false;
+	}
+
+	return true;
+}
+
+bvm::VariableMem::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
+{
+	auto* pE = m_ContractVars.Find(key);
+	if (!pE)
+	{
+		pE = m_ContractVars.Create(key);
+
+		Blob data;
+		NodeDB::Recordset rs;
+		if (db.ContractDataFind(key, data, rs))
+			data.Export(pE->m_Data);
+	}
+	return *pE;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut)
+{
+	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_DB);
+
+	if (!e.m_Data.empty())
+	{
+		auto n0 = static_cast<bvm::Type::Size>(e.m_Data.size());
+		memcpy(pVal, &e.m_Data.front(), std::min(n0, nValInOut));
+		nValInOut = n0;
+	}
+	else
+		nValInOut = 0;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, ByteBuffer& res)
+{
+	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_DB).m_Data;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal)
+{
+	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
+{
+	auto& e = m_Bic.get_ContractVar(key, m_DB);
+	bool bExisted = !e.m_Data.empty();
+
+	if (Blob(e.m_Data) != data)
+	{
+		if (!m_Bic.m_ValidateOnly)
+		{
+			uint8_t nCode = 1;
+
+			if (data.n)
+			{
+				if (bExisted)
+				{
+					nCode = 2;
+					m_DB.ContractDataUpdate(key, data);
+				}
+				else
+				{
+					nCode = 3;
+					m_DB.ContractDataInsert(key, data);
+				}
+			}
+			else
+			{
+				assert(bExisted);
+				m_DB.ContractDataDel(key);
+			}
+
+			BlockInterpretCtx::Ser ser(m_Bic);
+			ser & nCode;
+			ser & key.n;
+			ser.WriteRaw(key.p, key.n);
+			if (bExisted)
+				ser & e.m_Data;
+		}
+
+		data.Export(e.m_Data);
+	}
+
+	return bExisted;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
+{
+	ByteBuffer key, data;
+	for (uint8_t nCode = 0; ; )
+	{
+		BlockInterpretCtx::Der der(m_Bic);
+		der & nCode;
+		if (!nCode)
+			break;
+
+		der & key;
+
+		auto* pE = m_Bic.m_ContractVars.Find(key);
+		if (pE)
+			m_Bic.m_ContractVars.Delete(*pE); // just remove it from cache
+
+		if (3 == nCode)
+		{
+			m_DB.ContractDataDel(key);
+		}
+		else
+		{
+			der & data;
+
+			if (1 == nCode)
+				m_DB.ContractDataInsert(key, data);
+			else
+			{
+				if (2 != nCode)
+					OnCorrupted();
+				m_DB.ContractDataUpdate(key, data);
+			}
+		}
+	}
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
