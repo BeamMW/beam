@@ -61,6 +61,9 @@ namespace bvm {
 
 	struct Header
 	{
+		static const Type::Size s_Version = 1;
+
+		Type::uintSize m_Version;
 		Type::uintSize m_NumMethods;
 
 		static const uint32_t s_MethodsMin = 2; // c'tor and d'tor
@@ -195,6 +198,10 @@ namespace bvm {
 		void SetPtrStack(Ptr& out, Type::Size n);
 		void SetPtrData(Ptr& out, Type::Size n);
 
+		void LogStackPtr();
+		void LogDeref();
+		void LogVarName(const char* szName);
+		void LogVarEnd();
 		void PushFrame(const Type::uintSize& frame);
 
 		template <bool>
@@ -241,6 +248,8 @@ namespace bvm {
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 		Amount m_Charge = 0;
+
+		std::ostringstream* m_pDbg = nullptr;
 
 		void InitStack(const Buf& args); // initial arguments
 		void CallFar(const ContractID&, Type::Size iMethod);

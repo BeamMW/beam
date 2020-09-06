@@ -14,6 +14,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm.h"
+#include <sstream>
 
 namespace beam {
 namespace bvm {
@@ -28,7 +29,14 @@ namespace bvm {
 		memset0(m_pStack + args.n, Limits::StackSize - args.n);
 
 		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
+		LogStackPtr();
 		m_Ip = 0;
+	}
+
+	void Processor::LogStackPtr()
+	{
+		if (m_pDbg)
+			*m_pDbg << "sp=" << m_Sp << std::endl;
 	}
 
 	void Processor::FarCalls::Stack::Clear()
@@ -67,6 +75,9 @@ namespace bvm {
 		const auto* pHdr = ptr.RGet<Header>();
 
 		Type::Size n;
+		pHdr->m_Version.Export(n);
+		Test(Header::s_Version == n);
+
 		pHdr->m_NumMethods.Export(n);
 		Test(iMethod < n);
 
@@ -118,6 +129,27 @@ namespace bvm {
 			SetPtrData(out, n);
 		else
 			SetPtrStack(out, n);
+
+		if (m_pDbg)
+			*m_pDbg << (bData ? 'd' : 's') << static_cast<int>(out.p - (bData ? m_Data.p : (m_pStack + m_Sp)));
+	}
+
+	void Processor::LogDeref()
+	{
+		if (m_pDbg)
+			*m_pDbg << "=>";
+	}
+
+	void Processor::LogVarName(const char* szName)
+	{
+		if (m_pDbg)
+			*m_pDbg << szName << " = ";
+	}
+
+	void Processor::LogVarEnd()
+	{
+		if (m_pDbg)
+			*m_pDbg << ", ";
 	}
 
 	template <> void Processor::TestStackPtr<true>(Type::Size n) {
@@ -153,6 +185,7 @@ namespace bvm {
 
 		if (FetchBit(br))
 		{
+			LogDeref();
 			// dereference
 			const auto* p = out.RGet<uintBigFor<Type::Size>::Type>();
 			FetchPtr(br, out, *p);
@@ -167,26 +200,44 @@ namespace bvm {
 			// dereference
 			FetchPtr(br, ptr);
 			Test(ptr.n >= nSize);
+
+			LogDeref();
 		}
 		else
 			ptr.p = Cast::NotConst(FetchInstruction(nSize));
 
 		memcpy(pBuf, ptr.p, nSize);
+
+		if (m_pDbg)
+		{
+			struct Dummy :public uintBigImpl {
+				static void Do(const uint8_t* pDst, uint32_t nDst, std::ostream& os) {
+					_Print(pDst, nDst, os);
+				}
+			};
+
+			Dummy::Do(pBuf, nSize, *m_pDbg);
+		}
 	}
 
 	void Processor::RunOnce()
 	{
+		if (m_pDbg)
+			*m_pDbg << "ip=" << Type::uintSize(m_Ip) << ", ";
+
 		uint8_t nOpCode = *FetchInstruction(1);
 		BitReader br;
 
 		switch (nOpCode)
 		{
 #define THE_MACRO_ParamPass(name, type) par##name,
-#define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; FetchParam(br, par##name);
+#define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; LogVarName(#name); FetchParam(br, par##name); LogVarEnd();
 
 #define THE_MACRO(name) \
 		case static_cast<uint8_t>(OpCode::n_##name): \
 			{ \
+				if (m_pDbg) \
+					*m_pDbg << #name " "; \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
 			} \
@@ -198,6 +249,9 @@ namespace bvm {
 		default:
 			Exc::Throw(); // illegal instruction
 		}
+
+		if (m_pDbg)
+			*m_pDbg << std::endl;
 
 		Test(!br.m_Value); // unused bits must be zero
 	}
@@ -331,6 +385,7 @@ namespace bvm {
 		pFrame->m_RetAddr = m_Ip;
 
 		m_Sp += nFrame + sizeof(StackFrame);
+		LogStackPtr();
 	}
 
 	BVM_METHOD(call)
@@ -367,6 +422,7 @@ namespace bvm {
 
 		Test(m_Sp >= nFrame);
 		m_Sp -= nFrame;
+		LogStackPtr();
 
 		Type::Size& nDepth = m_FarCalls.m_Stack.back().m_LocalDepth;
 		if (nDepth)
@@ -732,6 +788,7 @@ namespace bvm {
 		}
 
 		Header& hdr = reinterpret_cast<Header&>(m_Result.front());
+		hdr.m_Version = Header::s_Version;
 		hdr.m_NumMethods = nLabels;
 
 		for (nLabels = 0; ; nLabels++)
