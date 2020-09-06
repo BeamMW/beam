@@ -74,6 +74,8 @@ namespace bvm {
 #pragma pack (pop)
 
 	typedef ECC::uintBig ContractID;
+	// Contract unique identifier 
+	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 
 	struct Buf
 	{

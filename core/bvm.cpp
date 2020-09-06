@@ -19,6 +19,17 @@
 namespace beam {
 namespace bvm {
 
+	void get_Cid(ContractID& cid, const Blob& data, const Blob& args)
+	{
+		ECC::Hash::Processor()
+			<< "bvm.cid"
+			<< data.n
+			<< args.n
+			<< data
+			<< args
+			>> cid;
+	}
+
 	/////////////////////////////////////////////
 	// Processor
 
