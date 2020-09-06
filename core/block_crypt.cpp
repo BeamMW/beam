@@ -1313,6 +1313,82 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelContractControl
+	bool TxKernelContractControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (!IsValidBase(hScheme, exc, pParent))
+			return false;
+
+		const Rules& r = Rules::get(); // alias
+		if (hScheme < r.pForks[3].m_Height)
+			return false; // unsupported for that version
+
+		ECC::Point::Native comm;
+		if (!comm.ImportNnz(m_Commitment))
+			return false;
+
+		exc += comm;
+		return true; // the rest is deferred till the context-bound validation
+	}
+
+	void TxKernelContractControl::CopyFrom(const TxKernelContractControl& v)
+	{
+		TxKernelNonStd::CopyFrom(v);
+		m_Commitment = v.m_Commitment;
+		m_Signature = v.m_Signature;
+		m_Args = v.m_Args;
+	}
+
+	void TxKernelContractControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< m_Commitment
+			<< m_Args.size()
+			<< Blob(m_Args);
+	}
+
+	void TxKernelContractControl::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp.Serialize(m_Signature);
+	}
+
+	/////////////
+	// TxKernelContractCreate
+	void TxKernelContractCreate::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelContractCreate);
+		TxKernelContractCreate& v = Cast::Up<TxKernelContractCreate>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Data = m_Data;
+	}
+
+	void TxKernelContractCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelContractControl::HashSelfForID(hp);
+		hp
+			<< m_Data.size()
+			<< Blob(m_Data);
+	}
+
+	/////////////
+	// TxKernelContractInvoke
+	void TxKernelContractInvoke::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelContractInvoke);
+		TxKernelContractInvoke& v = Cast::Up<TxKernelContractInvoke>(*p);
+
+		v.CopyFrom(*this);
+		v.m_iMethod = m_iMethod;
+	}
+
+	void TxKernelContractInvoke::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelContractControl::HashSelfForID(hp);
+		hp << m_iMethod;
+	}
+
+	/////////////
 	// Transaction
 	Transaction::FeeSettings::FeeSettings()
 	{

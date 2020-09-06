@@ -2684,6 +2684,24 @@ void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
+bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
+{
+	return false;
+}
+
+void NodeProcessor::Recognize(const TxKernelContractCreate& v, Height h, uint32_t nKrnIdx)
+{
+}
+
+bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInterpretCtx& bic)
+{
+	return false;
+}
+
+void NodeProcessor::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
+{
+}
+
 void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
 {
 	ZeroObject(vk);

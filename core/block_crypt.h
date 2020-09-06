@@ -706,7 +706,9 @@ namespace beam
 	macro(3, ShieldedOutput) \
 	macro(4, ShieldedInput) \
 	macro(5, AssetCreate) \
-	macro(6, AssetDestroy)
+	macro(6, AssetDestroy) \
+	macro(7, ContractCreate) \
+	macro(8, ContractInvoke) \
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -958,6 +960,50 @@ namespace beam
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractControl
+		:public TxKernelNonStd
+	{
+		ECC::Point m_Commitment; // arbitrary blinding factor + all the values consumed/emitted by the contract
+		ECC::Signature m_Signature; // aggreagtedmulti-signature of the blinding factor + all the keys required by the contract
+
+		ByteBuffer m_Args;
+
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+
+	protected:
+		void CopyFrom(const TxKernelContractControl&);
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractCreate
+		:public TxKernelContractControl
+	{
+		ByteBuffer m_Data;
+
+		typedef std::unique_ptr<TxKernelContractCreate> Ptr;
+
+		virtual ~TxKernelContractCreate() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractInvoke
+		:public TxKernelContractControl
+	{
+		uint32_t m_iMethod;
+
+		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;
+
+		virtual ~TxKernelContractInvoke() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
