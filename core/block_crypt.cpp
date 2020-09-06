@@ -1379,6 +1379,7 @@ namespace beam
 		TxKernelContractInvoke& v = Cast::Up<TxKernelContractInvoke>(*p);
 
 		v.CopyFrom(*this);
+		v.m_Cid = m_Cid;
 		v.m_iMethod = m_iMethod;
 	}
 
