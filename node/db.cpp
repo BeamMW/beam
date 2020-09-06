@@ -106,6 +106,10 @@ namespace beam {
 #define TblAssetEvts_Index		"Seq"
 #define TblAssetEvts_Data		"Data"
 
+#define TblContracts			"Contracts"
+#define TblContracts_Key		"Key"
+#define TblContracts_Value		"Value"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -341,7 +345,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 22;
+	const uint64_t nVersionTop = 23;
 
 
 	Transaction t(*this);
@@ -379,6 +383,10 @@ void NodeDB::Open(const char* szPath)
 		case 21:
 			CreateTables21();
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate21);
+			// no break;
+
+		case 22:
+			CreateTables22();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
@@ -501,6 +509,7 @@ void NodeDB::Create()
 
 	CreateTables20();
 	CreateTables21();
+	CreateTables22();
 }
 
 void NodeDB::CreateTables20()
@@ -533,6 +542,13 @@ void NodeDB::CreateTables21()
 
 	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_1" "] ON [" TblAssetEvts "] ([" TblAssetEvts_ID "],[" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
 	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_2" "] ON [" TblAssetEvts "] ([" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
+}
+
+void NodeDB::CreateTables22()
+{
+	ExecQuick("CREATE TABLE [" TblContracts "] ("
+		"[" TblContracts_Key		"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblContracts_Value		"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -2727,6 +2743,57 @@ void NodeDB::AssetEvtsDeleteFrom(Height h)
 	Recordset rs(*this, Query::AssetEvtsDeleteFrom, "DELETE FROM " TblAssetEvts " WHERE " TblAssetEvts_Height ">=?");
 	rs.put(0, h);
 	rs.Step();
+}
+
+bool NodeDB::ContractDataFind(const Blob& key, Blob& data, Recordset& rs)
+{
+	rs.Reset(*this, Query::ContractDataFind, "SELECT " TblContracts_Value " FROM " TblContracts " WHERE " TblContracts_Key "=?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, data);
+	return true;
+}
+
+bool NodeDB::ContractDataFindMin(Blob& key, Recordset& rs)
+{
+	rs.Reset(*this, Query::ContractDataFindMin, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">=?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, key);
+	return true;
+}
+
+void NodeDB::ContractDataInsert(const Blob& key, const Blob& data)
+{
+	Recordset rs(*this, Query::ContractDataInsert, "INSERT INTO " TblContracts " (" TblContracts_Key "," TblContracts_Value ") VALUES(?,?)");
+	rs.put(0, key);
+	rs.put(1, data);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::ContractDataUpdate(const Blob& key, const Blob& data)
+{
+	Recordset rs(*this, Query::ContractDataUpdate, "UPDATE " TblContracts " SET " TblContracts_Value "=? WHERE " TblContracts_Key "=?");
+	rs.put(0, data);
+	rs.put(1, key);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::ContractDataDel(const Blob& key)
+{
+	Recordset rs(*this, Query::ContractDataDel, "DELETE FROM " TblContracts " WHERE " TblContracts_Key "=?");
+	rs.put(0, key);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam

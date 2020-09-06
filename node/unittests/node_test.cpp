@@ -672,6 +672,39 @@ namespace beam
 		verify_test(!myMmr.m_Miss);
 
 		tr.Commit();
+
+		// Contract data
+		NodeDB::Recordset rs;
+		Blob blob1;
+		ECC::Hash::Value hvKey = 234U, hvVal = 1232U, hvKey2;
+		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
+
+		blob1 = hvKey;
+		verify_test(!db.ContractDataFindMin(blob1, rs));
+
+		db.ContractDataInsert(hvKey, hvVal);
+		verify_test(db.ContractDataFindMin(blob1, rs));
+
+		hvVal.Inc();
+		db.ContractDataUpdate(hvKey, hvVal);
+
+		verify_test(db.ContractDataFind(hvKey, blob1, rs));
+		verify_test(Blob(hvVal) == blob1);
+
+		blob1 = hvKey2;
+		hvKey2 = hvKey;
+		hvKey2.Inc();
+		verify_test(!db.ContractDataFindMin(blob1, rs));
+
+		hvKey2 = hvKey;
+		hvKey2.Negate();
+		hvKey2 += ECC::Hash::Value(2U);
+		hvKey2.Negate();
+		verify_test(db.ContractDataFindMin(blob1, rs));
+		verify_test(Blob(hvKey) == blob1);
+
+		db.ContractDataDel(hvKey);
+		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
 	}
 
 #ifdef WIN32

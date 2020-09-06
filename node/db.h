@@ -180,6 +180,12 @@ public:
 			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
+			ContractDataFind,
+			ContractDataFindMin,
+			ContractDataInsert,
+			ContractDataUpdate,
+			ContractDataDel,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -618,6 +624,12 @@ public:
 	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint32_t);
 	void AssetEvtsDeleteFrom(Height);
 
+	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
+	bool ContractDataFindMin(Blob& key, Recordset&); // key in-out
+	void ContractDataInsert(const Blob& key, const Blob&);
+	void ContractDataUpdate(const Blob& key, const Blob&);
+	void ContractDataDel(const Blob& key);
+
 private:
 
 	sqlite3* m_pDb;
@@ -643,6 +655,7 @@ private:
 	void Create();
 	void CreateTables20();
 	void CreateTables21();
+	void CreateTables22();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
