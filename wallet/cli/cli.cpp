@@ -1592,7 +1592,7 @@ namespace
             return -1;
         }
 
-		Key::IKdf::Ptr pKey = MasterKey::get_Child(*pMaster, subKey);
+        Key::IKdf::Ptr pKey = MasterKey::get_Child(*pMaster, subKey);
 
         KeyString ks;
         ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
@@ -1700,18 +1700,6 @@ namespace
             }
         }
         return coinIDs;
-    }
-
-    bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
-    {
-        fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-        if (checkFee && fee < cli::kMinimumFee)
-        {
-            LOG_ERROR() << kErrorFeeToLow;
-            return false;
-        }
-
-        return true;
     }
 
     bool ReadShieldedId(const po::variables_map& vm, TxoID& id)
@@ -2102,11 +2090,11 @@ namespace
                 std::vector<ShieldedCoin> vSelShielded;
                 walletDB->selectCoins2(amount + fee, assetId, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
 
-                Amount minFee = cli::kMinimumFee;
+                Amount minFee = kMinFeeInGroth;
                 Amount shieldedFee = 0;
                 if (!vSelShielded.empty())
                 {
-                    Amount sum  = accumulateCoinsSum(vSelStd, vSelShielded);
+                    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
 
                     if (sum < amount + fee) 
                     {

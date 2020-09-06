@@ -1696,22 +1696,16 @@ namespace beam::wallet
             WalletAddress tempAddress;
             m_WalletDB->createAddress(tempAddress);
 
-            WalletID peerID;
-            peerID.m_Pk = coin.m_CoinID.m_User.m_Sender;
-            peerID.SetChannelFromPk();
-
-            Merkle::Hash kernelID = Zero;
-
             auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
                 .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
-                .SetParameter(TxParameterID::PeerID, peerID)
+                .SetParameter(TxParameterID::PeerID, WalletID())
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                 .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, kernelID);
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash());
 
             auto packed = params.Pack();
             for (const auto& p : packed)

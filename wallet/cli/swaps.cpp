@@ -742,7 +742,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     // on accepting
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-    Amount fee = cli::kMinimumFee;
+    Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 

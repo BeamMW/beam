@@ -75,8 +75,16 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
 
 bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
 {
-    fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-    if (checkFee && fee < cli::kMinimumFee)
+    if (auto it = vm.find(cli::FEE); it != vm.end())
+    {
+        fee = it->second.as<Nonnegative<Amount>>().value;
+    }
+    else
+    {
+        fee = kMinFeeInGroth;
+    }
+
+    if (checkFee && fee < kMinFeeInGroth)
     {
         LOG_ERROR() << kErrorFeeToLow;
         return false;

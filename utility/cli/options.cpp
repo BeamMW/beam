@@ -318,9 +318,6 @@ namespace beam
         const char* SHIELDED_UTXOS      = "shielded_utxos";
         const char* SHIELDED_ID         = "shielded_id";
         const char* MAX_PRIVACY         = "max_privacy";
-
-        // Defaults
-        const Amount kMinimumFee = 100;
     }
 
 
@@ -389,10 +386,10 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
-			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
-			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
-			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
+            (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
+            (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
+            (cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
+            (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -405,7 +402,7 @@ namespace beam
             (cli::PASS, po::value<string>(), "wallet password")
             (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
@@ -593,8 +590,8 @@ namespace beam
             macro(uint32_t, Magic.v2, "Fork2 magic number") \
             macro(bool, Magic.IsTestnet, "magic testnet indicator") \
 
-		#define Fork1 pForks[1].m_Height
-		#define Fork2 pForks[2].m_Height
+        #define Fork1 pForks[1].m_Height
+        #define Fork2 pForks[2].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 

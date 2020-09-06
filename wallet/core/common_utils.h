@@ -27,7 +27,21 @@ WalletAddress GenerateNewAddress(
         bool saveRequired = true);
 bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 std::string TxIDToString(const TxID& txId);
-Amount accumulateCoinsSum(
+Amount CalcChange(const IWalletDB::Ptr& walletDB, Amount amount);
+Amount AccumulateCoinsSum(
         const std::vector<Coin>& vSelStd,
         const std::vector<ShieldedCoin>& vSelShielded);
+struct ShieldedCoinsSelectionInfo
+{
+        Amount requestedSum = 0;
+        Amount selectedSum = 0;
+        Amount requestedFee = 0;
+        Amount selectedFee = 0;
+        Amount minimalFee = 0;
+        Amount shieldedFee = 0;
+        Amount change = 0;
+};
+ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
+        const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount beforehandMinFee);
+
 }  // namespace beam::wallet

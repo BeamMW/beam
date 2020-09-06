@@ -2374,7 +2374,6 @@ namespace beam::wallet
                 ShieldedCoin::Sort(vShielded);
             }
 
-
             for (; iPosShielded < vShielded.size(); iPosShielded++)
             {
                 const auto& x = vShielded[iPosShielded];
@@ -4800,15 +4799,15 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
-                if (IsOngoingTx(walletDB, c.m_spentTxId))
-                {
-                    c.m_status = Coin::Status::Outgoing;
-                    return;
-                }
-
                 if (hTop - walletDB.getCoinConfirmationsOffset() < c.m_maturity)
                 {
                     c.m_status = Coin::Status::Maturing;
+                    return;
+                }
+
+                if (IsOngoingTx(walletDB, c.m_spentTxId))
+                {
+                    c.m_status = Coin::Status::Outgoing;
                     return;
                 }
 
@@ -4842,15 +4841,15 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
-                if(storage::IsOngoingTx(walletDB, c.m_createTxId))
-                {
-                    c.m_Status = ShieldedCoin::Status::Outgoing;
-                    return;
-                }
-
                 if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
                 {
                     c.m_Status = ShieldedCoin::Status::Maturing;
+                    return;
+                }
+
+                if(storage::IsOngoingTx(walletDB, c.m_spentTxId))
+                {
+                    c.m_Status = ShieldedCoin::Status::Outgoing;
                     return;
                 }
 
@@ -5288,8 +5287,14 @@ namespace beam::wallet
                 auto receiverIdentity = tx->getReceiverIdentity();
                 bool showIdentity     = !senderIdentity.empty() && !receiverIdentity.empty();
 
+                auto sender = std::to_string(pi.m_Sender);
+                if (tx->m_txType == wallet::TxType::PushTransaction && !tx->m_sender)
+                {
+                    sender = "shielded pool";
+                }
+
                 std::ostringstream s;
-                s << "Sender: " << std::to_string(pi.m_Sender) << std::endl;
+                s << "Sender: " << sender << std::endl;
                 if (showIdentity)
                 {
                     s << "Sender identity: " << senderIdentity << std::endl;
