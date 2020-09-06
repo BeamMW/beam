@@ -1727,7 +1727,9 @@ namespace beam
 
 			struct
 			{
-				bool m_SentCreation = 0;
+				Height m_SentCtor = 0;
+				Height m_SentMethod = 0;
+				Height m_SentDtor = 0;
 				bvm::ContractID m_Cid;
 
 			} m_Contract;
@@ -2223,6 +2225,8 @@ namespace beam
 					MaybeCreateAsset(msgTx, val);
 					MaybeEmitAsset(msgTx, val);
 					MaybeCreateContract(msgTx, val);
+					MaybeInvokeContract(msgTx, val);
+					MaybeDeleteContract(msgTx, val);
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
@@ -2333,7 +2337,7 @@ namespace beam
 
 			bool MaybeCreateContract(proto::NewTransaction& msg, Amount& val)
 			{
-				if (m_Contract.m_SentCreation)
+				if (m_Contract.m_SentCtor)
 					return false;
 
 				const Amount nFee = 120;
@@ -2397,8 +2401,95 @@ namespace beam
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
 
-				m_Contract.m_SentCreation = true;
+				m_Contract.m_SentCtor = s.m_Height + 1;
 				printf("Creating contract...\n");
+
+				return true;
+			}
+
+			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
+			{
+				if (!m_Contract.m_SentCtor || m_Contract.m_SentMethod)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 - m_Contract.m_SentCtor < 4)
+					return false;
+
+				const Amount nFee = 120;
+				if (val < nFee)
+					return false;
+
+				val -= nFee;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+				pKrn->m_Fee = nFee;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+
+				pKrn->m_Commitment = ECC::Context::get().G * sk;
+				ZeroObject(pKrn->m_Signature);
+
+				pKrn->m_Cid = m_Contract.m_Cid;
+				pKrn->m_iMethod = 2;
+
+#pragma pack (push, 1)
+				struct SetRate {
+					uintBigFor<Amount>::Type m_Rate;
+					bvm::Type::uintSize m_iOracle;
+				};
+#pragma pack (pop)
+
+				pKrn->m_Args.resize(sizeof(SetRate));
+				SetRate& args = reinterpret_cast<SetRate&>(pKrn->m_Args.front());
+
+				args.m_iOracle = (bvm::Type::Size) 2;
+				args.m_Rate = 277216U;
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Contract.m_SentMethod = s.m_Height + 1;
+				printf("Invoking contract...\n");
+
+				return true;
+			}
+
+			bool MaybeDeleteContract(proto::NewTransaction& msg, Amount& val)
+			{
+				if (!m_Contract.m_SentMethod || m_Contract.m_SentDtor)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 - m_Contract.m_SentMethod < 4)
+					return false;
+
+				const Amount nFee = 120;
+				if (val < nFee)
+					return false;
+
+				val -= nFee;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+				pKrn->m_Fee = nFee;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+
+				pKrn->m_Commitment = ECC::Context::get().G * sk;
+				ZeroObject(pKrn->m_Signature);
+
+				pKrn->m_Cid = m_Contract.m_Cid;
+				pKrn->m_iMethod = 1;
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Contract.m_SentDtor = s.m_Height + 1;
+				printf("Deleting contract...\n");
 
 				return true;
 			}
