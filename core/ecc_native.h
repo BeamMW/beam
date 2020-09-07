@@ -444,6 +444,18 @@ namespace ECC
 		}
 	};
 
+	struct MultiMac_Dyn
+		:public MultiMac
+	{
+		std::vector<Casual> m_vCasual;
+		std::vector<Scalar::Native> m_vKCasual;
+		std::vector<const Prepared*> m_vpPrepared;
+		std::vector<Scalar::Native> m_vKPrepared;
+		std::vector<Prepared::Fast::Wnaf> m_vWnafPrepared;
+
+		void Prepare(uint32_t nMaxCasual, uint32_t nMaxPrepared);
+	};
+
 	struct ScalarGenerator
 	{
 		// needed to quickly calculate power of a predefined scalar.

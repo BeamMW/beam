@@ -1650,6 +1650,30 @@ namespace ECC {
 		}
 	}
 
+	void MultiMac_Dyn::Prepare(uint32_t nMaxCasual, uint32_t nMaxPrepared)
+	{
+		if (nMaxCasual)
+		{
+			m_vCasual.resize(nMaxCasual);
+			m_vKCasual.resize(nMaxCasual);
+
+			m_pCasual = &m_vCasual.front();
+			m_pKCasual = &m_vKCasual.front();
+		}
+
+		if (nMaxPrepared)
+		{
+			m_vpPrepared.resize(nMaxPrepared);
+			m_vKPrepared.resize(nMaxPrepared);
+			m_vWnafPrepared.resize(nMaxPrepared);
+
+			m_ppPrepared = &m_vpPrepared.front();
+			m_pKPrep = &m_vKPrepared.front();
+			m_pWnafPrepared = &m_vWnafPrepared.front();
+		}
+	}
+
+
 	/////////////////////
 	// ScalarGenerator
 	void ScalarGenerator::Initialize(const Scalar::Native& x)
@@ -2242,17 +2266,27 @@ namespace ECC {
 
 	bool SignatureBase::IsValidPartial(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const
 	{
+		// TODO: remove this limitation, get adequate MultiMac instance by vcall to cfg, which would invoke us back
+		const uint32_t nMaxG = 2;
+		const uint32_t nMaxK = 2;
+		if ((cfg.m_nG <= nMaxG) && (cfg.m_nKeys <= nMaxK))
+		{
+			MultiMac_WithBufs<nMaxK, nMaxG> mm;
+			return IsValidPartialInternal(cfg, mm, msg, pK, pPk, noncePub);
+		}
+
+		MultiMac_Dyn mmDyn;
+		if (!InnerProduct::BatchContext::s_pInstance)
+			mmDyn.Prepare(cfg.m_nKeys, cfg.m_nG); // otherwise mm won't be used
+		return IsValidPartialInternal(cfg, mmDyn, msg, pK, pPk, noncePub);
+	}
+
+	bool SignatureBase::IsValidPartialInternal(const Config& cfg, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const
+	{
 		Mode::Scope scope(Mode::Fast);
 
 		Oracle oracle;
 		Expose(oracle, msg);
-
-		// TODO: remove this limitation, get adequate MultiMac instance by vcall to cfg, which would invoke us back
-		const uint32_t nMaxG = 2;
-		const uint32_t nMaxK = 2;
-		assert((cfg.m_nG <= nMaxG) && (cfg.m_nKeys <= nMaxK));
-
-		MultiMac_WithBufs<nMaxK, nMaxG> mm;
 
 		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
 		if (pBc)
