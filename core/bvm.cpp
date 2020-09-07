@@ -562,6 +562,12 @@ namespace bvm {
 
 	void Processor::HandleAmount(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
 	{
+		HandleAmountInner(val, aid, bLock);
+		HandleAmountOuter(val, aid, bLock);
+	}
+
+	void Processor::HandleAmountInner(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
+	{
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
 
@@ -583,7 +589,10 @@ namespace bvm {
 		}
 
 		Save_T(vk, val0);
+	}
 
+	void Processor::HandleAmountOuter(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
+	{
 		if (m_pSigMsg)
 		{
 			Asset::ID aid_;

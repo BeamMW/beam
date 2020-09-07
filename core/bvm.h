@@ -214,6 +214,8 @@ namespace bvm {
 		void TestStackPtr(Type::Size);
 
 		void HandleAmount(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);
+		void HandleAmountInner(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);
+		void HandleAmountOuter(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);
 
 	protected:
 
