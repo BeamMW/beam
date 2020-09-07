@@ -530,6 +530,16 @@ namespace bvm {
 		HandleAmount(amount, nAssetID, false);
 	}
 
+	BVM_METHOD(ref_add)
+	{
+		HandleRef(cid, true);
+	}
+
+	BVM_METHOD(ref_release)
+	{
+		HandleRef(cid, false);
+	}
+
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
 
@@ -589,6 +599,66 @@ namespace bvm {
 				pt = -pt;
 
 			m_FundsIO += pt;
+		}
+	}
+
+	bool Processor::HandleRefRaw(const VarKey& vk, bool bAdd)
+	{
+		uintBig_t<4> refs; // more than enough
+		Load_T(vk, refs);
+
+		bool ret = false;
+
+		if (bAdd)
+		{
+			ret = (refs == Zero);
+			refs.Inc();
+			Test(refs != Zero);
+		}
+		else
+		{
+			Test(refs != Zero);
+			refs.Negate();
+			refs.Inv();
+			ret = (refs == Zero);
+		}
+
+		Save_T(vk, refs);
+		return ret;
+	}
+
+	void Processor::HandleRef(const Ptr& cid_, bool bAdd)
+	{
+		if (bAdd)
+			m_Flags = 1;
+
+		const auto& cid = *cid_.RGet<ContractID>();
+
+		VarKey vk;
+		SetVarKey(vk, VarKey::Tag::Refs, cid);
+
+		if (HandleRefRaw(vk, bAdd))
+		{
+			// z/nnz flag changed.
+			VarKey vk2;
+			vk2.Set(cid);
+
+			if (bAdd)
+			{
+				// make sure the target contract exists
+				Type::Size nData = 0;
+				LoadVar(vk2, nullptr, nData);
+
+				if (!nData)
+				{
+					m_Flags = 0; // oops
+					HandleRefRaw(vk, false); // undo
+					return;
+				}
+			}
+
+			vk2.Append(VarKey::Tag::Refs, Blob(nullptr, 0));
+			HandleRefRaw(vk2, bAdd);
 		}
 	}
 

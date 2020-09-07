@@ -111,6 +111,10 @@
 
 #define BVMOp_funds_unlock(macro) BVMOp_funds_lock(macro)
 
+#define BVMOp_ref_add(macro) \
+	macro(cid, p)
+
+#define BVMOp_ref_release(macro) BVMOp_ref_add(macro)
 
 #define BVM_OpCodes(macro) \
 	macro(mov) \
@@ -149,4 +153,5 @@
 	macro(add_sig) \
 	macro(funds_lock) \
 	macro(funds_unlock) \
-
+	macro(ref_add) \
+	macro(ref_release) \

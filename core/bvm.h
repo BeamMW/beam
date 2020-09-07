@@ -223,6 +223,7 @@ namespace bvm {
 			{
 				static const uint8_t Internal = 0;
 				static const uint8_t LockedAmount = 1;
+				static const uint8_t Refs = 2;
 			};
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
@@ -277,6 +278,10 @@ namespace bvm {
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
 		ECC::Point::Native m_FundsIO;
+
+	private:
+		void HandleRef(const Ptr&, bool bAdd);
+		bool HandleRefRaw(const VarKey&, bool bAdd);
 
 	public:
 
