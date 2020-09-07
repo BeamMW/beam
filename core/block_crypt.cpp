@@ -1352,8 +1352,13 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys)
+	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys, const ECC::Point::Native& ptFunds)
 	{
+		assert(nKeys);
+		ECC::Point::Native pt = ECC::Context::get().G * pK[nKeys - 1];
+		pt += ptFunds;
+		m_Commitment = pt;
+
 		UpdateMsg();
 
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy

@@ -1630,6 +1630,7 @@ namespace beam
     jmp .loop_0                                       \n\
 .loop_0_end                                           \n\
     save_var s-14, 8, s0, 1   # V=nRate, K=(u1)0      \n\
+    funds_lock 100500, 0                              \n\
     ret                                               \n\
                                                       \n\
 .method_1                     # d'tor                 \n\
@@ -1646,6 +1647,7 @@ namespace beam
     add2 s0, 1                # iOracle++             \n\
     jmp .loop_1                                       \n\
 .loop_1_end                                           \n\
+    funds_unlock 100500, 0                            \n\
     ret                                               \n\
                                                       \n\
 .error                                                \n\
@@ -2343,14 +2345,15 @@ namespace beam
 					return false;
 
 				const Amount nFee = 120;
-				if (val < nFee)
+				const Amount nLock = 100500;
+				if (val < nFee + nLock)
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
-				val -= nFee;
+				val -= (nFee + nLock);
 
 				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
 				pKrn->m_Fee = nFee;
@@ -2400,9 +2403,11 @@ namespace beam
 
 				ECC::Scalar::Native& sk = pSk[_countof(args.m_pPk)];
 				ECC::SetRandom(sk);
-				pKrn->m_Commitment = ECC::Context::get().G * sk;
 
-				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)));
+				ECC::Point::Native ptFunds;
+				ECC::Tag::AddValue(ptFunds, nullptr, nLock);
+
+				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
 
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
@@ -2452,9 +2457,8 @@ namespace beam
 				ECC::Scalar::Native pSk[2];
 				pSk[0] = m_Contract.m_pSk[2];
 				ECC::SetRandom(pSk[1]);
-				pKrn->m_Commitment = ECC::Context::get().G * pSk[1];
 
-				pKrn->Sign(pSk, 2);
+				pKrn->Sign(pSk, 2, Zero);
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, pSk[1], true);
@@ -2475,9 +2479,11 @@ namespace beam
 					return false;
 
 				const Amount nFee = 120;
-				if (val < nFee)
+				const Amount nUnlock = 100500;
+				if (val + nUnlock < nFee)
 					return false;
 
+				val += nUnlock;
 				val -= nFee;
 
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
@@ -2494,7 +2500,11 @@ namespace beam
 				ECC::SetRandom(sk);
 				pKrn->m_Commitment = ECC::Context::get().G * sk;
 
-				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)));
+				ECC::Point::Native ptFunds;
+				ECC::Tag::AddValue(ptFunds, nullptr, nUnlock);
+				ptFunds = -ptFunds;
+
+				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);

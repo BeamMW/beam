@@ -972,7 +972,7 @@ namespace beam
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 
-		void Sign(const ECC::Scalar::Native*, uint32_t nKeys);
+		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds);
 
 	protected:
 		void CopyFrom(const TxKernelContractControl&);
