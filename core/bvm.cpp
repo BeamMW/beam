@@ -456,17 +456,23 @@ namespace bvm {
 		vk.m_Size = static_cast<Type::Size>(ContractID::nBytes);
 	}
 
+	void Processor::SetVarKey(VarKey& vk, uint8_t nTag, const Blob& blob)
+	{
+		SetVarKey(vk);
+		vk.m_p[vk.m_Size++] = nTag;
+
+		assert(vk.m_Size + blob.n <= _countof(vk.m_p));
+		memcpy(vk.m_p + vk.m_Size, blob.p, blob.n);
+		vk.m_Size += blob.n;
+	}
+
 	void Processor::SetVarKey(VarKey& vk, const Ptr& key, const Type::uintSize& nKey)
 	{
 		Type::Size nKey_;
 		nKey.Export(nKey_);
 		Test(nKey_ <= Limits::VarKeySize);
 
-		SetVarKey(vk);
-		vk.m_p[vk.m_Size++] = 0;
-
-		memcpy(vk.m_p + vk.m_Size, key.RGet<uint8_t>(nKey_), nKey_);
-		vk.m_Size += nKey_;
+		SetVarKey(vk, VarKey::Tag::Internal, Blob(key.RGet<uint8_t>(nKey_), nKey_));
 	}
 
 	BVM_METHOD(load_var)

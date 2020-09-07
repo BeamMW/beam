@@ -217,11 +217,17 @@ namespace bvm {
 
 		struct VarKey
 		{
+			struct Tag
+			{
+				static const uint8_t Internal = 0;
+			};
+
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
-			Type::Size m_Size;
+			uint32_t m_Size;
 		};
 
 		void SetVarKey(VarKey&);
+		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
 		void SetVarKey(VarKey&, const Ptr& key, const Type::uintSize& nKey);
 
 		struct FarCalls
