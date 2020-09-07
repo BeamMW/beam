@@ -2087,17 +2087,14 @@ struct NodeProcessor::BlockInterpretCtx
 		BlockInterpretCtx& m_Bic;
 		NodeDB& m_DB;
 
-		std::vector<ECC::Point::Native> m_vPks;
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeDB& db);
 
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override;
-		virtual void AddSig(const ECC::Point&) override;
 
 		bool SaveVar(const Blob& key, const Blob& data);
-		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
 		bool Invoke(const bvm::ContractID&, bvm::Type::Size iMethod, const TxKernelContractControl&);
 
@@ -3862,25 +3859,14 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 		InitStack(krn.m_Args);
 		CallFar(cid, iMethod);
 
+		if (!m_Bic.m_AlreadyValidated)
+			m_pSigMsg = &krn.m_Msg;
+
 		while (!IsDone())
 			RunOnce();
 
 		if (!m_Bic.m_AlreadyValidated)
-		{
-			auto& comm = AddSigInternal(krn.m_Commitment);
-
-			// TODO: account for kernel balance change (funds consumed/emitted)
-			comm;
-
-			const ECC::SignatureBase& sig = krn.m_Signature;
-
-			ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
-			cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
-
-			Test(sig.IsValid(cfg, krn.m_Msg, &krn.m_Signature.m_k, &m_vPks.front()));
-
-		}
-
+			CheckSigs(krn.m_Commitment, krn.m_Signature);
 	}
 	catch (const Exc&)
 	{
@@ -3890,21 +3876,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 	}
 
 	return true;
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::AddSig(const ECC::Point& pk)
-{
-	if (!m_Bic.m_AlreadyValidated)
-		AddSigInternal(pk);
-}
-
-ECC::Point::Native& NodeProcessor::BlockInterpretCtx::BvmProcessor::AddSigInternal(const ECC::Point& pk)
-{
-	assert(!m_Bic.m_AlreadyValidated);
-	auto& ret = m_vPks.emplace_back();
-
-	Test(ret.ImportNnz(pk));
-	return ret;
 }
 
 bvm::VariableMem::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)

@@ -245,15 +245,20 @@ namespace bvm {
 
 		} m_FarCalls;
 
-		virtual void AddSig(const ECC::Point&) {}
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, Type::Size& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, Type::Size nVal) { return false; }
+
+		std::vector<ECC::Point::Native> m_vPks;
+		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
 	public:
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 		Amount m_Charge = 0;
+
+		const ECC::Hash::Value* m_pSigMsg = nullptr; // assign it to allow sig validation
+		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
 		std::ostringstream* m_pDbg = nullptr;
 

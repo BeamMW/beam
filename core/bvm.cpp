@@ -500,12 +500,35 @@ namespace bvm {
 
 	BVM_METHOD(add_sig)
 	{
-		AddSig(*pPubKey.RGet<ECC::Point>());
+		if (m_pSigMsg)
+			AddSigInternal(*pPubKey.RGet<ECC::Point>());
 	}
 
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
 
+	ECC::Point::Native& Processor::AddSigInternal(const ECC::Point& pk)
+	{
+		auto& ret = m_vPks.emplace_back();
+		Test(ret.ImportNnz(pk));
+		return ret;
+	}
+
+	void Processor::CheckSigs(const ECC::Point& pt, const ECC::Signature& sig)
+	{
+		if (!m_pSigMsg)
+			return;
+
+		auto& comm = AddSigInternal(pt);
+
+		// TODO: account for kernel balance change (funds consumed/emitted)
+		comm;
+
+		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
+		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
+
+		Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, *m_pSigMsg, &sig.m_k, &m_vPks.front()));
+	}
 
 	/////////////////////////////////////////////
 	// Compiler
