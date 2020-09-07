@@ -554,6 +554,23 @@ namespace bvm {
 			SaveVar(vk, nullptr, 0);
 		else
 			SaveVar(vk, val0.m_pData, nSize0);
+
+		if (m_pSigMsg)
+		{
+			Asset::ID aid_;
+			aid.Export(aid_);
+
+			Amount val_;
+			val.Export(val_);
+
+			ECC::Point::Native pt;
+			CoinID::Generator(aid_).AddValue(pt, val_);
+
+			if (bLock)
+				pt = -pt;
+
+			m_FundsIO += pt;
+		}
 	}
 
 	ECC::Point::Native& Processor::AddSigInternal(const ECC::Point& pk)
@@ -569,9 +586,7 @@ namespace bvm {
 			return;
 
 		auto& comm = AddSigInternal(pt);
-
-		// TODO: account for kernel balance change (funds consumed/emitted)
-		comm;
+		comm += m_FundsIO;
 
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
 		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());

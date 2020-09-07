@@ -261,6 +261,8 @@ namespace bvm {
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
+		ECC::Point::Native m_FundsIO;
+
 	public:
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
