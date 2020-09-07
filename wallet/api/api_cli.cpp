@@ -142,18 +142,31 @@ public:
                          std::move(settingsProvider),
                          reactor)
         , _timer(beam::io::Timer::create(reactor))
+        , _feeTimer(beam::io::Timer::create(reactor))
         , _status(Status::Unknown)
     {
         requestBalance();
+        requestRecommendedFeeRate();
         _timer->start(1000, true, [this] ()
         {
             requestBalance();
+        });
+
+        // TODO need name for the parameter
+        _feeTimer->start(60 * 1000, true, [this]()
+        {
+            requestRecommendedFeeRate();
         });
     }
 
     Amount GetAvailable() const
     {
         return _balance.m_available;
+    }
+
+    Amount GetRecommendedFeeRate() const
+    {
+        return _recommendedFeeRate;
     }
 
     bool IsConnected() const
@@ -163,7 +176,9 @@ public:
 
 private:
     beam::io::Timer::Ptr _timer;
+    beam::io::Timer::Ptr _feeTimer;
     Balance _balance;
+    Amount _recommendedFeeRate = 0;
     Status _status;
     void requestBalance()
     {
@@ -173,6 +188,14 @@ private:
             GetAsync()->GetBalance();
         }
     }
+    void requestRecommendedFeeRate()
+    {
+        if (GetSettings().IsActivated())
+        {
+            // update recommended fee rate
+            GetAsync()->EstimateFeeRate();
+        }
+    }
     void OnStatus(Status status) override
     {
         _status = status;
@@ -180,6 +203,10 @@ private:
     void OnBalance(const Balance& balance) override
     {
         _balance = balance;
+    }
+    void OnEstimatedFeeRate(Amount feeRate) override
+    {
+        _recommendedFeeRate = feeRate;
     }
     void OnCanModifySettingsChanged(bool canModify) override {}
     void OnChangedSettings() override {}
@@ -258,6 +285,54 @@ public:
                 assert(false && "Process new coin");
                 return 0;
             }
+        }
+    }
+
+    Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetRecommendedFeeRate() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
+    }
+
+    Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
         }
     }
 

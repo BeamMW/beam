@@ -17,6 +17,7 @@
 #endif
 
 #include "wallet/core/common.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/secstring.h"
@@ -173,13 +174,13 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 24);
 
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 24);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 14);
 
         cout << "\nFinish of testing Tx to himself...\n";
     }
@@ -694,21 +695,21 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 11);
 
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 12);
 
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 13);
 
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 2);
 
         cout << "\nFinish of testing split Tx...\n";
     }
@@ -814,21 +815,21 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 100);
 
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 11);
 
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 12);
 
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 13);
 
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
         WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 14);
     }
 
     void TestExpiredTransaction()
@@ -1358,6 +1359,12 @@ namespace
         }
     }
 
+    struct MyZeroInit {
+        static void Do(std::string&) {}
+        template <typename T> static void Do(std::vector<T>&) {}
+        template <typename T> static void Do(T& x) { ZeroObject(x);  }
+    };
+
     void TestTxParameters()
     {
         std::cout << "Testing tx parameters and token...\n";
@@ -1424,9 +1431,13 @@ namespace
             }
 
             {
+                // don't save uninitialized variables
                 TxParameters allParams;
-#define MACRO(name, index, type) \
-                allParams.SetParameter(TxParameterID::name, type{}); \
+#define MACRO(name, index, type) { \
+                    type var; \
+                    MyZeroInit::Do(var); \
+                    allParams.SetParameter(TxParameterID::name, var); \
+                }
 
                 BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
 #undef MACRO
@@ -1443,7 +1454,7 @@ namespace
         }
         {
             std::string s = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
-            auto identity = FromHex(s);
+            auto identity = GetPeerIDFromHex(s);
             WALLET_CHECK(identity.is_initialized());
             auto r = std::to_string(*identity);
             WALLET_CHECK(r == s);
@@ -1466,7 +1477,7 @@ namespace
             WalletID address;
             WALLET_CHECK(address.FromHex(sbbsAddressStr));
             WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerID) == address);
-            auto  identity = FromHex(identityStr);
+            auto  identity = GetPeerIDFromHex(identityStr);
             WALLET_CHECK(identity.is_initialized());
             WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
@@ -1714,6 +1725,56 @@ namespace
         WALLET_CHECK(rtx->m_sender == false);
     }
 
+    void StoreShieldedCoins(uint32_t nShieldedCoins, Amount nValNetto, const IWalletDB::Ptr walletDb, TestNode& node)
+    {
+
+        ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
+        ECC::Point::Storage ptS;
+        ptN.Export(ptS);
+
+        node.m_vShieldedPool.resize(50, ptS);
+
+        // calculate shielded element commitment
+
+        Key::Index nShIdx = 0;
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*walletDb->get_OwnerKdf(), nShIdx);
+
+        for (uint32_t i = 0; i < nShieldedCoins; i++)
+        {
+            wallet::ShieldedCoin sc;
+
+            ShieldedTxo::Ticket tkt;
+            ShieldedTxo::DataParams sdp;
+            sdp.m_Ticket.Generate(tkt, viewer, 12323U + i);
+            sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
+
+            sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
+            sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
+            sdp.m_Output.m_User = sc.m_CoinID.m_User;
+
+            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+
+            WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
+
+            ptN += ECC::Context::get().G * sdp.m_Output.m_k;
+            CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
+
+            ptN.Export(ptS);
+
+            sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
+            sc.m_CoinID.m_Key.m_nIdx = nShIdx;
+            ZeroObject(sc.m_CoinID.m_User);
+            sc.m_TxoID = 12 + i;
+            sc.m_CoinID.m_Value = nValNetto;
+            sc.m_confirmHeight = 0;
+
+            node.m_vShieldedPool[sc.m_TxoID] = ptS;
+
+            walletDb->saveShieldedCoin(sc);
+        }
+    }
+
     void TestSendingShielded()
     {
         cout << "\nTesting consuming shielded TXOs...\n";
@@ -1736,58 +1797,11 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
+        const uint32_t nShieldedCoins = 3;
+        Amount nValNetto = 135;
         Transaction::FeeSettings fs;
         Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
-        Amount nValNetto = 135;
-
-        ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
-        ECC::Point::Storage ptS;
-        ptN.Export(ptS);
-
-        node.m_vShieldedPool.resize(50, ptS);
-
-        // calculate shielded element commitment
-        const uint32_t nShieldedCoins = 3;
-        {
-            Key::Index nShIdx = 0;
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(*sender.m_WalletDB->get_OwnerKdf(), nShIdx);
-
-            for (uint32_t i = 0; i < nShieldedCoins; i++)
-            {
-                wallet::ShieldedCoin sc;
-
-                ShieldedTxo::Ticket tkt;
-                ShieldedTxo::DataParams sdp;
-                sdp.m_Ticket.Generate(tkt, viewer, 12323U + i);
-                sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
-
-                sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
-                sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
-                sdp.m_Output.m_User = sc.m_CoinID.m_User;
-
-                sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
-
-                WALLET_CHECK(ptN.Import(tkt.m_SerialPub));
-
-                ptN += ECC::Context::get().G * sdp.m_Output.m_k;
-                CoinID::Generator(sdp.m_Output.m_AssetID).AddValue(ptN, sdp.m_Output.m_Value);
-
-                ptN.Export(ptS);
-
-                sc.m_CoinID.m_Key.m_IsCreatedByViewer = true;
-                sc.m_CoinID.m_Key.m_nIdx = nShIdx;
-                ZeroObject(sc.m_CoinID.m_User);
-                sc.m_TxoID = 12 + i;
-                sc.m_CoinID.m_Value = nValNetto + nInpFee + 1;
-                sc.m_confirmHeight = 0;
-
-                node.m_vShieldedPool[sc.m_TxoID] = ptS;
-
-                sender.m_WalletDB->saveShieldedCoin(sc);
-            }
-        }
-
+        StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
 
         auto txId  = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
@@ -1806,6 +1820,51 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
+    }
+
+    void TestCalculateShieldedCoinsSelection()
+    {
+        cout << "\nTesting shielded coins selection...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+        AmountList lst;
+        auto walletDB = createSenderWalletDB(false, lst);
+        StoreShieldedCoins(3, 3000000, walletDB, node);
+        Transaction::FeeSettings fs;
+        Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
+        Amount beforehandFee = 1200000;
+
+        auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 6000000, beforehandFee);
+        WALLET_CHECK(6000000 > selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        WALLET_CHECK(selectionRes.shieldedFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
+        WALLET_CHECK(selectionRes.change == 0);
+
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, beforehandFee);
+        WALLET_CHECK(4000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        WALLET_CHECK(selectionRes.shieldedFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
+        WALLET_CHECK(selectionRes.change != 0);
+
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 500000, beforehandFee);
+        WALLET_CHECK(500000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        WALLET_CHECK(selectionRes.shieldedFee == nInpFee);
+        WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
+        WALLET_CHECK(selectionRes.change != 0);
     }
 
     void TestMultiUserWallet()
@@ -2428,6 +2487,8 @@ void TestVouchers()
             SetNodeEndpoint(m_MyNetwork);
 
             pTwn->m_Map[m_MyAddr.m_walletID].m_pSink = this;
+
+            Cast::Down<FlyClient>(*this).OnOwnedNode(Zero, true); // hack, disable wallet's logic according to which it won't reply with voucher without owned node.
         }
 
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myAddr, std::vector<ShieldedTxo::Voucher>&& res) override
@@ -2762,6 +2823,7 @@ int main()
     Rules::get().UpdateChecksum();
 
     TestSendingShielded();
+    TestCalculateShieldedCoinsSelection();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

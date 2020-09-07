@@ -67,6 +67,8 @@ enum class SwapOfferStatus : uint32_t
 
 AtomicSwapCoin from_string(const std::string& value);
 uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
+// TODO roman.strilets: maybe it is bad name
+std::string GetCoinName(AtomicSwapCoin swapCoin);
 }  // namespace beam::wallet
 
 namespace std

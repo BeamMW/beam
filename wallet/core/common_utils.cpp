@@ -19,6 +19,7 @@
 #include "utility/logger.h"
 
 #include <boost/format.hpp>
+#include <numeric>
 
 namespace beam::wallet
 {
@@ -67,4 +68,62 @@ std::string TxIDToString(const TxID& txId)
 {
     return to_hex(txId.data(), txId.size());
 }
+
+Amount CalcChange(const IWalletDB::Ptr& walletDB, Amount amount)
+{
+    auto coins = walletDB->selectCoins(amount, Zero);
+    Amount sum = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c) {
+        return sum + c.m_ID.m_Value;
+    });
+
+    return sum <= amount ? 0 : sum - amount;
+}
+
+Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded)
+{
+    Amount sum = accumulate(vSelStd.begin(), vSelStd.end(), (Amount)0, [] (Amount sum, const Coin& c) {
+        return sum + c.m_ID.m_Value;
+    });
+
+    sum = accumulate(vSelShielded.begin(), vSelShielded.end(), sum, [] (Amount sum, const ShieldedCoin& c) {
+        return sum + c.m_CoinID.m_Value;
+    });
+
+    return sum;
+}
+
+ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
+    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount beforehandMinFee)
+{
+    std::vector<Coin> vSelStd;
+    std::vector<ShieldedCoin> vSelShielded;
+    walletDB->selectCoins2(
+        requestedSum + beforehandMinFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+
+    TxStats ts;
+    ts.m_Outputs = sum > requestedSum + beforehandMinFee ? 2 : 1;
+    ts.m_InputsShielded = vSelShielded.size();
+    ts.m_Kernels = 1 + ts.m_InputsShielded;
+
+    Transaction::FeeSettings fs;
+    Amount minFee = fs.Calculate(ts);
+    Amount shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
+
+    if (sum < requestedSum + beforehandMinFee) 
+        return {requestedSum, sum, beforehandMinFee, std::max(beforehandMinFee, minFee), minFee, shieldedFee, 0};
+
+    if (beforehandMinFee >= minFee)
+    {
+        auto change = sum - beforehandMinFee - requestedSum;
+        return {requestedSum, sum, beforehandMinFee, beforehandMinFee, minFee, shieldedFee, change};
+    }
+    else
+    {
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee);
+        res.requestedFee = beforehandMinFee;
+        return res;
+    }
+}
+
 }  // namespace beam::wallet

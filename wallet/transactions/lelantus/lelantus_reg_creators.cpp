@@ -20,9 +20,6 @@ namespace beam::wallet::lelantus
 {
     void RegisterCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        throw std::runtime_error("Lelantus transactions are forcibly disabled starting from v5.1");
-        //wallet.RegisterTransactionType(TxType::UnlinkFunds, std::make_shared<UnlinkFundsTransaction::Creator>());
-        //wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<PushTransaction::Creator>(walletDB));
-        //wallet.RegisterTransactionType(TxType::PullTransaction, std::make_shared<PullTransaction::Creator>());
+        wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<PushTransaction::Creator>(walletDB));
     }
 }

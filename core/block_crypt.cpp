@@ -438,7 +438,7 @@ namespace beam
 	};
 #pragma pack (pop)
 
-	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp)
+	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp, const User* pUser)
 	{
 		CoinID::Worker wrk(cid);
 
@@ -496,6 +496,15 @@ namespace beam
 			else
 				assert(m_pConfidential);
 
+			ECC::Scalar::Native pKExtra[_countof(pUser->m_pExtra)];
+			if (pUser)
+			{
+				for (uint32_t i = 0; i < static_cast<uint32_t>(_countof(pUser->m_pExtra)); i++)
+					pKExtra[i] = pUser->m_pExtra[i];
+
+				cp.m_pExtra = pKExtra;
+			}
+
 			if (bUseCoinKdf)
 				m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
 			else
@@ -536,7 +545,7 @@ namespace beam
 		}
 	}
 
-	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid) const
+	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid, User* pUser) const
 	{
 		ECC::RangeProof::CreatorParams cp;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
@@ -550,12 +559,21 @@ namespace beam
 			cp.m_Blob.p = &kida;
 			cp.m_Blob.n = sizeof(kida);
 
+			ECC::Scalar::Native pKExtra[_countof(pUser->m_pExtra)];
+			if (pUser)
+				cp.m_pExtra = pKExtra;
+
 			if (!m_pConfidential->Recover(oracle, cp))
 				return false;
 
 			Cast::Down<Key::ID>(cid) = kida.m_Kid;
-
 			kida.m_AssetID.Export(cid.m_AssetID);
+
+			if (pUser)
+			{
+				for (uint32_t i = 0; i < static_cast<uint32_t>(_countof(pUser->m_pExtra)); i++)
+					pUser->m_pExtra[i] = pKExtra[i];
+			}
 		}
 		else
 		{
@@ -571,6 +589,9 @@ namespace beam
 
 			Cast::Down<Key::ID>(cid) = kid;
 			cid.m_AssetID = 0; // can't be recovered atm
+
+			if (pUser)
+				ZeroObject(*pUser); // can't be recovered
 		}
 
 

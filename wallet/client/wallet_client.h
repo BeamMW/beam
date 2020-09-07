@@ -20,6 +20,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
+#include "wallet/core/common_utils.h"
 #include "wallet_model_async.h"
 #include "wallet/client/changes_collector.h"
 #include "wallet/client/extensions/notifications/notification_observer.h"
@@ -115,11 +116,14 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(Amount change) {}
+        virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
+        virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
+        virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
-        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address) {}
+        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
@@ -160,6 +164,7 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount) override;
+        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
@@ -179,6 +184,7 @@ namespace beam::wallet
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void activateAddress(const WalletID& id) override;
         void getAddress(const WalletID& id) override;
+        void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
@@ -204,6 +210,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos() const;
+        
 
         void updateClientState();
         void updateClientTxState();
@@ -236,9 +243,16 @@ namespace beam::wallet
         struct CoinKey
         {
             typedef Coin::ID type;
-            const Coin::ID& operator()(const Coin& c) const { return c.m_ID; }
+            const type& operator()(const Coin& c) const { return c.m_ID; }
         };
         ChangesCollector <Coin, CoinKey> m_CoinChangesCollector;
+
+        struct ShieldedCoinKey
+        {
+            typedef TxoID type;
+            const type& operator()(const ShieldedCoin& c) const { return c.m_TxoID; }
+        };
+        ChangesCollector <ShieldedCoin, ShieldedCoinKey> m_ShieldedCoinChangesCollector;
 
         struct AddressKey
         {
@@ -259,5 +273,6 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
+        ShieldedCoinsSelectionInfo _shieldedCoinsSelectionResult;
     };
 }

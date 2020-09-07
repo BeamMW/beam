@@ -146,7 +146,7 @@ namespace beam::wallet
 
         virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
         {
-            return true;
+            return false;
         }
 
         template <typename T>
@@ -183,8 +183,7 @@ namespace beam::wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID)
         {
-            bool shouldNotifyAboutChanges = ShouldNotifyAboutChanges(paramID);
-            return SetParameter(paramID, value, shouldNotifyAboutChanges, subTxID);
+            return SetParameter(paramID, value, true, subTxID);
         }
 
         template <typename T>
@@ -247,6 +246,12 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
+        void SendTxParametersStrict(SetTxParameter&& msg) const
+        {
+            if (!SendTxParameters(std::move(msg)))
+                throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
+        }
+
     protected:
 
         virtual bool CheckExpired();
@@ -260,7 +265,6 @@ namespace beam::wallet
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
 
-        virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
         void SetCompletedTxCoinStatuses(Height proofHeight);
         void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
     protected:

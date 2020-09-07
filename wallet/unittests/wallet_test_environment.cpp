@@ -133,7 +133,6 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, toByteBuffer(p.m_status), false);
     };
     void deleteTx(const TxID&) override {};
-    void rollbackTx(const TxID&) override {}
 
     std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override { return {}; }
 
@@ -170,9 +169,9 @@ public:
     void changePassword(const SecString& password) override {}
 
     bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
-        const ByteBuffer& blob, bool shouldNotifyAboutChanges) override
+        const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) override
     {
-        if (paramID < wallet::TxParameterID::PrivateFirstParam)
+        if (!allowModify)
         {
             auto p = m_params.emplace(paramID, blob);
             return p.second;

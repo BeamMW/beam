@@ -341,7 +341,7 @@ Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
 Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
 {
     Api::ParameterReader reader{ id, params };
-    return reader.readAmount("fee_rate", false);
+    return reader.readAmount("fee_rate", true);
 }
 
 static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
@@ -1451,6 +1451,29 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         GetBalance data{ coin };
         getHandler().onMessage(id, data);
     }
+
+    void WalletApi::onRecommendedFeeRateMessage(const JsonRpcId& id, const json& params)
+    {
+        checkJsonParam(params, "coin", id);
+        AtomicSwapCoin coin = AtomicSwapCoin::Unknown;
+        if (params["coin"].is_string())
+        {
+            coin = from_string(params["coin"]);
+        }
+
+        if (coin == AtomicSwapCoin::Unknown)
+        {
+            throw jsonrpc_exception
+            {
+                ApiError::InvalidParamsJsonRpc,
+                "Unknown coin.",
+                id
+            };
+        }
+
+        RecommendedFeeRate data{ coin };
+        getHandler().onMessage(id, data);
+    }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
@@ -1969,6 +1992,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"result",
             {
                 {"available", res.available},
+            }}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const RecommendedFeeRate::Response& res, json& msg)
+    {
+        msg =
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result",
+            {
+                {"feerate", res.feeRate},
             }}
         };
     }

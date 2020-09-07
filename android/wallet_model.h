@@ -33,6 +33,8 @@ private:
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount change) override;
+    void onShieldedCoinsSelectionCalculated(const beam::wallet::ShieldedCoinsSelectionInfo& selectionRes) override;
+    void onNeedExtractShieldedCoins(bool val) override;
     void onAllUtxoChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>& utxos) override;
     void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
@@ -58,4 +60,6 @@ private:
     void onExportTxHistoryToCsv(const std::string& data) override {};
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
+    void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
+    void onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>& items) override;
 };

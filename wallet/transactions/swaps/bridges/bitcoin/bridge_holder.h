@@ -41,13 +41,13 @@ namespace beam::bitcoin
         {
         }
 
-        IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider& settingsProvider) override
+        IBridge::Ptr Get(io::Reactor& currentReactor, ISettingsProvider& settingsProvider) override
         {
             if (settingsProvider.GetSettings().IsCoreActivated())
             {
                 if (m_bridgeConnectionType != ISettings::ConnectionType::Core)
                 {
-                    m_bridge = std::make_shared<CoreBridge>(reactor, settingsProvider);
+                    m_bridge = std::make_shared<CoreBridge>(currentReactor, settingsProvider);
                     m_bridgeConnectionType = ISettings::ConnectionType::Core;
                 }
             }
@@ -55,7 +55,7 @@ namespace beam::bitcoin
             {
                 if (m_bridgeConnectionType != ISettings::ConnectionType::Electrum)
                 {
-                    m_bridge = std::make_shared<ElectrumBridge>(reactor, settingsProvider);
+                    m_bridge = std::make_shared<ElectrumBridge>(currentReactor, settingsProvider);
                     m_bridgeConnectionType = ISettings::ConnectionType::Electrum;
                 }
             }

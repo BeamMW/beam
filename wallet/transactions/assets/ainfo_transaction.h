@@ -40,7 +40,6 @@ namespace beam::wallet
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
-        bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void ConfirmAsset();
 
         enum State : uint8_t

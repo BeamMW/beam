@@ -19,101 +19,144 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    namespace
+
+    SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID)
+        :MutualTxBuilder(tx, subTxID)
     {
-        AmountList ConstructAmountList(Amount amount)
+        m_Lifetime = 0; // disable auto max height adjustment
+    }
+
+    bool SharedTxBuilder::AddSharedOffset()
+    {
+        if (m_pTransaction->m_Offset.m_Value == Zero)
         {
-            AmountList res;
-            if (amount > 0)
-            {
-                res.push_back(amount);
-            }
-            return res;
+            NoLeak<Scalar> k;
+            if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, k.V, SubTxIndex::BEAM_LOCK_TX))
+                return false;
+
+            AddOffset(k.V);
         }
+        return true;
     }
 
-    SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee)
-        : MutualTxBuilder(tx, subTxID, ConstructAmountList(amount), fee)
+    bool SharedTxBuilder::AddSharedInput()
     {
-    }
-
-    Transaction::Ptr SharedTxBuilder::CreateTransaction()
-    {
-        LoadPeerOffset();
-        return MutualTxBuilder::CreateTransaction();
-    }
-
-    Height SharedTxBuilder::GetMaxHeight() const
-    {
-        return m_Height.m_Max;
-    }
-
-    bool SharedTxBuilder::GetSharedParameters()
-    {
-        return m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX)
-            && m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, m_PeerPublicSharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX);
-    }
-
-
-    void SharedTxBuilder::InitTx(bool isTxOwner)
-    {
-        InitInput();
-
-        if (isTxOwner)
-            // select shared UTXO as input and create output utxo
-            InitOutput();
-
-        m_GeneratingInOuts = Stage::Done;
-    }
-
-    void SharedTxBuilder::InitInput()
-    {
-        // load shared utxo as input
-        Point::Native commitment(Zero);
-        Amount amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        Tag::AddValue(commitment, nullptr, amount);
-        commitment += Context::get().G * m_SharedBlindingFactor;
-        commitment += m_PeerPublicSharedBlindingFactor;
-
-        auto& input = m_pTransaction->m_vInputs.emplace_back(std::make_unique<Input>());
-        input->m_Commitment = commitment;
-        m_Tx.SetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs, false, m_SubTxID);
-
-    }
-
-    void SharedTxBuilder::InitOutput()
-    {
-        Coin outputCoin;
-
-        if (!m_Tx.GetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID))
+        if (m_pTransaction->m_vInputs.empty() && (Status::FullTx != m_Status))
         {
-            outputCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount(), Zero);
-            m_Tx.SetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID);
+            Input::Ptr pInp(std::make_unique<Input>());
+            if (!m_Tx.GetParameter(TxParameterID::SharedCommitment, pInp->m_Commitment, SubTxIndex::BEAM_LOCK_TX))
+                return false;
 
-            if (m_SubTxID == SubTxIndex::BEAM_REDEEM_TX)
-            {
-                outputCoin.m_createTxId = m_Tx.GetTxID();
-                m_Tx.GetWalletDB()->saveCoin(outputCoin);
-            }
+            m_pTransaction->m_vInputs.push_back(std::move(pInp));
         }
 
-		Height minHeight = 0;
-		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
-
-        // add output
-        IPrivateKeyKeeper2::Method::CreateOutput m;
-        m.m_hScheme = minHeight;
-        m.m_Cid = outputCoin.m_ID;
-
-        m_Tx.TestKeyKeeperRet(m_Tx.get_KeyKeeperStrict()->InvokeSync(m));
-
-        m_pTransaction->m_vOutputs.push_back(std::move(m.m_pResult));
-        m_Coins.m_Output.push_back(outputCoin.m_ID);
-        m_Tx.SetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs, m_SubTxID);
+        return true;
     }
 
-    void SharedTxBuilder::LoadPeerOffset()
+    void SharedTxBuilder::SendToPeer(SetTxParameter&& msgSub)
     {
-        m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID);
+        SetTxParameter msg;
+        msg.AddParameter(TxParameterID::SubTxIndex, m_SubTxID);
+
+        if (m_IsSender && (Status::SndHalf == m_Status))
+        {
+            msg
+                .AddParameter(TxParameterID::Amount, m_Amount) // legacy
+                .AddParameter(TxParameterID::Fee, m_Fee)
+                .AddParameter(TxParameterID::MinHeight, m_Height.m_Min); // legacy, for older peers. Current proto automatically deduces it on both sides
+        }
+
+        std::move(msgSub.m_Parameters.begin(), msgSub.m_Parameters.end(), std::back_inserter(msg.m_Parameters));
+        m_Tx.SendTxParametersStrict(std::move(msg));
     }
+
+    bool SharedTxBuilder::SignTxSender()
+    {
+        if (!MutualTxBuilder::SignTxSender())
+            return false;
+        if (!IsRedeem())
+            return true;
+
+        switch (m_Status)
+        {
+            case Status::SndFull:
+            {
+                ECC::Scalar::Native kSig = m_pKrn->CastTo_Std().m_Signature.m_k; // full sig
+
+                Scalar k;
+                GetParameterStrict(TxParameterID::PeerSignature, k);
+                kSig -= k; // my partial
+
+                // Send BTC side partial sign with secret
+                GetParameterStrict(TxParameterID::AtomicSwapSecretPrivateKey, k);
+                kSig += k; // my partial + BTC sign secret
+                k = kSig;
+
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::PeerSignature, k);
+                SendToPeer(std::move(msg));
+
+                SetStatus(Status::SndSig2Sent);
+            }
+        }
+
+        return (m_Status >= Status::SndSig2Sent) && !IsGeneratingInOuts();
+    }
+
+    bool SharedTxBuilder::SignTxReceiver()
+    {
+        if (!MutualTxBuilder::SignTxReceiver())
+            return false;
+        if (!IsRedeem())
+            return true;
+
+        switch (m_Status)
+        {
+            case Status::RcvFullHalfSigSent:
+            {
+                ECC::Scalar k;
+                if (!GetParameter(TxParameterID::PeerSignature, k))
+                    break;
+
+                // recover missing pubkey
+                ECC::Point::Native ptNonce, ptExc;
+                if (!LoadPeerPart(ptNonce, ptExc))
+                    break; // shouldn't happen actually
+
+                Scalar::Native e;
+                m_pKrn->CastTo_Std().m_Signature.get_Challenge(e, m_pKrn->m_Internal.m_ID);
+
+                ptNonce += ptExc * e;
+                ptNonce += Context::get().G * k;
+
+                if (ptNonce == Zero)
+                    throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig); // secret pubkey is missing
+
+                Point ptPubKey;
+                ptNonce.Export(ptPubKey);
+                SetParameter(TxParameterID::AtomicSwapSecretPublicKey, ptPubKey);
+
+                // save the aggregate signature (later our kernel will be overwritten)
+                ECC::Scalar::Native sk(k);
+                sk += m_pKrn->CastTo_Std().m_Signature.m_k;
+                k = sk;
+
+                SetParameter(TxParameterID::AggregateSignature, k);
+
+                SetStatus(Status::RcvSig2Received);
+            }
+        }
+
+        return (m_Status >= Status::RcvSig2Received);
+    }
+
+    void SharedTxBuilder::FinalyzeTxInternal()
+    {
+        assert(m_IsSender);
+
+        // don't call parent method, it will add peer's ins/outs, this must be prevented
+        AddPeerOffset();
+        SimpleTxBuilder::FinalyzeTxInternal();
+    }
+
 }

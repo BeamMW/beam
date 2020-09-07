@@ -356,11 +356,6 @@ namespace beam::wallet
         return false;
     }
 
-    Amount BitcoinSide::GetFeeRate() const
-    {
-        return m_settingsProvider.GetSettings().GetFeeRate();
-    }
-
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
     {
         return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);

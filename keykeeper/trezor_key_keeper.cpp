@@ -668,7 +668,7 @@ namespace beam::wallet
         ECC::Scalar::Native skDummy;
         ECC::HKdf kdfDummy;
         
-        m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_1);
+        m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_1, &m_Method.m_User);
         assert(m_pRes->m_pConfidential);
 
         BeamCrypto_CoinID cid;
@@ -691,9 +691,13 @@ namespace beam::wallet
             }
         };
 
+        static_assert(sizeof(BeamCrypto_UintBig) == sizeof(ECC::Scalar));
+        static_assert(_countof(m_Method.m_User.m_pExtra) == 2);
+        const BeamCrypto_UintBig* pExtra = reinterpret_cast<const BeamCrypto_UintBig*>(m_Method.m_User.m_pExtra);
+
         AutoMovePtr amp(std::move(p));
         m_This.PushHandler(amp.m_p->m_pHandler);
-        m_This.GetDevice()->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
+        m_This.GetDevice()->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, pExtra[0], pExtra[1],
             [this, amp](const Message& msg, std::string session, size_t queue_size)
         {
             m_This.PopHandler();
@@ -725,7 +729,7 @@ namespace beam::wallet
         {
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
-            m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_2); // Phase 3
+            m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_2, &m_Method.m_User); // Phase 3
 
             m_Method.m_pResult.swap(m_pRes);
         }

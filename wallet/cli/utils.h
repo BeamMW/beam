@@ -14,19 +14,16 @@
 
 #pragma once
 
+#include <boost/program_options.hpp>
+
+#include "utility/cli/options.h"
+
 #include "wallet/core/common.h"
-#include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
-class IAtomicSwapProvider
-{
-public:
-    virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
-    virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
-    virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
-    virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
-    virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
-};
-}  // namespace beam::wallet
+bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), bool asset = false);
+bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee);
+bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
+bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID = false);
+} // namespace beam::wallet

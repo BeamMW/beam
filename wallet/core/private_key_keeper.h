@@ -80,7 +80,10 @@ namespace beam::wallet
             struct CreateOutput {
                 Height m_hScheme; // scheme prior to Fork1 isn't supported for trustless wallet
                 CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
+                Output::User m_User;
                 Output::Ptr m_pResult;
+
+                CreateOutput() { ZeroObject(m_User); }
             };
 
             struct CreateInputShielded
@@ -100,7 +103,8 @@ namespace beam::wallet
             {
                 WalletIDKey m_MyIDKey;
                 ECC::Hash::Value m_Nonce;
-                ShieldedTxo::Voucher m_Voucher;
+                uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
+                std::vector<ShieldedTxo::Voucher> m_Res;
             };
 
             struct InOuts

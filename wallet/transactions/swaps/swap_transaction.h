@@ -186,22 +186,22 @@ namespace beam::wallet
         SubTxState GetSubTxState(SubTxID subTxID) const;
         Amount GetWithdrawFee() const;
         void UpdateImpl() override;
-        void RollbackTx() override;
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
         bool CheckExpired() override;
         bool CheckExternalFailures() override;
         void SendInvitation();
         void SendExternalTxDetails();
-        void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
-        void SendLockTxConfirmation(const LockTxBuilder& lockBuilder);
 
-        void SendSharedTxInvitation(const MutualTxBuilder& builder);
-        void ConfirmSharedTxInvitation(const MutualTxBuilder& builder);
         void SendQuickRefundPrivateKey();
 
-
         SubTxState BuildBeamLockTx();
+        void BuildBeamLockTxGuarded(SubTxState&);
+        void BuildBeamWithdrawTxGuarded(SubTxState&, SubTxID, Transaction::Ptr&);
+        bool SetWithdrawParams(bool bTxOwner, SubTxID);
+
+        SubTxState BuildBeamSubTx(SubTxID subTxID, Transaction::Ptr& pRes);
+
         SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
         bool CompleteBeamWithdrawTx(SubTxID subTxID);
                 

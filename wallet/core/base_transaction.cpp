@@ -227,7 +227,9 @@ namespace beam::wallet
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
-        m_Context.GetWalletDB()->rollbackTx(GetTxID());
+        m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
+        m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
+        m_Context.GetWalletDB()->restoreShieldedCoinsSpentByTx(GetTxID());
     }
 
     INegotiatorGateway& BaseTransaction::GetGateway() const
@@ -261,7 +263,8 @@ namespace beam::wallet
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered)
+        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        if ((!GetParameter(TxParameterID::TransactionRegistered, nRegistered) && isSender)
             || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;

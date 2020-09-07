@@ -89,6 +89,16 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
 	}
 
+	static void onShieldedCoinsSelectionCalculated(long minFee)
+	{
+		System.out.println(">>>>>>>>>>> onShieldedCoinsSelectionCalculated(" + minFee + ") called");
+	}
+
+	static void onNeedExtractShieldedCoins(boolean val)
+	{
+		System.out.println(">>>>>>>>>>> onNeedExtractShieldedCoins(" + val + ") called");
+	}
+
 	static void onAllUtxoChanged(UtxoDTO[] utxos)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onAllUtxoChanged in Java");
@@ -293,6 +303,11 @@ public class WalletListener
 	static void onBeamNewsNotification(int action)
     {
 		System.out.println(">>>>>>>>>>>>>> async onBeamNewsNotification in Java");
+	}
+
+	static void onGetAddress(int count)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onGetAddress in Java");
 	}
 
 	static void onExchangeRates(ExchangeRateDTO[] rates)

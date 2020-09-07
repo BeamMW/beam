@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <boost/filesystem.hpp>
-#include "utility/logger.h"
 #include "wallet/core/common.h"
+#include "utility/logger.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/simple_transaction.h"
@@ -74,7 +74,7 @@ void TestAssets() {
     };
 
     const auto  receiverDB = createSqliteWalletDB("receiver_wallet.db", false, true);
-    const AmountList kDefaultTestAmounts = {50000000};
+    const AmountList kDefaultTestAmounts = {50000000000, 50000000000, 50000000000, 50000000000, 50000000000, 50000000000};
     const auto receiverTreasury = createTreasury(receiverDB, kDefaultTestAmounts);
 
     Node node;
@@ -166,8 +166,6 @@ void TestAssets() {
     };
 
     TxDescription tx;
-    size_t receiverTxCnt = 0;
-    size_t ownerTxCnt = 0;
     auto runTest = [&](const char* name, const std::function<TxID ()>& test, int wcnt = 1, bool owner = true) {
         LOG_INFO() << "\nTesting " << name << "...";
 
@@ -182,7 +180,6 @@ void TestAssets() {
         auto db = owner ? ownerDB : receiverDB;
         tx = getTx(db, txid);
         WALLET_CHECK(tx.m_txId == txid);
-        WALLET_CHECK(db->getTxHistory(wallet::TxType::ALL).size() == (owner ? ++ownerTxCnt : ++receiverTxCnt));
     };
 
     //
@@ -674,8 +671,8 @@ int main () {
     rules.CA.LockPeriod       = 20;
     rules.MaxRollback         = 20;
     rules.FakePoW             = true;
-    rules.pForks[1].m_Height  = 2;
-    rules.pForks[2].m_Height  = 4;
+    rules.pForks[1].m_Height  = 5;
+    rules.pForks[2].m_Height  = 10;
     rules.UpdateChecksum();
 
     TestAssets();

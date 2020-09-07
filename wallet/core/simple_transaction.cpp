@@ -75,9 +75,9 @@ namespace beam::wallet
     }
 
     struct SimpleTransaction::MyBuilder
-        :public MutualTxBuilder2
+        :public MutualTxBuilder
     {
-        using MutualTxBuilder2::MutualTxBuilder2;
+        using MutualTxBuilder::MutualTxBuilder;
 
         void SendToPeer(SetTxParameter&&) override;
     };
@@ -96,7 +96,7 @@ namespace beam::wallet
         if (m_IsSender)
         {
             msg
-                .AddParameter(TxParameterID::Amount, GetAmount())
+                .AddParameter(TxParameterID::Amount, m_Amount)
                 .AddParameter(TxParameterID::AssetID, m_AssetID)
                 .AddParameter(TxParameterID::Fee, m_Fee)
                 .AddParameter(TxParameterID::MinHeight, m_Height.m_Min)
@@ -107,8 +107,6 @@ namespace beam::wallet
         else
         {
             LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
-
-            assert(!m_IsSelfTx);
 
             Signature sig;
             if (!m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
@@ -124,7 +122,7 @@ namespace beam::wallet
                 if (bSuccess)
                 {
                     pc.m_Sender = widPeer.m_Pk;
-                    pc.m_Value = GetAmount();
+                    pc.m_Value = m_Amount;
                     pc.m_AssetID = m_AssetID;
                     pc.m_KernelID = m_pKrn->m_Internal.m_ID;
 
@@ -141,27 +139,59 @@ namespace beam::wallet
             }
         }
 
-        if (!Cast::Up<SimpleTransaction>(m_Tx).SendTxParameters(move(msg))) // the cast is necessary to access protected base class method
-            throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
+        m_Tx.SendTxParametersStrict(move(msg));
     }
 
 
+    bool SimpleTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+    {
+        if (kDefaultSubTxID != subTxID)
+            return false; // irrelevant
 
+        switch (paramID)
+        {
+        case TxParameterID::IsSender: // TODO - change this. It should be checked and set by Creator during construction
+        case TxParameterID::Amount:
+        case TxParameterID::AssetID:
+        case TxParameterID::Fee:
+        case TxParameterID::MinHeight:
+        case TxParameterID::MaxHeight:
+        case TxParameterID::Message:
+        case TxParameterID::Lifetime:
+        case TxParameterID::PaymentConfirmation:
+        case TxParameterID::PeerProtoVersion:
+        case TxParameterID::PeerWalletIdentity:
+        case TxParameterID::PeerMaxHeight:
+        case TxParameterID::PeerPublicExcess:
+        case TxParameterID::PeerPublicNonce:
+        case TxParameterID::PeerSignature:
+        case TxParameterID::PeerInputs:
+        case TxParameterID::PeerOutputs:
+        case TxParameterID::PeerOffset:
+        case TxParameterID::FailureReason: // to be able to cancel transaction until we haven't sent any response
+            return true;
+
+        default:
+            return false;
+        }
+
+    }
 
     void SimpleTransaction::UpdateImpl()
     {
-        AmountList amoutList;
-        if (!GetParameter(TxParameterID::AmountList, amoutList))
+        if (!m_TxBuilder)
         {
-            amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
+            m_IsSelfTx = IsSelfTx();
+
+            m_TxBuilder = m_IsSelfTx ?
+                make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID) :
+                make_shared<MyBuilder>(*this, kDefaultSubTxID);
         }
 
-        if (!m_TxBuilder)
-            m_TxBuilder = make_shared<MyBuilder>(*this, kDefaultSubTxID, amoutList);
+        auto sharedBuilder = m_TxBuilder; // extra ref?
 
-        auto sharedBuilder = m_TxBuilder;
-        MyBuilder& builder = *sharedBuilder;
-
+        SimpleTxBuilder& builder = *m_TxBuilder;
+        MyBuilder* pMutualBuilder = m_IsSelfTx ? nullptr : &Cast::Up<MyBuilder>(builder);
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -194,10 +224,77 @@ namespace beam::wallet
             PeerID myWalletID, peerWalletID;
             bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
                 && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
+
+            UpdateTxDescription(TxStatus::InProgress);
+
+            if (!pMutualBuilder && (MaxHeight == builder.m_Height.m_Max) && builder.m_Lifetime)
+            {
+                // for split tx we finalyze the max height immediately
+                Block::SystemState::Full s;
+                if (GetTip(s))
+                {
+                    builder.m_Height.m_Max = s.m_Height + builder.m_Lifetime;
+                    SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+                }
+            }
+
+            BaseTxBuilder::Balance bb(builder);
+            bb.AddPreselected();
+
+            if (pMutualBuilder && pMutualBuilder->m_IsSender)
+            {
+                // snd
+                bb.m_Map[builder.m_AssetID].m_Value -= builder.m_Amount;
+
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight)) {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+            }
+            else
+            {
+                // rcv or split. Create TXOs explicitly
+                AmountList amoutList;
+                if (!GetParameter(TxParameterID::AmountList, amoutList))
+                    amoutList = AmountList{ builder.m_Amount };
+
+                // rcv or split: create tx output utxo(s)
+                for (const auto& amount : amoutList)
+                    bb.CreateOutput(amount, builder.m_AssetID, Key::Type::Regular);
+            }
+
+            bool bPayFee = !pMutualBuilder || pMutualBuilder->m_IsSender;
+            if (bPayFee)
+                bb.m_Map[0].m_Value -= builder.m_Fee;
+            else
+                // rcv
+                bb.m_Map[builder.m_AssetID].m_Value += builder.m_Amount;
+
+            bb.CompleteBalance();
+
+            if (bPayFee)
+            {
+                // snd or split. Take care of fee
+                TxStats tsExtra;
+                if (pMutualBuilder)
+                    tsExtra.m_Outputs = 1; // normally peer adds 1 output
+
+                // split or sender, pay the fee
+                builder.CheckMinimumFee(&tsExtra);
+            }
+
+            auto shieldedCount = builder.m_Coins.m_InputShielded.size();
+            Amount shieldedFee = 0;
+            if (shieldedCount)
+            {
+                Transaction::FeeSettings fs;
+                shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
+            }
+
             stringstream ss;
-            ss << GetTxID() << (builder.m_IsSender ? " Sending " : " Receiving ")
-                << PrintableAmount(builder.GetAmount(), false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
+            ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
+                << PrintableAmount(builder.m_Amount, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
+                << " (fee: " << PrintableAmount(!!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee) << ")";
 
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
@@ -207,59 +304,24 @@ namespace beam::wallet
 
             LOG_INFO() << ss.str();
 
-            UpdateTxDescription(TxStatus::InProgress);
-
-            builder.AddPreselectedCoins();
-
-            if (builder.m_IsSender)
-            {
-                Height maxResponseHeight = 0;
-                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-                {
-                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
-                }
-
-                builder.MakeInputsAndChanges();
-            }
-
-            if (builder.m_IsSelfTx || !builder.m_IsSender)
-            {
-                CoinID cid;
-                cid.m_AssetID = builder.m_AssetID;
-                cid.m_Type = Key::Type::Regular;
-
-                // create receiver utxo
-                for (const auto& amount : builder.m_AmountList)
-                {
-                    cid.m_Value = amount;
-                    builder.CreateAddNewOutput(cid);
-                }
-            }
-
-            if (builder.m_IsSender)
-            {
-                TxStats tsExtra;
-                if (!builder.m_IsSelfTx)
-                    tsExtra.m_Outputs = 1; // normally peer adds 1 output
-
-                builder.CheckMinimumFee(&tsExtra);
-            }
-
             builder.SaveCoins();
         }
 
-        if (!builder.UpdateLogic())
+        if (!builder.SignTx())
             return;
 
         assert(builder.m_pKrn);
 
-        if (builder.IsTxOwner())
+        if (!pMutualBuilder || pMutualBuilder->m_IsSender)
         {
+            // We're the tx owner
             uint8_t nRegistered = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
             {
                 if (CheckExpired())
                     return;
+
+                builder.FinalyzeTx();
 
                 GetGateway().register_tx(GetTxID(), builder.m_pTransaction);
                 SetState(State::Registration);
@@ -439,24 +501,4 @@ namespace beam::wallet
         return state;
     }
 
-    bool SimpleTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Amount:
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::PeerID:
-        case TxParameterID::MyID:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-        case TxParameterID::AssetID:
-            return true;
-        default:
-            return false;
-        }
-    }
 }

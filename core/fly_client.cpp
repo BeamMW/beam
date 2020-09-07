@@ -118,7 +118,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
-	msg.m_Flags |= LoginFlags::MiningFinalization;
+	msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
@@ -926,6 +926,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(EventsSerif&& msg)
 
     // TODO: handle complex situation, where multiple owned nodes are connected
     m_This.m_Client.OnEventsSerif(msg.m_Value, msg.m_Height);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(PeerInfo&& msg)
+{
+    m_This.m_Client.OnNewPeer(msg.m_ID, msg.m_LastAddr);
 }
 
 } // namespace proto

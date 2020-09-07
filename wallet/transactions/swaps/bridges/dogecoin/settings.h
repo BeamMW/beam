@@ -34,7 +34,7 @@ namespace beam::dogecoin
             constexpr Amount kDogeMinFeeRate = 200000000;
 
             SetLockTimeInBlocks(kDogeDefaultLockTimeInBlocks);
-            SetFeeRate(kDogeMinFeeRate);
+            SetMinFeeRate(kDogeMinFeeRate);
             SetBlocksPerHour(kDogeBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());

@@ -21,11 +21,10 @@ namespace beam::wallet::lelantus
     PushTxBuilder::PushTxBuilder(BaseTransaction& tx)
         : BaseTxBuilder(tx, kDefaultSubTxID)
     {
-        m_Value = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetID);
+        m_Value = GetParameterStrict<Amount>(TxParameterID::Amount);
+        GetParameter(TxParameterID::AssetID, m_AssetID);
 
-        ECC::Hash::Value hv;
-        if (m_Tx.GetParameter(TxParameterID::KernelID, hv, m_SubTxID))
+        if (m_pKrn)
             m_Signing = Stage::Done;
     }
 
@@ -49,13 +48,9 @@ namespace beam::wallet::lelantus
 
                 b.AddOffset(m_Method.m_kOffset);
 
-                b.m_Tx.SetParameter(TxParameterID::Kernel, m_Method.m_pKernel, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::KernelID, m_Method.m_pKernel->m_Internal.m_ID, b.m_SubTxID);
-                b.m_Tx.SetParameter(TxParameterID::ShieldedSerialPub, m_Method.m_Voucher.m_Ticket.m_SerialPub);
-
-                b.m_pTransaction->m_vKernels.push_back(std::move(m_Method.m_pKernel));
-                b.m_pTransaction->Normalize();
-                b.VerifyTx();
+                b.AddKernel(std::move(m_Method.m_pKernel));
+                b.SaveKernel();
+                b.SaveKernelID();
 
                 OnAllDone(b);
             }
@@ -67,58 +62,50 @@ namespace beam::wallet::lelantus
 
         SetCommon(m);
 
-        WalletID widMy = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::MyID);
+        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyID);
         WalletID widPeer;
-        bool bHasWidPeer = m_Tx.GetParameter(TxParameterID::PeerID, widPeer);
+        bool bHasWidPeer = GetParameter(TxParameterID::PeerID, widPeer);
 
-        if (!m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
+        if (!GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
         {
             auto wa = m_Tx.GetWalletDB()->getAddress(bHasWidPeer ? widPeer : widMy);
             if (!wa)
-                throw TransactionFailedException(true, TxFailureReason::NoVouchers);
+                throw TransactionFailedException(true, TxFailureReason::NoPeerIdentity);
 
             m.m_Peer = wa->m_Identity;
             m.m_MyIDKey = wa->m_OwnID;
         }
 
-        ShieldedVoucherList vouchers;
-        if (!m_Tx.GetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers))
+        if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
         {
-            if (!m_Tx.GetParameter(TxParameterID::ShieldedVoucherList, vouchers))
+            if (m.m_MyIDKey)
             {
-                if (m.m_MyIDKey)
-                {
-                    // We're sending to ourselves. Create our voucher
-                    IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
-                    m2.m_MyIDKey = m.m_MyIDKey;
-                    ECC::GenRandom(m2.m_Nonce);
+                // We're sending to ourselves. Create our voucher
+                IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
+                m2.m_MyIDKey = m.m_MyIDKey;
+                ECC::GenRandom(m2.m_Nonce);
 
-                    if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2))
-                        throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+                if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) ||
+                    m2.m_Res.empty())
+                    throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
 
-                    vouchers.push_back(std::move(m2.m_Voucher));
-                }
-                else
-                {
-                    if (!bHasWidPeer)
-                        throw TransactionFailedException(true, TxFailureReason::NoVouchers);
-
-                    boost::optional<ShieldedTxo::Voucher> res;
-                    m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
-
-                    if (!res)
-                        return;
-
-                    vouchers.push_back(std::move(*res));
-                }
+                m.m_Voucher = std::move(m2.m_Res.front());
             }
+            else
+            {
+                if (!bHasWidPeer)
+                    throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-            m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
+                boost::optional<ShieldedTxo::Voucher> res;
+                m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
+
+                if (!res)
+                    return;
+
+                m.m_Voucher = std::move(*res);
+            }
+            SetParameter(TxParameterID::Voucher, m.m_Voucher);
         }
-
-        m.m_Voucher = vouchers.back();
-        vouchers.pop_back();
-        m_Tx.SetParameter(TxParameterID::UnusedShieldedVoucherList, vouchers);
 
         ZeroObject(m.m_User);
 
@@ -130,7 +117,8 @@ namespace beam::wallet::lelantus
         }
 
         // TODO: add ShieldedMessage if needed
-        // m.m_User.m_Message = m_Tx.GetMandatoryParameter<WalletID>(TxParameterID::ShieldedMessage);
+        // m.m_User.m_Message = GetParameterStrict<WalletID>(TxParameterID::ShieldedMessage);
+        ShieldedTxo::User::ToPackedMessage(m.m_User)->m_TxID = Blob(m_Tx.GetTxID().data(), static_cast<uint32_t>(m_Tx.GetTxID().size()));
 
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
@@ -156,6 +144,65 @@ namespace beam::wallet::lelantus
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(m, pHandler);
 
+    }
+
+    void PushTxBuilder::ResetSig()
+    {
+        if (!m_pKrn)
+            return;
+
+        m_pTransaction->m_vKernels.clear();
+        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
+
+        m_pKrn = nullptr;
+        m_Signing = Stage::None;
+        SaveKernel();
+        SetParameter(TxParameterID::KernelID, Zero);
+        SetStatus(Status::None);
+
+        m_pTransaction->m_Offset = Zero;
+        SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
+
+        SetParameter(TxParameterID::Voucher, Zero);
+
+        SetParameter(TxParameterID::KernelProofHeight, Zero);
+        SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
+
+        SetParameter(TxParameterID::TransactionRegisteredInternal, Zero);
+    }
+
+    const ShieldedTxo* PushTxBuilder::get_Txo()
+    {
+        if (!m_pKrn)
+            return nullptr;
+
+        if (TxKernel::Subtype::ShieldedOutput == m_pKrn->get_Subtype())
+            return &m_pKrn->CastTo_ShieldedOutput().m_Txo;
+
+        for (const auto& p : m_pKrn->m_vNested)
+        {
+            if (TxKernel::Subtype::ShieldedOutput == p->get_Subtype())
+                return &p->CastTo_ShieldedOutput().m_Txo;
+        }
+
+        return nullptr;
+    }
+
+    const ShieldedTxo& PushTxBuilder::get_TxoStrict()
+    {
+        const ShieldedTxo* pTxo = get_Txo();
+        if (!pTxo)
+            throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        return *pTxo;
+    }
+
+    void PushTxBuilder::FillUserData(Output::User::Packed* user)
+    {
+        BaseTxBuilder::FillUserData(user);
+        user->m_Amount = m_Value;
+        PeerID peerID = Zero;
+        GetParameter(TxParameterID::PeerWalletIdentity, peerID);
+        user->m_Peer = peerID;
     }
 
 } // namespace beam::wallet::lelantus

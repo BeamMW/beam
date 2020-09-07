@@ -30,9 +30,9 @@ namespace beam::wallet {
     BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
+        , m_pKdfSbbs(pWalletDB->get_SbbsKdf())
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
     {
-        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 
@@ -319,16 +319,7 @@ namespace beam::wallet {
         , m_NodeEndpoint(net)
         , m_WalletDB(pWalletDB)
     {
-		ByteBuffer buffer;
-		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
-		if (!buffer.empty())
-		{
-			Deserializer d;
-			d.reset(buffer.data(), buffer.size());
-
-			d & m_BbsTimestamps;
-		}
-
+        storage::getBlobVar(*m_WalletDB, BBS_TIMESTAMPS, m_BbsTimestamps);
         Subscribe();
         m_WalletDB->Subscribe(this);
 	}
@@ -363,14 +354,7 @@ namespace beam::wallet {
 			if (it2->second < tsThreshold)
 				m_BbsTimestamps.erase(it2);
 		}
-
-		Serializer s;
-		s & m_BbsTimestamps;
-
-		ByteBuffer buffer;
-		s.swap_buf(buffer);
-
-		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+        storage::setBlobVar(*m_WalletDB, BBS_TIMESTAMPS, m_BbsTimestamps);
 	}
 
 	void BbsSender::DeleteReq(WalletRequestBbsMsg& r)

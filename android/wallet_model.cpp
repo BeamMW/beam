@@ -42,6 +42,7 @@ namespace
         jobject addr = env->AllocObject(WalletAddressClass);
 
         setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
+        setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Identity));
         setStringField(env, WalletAddressClass, addr, "label", address.m_label);
         setStringField(env, WalletAddressClass, addr, "category", address.m_category);
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
@@ -73,6 +74,10 @@ namespace
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+
+        auto vouchers = txDescription.GetParameter<ShieldedVoucherList>(wallet::TxParameterID::ShieldedVoucherList);
+        setBooleanField(env, TxDescriptionClass, tx, "isOffline", (vouchers && !vouchers->empty()));
+        setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", txDescription.m_txType == wallet::TxType::PushTransaction);
 
         return tx;
     }
@@ -357,6 +362,28 @@ void WalletModel::onChangeCalculated(Amount change)
     env->CallStaticVoidMethod(WalletListenerClass, callback, change);
 }
 
+void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
+{
+    LOG_DEBUG() << "onShieldedCoinsSelectionCalculated(" << selectionRes.minimalFee << ")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(J)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee);
+}
+
+void WalletModel::onNeedExtractShieldedCoins(bool val)
+{
+    LOG_DEBUG() << "onNeedExtractShieldedCoins(" << val <<")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, val);
+}
+
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
     LOG_DEBUG() << "onAllUtxoChanged()";
@@ -608,4 +635,22 @@ void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
     env->CallStaticVoidMethod(WalletListenerClass, callback, jRates);
 
     env->DeleteLocalRef(jRates);
+}
+
+void WalletModel::onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) 
+{
+    int convertdata = static_cast<int>(offlinePayments);
+
+    LOG_DEBUG() << "onGetAddress(" << convertdata << ")";
+        
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGetAddress", "(I)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, convertdata);
+}
+
+void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>& items) 
+{
+    LOG_DEBUG() << "onShieldedCoinChanged()";
 }

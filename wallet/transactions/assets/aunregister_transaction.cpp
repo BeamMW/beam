@@ -57,65 +57,20 @@ namespace beam::wallet
     }
 
     struct AssetUnregisterTransaction::MyBuilder
-        :public BaseTxBuilder
+        :public AssetTransaction::Builder
     {
-        TxKernelAssetDestroy* m_pKrn = nullptr;
-        Asset::Metadata m_Md;
-
-        ECC::Scalar::Native m_skAsset;
-        PeerID m_pidAsset;
-
-        void OnKrn(std::unique_ptr<TxKernelAssetDestroy>& pKrn)
-        {
-            m_pKrn = pKrn.get();
-            m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-            m_pTransaction->Normalize(); // tx is ready
-        }
-
-        MyBuilder(AssetUnregisterTransaction& tx)
-            :BaseTxBuilder(tx, kDefaultSubTxID)
-        {
-            std::unique_ptr<TxKernelAssetDestroy> pKrn;
-            m_Tx.GetParameter(TxParameterID::Kernel, pKrn);
-            if (pKrn)
-                OnKrn(pKrn);
-
-            std::string sMeta = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
-            m_Md.m_Value = toByteBuffer(sMeta);
-            m_Md.UpdateHash();
-
-            m_Tx.get_MasterKdfStrict()->DeriveKey(m_skAsset, m_Md.m_Hash);
-            m_pidAsset.FromSk(m_skAsset);
-        }
+        using Builder::Builder;
 
         void Sign()
         {
             if (m_pKrn)
                 return;
 
-            auto pKdf = m_Tx.get_MasterKdfStrict();
-
             std::unique_ptr<TxKernelAssetDestroy> pKrn = std::make_unique<TxKernelAssetDestroy>();
-            pKrn->m_Fee = m_Fee;
-            pKrn->m_Height = m_Height;
-
-            pKrn->m_Owner = m_pidAsset;
             pKrn->m_AssetID = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID);
 
-            ECC::Scalar::Native sk;
-            pKrn->get_Sk(sk, *pKdf);
-            pKrn->Sign_(sk, m_skAsset);
-
-            m_Tx.SetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
-            OnKrn(pKrn);
-
-            sk = -sk;
-            m_Coins.AddOffset(sk, pKdf);
-
-            m_pTransaction->m_Offset = sk;
-            m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
-
-            VerifyTx();
+            AddKernel(std::move(pKrn));
+            FinalyzeTx();
         }
     };
 
@@ -132,7 +87,7 @@ namespace beam::wallet
         }
 
         if (!_builder)
-            _builder = std::make_shared<MyBuilder>(*this);
+            _builder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
         auto& builder = *_builder;
 
         if (GetState() == State::Initial)
@@ -187,15 +142,13 @@ namespace beam::wallet
 
             SetParameter(TxParameterID::AssetConfirmedHeight, wa.m_RefreshHeight);
 
-            if (builder.m_Fee < Rules::get().CA.DepositForList)
-            {
-                CoinID cid;
-                cid.m_Value = Rules::get().CA.DepositForList - builder.m_Fee;
-                cid.m_Type = Key::Type::Regular;
-                builder.CreateAddNewOutput(cid);
-            }
-            else
-                builder.MakeInputsAndChange(builder.m_Fee - Rules::get().CA.DepositForList, 0);
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;
+
+            if (bb.m_Map[0].m_Value > 0)
+                bb.CreateOutput(bb.m_Map[0].m_Value, 0, Key::Type::Regular); // it would better be regular, than "Change"
+
+            bb.CompleteBalance();
 
             builder.SaveCoins();
         }
@@ -232,23 +185,6 @@ namespace beam::wallet
 
         SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
-    }
-
-    bool AssetUnregisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-            return true;
-        default:
-            return false;
-        }
     }
 
     TxType AssetUnregisterTransaction::GetType() const

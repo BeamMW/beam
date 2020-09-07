@@ -38,7 +38,7 @@ namespace beam::wallet
             reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
             for (const auto observer : m_observers)
             {
-                    observer->onNodeConnectionFailed(reason);
+                observer->onNodeConnectionFailed(reason);
             }
         }
 
@@ -49,7 +49,13 @@ namespace beam::wallet
                 m_Cfg.m_vNodes.push_back(nodeAddr);
                 Connect();
             }
-            else
+            else if (!m_fallbackAddresses.empty())
+            {
+                // try to solve DNS problem with known ip addresses
+                std::copy(m_fallbackAddresses.begin(), m_fallbackAddresses.end(), std::back_inserter(m_Cfg.m_vNodes));
+                Connect();
+            }
+            else 
             {
                 tryToConnect();
             }

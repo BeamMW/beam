@@ -34,8 +34,15 @@ namespace beam::wallet
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
+        // "main" kernel params
         HeightRange m_Height;
+        Amount m_Fee = 0;
 
+        TxKernel* m_pKrn = nullptr;
+
+        Transaction::Ptr m_pTransaction;
+
+        // coins used in a tx.
         struct Coins
         {
             std::vector<Coin::ID> m_Input;
@@ -50,37 +57,37 @@ namespace beam::wallet
 
         } m_Coins;
 
-        Transaction::Ptr m_pTransaction;
 
         struct Balance
         {
+            BaseTxBuilder& m_Builder;
+            Balance(BaseTxBuilder&);
+
             struct Entry
             {
-                Amount m_In = 0;
-                Amount m_Out = 0;
+                AmountSigned m_Value = 0; // ins - outs. Outs account for involuntary fees (such as shielded fees).
 
-                bool IsEnoughNetTx(Amount) const;
+                //bool IsEnoughNetTx(Amount) const;
             };
 
             typedef std::map<Asset::ID, Entry> Map;
 
             Map m_Map;
-            Amount m_Fees = 0;
 
+            void AddPreselected();
+            void CreateOutput(Amount, Asset::ID, Key::Type);
             void Add(const Coin::ID&, bool bOutp);
             void Add(const IPrivateKeyKeeper2::ShieldedInput&);
+            void Add(const ShieldedTxo::ID&); // same as above, assuming default fee
 
-        } m_Balance;
+            void CompleteBalance(); // completes the balance.
 
-        void RefreshBalance();
+        private:
+            void Add_(const Coin::ID&, bool bOutp);
+            void Add_(const IPrivateKeyKeeper2::ShieldedInput&);
+        };
 
-        void AddPreselectedCoins();
-        Amount MakeInputs(Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
-        Amount MakeInputsAndChange(Amount, Asset::ID); // same as above, auto creates a change if necessary
         void SaveCoins();
-
-        void AddOutput(const Coin::ID&);
-        void CreateAddNewOutput(Coin::ID&);
 
         void VerifyTx(); // throws exc if invalid
 
@@ -98,17 +105,53 @@ namespace beam::wallet
         bool IsGeneratingInOuts() const;
         bool IsSigning() const;
 
-        Amount m_Fee = 0;
-
         void VerifyAssetsEnabled(); // throws exc if disabled
 
-        void SignSplit();
+        template <typename T>
+        bool GetParameter(TxParameterID paramID, T& value) const {
+            return m_Tx.GetParameter(paramID, value, m_SubTxID);
+        }
+
+        template <typename T>
+        void GetParameterStrict(TxParameterID paramID, T& value) const {
+            if (!GetParameter(paramID, value))
+                throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+        }
+
+        template <typename T>
+        T GetParameterStrict(TxParameterID paramID) const {
+            T value;
+            GetParameterStrict(paramID, value);
+            return value;
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value) {
+            return m_Tx.SetParameter(paramID, value, m_SubTxID);
+        }
+
+        std::string GetKernelIDString() const;
+
+        void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
+
+        virtual bool SignTx(); // returns if negotiation is complete and all specified in/outs are generated
+
+        struct Status {
+            typedef uint8_t Type;
+
+            static const Type None = 0;
+            static const Type FullTx = 100; //  transaction is fully built and validated
+        };
+
+        Status::Type m_Status = Status::None;
+
+        void FinalyzeTx(); // normalize, verify, and set status
+        // Call when all tx elements are added
 
     protected:
 
         virtual bool IsConventional() { return true; }
-
-        void MakeInputs(Balance::Entry&, Amount, Asset::ID); // make the balance (outs - ins) at least this amount. Returns actual
+        virtual void FinalyzeTxInternal();
 
         struct KeyKeeperHandler
             :public IPrivateKeyKeeper2::Handler
@@ -128,8 +171,6 @@ namespace beam::wallet
             void OnAllDone(BaseTxBuilder&);
         };
 
-        void TagInput(const CoinID&);
-
         void SetInOuts(IPrivateKeyKeeper2::Method::TxCommon&);
         void SetCommon(IPrivateKeyKeeper2::Method::TxCommon&);
 
@@ -137,144 +178,94 @@ namespace beam::wallet
         void SaveAndStore(T2& dest, TxParameterID parameterID, const T1& source)
         {
             dest = source;
-            m_Tx.SetParameter(parameterID, dest, m_SubTxID);
+            SetParameter(parameterID, dest);
         }
 
         struct HandlerInOuts;
+        void SaveInOuts();
 
         void AddOffset(const ECC::Scalar&);
         void AddOffset(const ECC::Scalar::Native&);
 
         static bool Aggregate(ECC::Point&, const ECC::Point::Native&);
         static bool Aggregate(ECC::Point&, ECC::Point::Native&, const ECC::Point&);
-    };
 
-    class MutualTxBuilder : public BaseTxBuilder
-    {
-    public:
-        MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
-        virtual ~MutualTxBuilder() = default;
-        void MakeInputsAndChanges();
-        bool LoadKernel();
-        bool HasKernelID() const;
-        void CreateKernel();
-        ECC::Point::Native GetPublicExcess() const;
-        ECC::Point::Native GetPublicNonce() const;
-        Asset::ID GetAssetId() const;
-        bool IsAssetTx() const;
-        bool GetPeerPublicExcessAndNonce();
-        bool GetPeerSignature();
-        bool GetPeerInputsAndOutputs();
-        void FinalizeSignature();
-        void FinalizeInputs();
-        virtual Transaction::Ptr CreateTransaction();
-        void SignSender(bool initial, bool bIsConventional = true);
-        void SignReceiver(bool bIsConventional = true);
-        void SignSplit();
-        bool IsPeerSignatureValid() const;
+        void AddKernel(TxKernel::Ptr&&);
+        void SaveKernel();
+        void SaveKernelID();
 
-        Amount GetAmount() const;
-        const AmountList& GetAmountList() const;
-        Amount GetFee() const;
-        Height GetLifetime() const;
-        Height GetMinHeight() const;
-        virtual Height GetMaxHeight() const;
-        const ECC::Scalar::Native& GetPartialSignature() const;
-        const TxKernel& GetKernel() const;
-        const Merkle::Hash& GetKernelID() const;
-        void StoreKernelID();
-        void ResetKernelID();
-        std::string GetKernelIDString() const;
-        bool UpdateMaxHeight();
-        bool IsAcceptableMaxHeight(Height) const;
-        ECC::Hash::Value GetLockImage() const;
-        SubTxID GetSubTxID() const;
-
-    private:
-        Amount GetMinimumFee() const;
-        void CheckMinimumFee();
-        void SignReceiverOrSplit(bool bFromYourself, bool bIsConventional);
-
-    protected:
-
-        // input
-        AmountList m_AmountList;
-        Height m_Lifetime;
-
-        ECC::Point::Native m_PublicNonce;
-        ECC::Point::Native m_PublicExcess;
-
-        // peer values
-        ECC::Scalar::Native m_PartialSignature;
-        ECC::Point::Native m_PeerPublicNonce;
-        ECC::Point::Native m_PeerPublicExcess;
-        std::vector<Input::Ptr> m_PeerInputs;
-        std::vector<Output::Ptr> m_PeerOutputs;
-        ECC::Scalar::Native m_PeerOffset;
-
-        // deduced values,
-        TxKernelStd::Ptr m_Kernel;
-        ECC::Scalar::Native m_PeerSignature;
-
-        mutable boost::optional<Merkle::Hash> m_KernelID;
+        void SetStatus(Status::Type);
+        virtual void FillUserData(Output::User::Packed* user);
     };
 
 
 
-
-
-
-    class MutualTxBuilder2 : public BaseTxBuilder
+    class SimpleTxBuilder
+        :public BaseTxBuilder
     {
     public:
-        MutualTxBuilder2(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount);
-        virtual ~MutualTxBuilder2() = default;
+        SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID);
+        virtual ~SimpleTxBuilder() = default;
 
-        void MakeInputsAndChanges();
-        void CheckMinimumFee(const TxStats* pFromPeer = nullptr);
-
-        Amount GetAmount() const;
-
-        std::string GetKernelIDString() const;
-
-        AmountList m_AmountList;
+        Amount m_Amount = 0;
         Asset::ID m_AssetID = 0;
 
         Height m_Lifetime;
 
-        bool m_IsSender = false;
-        bool m_IsSelfTx = false;
+        struct Status
+            :public BaseTxBuilder::Status
+        {
+            static const Type SelfSigned = 1; // kernel fully signed, in/outs ready
+        };
 
-        TxKernelStd* m_pKrn = nullptr;
-
-        enum struct Status {
-            None,
-            Half, // sender/receiver: done its part
-            HalfSent,
-            PreSigned, // almost full, ID is valid, only sender signature is missing
-            Signed, // kernel fully signed
-            FullTx, // peer elements are added, transaction is fully built and validated
-
-        } m_Status = Status::None;
-
-        bool IsTxOwner() const;
-        bool UpdateLogic(); // returns if negotiation is complete
+        virtual bool SignTx() override;
 
     protected:
-        void SetStatus(Status);
-        void SaveKernel();
-        void SaveKernelID();
+        void SignSplit();
+        void FillUserData(Output::User::Packed* user) override;
+    };
+
+
+    class MutualTxBuilder
+        :public SimpleTxBuilder
+    {
+    public:
+        MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID);
+        virtual ~MutualTxBuilder() = default;
+
+        bool m_IsSender = false;
+
+        struct Status
+            :public SimpleTxBuilder::Status
+        {
+            static const Type SndHalf = 1;
+            static const Type SndHalfSent = 2;
+            static const Type SndFullHalfSig = 3;
+            static const Type SndFull = 4;
+
+            static const Type RcvHalf = 1;
+            static const Type RcvFullHalfSig = 2;
+            static const Type RcvFullHalfSigSent = 3;
+
+        };
+
+        virtual bool SignTx() override;
+
+    protected:
         void FinalyzeMaxHeight();
-        void ReadKernel();
         void CreateKernel(TxKernelStd::Ptr&);
-        void AddKernel(TxKernelStd::Ptr&);
-        void UpdateSigning();
         void SignSender(bool initial);
         void SignReceiver();
+        bool LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc);
+        void AddPeerOffset();
+        virtual bool SignTxSender();
+        virtual bool SignTxReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
-        virtual void FinalyzeTx(); // Adds peer's in/outs (if provided), normalizes and validates the tx.
-        // override it to add more elements to tx
+        virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
+        virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
+        void FillUserData(Output::User::Packed* user) override;
+
     };
 
 }

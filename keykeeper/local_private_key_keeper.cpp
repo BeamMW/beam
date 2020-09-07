@@ -278,7 +278,7 @@ namespace beam::wallet
         x.m_pResult.reset(new Output);
 
         Scalar::Native sk;
-        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
+        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf, Output::OpCode::Standard, &x.m_User);
 
         return Status::Success;
     }
@@ -324,6 +324,10 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateVoucherShielded& x)
     {
+        if (!x.m_Count)
+            return Status::Success;
+        std::setmin(x.m_Count, 30U);
+
         ECC::Scalar::Native sk;
         m_pKdf->DeriveKey(sk, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
         PeerID pid;
@@ -332,14 +336,29 @@ namespace beam::wallet
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_pKdf, 0);
 
-        ShieldedTxo::Data::TicketParams tp;
-        tp.Generate(x.m_Voucher.m_Ticket, viewer, x.m_Nonce);
+        x.m_Res.reserve(x.m_Count);
 
-        x.m_Voucher.m_SharedSecret = tp.m_SharedSecret;
+        for (uint32_t i = 0; ; )
+        {
+            ShieldedTxo::Voucher& res = x.m_Res.emplace_back();
 
-        ECC::Hash::Value hvMsg;
-        x.m_Voucher.get_Hash(hvMsg);
-        x.m_Voucher.m_Signature.Sign(hvMsg, sk);
+            ShieldedTxo::Data::TicketParams tp;
+            tp.Generate(res.m_Ticket, viewer, x.m_Nonce);
+
+            res.m_SharedSecret = tp.m_SharedSecret;
+
+            ECC::Hash::Value hvMsg;
+            res.get_Hash(hvMsg);
+            res.m_Signature.Sign(hvMsg, sk);
+
+            if (++i == x.m_Count)
+                break;
+
+            ECC::Hash::Processor()
+                << "sh.v.n"
+                << x.m_Nonce
+                >> x.m_Nonce;
+        }
 
         return Status::Success;
     }

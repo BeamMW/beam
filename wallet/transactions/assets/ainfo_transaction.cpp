@@ -172,21 +172,6 @@ namespace beam::wallet
         throw TransactionFailedException(true, TxFailureReason::NoAssetId);
     }
 
-    bool AssetInfoTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-            return true;
-        default:
-            return false;
-        }
-    }
-
     TxType AssetInfoTransaction::GetType() const
     {
         return TxType::AssetInfo;

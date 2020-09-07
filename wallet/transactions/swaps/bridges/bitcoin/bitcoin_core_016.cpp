@@ -460,18 +460,29 @@ namespace beam::bitcoin
         {
             Amount feeRate = 0;
 
-            LOG_DEBUG() << result.dump();
-
             if (error.m_type == IBridge::None)
             {
-                try
+                json::const_iterator itErr = result.find("errors");
+
+                if ((result.end() != itErr) && !itErr->empty())
                 {
-                    feeRate = btc_to_satoshi(result["feerate"].get<double>());
+                    LOG_INFO() << "Bitcoin Core returns message: " << error.m_message;
                 }
-                catch (const std::exception& ex)
+                else
                 {
-                    error.m_type = IBridge::InvalidResultFormat;
-                    error.m_message = ex.what();
+                    try
+                    {
+                        double rawFeeRate = result["feerate"].get<double>();
+                        if (rawFeeRate >= 0)
+                        {
+                            feeRate = btc_to_satoshi(rawFeeRate);
+                        }
+                    }
+                    catch (const std::exception& ex)
+                    {
+                        error.m_type = IBridge::InvalidResultFormat;
+                        error.m_message = ex.what();
+                    }
                 }
             }
             callback(error, feeRate);

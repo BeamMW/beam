@@ -62,30 +62,16 @@ namespace beam::wallet
     }
 
     struct AssetRegisterTransaction::MyBuilder
-        :public BaseTxBuilder
+        :public AssetTransaction::Builder
     {
-        TxKernelAssetCreate* m_pKrn = nullptr;
-
-        void OnKrn(std::unique_ptr<TxKernelAssetCreate>& pKrn)
-        {
-            m_pKrn = pKrn.get();
-            m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-            m_pTransaction->Normalize(); // tx is ready
-        }
-
         MyBuilder(AssetRegisterTransaction& tx)
-            :BaseTxBuilder(tx, kDefaultSubTxID)
+            :Builder(tx, kDefaultSubTxID)
         {
-            const auto amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID);
+            const auto amount = GetParameterStrict<Amount>(TxParameterID::Amount);
             if (amount < Rules::get().CA.DepositForList)
             {
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::RegisterAmountTooSmall);
             }
-
-            std::unique_ptr<TxKernelAssetCreate> pKrn;
-            m_Tx.GetParameter(TxParameterID::Kernel, pKrn);
-            if (pKrn)
-                OnKrn(pKrn);
         }
 
         void Sign()
@@ -93,34 +79,11 @@ namespace beam::wallet
             if (m_pKrn)
                 return;
 
-            std::string sMd = m_Tx.GetMandatoryParameter<std::string>(TxParameterID::AssetMetadata);
-            if (sMd.empty())
-                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
-
-            auto pKdf = m_Tx.get_MasterKdfStrict();
-
             std::unique_ptr<TxKernelAssetCreate> pKrn = std::make_unique<TxKernelAssetCreate>();
-            pKrn->m_Fee = m_Fee;
-            pKrn->m_Height = m_Height;
+            pKrn->m_MetaData = m_Md;
+            AddKernel(std::move(pKrn));
 
-            pKrn->m_MetaData.m_Value = toByteBuffer(sMd);
-            pKrn->m_MetaData.UpdateHash();
-            pKrn->m_MetaData.get_Owner(pKrn->m_Owner, *pKdf);
-
-            ECC::Scalar::Native sk;
-            pKrn->get_Sk(sk, *pKdf);
-            pKrn->Sign(sk, *pKdf);
-
-            m_Tx.SetParameter(TxParameterID::Kernel, pKrn, m_SubTxID);
-            OnKrn(pKrn);
-
-            sk = -sk;
-            m_Coins.AddOffset(sk, pKdf);
-
-            m_pTransaction->m_Offset = sk;
-            m_Tx.SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset, m_SubTxID);
-
-            VerifyTx();
+            FinalyzeTx();
         }
     };
 
@@ -136,7 +99,10 @@ namespace beam::wallet
 
         if (builder.m_Coins.IsEmpty())
         {
-            builder.MakeInputsAndChange(Rules::get().CA.DepositForList + builder.m_Fee, 0);
+            BaseTxBuilder::Balance bb(builder);
+            bb.m_Map[0].m_Value -= (Rules::get().CA.DepositForList + builder.m_Fee);
+            bb.CompleteBalance();
+
             builder.SaveCoins();
 
             UpdateTxDescription(TxStatus::InProgress);
@@ -151,7 +117,7 @@ namespace beam::wallet
         {
             builder.Sign();
 
-            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->m_Owner
+            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner
                 << ". Cost is " << PrintableAmount(Rules::get().CA.DepositForList, false)
                 << ". Fee is " << PrintableAmount(builder.m_Fee, false);
         }
@@ -159,7 +125,7 @@ namespace beam::wallet
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
         {
-            if(const auto ainfo = GetWalletDB()->findAsset(builder.m_pKrn->m_Owner))
+            if(const auto ainfo = GetWalletDB()->findAsset(builder.m_pKrn->CastTo_AssetCreate().m_Owner))
             {
                 OnFailed(TxFailureReason::AssetExists);
                 return;
@@ -187,7 +153,7 @@ namespace beam::wallet
 
         if (GetState() == State::KernelConfirmation)
         {
-            LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->m_Owner << " successfully registered";
+            LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner << " successfully registered";
             SetState(State::AssetConfirmation);
             ConfirmAsset();
             return;
@@ -223,7 +189,7 @@ namespace beam::wallet
                 return;
             }
 
-            if(builder.m_pKrn->m_Owner != info.m_Owner)
+            if(builder.m_pKrn->CastTo_AssetCreate().m_Owner != info.m_Owner)
             {
                 OnFailed(TxFailureReason::InvalidAssetOwnerId);
                 return;
@@ -239,24 +205,7 @@ namespace beam::wallet
 
     void AssetRegisterTransaction::ConfirmAsset()
     {
-        GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->m_Owner, kDefaultSubTxID);
-    }
-
-    bool AssetRegisterTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-        case TxParameterID::KernelID:
-            return true;
-        default:
-            return false;
-        }
+        GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->CastTo_AssetCreate().m_Owner, kDefaultSubTxID);
     }
 
     TxType AssetRegisterTransaction::GetType() const

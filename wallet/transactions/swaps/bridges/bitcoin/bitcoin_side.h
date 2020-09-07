@@ -54,7 +54,6 @@ namespace beam::wallet
         virtual uint8_t GetSighashAlgorithm() const;
         virtual bool NeedSignValue() const;
 
-        Amount GetFeeRate() const;
         Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;

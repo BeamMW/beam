@@ -48,7 +48,6 @@ namespace beam::bitcoin
             WriteToDb(GetChangeAddressesName(), electrumSettings.m_changeAddressAmount);
         }
 
-        WriteToDb(GetFeeRateName(), settings.GetFeeRate());
         WriteToDb(GetConnectrionTypeName(), settings.GetCurrentConnectionType());
 
         // update m_settings
@@ -80,12 +79,6 @@ namespace beam::bitcoin
                 ReadFromDB(GetChangeAddressesName(), settings.m_changeAddressAmount);
 
                 m_settings->SetElectrumConnectionOptions(settings);
-            }
-
-            {
-                auto feeRate = m_settings->GetFeeRate();
-                ReadFromDB(GetFeeRateName(), feeRate);
-                m_settings->SetFeeRate(feeRate);
             }
 
             {
@@ -152,11 +145,6 @@ namespace beam::bitcoin
     std::string SettingsProvider::GetAddressVersionName() const
     {
         return GetSettingsName() + "_AddressVersion";
-    }
-
-    std::string SettingsProvider::GetFeeRateName() const
-    {
-        return GetSettingsName() + "_FeeRate";
     }
 
     std::string SettingsProvider::GetConnectrionTypeName() const

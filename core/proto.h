@@ -333,7 +333,7 @@ namespace proto {
             // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
-            // 6 - Newer Event::AssetCtl
+            // 6 - Newer Event::AssetCtl, newer Utxo events
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 6;
@@ -358,15 +358,20 @@ namespace proto {
         static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
-        macro(1, Utxo) \
+        macro(1, Utxo0) \
         macro(2, Shielded) \
-        macro(3, AssetCtl)
+        macro(3, AssetCtl) \
+        macro(4, Utxo)
 
-#define BeamEvent_Utxo(macro) \
+#define BeamEvent_Utxo0(macro) \
         macro(uint8_t, Flags) \
         macro(CoinID, Cid) \
         macro(ECC::Point, Commitment) \
         macro(Height, Maturity)
+
+#define BeamEvent_Utxo(macro) \
+        BeamEvent_Utxo0(macro) \
+        macro(Output::User, User)
 
 #define BeamEvent_Shielded(macro) \
         macro(uint8_t, Flags) \
@@ -426,12 +431,23 @@ namespace proto {
 #undef THE_MACRO_SER
 #undef THE_MACRO_DECL
 
-
-        struct IParser
+        struct IParserBase
         {
             void ProceedOnce(Deserializer&);
             void ProceedOnce(const Blob&);
-            virtual void OnEvent(Base&) {}
+
+            virtual void OnEventBase(Base&) {}
+
+#define THE_MACRO(id, name) \
+            virtual void OnEventType(name& evt) { OnEventBase(evt); }
+            BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+        };
+
+        struct IParser
+            :public IParserBase
+        {
+            virtual void OnEventType(Utxo0&) override;
         };
 
         struct IGroupParser

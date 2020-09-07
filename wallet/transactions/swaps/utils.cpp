@@ -14,7 +14,6 @@
 
 #include "wallet/transactions/swaps/utils.h"
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
@@ -26,11 +25,9 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 const char* getSwapTxStatus(AtomicSwapTransaction::State state)
 {
     static const char* Initial = "waiting for peer";
@@ -251,108 +248,6 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
     }
 }
 
-Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin)
-{
-    switch (swapCoin)
-    {
-    case AtomicSwapCoin::Bitcoin:
-    {
-        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-        btcSettingsProvider->Initialize();
-
-        auto btcSettings = btcSettingsProvider->GetSettings();
-        if (!btcSettings.IsInitialized())
-        {
-            throw std::runtime_error("BTC settings should be initialized.");
-        }
-
-        return btcSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Litecoin:
-    {
-        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-        ltcSettingsProvider->Initialize();
-
-        auto ltcSettings = ltcSettingsProvider->GetSettings();
-        if (!ltcSettings.IsInitialized())
-        {
-            throw std::runtime_error("LTC settings should be initialized.");
-        }
-
-        return ltcSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Qtum:
-    {
-        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-        qtumSettingsProvider->Initialize();
-
-        auto qtumSettings = qtumSettingsProvider->GetSettings();
-        if (!qtumSettings.IsInitialized())
-        {
-            throw std::runtime_error("Qtum settings should be initialized.");
-        }
-
-        return qtumSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Bitcoin_Cash:
-    {
-        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
-        bchSettingsProvider->Initialize();
-
-        auto bchSettings = bchSettingsProvider->GetSettings();
-        if (!bchSettings.IsInitialized())
-        {
-            throw std::runtime_error("Bitcoin Cash settings should be initialized.");
-        }
-
-        return bchSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Bitcoin_SV:
-    {
-        auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
-        bsvSettingsProvider->Initialize();
-
-        auto bsvSettings = bsvSettingsProvider->GetSettings();
-        if (!bsvSettings.IsInitialized())
-        {
-            throw std::runtime_error("Bitcoin SV settings should be initialized.");
-        }
-
-        return bsvSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Dogecoin:
-    {
-        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
-        dogecoinSettingsProvider->Initialize();
-
-        auto dogecoinSettings = dogecoinSettingsProvider->GetSettings();
-        if (!dogecoinSettings.IsInitialized())
-        {
-            throw std::runtime_error("Dogecoin settings should be initialized.");
-        }
-
-        return dogecoinSettings.GetFeeRate();
-    }
-    case AtomicSwapCoin::Dash:
-    {
-        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
-        dashSettingsProvider->Initialize();
-
-        auto dashSettings = dashSettingsProvider->GetSettings();
-        if (!dashSettings.IsInitialized())
-        {
-            throw std::runtime_error("Dash settings should be initialized.");
-        }
-
-        return dashSettings.GetFeeRate();
-    }
-    default:
-    {
-        throw std::runtime_error("Unsupported coin for swap");
-    }
-    }
-}
-
 bool IsSwapAmountValid(
     AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
 {
@@ -376,5 +271,4 @@ bool IsSwapAmountValid(
         throw std::runtime_error("Unsupported coin for swap");
     }
 }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 } // namespace beam::wallet

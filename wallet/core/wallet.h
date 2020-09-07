@@ -107,6 +107,8 @@ namespace beam::wallet
         virtual void Unlisten(const WalletID&) {}
     };
 
+    inline constexpr char FallbackPeers[] = "FallbackPeers";
+
     // Extends FlyClient protocol for communication with own or remote node
     class Wallet
         : public proto::FlyClient
@@ -193,6 +195,7 @@ namespace beam::wallet
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
         void OnEventsSerif(const ECC::Hash::Value&, Height) override;
+        void OnNewPeer(const PeerID& id, io::Address address) override;
 
         struct RequestHandler
             : public proto::FlyClient::Request::IHandler
@@ -213,16 +216,15 @@ namespace beam::wallet
         void saveKnownState();
         void RequestEvents();
         void AbortEvents();
-        void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd);
+        void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd, const Output::User& user);
         void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
         Height GetEventsHeightNext();
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
 
-        BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
+        void OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
-        BaseTransaction::Ptr ConstructTransactionFromParameters(const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransactionFromParameters(const TxParameters& parameters);
 
         void MakeTransactionActive(BaseTransaction::Ptr tx);
@@ -231,6 +233,10 @@ namespace beam::wallet
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
+        std::vector<BaseTransaction::Ptr> FindTxWaitingForVouchers(const WalletID& peerID) const;
+        void FailTxWaitingForVouchers(const WalletID& peerID);
+        void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
+        void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
 
     private:
 

@@ -2378,25 +2378,16 @@ namespace beam
 					MyClient& m_This;
 					MyParser(MyClient& x) :m_This(x) {}
 
-					virtual void OnEvent(proto::Event::Base& evt) override
+					virtual void OnEventBase(proto::Event::Base& evt) override
 					{
-						if (proto::Event::Type::Utxo == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
-
 						// log non-UTXO events
 						std::ostringstream os;
 						os << "Evt H=" << m_Height << ", ";
 						evt.Dump(os);
 						printf("%s\n", os.str().c_str());
-
-						if (proto::Event::Type::Shielded == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
-
-						if (proto::Event::Type::AssetCtl == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
 					}
 
-					void OnEventType(proto::Event::Utxo& evt)
+					virtual void OnEventType(proto::Event::Utxo& evt) override
 					{
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
@@ -2419,8 +2410,10 @@ namespace beam
 						}
 					}
 
-					void OnEventType(proto::Event::Shielded& evt)
+					virtual void OnEventType(proto::Event::Shielded& evt) override
 					{
+						OnEventBase(evt);
+
 						// Restore all the relevent data
 						verify_test(evt.m_TxoID == 0);
 
@@ -2458,8 +2451,10 @@ namespace beam
 							m_This.m_Shielded.m_EvtSpend = true;
 					}
 
-					void OnEventType(proto::Event::AssetCtl& evt)
+					virtual void OnEventType(proto::Event::AssetCtl& evt) override
 					{
+						OnEventBase(evt);
+
 						if (m_This.m_Assets.m_ID) {
 							// creation event may come before the client got proof for its asset
 							verify_test(evt.m_Info.m_ID == m_This.m_Assets.m_ID);
@@ -2597,7 +2592,7 @@ namespace beam
 
 			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
 
-			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) override
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
 				m_Recovered++;
 				return true;

@@ -295,14 +295,14 @@ void TestStoreTxRecord()
     
     auto t = walletDB->getTxHistory();
     WALLET_CHECK(t.size() == 1);
-    WALLET_CHECK(t[0].m_txId == tr.m_txId);
-    WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_minHeight == tr.m_minHeight);
-    WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
-    WALLET_CHECK(t[0].m_myId == tr.m_myId);
-    WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
+    WALLET_CHECK(t[0].m_txId == tr2.m_txId);
+    WALLET_CHECK(t[0].m_amount == tr2.m_amount);
+    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
+    WALLET_CHECK(t[0].m_peerId == tr2.m_peerId);
+    WALLET_CHECK(t[0].m_myId == tr2.m_myId);
+    WALLET_CHECK(t[0].m_createTime == tr2.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
-    WALLET_CHECK(t[0].m_sender == tr.m_sender);
+    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
@@ -563,7 +563,8 @@ void TestTxRollback()
     WALLET_CHECK(coins[2].m_status == Coin::Incoming);
     WALLET_CHECK(coins[2].m_createTxId == id);
 
-    walletDB->rollbackTx(id2);
+    walletDB->restoreCoinsSpentByTx(id2);
+    walletDB->deleteCoinsCreatedByTx(id2);
 
     coins.clear();
     walletDB->visitCoins([&coins](const Coin& c)->bool
@@ -584,7 +585,10 @@ void TestTxRollback()
         w.m_changes.push({ ChangeAction::Removed, { c } });
 
         walletDB->Subscribe(&w);
-        walletDB->rollbackTx(id);
+
+        walletDB->restoreCoinsSpentByTx(id);
+        walletDB->deleteCoinsCreatedByTx(id);
+
         walletDB->Unsubscribe(&w);
     }
 
@@ -1033,9 +1037,9 @@ void TestTxParameters()
     WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
-    WALLET_CHECK(amount == 8765);
+    WALLET_CHECK(amount == 786);
 
     // private parameter can be overriten
     TxStatus status = TxStatus::Pending;
@@ -1062,14 +1066,12 @@ void TestTxParameters()
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
-    ECC::Point p;
+    ECC::Point p, p2;
     p.m_X = unsigned(143521);
     p.m_Y = 0;
-    ECC::Point::Native pt, pt2;
-    pt.Import(p);
-    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
-    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
-    WALLET_CHECK(p == pt2);
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p2));
+    WALLET_CHECK(p == p2);
 }
 
 void TestSelect3()
@@ -1449,11 +1451,20 @@ void TestVouchers()
     auto voucher = db->grabVoucher(receiverID);
     WALLET_CHECK(!voucher);
     WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
-    auto vouchers = GenerateVoucherList(db->get_MasterKdf(), address.m_OwnID, VOUCHERS_COUNT);
+    auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), address.m_OwnID, VOUCHERS_COUNT);
     WALLET_CHECK(vouchers.size() == VOUCHERS_COUNT);
+    size_t preserveCounter = 2;
     for (const auto& v : vouchers)
     {
-        db->saveVoucher(v, receiverID);
+        if (preserveCounter)
+        {
+            db->saveVoucher(v, receiverID, true);
+            --preserveCounter;
+        }
+        else
+        {
+            db->saveVoucher(v, receiverID);
+        }
     }
 
     WALLET_CHECK(db->getVoucherCount(receiverID) == VOUCHERS_COUNT);
@@ -1469,6 +1480,15 @@ void TestVouchers()
         WALLET_CHECK(!v);
     }
     WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID, true));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID, true));
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID));
+    
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[2], receiverID, true));
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[3], receiverID));
 }
 
 }

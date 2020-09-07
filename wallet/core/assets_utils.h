@@ -40,7 +40,6 @@ namespace beam::wallet {
         SMap _values;
         bool _std;
         bool _std_v5_0;
-        bool _parsed;
         std::string _meta;
     };
 
@@ -49,6 +48,7 @@ namespace beam::wallet {
     public:
         WalletAsset() = default;
         WalletAsset(const Asset::Full& full, Height refreshHeight);
+        ~WalletAsset() = default;
         bool CanRollback(Height from) const;
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;

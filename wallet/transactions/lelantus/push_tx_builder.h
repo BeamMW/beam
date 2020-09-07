@@ -27,5 +27,11 @@ namespace beam::wallet::lelantus
         Asset::ID m_AssetID = 0;
 
         void SignSendShielded();
+        void ResetSig();
+
+        const ShieldedTxo* get_Txo();
+        const ShieldedTxo& get_TxoStrict();
+    private:
+        void FillUserData(Output::User::Packed* user) override;
     };
 } // namespace beam::wallet::lelantus

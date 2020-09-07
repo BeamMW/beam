@@ -33,6 +33,8 @@ namespace
     const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
     const char kBeamAmountToLowError[] = "\'beam_amount\' must be greater than \"beam_fee\".";
     const char kSwapNotEnoughtSwapCoins[] = "There is not enough funds to complete the transaction.";
+    const char kSwapFeeToLowRecommenededError[] = "\'fee_rate\' must be greater or equal than recommended fee rate.";
+    const char kSwapFeeToLowError[] = "\'fee_rate\' must be greater or equal than ";
 
     void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
@@ -1079,7 +1081,24 @@ namespace beam::wallet
                 return doError(id, ApiError::NotOpenedError);
             }
 
-            Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, data.swapCoin);
+            // TODO need to unite with AcceptOffer
+            Amount recommendedFeeRate = _walletData.getAtomicSwapProvider().getRecommendedFeeRate(data.swapCoin);
+
+            if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
+                return;
+            }
+
+            Amount minFeeRate = _walletData.getAtomicSwapProvider().getMinFeeRate(data.swapCoin);
+
+            if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
+            {
+                std::stringstream msg;
+                msg << kSwapFeeToLowError << minFeeRate;
+                doError(id, ApiError::InvalidJsonRpc, msg.str());
+                return;
+            }
 
             if (data.beamAmount <= data.beamFee)
             {
@@ -1087,7 +1106,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, swapFeeRate))
+            if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
             {
                 doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
                 return;
@@ -1100,7 +1119,7 @@ namespace beam::wallet
             else
             {
                 bool isEnought = checkIsEnoughtSwapAmount(
-                    _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, swapFeeRate);
+                    _walletData.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, data.swapFeeRate);
                 if (!isEnought)
                 {
                     doError(id, ApiError::InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
@@ -1119,7 +1138,7 @@ namespace beam::wallet
                 data.beamFee,
                 data.swapCoin,
                 data.swapAmount,
-                swapFeeRate,
+                data.swapFeeRate,
                 data.isBeamSide,
                 data.offerLifetime);
 
@@ -1300,7 +1319,23 @@ namespace beam::wallet
                 throw FailToParseToken();
             }
 
-            Amount swapFeeRate = data.swapFeeRate ? data.swapFeeRate : GetSwapFeeRate(walletDB, *swapCoin);
+            Amount recommendedFeeRate = _walletData.getAtomicSwapProvider().getRecommendedFeeRate(*swapCoin);
+
+            if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
+            {
+                doError(id, ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
+                return;
+            }
+
+            Amount minFeeRate = _walletData.getAtomicSwapProvider().getMinFeeRate(*swapCoin);
+
+            if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
+            {
+                std::stringstream msg;
+                msg << kSwapFeeToLowError << minFeeRate;
+                doError(id, ApiError::InvalidJsonRpc, msg.str());
+                return;
+            }
 
             if (*beamAmount <= data.beamFee)
             {
@@ -1308,7 +1343,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
+            if (!IsSwapAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
             {
                 doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
                 return;
@@ -1323,7 +1358,7 @@ namespace beam::wallet
             else
             {
                 bool isEnought = checkIsEnoughtSwapAmount(
-                    _walletData.getAtomicSwapProvider(), *swapCoin, *swapAmount, swapFeeRate);
+                    _walletData.getAtomicSwapProvider(), *swapCoin, *swapAmount, data.swapFeeRate);
                 if (!isEnought)
                 {
                     doError(id, InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
@@ -1341,7 +1376,7 @@ namespace beam::wallet
                         data.comment.end()));
             }
 
-            FillSwapFee(&offer, data.beamFee, swapFeeRate, *isBeamSide);
+            FillSwapFee(&offer, data.beamFee, data.swapFeeRate, *isBeamSide);
 
             wallet->StartTransaction(offer);
             offer.m_status = SwapOfferStatus::InProgress;
@@ -1473,6 +1508,22 @@ namespace beam::wallet
             doResponse(id, GetBalance::Response{ available });
         }
         catch (const FailToConnectSwap & e)
+        {
+            doError(id, ApiError::SwapFailToConnect, e.what());
+        }
+    }
+
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const RecommendedFeeRate& data)
+    {
+        try
+        {
+            checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
+
+            Amount feeRate = _walletData.getAtomicSwapProvider().getRecommendedFeeRate(data.coin);
+
+            doResponse(id, RecommendedFeeRate::Response{ feeRate });
+        }
+        catch (const FailToConnectSwap& e)
         {
             doError(id, ApiError::SwapFailToConnect, e.what());
         }

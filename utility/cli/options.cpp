@@ -233,6 +233,8 @@ namespace beam
         const char* SWAP_TOKEN = "swap_token";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
+        const char* ESTIMATE_SWAP_FEERATE = "recommended_fee_rate";
+        const char* GET_BALANCE = "get_balance";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
@@ -311,14 +313,11 @@ namespace beam
         const char* EXCHANGE_UNIT     = "exch_unit";
 
         // lelantus
-        const char* INSERT_TO_POOL = "insert_to_pool";
-        const char* EXTRACT_FROM_POOL = "extract_from_pool";
-        const char* SHIELDED_UTXOS = "shielded_utxos";
-        const char* SHIELDED_ID = "shielded_id";
-        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
-
-        // Defaults
-        const Amount kMinimumFee = 100;
+        const char* INSERT_TO_POOL      = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL   = "extract_from_pool";
+        const char* SHIELDED_UTXOS      = "shielded_utxos";
+        const char* SHIELDED_ID         = "shielded_id";
+        const char* MAX_PRIVACY         = "max_privacy";
     }
 
 
@@ -387,10 +386,10 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
-			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
-			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
-			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
+            (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
+            (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
+            (cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
+            (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -403,7 +402,7 @@ namespace beam
             (cli::PASS, po::value<string>(), "wallet password")
             (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
@@ -423,7 +422,8 @@ namespace beam
             (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
-            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address");
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
+            (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -590,8 +590,8 @@ namespace beam
             macro(uint32_t, Magic.v2, "Fork2 magic number") \
             macro(bool, Magic.IsTestnet, "magic testnet indicator") \
 
-		#define Fork1 pForks[1].m_Height
-		#define Fork2 pForks[2].m_Height
+        #define Fork1 pForks[1].m_Height
+        #define Fork2 pForks[2].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 

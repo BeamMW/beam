@@ -73,6 +73,8 @@ Mediator::~Mediator()
 
 void Mediator::OnNewTip()
 {
+    Lock lock(m_mutex);
+
     LOG_DEBUG() << "LASER OnNewTip";
     if (!ValidateTip())
         return;
@@ -194,6 +196,12 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     auto& channel = it->second;
 
     channel->OnPeerData(dataIn);
+    auto state = channel->get_State();
+    if (state == Lightning::Channel::State::Closing1)
+    {
+        channel->UpdateRestorePoint();
+        m_pWalletDB->saveLaserChannel(*channel);
+    }
     UpdateChannelExterior(channel);
 }
 
@@ -580,6 +588,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         }
         else
         {
+            Lock lock(m_mutex);
             TransferInternal(amount, channel);
         }
 
@@ -690,8 +699,6 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh)
 
 void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
 {
-    Lock lock(m_mutex);
-
     const auto& chID = channel->get_chID();
     std::string channelIdStr = to_hex(chID->m_pData, chID->nBytes);
     channel->Subscribe();

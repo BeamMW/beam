@@ -33,7 +33,7 @@ namespace beam::bitcoin_cash
             constexpr Amount kMinFeeRate = 90000;
 
             SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
-            SetFeeRate(kMinFeeRate);
+            SetMinFeeRate(kMinFeeRate);
             SetBlocksPerHour(kBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
