@@ -510,8 +510,51 @@ namespace bvm {
 			AddSigInternal(*pPubKey.RGet<ECC::Point>());
 	}
 
+	BVM_METHOD(funds_lock)
+	{
+		HandleAmount(amount, nAssetID, true);
+	}
+
+	BVM_METHOD(funds_unlock)
+	{
+		HandleAmount(amount, nAssetID, false);
+	}
+
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
+
+	void Processor::HandleAmount(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
+	{
+		VarKey vk;
+		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
+
+		uintBigFor<Amount>::Type val0;
+		const Type::Size nSize0 = static_cast<Type::Size>(val0.nBytes);
+		Type::Size nSize = nSize0;
+		LoadVar(vk, val0.m_pData, nSize);
+
+		if (nSize != nSize0)
+			val0 = Zero;
+
+		if (bLock)
+		{
+			val0 += val;
+			Test(val0 >= val); // overflow test
+		}
+		else
+		{
+			Test(val0 >= val); // overflow test
+
+			uintBigFor<Amount>::Type val1 = val;
+			val1.Negate();
+			val0 += val1;
+		}
+
+		if (val0 == Zero)
+			SaveVar(vk, nullptr, 0);
+		else
+			SaveVar(vk, val0.m_pData, nSize0);
+	}
 
 	ECC::Point::Native& Processor::AddSigInternal(const ECC::Point& pk)
 	{

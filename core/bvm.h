@@ -213,6 +213,8 @@ namespace bvm {
 		template <bool>
 		void TestStackPtr(Type::Size);
 
+		void HandleAmount(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);
+
 	protected:
 
 		struct VarKey
@@ -220,6 +222,7 @@ namespace bvm {
 			struct Tag
 			{
 				static const uint8_t Internal = 0;
+				static const uint8_t LockedAmount = 1;
 			};
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];

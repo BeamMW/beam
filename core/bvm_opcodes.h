@@ -105,6 +105,11 @@
 	macro(key, p) \
 	macro(nKey, f2)
 
+#define BVMOp_funds_lock(macro) \
+	macro(amount, f8) \
+	macro(nAssetID, f4) \
+
+#define BVMOp_funds_unlock(macro) BVMOp_funds_lock(macro)
 
 
 #define BVM_OpCodes(macro) \
@@ -141,5 +146,7 @@
 	macro(fail) \
 	macro(ret) \
 	macro(call_far) \
-	macro(add_sig)
+	macro(add_sig) \
+	macro(funds_lock) \
+	macro(funds_unlock) \
 
