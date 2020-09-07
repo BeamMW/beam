@@ -1897,6 +1897,8 @@ namespace ECC {
 
 		void AddValue(Point::Native& out, const Point::Native* pHGen, Amount v)
 		{
+			Mode::Scope scope(Mode::Fast);
+
 			if (IsCustom(pHGen))
 				out += *pHGen * v;
 			else
