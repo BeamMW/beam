@@ -450,20 +450,30 @@ namespace bvm {
 		DoJmp(pFrame->m_RetAddr);
 	}
 
+	void Processor::VarKey::Set(const ContractID& cid)
+	{
+		memcpy(m_p, cid.m_pData, ContractID::nBytes);
+		m_Size = ContractID::nBytes;
+	}
+
+	void Processor::VarKey::Append(uint8_t nTag, const Blob& blob)
+	{
+		m_p[m_Size++] = nTag;
+
+		assert(m_Size + blob.n <= _countof(m_p));
+		memcpy(m_p + m_Size, blob.p, blob.n);
+		m_Size += blob.n;
+	}
+
 	void Processor::SetVarKey(VarKey& vk)
 	{
-		memcpy(vk.m_p, m_FarCalls.m_Stack.back().m_Cid.m_pData, ContractID::nBytes);
-		vk.m_Size = static_cast<Type::Size>(ContractID::nBytes);
+		vk.Set(m_FarCalls.m_Stack.back().m_Cid);
 	}
 
 	void Processor::SetVarKey(VarKey& vk, uint8_t nTag, const Blob& blob)
 	{
 		SetVarKey(vk);
-		vk.m_p[vk.m_Size++] = nTag;
-
-		assert(vk.m_Size + blob.n <= _countof(vk.m_p));
-		memcpy(vk.m_p + vk.m_Size, blob.p, blob.n);
-		vk.m_Size += blob.n;
+		vk.Append(nTag, blob);
 	}
 
 	void Processor::SetVarKey(VarKey& vk, const Ptr& key, const Type::uintSize& nKey)
@@ -523,18 +533,30 @@ namespace bvm {
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
 
+	bool Processor::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, Type::Size n)
+	{
+		Type::Size n0 = n;
+		LoadVar(vk, pVal, n);
+
+		if (n == n0)
+			return true;
+
+		memset0(pVal, n0);
+		return false;
+	}
+
+	bool Processor::SaveNnz(const VarKey& vk, const uint8_t* pVal, Type::Size n)
+	{
+		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
+	}
+
 	void Processor::HandleAmount(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
 	{
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
 
 		uintBigFor<Amount>::Type val0;
-		const Type::Size nSize0 = static_cast<Type::Size>(val0.nBytes);
-		Type::Size nSize = nSize0;
-		LoadVar(vk, val0.m_pData, nSize);
-
-		if (nSize != nSize0)
-			val0 = Zero;
+		Load_T(vk, val0);
 
 		if (bLock)
 		{
@@ -550,10 +572,7 @@ namespace bvm {
 			val0 += val1;
 		}
 
-		if (val0 == Zero)
-			SaveVar(vk, nullptr, 0);
-		else
-			SaveVar(vk, val0.m_pData, nSize0);
+		Save_T(vk, val0);
 
 		if (m_pSigMsg)
 		{

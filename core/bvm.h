@@ -227,6 +227,9 @@ namespace bvm {
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
 			uint32_t m_Size;
+
+			void Set(const ContractID&);
+			void Append(uint8_t nTag, const Blob&);
 		};
 
 		void SetVarKey(VarKey&);
@@ -258,6 +261,18 @@ namespace bvm {
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, Type::Size nVal) { return false; }
 
+		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, Type::Size);
+		bool SaveNnz(const VarKey&, const uint8_t* pVal, Type::Size);
+
+		template <uint32_t nBytes>
+		bool Load_T(const VarKey& vk, uintBig_t<nBytes>& x) {
+			return LoadFixedOrZero(vk, x.m_pData, static_cast<Type::Size>(x.nBytes));
+		}
+
+		template <uint32_t nBytes>
+		bool Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
+			return SaveNnz(vk, x.m_pData, static_cast<Type::Size>(x.nBytes));
+		}
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
