@@ -2103,6 +2103,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool SaveVar(const Blob& key, const Blob& data);
 
+		bool EnsureNoVars(const bvm::ContractID&);
+		static bool IsOwnedVar(const bvm::ContractID&, const Blob& key);
+
 		bool Invoke(const bvm::ContractID&, bvm::Type::Size iMethod, const TxKernelContractControl&);
 
 		void UndoVars();
@@ -2766,30 +2769,9 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 			// d'tor called. Make sure no variables are left except for the contract data
 			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
 
-			Blob key(krn.m_Cid);
-			while (true)
+			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
-				NodeDB::Recordset rs;
-				if (!m_DB.ContractDataFindNext(key, rs) || (key.n < krn.m_Cid.nBytes))
-					break; // ok
-
-				if (Blob(krn.m_Cid) != Blob(key.p, krn.m_Cid.nBytes))
-					break;
-
-				if (bic.m_ValidateOnly)
-				{
-					// actual DB data is intact, make sure cached data is erased
-					auto* pE = bic.m_ContractVars.Find(key);
-					if (pE && pE->m_Data.empty())
-					{
-						key = pE->m_KeyIdx; // this buf will survive the next iteration
-						continue; // ok
-					}
-				}
-				else
-					proc.UndoVars();
-
-				// not all variables have been removed.
+				proc.UndoVars();
 				return false;
 			}
 		}
@@ -2803,6 +2785,58 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	}
 
 	return true;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::ContractID& cid)
+{
+	// pass 1. Ensure no vars in DB
+	Blob key(cid);
+	while (true)
+	{
+		NodeDB::Recordset rs;
+		if (!m_Proc.m_DB.ContractDataFindNext(key, rs) || !IsOwnedVar(cid, key))
+			break; // ok
+
+		if (m_Bic.m_ValidateOnly)
+		{
+			// actual DB data is intact, make sure cached data is erased
+			auto* pE = m_Bic.m_ContractVars.Find(key);
+			if (pE && pE->m_Data.empty())
+			{
+				key = pE->m_KeyIdx; // this buf will survive the next iteration
+				continue; // ok
+			}
+		}
+
+		// not all variables have been removed.
+		return false;
+	}
+
+	if (m_Bic.m_ValidateOnly)
+	{
+		// pass 2. make sure no unsaved variables too
+		bvm::VariableMem::Entry x;
+		x.m_KeyIdx = cid;
+
+		for (auto it = m_Bic.m_ContractVars.lower_bound(x); m_Bic.m_ContractVars.end() != it; it++)
+		{
+			const auto& e = *it;
+			if (!IsOwnedVar(cid, e.m_KeyIdx))
+				break; // ok
+
+			if (!e.m_Data.empty())
+				return false;
+		}
+	}
+
+	return true;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm::ContractID& cid, const Blob& key)
+{
+	return
+		(key.n >= cid.nBytes) &&
+		!memcmp(cid.m_pData, key.p, cid.nBytes);
 }
 
 void NodeProcessor::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
