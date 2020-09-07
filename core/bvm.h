@@ -124,6 +124,22 @@ namespace bvm {
 
 	class Processor
 	{
+	protected:
+
+		struct Exc {
+			static void Throw() {
+				Exc exc;
+				throw exc;
+			}
+		};
+
+		static void Test(bool b) {
+			if (!b)
+				Exc::Throw();
+		}
+
+	private:
+
 		Buf m_Data;
 
 		int m_Flags = 0;
@@ -152,18 +168,6 @@ namespace bvm {
 				return Cast::NotConst(RGet<T>(nCount));
 			}
 		};
-
-		struct Exc {
-			static void Throw() {
-				Exc exc;
-				throw exc;
-			}
-		};
-
-		static void Test(bool b) {
-			if (!b)
-				Exc::Throw();
-		}
 
 #define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name,
 #define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);

@@ -1732,6 +1732,8 @@ namespace beam
 				Height m_SentDtor = 0;
 				bvm::ContractID m_Cid;
 
+				ECC::Scalar::Native m_pSk[3];
+
 			} m_Contract;
 
 			Height m_hEvts = 0;
@@ -2350,15 +2352,9 @@ namespace beam
 
 				val -= nFee;
 
-				ECC::Scalar::Native sk;
-				ECC::SetRandom(sk);
-
 				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
-
-				pKrn->m_Commitment = ECC::Context::get().G * sk;
-				ZeroObject(pKrn->m_Signature);
 
 				{
 					bvm::Compiler c;
@@ -2376,7 +2372,7 @@ namespace beam
 
 #pragma pack (push, 1)
 				struct Ctor {
-					ECC::Point m_pPk[3];
+					ECC::Point m_pPk[_countof(m_Contract.m_pSk)];
 					uintBigFor<Amount>::Type m_Rate;
 					bvm::Type::uintSize m_Oracles;
 				};
@@ -2385,18 +2381,29 @@ namespace beam
 				pKrn->m_Args.resize(sizeof(Ctor));
 				Ctor& args = reinterpret_cast<Ctor&>(pKrn->m_Args.front());
 
+				ECC::Scalar::Native pSk[_countof(args.m_pPk) + 1];
+
 				args.m_Oracles = (bvm::Type::Size) 3U;
 				args.m_Rate = 77216U;
 				for (size_t i = 0; i < _countof(args.m_pPk); i++)
 				{
-					ECC::Scalar::Native k;
-					ECC::SetRandom(k);
+					auto& sk = m_Contract.m_pSk[i];
+					ECC::SetRandom(sk);
 
-					ECC::Point::Native pt = ECC::Context::get().G * k;
+					ECC::Point::Native pt = ECC::Context::get().G * sk;
 					args.m_pPk[i] = pt;
+
+					pSk[_countof(args.m_pPk) - i - 1] = sk; // c'tor enumerates pks in reverse order
 				}
 
 				bvm::get_Cid(m_Contract.m_Cid, pKrn->m_Data, pKrn->m_Args);
+
+				ECC::Scalar::Native& sk = pSk[_countof(args.m_pPk)];
+				ECC::SetRandom(sk);
+				pKrn->m_Commitment = ECC::Context::get().G * sk;
+
+				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)));
+
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
@@ -2422,15 +2429,9 @@ namespace beam
 
 				val -= nFee;
 
-				ECC::Scalar::Native sk;
-				ECC::SetRandom(sk);
-
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
-
-				pKrn->m_Commitment = ECC::Context::get().G * sk;
-				ZeroObject(pKrn->m_Signature);
 
 				pKrn->m_Cid = m_Contract.m_Cid;
 				pKrn->m_iMethod = 2;
@@ -2448,8 +2449,15 @@ namespace beam
 				args.m_iOracle = (bvm::Type::Size) 2;
 				args.m_Rate = 277216U;
 
+				ECC::Scalar::Native pSk[2];
+				pSk[0] = m_Contract.m_pSk[2];
+				ECC::SetRandom(pSk[1]);
+				pKrn->m_Commitment = ECC::Context::get().G * pSk[1];
+
+				pKrn->Sign(pSk, 2);
+
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+				m_Wallet.UpdateOffset(*msg.m_Transaction, pSk[1], true);
 
 				m_Contract.m_SentMethod = s.m_Height + 1;
 				printf("Invoking contract...\n");
@@ -2472,18 +2480,21 @@ namespace beam
 
 				val -= nFee;
 
-				ECC::Scalar::Native sk;
-				ECC::SetRandom(sk);
-
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
 
-				pKrn->m_Commitment = ECC::Context::get().G * sk;
-				ZeroObject(pKrn->m_Signature);
-
 				pKrn->m_Cid = m_Contract.m_Cid;
 				pKrn->m_iMethod = 1;
+
+				ECC::Scalar::Native pSk[_countof(m_Contract.m_pSk) + 1];
+				memcpy(pSk, m_Contract.m_pSk, sizeof(m_Contract.m_pSk));
+
+				auto& sk = pSk[_countof(m_Contract.m_pSk)];
+				ECC::SetRandom(sk);
+				pKrn->m_Commitment = ECC::Context::get().G * sk;
+
+				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)));
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
