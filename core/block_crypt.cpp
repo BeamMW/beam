@@ -1365,7 +1365,7 @@ namespace beam
 
 	void TxKernelContractCreate::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		TxKernelContractControl::HashSelfForID(hp);
+		TxKernelContractControl::HashSelfForMsg(hp);
 		hp
 			<< m_Data.size()
 			<< Blob(m_Data);
@@ -1385,7 +1385,7 @@ namespace beam
 
 	void TxKernelContractInvoke::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		TxKernelContractControl::HashSelfForID(hp);
+		TxKernelContractControl::HashSelfForMsg(hp);
 		hp
 			<< m_Cid
 			<< m_iMethod;
