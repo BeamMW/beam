@@ -972,6 +972,8 @@ namespace beam
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 
+		void Sign(const ECC::Scalar::Native*, uint32_t nKeys);
+
 	protected:
 		void CopyFrom(const TxKernelContractControl&);
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
