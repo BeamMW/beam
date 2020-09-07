@@ -2085,7 +2085,7 @@ struct NodeProcessor::BlockInterpretCtx
 		:public bvm::Processor
 	{
 		BlockInterpretCtx& m_Bic;
-		NodeDB& m_DB;
+		NodeProcessor& m_Proc;
 
 		struct RecoveryTag {
 			typedef uint8_t Type;
@@ -2095,7 +2095,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type Delete = 3;
 		};
 
-		BvmProcessor(BlockInterpretCtx& bic, NodeDB& db);
+		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
@@ -2727,7 +2727,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		if (!e.m_Data.empty())
 			return false; // contract already exists
 
-		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.SaveVar(cid, krn.m_Data);
 
 		if (!proc.Invoke(cid, 0, krn))
@@ -2738,7 +2738,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 	{
 		assert(!bic.m_ValidateOnly);
 
-		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.UndoVars();
 	}
 
@@ -2757,7 +2757,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (!iMethod || (krn.m_iMethod != iMethod))
 			return false; // overflow or c'tor call attempt
 
-		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		if (!proc.Invoke(krn.m_Cid, iMethod, krn))
 			return false;
 
@@ -2798,7 +2798,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	{
 		assert(!bic.m_ValidateOnly);
 
-		BlockInterpretCtx::BvmProcessor proc(bic, m_DB);
+		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.UndoVars();
 	}
 
@@ -3846,9 +3846,9 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
 	return true;
 }
 
-NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& bic, NodeDB& db)
+NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& proc)
 	:m_Bic(bic)
-	,m_DB(db)
+	,m_Proc(proc)
 {
 	if (bic.m_Fwd && !bic.m_ValidateOnly)
 	{
@@ -3902,7 +3902,7 @@ bvm::VariableMem::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut)
 {
-	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_DB);
+	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB);
 
 	if (!e.m_Data.empty())
 	{
@@ -3916,7 +3916,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, u
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, ByteBuffer& res)
 {
-	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_DB).m_Data;
+	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal)
@@ -3926,7 +3926,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, c
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
 {
-	auto& e = m_Bic.get_ContractVar(key, m_DB);
+	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	bool bExisted = !e.m_Data.empty();
 
 	if (Blob(e.m_Data) != data)
@@ -3940,18 +3940,18 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 				if (bExisted)
 				{
 					nTag = RecoveryTag::Update;
-					m_DB.ContractDataUpdate(key, data);
+					m_Proc.m_DB.ContractDataUpdate(key, data);
 				}
 				else
 				{
 					nTag = RecoveryTag::Delete;
-					m_DB.ContractDataInsert(key, data);
+					m_Proc.m_DB.ContractDataInsert(key, data);
 				}
 			}
 			else
 			{
 				assert(bExisted);
-				m_DB.ContractDataDel(key);
+				m_Proc.m_DB.ContractDataDel(key);
 			}
 
 			BlockInterpretCtx::Ser ser(m_Bic);
@@ -3986,19 +3986,19 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 		if (RecoveryTag::Delete == nTag)
 		{
-			m_DB.ContractDataDel(key);
+			m_Proc.m_DB.ContractDataDel(key);
 		}
 		else
 		{
 			der & data;
 
 			if (RecoveryTag::Insert == nTag)
-				m_DB.ContractDataInsert(key, data);
+				m_Proc.m_DB.ContractDataInsert(key, data);
 			else
 			{
 				if (RecoveryTag::Update != nTag)
 					OnCorrupted();
-				m_DB.ContractDataUpdate(key, data);
+				m_Proc.m_DB.ContractDataUpdate(key, data);
 			}
 		}
 	}
