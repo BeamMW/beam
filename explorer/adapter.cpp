@@ -15,6 +15,7 @@
 #include "adapter.h"
 #include "node/node.h"
 #include "core/serialization_adapters.h"
+#include "core/bvm.h"
 #include "http/http_msg_creator.h"
 #include "http/http_json_serializer.h"
 #include "nlohmann/json.hpp"
@@ -235,6 +236,20 @@ private:
                     m_os << "Asset [" << t0 << "-" << t0 + Rules::get().CA.m_ProofCfg.get_N() - 1 << "]";
                 }
             }
+
+            void OnContract(const bvm::ContractID&, uint32_t iMethod, const TxKernelContractControl& krn)
+            {
+                m_os << "Contract.";
+
+                switch (iMethod)
+                {
+                case 0: m_os << "Create"; break;
+                case 1: m_os << "Destroy"; break;
+                default: m_os << "Method_" << iMethod;
+                }
+
+                m_os << ", Args=" << krn.m_Args.size();
+            }
         };
 
         static std::string get(const Asset::Metadata& md)
@@ -361,6 +376,21 @@ private:
                     m_Wr.Next();
                     m_Wr.m_os << "Shielded.In Set=[" << id0 << "-" << krn.m_WindowEnd - 1 << "]";
                     m_Wr.OnAsset(krn.m_pAsset.get());
+                }
+
+                void OnKrnEx(const TxKernelContractCreate& krn)
+                {
+                    bvm::ContractID cid;
+                    bvm::get_Cid(cid, krn.m_Data, krn.m_Args);
+
+                    m_Wr.Next();
+                    m_Wr.OnContract(cid, 0, krn);
+                }
+
+                void OnKrnEx(const TxKernelContractInvoke& krn)
+                {
+                    m_Wr.Next();
+                    m_Wr.OnContract(krn.m_Cid, krn.m_iMethod, krn);
                 }
 
             } wlk;
