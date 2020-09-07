@@ -2087,6 +2087,13 @@ struct NodeProcessor::BlockInterpretCtx
 		BlockInterpretCtx& m_Bic;
 		NodeDB& m_DB;
 
+		struct RecoveryTag {
+			typedef uint8_t Type;
+			static const Type Terminator = 0;
+			static const Type Insert = 1;
+			static const Type Update = 2;
+			static const Type Delete = 3;
+		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeDB& db);
 
@@ -3847,7 +3854,7 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	{
 		BlockInterpretCtx::Ser ser(bic);
 
-		uint8_t n = 0; // terminator
+		RecoveryTag::Type n = RecoveryTag::Terminator;
 		ser & n;
 	}
 }
@@ -3926,18 +3933,18 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	{
 		if (!m_Bic.m_ValidateOnly)
 		{
-			uint8_t nCode = 1;
+			RecoveryTag::Type nTag = RecoveryTag::Insert;
 
 			if (data.n)
 			{
 				if (bExisted)
 				{
-					nCode = 2;
+					nTag = RecoveryTag::Update;
 					m_DB.ContractDataUpdate(key, data);
 				}
 				else
 				{
-					nCode = 3;
+					nTag = RecoveryTag::Delete;
 					m_DB.ContractDataInsert(key, data);
 				}
 			}
@@ -3948,7 +3955,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 			}
 
 			BlockInterpretCtx::Ser ser(m_Bic);
-			ser & nCode;
+			ser & nTag;
 			ser & key.n;
 			ser.WriteRaw(key.p, key.n);
 			if (bExisted)
@@ -3964,11 +3971,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
 	ByteBuffer key, data;
-	for (uint8_t nCode = 0; ; )
+	for (RecoveryTag::Type nTag = 0; ; )
 	{
 		BlockInterpretCtx::Der der(m_Bic);
-		der & nCode;
-		if (!nCode)
+		der & nTag;
+		if (RecoveryTag::Terminator == nTag)
 			break;
 
 		der & key;
@@ -3977,7 +3984,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		if (pE)
 			m_Bic.m_ContractVars.Delete(*pE); // just remove it from cache
 
-		if (3 == nCode)
+		if (RecoveryTag::Delete == nTag)
 		{
 			m_DB.ContractDataDel(key);
 		}
@@ -3985,11 +3992,11 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			der & data;
 
-			if (1 == nCode)
+			if (RecoveryTag::Insert == nTag)
 				m_DB.ContractDataInsert(key, data);
 			else
 			{
-				if (2 != nCode)
+				if (RecoveryTag::Update != nTag)
 					OnCorrupted();
 				m_DB.ContractDataUpdate(key, data);
 			}
