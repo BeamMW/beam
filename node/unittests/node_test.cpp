@@ -3306,6 +3306,21 @@ namespace beam
 			SaveVar(cid, &b.front(), static_cast<bvm::Type::Size>(b.size()));
 		}
 
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override
+		{
+			return 100;
+		}
+
+		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override
+		{
+			return true;
+		}
+
+		virtual bool AssetDestroy(Asset::ID, const PeerID&) override
+		{
+			return true;
+		}
+
 
 		uint32_t RunMany(const bvm::ContractID& cid, bvm::Type::Size iMethod, const bvm::Buf& args)
 		{
@@ -3351,14 +3366,19 @@ namespace beam
 
 #pragma pack (push, 1)
 			struct Args {
+				uint8_t m_pMeta[1];
 				ECC::Point m_pPk[3];
 				uintBigFor<Amount>::Type m_Rate;
+				bvm::Type::uintSize m_Meta;
 				bvm::Type::uintSize m_Oracles;
 			} args;
 #pragma pack (pop)
 
 			args.m_Oracles = (bvm::Type::Size) 3U;
 			args.m_Rate = 77216U;
+			args.m_Meta = (bvm::Type::Size) 1U;
+			args.m_pMeta[0] = 'w';
+
 			for (size_t i = 0; i < _countof(args.m_pPk); i++)
 			{
 				ECC::Scalar::Native k;
