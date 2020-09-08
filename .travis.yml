@@ -134,10 +134,12 @@ matrix:
         - mkdir -p /Users/travis/beam-ios/lib
         - find ./build -name \*.a -type f -exec cp {} /Users/travis/beam-ios/lib/ \;
         - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
+        - cp ./build/core/version.h /Users/travis/beam-ios/include/core/
         - mkdir -p /Users/travis/beam-ios-simulator/include
         - mkdir -p /Users/travis/beam-ios-simulator/lib
         - find ./build-simulator -name \*.a -type f -exec cp {} /Users/travis/beam-ios-simulator/lib/ \;
         - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios-simulator/include/
+        - cp ./build/core/version.h /Users/travis/beam-ios-simulator/include/core/
         - mkdir -p /Users/travis/beam-ios-combined/include
         - mkdir -p /Users/travis/beam-ios-combined/lib
         - find /Users/travis/beam-ios/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output /Users/travis/beam-ios-combined/lib/$(basename "$file") "$file" /Users/travis/beam-ios-simulator/lib/$(basename "$file"); done;

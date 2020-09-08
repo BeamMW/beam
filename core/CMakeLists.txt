@@ -37,6 +37,9 @@ target_link_libraries(core
         secp256k1
 )
 
+configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(core INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
 endif()
