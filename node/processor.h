@@ -80,8 +80,8 @@ class NodeProcessor
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
-	void InternalAssetAdd(Asset::Full&);
-	void InternalAssetDel(Asset::ID);
+	void InternalAssetAdd(Asset::Full&, bool bMmr);
+	void InternalAssetDel(Asset::ID, bool bMmr);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);

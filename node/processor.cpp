@@ -2983,31 +2983,37 @@ bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& 
 	return true;
 }
 
-void NodeProcessor::InternalAssetAdd(Asset::Full& ai)
+void NodeProcessor::InternalAssetAdd(Asset::Full& ai, bool bMmr)
 {
 	ai.m_Value = Zero;
 	m_DB.AssetAdd(ai);
 	assert(ai.m_ID); // it's 1-based
 
-	if (m_Mmr.m_Assets.m_Count < ai.m_ID)
-		m_Mmr.m_Assets.ResizeTo(ai.m_ID);
+	if (bMmr)
+	{
+		if (m_Mmr.m_Assets.m_Count < ai.m_ID)
+			m_Mmr.m_Assets.ResizeTo(ai.m_ID);
 
-	Merkle::Hash hv;
-	ai.get_Hash(hv);
-	m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+		Merkle::Hash hv;
+		ai.get_Hash(hv);
+		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+	}
 }
 
-void NodeProcessor::InternalAssetDel(Asset::ID nAssetID)
+void NodeProcessor::InternalAssetDel(Asset::ID nAssetID, bool bMmr)
 {
 	Asset::ID nCount = m_DB.AssetDelete(nAssetID);
 
-	assert(nCount <= m_Mmr.m_Assets.m_Count);
-	if (nCount < m_Mmr.m_Assets.m_Count)
-		m_Mmr.m_Assets.ResizeTo(nCount);
-	else
+	if (bMmr)
 	{
-		assert(nAssetID < nCount);
-		m_Mmr.m_Assets.Replace(nAssetID - 1, Zero);
+		assert(nCount <= m_Mmr.m_Assets.m_Count);
+		if (nCount < m_Mmr.m_Assets.m_Count)
+			m_Mmr.m_Assets.ResizeTo(nCount);
+		else
+		{
+			assert(nAssetID < nCount);
+			m_Mmr.m_Assets.Replace(nAssetID - 1, Zero);
+		}
 	}
 }
 
@@ -3034,9 +3040,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 		}
 	}
 
-	if (bic.m_SkipDefinition)
-		return true;
-
 	if (bic.m_Fwd)
 	{
 		Asset::Full ai;
@@ -3047,7 +3050,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 		ai.m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
 		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData.m_Value, ai.m_Metadata.m_Value);
 
-		InternalAssetAdd(ai);
+		InternalAssetAdd(ai, !bic.m_SkipDefinition);
 
 		BlockInterpretCtx::Ser ser(bic);
 		ser & ai.m_ID;
@@ -3073,7 +3076,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 		Asset::ID nVal;
 		der & nVal;
 
-		InternalAssetDel(nVal);
+		InternalAssetDel(nVal, !bic.m_SkipDefinition);
 	}
 
 	return true;
@@ -3106,45 +3109,39 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 			bic.m_AssetsUsed--;
 		}
 
-		if (!bic.m_SkipDefinition)
+		// looks good
+		InternalAssetDel(krn.m_AssetID, !bic.m_SkipDefinition);
+
+		BlockInterpretCtx::Ser ser(bic);
+		ser
+			& ai.m_Metadata
+			& ai.m_LockHeight;
+
+		if (!bic.m_Temporary)
 		{
-			// looks good
-			InternalAssetDel(krn.m_AssetID);
-
-			BlockInterpretCtx::Ser ser(bic);
-			ser
-				& ai.m_Metadata
-				& ai.m_LockHeight;
-
-			if (!bic.m_Temporary)
-			{
-				NodeDB::AssetEvt evt;
-				evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
-				evt.m_Height = bic.m_Height;
-				evt.m_Index = bic.m_nKrnIdx;
-				ZeroObject(evt.m_Body);
-				m_DB.AssetEvtsInsert(evt);
-			}
+			NodeDB::AssetEvt evt;
+			evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
+			evt.m_Height = bic.m_Height;
+			evt.m_Index = bic.m_nKrnIdx;
+			ZeroObject(evt.m_Body);
+			m_DB.AssetEvtsInsert(evt);
 		}
 	}
 	else
 	{
-		if (!bic.m_SkipDefinition)
-		{
-			Asset::Full ai;
-			ai.m_ID = krn.m_AssetID;
-			ai.m_Owner = krn.m_Owner;
+		Asset::Full ai;
+		ai.m_ID = krn.m_AssetID;
+		ai.m_Owner = krn.m_Owner;
 
-			BlockInterpretCtx::Der der(bic);
-			der
-				& ai.m_Metadata
-				& ai.m_LockHeight;
+		BlockInterpretCtx::Der der(bic);
+		der
+			& ai.m_Metadata
+			& ai.m_LockHeight;
 
-			InternalAssetAdd(ai);
+		InternalAssetAdd(ai, !bic.m_SkipDefinition);
 
-			if (ai.m_ID != krn.m_AssetID)
-				OnCorrupted();
-		}
+		if (ai.m_ID != krn.m_AssetID)
+			OnCorrupted();
 
 		if (!bic.m_AlreadyValidated)
 		{
@@ -3160,9 +3157,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	if (!bic.m_Fwd && bic.m_SkipDefinition)
-		return true;
-
 	Asset::Full ai;
 	ai.m_ID = krn.m_AssetID;
 	if (!m_DB.AssetGetSafe(ai))
@@ -3201,48 +3195,47 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 		ai.m_Value += valBig;
 	}
 
+	bool bZero = (ai.m_Value == Zero);
+	if (bZero != bWasZero)
+	{
+		if (bic.m_Fwd)
+		{
+			BlockInterpretCtx::Ser ser(bic);
+			ser & ai.m_LockHeight;
+
+			ai.m_LockHeight = bic.m_Height;
+		}
+		else
+		{
+			BlockInterpretCtx::Der der(bic);
+			der & ai.m_LockHeight;
+		}
+	}
+
+	m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
+
 	if (!bic.m_SkipDefinition)
 	{
-		bool bZero = (ai.m_Value == Zero);
-		if (bZero != bWasZero)
-		{
-			if (bic.m_Fwd)
-			{
-				BlockInterpretCtx::Ser ser(bic);
-				ser & ai.m_LockHeight;
-
-				ai.m_LockHeight = bic.m_Height;
-			}
-			else
-			{
-				BlockInterpretCtx::Der der(bic);
-				der & ai.m_LockHeight;
-			}
-		}
-
-		m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
-
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
 
 		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+	}
 
-		if (bic.m_Fwd)
-		{
-			AssetDataPacked adp;
-			adp.m_Amount = ai.m_Value;
-			adp.m_LockHeight = ai.m_LockHeight;
+	if (bic.m_Fwd && !bic.m_Temporary)
+	{
+		AssetDataPacked adp;
+		adp.m_Amount = ai.m_Value;
+		adp.m_LockHeight = ai.m_LockHeight;
 
-			NodeDB::AssetEvt evt;
-			evt.m_ID = krn.m_AssetID;
-			evt.m_Height = bic.m_Height;
-			evt.m_Index = bic.m_nKrnIdx;
-			evt.m_Body.p = &adp;
-			evt.m_Body.n = sizeof(adp);
+		NodeDB::AssetEvt evt;
+		evt.m_ID = krn.m_AssetID;
+		evt.m_Height = bic.m_Height;
+		evt.m_Index = bic.m_nKrnIdx;
+		evt.m_Body.p = &adp;
+		evt.m_Body.n = sizeof(adp);
 
-			m_DB.AssetEvtsInsert(evt);
-		}
-
+		m_DB.AssetEvtsInsert(evt);
 	}
 
 	return true;
@@ -5461,7 +5454,8 @@ void NodeProcessor::Migrate21()
 	// Delete all asset info, and replay only the relevant kernels
 
 	while (m_Mmr.m_Assets.m_Count)
-		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count));
+		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count), false);
+	m_Mmr.m_Assets.ResizeTo(0);
 
 	struct KrnWalkerAssetsMigrate
 		:public IKrnWalker
