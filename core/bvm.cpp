@@ -30,6 +30,15 @@ namespace bvm {
 			>> cid;
 	}
 
+	void get_AssetOwner(PeerID& pidOwner, const ContractID& cid, const Asset::Metadata& md)
+	{
+		ECC::Hash::Processor()
+			<< "bvm.a.own"
+			<< cid
+			<< md.m_Hash
+			>> pidOwner;
+	}
+
 	/////////////////////////////////////////////
 	// Processor
 
@@ -571,6 +580,91 @@ namespace bvm {
 	BVM_METHOD(ref_release)
 	{
 		HandleRef(cid, false);
+	}
+
+	BVM_METHOD(asset_create)
+	{
+		auto& aid = *pAid.WGet<uintBigFor<Asset::ID>::Type>();
+
+		Type::Size n;
+		nMetaData.Export(n);
+		Test(n && (n <= Asset::Info::s_MetadataMaxSize));
+
+		Asset::Metadata md;
+		Blob(pMetaData.RGet<uint8_t>(n), n).Export(md.m_Value);
+		md.UpdateHash();
+
+		AssetVar av;
+		bvm::get_AssetOwner(av.m_Owner, m_FarCalls.m_Stack.back().m_Cid, md);
+
+		aid = AssetCreate(md, av.m_Owner);
+		if (aid != Zero)
+		{
+			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
+
+			SetAssetKey(av, aid);
+			SaveVar(av.m_vk, av.m_Owner.m_pData, static_cast<Type::Size>(av.m_Owner.nBytes));
+		}
+	}
+
+	void Processor::SetAssetKey(AssetVar& av, const uintBigFor<Asset::ID>::Type& aid)
+	{
+		SetVarKey(av.m_vk);
+		av.m_vk.Append(VarKey::Tag::OwnedAsset, aid);
+	}
+
+	Asset::ID Processor::get_AssetStrict(AssetVar& av, const uintBigFor<Asset::ID>::Type& aid)
+	{
+		SetAssetKey(av, aid);
+
+		Type::Size n0 = static_cast<Type::Size>(av.m_Owner.nBytes);
+		Type::Size n = n0;
+		LoadVar(av.m_vk, av.m_Owner.m_pData, n);
+		Test(n == n0);
+
+		Asset::ID ret;
+		aid.Export(ret);
+		return ret;
+	}
+
+	BVM_METHOD(asset_emit)
+	{
+		AssetVar av;
+		Asset::ID nAssetID = get_AssetStrict(av, aid);
+
+		Amount val;
+		amount.Export(val);
+
+		AmountSigned valS(val);
+		Test(valS >= 0);
+
+		bool bConsume = (bEmit == Zero);
+		if (bConsume)
+		{
+			valS = -valS;
+			Test(valS <= 0);
+		}
+
+		bool b = AssetEmit(nAssetID, av.m_Owner, valS);
+		m_Flags = !!b;
+
+		if (b)
+			HandleAmountInner(amount, aid, !bConsume);
+	}
+
+	BVM_METHOD(asset_destroy)
+	{
+		AssetVar av;
+		Asset::ID nAssetID = get_AssetStrict(av, aid);
+
+		bool b = AssetDestroy(nAssetID, av.m_Owner);
+		m_Flags = !!b;
+
+		if (b)
+		{
+			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, false);
+			SaveVar(av.m_vk, nullptr, 0);
+		}
 	}
 
 #undef BVM_METHOD

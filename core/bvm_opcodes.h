@@ -122,6 +122,19 @@
 
 #define BVMOp_ref_release(macro) BVMOp_ref_add(macro)
 
+#define BVMOp_asset_create(macro) \
+	macro(pAid, p) \
+	macro(pMetaData, p) \
+	macro(nMetaData, f2)
+
+#define BVMOp_asset_emit(macro) \
+	macro(aid, f4) \
+	macro(amount, f8) \
+	macro(bEmit, f1)
+
+#define BVMOp_asset_destroy(macro) \
+	macro(aid, f4)
+
 #define BVM_OpCodes(macro) \
 	macro(mov) \
 	macro(mov1) \
@@ -166,4 +179,7 @@
 	macro(funds_unlock) \
 	macro(ref_add) \
 	macro(ref_release) \
+	macro(asset_create) \
+	macro(asset_emit) \
+	macro(asset_destroy) \
 

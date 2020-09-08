@@ -76,6 +76,7 @@ namespace bvm {
 	typedef ECC::uintBig ContractID;
 	// Contract unique identifier 
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
+	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 
 	struct Buf
 	{
@@ -227,6 +228,7 @@ namespace bvm {
 				static const uint8_t Internal = 0;
 				static const uint8_t LockedAmount = 1;
 				static const uint8_t Refs = 2;
+				static const uint8_t OwnedAsset = 3;
 			};
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
@@ -265,6 +267,10 @@ namespace bvm {
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, Type::Size nVal) { return false; }
 
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
+		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
+		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
+
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, Type::Size);
 		bool SaveNnz(const VarKey&, const uint8_t* pVal, Type::Size);
 
@@ -281,6 +287,14 @@ namespace bvm {
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
 		ECC::Point::Native m_FundsIO;
+
+		struct AssetVar {
+			VarKey m_vk;
+			PeerID m_Owner;
+		};
+
+		Asset::ID get_AssetStrict(AssetVar&, const uintBigFor<Asset::ID>::Type&);
+		void SetAssetKey(AssetVar&, const uintBigFor<Asset::ID>::Type&);
 
 	private:
 		void HandleRef(const Ptr&, bool bAdd);
