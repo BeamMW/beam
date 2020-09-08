@@ -179,6 +179,7 @@ namespace bvm {
 		void DoXor(const Ptr&, const uint8_t*, Type::Size nSize);
 		void DoCmp(const uint8_t*, const uint8_t*, Type::Size nSize);
 		void DoAdd(const Ptr&, const uint8_t*, Type::Size nSize);
+		void DoSub(const Ptr&, const uint8_t*, Type::Size nSize);
 		void DoJmp(const Type::uintSize&);
 
 		const uint8_t* FetchInstruction(Type::Size n);

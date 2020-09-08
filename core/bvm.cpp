@@ -349,6 +349,39 @@ namespace bvm {
 		m_Flags = Dummy::Do(dst, pSrc, nSize);
 	}
 
+	BVM_METHOD(sub)
+	{
+		Type::Size nSize;
+		size.Export(nSize);
+		DoSub(dst, src.RGet<uint8_t>(nSize), nSize);
+	}
+
+	BVM_METHOD(sub1) { DoSub(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(sub2) { DoSub(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(sub4) { DoSub(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(sub8) { DoSub(dst, src.m_pData, src.nBytes); }
+
+	void Processor::DoSub(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	{
+		struct Dummy :public uintBigImpl {
+			static void Neg(uint8_t* p, Type::Size n)
+			{
+				_Inv(p, n);
+				_Inc(p, n);
+			}
+
+			static uint8_t Add(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize) {
+				return _Inc(pDst, nSize, pSrc);
+			}
+		};
+
+		auto* pDst = dst.WGet<uint8_t>(nSize);
+
+		Dummy::Neg(pDst, nSize);
+		DoAdd(dst, pSrc, nSize);
+		Dummy::Neg(pDst, nSize);
+	}
+
 	BVM_METHOD(jmp) {
 		DoJmp(addr);
 	}

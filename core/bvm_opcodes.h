@@ -47,6 +47,12 @@
 #define BVMOp_add4(macro) BVMOp_mov4(macro)
 #define BVMOp_add8(macro) BVMOp_mov8(macro)
 
+#define BVMOp_sub(macro) BVMOp_mov(macro)
+#define BVMOp_sub1(macro) BVMOp_mov1(macro)
+#define BVMOp_sub2(macro) BVMOp_mov2(macro)
+#define BVMOp_sub4(macro) BVMOp_mov4(macro)
+#define BVMOp_sub8(macro) BVMOp_mov8(macro)
+
 #define BVMOp_cmp(macro) \
 	macro(p1, p) \
 	macro(p2, p) \
@@ -137,6 +143,11 @@
 	macro(add2) \
 	macro(add4) \
 	macro(add8) \
+	macro(sub) \
+	macro(sub1) \
+	macro(sub2) \
+	macro(sub4) \
+	macro(sub8) \
 	macro(load_var) \
 	macro(save_var) \
 	macro(call) \
