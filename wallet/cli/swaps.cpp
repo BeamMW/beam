@@ -422,6 +422,30 @@ Amount EstimateSwapFeerate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr
             (walletDB, callback, swapCoin);
         break;
     }
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        RequestToBridge<dogecoin::SettingsProvider, dogecoin::Electrum, dogecoin::DogecoinCore014>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        RequestToBridge<bitcoin_cash::SettingsProvider, bitcoin_cash::Electrum, bitcoin_cash::BitcoinCashCore>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+    {
+        RequestToBridge<bitcoin_sv::SettingsProvider, bitcoin_sv::Electrum, bitcoin_sv::BitcoinSVCore>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        RequestToBridge<dash::SettingsProvider, dash::Electrum, dash::DashCore014>
+            (walletDB, callback, swapCoin);
+        break;
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -446,6 +470,22 @@ Amount GetMinSwapFeeRate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr w
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
         return GetMinSwapFeeRate<qtum::SettingsProvider>(walletDB);
+    }
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        return GetMinSwapFeeRate<dogecoin::SettingsProvider>(walletDB);
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        return GetMinSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+    {
+        return GetMinSwapFeeRate<bitcoin_sv::SettingsProvider>(walletDB);
+    }
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
     }
     default:
     {
@@ -488,6 +528,30 @@ Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
         RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        RequestToBridge<dogecoin::SettingsProvider, dogecoin::Electrum, dogecoin::DogecoinCore014>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        RequestToBridge<bitcoin_cash::SettingsProvider, bitcoin_cash::Electrum, bitcoin_cash::BitcoinCashCore>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
+    {
+        RequestToBridge<bitcoin_sv::SettingsProvider, bitcoin_sv::Electrum, bitcoin_sv::BitcoinSVCore>
+            (walletDB, callback, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        RequestToBridge<dash::SettingsProvider, dash::Electrum, dash::DashCore014>
             (walletDB, callback, swapCoin);
         break;
     }

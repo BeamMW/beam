@@ -304,6 +304,22 @@ public:
         {
             return _qtumClient ? _qtumClient->GetRecommendedFeeRate() : 0;
         }
+        case AtomicSwapCoin::Dogecoin:
+        {
+            return _dogeClient ? _dogeClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Bitcoin_Cash:
+        {
+            return _bchClient ? _bchClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Bitcoin_SV:
+        {
+            return _bsvClient ? _bsvClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Dash:
+        {
+            return _dashClient ? _dashClient->GetRecommendedFeeRate() : 0;
+        }
         default:
         {
             assert(false && "process new coin");
@@ -327,6 +343,22 @@ public:
         case AtomicSwapCoin::Qtum:
         {
             return _qtumClient ? _qtumClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Dogecoin:
+        {
+            return _dogeClient ? _dogeClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Bitcoin_Cash:
+        {
+            return _bchClient ? _bchClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Bitcoin_SV:
+        {
+            return _bsvClient ? _bsvClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Dash:
+        {
+            return _dashClient ? _dashClient->GetSettings().GetMinFeeRate() : 0;
         }
         default:
         {

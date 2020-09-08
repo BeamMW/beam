@@ -73,6 +73,22 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     {
         return "Qtum";
     }
+    case AtomicSwapCoin::Bitcoin_Cash:
+    {
+        return "Bitcoin Cash";
+    }
+    case AtomicSwapCoin::Bitcoin_SV:
+    {
+        return "Bitcoin SV";
+    }
+    case AtomicSwapCoin::Dogecoin:
+    {
+        return "Dogecoin";
+    }
+    case AtomicSwapCoin::Dash:
+    {
+        return "Dash";
+    }
     default:
     {
         assert(false && "unexpected swap coin!");
