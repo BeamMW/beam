@@ -83,6 +83,10 @@ class NodeProcessor
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
+	bool HandleAssetCreate(const PeerID&, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&);
+	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned);
+	bool HandleAssetDestroy(const PeerID&, BlockInterpretCtx&, Asset::ID);
+
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
 

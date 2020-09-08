@@ -2969,13 +2969,19 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID, bool bMmr)
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
+	Asset::ID aid;
+	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid);
+}
+
+bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid)
+{
 	if (!bic.m_AlreadyValidated)
 	{
 		bic.EnsureAssetsUsed(m_DB);
 
 		if (bic.m_Fwd)
 		{
-			if (m_DB.AssetFindByOwner(krn.m_Owner))
+			if (m_DB.AssetFindByOwner(pidOwner))
 				return false;
 
 			if (bic.m_AssetsUsed >= Asset::s_MaxCount)
@@ -2994,11 +3000,11 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 	{
 		Asset::Full ai;
 		ai.m_ID = 0; // auto
-		ai.m_Owner = krn.m_Owner;
+		ai.m_Owner = pidOwner;
 		ai.m_LockHeight = bic.m_Height;
 
-		ai.m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
-		TemporarySwap<ByteBuffer> ts(Cast::NotConst(krn).m_MetaData.m_Value, ai.m_Metadata.m_Value);
+		ai.m_Metadata.m_Hash = md.m_Hash;
+		TemporarySwap<ByteBuffer> ts(Cast::NotConst(md).m_Value, ai.m_Metadata.m_Value);
 
 		InternalAssetAdd(ai, !bic.m_SkipDefinition);
 
@@ -3018,15 +3024,16 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 
 			m_DB.AssetEvtsInsert(evt);
 		}
+
+		aid = ai.m_ID;
 	}
 	else
 	{
 		BlockInterpretCtx::Der der(bic);
 
-		Asset::ID nVal;
-		der & nVal;
+		der & aid;
 
-		InternalAssetDel(nVal, !bic.m_SkipDefinition);
+		InternalAssetDel(aid, !bic.m_SkipDefinition);
 	}
 
 	return true;
@@ -3034,19 +3041,24 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
+	return HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID);
+}
+
+bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid)
+{
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
 
 	if (bic.m_Fwd)
 	{
 		Asset::Full ai;
-		ai.m_ID = krn.m_AssetID;
+		ai.m_ID = aid;
 		if (!m_DB.AssetGetSafe(ai))
 			return false;
 
 		if (!bic.m_AlreadyValidated)
 		{
-			if (ai.m_Owner != krn.m_Owner)
+			if (ai.m_Owner != pidOwner)
 				return false;
 
 			if (ai.m_Value != Zero)
@@ -3060,7 +3072,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 		}
 
 		// looks good
-		InternalAssetDel(krn.m_AssetID, !bic.m_SkipDefinition);
+		InternalAssetDel(aid, !bic.m_SkipDefinition);
 
 		BlockInterpretCtx::Ser ser(bic);
 		ser
@@ -3070,7 +3082,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 		if (!bic.m_Temporary)
 		{
 			NodeDB::AssetEvt evt;
-			evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
+			evt.m_ID = aid + Asset::s_MaxCount;
 			evt.m_Height = bic.m_Height;
 			evt.m_Index = bic.m_nKrnIdx;
 			ZeroObject(evt.m_Body);
@@ -3080,8 +3092,8 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 	else
 	{
 		Asset::Full ai;
-		ai.m_ID = krn.m_AssetID;
-		ai.m_Owner = krn.m_Owner;
+		ai.m_ID = aid;
+		ai.m_Owner = pidOwner;
 
 		BlockInterpretCtx::Der der(bic);
 		der
@@ -3090,7 +3102,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 
 		InternalAssetAdd(ai, !bic.m_SkipDefinition);
 
-		if (ai.m_ID != krn.m_AssetID)
+		if (ai.m_ID != aid)
 			OnCorrupted();
 
 		if (!bic.m_AlreadyValidated)
@@ -3103,18 +3115,18 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 	return true;
 }
 
-
-
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
+	return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
+}
+
+bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val)
+{
 	Asset::Full ai;
-	ai.m_ID = krn.m_AssetID;
+	ai.m_ID = aid;
 	if (!m_DB.AssetGetSafe(ai))
 		return false;
-	if (ai.m_Owner != krn.m_Owner)
-		return false; // as well
 
-	AmountSigned val = krn.m_Value;
 	bool bAdd = (val >= 0);
 	if (!bAdd)
 	{
@@ -3125,7 +3137,12 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 	}
 
 	AmountBig::Type valBig = (Amount) val;
-	if (!bic.m_Fwd)
+	if (bic.m_Fwd)
+	{
+		if (!bic.m_AlreadyValidated && (ai.m_Owner != pidOwner))
+			return false; // as well
+	}
+	else
 		bAdd = !bAdd;
 
 	bool bWasZero = (ai.m_Value == Zero);
@@ -3179,7 +3196,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 		adp.m_LockHeight = ai.m_LockHeight;
 
 		NodeDB::AssetEvt evt;
-		evt.m_ID = krn.m_AssetID;
+		evt.m_ID = aid;
 		evt.m_Height = bic.m_Height;
 		evt.m_Index = bic.m_nKrnIdx;
 		evt.m_Body.p = &adp;
