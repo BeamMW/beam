@@ -21,9 +21,6 @@ target_link_libraries(${TARGET_NAME}
         mnemonic
 )
 
-configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-
 if(ANDROID)
 	target_link_libraries(${TARGET_NAME} PRIVATE android log)
 else()
