@@ -6,3 +6,7 @@ const unsigned VERSION_REVISION = @VERSION_REVISION@;
 const std::string GIT_COMMIT_HASH = "@GIT_COMMIT_HASH@";
 const std::string PROJECT_VERSION = "@PROJECT_VERSION@";
 const std::string BRANCH_NAME = "@BRANCH_NAME@";
+
+#ifndef BEAM_LIB_VERSION
+#define BEAM_LIB_VERSION "@PROJECT_VERSION@"
+#endif
