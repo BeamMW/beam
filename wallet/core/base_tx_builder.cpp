@@ -29,17 +29,6 @@
 #include <numeric>
 #include "utility/logger.h"
 
-namespace Cast
-{
-    template <typename TT, typename T> inline TT& Reinterpret(T& x)
-    {
-        // type are unrelated. But must have the same size
-        static_assert(sizeof(TT) == sizeof(T));
-        return (TT&) x;
-    }
-
-}
-
 namespace beam::wallet
 {
     using namespace ECC;
