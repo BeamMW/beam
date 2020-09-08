@@ -381,7 +381,8 @@ public:
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
-	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
+	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);

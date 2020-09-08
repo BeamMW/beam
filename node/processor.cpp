@@ -1993,21 +1993,18 @@ struct NodeProcessor::BlockInterpretCtx
 	Height m_Height;
 	uint32_t m_nKrnIdx = 0;
 	bool m_Fwd;
-	bool m_ValidateOnly = false; // don't make changes to state
-	bool m_AlreadyValidated = false; // set during reorgs, when a block is being applied for 2nd time
-	bool m_SaveKid = true;
-	bool m_UpdateMmrs = true;
-	bool m_StoreShieldedOutput = false;
+
+	bool m_AlreadyValidated = false; // Block/tx already validated, i.e. this is not the 1st invocation (reorgs, block generation multi-pass, etc.)
+	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
+	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
-	bool m_AddAssetsEvts = false;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
 	Asset::ID m_AssetsUsed = Asset::s_MaxCount + 1;
 	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
-	// rollback data
-	ByteBuffer* m_pRollback = nullptr;
+	ByteBuffer m_Rollback;
 
 	struct Ser
 		:public Serializer
@@ -2072,14 +2069,15 @@ struct NodeProcessor::BlockInterpretCtx
 		~BlobSet();
 		void Clear();
 
-		bool Find(const Blob&) const;
-		void Add(const Blob&);
+		BlobItem* Find(const Blob&);
+		BlobItem* Add(const Blob&);
+		void Delete(BlobItem&);
 	};
 
-	BlobSet* m_pDups = nullptr; // used in validate-only mode
+	BlobSet m_Dups; // mirrors 'unique' DB table in temporary mode
 
-	typedef std::set<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
-	BlobPtrSet* m_pDupIDs;
+	typedef std::multiset<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
+	BlobPtrSet m_KrnIDs; // mirrors kernel ID DB table in temporary mode
 
 	struct BvmProcessor
 		:public bvm::Processor
@@ -2315,11 +2313,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
-	bbP.clear();
-	bic.m_pRollback = &bbP;
-
-	bic.m_StoreShieldedOutput = true;
-	bic.m_AddAssetsEvts = true;
+	bic.m_Rollback.swap((bbP.size() > bbE.size()) ? bbP : bbE); // optimization
+	bic.m_Rollback.clear();
 
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
@@ -2385,7 +2380,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 
 		Blob blobExtra(offsAcc.m_Value);
-		Blob blobRB(bbP);
+		Blob blobRB(bic.m_Rollback);
 		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blobExtra, &blobRB);
 
 		std::vector<NodeDB::StateInput> v;
@@ -2427,8 +2422,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 
 		Serializer ser;
-		bbP.clear();
-		ser.swap_buf(bbP);
+		bic.m_Rollback.clear();
+		ser.swap_buf(bic.m_Rollback); // optimization
 
 		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 		{
@@ -2739,8 +2734,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 	}
 	else
 	{
-		assert(!bic.m_ValidateOnly);
-
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.UndoVars();
 	}
@@ -2778,8 +2771,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	}
 	else
 	{
-		assert(!bic.m_ValidateOnly);
-
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.UndoVars();
 	}
@@ -2797,7 +2788,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::Con
 		if (!m_Proc.m_DB.ContractDataFindNext(key, rs) || !IsOwnedVar(cid, key))
 			break; // ok
 
-		if (m_Bic.m_ValidateOnly)
+		if (m_Bic.m_Temporary)
 		{
 			// actual DB data is intact, make sure cached data is erased
 			auto* pE = m_Bic.m_ContractVars.Find(key);
@@ -2812,7 +2803,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::Con
 		return false;
 	}
 
-	if (m_Bic.m_ValidateOnly)
+	if (m_Bic.m_Temporary)
 	{
 		// pass 2. make sure no unsaved variables too
 		bvm::VariableMem::Entry x;
@@ -2951,6 +2942,15 @@ bool NodeProcessor::IsDummy(const CoinID&  cid)
 
 Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInterpretCtx& bic)
 {
+	assert(!bic.m_AlreadyValidated);
+
+	if (bic.m_Temporary)
+	{
+		auto it = bic.m_KrnIDs.find(id);
+		if (bic.m_KrnIDs.end() != it)
+			return bic.m_Height;
+	}
+
 	Height h = m_DB.FindKernel(id);
 	if (h >= Rules::HeightGenesis)
 	{
@@ -3034,10 +3034,8 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 		}
 	}
 
-	if (!bic.m_UpdateMmrs)
+	if (bic.m_SkipDefinition)
 		return true;
-
-	assert(!bic.m_ValidateOnly);
 
 	if (bic.m_Fwd)
 	{
@@ -3054,7 +3052,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 		BlockInterpretCtx::Ser ser(bic);
 		ser & ai.m_ID;
 
-		if (bic.m_AddAssetsEvts)
+		if (!bic.m_Temporary)
 		{
 			NodeDB::AssetEvt evt;
 			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
@@ -3108,7 +3106,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 			bic.m_AssetsUsed--;
 		}
 
-		if (bic.m_UpdateMmrs)
+		if (!bic.m_SkipDefinition)
 		{
 			// looks good
 			InternalAssetDel(krn.m_AssetID);
@@ -3118,7 +3116,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 				& ai.m_Metadata
 				& ai.m_LockHeight;
 
-			if (bic.m_AddAssetsEvts)
+			if (!bic.m_Temporary)
 			{
 				NodeDB::AssetEvt evt;
 				evt.m_ID = krn.m_AssetID + Asset::s_MaxCount;
@@ -3131,7 +3129,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 	}
 	else
 	{
-		if (bic.m_UpdateMmrs)
+		if (!bic.m_SkipDefinition)
 		{
 			Asset::Full ai;
 			ai.m_ID = krn.m_AssetID;
@@ -3162,7 +3160,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	if (!bic.m_Fwd && !bic.m_UpdateMmrs)
+	if (!bic.m_Fwd && bic.m_SkipDefinition)
 		return true;
 
 	Asset::Full ai;
@@ -3203,7 +3201,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 		ai.m_Value += valBig;
 	}
 
-	if (bic.m_UpdateMmrs)
+	if (!bic.m_SkipDefinition)
 	{
 		bool bZero = (ai.m_Value == Zero);
 		if (bZero != bWasZero)
@@ -3229,7 +3227,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 
 		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
 
-		if (bic.m_Fwd && bic.m_AddAssetsEvts)
+		if (bic.m_Fwd)
 		{
 			AssetDataPacked adp;
 			adp.m_Amount = ai.m_Value;
@@ -3257,78 +3255,72 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 
 	if (bic.m_Fwd)
 	{
-		if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
+		if (!bic.m_AlreadyValidated)
 		{
-			bic.m_LimitExceeded = true;
-			return false;
-		}
-
-		if (!bic.ValidateAssetRange(krn.m_Txo.m_pAsset))
-			return false;
-
-		if (bic.m_ValidateOnly)
-		{
-			if (!ValidateUniqueNoDup(bic, blobKey))
-				return false;
-		}
-		else
-		{
-			ShieldedOutpPacked sop;
-			sop.m_Height = bic.m_Height;
-			sop.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
-			sop.m_TxoID = m_Extra.m_ShieldedOutputs;
-			sop.m_Commitment = krn.m_Txo.m_Commitment;
-
-			Blob blobVal(&sop, sizeof(sop));
-
-			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
-				return false;
-
-			if (bic.m_StoreShieldedOutput)
+			if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
 			{
-				ECC::Point::Native pt, pt2;
-				pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
-				pt2.Import(krn.m_Txo.m_Ticket.m_SerialPub);
-				pt += pt2;
-
-				ECC::Point::Storage pt_s;
-				pt.Export(pt_s);
-
-				m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
-				// Append to cmList
-				m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
+				bic.m_LimitExceeded = true;
+				return false;
 			}
 
-			if (bic.m_UpdateMmrs)
-			{
-				ShieldedTxo::DescriptionOutp d;
-				d.m_SerialPub = krn.m_Txo.m_Ticket.m_SerialPub;
-				d.m_Commitment = krn.m_Txo.m_Commitment;
-				d.m_ID = m_Extra.m_ShieldedOutputs;
-				d.m_Height = bic.m_Height;
-
-				Merkle::Hash hv;
-				d.get_Hash(hv);
-				m_Mmr.m_Shielded.Append(hv);
-			}
-
-			m_Extra.m_ShieldedOutputs++;
+			if (!bic.ValidateAssetRange(krn.m_Txo.m_pAsset))
+				return false;
 		}
+
+		ShieldedOutpPacked sop;
+		sop.m_Height = bic.m_Height;
+		sop.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
+		sop.m_TxoID = m_Extra.m_ShieldedOutputs;
+		sop.m_Commitment = krn.m_Txo.m_Commitment;
+
+		Blob blobVal(&sop, sizeof(sop));
+
+		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+			return false;
+
+		if (!bic.m_Temporary)
+		{
+			ECC::Point::Native pt, pt2;
+			pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
+			pt2.Import(krn.m_Txo.m_Ticket.m_SerialPub);
+			pt += pt2;
+
+			ECC::Point::Storage pt_s;
+			pt.Export(pt_s);
+
+			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
+			// Append to cmList
+			m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
+		}
+
+		if (!bic.m_SkipDefinition)
+		{
+			ShieldedTxo::DescriptionOutp d;
+			d.m_SerialPub = krn.m_Txo.m_Ticket.m_SerialPub;
+			d.m_Commitment = krn.m_Txo.m_Commitment;
+			d.m_ID = m_Extra.m_ShieldedOutputs;
+			d.m_Height = bic.m_Height;
+
+			Merkle::Hash hv;
+			d.get_Hash(hv);
+			m_Mmr.m_Shielded.Append(hv);
+		}
+
+		m_Extra.m_ShieldedOutputs++;
 
 		bic.m_ShieldedOuts++; // ok
 
 	}
 	else
 	{
-		assert(!bic.m_ValidateOnly);
+		ValidateUniqueNoDup(bic, blobKey, nullptr);
 
-		m_DB.UniqueDeleteStrict(blobKey);
-
-		if (bic.m_UpdateMmrs)
-			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
-
-		if (bic.m_StoreShieldedOutput)
+		if (!bic.m_Temporary)
 			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+
+		if (!bic.m_SkipDefinition)
+			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
+		
 
 		assert(bic.m_ShieldedOuts);
 		bic.m_ShieldedOuts--;
@@ -3337,7 +3329,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		m_Extra.m_ShieldedOutputs--;
 	}
 
-	if (bic.m_StoreShieldedOutput)
+	if (!bic.m_Temporary)
 		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedOutputs, m_Extra.m_ShieldedOutputs);
 
 	return true;
@@ -3365,33 +3357,24 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 			if (!IsShieldedInPool(krn))
 				return false; // references invalid pool window
 		}
+ 
+		ShieldedInpPacked sip;
+		sip.m_Height = bic.m_Height;
+		sip.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
 
-		if (bic.m_ValidateOnly)
+		Blob blobVal(&sip, sizeof(sip));
+		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+			return false;
+
+		if (!bic.m_SkipDefinition)
 		{
-			if (!ValidateUniqueNoDup(bic, blobKey))
-				return false;
-		}
-		else
-		{
-			ShieldedInpPacked sip;
-			sip.m_Height = bic.m_Height;
-			sip.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
+			ShieldedTxo::DescriptionInp d;
+			d.m_SpendPk = krn.m_SpendProof.m_SpendPk;
+			d.m_Height = bic.m_Height;
 
-			Blob blobVal(&sip, sizeof(sip));
-
-			if (!m_DB.UniqueInsertSafe(blobKey, &blobVal))
-				return false;
-
-			if (bic.m_UpdateMmrs)
-			{
-				ShieldedTxo::DescriptionInp d;
-				d.m_SpendPk = krn.m_SpendProof.m_SpendPk;
-				d.m_Height = bic.m_Height;
-
-				Merkle::Hash hv;
-				d.get_Hash(hv);
-				m_Mmr.m_Shielded.Append(hv);
-			}
+			Merkle::Hash hv;
+			d.get_Hash(hv);
+			m_Mmr.m_Shielded.Append(hv);
 		}
 
 		bic.m_ShieldedIns++; // ok
@@ -3399,25 +3382,22 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 	}
 	else
 	{
-		assert(!bic.m_ValidateOnly);
+		ValidateUniqueNoDup(bic, blobKey, nullptr);
 
-		m_DB.UniqueDeleteStrict(blobKey);
-
-		if (bic.m_UpdateMmrs)
+		if (!bic.m_SkipDefinition)
 			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;
 	}
 
-	if (bic.m_StoreShieldedOutput)
+	if (!bic.m_Temporary)
 	{
-		assert(bic.m_UpdateMmrs); // otherwise the following formula will be wrong
+		assert(!bic.m_SkipDefinition); // otherwise the following formula will be wrong
 
 		TxoID nShieldedInputs = m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
 		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, nShieldedInputs);
 	}
-
 
 	return true;
 }
@@ -3628,6 +3608,37 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 	return true;
 }
 
+void NodeProcessor::ManageKrnID(BlockInterpretCtx& bic, const TxKernel& krn)
+{
+	if (bic.m_Height < Rules::HeightGenesis)
+		return; // for historical reasons treasury kernels are ignored
+
+	const auto& key = krn.m_Internal.m_ID;
+
+	if (bic.m_Temporary)
+	{
+		if (bic.m_AlreadyValidated)
+			return;
+
+		if (bic.m_Fwd)
+			bic.m_KrnIDs.insert(key);
+		else
+		{
+			auto it = bic.m_KrnIDs.find(key);
+			assert(bic.m_KrnIDs.end() != it);
+			bic.m_KrnIDs.erase(it);
+		}
+	}
+	else
+	{
+		if (bic.m_Fwd)
+			m_DB.InsertKernel(key, bic.m_Height);
+		else
+			m_DB.DeleteKernel(key, bic.m_Height);
+	}
+
+}
+
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
 {
 	const Rules& r = Rules::get();
@@ -3636,23 +3647,10 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
 		if (hPrev >= Rules::HeightGenesis)
 			return false; // duplicated
-
-		if (bic.m_ValidateOnly)
-		{
-			assert(bic.m_pDupIDs);
-			Blob key(v.m_Internal.m_ID);
-
-			if (bic.m_pDupIDs->end() != bic.m_pDupIDs->find(key))
-				return false; // duplicated within the same tx
-
-			bic.m_pDupIDs->insert(key);
-			
-		}
 	}
 
-	bool bSaveID = ((bic.m_Height >= Rules::HeightGenesis) && bic.m_SaveKid); // for historical reasons treasury kernels are ignored
-	if (bSaveID && !bic.m_Fwd)
-		m_DB.DeleteKernel(v.m_Internal.m_ID, bic.m_Height);
+	if (!bic.m_Fwd)
+		ManageKrnID(bic, v);
 
 	if (!HandleKernel(v, bic))
 	{
@@ -3661,8 +3659,8 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 		return false;
 	}
 
-	if (bSaveID && bic.m_Fwd)
-		m_DB.InsertKernel(v.m_Internal.m_ID, bic.m_Height);
+	if (bic.m_Fwd)
+		ManageKrnID(bic, v);
 
 	return true;
 }
@@ -3707,7 +3705,7 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		bic.m_Fwd = false;
 	}
 
-	if (!bic.m_Fwd && !bic.m_ValidateOnly) // for validate-only mode no need to revert the changes
+	if (!bic.m_Fwd)
 	{
 		// nested
 		while (n--)
@@ -3791,14 +3789,16 @@ NodeProcessor::BlockInterpretCtx::BlobSet::~BlobSet()
 void NodeProcessor::BlockInterpretCtx::BlobSet::Clear()
 {
 	while (!empty())
-	{
-		BlobItem& x = *begin();
-		erase(x);
-		delete& x;
-	}
+		Delete(*begin());
 }
 
-bool NodeProcessor::BlockInterpretCtx::BlobSet::Find(const Blob& key) const
+void NodeProcessor::BlockInterpretCtx::BlobSet::Delete(BlobItem& x)
+{
+	erase(x);
+	delete& x;
+}
+
+NodeProcessor::BlockInterpretCtx::BlobItem* NodeProcessor::BlockInterpretCtx::BlobSet::Find(const Blob& key)
 {
 	struct Comparator
 	{
@@ -3810,24 +3810,25 @@ bool NodeProcessor::BlockInterpretCtx::BlobSet::Find(const Blob& key) const
 		}
 	};
 
-	return end() != find(key, Comparator());
+	auto it = find(key, Comparator());
+	return (end() == it) ? nullptr : &*it;
 }
 
-void NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
+NodeProcessor::BlockInterpretCtx::BlobItem* NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
 {
 	BlobItem* pItem = new (key.n) BlobItem;
 	pItem->m_Size = key.n;
 	memcpy(pItem->m_pBuf, key.p, key.n);
 
 	insert(*pItem);
+	return pItem;
 }
 
 NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
 	:m_This(bic)
 {
-	assert(bic.m_pRollback);
-	m_Pos = bic.m_pRollback->size();
-	swap_buf(*bic.m_pRollback);
+	m_Pos = bic.m_Rollback.size();
+	swap_buf(bic.m_Rollback);
 }
 
 NodeProcessor::BlockInterpretCtx::Ser::~Ser()
@@ -3837,13 +3838,12 @@ NodeProcessor::BlockInterpretCtx::Ser::~Ser()
 		Marker mk = static_cast<uint32_t>(buffer().second - m_Pos);
 		*this & mk;
 	}
-	swap_buf(*m_This.m_pRollback);
+	swap_buf(m_This.m_Rollback);
 }
 
 NodeProcessor::BlockInterpretCtx::Der::Der(BlockInterpretCtx& bic)
 {
-	assert(bic.m_pRollback);
-	ByteBuffer& buf = *bic.m_pRollback; // alias
+	ByteBuffer& buf = bic.m_Rollback; // alias
 
 	Ser::Marker mk;
 	SetBwd(buf, mk.nBytes);
@@ -3865,17 +3865,41 @@ void NodeProcessor::BlockInterpretCtx::Der::SetBwd(ByteBuffer& buf, uint32_t nPo
 	buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
 }
 
-bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key)
+bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key, const Blob* pVal)
 {
-	assert(bic.m_pDups);
-	if (bic.m_pDups->Find(key))
-		return false;
+	if (bic.m_Temporary)
+	{
+		if (bic.m_AlreadyValidated)
+			return true;
 
-	NodeDB::Recordset rs;
-	if (m_DB.UniqueFind(key, rs))
-		return false;
+		auto* pE = bic.m_Dups.Find(key);
+		if (bic.m_Fwd)
+		{
+			if (pE)
+				return false; // duplicated
 
-	bic.m_pDups->Add(key);
+			NodeDB::Recordset rs;
+			if (m_DB.UniqueFind(key, rs))
+				return false; // duplicated
+
+			pE = bic.m_Dups.Add(key);
+		}
+		else
+		{
+			assert(pE);
+			bic.m_Dups.Delete(*pE);
+		}
+	}
+	else
+	{
+		if (bic.m_Fwd)
+		{
+			if (!m_DB.UniqueInsertSafe(key, pVal))
+				return false; // duplicated
+		}
+		else
+			m_DB.UniqueDeleteStrict(key);
+	}
 
 	return true;
 }
@@ -3884,7 +3908,7 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	:m_Bic(bic)
 	,m_Proc(proc)
 {
-	if (bic.m_Fwd && !bic.m_ValidateOnly)
+	if (bic.m_Fwd)
 	{
 		BlockInterpretCtx::Ser ser(bic);
 
@@ -3911,8 +3935,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 	}
 	catch (const Exc&)
 	{
-		if (!m_Bic.m_ValidateOnly)
-			UndoVars();
+		UndoVars();
 		return false;
 	}
 
@@ -3965,36 +3988,36 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 	if (Blob(e.m_Data) != data)
 	{
-		if (!m_Bic.m_ValidateOnly)
-		{
-			RecoveryTag::Type nTag = RecoveryTag::Insert;
+		RecoveryTag::Type nTag = RecoveryTag::Insert;
 
-			if (data.n)
+		if (data.n)
+		{
+			if (bExisted)
 			{
-				if (bExisted)
-				{
-					nTag = RecoveryTag::Update;
+				nTag = RecoveryTag::Update;
+				if (!m_Bic.m_Temporary)
 					m_Proc.m_DB.ContractDataUpdate(key, data);
-				}
-				else
-				{
-					nTag = RecoveryTag::Delete;
-					m_Proc.m_DB.ContractDataInsert(key, data);
-				}
 			}
 			else
 			{
-				assert(bExisted);
-				m_Proc.m_DB.ContractDataDel(key);
+				nTag = RecoveryTag::Delete;
+				if (!m_Bic.m_Temporary)
+					m_Proc.m_DB.ContractDataInsert(key, data);
 			}
-
-			BlockInterpretCtx::Ser ser(m_Bic);
-			ser & nTag;
-			ser & key.n;
-			ser.WriteRaw(key.p, key.n);
-			if (bExisted)
-				ser & e.m_Data;
 		}
+		else
+		{
+			assert(bExisted);
+			if (!m_Bic.m_Temporary)
+				m_Proc.m_DB.ContractDataDel(key);
+		}
+
+		BlockInterpretCtx::Ser ser(m_Bic);
+		ser & nTag;
+		ser & key.n;
+		ser.WriteRaw(key.p, key.n);
+		if (bExisted)
+			ser & e.m_Data;
 
 		data.Export(e.m_Data);
 	}
@@ -4004,7 +4027,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
-	ByteBuffer key, data;
+	ByteBuffer key;
 	for (RecoveryTag::Type nTag = 0; ; )
 	{
 		BlockInterpretCtx::Der der(m_Bic);
@@ -4015,24 +4038,29 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		der & key;
 
 		auto* pE = m_Bic.m_ContractVars.Find(key);
-		if (pE)
-			m_Bic.m_ContractVars.Delete(*pE); // just remove it from cache
+		assert(pE);
 
 		if (RecoveryTag::Delete == nTag)
 		{
-			m_Proc.m_DB.ContractDataDel(key);
+			pE->m_Data.clear();
+
+			if (!m_Bic.m_Temporary)
+				m_Proc.m_DB.ContractDataDel(key);
 		}
 		else
 		{
-			der & data;
+			der & pE->m_Data;
 
-			if (RecoveryTag::Insert == nTag)
-				m_Proc.m_DB.ContractDataInsert(key, data);
-			else
+			if (!m_Bic.m_Temporary)
 			{
-				if (RecoveryTag::Update != nTag)
-					OnCorrupted();
-				m_Proc.m_DB.ContractDataUpdate(key, data);
+				if (RecoveryTag::Insert == nTag)
+					m_Proc.m_DB.ContractDataInsert(key, pE->m_Data);
+				else
+				{
+					if (RecoveryTag::Update != nTag)
+						OnCorrupted();
+					m_Proc.m_DB.ContractDataUpdate(key, pE->m_Data);
+				}
 			}
 		}
 	}
@@ -4145,12 +4173,13 @@ void NodeProcessor::RollbackTo(Height h)
 		der & Cast::Down<TxVectors::Eternal>(txve);
 
 		BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height, false);
-		bic.m_StoreShieldedOutput = true;
-		bic.m_pRollback = &bbR;
+		bic.m_Rollback.swap(bbR);
 		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
+
+		bic.m_Rollback.swap(bbR);
 		assert(bbR.empty());
 	}
 
@@ -4543,18 +4572,20 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	// Ensure kernels are ok
 	BlockInterpretCtx bic(h, true);
 	bic.SetAssetHi(*this);
-	bic.m_ValidateOnly = true;
-	bic.m_UpdateMmrs = false;
-	bic.m_SaveKid = false;
 
-	BlockInterpretCtx::BlobSet setDups;
-	bic.m_pDups = &setDups;
-
-	BlockInterpretCtx::BlobPtrSet setKrnIds;
-	bic.m_pDupIDs = &setKrnIds;
+	bic.m_Temporary = true;
+	bic.m_SkipDefinition = true;
 
 	size_t n = 0;
-	if (!HandleElementVecFwd(tx.m_vKernels, bic, n))
+	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+
+	if (!bic.m_ShieldedIns)
+		bShieldedTested = true;
+
+	bic.m_Fwd = false;
+	HandleElementVecBwd(tx.m_vKernels, bic, n);
+
+	if (!bOk)
 		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
 
 	// Ensure output assets are in range
@@ -4564,25 +4595,18 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	if (!bShieldedTested)
 	{
-		if (bic.m_ShieldedIns)
-		{
-			assert(bic.m_ShieldedIns <= Rules::get().Shielded.MaxIns);
+		ECC::InnerProduct::BatchContextEx<4> bc;
+		MultiShieldedContext msc;
 
-			ECC::InnerProduct::BatchContextEx<4> bc;
-			MultiShieldedContext msc;
+		if (!msc.IsValid(tx, bc, 0, 1, m_ValCache))
+			return proto::TxStatus::InvalidInput;
 
-			if (!msc.IsValid(tx, bc, 0, 1, m_ValCache))
-				return proto::TxStatus::InvalidInput;
+		msc.Calculate(bc.m_Sum, *this);
 
-			msc.Calculate(bc.m_Sum, *this);
+		if (!bc.Flush())
+			return proto::TxStatus::InvalidInput;
 
-			if (!bc.Flush())
-				return proto::TxStatus::InvalidInput;
-
-			msc.MoveToGlobalCache(m_ValCache);
-		}
-
-		assert(bic.m_ShieldedOuts <= Rules::get().Shielded.MaxOuts);
+		msc.MoveToGlobalCache(m_ValCache);
 	}
 
 	return proto::TxStatus::Ok;
@@ -4815,11 +4839,9 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
-	bic.m_UpdateMmrs = false;
+	bic.m_Temporary = true;
+	bic.m_SkipDefinition = true;
 	bic.SetAssetHi(*this);
-
-	ByteBuffer bbR;
-	bic.m_pRollback = &bbR;
 
 	size_t nSizeEstimated = 1;
 
@@ -4833,7 +4855,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
-	assert(bbR.empty());
+	assert(bic.m_Rollback.empty());
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -4857,8 +4879,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	// In addition to this, kernels reorder may also have effect: shielded outputs may get different IDs
 	bic.m_Fwd = true;
 	bic.m_AlreadyValidated = true;
-	bic.m_SaveKid = false;
-	bic.m_UpdateMmrs = true;
+	bic.m_SkipDefinition = false;
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
 	if (!bOk)
@@ -4869,7 +4890,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	GenerateNewHdr(bc);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
-	assert(bbR.empty());
+	assert(bic.m_Rollback.empty());
 
 	Serializer ser;
 
@@ -5465,15 +5486,15 @@ void NodeProcessor::Migrate21()
 			BlockInterpretCtx bic(m_Height, true);
 			bic.m_nKrnIdx = m_nKrnIdx;
 			bic.m_AlreadyValidated = true;
-			bic.m_SaveKid = false;
-			bic.m_AddAssetsEvts = true;
 			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
-			bic.m_pRollback = &m_Rollback;
-			m_Rollback.clear();
+			bic.m_Rollback.swap(m_Rollback); // optimization
 
 			if (!m_This.HandleKernelTypeAny(krn, bic))
 				OnCorrupted();
+
+			bic.m_Rollback.swap(m_Rollback);
+			m_Rollback.clear();
 
 			return true;
 		}
