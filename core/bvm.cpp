@@ -1015,40 +1015,5 @@ namespace bvm {
 	}
 
 
-	/////////////////////////////////////////////
-	// VariableMem
-
-	void VariableMem::Set::Clear()
-	{
-		while (!empty())
-			Delete(*begin());
-	}
-
-	void VariableMem::Set::Delete(Entry& x)
-	{
-		erase(s_iterator_to(x));
-		delete& x;
-	}
-
-	VariableMem::Entry* VariableMem::Set::Find(const Blob& key)
-	{
-		Entry x;
-		x.m_KeyIdx = key;
-
-		iterator it = find(x);
-		return (end() == it) ? nullptr : &*it;
-	}
-
-	VariableMem::Entry* VariableMem::Set::Create(const Blob& key)
-	{
-		auto pGuard = std::make_unique<Entry>();
-		key.Export(pGuard->m_Key);
-		pGuard->m_KeyIdx = pGuard->m_Key;
-
-		auto* pE = pGuard.release();
-		insert(*pE);
-		return pE;
-	}
-
 } // namespace bvm
 } // namespace beam

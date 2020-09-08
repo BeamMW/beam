@@ -377,34 +377,5 @@ namespace bvm {
 		void ParseParam_PtrDirect(MyBlob&, uint8_t p);
 	};
 
-
-	struct VariableMem
-	{
-		struct Entry
-			:public boost::intrusive::set_base_hook<>
-		{
-			Blob m_KeyIdx;
-			ByteBuffer m_Key;
-			ByteBuffer m_Data;
-
-			bool operator < (const Entry& x) const {
-				return Blob(m_KeyIdx) < Blob(x.m_KeyIdx);
-			}
-		};
-
-		class Set
-			:public boost::intrusive::multiset<Entry>
-		{
-		public:
-
-			~Set() { Clear(); }
-
-			void Clear();
-			void Delete(Entry&);
-			Entry* Find(const Blob& key);
-			Entry* Create(const Blob& key);
-		};
-	};
-
 } // namespace bvm
 } // namespace beam

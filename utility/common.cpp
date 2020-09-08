@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "blobmap.h"
 #include "executor.h"
 #include <exception>
 
@@ -311,6 +312,41 @@ namespace beam
 			}
 
 		}
+	}
+
+	///////////////////////
+	// BlobMap
+	BlobMap::Set::~Set()
+	{
+		Clear();
+	}
+
+	void BlobMap::Set::Clear()
+	{
+		while (!empty())
+			Delete(*begin());
+	}
+
+	BlobMap::Entry* BlobMap::Set::Find(const Blob& key)
+	{
+		auto it = find(key, Comparator());
+		return (end() == it) ? nullptr : &*it;
+	}
+
+	BlobMap::Entry* BlobMap::Set::Create(const Blob& key)
+	{
+		Entry* pItem = new (key.n) Entry;
+		pItem->m_Size = key.n;
+		memcpy(pItem->m_pBuf, key.p, key.n);
+
+		insert(*pItem);
+		return pItem;
+	}
+
+	void BlobMap::Set::Delete(Entry& x)
+	{
+		erase(x);
+		delete& x;
 	}
 
 } // namespace beam

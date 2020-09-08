@@ -20,6 +20,7 @@
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
+#include "../utility/blobmap.h"
 #include <condition_variable>
 #include <cctype>
 
@@ -2026,57 +2027,9 @@ struct NodeProcessor::BlockInterpretCtx
 		void SetBwd(ByteBuffer&, uint32_t nPortion);
 	};
 
-	struct BlobItem
-		:public boost::intrusive::set_base_hook<>
-	{
-		uint32_t m_Size;
-#ifdef _MSC_VER
-#	pragma warning (disable: 4200) // 0-sized array
-#endif // _MSC_VER
-		uint8_t m_pBuf[0]; // var size
-#ifdef _MSC_VER
-#	pragma warning (default: 4200)
-#endif // _MSC_VER
+	BlobMap::Set m_Dups; // mirrors 'unique' DB table in temporary mode
 
-		Blob ToBlob() const
-		{
-			Blob x;
-			x.p = m_pBuf;
-			x.n = m_Size;
-			return x;
-		}
-
-		bool operator < (const BlobItem& x) const {
-			return ToBlob() < x.ToBlob();
-		}
-
-		void* operator new(size_t n, uint32_t nExtra) {
-			return new uint8_t[n + nExtra];
-		}
-
-		void operator delete(void* p) {
-			delete[] reinterpret_cast<uint8_t*>(p);
-		}
-
-		void operator delete(void* p, uint32_t) {
-			delete[] reinterpret_cast<uint8_t*>(p);
-		}
-	};
-
-	struct BlobSet
-		:public boost::intrusive::multiset<BlobItem>
-	{
-		~BlobSet();
-		void Clear();
-
-		BlobItem* Find(const Blob&);
-		BlobItem* Add(const Blob&);
-		void Delete(BlobItem&);
-	};
-
-	BlobSet m_Dups; // mirrors 'unique' DB table in temporary mode
-
-	typedef std::multiset<Blob> BlobPtrSet; // like BlobSet, but buffers are not allocated/copied
+	typedef std::multiset<Blob> BlobPtrSet; // like BlobMap, but buffers are not allocated/copied
 	BlobPtrSet m_KrnIDs; // mirrors kernel ID DB table in temporary mode
 
 	struct BvmProcessor
@@ -2109,8 +2062,8 @@ struct NodeProcessor::BlockInterpretCtx
 		void UndoVars();
 	};
 
-	bvm::VariableMem::Set m_ContractVars;
-	bvm::VariableMem::Entry& get_ContractVar(const Blob& key, NodeDB& db);
+	BlobMap::Set m_ContractVars;
+	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
 
 
 	BlockInterpretCtx(Height h, bool bFwd)
@@ -2794,7 +2747,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::Con
 			auto* pE = m_Bic.m_ContractVars.Find(key);
 			if (pE && pE->m_Data.empty())
 			{
-				key = pE->m_KeyIdx; // this buf will survive the next iteration
+				key = pE->ToBlob(); // this buf will survive the next iteration
 				continue; // ok
 			}
 		}
@@ -2806,13 +2759,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::Con
 	if (m_Bic.m_Temporary)
 	{
 		// pass 2. make sure no unsaved variables too
-		bvm::VariableMem::Entry x;
-		x.m_KeyIdx = cid;
-
-		for (auto it = m_Bic.m_ContractVars.lower_bound(x); m_Bic.m_ContractVars.end() != it; it++)
+		for (auto it = m_Bic.m_ContractVars.lower_bound(Blob(cid), BlobMap::Set::Comparator()); m_Bic.m_ContractVars.end() != it; it++)
 		{
 			const auto& e = *it;
-			if (!IsOwnedVar(cid, e.m_KeyIdx))
+			if (!IsOwnedVar(cid, e.ToBlob()))
 				break; // ok
 
 			if (!e.m_Data.empty())
@@ -3774,49 +3724,6 @@ void NodeProcessor::BlockInterpretCtx::EnsureAssetsUsed(NodeDB& db)
 		m_AssetsUsed = static_cast<Asset::ID>(db.ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 }
 
-NodeProcessor::BlockInterpretCtx::BlobSet::~BlobSet()
-{
-	Clear();
-}
-
-void NodeProcessor::BlockInterpretCtx::BlobSet::Clear()
-{
-	while (!empty())
-		Delete(*begin());
-}
-
-void NodeProcessor::BlockInterpretCtx::BlobSet::Delete(BlobItem& x)
-{
-	erase(x);
-	delete& x;
-}
-
-NodeProcessor::BlockInterpretCtx::BlobItem* NodeProcessor::BlockInterpretCtx::BlobSet::Find(const Blob& key)
-{
-	struct Comparator
-	{
-		bool operator()(const Blob& a, const BlobItem& b) const {
-			return a < b.ToBlob();
-		}
-		bool operator()(const BlobItem& a, const Blob& b) const {
-			return a.ToBlob() < b;
-		}
-	};
-
-	auto it = find(key, Comparator());
-	return (end() == it) ? nullptr : &*it;
-}
-
-NodeProcessor::BlockInterpretCtx::BlobItem* NodeProcessor::BlockInterpretCtx::BlobSet::Add(const Blob& key)
-{
-	BlobItem* pItem = new (key.n) BlobItem;
-	pItem->m_Size = key.n;
-	memcpy(pItem->m_pBuf, key.p, key.n);
-
-	insert(*pItem);
-	return pItem;
-}
-
 NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
 	:m_This(bic)
 {
@@ -3875,7 +3782,7 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key,
 			if (m_DB.UniqueFind(key, rs))
 				return false; // duplicated
 
-			pE = bic.m_Dups.Add(key);
+			pE = bic.m_Dups.Create(key);
 		}
 		else
 		{
@@ -3935,7 +3842,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 	return true;
 }
 
-bvm::VariableMem::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
+BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
 {
 	auto* pE = m_ContractVars.Find(key);
 	if (!pE)

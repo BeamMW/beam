@@ -23,6 +23,7 @@
 #include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
+#include "../../utility/blobmap.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../core/bvm.h"
 
@@ -3225,7 +3226,7 @@ namespace beam
 	struct MyBvmProcessor
 		:public bvm::Processor
 	{
-		bvm::VariableMem::Set m_Vars;
+		BlobMap::Set m_Vars;
 
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override
 		{
