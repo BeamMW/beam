@@ -135,7 +135,6 @@ matrix:
         - find ./build -name \*.a -type f -exec cp {} /Users/travis/beam-ios/lib/ \;
         - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
         - cp ./build/core/version.h /Users/travis/beam-ios/include/core/
-        out\build\x64-Debug\core\version.h 
         - mkdir -p /Users/travis/beam-ios-simulator/include
         - mkdir -p /Users/travis/beam-ios-simulator/lib
         - find ./build-simulator -name \*.a -type f -exec cp {} /Users/travis/beam-ios-simulator/lib/ \;
