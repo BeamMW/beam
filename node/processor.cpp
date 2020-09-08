@@ -2044,6 +2044,9 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type Insert = 1;
 			static const Type Update = 2;
 			static const Type Delete = 3;
+			static const Type AssetCreate = 4;
+			static const Type AssetEmit = 5;
+			static const Type AssetDestroy = 6;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -2051,6 +2054,10 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override;
+
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
+		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
+		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
 
 		bool SaveVar(const Blob& key, const Blob& data);
 
@@ -3942,6 +3949,52 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	return bExisted;
 }
 
+Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner)
+{
+	Asset::ID aid = 0;
+	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid))
+		return 0;
+
+	BlockInterpretCtx::Ser ser(m_Bic);
+	RecoveryTag::Type nTag = RecoveryTag::AssetCreate;
+	ser & nTag;
+
+	m_Bic.m_nKrnIdx++;
+
+	assert(aid);
+	return aid;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, const PeerID& pidOwner, AmountSigned val)
+{
+	if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val))
+		return false;
+
+	BlockInterpretCtx::Ser ser(m_Bic);
+	RecoveryTag::Type nTag = RecoveryTag::AssetEmit;
+	ser & nTag;
+	ser & aid;
+	ser & val;
+
+	m_Bic.m_nKrnIdx++;
+	return true;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner)
+{
+	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid))
+		return false;
+
+	BlockInterpretCtx::Ser ser(m_Bic);
+	RecoveryTag::Type nTag = RecoveryTag::AssetDestroy;
+	ser & nTag;
+	ser & aid;
+	ser & pidOwner;
+
+	m_Bic.m_nKrnIdx++;
+	return true;
+}
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
 	ByteBuffer key;
@@ -3949,35 +4002,95 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 	{
 		BlockInterpretCtx::Der der(m_Bic);
 		der & nTag;
-		if (RecoveryTag::Terminator == nTag)
+
+		switch (nTag)
+		{
+		case RecoveryTag::Terminator:
+			return;
+
+		case RecoveryTag::AssetCreate:
+			{
+				bool bFwd = false;
+				TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+
+				m_Bic.m_nKrnIdx--;
+
+				Asset::ID aid = 0;
+				PeerID pidOwner;
+				Asset::Metadata md;
+
+				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid))
+					return OnCorrupted();
+
+			}
 			break;
 
-		der & key;
-
-		auto* pE = m_Bic.m_ContractVars.Find(key);
-		assert(pE);
-
-		if (RecoveryTag::Delete == nTag)
+		case RecoveryTag::AssetEmit:
 		{
-			pE->m_Data.clear();
+			bool bFwd = false;
+			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
 
-			if (!m_Bic.m_Temporary)
-				m_Proc.m_DB.ContractDataDel(key);
+			m_Bic.m_nKrnIdx--;
+
+			Asset::ID aid = 0;
+			PeerID pidOwner;
+			AmountSigned val;
+			der & aid;
+			der & val;
+
+			if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val))
+				return OnCorrupted();
 		}
-		else
-		{
-			der & pE->m_Data;
+		break;
 
-			if (!m_Bic.m_Temporary)
+		case RecoveryTag::AssetDestroy:
+		{
+			bool bFwd = false;
+			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+
+			m_Bic.m_nKrnIdx--;
+
+			Asset::ID aid = 0;
+			PeerID pidOwner;
+			der & aid;
+			der & pidOwner;
+
+			if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid))
+				return OnCorrupted();
+		}
+		break;
+
+		default:
 			{
-				if (RecoveryTag::Insert == nTag)
-					m_Proc.m_DB.ContractDataInsert(key, pE->m_Data);
+				der & key;
+
+				auto* pE = m_Bic.m_ContractVars.Find(key);
+				assert(pE);
+
+				if (RecoveryTag::Delete == nTag)
+				{
+					pE->m_Data.clear();
+
+					if (!m_Bic.m_Temporary)
+						m_Proc.m_DB.ContractDataDel(key);
+				}
 				else
 				{
-					if (RecoveryTag::Update != nTag)
-						OnCorrupted();
-					m_Proc.m_DB.ContractDataUpdate(key, pE->m_Data);
+					der & pE->m_Data;
+
+					if (!m_Bic.m_Temporary)
+					{
+						if (RecoveryTag::Insert == nTag)
+							m_Proc.m_DB.ContractDataInsert(key, pE->m_Data);
+						else
+						{
+							if (RecoveryTag::Update != nTag)
+								OnCorrupted();
+							m_Proc.m_DB.ContractDataUpdate(key, pE->m_Data);
+						}
+					}
 				}
+
 			}
 		}
 	}
