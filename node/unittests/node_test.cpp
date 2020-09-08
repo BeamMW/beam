@@ -1617,21 +1617,31 @@ namespace beam
 		static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
     #    u2, s-6,  nNumOracles                        \n\
-    #    u8, s-14, nRate                              \n\
+    #    u2, s-8,  nMeta                              \n\
+    #    u8, s-16, nRate                              \n\
     #    pk[],     oracles pks (var size)             \n\
+    #    u1[],     metadata                           \n\
     mov2 s0, s-6              # iOracle = nNumOracles \n\
-    mov2 s2, -14              # ppPk, end of array    \n\
+    mov2 s2, -16              # ppPk, end of array    \n\
 .loop_0                                               \n\
     cmp2 s0, 0                                        \n\
     jz .loop_0_end            # iOracle == 0          \n\
-    add2 s0, -1               # iOracle--             \n\
-    add2 s2, -33              # ppPk--                \n\
+    sub2 s0, 1                # iOracle--             \n\
+    sub2 s2, 33               # ppPk--                \n\
     add_sig ss2               # add_sig(*ppPk)        \n\
     save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
     jmp .loop_0                                       \n\
 .loop_0_end                                           \n\
-    save_var s-14, 8, s0, 1   # V=nRate, K=(u1)0      \n\
+    save_var s-16, 8, s0, 1   # V=nRate, K=(u1)0      \n\
     funds_lock 100500, 0                              \n\
+    sub2 s2, s-8              # metadata start        \n\
+    asset_create s4, ss2, s-8                         \n\
+    cmp4 s4, 0                                        \n\
+    jz .error                                         \n\
+    mov1 s0, 1                                        \n\
+    save_var s4, 4, s0, 1     # V=aid,   K=(u1)1      \n\
+    asset_emit s4, 225, 1                             \n\
+    asset_emit s4, 225, 0                             \n\
     ret                                               \n\
                                                       \n\
 .method_1                     # d'tor                 \n\
@@ -1649,6 +1659,12 @@ namespace beam
     jmp .loop_1                                       \n\
 .loop_1_end                                           \n\
     funds_unlock 100500, 0                            \n\
+    mov1 s0, 1                                        \n\
+    mov2 s2, 4                                        \n\
+    load_var s4, s2, s0, 1    # aid                   \n\
+    save_var s4, 0, s0, 1     # delete aid var        \n\
+    asset_destroy s4                                  \n\
+    jz .error                                         \n\
     ret                                               \n\
                                                       \n\
 .error                                                \n\
@@ -2346,7 +2362,7 @@ namespace beam
 					return false;
 
 				const Amount nFee = 120;
-				const Amount nLock = 100500;
+				const Amount nLock = 100500 + Rules::get().CA.DepositForList;
 				if (val < nFee + nLock)
 					return false;
 
@@ -2375,9 +2391,14 @@ namespace beam
 				}
 
 #pragma pack (push, 1)
+
+#define MY_META "abracadabra"
+
 				struct Ctor {
+					uint8_t m_pMeta[_countof(MY_META) - 1];
 					ECC::Point m_pPk[_countof(m_Contract.m_pSk)];
 					uintBigFor<Amount>::Type m_Rate;
+					bvm::Type::uintSize m_Meta;
 					bvm::Type::uintSize m_Oracles;
 				};
 #pragma pack (pop)
@@ -2387,8 +2408,12 @@ namespace beam
 
 				ECC::Scalar::Native pSk[_countof(args.m_pPk) + 1];
 
-				args.m_Oracles = (bvm::Type::Size) 3U;
+				args.m_Oracles = static_cast<bvm::Type::Size>(_countof(m_Contract.m_pSk));
 				args.m_Rate = 77216U;
+
+				args.m_Meta = static_cast<bvm::Type::Size>(_countof(args.m_pMeta));
+				memcpy(args.m_pMeta, MY_META, sizeof(args.m_pMeta));
+
 				for (size_t i = 0; i < _countof(args.m_pPk); i++)
 				{
 					auto& sk = m_Contract.m_pSk[i];
@@ -2480,7 +2505,7 @@ namespace beam
 					return false;
 
 				const Amount nFee = 120;
-				const Amount nUnlock = 100500;
+				const Amount nUnlock = 100500 + Rules::get().CA.DepositForList;
 				if (val + nUnlock < nFee)
 					return false;
 
@@ -3450,6 +3475,7 @@ void TestAll()
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 32;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
 	beam::Rules::get().UpdateChecksum();
