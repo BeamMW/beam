@@ -28,6 +28,31 @@
 
 namespace beam::wallet
 {
+
+namespace
+{
+template<typename SettingsProvider, typename Electrum, typename Core, typename SecondSide, typename ISettingsProvider>
+ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
+{
+    auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
+    settingsProvider->Initialize();
+
+    // btcSettingsProvider stored in bitcoinBridgeCreator
+    auto bridgeCreator = [provider = settingsProvider]() -> bitcoin::IBridge::Ptr
+    {
+        if (provider->GetSettings().IsElectrumActivated())
+            return std::make_shared<Electrum>(io::Reactor::get_Current(), *provider);
+
+        if (provider->GetSettings().IsCoreActivated())
+            return std::make_shared<Core>(io::Reactor::get_Current(), *provider);
+
+        return bitcoin::IBridge::Ptr();
+    };
+
+    return wallet::MakeSecondSideFactory<SecondSide, Electrum, ISettingsProvider>(bridgeCreator, *settingsProvider);
+}
+} // namespace
+
 const char* getSwapTxStatus(AtomicSwapTransaction::State state)
 {
     static const char* Initial = "waiting for peer";
@@ -107,145 +132,68 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
     auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     wallet->RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-    {
-        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-        btcSettingsProvider->Initialize();
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Bitcoin, 
+        CreateFactory
+            <bitcoin::SettingsProvider, 
+             bitcoin::Electrum, 
+             bitcoin::BitcoinCore017,
+             BitcoinSide, 
+             bitcoin::ISettingsProvider>(walletDB));
 
-        // btcSettingsProvider stored in bitcoinBridgeCreator
-        auto bitcoinBridgeCreator = [settingsProvider = btcSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Litecoin,
+        CreateFactory
+            <litecoin::SettingsProvider,
+             litecoin::Electrum, 
+             litecoin::LitecoinCore017,
+             LitecoinSide, 
+             litecoin::ISettingsProvider>(walletDB));
 
-            if (settingsProvider->GetSettings().IsCoreActivated())
-            return std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Qtum,
+        CreateFactory
+            <qtum::SettingsProvider,
+             qtum::Electrum, 
+             qtum::QtumCore017,
+             QtumSide, 
+             qtum::ISettingsProvider>(walletDB));
 
-            return bitcoin::IBridge::Ptr();
-        };
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Bitcoin_Cash,
+        CreateFactory
+            <bitcoin_cash::SettingsProvider,
+             bitcoin_cash::Electrum, 
+             bitcoin_cash::BitcoinCashCore,
+             BitcoinCashSide, 
+             bitcoin_cash::ISettingsProvider>(walletDB));
 
-        auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, *btcSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-    }
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Bitcoin_SV,
+        CreateFactory
+            <bitcoin_sv::SettingsProvider,
+             bitcoin_sv::Electrum, 
+             bitcoin_sv::BitcoinSVCore,
+             BitcoinSVSide, 
+             bitcoin_sv::ISettingsProvider>(walletDB));
 
-    {
-        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-        ltcSettingsProvider->Initialize();
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Dogecoin,
+        CreateFactory
+            <dogecoin::SettingsProvider,
+             dogecoin::Electrum, 
+             dogecoin::DogecoinCore014,
+             DogecoinSide, 
+             dogecoin::ISettingsProvider>(walletDB));
 
-        // ltcSettingsProvider stored in litecoinBridgeCreator
-        auto litecoinBridgeCreator = [settingsProvider = ltcSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-            return std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridgeCreator, *ltcSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-    }
-
-    {
-        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-        qtumSettingsProvider->Initialize();
-
-        // qtumSettingsProvider stored in qtumBridgeCreator
-        auto qtumBridgeCreator = [settingsProvider = qtumSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<qtum::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-            return std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-    }
-
-    {
-        auto bchSettingsProvider = std::make_shared<bitcoin_cash::SettingsProvider>(walletDB);
-        bchSettingsProvider->Initialize();
-
-        // bchSettingsProvider stored in bchBridgeCreator
-        auto bchBridgeCreator = [settingsProvider = bchSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<bitcoin_cash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-                return std::make_shared<bitcoin_cash::BitcoinCashCore>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto bchSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinCashSide, bitcoin_cash::Electrum, bitcoin_cash::ISettingsProvider>(bchBridgeCreator, *bchSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin_Cash, bchSecondSideFactory);
-    }
-
-    {
-        auto bsvSettingsProvider = std::make_shared<bitcoin_sv::SettingsProvider>(walletDB);
-        bsvSettingsProvider->Initialize();
-
-        // bsvSettingsProvider stored in bsvBridgeCreator
-        auto bsvBridgeCreator = [settingsProvider = bsvSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<bitcoin_sv::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-                return std::make_shared<bitcoin_sv::BitcoinSVCore>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto bsvSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSVSide, bitcoin_sv::Electrum, bitcoin_sv::ISettingsProvider>(bsvBridgeCreator, *bsvSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin_SV, bsvSecondSideFactory);
-    }
-
-    {
-        auto dogecoinSettingsProvider = std::make_shared<dogecoin::SettingsProvider>(walletDB);
-        dogecoinSettingsProvider->Initialize();
-
-        // qtumSettingsProvider stored in qtumBridgeCreator
-        auto dogecoinBridgeCreator = [settingsProvider = dogecoinSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<dogecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-                return std::make_shared<dogecoin::DogecoinCore014>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto dogecoinSecondSideFactory = wallet::MakeSecondSideFactory<DogecoinSide, dogecoin::Electrum, dogecoin::ISettingsProvider>(dogecoinBridgeCreator, *dogecoinSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dogecoin, dogecoinSecondSideFactory);
-    }
-
-    {
-        auto dashSettingsProvider = std::make_shared<dash::SettingsProvider>(walletDB);
-        dashSettingsProvider->Initialize();
-
-        // dashSettingsProvider stored in dashBridgeCreator
-        auto dashBridgeCreator = [settingsProvider = dashSettingsProvider]() -> bitcoin::IBridge::Ptr
-        {
-            if (settingsProvider->GetSettings().IsElectrumActivated())
-                return std::make_shared<dash::Electrum>(io::Reactor::get_Current(), *settingsProvider);
-
-            if (settingsProvider->GetSettings().IsCoreActivated())
-                return std::make_shared<dash::DashCore014>(io::Reactor::get_Current(), *settingsProvider);
-
-            return bitcoin::IBridge::Ptr();
-        };
-
-        auto dashSecondSideFactory = wallet::MakeSecondSideFactory<DashSide, dash::Electrum, dash::ISettingsProvider>(dashBridgeCreator, *dashSettingsProvider);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dash, dashSecondSideFactory);
-    }
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Dash,
+        CreateFactory
+            <dash::SettingsProvider,
+             dash::Electrum, 
+             dash::DashCore014,
+             DashSide, 
+             dash::ISettingsProvider>(walletDB));
 }
 
 bool IsSwapAmountValid(
