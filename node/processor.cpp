@@ -3997,7 +3997,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
-	ByteBuffer key;
+	ByteBuffer key, dummy;
 	for (RecoveryTag::Type nTag = 0; ; )
 	{
 		BlockInterpretCtx::Der der(m_Bic);
@@ -4065,28 +4065,28 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				der & key;
 
 				auto* pE = m_Bic.m_ContractVars.Find(key);
-				assert(pE);
+				auto& data = pE ? pE->m_Data : dummy;
 
 				if (RecoveryTag::Delete == nTag)
 				{
-					pE->m_Data.clear();
+					data.clear();
 
 					if (!m_Bic.m_Temporary)
 						m_Proc.m_DB.ContractDataDel(key);
 				}
 				else
 				{
-					der & pE->m_Data;
+					der & data;
 
 					if (!m_Bic.m_Temporary)
 					{
 						if (RecoveryTag::Insert == nTag)
-							m_Proc.m_DB.ContractDataInsert(key, pE->m_Data);
+							m_Proc.m_DB.ContractDataInsert(key, data);
 						else
 						{
 							if (RecoveryTag::Update != nTag)
 								OnCorrupted();
-							m_Proc.m_DB.ContractDataUpdate(key, pE->m_Data);
+							m_Proc.m_DB.ContractDataUpdate(key, data);
 						}
 					}
 				}
