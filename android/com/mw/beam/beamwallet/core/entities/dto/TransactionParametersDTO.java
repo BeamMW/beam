@@ -11,4 +11,6 @@ public class TransactionParametersDTO
     public BOOL isOffline;
     public BOOL isMaxPrivacy;
     public long amount;
+    public BOOL versionError;
+    public String version;
 }
