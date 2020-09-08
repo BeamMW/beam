@@ -5454,8 +5454,7 @@ void NodeProcessor::Migrate21()
 	// Delete all asset info, and replay only the relevant kernels
 
 	while (m_Mmr.m_Assets.m_Count)
-		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count), false);
-	m_Mmr.m_Assets.ResizeTo(0);
+		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count), true);
 
 	struct KrnWalkerAssetsMigrate
 		:public IKrnWalker
