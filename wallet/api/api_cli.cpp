@@ -250,122 +250,23 @@ public:
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
-        switch (swapCoin)
-        {
-            case AtomicSwapCoin::Bitcoin:
-            {
-                return _bitcoinClient ? _bitcoinClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Litecoin:
-            {
-                return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Qtum:
-            {
-                return _qtumClient ? _qtumClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Dogecoin:
-            {
-                return _dogeClient ? _dogeClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Bitcoin_Cash:
-            {
-                return _bchClient ? _bchClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Bitcoin_SV:
-            {
-                return _bsvClient ? _bsvClient->GetAvailable() : 0;
-            }
-            case AtomicSwapCoin::Dash:
-            {
-                return _dashClient ? _dashClient->GetAvailable() : 0;
-            }
-            default:
-            {
-                assert(false && "Process new coin");
-                return 0;
-            }
-        }
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetAvailable() : 0;
     }
 
     Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        switch (swapCoin)
-        {
-        case AtomicSwapCoin::Bitcoin:
-        {
-            return _bitcoinClient ? _bitcoinClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Litecoin:
-        {
-            return _litecoinClient ? _litecoinClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Qtum:
-        {
-            return _qtumClient ? _qtumClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Dogecoin:
-        {
-            return _dogeClient ? _dogeClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Bitcoin_Cash:
-        {
-            return _bchClient ? _bchClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Bitcoin_SV:
-        {
-            return _bsvClient ? _bsvClient->GetRecommendedFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Dash:
-        {
-            return _dashClient ? _dashClient->GetRecommendedFeeRate() : 0;
-        }
-        default:
-        {
-            assert(false && "process new coin");
-            return 0;
-        }
-        }
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetRecommendedFeeRate() : 0;
     }
 
     Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        switch (swapCoin)
-        {
-        case AtomicSwapCoin::Bitcoin:
-        {
-            return _bitcoinClient ? _bitcoinClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Litecoin:
-        {
-            return _litecoinClient ? _litecoinClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Qtum:
-        {
-            return _qtumClient ? _qtumClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Dogecoin:
-        {
-            return _dogeClient ? _dogeClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Bitcoin_Cash:
-        {
-            return _bchClient ? _bchClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Bitcoin_SV:
-        {
-            return _bsvClient ? _bsvClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        case AtomicSwapCoin::Dash:
-        {
-            return _dashClient ? _dashClient->GetSettings().GetMinFeeRate() : 0;
-        }
-        default:
-        {
-            assert(false && "process new coin");
-            return 0;
-        }
-        }
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
     }
 
     const SwapOffersBoard& getSwapOffersBoard() const override
@@ -375,42 +276,9 @@ public:
 
     bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
-        switch (swapCoin)
-        {
-            case AtomicSwapCoin::Bitcoin:
-            {
-                return _bitcoinClient && _bitcoinClient->IsConnected();
-            }
-            case AtomicSwapCoin::Litecoin:
-            {
-                return _litecoinClient && _litecoinClient->IsConnected();
-            }
-            case AtomicSwapCoin::Qtum:
-            {
-                return _qtumClient && _qtumClient->IsConnected();
-            }
-            case AtomicSwapCoin::Dogecoin:
-            {
-                return _dogeClient && _dogeClient->IsConnected();
-            }
-            case AtomicSwapCoin::Bitcoin_Cash:
-            {
-                return _bchClient && _bchClient->IsConnected();
-            }
-            case AtomicSwapCoin::Bitcoin_SV:
-            {
-                return _bsvClient && _bsvClient->IsConnected();
-            }
-            case AtomicSwapCoin::Dash:
-            {
-                return _dashClient && _dashClient->IsConnected();
-            }
-            default:
-            {
-                assert(false && "Process new coin");
-                return false;
-            }
-        }
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient && swapClient->IsConnected();
     }
 
     using WalletDbSubscriber =
@@ -432,40 +300,13 @@ public:
             std::make_unique<SwapOffersBoardSubscriber>(
                 static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
 
-        _btcBridgeHolder = std::make_shared<bitcoin::BridgeHolder<bitcoin::Electrum, bitcoin::BitcoinCore017>>();
-        auto bitcoinSettingsProvider = std::make_unique<bitcoin::SettingsProvider>(_walletDB);
-        bitcoinSettingsProvider->Initialize();
-        _bitcoinClient = std::make_shared<SwapClient>(_btcBridgeHolder, std::move(bitcoinSettingsProvider), io::Reactor::get_Current());
-
-        _ltcBridgeHolder = std::make_shared<bitcoin::BridgeHolder<litecoin::Electrum, litecoin::LitecoinCore017>>();
-        auto litecoinSettingsProvider = std::make_unique<litecoin::SettingsProvider>(_walletDB);
-        litecoinSettingsProvider->Initialize();
-        _litecoinClient = std::make_shared<SwapClient>(_ltcBridgeHolder, std::move(litecoinSettingsProvider), io::Reactor::get_Current());
-
-        _qtumBridgeHolder = std::make_shared<bitcoin::BridgeHolder<qtum::Electrum, qtum::QtumCore017>>();
-        auto qtumSettingsProvider = std::make_unique<qtum::SettingsProvider>(_walletDB);
-        qtumSettingsProvider->Initialize();
-        _qtumClient = std::make_shared<SwapClient>(_qtumBridgeHolder, std::move(qtumSettingsProvider), io::Reactor::get_Current());
-
-        _dogeBridgeHolder = std::make_shared<bitcoin::BridgeHolder<dogecoin::Electrum, dogecoin::DogecoinCore014>>();
-        auto dogeSettingsProvider = std::make_unique<dogecoin::SettingsProvider>(_walletDB);
-        dogeSettingsProvider->Initialize();
-        _dogeClient = std::make_shared<SwapClient>(_dogeBridgeHolder, std::move(dogeSettingsProvider), io::Reactor::get_Current());
-
-        _bchBridgeHolder = std::make_shared<bitcoin::BridgeHolder<bitcoin_cash::Electrum, bitcoin_cash::BitcoinCashCore>>();
-        auto bchSettingsProvider = std::make_unique<bitcoin_cash::SettingsProvider>(_walletDB);
-        bchSettingsProvider->Initialize();
-        _bchClient = std::make_shared<SwapClient>(_bchBridgeHolder, std::move(bchSettingsProvider), io::Reactor::get_Current());
-
-        _bsvBridgeHolder = std::make_shared<bitcoin::BridgeHolder<bitcoin_sv::Electrum, bitcoin_sv::BitcoinSVCore>>();
-        auto bsvSettingsProvider = std::make_unique<bitcoin_sv::SettingsProvider>(_walletDB);
-        bsvSettingsProvider->Initialize();
-        _bsvClient = std::make_shared<SwapClient>(_bsvBridgeHolder, std::move(bsvSettingsProvider), io::Reactor::get_Current());
-
-        _dashBridgeHolder = std::make_shared<bitcoin::BridgeHolder<dash::Electrum, dash::DashCore014>>();
-        auto dashSettingsProvider = std::make_unique<dash::SettingsProvider>(_walletDB);
-        dashSettingsProvider->Initialize();
-        _dashClient = std::make_shared<SwapClient>(_dashBridgeHolder, std::move(dashSettingsProvider), io::Reactor::get_Current());
+        initSwapClient<bitcoin::BitcoinCore017, bitcoin::Electrum, bitcoin::SettingsProvider>(AtomicSwapCoin::Bitcoin);
+        initSwapClient<litecoin::LitecoinCore017, litecoin::Electrum, litecoin::SettingsProvider>(AtomicSwapCoin::Litecoin);
+        initSwapClient<qtum::QtumCore017, qtum::Electrum, qtum::SettingsProvider>(AtomicSwapCoin::Qtum);
+        initSwapClient<dash::DashCore014, dash::Electrum, dash::SettingsProvider>(AtomicSwapCoin::Dash);
+        initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
+        initSwapClient<bitcoin_sv::BitcoinSVCore, bitcoin_sv::Electrum, bitcoin_sv::SettingsProvider>(AtomicSwapCoin::Bitcoin_SV);
+        initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
     }
 
     void onSwapOffersChanged(
@@ -474,27 +315,36 @@ public:
 
     }
 private:
+
+    template<typename CoreBridge, typename ElectrumBridge, typename SettingsProvider>
+    void initSwapClient(beam::wallet::AtomicSwapCoin swapCoin)
+    {
+        auto bridgeHolder = std::make_shared<bitcoin::BridgeHolder<ElectrumBridge, CoreBridge>>();
+        auto settingsProvider = std::make_unique<SettingsProvider>(_walletDB);
+        settingsProvider->Initialize();
+        auto client = std::make_shared<SwapClient>(bridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
+        _swapClients.emplace(std::make_pair(swapCoin, client));
+        _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
+    }
+
+    SwapClient::Ptr getSwapCoinClient(beam::wallet::AtomicSwapCoin swapCoin) const
+    {
+        auto it = _swapClients.find(swapCoin);
+        if (it != _swapClients.end())
+        {
+            return it->second;
+        }
+        return nullptr;
+    }
+
     std::shared_ptr<BroadcastRouter> _broadcastRouter;
     std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     SwapOffersBoard::Ptr _offersBulletinBoard;
     std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
     std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
 
-    beam::bitcoin::IBridgeHolder::Ptr _btcBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _ltcBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _qtumBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _dogeBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _bchBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _bsvBridgeHolder;
-    beam::bitcoin::IBridgeHolder::Ptr _dashBridgeHolder;
-
-    SwapClient::Ptr _bitcoinClient;
-    SwapClient::Ptr _litecoinClient;
-    SwapClient::Ptr _qtumClient;
-    SwapClient::Ptr _dogeClient;
-    SwapClient::Ptr _bchClient;
-    SwapClient::Ptr _bsvClient;
-    SwapClient::Ptr _dashClient;
+    std::map<beam::wallet::AtomicSwapCoin, SwapClient::Ptr> _swapClients;
+    std::map<beam::wallet::AtomicSwapCoin, beam::bitcoin::IBridgeHolder::Ptr> _swapBridgeHolders;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 protected:
