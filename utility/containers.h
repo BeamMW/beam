@@ -20,6 +20,20 @@
 namespace beam {
 namespace intrusive
 {
+	template <typename TKey>
+	struct set_base_hook
+		:public boost::intrusive::set_base_hook<>
+	{
+		TKey m_Key;
+		bool operator < (const set_base_hook& x) const { return m_Key < x.m_Key; }
+	
+		struct Comparator
+		{
+			bool operator()(const TKey& a, const set_base_hook& b) const { return a < b.m_Key; }
+			bool operator()(const set_base_hook& a, const TKey& b) const { return a.m_Key < b; }
+		};
+	};
+
 	template <typename TEntry>
 	struct multiset
 		:public boost::intrusive::multiset<TEntry>
@@ -42,6 +56,7 @@ namespace intrusive
 			TEntry* p = new TEntry;
 			p->m_Key = std::move(key);
 			insert(*p);
+			return p;
 		}
 	};
 
