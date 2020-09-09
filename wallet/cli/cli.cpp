@@ -2100,6 +2100,7 @@ namespace
                 LoadReceiverParams(vm, params);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
+                    // fee for shielded inputs included automaticaly
                     .SetParameter(TxParameterID::Fee, !!coinSelectionRes.shieldedInputsFee ? fee - coinSelectionRes.shieldedInputsFee : fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));

@@ -44,5 +44,7 @@ struct ShieldedCoinsSelectionInfo
 };
 ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
         const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx = false);
+class BaseTxBuilder;
+Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);
 
 }  // namespace beam::wallet

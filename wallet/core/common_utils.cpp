@@ -15,6 +15,7 @@
 #include "wallet/core/common_utils.h"
 
 #include "wallet/core/base_transaction.h"
+#include "wallet/core/base_tx_builder.h"
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
 
@@ -143,6 +144,19 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
         res.requestedFee = requestedFee;
         return res;
     }
+}
+
+Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
+{
+    auto shieldedCount = builder.m_Coins.m_InputShielded.size();
+    Amount shieldedFee = 0;
+    if (shieldedCount)
+    {
+        Transaction::FeeSettings fs;
+        shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
+    }
+
+    return !!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee;
 }
 
 }  // namespace beam::wallet

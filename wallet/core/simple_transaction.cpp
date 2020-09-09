@@ -21,6 +21,7 @@
 
 #include <numeric>
 #include "utility/logger.h"
+#include "wallet/core/common_utils.h"
 
 namespace beam::wallet
 {
@@ -283,18 +284,10 @@ namespace beam::wallet
                 builder.CheckMinimumFee(&tsExtra);
             }
 
-            auto shieldedCount = builder.m_Coins.m_InputShielded.size();
-            Amount shieldedFee = 0;
-            if (shieldedCount)
-            {
-                Transaction::FeeSettings fs;
-                shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
-            }
-
             stringstream ss;
             ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
                 << PrintableAmount(builder.m_Amount, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                << " (fee: " << PrintableAmount(!!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee) << ")";
+                << " (fee: " << PrintableAmount(GetFeeWithAdditionalValueForShieldedInputs(builder)) << ")";
 
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
