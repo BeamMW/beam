@@ -15,8 +15,7 @@
 #pragma once
 #include "block_crypt.h"
 #include "bvm_opcodes.h"
-#include <boost/intrusive/list.hpp>
-#include <boost/intrusive/set.hpp>
+#include "../utility/containers.h"
 
 #define BVM_ParamType_p Ptr
 #define BVM_ParamType_f1 uintBig_t<1>
@@ -252,14 +251,7 @@ namespace bvm {
 				Type::Size m_LocalDepth;
 			};
 
-			struct Stack
-				:public boost::intrusive::list<Frame>
-			{
-				~Stack() { Clear(); }
-				void Clear();
-				void Pop();
-
-			} m_Stack;
+			intrusive::list_autoclear<Frame> m_Stack;
 
 		} m_FarCalls;
 

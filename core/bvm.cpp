@@ -59,25 +59,10 @@ namespace bvm {
 			*m_pDbg << "sp=" << m_Sp << std::endl;
 	}
 
-	void Processor::FarCalls::Stack::Clear()
-	{
-		while (!empty())
-			Pop();
-	}
-
-	void Processor::FarCalls::Stack::Pop()
-	{
-		auto* p = &back();
-		pop_back();
-		delete p;
-	}
-
 	void Processor::CallFar(const ContractID& cid, Type::Size iMethod)
 	{
 		Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
-
-		m_FarCalls.m_Stack.push_back(*new FarCalls::Frame);
-		auto& x = m_FarCalls.m_Stack.back();
+		auto& x = *m_FarCalls.m_Stack.Create_back();
 
 		x.m_Cid = cid;
 		x.m_LocalDepth = 0;
@@ -482,7 +467,7 @@ namespace bvm {
 			nDepth--;
 		else
 		{
-			m_FarCalls.m_Stack.Pop();
+			m_FarCalls.m_Stack.Delete(m_FarCalls.m_Stack.back());
 			if (m_FarCalls.m_Stack.empty())
 				return; // finished
 
