@@ -1616,6 +1616,7 @@ namespace beam
 	{
 		static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
+{                                                     \n\
     #    u2, s-6,  nNumOracles                        \n\
     #    u2, s-8,  nMeta                              \n\
     #    u8, s-16, nRate                              \n\
@@ -1623,15 +1624,15 @@ namespace beam
     #    u1[],     metadata                           \n\
     mov2 s0, s-6              # iOracle = nNumOracles \n\
     mov2 s2, -16              # ppPk, end of array    \n\
-.loop_0                                               \n\
+.loop                                                 \n\
     cmp2 s0, 0                                        \n\
-    jz .loop_0_end            # iOracle == 0          \n\
+    jz .loop_end              # iOracle == 0          \n\
     sub2 s0, 1                # iOracle--             \n\
     sub2 s2, 33               # ppPk--                \n\
     add_sig ss2               # add_sig(*ppPk)        \n\
     save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
-    jmp .loop_0                                       \n\
-.loop_0_end                                           \n\
+    jmp .loop                                         \n\
+.loop_end                                             \n\
     save_var s-16, 8, s0, 1   # V=nRate, K=(u1)0      \n\
     funds_lock 100500, 0                              \n\
     sub2 s2, s-8              # metadata start        \n\
@@ -1643,21 +1644,23 @@ namespace beam
     asset_emit s4, 225, 1                             \n\
     asset_emit s4, 225, 0                             \n\
     ret                                               \n\
+}                                                     \n\
                                                       \n\
 .method_1                     # d'tor                 \n\
+{                                                     \n\
     # No arguments, just remove all the vars          \n\
     mov2 s0, 0                # iOracle = 0           \n\
     save_var s0, 0, s0, 1     # del rate variable     \n\
     mov2 s2, 33                                       \n\
-.loop_1                                               \n\
+.loop                                                 \n\
     load_var s4, s2, s0, 2                            \n\
     cmp2 s2, 33               # pk loaded ok?         \n\
-    jnz .loop_1_end                                   \n\
+    jnz .loop_end                                     \n\
     save_var s0, 0, s0, 2     # del pk variable       \n\
     add_sig s4                                        \n\
     add2 s0, 1                # iOracle++             \n\
-    jmp .loop_1                                       \n\
-.loop_1_end                                           \n\
+    jmp .loop                                         \n\
+.loop_end                                             \n\
     funds_unlock 100500, 0                            \n\
     mov1 s0, 1                                        \n\
     mov2 s2, 4                                        \n\
@@ -1666,11 +1669,13 @@ namespace beam
     asset_destroy s4                                  \n\
     jz .error                                         \n\
     ret                                               \n\
+}                                                     \n\
                                                       \n\
 .error                                                \n\
     fail                                              \n\
                                                       \n\
 .method_2                     # SetRate               \n\
+{                                                     \n\
     #    iOracle, u2, s-6                             \n\
     #    rate, u8 s-14                                \n\
     mov2 s0, 33                                       \n\
@@ -1681,6 +1686,7 @@ namespace beam
     mov1 s0, 0                                        \n\
     save_var s-14, 8, s0, 1                           \n\
     ret                                               \n\
+}                                                     \n\
 ";
 	}
 
@@ -2381,6 +2387,8 @@ namespace beam
 
 					c.m_Input.p = (uint8_t*)bvm::g_szProg;
 					c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
+
+					c.Start();
 
 					while (c.ParseOnce())
 						;
@@ -3351,6 +3359,8 @@ namespace beam
 
 		c.m_Input.p = (uint8_t*) bvm::g_szProg;
 		c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
+
+		c.Start();
 
 		while (c.ParseOnce())
 			;

@@ -312,14 +312,39 @@ namespace bvm {
 	class Compiler
 	{
 		struct Label
+			:public intrusive::set_base_hook<Blob>
 		{
 			static const Type::Size s_Invalid = static_cast<Type::Size>(-1);
 			Type::Size m_Pos = s_Invalid;
 			std::list<Type::Size> m_Refs;
+
+			struct Map
+				:public intrusive::multiset_autoclear<Label>
+			{
+				Label& operator [] (const Blob& key) {
+					auto it = find(key, Label::Comparator());
+					if (end() != it)
+						return *it;
+
+					return *Create(key);
+				}
+			};
 		};
 
-		typedef std::map<Blob, Label> LabelMap;
-		LabelMap m_mapLabels;
+		struct Scope
+			:public boost::intrusive::list_base_hook<>
+		{
+			Label::Map m_Labels;
+
+			typedef intrusive::list_autoclear<Scope> List;
+		};
+
+
+		Scope::List m_ScopesActive;
+		Scope::List m_ScopesDone;
+
+		void ScopeOpen();
+		void ScopeClose();
 
 		static void Fail(const char* sz)
 		{
@@ -365,6 +390,8 @@ namespace bvm {
 		ByteBuffer m_Result; // without the header
 
 		bool ParseOnce();
+
+		void Start();
 		void Finalyze();
 
 	private:

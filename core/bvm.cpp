@@ -983,13 +983,11 @@ namespace bvm {
 				if (!x.n)
 					Fail("");
 
-				Label& lbl = m_mapLabels[x.as_Blob()];
-				lbl.m_Refs.push_back(ToSize(m_Result.size()));
+				m_ScopesActive.back().m_Labels[x.as_Blob()].m_Refs.push_back(ToSize(m_Result.size())); // whoa!
 
 				Type::uintSize val = Zero;
 				for (uint32_t i = 0; i < val.nBytes; i++)
 					m_Result.push_back(val.m_pData[i]);
-
 			}
 			else
 				ParseSignedNumber(x, nBytes);
@@ -1010,12 +1008,24 @@ namespace bvm {
 			if (!opcode.n)
 				Fail("empty label");
 
-			Label& x = m_mapLabels[opcode.as_Blob()];
+			Label& x = m_ScopesActive.back().m_Labels[opcode.as_Blob()];
 			if (Label::s_Invalid != x.m_Pos)
 				Fail("duplicated label");
 
 			x.m_Pos = ToSize(m_Result.size());
 
+			return;
+		}
+
+		if (opcode == "{")
+		{
+			ScopeOpen();
+			return;
+		}
+
+		if (opcode == "}")
+		{
+			ScopeClose();
 			return;
 		}
 
@@ -1063,8 +1073,67 @@ namespace bvm {
 		m_BitWriter.m_Bits++;
 	}
 
+	void Compiler::ScopeOpen()
+	{
+		m_ScopesActive.Create_back();
+	}
+
+	void Compiler::ScopeClose()
+	{
+		if (m_ScopesActive.empty())
+			Fail("no scope");
+
+		Scope& s = m_ScopesActive.back();
+
+		Scope* pPrev = nullptr;
+		auto itScope = Scope::List::s_iterator_to(s);
+		if (m_ScopesActive.begin() != itScope)
+			pPrev = &(* --itScope);
+
+		for (auto it = s.m_Labels.begin(); s.m_Labels.end() != it; )
+		{
+			Label& lbl = *it++;
+
+			if (lbl.s_Invalid == lbl.m_Pos)
+			{
+				// unresolved, move it into outer scope
+				if (!pPrev)
+					Fail("unresolved label");
+
+				auto itDup = pPrev->m_Labels.find(lbl);
+				if (pPrev->m_Labels.end() != itDup)
+				{
+					for (; !lbl.m_Refs.empty(); lbl.m_Refs.pop_front())
+						itDup->m_Refs.push_back(std::move(lbl.m_Refs.front()));
+
+					s.m_Labels.Delete(lbl);
+				}
+				else
+				{
+					s.m_Labels.erase(Label::Map::s_iterator_to(lbl));
+					pPrev->m_Labels.insert(lbl);
+				}
+			}
+		}
+
+		m_ScopesActive.erase(Scope::List::s_iterator_to(s));
+		m_ScopesDone.push_back(s);
+	}
+
+	void Compiler::Start()
+	{
+		assert(m_ScopesActive.empty());
+		ScopeOpen();
+	}
+
 	void Compiler::Finalyze()
 	{
+		ScopeClose();
+		if (!m_ScopesActive.empty())
+			Fail("unclosed scopes");
+
+		Scope& s = m_ScopesDone.back();
+
 #define BVM_PUBLIC_LABEL "method_"
 
 		char szLabel[_countof(BVM_PUBLIC_LABEL) + 5] = BVM_PUBLIC_LABEL;
@@ -1077,8 +1146,8 @@ namespace bvm {
 			b.n = static_cast<uint32_t>(_countof(BVM_PUBLIC_LABEL) - 1);
 			b.n += sprintf(szLabel + _countof(BVM_PUBLIC_LABEL) - 1, "%u", nLabels);
 
-			auto it = m_mapLabels.find(b);
-			if (m_mapLabels.end() == it)
+			auto it = s.m_Labels.find(b, Label::Comparator());
+			if (s.m_Labels.end() == it)
 				break;
 		}
 
@@ -1106,24 +1175,27 @@ namespace bvm {
 			b.n = static_cast<uint32_t>(_countof(BVM_PUBLIC_LABEL) - 1);
 			b.n += sprintf(szLabel + _countof(BVM_PUBLIC_LABEL) - 1, "%u", nLabels);
 
-			auto it = m_mapLabels.find(b);
-			if (m_mapLabels.end() == it)
+			auto it = s.m_Labels.find(b, Label::Comparator());
+			if (s.m_Labels.end() == it)
 				break;
 
-			hdr.m_pMethod[nLabels] = ToSize(nSizeHeader + it->second.m_Pos);
+			hdr.m_pMethod[nLabels] = ToSize(nSizeHeader + it->m_Pos);
 		}
 
-		for (auto it = m_mapLabels.begin(); m_mapLabels.end() != it; it++)
+		for (auto itS = m_ScopesDone.begin(); m_ScopesDone.end() != itS; itS++)
 		{
-			Label& x = it->second;
-			if (Label::s_Invalid == x.m_Pos)
-				Fail("undefined label");
+			for (auto itL = itS->m_Labels.begin(); itS->m_Labels.end() != itL; itL++)
+			{
+				Label& x = *itL;
+				assert(Label::s_Invalid != x.m_Pos);
 
-			Type::uintSize addr = ToSize(nSizeHeader + x.m_Pos);
+				Type::uintSize addr = ToSize(nSizeHeader + x.m_Pos);
 
-			for (auto it2 = x.m_Refs.begin(); x.m_Refs.end() != it2; it2++)
-				*reinterpret_cast<Type::uintSize*>(&m_Result.front() + nSizeHeader + *it2) = addr;
+				for (auto it2 = x.m_Refs.begin(); x.m_Refs.end() != it2; it2++)
+					*reinterpret_cast<Type::uintSize*>(&m_Result.front() + nSizeHeader + *it2) = addr;
+			}
 		}
+
 	}
 
 
