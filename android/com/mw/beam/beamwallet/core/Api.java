@@ -27,6 +27,7 @@ public class Api
     public native String[] getDictionary();
     public native boolean checkReceiverAddress(String address);
     public native String[] getDefaultPeers();
+    public native String getLibVersion();
 
 	static 
 	{
