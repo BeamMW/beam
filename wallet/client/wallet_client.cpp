@@ -749,7 +749,7 @@ namespace beam::wallet
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee)
     {
         _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee);
-        onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedFee);
+        onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
         onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
     }
 

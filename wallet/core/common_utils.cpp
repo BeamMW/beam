@@ -93,35 +93,54 @@ Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<Sh
 }
 
 ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
-    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount beforehandMinFee)
+    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx /* = false */)
 {
     std::vector<Coin> vSelStd;
     std::vector<ShieldedCoin> vSelShielded;
-    walletDB->selectCoins2(
-        requestedSum + beforehandMinFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
-    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
-
-    TxStats ts;
-    ts.m_Outputs = sum > requestedSum + beforehandMinFee ? 2 : 1;
-    ts.m_InputsShielded = vSelShielded.size();
-    ts.m_Kernels = 1 + ts.m_InputsShielded;
 
     Transaction::FeeSettings fs;
+    TxStats ts;
+    if(isPushTx)
+        ++ts.m_OutputsShielded;
+
+    Amount shieldedOutputsFee = ts.m_OutputsShielded * (fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput);
+
+    walletDB->selectCoins2(
+        requestedSum + requestedFee + shieldedOutputsFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+
+    ts.m_Outputs = sum > requestedSum + requestedFee + shieldedOutputsFee ? 2 : 1;
+    if(isPushTx)
+        --ts.m_Outputs;
+    ts.m_InputsShielded = vSelShielded.size();
+    ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
+
     Amount minFee = fs.Calculate(ts);
-    Amount shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
+    Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput) + shieldedOutputsFee;
 
-    if (sum < requestedSum + beforehandMinFee) 
-        return {requestedSum, sum, beforehandMinFee, std::max(beforehandMinFee, minFee), minFee, shieldedFee, 0};
+    Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
 
-    if (beforehandMinFee >= minFee)
+    if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
     {
-        auto change = sum - beforehandMinFee - requestedSum;
-        return {requestedSum, sum, beforehandMinFee, beforehandMinFee, minFee, shieldedFee, change};
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, isPushTx);
+        res.requestedFee = requestedFee;
+        return res;
+    }
+
+    if (sum < requestedSum + selectedFee)
+    {
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, 0};
+    }
+
+    if (selectedFee >= minFee)
+    {
+        auto change = sum - requestedSum - selectedFee;
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
     }
     else
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee);
-        res.requestedFee = beforehandMinFee;
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee - shieldedOutputsFee, isPushTx);
+        res.requestedFee = requestedFee;
         return res;
     }
 }

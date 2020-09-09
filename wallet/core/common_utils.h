@@ -38,10 +38,11 @@ struct ShieldedCoinsSelectionInfo
         Amount requestedFee = 0;
         Amount selectedFee = 0;
         Amount minimalFee = 0;
-        Amount shieldedFee = 0;
+        Amount shieldedInputsFee = 0;
+        Amount shieldedOutputsFee = 0;
         Amount change = 0;
 };
 ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
-        const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount beforehandMinFee);
+        const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx = false);
 
 }  // namespace beam::wallet
