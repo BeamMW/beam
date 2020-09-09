@@ -116,7 +116,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
     ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
 
     Amount minFee = fs.Calculate(ts);
-    Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput) + shieldedOutputsFee;
+    Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
 
     Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
 

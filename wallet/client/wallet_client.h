@@ -164,7 +164,7 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount) override;
-        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee) override;
+        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
