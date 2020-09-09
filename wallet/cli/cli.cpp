@@ -2097,9 +2097,13 @@ namespace
                 if (coinSelectionRes.minimalFee > fee)
                 {
                     if (isShielded && !coinSelectionRes.shieldedInputsFee)
+                    {
                         LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
+                    }
                     else
+                    {
                         LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
+                    }
                     return -1;
                 }
 
