@@ -1614,6 +1614,79 @@ namespace beam
 
 	namespace bvm
 	{
+
+
+		static const char g_szVault[] = "\
+.method_0                     # c'tor                 \n\
+    ret                                               \n\
+                                                      \n\
+.method_1                     # d'tor                 \n\
+    ret                                               \n\
+                                                      \n\
+.method_2                     # deposit               \n\
+    mov1 s0, 0                                        \n\
+    jmp .move_funds                                   \n\
+                                                      \n\
+.method_3                     # withdraw              \n\
+    mov1 s0, 1                                        \n\
+    jmp .move_funds                                   \n\
+                                                      \n\
+.move_funds                                           \n\
+    # args:                                           \n\
+    #    u2, s-12,  amount                            \n\
+    #    u2, s-16,  aid                               \n\
+    #    u33, s-49,  pk                               \n\
+    #    u1, s0,    bWithdraw                         \n\
+                                                      \n\
+    # load current value into s4                      \n\
+    # key is [pk | aid], 37 bytes                     \n\
+                                                      \n\
+    mov2 s2, 8                # sizeof(Amount)        \n\
+    mov8 s4, 0                                        \n\
+    load_var s4, s2, s-49, 37                         \n\
+                                                      \n\
+    {                                                 \n\
+    cmp1 s0, 0                                        \n\
+    jz .if_deposit                                    \n\
+                                                      \n\
+    # withdrawal                                      \n\
+    cmp8 s4, s-12                                     \n\
+    jb .error                 # not enough funds      \n\
+    sub8 s4, s-12                                     \n\
+                                                      \n\
+    add_sig s-49                                      \n\
+    funds_unlock s-12, s-16                           \n\
+                                                      \n\
+    jmp .endif                                        \n\
+                                                      \n\
+.if_deposit                                           \n\
+    add8 s4, s-12                                     \n\
+    jnz .error                # overflow flag         \n\
+                                                      \n\
+    funds_lock s-12, s-16                             \n\
+                                                      \n\
+.endif                                                \n\
+    }                                                 \n\
+                                                      \n\
+    # save result                                     \n\
+                                                      \n\
+    mov2 s2, 0                                        \n\
+    cmp8 s4, 0                                        \n\
+    jz .save                                          \n\
+    mov2 s2, 8                                        \n\
+                                                      \n\
+.save                                                 \n\
+    save_var s4, s2, s-49, 37                         \n\
+                                                      \n\
+    ret                                               \n\
+                                                      \n\
+.error                                                \n\
+    fail                                              \n\
+";
+
+
+
+
 		static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
@@ -3352,7 +3425,7 @@ namespace beam
 		}
 	};
 
-	void TestContracts()
+	void TestContract1()
 	{
 
 		bvm::Compiler c;
@@ -3418,6 +3491,59 @@ namespace beam
 
 			proc.RunMany(cid, 2, bvm::Buf(&args, sizeof(args)));
 		}
+	}
+
+	void TestContract2()
+	{
+		bvm::Compiler c;
+
+		c.m_Input.p = (uint8_t*) bvm::g_szVault;
+		c.m_Input.n = sizeof(bvm::g_szVault) - sizeof(bvm::g_szVault[0]);
+
+		c.Start();
+
+		while (c.ParseOnce())
+			;
+
+		c.Finalyze();
+
+
+		MyBvmProcessor proc;
+		bvm::ContractID cid;
+
+		bvm::get_Cid(cid, c.m_Result, Blob(nullptr, 0)); // c'tor is empty
+		proc.SaveContract(cid, c.m_Result);
+
+#pragma pack (push, 1)
+		struct Args {
+			ECC::Point m_Pk;
+			uintBigFor<Asset::ID>::Type m_Aid;
+			uintBigFor<Amount>::Type m_Value;
+		} args;
+#pragma pack (pop)
+
+		ECC::Scalar::Native k;
+		ECC::SetRandom(k);
+		ECC::Point::Native pt = ECC::Context::get().G * k;
+
+		args.m_Pk = pt;
+		args.m_Aid = 3U;
+		args.m_Value = 45U;
+
+		proc.RunMany(cid, 2, bvm::Buf(&args, sizeof(args))); // deposit
+
+		args.m_Value = 43U;
+		proc.RunMany(cid, 3, bvm::Buf(&args, sizeof(args))); // withdraw
+
+		args.m_Value = 2U;
+		proc.RunMany(cid, 3, bvm::Buf(&args, sizeof(args))); // withdraw, pos terminated
+
+	}
+
+	void TestContracts()
+	{
+		TestContract1();
+		TestContract2();
 	}
 
 }
