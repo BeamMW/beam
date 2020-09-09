@@ -660,7 +660,7 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (auto it = vm.find(cli::VOUCHER_COUNT); it != vm.end())
+        if (auto it = vm.find(cli::MAX_PRIVACY_OFFLINE); it != vm.end())
         {
             auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
@@ -677,7 +677,7 @@ namespace
         TxParameters params;
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY) != vm.end()) || (vm.find(cli::VOUCHER_COUNT) != vm.end());
+        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY_ONLINE) != vm.end()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
@@ -699,11 +699,6 @@ namespace
             if (address->isExpired())
             {
                 LOG_ERROR() << "Cannot generate token, address is expired";
-                return -1;
-            }
-            if (isMaxPrivacyToken && !address->isPermanent())
-            {
-                LOG_ERROR() << "Cannot generate token, address is not permanent";
                 return -1;
             }
         }
