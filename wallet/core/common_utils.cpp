@@ -121,7 +121,15 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
 
     Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
 
-    if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
+    if (!shieldedInputsFee)
+    {
+        selectedFee = minFee;
+        if (selectedFee - shieldedOutputsFee < kMinFeeInGroth)
+            selectedFee = shieldedOutputsFee + kMinFeeInGroth;
+        auto change = sum - requestedSum - selectedFee;
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
+    }
+    else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
     {
         auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, isPushTx);
         res.requestedFee = requestedFee;

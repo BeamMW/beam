@@ -2081,7 +2081,12 @@ namespace
                     CheckAssetsAllowed(vm);
                 }
 
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, fee);
+                auto params = CreateSimpleTransactionParameters();
+                LoadReceiverParams(vm, params);
+                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
+                bool isShielded = type && *type == TxType::PushTransaction;
+
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, fee, isShielded);
 
                 if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
                 {
@@ -2091,13 +2096,14 @@ namespace
 
                 if (coinSelectionRes.minimalFee > fee)
                 {
-                    LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;;
+                    if (isShielded && !coinSelectionRes.shieldedInputsFee)
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
+                    else
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
                     return -1;
                 }
 
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                auto params = CreateSimpleTransactionParameters();
-                LoadReceiverParams(vm, params);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automaticaly
