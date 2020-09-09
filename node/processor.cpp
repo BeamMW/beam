@@ -3834,8 +3834,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 		InitStack(krn.m_Args);
 		CallFar(cid, iMethod);
 
+		ECC::Hash::Processor hp;
+
 		if (!m_Bic.m_AlreadyValidated)
-			m_pSigMsg = &krn.m_Msg;
+		{
+			hp << krn.m_Msg;
+			m_pSigValidate = &hp;
+		}
 
 		while (!IsDone())
 			RunOnce();

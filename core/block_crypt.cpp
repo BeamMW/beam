@@ -1361,12 +1361,26 @@ namespace beam
 
 		UpdateMsg();
 
+		ECC::Hash::Processor hp;
+		hp << m_Msg;
+
+		for (uint32_t i = 0; i + 1 < nKeys; i++)
+		{
+			pt = ECC::Context::get().G * pK[i];
+			hp << pt;
+		}
+
+		ECC::Hash::Value hv;
+		hp
+			<< m_Commitment
+			>> hv;
+
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
 		cfg.m_nKeys = nKeys;
 
 		ECC::Scalar::Native res;
 		ECC::SignatureBase& sig = m_Signature;
-		sig.Sign(cfg, m_Msg, &m_Signature.m_k, pK, &res);
+		sig.Sign(cfg, hv, &m_Signature.m_k, pK, &res);
 
 		MsgToID();
 	}

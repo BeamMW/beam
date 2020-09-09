@@ -543,7 +543,7 @@ namespace bvm {
 
 	BVM_METHOD(add_sig)
 	{
-		if (m_pSigMsg)
+		if (m_pSigValidate)
 			AddSigInternal(*pPubKey.RGet<ECC::Point>());
 	}
 
@@ -705,7 +705,7 @@ namespace bvm {
 
 	void Processor::HandleAmountOuter(const uintBigFor<Amount>::Type& val, const uintBigFor<Asset::ID>::Type& aid, bool bLock)
 	{
-		if (m_pSigMsg)
+		if (m_pSigValidate)
 		{
 			Asset::ID aid_;
 			aid.Export(aid_);
@@ -785,6 +785,8 @@ namespace bvm {
 
 	ECC::Point::Native& Processor::AddSigInternal(const ECC::Point& pk)
 	{
+		(*m_pSigValidate) << pk;
+
 		auto& ret = m_vPks.emplace_back();
 		Test(ret.ImportNnz(pk));
 		return ret;
@@ -792,16 +794,19 @@ namespace bvm {
 
 	void Processor::CheckSigs(const ECC::Point& pt, const ECC::Signature& sig)
 	{
-		if (!m_pSigMsg)
+		if (!m_pSigValidate)
 			return;
 
 		auto& comm = AddSigInternal(pt);
 		comm += m_FundsIO;
 
+		ECC::Hash::Value hv;
+		(*m_pSigValidate) >> hv;
+
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
 		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
 
-		Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, *m_pSigMsg, &sig.m_k, &m_vPks.front()));
+		Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
 	}
 
 	/////////////////////////////////////////////

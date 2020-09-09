@@ -297,7 +297,7 @@ namespace bvm {
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 		Amount m_Charge = 0;
 
-		const ECC::Hash::Value* m_pSigMsg = nullptr; // assign it to allow sig validation
+		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
 		std::ostringstream* m_pDbg = nullptr;
