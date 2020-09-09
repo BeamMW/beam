@@ -14,7 +14,7 @@
 
 #pragma once
 #include "common.h"
-#include <boost/intrusive/set.hpp>
+#include "containers.h"
 
 namespace beam {
 namespace BlobMap {
@@ -60,7 +60,7 @@ namespace BlobMap {
 	};
 
 	struct Set
-		:public boost::intrusive::multiset<Entry>
+		:public intrusive::multiset_autoclear<Entry>
 	{
 		// The following allows to use Blob as a key
 		struct Comparator
@@ -69,12 +69,8 @@ namespace BlobMap {
 			bool operator()(const Entry& a, const Blob& b) const { return a.ToBlob() < b; }
 		};
 
-		~Set();
-		void Clear();
-
 		Entry* Find(const Blob&);
 		Entry* Create(const Blob&);
-		void Delete(Entry&);
 	};
 
 } // namespace BlobMap

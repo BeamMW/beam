@@ -34,8 +34,10 @@ void FlyClient::NetworkStd::Connect()
                 continue;
 
             c.ResetAll();
-            if (m_Cfg.m_UseProxy) c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
-            else c.Connect(c.m_Addr);
+            if (m_Cfg.m_UseProxy)
+                c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
+            else
+                c.Connect(c.m_Addr);
         }
     }
     else
@@ -569,8 +571,7 @@ void FlyClient::NetworkStd::PostRequestInternal(Request& r)
 {
     assert(r.m_pTrg);
 
-    RequestNode* pNode = new RequestNode;
-    m_lst.push_back(*pNode);
+    RequestNode* pNode = m_lst.Create_back();
     pNode->m_pRequest = &r;
 
     OnNewRequests();
@@ -637,18 +638,6 @@ void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
 
     m_This.m_lst.erase(RequestList::s_iterator_to(n));
     m_lst.push_back(n);
-}
-
-void FlyClient::NetworkStd::RequestList::Clear()
-{
-    while (!empty())
-        Delete(front());
-}
-
-void FlyClient::NetworkStd::RequestList::Delete(RequestNode& n)
-{
-    erase(s_iterator_to(n));
-    delete &n;
 }
 
 void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)

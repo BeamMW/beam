@@ -417,18 +417,6 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
 
-void NodeProcessor::CongestionCache::Clear()
-{
-	while (!m_lstTips.empty())
-		Delete(&m_lstTips.front());
-}
-
-void NodeProcessor::CongestionCache::Delete(TipCongestion* pVal)
-{
-	m_lstTips.erase(TipList::s_iterator_to(*pVal));
-	delete pVal;
-}
-
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
 	TipCongestion* pRet = nullptr;
@@ -507,7 +495,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 						for (size_t i = pEntry->m_Rows.size(); i--; p->m_Height++)
 							p->m_Rows.push_front(pEntry->m_Rows.at(i));
 
-						m_CongestionCache.Delete(pEntry);
+						m_CongestionCache.m_lstTips.Delete(*pEntry);
 					}
 
 					cc.m_lstTips.erase(CongestionCache::TipList::s_iterator_to(*p));
@@ -528,9 +516,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 
 			if (!pEntry)
 			{
-				pEntry = new CongestionCache::TipCongestion;
-				m_CongestionCache.m_lstTips.push_back(*pEntry);
-
+				pEntry = m_CongestionCache.m_lstTips.Create_back();
 				pEntry->m_Height = sid.m_Height;
 			}
 

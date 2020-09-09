@@ -316,17 +316,6 @@ namespace beam
 
 	///////////////////////
 	// BlobMap
-	BlobMap::Set::~Set()
-	{
-		Clear();
-	}
-
-	void BlobMap::Set::Clear()
-	{
-		while (!empty())
-			Delete(*begin());
-	}
-
 	BlobMap::Entry* BlobMap::Set::Find(const Blob& key)
 	{
 		auto it = find(key, Comparator());
@@ -341,12 +330,6 @@ namespace beam
 
 		insert(*pItem);
 		return pItem;
-	}
-
-	void BlobMap::Set::Delete(Entry& x)
-	{
-		erase(x);
-		delete& x;
 	}
 
 } // namespace beam

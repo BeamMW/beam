@@ -15,8 +15,7 @@
 #pragma once
 
 #include "proto.h"
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
+#include "../utility/containers.h"
 #include <boost/intrusive_ptr.hpp>
 
 namespace beam {
@@ -137,12 +136,9 @@ namespace proto {
 			};
 
 			struct RequestList
-				:public boost::intrusive::list<RequestNode>
+				:public intrusive::list_autoclear<RequestNode>
 			{
-				void Delete(RequestNode& n);
 				void Finish(RequestNode& n);
-				void Clear();
-				~RequestList() { Clear(); }
 			};
 			
 			RequestList m_lst; // idle

@@ -18,6 +18,7 @@
 #include "../core/proto.h"
 #include "../utility/dvector.h"
 #include "../utility/executor.h"
+#include "../utility/containers.h"
 #include "db.h"
 #include "txpool.h"
 
@@ -133,13 +134,9 @@ class NodeProcessor
 			bool IsContained(const NodeDB::StateID&);
 		};
 
-		typedef boost::intrusive::list<TipCongestion> TipList;
+		typedef intrusive::list_autoclear<TipCongestion> TipList;
 		TipList m_lstTips;
 
-		~CongestionCache() { Clear(); }
-
-		void Clear();
-		void Delete(TipCongestion*);
 		TipCongestion* Find(const NodeDB::StateID&);
 
 	} m_CongestionCache;
