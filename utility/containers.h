@@ -46,8 +46,8 @@ namespace intrusive
 
 		void Clear()
 		{
-			while (!empty())
-				Delete(*begin());
+			while (!this->empty())
+				Delete(*this->begin());
 		}
 
 		template <typename TKey>
@@ -64,7 +64,7 @@ namespace intrusive
 	struct multiset_autoclear
 		:public multiset<TEntry>
 	{
-		~multiset_autoclear() { Clear(); }
+		~multiset_autoclear() { this->Clear(); }
 	};
 
 	template <typename TEntry>
@@ -79,8 +79,8 @@ namespace intrusive
 
 		void Clear()
 		{
-			while (!empty())
-				Delete(*begin());
+			while (!this->empty())
+				Delete(*this->begin());
 		}
 
 		TEntry* Create_front()
@@ -102,7 +102,7 @@ namespace intrusive
 	struct list_autoclear
 		:public list<TEntry>
 	{
-		~list_autoclear() { Clear(); }
+		~list_autoclear() { this->Clear(); }
 	};
 
 } // namespace intrusive
