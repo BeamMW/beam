@@ -878,6 +878,19 @@ namespace bvm {
 		return true;
 	}
 
+	void Compiler::ParseLabel(MyBlob& x)
+	{
+		x.Move1();
+		if (!x.n)
+			Fail("");
+
+		m_ScopesActive.back().m_Labels[x.as_Blob()].m_Refs.push_back(ToSize(m_Result.size())); // whoa!
+
+		Type::uintSize val = Zero;
+		for (uint32_t i = 0; i < val.nBytes; i++)
+			m_Result.push_back(val.m_pData[i]);
+	}
+
 	void Compiler::ParseParam_Ptr(MyBlob& line)
 	{
 		MyBlob x;
@@ -918,8 +931,19 @@ namespace bvm {
 
 	void Compiler::ParseParam_PtrDirect(MyBlob& x, uint8_t p)
 	{
-		ParseSignedNumber(x, sizeof(Type::Size));
-		BwAdd('d' == p);
+		uint8_t nIsData = ('d' == p);
+
+		if (x.n && ('.' == *x.p))
+		{
+			if (!nIsData)
+				Fail("label pointer must reference data");
+
+			ParseLabel(x);
+		}
+		else
+			ParseSignedNumber(x, sizeof(Type::Size));
+
+		BwAdd(nIsData);
 	}
 
 	void Compiler::ParseSignedNumber(MyBlob& x, uint32_t nBytes)
@@ -970,6 +994,9 @@ namespace bvm {
 		case 'd':
 			x.Move1();
 			bIndirect = 1;
+
+			if (!x.n)
+				Fail("");
 		}
 
 		BwAdd(bIndirect);
@@ -978,22 +1005,9 @@ namespace bvm {
 			ParseParam_PtrDirect(x, p1);
 		else
 		{
-			if (!x.n)
-				Fail("");
-
 			if ((Type::uintSize::nBytes == nBytes) && ('.' == p1))
-			{
 				// must be a label
-				x.Move1();
-				if (!x.n)
-					Fail("");
-
-				m_ScopesActive.back().m_Labels[x.as_Blob()].m_Refs.push_back(ToSize(m_Result.size())); // whoa!
-
-				Type::uintSize val = Zero;
-				for (uint32_t i = 0; i < val.nBytes; i++)
-					m_Result.push_back(val.m_pData[i]);
-			}
+				ParseLabel(x);
 			else
 				ParseSignedNumber(x, nBytes);
 		}
