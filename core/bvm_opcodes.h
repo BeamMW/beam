@@ -83,6 +83,9 @@
 	macro(iMethod, f2) \
 	macro(frame, f2) \
 
+#define BVMOp_getsp(macro) \
+	macro(res, p) \
+
 #define BVMOp_jmp(macro) \
 	macro(addr, f2) \
 
@@ -164,6 +167,7 @@
 	macro(load_var) \
 	macro(save_var) \
 	macro(call) \
+	macro(getsp) \
 	macro(jmp) \
 	macro(jz) \
 	macro(jnz) \

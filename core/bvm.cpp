@@ -376,6 +376,11 @@ namespace bvm {
 		Dummy::Neg(pDst, nSize);
 	}
 
+	BVM_METHOD(getsp)
+	{
+		*res.WGet<Type::uintSize>() = m_Sp;
+	}
+
 	BVM_METHOD(jmp) {
 		DoJmp(addr);
 	}
