@@ -934,16 +934,14 @@ namespace bvm {
 
 		BwAdd(bIndirect);
 		if (bIndirect)
-			BwAdd('d' == p2);
+			BwAddPtrType(p2);
 	}
 
 	void Compiler::ParseParam_PtrDirect(MyBlob& x, uint8_t p)
 	{
-		uint8_t nIsData = ('d' == p);
-
 		if (x.n && ('.' == *x.p))
 		{
-			if (!nIsData)
+			if ('d' != p)
 				Fail("label pointer must reference data");
 
 			ParseLabel(x);
@@ -951,7 +949,7 @@ namespace bvm {
 		else
 			ParseSignedNumber(x, sizeof(Type::Size));
 
-		BwAdd(nIsData);
+		BwAddPtrType(p);
 	}
 
 	void Compiler::ParseSignedRaw(MyBlob& x, uint32_t nBytes, uintBigFor<uint64_t>::Type& val2)
@@ -1144,6 +1142,12 @@ namespace bvm {
 	{
 		(&m_Result.front())[m_BitWriter.m_Pos] = m_BitWriter.m_Value;
 		m_BitWriter.m_Bits = 0;
+	}
+
+	void Compiler::BwAddPtrType(uint8_t p)
+	{
+		uint8_t n = ('s' != p);
+		BwAdd(n);
 	}
 
 	void Compiler::BwAdd(uint8_t x)

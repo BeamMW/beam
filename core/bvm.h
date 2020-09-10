@@ -362,6 +362,7 @@ namespace bvm {
 
 		void BwFlushStrict();
 		void BwAdd(uint8_t);
+		void BwAddPtrType(uint8_t);
 
 		static uint8_t IsPtrPrefix(char);
 
