@@ -38,16 +38,18 @@ namespace intrusive
 	struct multiset
 		:public boost::intrusive::multiset<TEntry>
 	{
+		typedef boost::intrusive::multiset<TEntry> Base;
+
 		void Delete(TEntry& x)
 		{
-			erase(s_iterator_to(x));
+			Base::erase(Base::s_iterator_to(x));
 			delete& x;
 		}
 
 		void Clear()
 		{
-			while (!this->empty())
-				Delete(*this->begin());
+			while (!Base::empty())
+				Delete(*Base::begin());
 		}
 
 		template <typename TKey>
@@ -55,7 +57,7 @@ namespace intrusive
 		{
 			TEntry* p = new TEntry;
 			p->m_Key = std::move(key);
-			insert(*p);
+			Base::insert(*p);
 			return p;
 		}
 	};
@@ -64,36 +66,38 @@ namespace intrusive
 	struct multiset_autoclear
 		:public multiset<TEntry>
 	{
-		~multiset_autoclear() { this->Clear(); }
+		~multiset_autoclear() { multiset<TEntry>::Clear(); }
 	};
 
 	template <typename TEntry>
 	struct list
 		:public boost::intrusive::list<TEntry>
 	{
+		typedef boost::intrusive::list<TEntry> Base;
+
 		void Delete(TEntry& x)
 		{
-			erase(s_iterator_to(x));
+			Base::erase(Base::s_iterator_to(x));
 			delete& x;
 		}
 
 		void Clear()
 		{
-			while (!this->empty())
-				Delete(*this->begin());
+			while (!Base::empty())
+				Delete(*Base::begin());
 		}
 
 		TEntry* Create_front()
 		{
 			TEntry* p = new TEntry;
-			push_front(*p);
+			Base::push_front(*p);
 			return p;
 		}
 
 		TEntry* Create_back()
 		{
 			TEntry* p = new TEntry;
-			push_back(*p);
+			Base::push_back(*p);
 			return p;
 		}
 	};
@@ -102,7 +106,7 @@ namespace intrusive
 	struct list_autoclear
 		:public list<TEntry>
 	{
-		~list_autoclear() { this->Clear(); }
+		~list_autoclear() { list<TEntry>::Clear(); }
 	};
 
 } // namespace intrusive
