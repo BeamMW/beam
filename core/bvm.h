@@ -400,7 +400,11 @@ namespace bvm {
 		void ParseParam_Ptr(MyBlob&);
 		void ParseParam_uintBig(MyBlob&, uint32_t nBytes);
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
+		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
+
+		uint64_t ParseUnsignedRaw(MyBlob&);
+		void ParseSignedRaw(MyBlob&, uint32_t nBytes, uintBigFor<uint64_t>::Type&);
 
 		template <uint32_t nBytes>
 		void ParseParam_uintBig_t(MyBlob& line)

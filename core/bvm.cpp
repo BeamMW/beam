@@ -946,14 +946,25 @@ namespace bvm {
 		BwAdd(nIsData);
 	}
 
-	void Compiler::ParseSignedNumber(MyBlob& x, uint32_t nBytes)
+	void Compiler::ParseSignedRaw(MyBlob& x, uint32_t nBytes, uintBigFor<uint64_t>::Type& val2)
 	{
 		uint8_t neg = (x.n && ('-' == *x.p));
 		if (neg)
 			x.Move1();
 
+		uint64_t val = ParseUnsignedRaw(x);
+
+		if ((nBytes < sizeof(val)) && (val >> (nBytes << 3)))
+			Fail("overflow");
+
+		val2 = val;
+		if (neg)
+			val2.Negate();
+	}
+
+	uint64_t Compiler::ParseUnsignedRaw(MyBlob& x)
+	{
 		uint64_t val = 0;
-		assert(nBytes <= sizeof(val));
 		while (x.n)
 		{
 			uint8_t c = *x.p;
@@ -962,20 +973,41 @@ namespace bvm {
 				Fail("");
 
 			val = val * 10 + c;
-
 			x.Move1();
 		}
 
-		if ((nBytes < sizeof(val)) && (val >> (nBytes << 3)))
-			Fail("overflow");
+		return val;
+	}
 
-		uintBigFor<uint64_t>::Type val2 = val;
-		if (neg)
-			val2.Negate();
+	void Compiler::ParseSignedNumber(MyBlob& x, uint32_t nBytes)
+	{
+		uintBigFor<uint64_t>::Type val2;
+		ParseSignedRaw(x, nBytes, val2);
 
 		for (uint32_t i = 0; i < nBytes; i++)
 			m_Result.push_back(val2.m_pData[val2.nBytes - nBytes + i]);
 
+	}
+
+	void Compiler::ParseHex(MyBlob& x, uint32_t nBytes)
+	{
+		struct Dummy :public uintBigImpl {
+			static uint32_t Do(uint8_t* pDst, const char* sz, uint32_t nTxtLen) {
+				return _Scan(pDst, sz, nTxtLen);
+			}
+		};
+
+		uint32_t nTxtLen = nBytes * 2;
+		if (x.n != nTxtLen)
+			Fail("hex size mismatch");
+
+		if (!nBytes)
+			return;
+
+		size_t n0 = m_Result.size();
+		m_Result.resize(n0 + nBytes);
+		if (Dummy::Do(&m_Result.front() + n0, (const char*) x.p, nTxtLen) != nTxtLen)
+			Fail("hex parse");
 	}
 
 	void Compiler::ParseParam_uintBig(MyBlob& line, uint32_t nBytes)
@@ -1045,6 +1077,42 @@ namespace bvm {
 		if (opcode == "}")
 		{
 			ScopeClose();
+			return;
+		}
+
+		if (opcode == "const")
+		{
+			line.ExtractToken(opcode, ' ');
+
+			if (!opcode.n)
+				Fail("");
+
+			char nTag = *opcode.p;
+			opcode.Move1();
+
+			switch (nTag)
+			{
+			case 'u':
+				{
+					uint64_t nBytes = ParseUnsignedRaw(opcode);
+					if (nBytes > sizeof(nBytes))
+						Fail("");
+
+					ParseSignedNumber(line, static_cast<uint32_t>(nBytes));
+				}
+				break;
+
+			case 'h':
+				{
+					uint64_t nBytes = ParseUnsignedRaw(opcode);
+					ParseHex(line, static_cast<uint32_t>(nBytes));
+				}
+				break;
+
+			default:
+				Fail("invalid const type");
+			}
+
 			return;
 		}
 

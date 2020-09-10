@@ -1642,7 +1642,7 @@ namespace beam
     # key is [pk | aid], 37 bytes                     \n\
                                                       \n\
     mov2 s2, 8                # sizeof(Amount)        \n\
-    mov8 s4, 0                                        \n\
+    mov8 s4, d.zero                                   \n\
     load_var s4, s2, s-49, 37                         \n\
                                                       \n\
     {                                                 \n\
@@ -1682,6 +1682,11 @@ namespace beam
                                                       \n\
 .error                                                \n\
     fail                                              \n\
+                                                      \n\
+.zero                                                 \n\
+    const u8 0                                        \n\
+.some_id                                              \n\
+    const h10 deadbabe000FF1CEb00b                    \n\
 ";
 
 
