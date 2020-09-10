@@ -2087,7 +2087,11 @@ namespace
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
                 bool isShielded = type && *type == TxType::PushTransaction;
 
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, fee, isShielded);
+                Transaction::FeeSettings fs;
+                Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
+                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
 
                 if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
                 {
