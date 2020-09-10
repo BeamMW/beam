@@ -672,7 +672,7 @@ namespace
         }
     }
 
-    int GetToken(const po::variables_map& vm)
+    int GetAddress(const po::variables_map& vm)
     {
         TxParameters params;
         boost::optional<WalletAddress> address;
@@ -2505,7 +2505,7 @@ int main_impl(int argc, char* argv[])
         {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
         {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
-        {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
+        {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
 #ifdef BEAM_LASER_SUPPORT   
