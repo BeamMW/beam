@@ -592,6 +592,24 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		}
 	}
 
+	BVM_METHOD(sort)
+	{
+		ArrayContext ac;
+
+		nCount_.Export(ac.m_nCount);
+		nElementWidth_.Export(ac.m_nElementWidth);
+		nKeyPos_.Export(ac.m_nKeyPos);
+		nKeyWidth_.Export(ac.m_nKeyWidth);
+
+		ac.Realize();
+
+		uint8_t* p = pArray_.WGet<uint8_t>(ac.m_nSize);
+
+		// Note! Don't call the crt/std qsort function. Its implementation may vary on different platforms (or lib versions), whereas we need 100% accurate repeatability
+		// Performance is less important here
+		ac.MergeSort(p);
+	}
+
 	void Processor::ArrayContext::Realize()
 	{
 		Test(static_cast<uint32_t>(m_nElementWidth) >= static_cast<uint32_t>(m_nKeyPos) + static_cast<uint32_t>(m_nKeyWidth));

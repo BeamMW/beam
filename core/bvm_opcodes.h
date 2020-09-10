@@ -150,6 +150,13 @@
 #define BVMOp_asset_destroy(macro) \
 	macro(nAid, f4)
 
+#define BVMOp_sort(macro) \
+	macro(pArray, p) \
+	macro(nCount, f2) \
+	macro(nElementWidth, f2) \
+	macro(nKeyPos, f2) \
+	macro(nKeyWidth, f2) \
+
 #define BVM_OpCodes(macro) \
 	macro(mov) \
 	macro(mov1) \
@@ -208,4 +215,5 @@
 	macro(asset_create) \
 	macro(asset_emit) \
 	macro(asset_destroy) \
+	macro(sort) \
 
