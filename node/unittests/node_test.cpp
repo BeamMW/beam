@@ -3428,6 +3428,60 @@ namespace beam
 
 			return nCycles;
 		}
+
+		static const uint32_t s_ElemWidth = 5;
+
+		static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, bvm::Type::Size nSize)
+		{
+			for (bvm::Type::Size i = 0; i < nSize; i++)
+				pDst[i % s_ElemWidth] ^= pSrc[i];
+		}
+
+		static void TestSort()
+		{
+			ECC::PseudoRandomGenerator prg;
+
+
+			ArrayContext ac;
+			ac.m_nKeyPos = 1;
+			ac.m_nKeyWidth = 2;
+			ac.m_nElementWidth = s_ElemWidth;
+
+			ByteBuffer buf;
+
+			uint8_t pXor0[s_ElemWidth];
+			memset0(pXor0, s_ElemWidth);
+
+			for (ac.m_nCount = 1; ac.m_nCount < 500; ac.m_nCount++)
+			{
+				ac.Realize();
+				buf.resize(ac.m_nSize);
+				uint8_t* p = &buf.front();
+
+				for (uint32_t n = 0; n < 10; n++)
+				{
+					prg.Generate(p, ac.m_nSize);
+
+					CalcXors(pXor0, p, ac.m_nSize);
+
+					ac.MergeSort(p);
+
+					CalcXors(pXor0, p, ac.m_nSize);
+					verify_test(memis0(pXor0, s_ElemWidth));
+
+					uint8_t* pK = p + ac.m_nKeyPos;
+
+					for (bvm::Type::Size i = 0; i + 1 < ac.m_nCount; i++)
+					{
+						uint8_t* pK0 = pK;
+						pK += ac.m_nElementWidth;
+
+						verify_test(memcmp(pK0, pK, ac.m_nKeyWidth) <= 0);
+					}
+				}
+
+			}
+		}
 	};
 
 	void TestContract1()
@@ -3547,6 +3601,8 @@ namespace beam
 
 	void TestContracts()
 	{
+		MyBvmProcessor::TestSort();
+
 		TestContract1();
 		TestContract2();
 	}

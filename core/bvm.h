@@ -221,6 +221,20 @@ namespace bvm {
 
 	protected:
 
+		struct ArrayContext
+		{
+			Type::Size m_nCount;
+			Type::Size m_nElementWidth;
+			Type::Size m_nKeyPos;
+			Type::Size m_nKeyWidth;
+			Type::Size m_nSize;
+
+			void Realize();
+
+			void MergeSort(uint8_t* p) const;
+			void MergeOnce(uint8_t* pDst, const uint8_t* pSrc, Type::Size p0, Type::Size n0, Type::Size p1, Type::Size n1) const;
+		};
+
 		struct VarKey
 		{
 			struct Tag

@@ -613,6 +613,97 @@ namespace bvm {
 		}
 	}
 
+	void Processor::ArrayContext::Realize()
+	{
+		Test(static_cast<uint32_t>(m_nElementWidth) >= static_cast<uint32_t>(m_nKeyPos) + static_cast<uint32_t>(m_nKeyWidth));
+
+		size_t n = m_nCount;
+		n *= m_nElementWidth;
+
+		m_nSize = static_cast<Type::Size>(n);
+		Test(n == m_nSize); // overflow test
+	}
+
+	void Processor::ArrayContext::MergeSort(uint8_t* p) const
+	{
+		if (m_nCount <= 1)
+			return;
+
+		ByteBuffer buf;
+		buf.resize(m_nSize);
+		uint8_t* pDst = &buf.front();
+
+		for (Type::Size nW = 1; nW < m_nCount; )
+		{
+			Type::Size n0 = 0;
+			Type::Size nStepBytes = m_nElementWidth * nW;
+			Type::Size nW1 = nW;
+
+			for (Type::Size nPos = 0; ; )
+			{
+				nPos += nW;
+				if (nPos >= m_nCount)
+				{
+					// just copy what's left
+					memcpy(pDst + n0, p + n0, m_nSize - n0);
+					break;
+				}
+
+				Type::Size n1 = n0 + nStepBytes;
+
+				nPos += nW;
+				bool bFin = (nPos > m_nCount);
+				if (bFin)
+					nW1 -= (nPos - m_nCount);
+
+				MergeOnce(pDst, p, n0, nW, n1, nW1);
+
+				if (bFin)
+					break;
+
+				n0 = n1 + nStepBytes;
+			}
+
+			nW <<= 1;
+			Test(nW); // overflow test. Though can't happen with our restricted array sizes
+
+			std::swap(p, pDst);
+		}
+
+		if (&buf.front() != pDst)
+			memcpy(pDst, p, m_nSize);
+	}
+
+	void Processor::ArrayContext::MergeOnce(uint8_t* pDst, const uint8_t* pSrc, Type::Size p0, Type::Size n0, Type::Size p1, Type::Size n1) const
+	{
+		assert(n0 && n1);
+
+		const uint8_t* ppSrc[] = { pSrc + p0, pSrc + p1 };
+		Type::Size pN[] = { n0, n1 };
+
+		pDst += p0;
+
+		unsigned int iIdx = 0;
+		while (true)
+		{
+			int n = memcmp(ppSrc[0] + m_nKeyPos, ppSrc[1] + m_nKeyPos, m_nKeyWidth);
+			iIdx = (n > 0);
+
+			memcpy(pDst, ppSrc[iIdx], m_nElementWidth);
+
+			pDst += m_nElementWidth;
+			ppSrc[iIdx] += m_nElementWidth;
+			pN[iIdx]--;
+
+			if (!pN[iIdx])
+			{
+				iIdx = !iIdx;
+				memcpy(pDst, ppSrc[iIdx], m_nElementWidth * pN[iIdx]);
+				break;
+			}
+		}
+	}
+
 	void Processor::SetAssetKey(AssetVar& av, const uintBigFor<Asset::ID>::Type& aid)
 	{
 		SetVarKey(av.m_vk);
