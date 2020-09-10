@@ -184,7 +184,7 @@ namespace beam
         const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
-        const char* GET_TOKEN = "get_token";
+        const char* GET_ADDRESS = "get_address";
         const char* SET_CONFIRMATIONS_COUNT = "set_confirmations_count";
         const char* GET_CONFIRMATIONS_COUNT = "get_confirmations_count";
         const char* CONFIRMATIONS_COUNT = "confirmations_count";
