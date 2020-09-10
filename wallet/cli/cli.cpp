@@ -677,7 +677,8 @@ namespace
         TxParameters params;
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY_ONLINE) != vm.end()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
+        auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
+        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
