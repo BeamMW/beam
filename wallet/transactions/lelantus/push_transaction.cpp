@@ -15,6 +15,7 @@
 #include "push_transaction.h"
 #include "core/shielded.h"
 #include "push_tx_builder.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
 
@@ -64,16 +65,16 @@ namespace beam::wallet::lelantus
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            LOG_INFO()
-                 << m_Context << " Sending to shielded pool "
-                 << PrintableAmount(builder.m_Value, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
-
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value -= builder.m_Fee;
             bb.m_Map[builder.m_AssetID].m_Value -= builder.m_Value;
 
             bb.CompleteBalance();
+
+            LOG_INFO()
+                 << m_Context << " Sending to shielded pool "
+                 << PrintableAmount(builder.m_Value, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
+                 << " (fee: " << PrintableAmount(GetFeeWithAdditionalValueForShieldedInputs(builder)) << ")";
 
             builder.SaveCoins();
         }

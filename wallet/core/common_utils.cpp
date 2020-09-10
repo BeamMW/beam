@@ -15,6 +15,7 @@
 #include "wallet/core/common_utils.h"
 
 #include "wallet/core/base_transaction.h"
+#include "wallet/core/base_tx_builder.h"
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
 
@@ -93,37 +94,75 @@ Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<Sh
 }
 
 ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
-    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount beforehandMinFee)
+    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx /* = false */)
 {
     std::vector<Coin> vSelStd;
     std::vector<ShieldedCoin> vSelShielded;
-    walletDB->selectCoins2(
-        requestedSum + beforehandMinFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
-    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
-
-    TxStats ts;
-    ts.m_Outputs = sum > requestedSum + beforehandMinFee ? 2 : 1;
-    ts.m_InputsShielded = vSelShielded.size();
-    ts.m_Kernels = 1 + ts.m_InputsShielded;
 
     Transaction::FeeSettings fs;
+    TxStats ts;
+    if(isPushTx)
+        ++ts.m_OutputsShielded;
+
+    Amount shieldedOutputsFee = ts.m_OutputsShielded * (fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput);
+
+    walletDB->selectCoins2(
+        requestedSum + requestedFee + shieldedOutputsFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+
+    ts.m_Outputs = sum > requestedSum + requestedFee + shieldedOutputsFee ? 2 : 1;
+    ts.m_InputsShielded = vSelShielded.size();
+    ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
+
     Amount minFee = fs.Calculate(ts);
-    Amount shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
+    Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
 
-    if (sum < requestedSum + beforehandMinFee) 
-        return {requestedSum, sum, beforehandMinFee, std::max(beforehandMinFee, minFee), minFee, shieldedFee, 0};
+    Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
 
-    if (beforehandMinFee >= minFee)
+    if (!shieldedInputsFee)
     {
-        auto change = sum - beforehandMinFee - requestedSum;
-        return {requestedSum, sum, beforehandMinFee, beforehandMinFee, minFee, shieldedFee, change};
+        selectedFee = minFee;
+        if (selectedFee - shieldedOutputsFee < kMinFeeInGroth)
+            selectedFee = shieldedOutputsFee + kMinFeeInGroth;
+        auto change = sum - requestedSum - selectedFee;
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
+    }
+    else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
+    {
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, isPushTx);
+        res.requestedFee = requestedFee;
+        return res;
+    }
+
+    if (sum < requestedSum + selectedFee)
+    {
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, 0};
+    }
+
+    if (selectedFee >= minFee)
+    {
+        auto change = sum - requestedSum - selectedFee;
+        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
     }
     else
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee);
-        res.requestedFee = beforehandMinFee;
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee - shieldedOutputsFee, isPushTx);
+        res.requestedFee = requestedFee;
         return res;
     }
+}
+
+Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
+{
+    auto shieldedCount = builder.m_Coins.m_InputShielded.size();
+    Amount shieldedFee = 0;
+    if (shieldedCount)
+    {
+        Transaction::FeeSettings fs;
+        shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
+    }
+
+    return !!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee;
 }
 
 }  // namespace beam::wallet
