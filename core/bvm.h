@@ -175,12 +175,20 @@ namespace bvm {
 #undef THE_MACRO
 #undef THE_MACRO_ParamDecl
 
-		void DoMov(const Ptr&, const uint8_t*, Type::Size nSize);
-		void DoXor(const Ptr&, const uint8_t*, Type::Size nSize);
+#define BVM_OpCodes_BinaryVar(macro) \
+		macro(mov) \
+		macro(add) \
+		macro(sub) \
+		macro(xor)
+
+#define THE_MACRO(name) \
+		void On_##name(uint8_t*, const uint8_t*, Type::Size nSize); \
+		void On_##name(const Ptr&, const uint8_t*, Type::Size nSize);
+
+		BVM_OpCodes_BinaryVar(THE_MACRO)
+#undef THE_MACRO
+
 		void DoCmp(const uint8_t*, const uint8_t*, Type::Size nSize);
-		void DoAdd(const Ptr&, const uint8_t*, Type::Size nSize);
-		void DoAdd(uint8_t*, const uint8_t*, Type::Size nSize);
-		void DoSub(const Ptr&, const uint8_t*, Type::Size nSize);
 		void DoJmp(const Type::uintSize&);
 
 		const uint8_t* FetchInstruction(Type::Size n);

@@ -273,41 +273,39 @@ namespace bvm {
 #define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name##_,
 #define BVM_METHOD(method) void Processor::On_##method(BVMOp_##method(THE_MACRO_ParamDecl) Zero_)
 
-	BVM_METHOD(mov)
-	{
-		Type::Size nSize;
-		nSize_.Export(nSize);
-		DoMov(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
+#define THE_MACRO(name) \
+ \
+	BVM_METHOD(name) \
+	{ \
+		Type::Size nSize; \
+		nSize_.Export(nSize); \
+		On_##name(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize); \
+	} \
+ \
+	BVM_METHOD(name##1) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
+	BVM_METHOD(name##2) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
+	BVM_METHOD(name##4) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
+	BVM_METHOD(name##8) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
+ \
+	void Processor::On_##name(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize) \
+	{ \
+		On_##name(pDst_.WGet<uint8_t>(nSize), pSrc, nSize); \
 	}
 
-	BVM_METHOD(mov1) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(mov2) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(mov4) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(mov8) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+BVM_OpCodes_BinaryVar(THE_MACRO)
+#undef THE_MACRO
 
-	void Processor::DoMov(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
+#define BVM_METHOD_BinaryVar(name) void Processor::On_##name(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize)
+
+
+	BVM_METHOD_BinaryVar(mov)
 	{
-		memmove(pDst_.WGet<uint8_t>(nSize), pSrc, nSize);
+		memmove(pDst, pSrc, nSize);
 	}
 
-	BVM_METHOD(xor)
+	BVM_METHOD_BinaryVar(xor)
 	{
-		Type::Size nSize;
-		nSize_.Export(nSize);
-		DoXor(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
-	}
-
-	BVM_METHOD(xor1) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(xor2) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(xor4) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(xor8) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-
-	void Processor::DoXor(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
-	{
-		auto* pDst = pDst_.WGet<uint8_t>(nSize);
-
-		for (uint32_t i = 0; i < nSize; i++)
-			pDst[i] ^= pSrc[i];
+		memxor(pDst, pSrc, nSize);
 	}
 
 	BVM_METHOD(cmp)
@@ -329,24 +327,7 @@ namespace bvm {
 		m_Flags = (n < 0) ? -1 : (n > 0);
 	}
 
-	BVM_METHOD(add)
-	{
-		Type::Size nSize;
-		nSize_.Export(nSize);
-		DoAdd(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
-	}
-
-	BVM_METHOD(add1) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(add2) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(add4) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(add8) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-
-	void Processor::DoAdd(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
-	{
-		DoAdd(pDst_.WGet<uint8_t>(nSize), pSrc, nSize);
-	}
-
-	void Processor::DoAdd(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize)
+	BVM_METHOD_BinaryVar(add)
 	{
 		struct Dummy :public uintBigImpl {
 			static uint8_t Do(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize) {
@@ -357,19 +338,7 @@ namespace bvm {
 		m_Flags = Dummy::Do(pDst, pSrc, nSize);
 	}
 
-	BVM_METHOD(sub)
-	{
-		Type::Size nSize;
-		nSize_.Export(nSize);
-		DoSub(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
-	}
-
-	BVM_METHOD(sub1) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(sub2) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(sub4) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-	BVM_METHOD(sub8) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
-
-	void Processor::DoSub(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
+	BVM_METHOD_BinaryVar(sub)
 	{
 		struct Dummy :public uintBigImpl {
 			static void Neg(uint8_t* p, Type::Size n)
@@ -383,10 +352,8 @@ namespace bvm {
 			}
 		};
 
-		auto* pDst = pDst_.WGet<uint8_t>(nSize);
-
 		Dummy::Neg(pDst, nSize);
-		DoAdd(pDst, pSrc, nSize);
+		On_add(pDst, pSrc, nSize);
 		Dummy::Neg(pDst, nSize);
 	}
 
@@ -764,6 +731,7 @@ namespace bvm {
 		}
 	}
 
+#undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
 
