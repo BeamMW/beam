@@ -124,6 +124,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
     auto libVersion = params->GetParameter(TxParameterID::LibraryVersion);
 
+
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
             if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
@@ -135,10 +136,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(amount) 
             {
+                LOG_DEBUG() << "amount(" << *amount << ")";
+
                 setLongField(env, TransactionParametersClass, jParameters, "amount", *amount);
             }
             else 
             {
+                LOG_DEBUG() << "amount not found";
+
                 setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
             }
 
@@ -240,7 +245,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     params.SetParameter(TxParameterID::LibraryVersion, std::string(PROJECT_VERSION));
 
     if (amount > 0) {
-        params.SetParameter(TxParameterID::Amount, amount);
+        uint64_t bAmount = amount;
+        params.SetParameter(TxParameterID::Amount, bAmount);
     }
     
     if (maxPrivacy) {

@@ -660,7 +660,7 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (auto it = vm.find(cli::VOUCHER_COUNT); it != vm.end())
+        if (auto it = vm.find(cli::MAX_PRIVACY_OFFLINE); it != vm.end())
         {
             auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
@@ -677,7 +677,7 @@ namespace
         TxParameters params;
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY) != vm.end()) || (vm.find(cli::VOUCHER_COUNT) != vm.end());
+        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY_ONLINE) != vm.end()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
@@ -699,11 +699,6 @@ namespace
             if (address->isExpired())
             {
                 LOG_ERROR() << "Cannot generate token, address is expired";
-                return -1;
-            }
-            if (isMaxPrivacyToken && !address->isPermanent())
-            {
-                LOG_ERROR() << "Cannot generate token, address is not permanent";
                 return -1;
             }
         }
@@ -2086,44 +2081,37 @@ namespace
                     CheckAssetsAllowed(vm);
                 }
 
-                std::vector<Coin> vSelStd;
-                std::vector<ShieldedCoin> vSelShielded;
-                walletDB->selectCoins2(amount + fee, assetId, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+                auto params = CreateSimpleTransactionParameters();
+                LoadReceiverParams(vm, params);
+                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
+                bool isShielded = type && *type == TxType::PushTransaction;
 
-                Amount minFee = kMinFeeInGroth;
-                Amount shieldedFee = 0;
-                if (!vSelShielded.empty())
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, fee, isShielded);
+
+                if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
                 {
-                    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+                    LOG_ERROR() << kErrorNotEnoughtCoins;
+                    return -1;
+                }
 
-                    if (sum < amount + fee) 
+                if (coinSelectionRes.minimalFee > fee)
+                {
+                    if (isShielded && !coinSelectionRes.shieldedInputsFee)
                     {
-                        LOG_ERROR() << kErrorNotEnoughtCoins;
-                        return -1;
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
                     }
-
-                    TxStats ts;
-                    ts.m_Outputs = sum > amount ? 2 : 1;
-                    ts.m_InputsShielded = vSelShielded.size();
-                    ts.m_Kernels = 1 + ts.m_InputsShielded;
-
-                    Transaction::FeeSettings fs;
-                    minFee = fs.Calculate(ts);
-                    shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
-
-                    if (fee < minFee)
+                    else
                     {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % minFee;;
-                        return -1;
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
                     }
+                    return -1;
                 }
 
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                auto params = CreateSimpleTransactionParameters();
-                LoadReceiverParams(vm, params);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, !!shieldedFee ? fee - shieldedFee : fee)
+                    // fee for shielded inputs included automaticaly
+                    .SetParameter(TxParameterID::Fee, !!coinSelectionRes.shieldedInputsFee ? fee - coinSelectionRes.shieldedInputsFee : fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);
