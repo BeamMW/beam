@@ -179,6 +179,7 @@ namespace bvm {
 		void DoXor(const Ptr&, const uint8_t*, Type::Size nSize);
 		void DoCmp(const uint8_t*, const uint8_t*, Type::Size nSize);
 		void DoAdd(const Ptr&, const uint8_t*, Type::Size nSize);
+		void DoAdd(uint8_t*, const uint8_t*, Type::Size nSize);
 		void DoSub(const Ptr&, const uint8_t*, Type::Size nSize);
 		void DoJmp(const Type::uintSize&);
 
@@ -209,7 +210,7 @@ namespace bvm {
 		void LogDeref();
 		void LogVarName(const char* szName);
 		void LogVarEnd();
-		void PushFrame(const Type::uintSize& frame);
+		void PushFrame(const Type::uintSize& nFrame_);
 
 		template <bool>
 		void TestStackPtr(Type::Size);

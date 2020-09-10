@@ -15,25 +15,25 @@
 #pragma once
 
 #define BVMOp_mov(macro) \
-	macro(dst, p) \
-	macro(src, p) \
-	macro(size, f2)
+	macro(pDst, p) \
+	macro(pSrc, p) \
+	macro(nSize, f2)
 
 #define BVMOp_mov1(macro) \
-	macro(dst, p) \
-	macro(src, f1)
+	macro(pDst, p) \
+	macro(nSrc, f1)
 
 #define BVMOp_mov2(macro) \
-	macro(dst, p) \
-	macro(src, f2)
+	macro(pDst, p) \
+	macro(nSrc, f2)
 
 #define BVMOp_mov4(macro) \
-	macro(dst, p) \
-	macro(src, f4)
+	macro(pDst, p) \
+	macro(nSrc, f4)
 
 #define BVMOp_mov8(macro) \
-	macro(dst, p) \
-	macro(src, f8)
+	macro(pDst, p) \
+	macro(nSrc, f8)
 
 #define BVMOp_xor(macro) BVMOp_mov(macro)
 #define BVMOp_xor1(macro) BVMOp_mov1(macro)
@@ -56,7 +56,7 @@
 #define BVMOp_cmp(macro) \
 	macro(p1, p) \
 	macro(p2, p) \
-	macro(size, f2)
+	macro(nSize, f2)
 
 #define BVMOp_cmp1(macro) \
 	macro(a, f1) \
@@ -75,19 +75,19 @@
 	macro(b, f8)
 
 #define BVMOp_call(macro) \
-	macro(addr, f2) \
-	macro(frame, f2) \
+	macro(nAddr, f2) \
+	macro(nFrame, f2) \
 
 #define BVMOp_call_far(macro) \
-	macro(trgContract, p) \
+	macro(pContractID, p) \
 	macro(iMethod, f2) \
-	macro(frame, f2) \
+	macro(nFrame, f2) \
 
 #define BVMOp_getsp(macro) \
-	macro(res, p) \
+	macro(pRes, p) \
 
 #define BVMOp_jmp(macro) \
-	macro(addr, f2) \
+	macro(nAddr, f2) \
 
 #define BVMOp_jz(macro) BVMOp_jmp(macro)
 #define BVMOp_jnz(macro) BVMOp_jmp(macro)
@@ -103,25 +103,25 @@
 	macro(pPubKey, p)
 
 #define BVMOp_load_var(macro) \
-	macro(dst, p) \
+	macro(pDst, p) \
 	macro(pnDst, p) \
-	macro(key, p) \
+	macro(pKey, p) \
 	macro(nKey, f2)
 
 #define BVMOp_save_var(macro) \
-	macro(dst, p) \
+	macro(pDst, p) \
 	macro(nDst, f2) \
-	macro(key, p) \
+	macro(pKey, p) \
 	macro(nKey, f2)
 
 #define BVMOp_funds_lock(macro) \
-	macro(amount, f8) \
+	macro(nAmount, f8) \
 	macro(nAssetID, f4) \
 
 #define BVMOp_funds_unlock(macro) BVMOp_funds_lock(macro)
 
 #define BVMOp_ref_add(macro) \
-	macro(cid, p)
+	macro(pContractID, p)
 
 #define BVMOp_ref_release(macro) BVMOp_ref_add(macro)
 
@@ -131,12 +131,12 @@
 	macro(nMetaData, f2)
 
 #define BVMOp_asset_emit(macro) \
-	macro(aid, f4) \
-	macro(amount, f8) \
+	macro(nAid, f4) \
+	macro(nAmount, f8) \
 	macro(bEmit, f1)
 
 #define BVMOp_asset_destroy(macro) \
-	macro(aid, f4)
+	macro(nAid, f4)
 
 #define BVM_OpCodes(macro) \
 	macro(mov) \

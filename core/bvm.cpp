@@ -270,41 +270,41 @@ namespace bvm {
 		Test(!br.m_Value); // unused bits must be zero
 	}
 
-#define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name,
+#define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name##_,
 #define BVM_METHOD(method) void Processor::On_##method(BVMOp_##method(THE_MACRO_ParamDecl) Zero_)
 
 	BVM_METHOD(mov)
 	{
 		Type::Size nSize;
-		size.Export(nSize);
-		DoMov(dst, src.RGet<uint8_t>(nSize), nSize);
+		nSize_.Export(nSize);
+		DoMov(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
 	}
 
-	BVM_METHOD(mov1) { DoMov(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(mov2) { DoMov(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(mov4) { DoMov(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(mov8) { DoMov(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(mov1) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(mov2) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(mov4) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(mov8) { DoMov(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
 
-	void Processor::DoMov(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	void Processor::DoMov(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
 	{
-		memmove(dst.WGet<uint8_t>(nSize), pSrc, nSize);
+		memmove(pDst_.WGet<uint8_t>(nSize), pSrc, nSize);
 	}
 
 	BVM_METHOD(xor)
 	{
 		Type::Size nSize;
-		size.Export(nSize);
-		DoXor(dst, src.RGet<uint8_t>(nSize), nSize);
+		nSize_.Export(nSize);
+		DoXor(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
 	}
 
-	BVM_METHOD(xor1) { DoXor(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(xor2) { DoXor(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(xor4) { DoXor(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(xor8) { DoXor(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(xor1) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(xor2) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(xor4) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(xor8) { DoXor(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
 
-	void Processor::DoXor(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	void Processor::DoXor(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
 	{
-		auto* pDst = dst.WGet<uint8_t>(nSize);
+		auto* pDst = pDst_.WGet<uint8_t>(nSize);
 
 		for (uint32_t i = 0; i < nSize; i++)
 			pDst[i] ^= pSrc[i];
@@ -313,15 +313,15 @@ namespace bvm {
 	BVM_METHOD(cmp)
 	{
 		Type::Size nSize;
-		size.Export(nSize);
+		nSize_.Export(nSize);
 
-		DoCmp(p1.RGet<uint8_t>(nSize), p2.RGet<uint8_t>(nSize), nSize);
+		DoCmp(p1_.RGet<uint8_t>(nSize), p2_.RGet<uint8_t>(nSize), nSize);
 	}
 
-	BVM_METHOD(cmp1) { DoCmp(a.m_pData, b.m_pData, b.nBytes); }
-	BVM_METHOD(cmp2) { DoCmp(a.m_pData, b.m_pData, b.nBytes); }
-	BVM_METHOD(cmp4) { DoCmp(a.m_pData, b.m_pData, b.nBytes); }
-	BVM_METHOD(cmp8) { DoCmp(a.m_pData, b.m_pData, b.nBytes); }
+	BVM_METHOD(cmp1) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
+	BVM_METHOD(cmp2) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
+	BVM_METHOD(cmp4) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
+	BVM_METHOD(cmp8) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
 
 	void Processor::DoCmp(const uint8_t* p1, const uint8_t* p2, Type::Size nSize)
 	{
@@ -332,39 +332,44 @@ namespace bvm {
 	BVM_METHOD(add)
 	{
 		Type::Size nSize;
-		size.Export(nSize);
-		DoAdd(dst, src.RGet<uint8_t>(nSize), nSize);
+		nSize_.Export(nSize);
+		DoAdd(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
 	}
 
-	BVM_METHOD(add1) { DoAdd(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(add2) { DoAdd(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(add4) { DoAdd(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(add8) { DoAdd(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(add1) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(add2) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(add4) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(add8) { DoAdd(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
 
-	void Processor::DoAdd(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	void Processor::DoAdd(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
+	{
+		DoAdd(pDst_.WGet<uint8_t>(nSize), pSrc, nSize);
+	}
+
+	void Processor::DoAdd(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize)
 	{
 		struct Dummy :public uintBigImpl {
-			static uint8_t Do(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize) {
-				return _Inc(dst.WGet<uint8_t>(nSize), nSize, pSrc);
+			static uint8_t Do(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize) {
+				return _Inc(pDst, nSize, pSrc);
 			}
 		};
 
-		m_Flags = Dummy::Do(dst, pSrc, nSize);
+		m_Flags = Dummy::Do(pDst, pSrc, nSize);
 	}
 
 	BVM_METHOD(sub)
 	{
 		Type::Size nSize;
-		size.Export(nSize);
-		DoSub(dst, src.RGet<uint8_t>(nSize), nSize);
+		nSize_.Export(nSize);
+		DoSub(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize);
 	}
 
-	BVM_METHOD(sub1) { DoSub(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(sub2) { DoSub(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(sub4) { DoSub(dst, src.m_pData, src.nBytes); }
-	BVM_METHOD(sub8) { DoSub(dst, src.m_pData, src.nBytes); }
+	BVM_METHOD(sub1) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(sub2) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(sub4) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
+	BVM_METHOD(sub8) { DoSub(pDst_, nSrc_.m_pData, nSrc_.nBytes); }
 
-	void Processor::DoSub(const Ptr& dst, const uint8_t* pSrc, Type::Size nSize)
+	void Processor::DoSub(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize)
 	{
 		struct Dummy :public uintBigImpl {
 			static void Neg(uint8_t* p, Type::Size n)
@@ -378,56 +383,56 @@ namespace bvm {
 			}
 		};
 
-		auto* pDst = dst.WGet<uint8_t>(nSize);
+		auto* pDst = pDst_.WGet<uint8_t>(nSize);
 
 		Dummy::Neg(pDst, nSize);
-		DoAdd(dst, pSrc, nSize);
+		DoAdd(pDst, pSrc, nSize);
 		Dummy::Neg(pDst, nSize);
 	}
 
 	BVM_METHOD(getsp)
 	{
-		*res.WGet<Type::uintSize>() = m_Sp;
+		*pRes_.WGet<Type::uintSize>() = m_Sp;
 	}
 
 	BVM_METHOD(jmp) {
-		DoJmp(addr);
+		DoJmp(nAddr_);
 	}
 	BVM_METHOD(jz) {
 		if (!m_Flags)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 	BVM_METHOD(jnz) {
 		if (m_Flags)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 	BVM_METHOD(jg) {
 		if (m_Flags > 0)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 	BVM_METHOD(jb) {
 		if (m_Flags < 0)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 	BVM_METHOD(jgz) {
 		if (m_Flags >= 0)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 	BVM_METHOD(jbz) {
 		if (m_Flags <= 0)
-			DoJmp(addr);
+			DoJmp(nAddr_);
 	}
 
-	void Processor::DoJmp(const Type::uintSize& addr)
+	void Processor::DoJmp(const Type::uintSize& nAddr_)
 	{
-		addr.Export(m_Ip);
+		nAddr_.Export(m_Ip);
 		Test(m_Ip < m_Data.n);
 	}
 
-	void Processor::PushFrame(const Type::uintSize& frame)
+	void Processor::PushFrame(const Type::uintSize& nFrame_)
 	{
 		Type::Size nFrame;
-		frame.Export(nFrame);
+		nFrame_.Export(nFrame);
 
 		m_Sp += nFrame;
 
@@ -435,7 +440,7 @@ namespace bvm {
 		SetPtrStack(ptr, m_Sp);
 		auto* pFrame = ptr.WGet<StackFrame>();
 
-		pFrame->m_Prev = frame;
+		pFrame->m_Prev = nFrame_;
 		pFrame->m_RetAddr = m_Ip;
 
 		m_Sp += sizeof(StackFrame);
@@ -444,20 +449,20 @@ namespace bvm {
 
 	BVM_METHOD(call)
 	{
-		PushFrame(frame);
-		DoJmp(addr);
+		PushFrame(nFrame_);
+		DoJmp(nAddr_);
 		m_FarCalls.m_Stack.back().m_LocalDepth++;
 	}
 
 	BVM_METHOD(call_far)
 	{
-		PushFrame(frame);
+		PushFrame(nFrame_);
 
-		const auto* pID = trgContract.RGet<ContractID>();
-		Type::Size nM;
-		iMethod.Export(nM);
+		const auto* pID = pContractID_.RGet<ContractID>();
+		Type::Size iMethod;
+		iMethod_.Export(iMethod);
 
-		CallFar(*pID, nM);
+		CallFar(*pID, iMethod);
 	}
 
 	BVM_METHOD(fail) {
@@ -531,15 +536,15 @@ namespace bvm {
 	BVM_METHOD(load_var)
 	{
 		VarKey vk;
-		SetVarKey(vk, key, nKey);
+		SetVarKey(vk, pKey_, nKey_);
 
-		auto* pSizeDst = pnDst.WGet<Type::uintSize>();
+		auto* pSizeDst = pnDst_.WGet<Type::uintSize>();
 
 		Type::Size nDst_;
 		pSizeDst->Export(nDst_);
 		Test(nDst_ <= Limits::VarSize);
 
-		LoadVar(vk, dst.WGet<uint8_t>(nDst_), nDst_);
+		LoadVar(vk, pDst_.WGet<uint8_t>(nDst_), nDst_);
 
 		*pSizeDst = nDst_;
 	}
@@ -547,52 +552,52 @@ namespace bvm {
 	BVM_METHOD(save_var)
 	{
 		VarKey vk;
-		SetVarKey(vk, key, nKey);
+		SetVarKey(vk, pKey_, nKey_);
 
-		Type::Size nDst_;
-		nDst.Export(nDst_);
-		Test(nDst_ <= Limits::VarSize);
+		Type::Size nDst;
+		nDst_.Export(nDst);
+		Test(nDst <= Limits::VarSize);
 
-		bool b = SaveVar(vk, dst.RGet<uint8_t>(nDst_), nDst_);
+		bool b = SaveVar(vk, pDst_.RGet<uint8_t>(nDst), nDst);
 		m_Flags = !!b;
 	}
 
 	BVM_METHOD(add_sig)
 	{
 		if (m_pSigValidate)
-			AddSigInternal(*pPubKey.RGet<ECC::Point>());
+			AddSigInternal(*pPubKey_.RGet<ECC::Point>());
 	}
 
 	BVM_METHOD(funds_lock)
 	{
-		HandleAmount(amount, nAssetID, true);
+		HandleAmount(nAmount_, nAssetID_, true);
 	}
 
 	BVM_METHOD(funds_unlock)
 	{
-		HandleAmount(amount, nAssetID, false);
+		HandleAmount(nAmount_, nAssetID_, false);
 	}
 
 	BVM_METHOD(ref_add)
 	{
-		HandleRef(cid, true);
+		HandleRef(pContractID_, true);
 	}
 
 	BVM_METHOD(ref_release)
 	{
-		HandleRef(cid, false);
+		HandleRef(pContractID_, false);
 	}
 
 	BVM_METHOD(asset_create)
 	{
-		auto& aid = *pAid.WGet<uintBigFor<Asset::ID>::Type>();
+		auto& aid = *pAid_.WGet<uintBigFor<Asset::ID>::Type>();
 
 		Type::Size n;
-		nMetaData.Export(n);
+		nMetaData_.Export(n);
 		Test(n && (n <= Asset::Info::s_MetadataMaxSize));
 
 		Asset::Metadata md;
-		Blob(pMetaData.RGet<uint8_t>(n), n).Export(md.m_Value);
+		Blob(pMetaData_.RGet<uint8_t>(n), n).Export(md.m_Value);
 		md.UpdateHash();
 
 		AssetVar av;
@@ -631,15 +636,15 @@ namespace bvm {
 	BVM_METHOD(asset_emit)
 	{
 		AssetVar av;
-		Asset::ID nAssetID = get_AssetStrict(av, aid);
+		Asset::ID nAssetID = get_AssetStrict(av, nAid_);
 
 		Amount val;
-		amount.Export(val);
+		nAmount_.Export(val);
 
 		AmountSigned valS(val);
 		Test(valS >= 0);
 
-		bool bConsume = (bEmit == Zero);
+		bool bConsume = (bEmit_ == Zero);
 		if (bConsume)
 		{
 			valS = -valS;
@@ -650,13 +655,13 @@ namespace bvm {
 		m_Flags = !!b;
 
 		if (b)
-			HandleAmountInner(amount, aid, !bConsume);
+			HandleAmountInner(nAmount_, nAid_, !bConsume);
 	}
 
 	BVM_METHOD(asset_destroy)
 	{
 		AssetVar av;
-		Asset::ID nAssetID = get_AssetStrict(av, aid);
+		Asset::ID nAssetID = get_AssetStrict(av, nAid_);
 
 		bool b = AssetDestroy(nAssetID, av.m_Owner);
 		m_Flags = !!b;
