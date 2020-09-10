@@ -363,6 +363,8 @@ namespace bvm {
 		void BwFlushStrict();
 		void BwAdd(uint8_t);
 
+		static uint8_t IsPtrPrefix(char);
+
 	public:
 
 		struct MyBlob

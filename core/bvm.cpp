@@ -896,6 +896,18 @@ namespace bvm {
 			m_Result.push_back(val.m_pData[i]);
 	}
 
+	uint8_t Compiler::IsPtrPrefix(char ch)
+	{
+		switch (ch)
+		{
+		case 's':
+		case 'd':
+		case 'p':
+			return true;
+		}
+		return false;
+	}
+
 	void Compiler::ParseParam_Ptr(MyBlob& line)
 	{
 		MyBlob x;
@@ -905,25 +917,16 @@ namespace bvm {
 			Fail("");
 
 		uint8_t p1 = *x.p;
-		switch (p1)
-		{
-		case 's':
-		case 'd':
-			break;
-		default:
+		if (!IsPtrPrefix(p1))
 			Fail("");
-		}
 
 		x.Move1();
 
 		uint8_t p2 = *x.p;
-		uint8_t bIndirect = 0;
-		switch (p2)
+		uint8_t bIndirect = IsPtrPrefix(p2);
+		if (bIndirect)
 		{
-		case 's':
-		case 'd':
 			x.Move1();
-			bIndirect = 1;
 			std::swap(p1, p2);
 		}
 
@@ -1024,14 +1027,10 @@ namespace bvm {
 			Fail("");
 
 		uint8_t p1 = *x.p;
-		uint8_t bIndirect = 0;
-		switch (p1)
+		uint8_t bIndirect = IsPtrPrefix(p1);
+		if (bIndirect)
 		{
-		case 's':
-		case 'd':
 			x.Move1();
-			bIndirect = 1;
-
 			if (!x.n)
 				Fail("");
 		}
