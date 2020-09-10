@@ -111,8 +111,6 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
     Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
 
     ts.m_Outputs = sum > requestedSum + requestedFee + shieldedOutputsFee ? 2 : 1;
-    if(isPushTx)
-        --ts.m_Outputs;
     ts.m_InputsShielded = vSelShielded.size();
     ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
 
