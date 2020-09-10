@@ -179,7 +179,9 @@ namespace bvm {
 		macro(mov) \
 		macro(add) \
 		macro(sub) \
-		macro(xor)
+		macro(xor) \
+		macro(or) \
+		macro(and) \
 
 #define THE_MACRO(name) \
 		void On_##name(uint8_t*, const uint8_t*, Type::Size nSize); \

@@ -41,6 +41,18 @@
 #define BVMOp_xor4(macro) BVMOp_mov4(macro)
 #define BVMOp_xor8(macro) BVMOp_mov8(macro)
 
+#define BVMOp_or(macro) BVMOp_mov(macro)
+#define BVMOp_or1(macro) BVMOp_mov1(macro)
+#define BVMOp_or2(macro) BVMOp_mov2(macro)
+#define BVMOp_or4(macro) BVMOp_mov4(macro)
+#define BVMOp_or8(macro) BVMOp_mov8(macro)
+
+#define BVMOp_and(macro) BVMOp_mov(macro)
+#define BVMOp_and1(macro) BVMOp_mov1(macro)
+#define BVMOp_and2(macro) BVMOp_mov2(macro)
+#define BVMOp_and4(macro) BVMOp_mov4(macro)
+#define BVMOp_and8(macro) BVMOp_mov8(macro)
+
 #define BVMOp_add(macro) BVMOp_mov(macro)
 #define BVMOp_add1(macro) BVMOp_mov1(macro)
 #define BVMOp_add2(macro) BVMOp_mov2(macro)
@@ -149,6 +161,16 @@
 	macro(xor2) \
 	macro(xor4) \
 	macro(xor8) \
+	macro(or) \
+	macro(or1) \
+	macro(or2) \
+	macro(or4) \
+	macro(or8) \
+	macro(and) \
+	macro(and1) \
+	macro(and2) \
+	macro(and4) \
+	macro(and8) \
 	macro(cmp) \
 	macro(cmp1) \
 	macro(cmp2) \

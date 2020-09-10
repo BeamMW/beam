@@ -357,6 +357,18 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		Dummy::Neg(pDst, nSize);
 	}
 
+	BVM_METHOD_BinaryVar(or)
+	{
+		for (Type::Size i = 0; i < nSize; i++)
+			pDst[i] |= pSrc[i];
+	}
+
+	BVM_METHOD_BinaryVar(and)
+	{
+		for (Type::Size i = 0; i < nSize; i++)
+			pDst[i] &= pSrc[i];
+	}
+
 	BVM_METHOD(getsp)
 	{
 		*pRes_.WGet<Type::uintSize>() = m_Sp;
