@@ -125,7 +125,14 @@ namespace bvm {
 
 	void Processor::FetchPtr(BitReader& br, Ptr& out, const Type::uintSize& addr)
 	{
+		uint8_t nRel = 1;
 		uint8_t bData = FetchBit(br); // data or stack
+		if (bData)
+		{
+			nRel = FetchBit(br); // data or stack absolute?
+			if (!nRel)
+				bData = 0;
+		}
 
 		Type::Size n;
 		addr.Export(n);
@@ -133,10 +140,14 @@ namespace bvm {
 		if (bData)
 			SetPtrData(out, n);
 		else
+		{
+			if (nRel)
+				n += m_Sp; // wraparound is ok, negative stack offsets are allowed
 			SetPtrStack(out, n);
+		}
 
 		if (m_pDbg)
-			*m_pDbg << (bData ? 'd' : 's') << static_cast<int>(out.p - (bData ? m_Data.p : (m_pStack + m_Sp)));
+			*m_pDbg << (bData ? 'd' : nRel ? 's' : 'p') << static_cast<int>(out.p - (bData ? m_Data.p : (m_pStack + m_Sp)));
 	}
 
 	void Processor::LogDeref()
@@ -166,8 +177,6 @@ namespace bvm {
 
 	void Processor::SetPtrStack(Ptr& out, Type::Size n)
 	{
-		n += m_Sp; // wraparound is ok, negative stack offsets are allowed
-
 		constexpr bool bAlwaysInRage = (static_cast<Type::Size>(-1) <= Limits::StackSize);
 		TestStackPtr<!bAlwaysInRage>(n);
 
@@ -420,14 +429,16 @@ namespace bvm {
 		Type::Size nFrame;
 		frame.Export(nFrame);
 
+		m_Sp += nFrame;
+
 		Ptr ptr;
-		SetPtrStack(ptr, nFrame);
+		SetPtrStack(ptr, m_Sp);
 		auto* pFrame = ptr.WGet<StackFrame>();
 
 		pFrame->m_Prev = frame;
 		pFrame->m_RetAddr = m_Ip;
 
-		m_Sp += nFrame + sizeof(StackFrame);
+		m_Sp += sizeof(StackFrame);
 		LogStackPtr();
 	}
 
@@ -1148,6 +1159,9 @@ namespace bvm {
 	{
 		uint8_t n = ('s' != p);
 		BwAdd(n);
+
+		if (n)
+			BwAdd('d' == p);
 	}
 
 	void Compiler::BwAdd(uint8_t x)
