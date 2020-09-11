@@ -369,6 +369,43 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 			pDst[i] &= pSrc[i];
 	}
 
+	BVM_METHOD(mul_ex)
+	{
+		Type::Size nDst, nSrc1, nSrc2;
+		nDst_.Export(nDst);
+		nSrc1_.Export(nSrc1);
+		nSrc2_.Export(nSrc2);
+
+		struct Dummy :public uintBigImpl {
+			static void Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1) {
+				_Mul(pDst, nDst, pSrc0, nSrc0, pSrc1, nSrc1);
+			}
+		};
+
+		Dummy::Do(pDst_.WGet<uint8_t>(nDst), nDst, pSrc1_.RGet<uint8_t>(nSrc1), nSrc1, pSrc2_.RGet<uint8_t>(nSrc2), nSrc2);
+	}
+
+	BVM_METHOD(div_ex)
+	{
+		Type::Size nDst, nSrc1, nSrc2;
+		nDst_.Export(nDst);
+		nSrc1_.Export(nSrc1);
+		nSrc2_.Export(nSrc2);
+
+		ByteBuffer buf;
+		buf.resize(nSrc1 * 2);
+
+		uint8_t* pMul = buf.empty() ? nullptr : &buf.front();
+
+		struct Dummy :public uintBigImpl {
+			static void Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1, uint8_t* pMul, uint8_t* pTmp) {
+				_Div(pDst, nDst, pSrc0, nSrc0, pSrc1, nSrc1, pMul, pTmp);
+			}
+		};
+
+		Dummy::Do(pDst_.WGet<uint8_t>(nDst), nDst, pSrc1_.RGet<uint8_t>(nSrc1), nSrc1, pSrc2_.RGet<uint8_t>(nSrc2), nSrc2, pMul, pMul + nSrc1);
+	}
+
 	BVM_METHOD(getsp)
 	{
 		*pRes_.WGet<Type::uintSize>() = m_Sp;

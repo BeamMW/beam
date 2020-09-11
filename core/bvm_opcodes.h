@@ -65,6 +65,16 @@
 #define BVMOp_sub4(macro) BVMOp_mov4(macro)
 #define BVMOp_sub8(macro) BVMOp_mov8(macro)
 
+#define BVMOp_mul_ex(macro) \
+	macro(pDst, p) \
+	macro(nDst, f2) \
+	macro(pSrc1, p) \
+	macro(nSrc1, f2) \
+	macro(pSrc2, p) \
+	macro(nSrc2, f2) \
+
+#define BVMOp_div_ex(macro) BVMOp_mul_ex(macro)
+
 #define BVMOp_cmp(macro) \
 	macro(p1, p) \
 	macro(p2, p) \
@@ -193,6 +203,8 @@
 	macro(sub2) \
 	macro(sub4) \
 	macro(sub8) \
+	macro(mul_ex) \
+	macro(div_ex) \
 	macro(load_var) \
 	macro(save_var) \
 	macro(call) \
