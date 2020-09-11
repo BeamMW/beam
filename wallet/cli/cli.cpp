@@ -672,12 +672,13 @@ namespace
         }
     }
 
-    int GetToken(const po::variables_map& vm)
+    int GetAddress(const po::variables_map& vm)
     {
         TxParameters params;
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY_ONLINE) != vm.end()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
+        auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
+        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
@@ -2086,7 +2087,11 @@ namespace
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
                 bool isShielded = type && *type == TxType::PushTransaction;
 
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, fee, isShielded);
+                Transaction::FeeSettings fs;
+                Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
+                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
 
                 if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
                 {
@@ -2500,7 +2505,7 @@ int main_impl(int argc, char* argv[])
         {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
         {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
-        {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
+        {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
 #ifdef BEAM_LASER_SUPPORT   
