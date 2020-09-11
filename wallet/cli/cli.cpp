@@ -2112,6 +2112,24 @@ namespace
                     return -1;
                 }
 
+                if (isShielded)
+                {
+                    const auto& ownAddresses = walletDB->getAddresses(true);
+                    auto it = std::find_if(
+                        ownAddresses.begin(), ownAddresses.end(),
+                        [&receiverWalletID] (const WalletAddress& addr)
+                        {
+                            return receiverWalletID == addr.m_walletID;
+                        });
+
+                    if (it != ownAddresses.end())
+                    {
+                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
+                        return -1;
+                    }
+                }
+
+
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
