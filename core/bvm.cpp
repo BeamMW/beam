@@ -550,11 +550,10 @@ namespace bvm {
 	{
 		PushFrame(nFrame_);
 
-		const auto* pID = pContractID_.RGet<ContractID>();
 		Type::Size iMethod;
 		iMethod_.Export(iMethod);
 
-		CallFar(*pID, iMethod);
+		CallFar(cid_, iMethod);
 	}
 
 	BVM_METHOD(fail) {
@@ -655,7 +654,7 @@ namespace bvm {
 	BVM_METHOD(add_sig)
 	{
 		if (m_pSigValidate)
-			AddSigInternal(*pPubKey_.RGet<ECC::Point>());
+			AddSigInternal(Cast::Reinterpret<ECC::Point>(pk_));
 	}
 
 	BVM_METHOD(funds_lock)
@@ -670,12 +669,12 @@ namespace bvm {
 
 	BVM_METHOD(ref_add)
 	{
-		HandleRef(pContractID_, true);
+		HandleRef(cid_, true);
 	}
 
 	BVM_METHOD(ref_release)
 	{
-		HandleRef(pContractID_, false);
+		HandleRef(cid_, false);
 	}
 
 	BVM_METHOD(asset_create)
@@ -969,12 +968,10 @@ namespace bvm {
 		return ret;
 	}
 
-	void Processor::HandleRef(const Ptr& cid_, bool bAdd)
+	void Processor::HandleRef(const ContractID& cid, bool bAdd)
 	{
 		if (bAdd)
 			m_Flags = 1;
-
-		const auto& cid = *cid_.RGet<ContractID>();
 
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::Refs, cid);

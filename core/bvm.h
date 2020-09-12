@@ -276,7 +276,7 @@ namespace bvm {
 		void SetAssetKey(AssetVar&, const uintBigFor<Asset::ID>::Type&);
 
 	private:
-		void HandleRef(const Ptr&, bool bAdd);
+		void HandleRef(const ContractID&, bool bAdd);
 		bool HandleRefRaw(const VarKey&, bool bAdd);
 
 	public:

@@ -46,7 +46,7 @@
 	macro(nFrame, r,2) \
 
 #define BVMOp_call_far(macro) \
-	macro(pContractID, r,v) \
+	macro(cid, r,32) \
 	macro(iMethod, r,2) \
 	macro(nFrame, r,2) \
 
@@ -67,7 +67,7 @@
 #define BVMOp_ret(macro)
 
 #define BVMOp_add_sig(macro) \
-	macro(pPubKey, r,v)
+	macro(pk, r,33)
 
 #define BVMOp_load_var(macro) \
 	macro(pDst, w,v) \
@@ -88,7 +88,7 @@
 #define BVMOp_funds_unlock(macro) BVMOp_funds_lock(macro)
 
 #define BVMOp_ref_add(macro) \
-	macro(pContractID, r,v)
+	macro(cid, r,32)
 
 #define BVMOp_ref_release(macro) BVMOp_ref_add(macro)
 
