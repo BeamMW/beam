@@ -178,6 +178,7 @@ namespace bvm {
 		void LogDeref();
 		void LogOpCode(const char*);
 		void LogVarName(const char* szName);
+		void LogValue(const Ptr&);
 		void LogVarEnd();
 		void PushFrame(const Type::uintSize& nFrame_);
 
@@ -382,7 +383,7 @@ namespace bvm {
 		void ParseLine(MyBlob&);
 
 		Type::Size ParseSizeX(MyBlob&);
-		void TestSizeX(Type::Size, bool);
+		void WriteSizeX(Type::Size, bool);
 		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
 
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);

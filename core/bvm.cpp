@@ -177,6 +177,18 @@ namespace bvm {
 			*m_pDbg << ", ";
 	}
 
+	void Processor::LogValue(const Ptr& x)
+	{
+		struct Dummy :public uintBigImpl {
+			static void Do(const uint8_t* pDst, uint32_t nDst, std::ostream& os) {
+				_Print(pDst, nDst, os);
+			}
+		};
+
+		if (m_pDbg)
+			Dummy::Do(x.p, x.n, *m_pDbg);
+	}
+
 	template <> void Processor::TestStackPtr<true>(Type::Size n) {
 		Test(n <= Limits::StackSize);
 	}
@@ -204,22 +216,19 @@ namespace bvm {
 
 	Type::Size Processor::FetchSizeX(BitReader& br, bool bSizeX)
 	{
-		Type::Size ret = 0;
-		if (bSizeX && FetchBit(br))
-		{
-			// 3-bit code
-			uint8_t n = FetchBit(br);
-			n = (n << 1) | FetchBit(br);
+		if (!bSizeX || !FetchBit(br))
+			return 0;
 
-			return ((Type::Size) 1) << n;
-		}
+		// 2-bit code
+		uint8_t n = FetchBit(br);
+		n = (n << 1) | FetchBit(br);
 
-		return ret;
+		return ((Type::Size) 1) << n;
 	}
 
 	int Processor::FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX)
 	{
-		bool bCanInline = !bW;
+		bool bCanInline = !bW && (nSize >= 0);
 
 		if (!nSize)
 		{
@@ -229,25 +238,33 @@ namespace bvm {
 				int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
 				out.RGet<Type::uintSize>()->Export(nSizeX);
 
-				if (!nSizeX && !nInd)
-				{
-					ZeroObject(out);
-					return 0;
-				}
-
 				if (nInd)
 					bCanInline = false;
+				else
+				{
+					if (!nSizeX)
+					{
+						if (m_pDbg)
+							*m_pDbg << '-';
+
+						ZeroObject(out); // skipped
+						return 0;
+					}
+				}
+
 			}
 
 			nSize = nSizeX;
 		}
 
-		if ((nSize > 0) && bCanInline && FetchBit(br))
+		if (bCanInline && FetchBit(br))
 		{
 			// inline
 			out.m_Writable = false;
 			out.p = Cast::NotConst(FetchInstruction(static_cast<Type::Size>(nSize)));
 			out.n = nSize;
+
+			LogValue(out);
 
 			return 0;
 		}
@@ -272,6 +289,9 @@ namespace bvm {
 		{
 			Test(out.n >= static_cast<uint32_t>(nSize));
 			out.n = static_cast<uint32_t>(nSize);
+
+			LogDeref();
+			LogValue(out);
 		}
 
 		return res;
@@ -1146,6 +1166,8 @@ namespace bvm {
 
 	uint8_t* Compiler::ParseOperand(MyBlob& line, bool bW, int nLen, Type::Size nSizeX)
 	{
+		bool bCanInline = !bW && (nLen >= 0);
+
 		if (!nLen)
 		{
 			if (!nSizeX)
@@ -1156,8 +1178,10 @@ namespace bvm {
 				{
 					reinterpret_cast<Type::uintSize*>(pInl)->Export(nSizeX);
 					if (!nSizeX)
-						return nullptr;
+						return nullptr; // skipped
 				}
+				else
+					bCanInline = false;
 			}
 
 			nLen = nSizeX;
@@ -1170,9 +1194,13 @@ namespace bvm {
 			Fail("");
 
 		uint8_t p1 = *x.p;
-		if (!IsPtrPrefix(p1))
+		uint8_t bIsInline = !IsPtrPrefix(p1);
+		if (bCanInline)
+			BwAdd(bIsInline);
+
+		if (bIsInline)
 		{
-			if ((nLen <= 0) || bW)
+			if (!bCanInline)
 				Fail("can't inline operand");
 
 			size_t n0 = m_Result.size();
@@ -1372,7 +1400,7 @@ namespace bvm {
 			m_Result.push_back(static_cast<uint8_t>(Processor::OpCodesImpl::OpCode::n_##name)); \
  \
 			constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
-			TestSizeX(nSizeX, bSizeX); \
+			WriteSizeX(nSizeX, bSizeX); \
  \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
@@ -1403,21 +1431,27 @@ namespace bvm {
 			return 0;
 		}
 
-		Type::Size ret = val;
 		opcode.n--;
-
-		m_Result.push_back(val >= 4);
-		if (val >= 4)
-			val >>= 2;
-		m_Result.push_back(val >= 2);
-
-		return ret;
+		return val;
 	}
 
-	void Compiler::TestSizeX(Type::Size n, bool b)
+	void Compiler::WriteSizeX(Type::Size n, bool b)
 	{
-		if (n && !b)
-			Fail("size modifier isn't needed for this opcode");
+		if (!b)
+		{
+			if (n)
+				Fail("size modifier isn't needed for this opcode");
+			return;
+		}
+
+		BwAdd(n >= 0);
+		if (n < 0)
+			return;
+
+		BwAdd(n >= 4);
+		if (n >= 4)
+			n >>= 2;
+		BwAdd(n >= 2);
 	}
 
 	void Compiler::BwFlushStrict()
