@@ -702,6 +702,11 @@ namespace
                 LOG_ERROR() << "Cannot generate token, address is expired";
                 return -1;
             }
+            if (!address->isPermanent())
+            {
+                LOG_ERROR() << "The address expiration time must be never.";
+                return -1;
+            }
         }
         else if (isMaxPrivacyToken)
         {
@@ -726,7 +731,7 @@ namespace
         {
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
         }
-        LOG_INFO() << "token: " << to_string(params);
+        LOG_INFO() << "address: " << to_string(params);
         return 0;
     }
 
@@ -1349,7 +1354,7 @@ namespace
                     % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
                     % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
                     % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                    % boost::io::group(left, setw(columnWidths[6]), kTxToken)
+                    % boost::io::group(left, setw(columnWidths[6]), kTxAddress)
                     << std::endl;
 
                 for (auto& tx : txHistory) {
@@ -1498,7 +1503,7 @@ namespace
         LOG_INFO()
             << boost::format(kTxDetailsFormat) % txdetails % txstatus
             << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
-            << (!token.empty() ? "\nToken: " : "") << token;
+            << (!token.empty() ? "\nAddress: " : "") << token;
 
         return 0;
     }
@@ -2111,6 +2116,24 @@ namespace
                     }
                     return -1;
                 }
+
+                if (isShielded)
+                {
+                    const auto& ownAddresses = walletDB->getAddresses(true);
+                    auto it = std::find_if(
+                        ownAddresses.begin(), ownAddresses.end(),
+                        [&receiverWalletID] (const WalletAddress& addr)
+                        {
+                            return receiverWalletID == addr.m_walletID;
+                        });
+
+                    if (it != ownAddresses.end())
+                    {
+                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
+                        return -1;
+                    }
+                }
+
 
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)

@@ -257,7 +257,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     }
     
     if(nonInteractive) {
-        auto vouchers = walletModel->generateVouchers(ownId, 20);
+        auto vouchers = walletModel->generateVouchers(ownId, 10);
         if (!vouchers.empty())
         {
             params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);

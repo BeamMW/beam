@@ -99,6 +99,7 @@ namespace beam
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
     const char kErrorNotEnoughtCoins[] = "Not enought coins for this transaction parameters";
+    const char kErrorCantSendMaxPrivacyToOwn[] = "Can not sent max privacy transaction to own address";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -202,7 +203,7 @@ namespace beam
     const char kNoShieldedCoins[] = "No Shielded coins";
     const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
     const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
-    const char kTxToken[] = "token";
+    const char kTxAddress[] = "address";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";

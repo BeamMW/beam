@@ -99,6 +99,7 @@ namespace beam
     extern const char kErrorFileLocationParamReqired[];
     extern const char kErrorConnectionFailed[];
     extern const char kErrorNotEnoughtCoins[];
+    extern const char kErrorCantSendMaxPrivacyToOwn[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
@@ -194,7 +195,7 @@ namespace beam
     extern const char kTxHistoryEmpty[];
     extern const char kTxHistoryUnreliableTxs[];
     extern const char kTxHistoryUnreliableCoins[];
-    extern const char kTxToken[];
+    extern const char kTxAddress[];
     extern const char kNoCoins[];
     extern const char kNoShieldedCoins[];
     extern const char kSwapTxHistoryEmpty[];
