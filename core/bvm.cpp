@@ -1066,15 +1066,6 @@ namespace bvm {
 		return false;
 	}
 
-	bool Compiler::MyBlob::SkipPrefix(const char* p_, uint32_t n_)
-	{
-		if ((n < n_) || memcmp(p, p_, n_))
-			return false;
-
-		Move(n_);
-		return true;
-	}
-
 	void Compiler::MyBlob::ExtractToken(Buf& res, char chSep)
 	{
 		res.p = p;
@@ -1100,6 +1091,13 @@ namespace bvm {
 		while (n && IsWhitespace(p[n - 1]))
 			n--;
 
+	}
+
+	bool Compiler::MyBlob::operator == (const char* sz) const
+	{
+		return
+			!memcmp(p, sz, n) &&
+			!sz[n];
 	}
 
 	bool Compiler::ParseOnce()
@@ -1364,15 +1362,17 @@ namespace bvm {
 		constexpr bool r = false;
 		constexpr bool w = true;
 
+		Type::Size nSizeX = ParseSizeX(opcode);
+		nSizeX;
+
 #define THE_MACRO_ParamCompile(name, rw, len) ParseOperand(line, rw, len, nSizeX);
 #define THE_MACRO(name) \
-		if (opcode.SkipPrefix(#name, sizeof(#name) - 1)) \
+		if (opcode == #name) \
 		{ \
 			m_Result.push_back(static_cast<uint8_t>(Processor::OpCodesImpl::OpCode::n_##name)); \
  \
 			constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
-			Type::Size nSizeX = ParseSizeX(opcode, bSizeX); \
-			nSizeX; \
+			TestSizeX(nSizeX, bSizeX); \
  \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
@@ -1385,14 +1385,13 @@ namespace bvm {
 		Fail("Invalid instruction");
 	}
 
-	Type::Size Compiler::ParseSizeX(MyBlob& opcode, bool b)
+	Type::Size Compiler::ParseSizeX(MyBlob& opcode)
 	{
-		if (!b || !opcode.n)
+		if (!opcode.n)
 			return 0;
 
-		uint64_t num_ = ParseUnsignedRaw(opcode);
-
-		switch (num_)
+		uint8_t val = opcode.p[opcode.n - 1] - '0';
+		switch (val)
 		{
 		case 1:
 		case 2:
@@ -1401,18 +1400,24 @@ namespace bvm {
 			break;
 
 		default:
-			Fail("invalid size specifier");
+			return 0;
 		}
 
-		Type::Size num = static_cast<Type::Size>(num_);
-		Type::Size ret = num;
+		Type::Size ret = val;
+		opcode.n--;
 
-		m_Result.push_back(num >= 4);
-		if (num >= 4)
-			num >>= 2;
-		m_Result.push_back(num >= 2);
+		m_Result.push_back(val >= 4);
+		if (val >= 4)
+			val >>= 2;
+		m_Result.push_back(val >= 2);
 
 		return ret;
+	}
+
+	void Compiler::TestSizeX(Type::Size n, bool b)
+	{
+		if (n && !b)
+			Fail("size modifier isn't needed for this opcode");
 	}
 
 	void Compiler::BwFlushStrict()

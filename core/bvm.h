@@ -360,20 +360,13 @@ namespace bvm {
 			static bool IsWhitespace(char);
 
 			void ExtractToken(Buf& res, char chSep);
-			bool operator == (const char* sz) const
-			{
-				return
-					!memcmp(p, sz, n) &&
-					!sz[n];
-			}
+			bool operator == (const char* sz) const;
 
 			const Blob& as_Blob() const
 			{
 				static_assert(sizeof(*this) == sizeof(Blob));
 				return *reinterpret_cast<const Blob*>(this);
 			}
-
-			bool SkipPrefix(const char*, uint32_t n_);
 		};
 
 		uint32_t m_iLine = 0;
@@ -388,7 +381,8 @@ namespace bvm {
 	private:
 		void ParseLine(MyBlob&);
 
-		Type::Size ParseSizeX(MyBlob&, bool);
+		Type::Size ParseSizeX(MyBlob&);
+		void TestSizeX(Type::Size, bool);
 		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
 
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
