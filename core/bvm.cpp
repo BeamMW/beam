@@ -1444,8 +1444,8 @@ namespace bvm {
 			return;
 		}
 
-		BwAdd(n >= 0);
-		if (n < 0)
+		BwAdd(n > 0);
+		if (!n)
 			return;
 
 		BwAdd(n >= 4);
