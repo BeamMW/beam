@@ -70,16 +70,13 @@
 	macro(pk, r,33)
 
 #define BVMOp_load_var(macro) \
-	macro(pDst, w,v) \
-	macro(nDst, w,2) \
-	macro(pKey, r,v) \
-	macro(nKey, r,2)
+	macro(pDst, w,flexible) \
+	macro(pKey, r,flexible) \
+	macro(nValue, w,2) \
 
 #define BVMOp_save_var(macro) \
-	macro(pDst, r,v) \
-	macro(nDst, r,2) \
-	macro(pKey, r,v) \
-	macro(nKey, r,2)
+	macro(pDst, r,flexible) \
+	macro(pKey, r,flexible) \
 
 #define BVMOp_funds_lock(macro) \
 	macro(nAmount, r,8) \
@@ -94,8 +91,7 @@
 
 #define BVMOp_asset_create(macro) \
 	macro(nAid, w,4) \
-	macro(pMetaData, r,v) \
-	macro(nMetaData, r,2)
+	macro(pMetaData, r,flexible) \
 
 #define BVMOp_asset_emit(macro) \
 	macro(nAid, r,4) \

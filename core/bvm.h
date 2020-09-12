@@ -227,7 +227,7 @@ namespace bvm {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
-		void SetVarKey(VarKey&, const Ptr& key, const Type::uintSize& nKey);
+		void SetVarKey(VarKey&, const Ptr& key);
 
 		struct FarCalls
 		{

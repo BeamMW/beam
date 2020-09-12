@@ -439,19 +439,19 @@ namespace bvm {
 
 	BVM_METHOD(mov)
 	{
-		Test(pDst_.n == pSrc_.n);
+		assert(pDst_.n == pSrc_.n);
 		memmove(pDst_.p, pSrc_.p, pSrc_.n);
 	}
 
 	BVM_METHOD(xor)
 	{
-		Test(pDst_.n == pSrc_.n);
+		assert(pDst_.n == pSrc_.n);
 		memxor(pDst_.p, pSrc_.p, pSrc_.n);
 	}
 
 	BVM_METHOD(cmp)
 	{
-		Test(p1_.n == p2_.n);
+		assert(p1_.n == p2_.n);
 
 		int n = memcmp(p1_.p, p2_.p, p2_.n);
 		m_Flags = (n < 0) ? -1 : (n > 0);
@@ -487,7 +487,7 @@ namespace bvm {
 
 	BVM_METHOD(or)
 	{
-		Test(pDst_.n == pSrc_.n);
+		assert(pDst_.n == pSrc_.n);
 
 		for (uint32_t i = 0; i < pSrc_.n; i++)
 			pDst_.p[i] |= pSrc_.p[i];
@@ -495,7 +495,7 @@ namespace bvm {
 
 	BVM_METHOD(and)
 	{
-		Test(pDst_.n == pSrc_.n);
+		assert(pDst_.n == pSrc_.n);
 
 		for (uint32_t i = 0; i < pSrc_.n; i++)
 			pDst_.p[i] &= pSrc_.p[i];
@@ -649,39 +649,32 @@ namespace bvm {
 		vk.Append(nTag, blob);
 	}
 
-	void Processor::SetVarKey(VarKey& vk, const Ptr& key, const Type::uintSize& nKey)
+	void Processor::SetVarKey(VarKey& vk, const Ptr& key)
 	{
-		Type::Size nKey_;
-		nKey.Export(nKey_);
-		Test(nKey_ <= Limits::VarKeySize);
+		Test(key.n <= Limits::VarKeySize);
 
-		SetVarKey(vk, VarKey::Tag::Internal, Blob(key.RGet<uint8_t>(nKey_), nKey_));
+		SetVarKey(vk, VarKey::Tag::Internal, Blob(key.p, key.n));
 	}
 
 	BVM_METHOD(load_var)
 	{
 		VarKey vk;
-		SetVarKey(vk, pKey_, nKey_);
+		SetVarKey(vk, pKey_);
 
-		Type::Size nDst;
-		nDst_.Export(nDst);
-		Test(nDst <= Limits::VarSize);
+		Type::Size nDst = static_cast<Type::Size>(pDst_.n);
+		LoadVar(vk, pDst_.p, nDst);
 
-		LoadVar(vk, pDst_.WGet<uint8_t>(nDst), nDst);
-
-		nDst_ = nDst;
+		nValue_ = nDst;
 	}
 
 	BVM_METHOD(save_var)
 	{
 		VarKey vk;
-		SetVarKey(vk, pKey_, nKey_);
+		SetVarKey(vk, pKey_);
 
-		Type::Size nDst;
-		nDst_.Export(nDst);
-		Test(nDst <= Limits::VarSize);
+		Test(pDst_.n <= Limits::VarSize);
 
-		bool b = SaveVar(vk, pDst_.RGet<uint8_t>(nDst), nDst);
+		bool b = SaveVar(vk, pDst_.p, static_cast<Type::Size>(pDst_.n));
 		m_Flags = !!b;
 	}
 
@@ -713,12 +706,10 @@ namespace bvm {
 
 	BVM_METHOD(asset_create)
 	{
-		Type::Size n;
-		nMetaData_.Export(n);
-		Test(n && (n <= Asset::Info::s_MetadataMaxSize));
+		Test(pMetaData_.n && (pMetaData_.n <= Asset::Info::s_MetadataMaxSize));
 
 		Asset::Metadata md;
-		Blob(pMetaData_.RGet<uint8_t>(n), n).Export(md.m_Value);
+		Blob(pMetaData_.p, pMetaData_.n).Export(md.m_Value);
 		md.UpdateHash();
 
 		AssetVar av;
