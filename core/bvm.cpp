@@ -661,10 +661,10 @@ namespace bvm {
 		VarKey vk;
 		SetVarKey(vk, pKey_);
 
-		Type::Size nDst = static_cast<Type::Size>(pDst_.n);
-		LoadVar(vk, pDst_.p, nDst);
+		Type::Size nVal = static_cast<Type::Size>(pVal_.n);
+		LoadVar(vk, pVal_.p, nVal);
 
-		nValue_ = nDst;
+		nActualSize_ = nVal;
 	}
 
 	BVM_METHOD(save_var)
@@ -672,9 +672,9 @@ namespace bvm {
 		VarKey vk;
 		SetVarKey(vk, pKey_);
 
-		Test(pDst_.n <= Limits::VarSize);
+		Test(pVal_.n <= Limits::VarSize);
 
-		bool b = SaveVar(vk, pDst_.p, static_cast<Type::Size>(pDst_.n));
+		bool b = SaveVar(vk, pVal_.p, static_cast<Type::Size>(pVal_.n));
 		m_Flags = !!b;
 	}
 

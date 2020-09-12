@@ -70,13 +70,13 @@
 	macro(pk, r,33)
 
 #define BVMOp_load_var(macro) \
-	macro(pDst, w,flexible) \
 	macro(pKey, r,flexible) \
-	macro(nValue, w,2) \
+	macro(pVal, w,flexible) \
+	macro(nActualSize, w,2) \
 
 #define BVMOp_save_var(macro) \
-	macro(pDst, r,flexible) \
 	macro(pKey, r,flexible) \
+	macro(pVal, r,flexible) \
 
 #define BVMOp_funds_lock(macro) \
 	macro(nAmount, r,8) \
