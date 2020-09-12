@@ -32,8 +32,8 @@
 
 #define BVMOp_mul(macro) \
 	macro(pDst, w,x) \
-	macro(pSrc1, r,x) \
-	macro(pSrc2, r,x) \
+	macro(pSrc1, r,flexible) \
+	macro(pSrc2, r,flexible) \
 
 #define BVMOp_div(macro) BVMOp_mul(macro)
 

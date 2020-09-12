@@ -180,7 +180,12 @@ namespace bvm {
 	void Processor::LogValue(const Ptr& x)
 	{
 		if (m_pDbg)
-			uintBigImpl::_Print(x.p, x.n, *m_pDbg);
+		{
+			if (x.n)
+				uintBigImpl::_Print(x.p, x.n, *m_pDbg);
+			else
+				*m_pDbg << '-';
+		}
 	}
 
 	template <> void Processor::TestStackPtr<true>(Type::Size n) {
@@ -210,44 +215,128 @@ namespace bvm {
 
 	Type::Size Processor::FetchSizeX(BitReader& br, bool bSizeX)
 	{
-		if (!bSizeX || !FetchBit(br))
-			return 0;
+		Type::Size ret = 0;
+		if (bSizeX)
+		{
+			if (FetchBit(br))
+			{
+				// 2-bit code
+				uint8_t n = FetchBit(br);
+				n = (n << 1) | FetchBit(br);
 
-		// 2-bit code
-		uint8_t n = FetchBit(br);
-		n = (n << 1) | FetchBit(br);
+				ret = ((Type::Size) 1) << n;
+				if (m_pDbg)
+					*m_pDbg << ret;
+			}
+			else
+			{
+				if (m_pDbg)
+					*m_pDbg << '-';
 
-		return ((Type::Size) 1) << n;
+				FetchSize(br, ret);
+			}
+		}
+
+		if (m_pDbg)
+			*m_pDbg << ' ';
+
+		return ret;
 	}
+
+	int Processor::FetchSize(BitReader& br, Type::Size& ret)
+	{
+		Ptr out;
+		int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
+
+		out.RGet<Type::uintSize>()->Export(ret);
+		return nInd;
+	}
+
+	template <int nSize>
+	struct Processor::ParamType
+		:public uintBig_t<nSize>
+	{
+		typedef uintBig_t<nSize> Type;
+		static Type& get(Ptr& x)
+		{
+			assert(x.n == nBytes);
+			return *reinterpret_cast<Type*>(x.p);
+		}
+	};
+
+	template <>
+	struct Processor::ParamType<0>
+		:public Processor::Ptr
+	{
+		typedef Processor::Ptr Type;
+
+		static Type& get(Ptr& x) { return x; }
+	};
+
+	template <>
+	struct Processor::ParamType<-1>
+		:public Processor::ParamType<0>
+	{
+	};
+
+	template <>
+	struct Processor::ParamType<-2>
+		:public Processor::ParamType<0>
+	{
+	};
+
+#define BVMOpParamConst_w
+#define BVMOpParamConst_r const
+
+	struct Processor::OpCodesImpl
+		:public Processor
+	{
+		enum class OpCode : uint8_t
+		{
+#define THE_MACRO(name) n_##name,
+			BVM_OpCodes(THE_MACRO)
+#undef THE_MACRO
+
+			count
+		};
+
+		static constexpr int x = 0;
+		static constexpr int v = -1;
+		static constexpr int flexible = -2;
+
+#define THE_MACRO_ParamDecl(name, rw, len) BVMOpParamConst_##rw typename ParamType<len>::Type& name##_,
+#define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
+
+		BVM_OpCodes(THE_MACRO)
+
+#undef THE_MACRO
+
+		void RunOnce();
+	};
+
 
 	int Processor::FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX)
 	{
-		bool bCanInline = !bW && (nSize >= 0);
+		bool bCanInline = !bW && (OpCodesImpl::v != nSize);
 
-		if (!nSize)
+		switch (nSize)
 		{
-			if (!nSizeX)
+		case OpCodesImpl::flexible:
+			if (FetchSize(br, nSizeX))
+				bCanInline = false;
+			else
 			{
-				// read operand size
-				int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
-				out.RGet<Type::uintSize>()->Export(nSizeX);
-
-				if (nInd)
-					bCanInline = false;
-				else
+				if (!nSizeX)
 				{
-					if (!nSizeX)
-					{
-						if (m_pDbg)
-							*m_pDbg << '-';
-
-						ZeroObject(out); // skipped
-						return 0;
-					}
+					ZeroObject(out); // skipped
+					out.m_Writable = bW;
+					return 0;
 				}
-
 			}
 
+			// no break;
+
+		case OpCodesImpl::x:
 			nSize = nSizeX;
 		}
 
@@ -291,61 +380,6 @@ namespace bvm {
 		return res;
 	}
 
-#define BVMOpParamConst_w
-#define BVMOpParamConst_r const
-
-	template <int nSize>
-	struct Processor::ParamType
-		:public uintBig_t<nSize>
-	{
-		typedef uintBig_t<nSize> Type;
-		static Type& get(Ptr& x)
-		{
-			assert(x.n == nBytes);
-			return *reinterpret_cast<Type*>(x.p);
-		}
-	};
-
-	template <>
-	struct Processor::ParamType<0>
-		:public Processor::Ptr
-	{
-		typedef Processor::Ptr Type;
-
-		static Type& get(Ptr& x) { return x; }
-	};
-
-	template <>
-	struct Processor::ParamType<-1>
-		:public Processor::ParamType<0>
-	{
-	};
-
-	struct Processor::OpCodesImpl
-		:public Processor
-	{
-		enum class OpCode : uint8_t
-		{
-#define THE_MACRO(name) n_##name,
-			BVM_OpCodes(THE_MACRO)
-#undef THE_MACRO
-
-			count
-		};
-
-		static constexpr int x = 0;
-		static constexpr int v = -1;
-
-#define THE_MACRO_ParamDecl(name, rw, len) BVMOpParamConst_##rw typename ParamType<len>::Type& name##_,
-#define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
-
-		BVM_OpCodes(THE_MACRO)
-
-#undef THE_MACRO
-
-		void RunOnce();
-	};
-
 	void Processor::RunOnce()
 	{
 		static_assert(sizeof(*this) == sizeof(OpCodesImpl));
@@ -377,7 +411,7 @@ namespace bvm {
 		case static_cast<uint8_t>(OpCode::n_##name): \
 			{ \
 				if (m_pDbg) \
-					*m_pDbg << #name " "; \
+					*m_pDbg << #name; \
  \
 				constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
 				Type::Size nSizeX = FetchSizeX(br, bSizeX); \
@@ -1130,24 +1164,22 @@ namespace bvm {
 
 	uint8_t* Compiler::ParseOperand(MyBlob& line, bool bW, int nLen, Type::Size nSizeX)
 	{
-		bool bCanInline = !bW && (nLen >= 0);
+		bool bCanInline = !bW && (Processor::OpCodesImpl::v != nLen);
 
-		if (!nLen)
+		switch (nLen)
 		{
-			if (!nSizeX)
-			{
-				// read operand size
-				uint8_t* pInl = ParseOperand(line, false, Type::uintSize::nBytes, 0);
-				if (pInl)
-				{
-					reinterpret_cast<Type::uintSize*>(pInl)->Export(nSizeX);
-					if (!nSizeX)
-						return nullptr; // skipped
-				}
-				else
-					bCanInline = false;
-			}
+		case Processor::OpCodesImpl::flexible:
 
+			if (ParseSize(line, nSizeX))
+			{
+				if (!nSizeX)
+					return nullptr; // skip
+			}
+			else
+				bCanInline = false;
+			// no break;
+
+		case Processor::OpCodesImpl::x:
 			nLen = nSizeX;
 		}
 
@@ -1164,7 +1196,7 @@ namespace bvm {
 
 		if (bIsInline)
 		{
-			if (!bCanInline)
+			if (!bCanInline || !nLen)
 				Fail("can't inline operand");
 
 			size_t n0 = m_Result.size();
@@ -1245,8 +1277,11 @@ namespace bvm {
 
 	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
 	{
-		if ((sizeof(Type::Size) == nBytes) && x.n && ('.' == *x.p))
+		if (x.n && ('.' == *x.p))
 		{
+			if (sizeof(Type::Size) != nBytes)
+				Fail("Label size mismatch");
+
 			ParseLabel(x);
 			return true;
 		}
@@ -1343,8 +1378,9 @@ namespace bvm {
 
 		BitWriter bw;
 
-		constexpr int x = 0;
-		constexpr int v = -1;
+		constexpr int x = Processor::OpCodesImpl::x;
+		constexpr int v = Processor::OpCodesImpl::v;
+		constexpr int flexible = Processor::OpCodesImpl::flexible;
 		constexpr bool r = false;
 		constexpr bool w = true;
 
@@ -1358,7 +1394,7 @@ namespace bvm {
 			m_Result.push_back(static_cast<uint8_t>(Processor::OpCodesImpl::OpCode::n_##name)); \
  \
 			constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
-			WriteSizeX(nSizeX, bSizeX); \
+			WriteSizeX(line, nSizeX, bSizeX); \
  \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
@@ -1393,7 +1429,7 @@ namespace bvm {
 		return val;
 	}
 
-	void Compiler::WriteSizeX(Type::Size n, bool b)
+	void Compiler::WriteSizeX(MyBlob& line, Type::Size& n, bool b)
 	{
 		if (!b)
 		{
@@ -1403,13 +1439,26 @@ namespace bvm {
 		}
 
 		BwAdd(n > 0);
-		if (!n)
-			return;
+		if (n)
+		{
+			Type::Size val = n;
+			BwAdd(val >= 4);
+			if (val >= 4)
+				val >>= 2;
+			BwAdd(val >= 2);
+		}
+		else
+			ParseSize(line, n);
+	}
 
-		BwAdd(n >= 4);
-		if (n >= 4)
-			n >>= 2;
-		BwAdd(n >= 2);
+	bool Compiler::ParseSize(MyBlob& line, Type::Size& ret)
+	{
+		uint8_t* pInl = ParseOperand(line, false, Type::uintSize::nBytes, 0);
+		if (!pInl)
+			return false;
+
+		reinterpret_cast<Type::uintSize*>(pInl)->Export(ret);
+		return true;
 	}
 
 	void Compiler::BwFlushStrict()

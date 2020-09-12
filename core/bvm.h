@@ -169,6 +169,7 @@ namespace bvm {
 
 		int FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX); // returns num of indirections
 
+		int FetchSize(BitReader& br, Type::Size&);
 		Type::Size FetchSizeX(BitReader& br, bool bSizeX);
 
 		void FetchPtr(BitReader& br, Ptr& out);
@@ -385,7 +386,8 @@ namespace bvm {
 		void ParseLine(MyBlob&);
 
 		Type::Size ParseSizeX(MyBlob&);
-		void WriteSizeX(Type::Size, bool);
+		bool ParseSize(MyBlob&, Type::Size&);
+		void WriteSizeX(MyBlob&, Type::Size&, bool);
 		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
 
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
