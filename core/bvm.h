@@ -14,14 +14,7 @@
 
 #pragma once
 #include "block_crypt.h"
-#include "bvm_opcodes.h"
 #include "../utility/containers.h"
-
-#define BVM_ParamType_p Ptr
-#define BVM_ParamType_f1 uintBig_t<1>
-#define BVM_ParamType_f2 uintBig_t<2>
-#define BVM_ParamType_f4 uintBig_t<4>
-#define BVM_ParamType_f8 uintBig_t<8>
 
 namespace beam {
 namespace bvm {
@@ -40,15 +33,6 @@ namespace bvm {
 		static const uint32_t StackSize = 0x8000; // 32K
 		static const uint32_t VarKeySize = 256;
 		static const uint32_t VarSize = 0x2000; // 8K
-	};
-
-	enum class OpCode : uint8_t
-	{
-#define THE_MACRO(name) n_##name,
-		BVM_OpCodes(THE_MACRO)
-#undef THE_MACRO
-
-		count
 	};
 
 #pragma pack (push, 1)
@@ -169,27 +153,6 @@ namespace bvm {
 			}
 		};
 
-#define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name,
-#define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
-		BVM_OpCodes(THE_MACRO)
-#undef THE_MACRO
-#undef THE_MACRO_ParamDecl
-
-#define BVM_OpCodes_BinaryVar(macro) \
-		macro(mov) \
-		macro(add) \
-		macro(sub) \
-		macro(xor) \
-		macro(or) \
-		macro(and) \
-
-#define THE_MACRO(name) \
-		void On_##name(uint8_t*, const uint8_t*, Type::Size nSize); \
-		void On_##name(const Ptr&, const uint8_t*, Type::Size nSize);
-
-		BVM_OpCodes_BinaryVar(THE_MACRO)
-#undef THE_MACRO
-
 		void DoCmp(const uint8_t*, const uint8_t*, Type::Size nSize);
 		void DoJmp(const Type::uintSize&);
 
@@ -202,14 +165,9 @@ namespace bvm {
 
 		uint8_t FetchBit(BitReader& br);
 
-		void FetchParam(BitReader& br, Ptr& out);
-		void FetchBuffer(BitReader& br, uint8_t* pBuf, Type::Size nSize);
+		int FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX); // returns num of indirections
 
-		template <uint32_t nBytes>
-		void FetchParam(BitReader& br, uintBig_t<nBytes>& out)
-		{
-			FetchBuffer(br, out.m_pData, out.nBytes);
-		}
+		Type::Size FetchSizeX(BitReader& br, bool bSizeX);
 
 		void FetchPtr(BitReader& br, Ptr& out);
 		void FetchPtr(BitReader& br, Ptr& out, const Type::uintSize&);
@@ -218,6 +176,7 @@ namespace bvm {
 
 		void LogStackPtr();
 		void LogDeref();
+		void LogOpCode(const char*);
 		void LogVarName(const char* szName);
 		void LogVarEnd();
 		void PushFrame(const Type::uintSize& nFrame_);
@@ -319,6 +278,8 @@ namespace bvm {
 
 	public:
 
+		struct OpCodesImpl;
+
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 		Amount m_Charge = 0;
 
@@ -411,6 +372,8 @@ namespace bvm {
 				static_assert(sizeof(*this) == sizeof(Blob));
 				return *reinterpret_cast<const Blob*>(this);
 			}
+
+			bool SkipPrefix(const char*, uint32_t n_);
 		};
 
 		uint32_t m_iLine = 0;
@@ -425,22 +388,16 @@ namespace bvm {
 	private:
 		void ParseLine(MyBlob&);
 
-		void ParseParam_Ptr(MyBlob&);
-		void ParseParam_uintBig(MyBlob&, uint32_t nBytes);
+		Type::Size ParseSizeX(MyBlob&, bool);
+		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
+
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
+		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes);
 		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
 
 		uint64_t ParseUnsignedRaw(MyBlob&);
 		void ParseSignedRaw(MyBlob&, uint32_t nBytes, uintBigFor<uint64_t>::Type&);
-
-		template <uint32_t nBytes>
-		void ParseParam_uintBig_t(MyBlob& line)
-		{
-			ParseParam_uintBig(line, nBytes);
-		}
-
-		void ParseParam_PtrDirect(MyBlob&, uint8_t p);
 	};
 
 } // namespace bvm

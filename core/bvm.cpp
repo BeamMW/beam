@@ -14,7 +14,11 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm.h"
+#include "bvm_opcodes.h"
 #include <sstream>
+
+#define MY_TOKENIZE2(a, b) a##b
+#define MY_TOKENIZE1(a, b) MY_TOKENIZE2(a, b)
 
 namespace beam {
 namespace bvm {
@@ -156,6 +160,11 @@ namespace bvm {
 			*m_pDbg << "=>";
 	}
 
+	void Processor::LogOpCode(const char* szName)
+	{
+		LogVarName(szName);
+	}
+
 	void Processor::LogVarName(const char* szName)
 	{
 		if (m_pDbg)
@@ -193,9 +202,58 @@ namespace bvm {
 		out.n = m_Data.n - n;
 	}
 
-	void Processor::FetchParam(BitReader& br, Ptr& out)
+	Type::Size Processor::FetchSizeX(BitReader& br, bool bSizeX)
 	{
+		Type::Size ret = 0;
+		if (bSizeX && FetchBit(br))
+		{
+			// 3-bit code
+			uint8_t n = FetchBit(br);
+			n = (n << 1) | FetchBit(br);
+
+			return ((Type::Size) 1) << n;
+		}
+
+		return ret;
+	}
+
+	int Processor::FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX)
+	{
+		bool bCanInline = !bW;
+
+		if (!nSize)
+		{
+			if (!nSizeX)
+			{
+				// read operand size
+				int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
+				out.RGet<Type::uintSize>()->Export(nSizeX);
+
+				if (!nSizeX && !nInd)
+				{
+					ZeroObject(out);
+					return 0;
+				}
+
+				if (nInd)
+					bCanInline = false;
+			}
+
+			nSize = nSizeX;
+		}
+
+		if ((nSize > 0) && bCanInline && FetchBit(br))
+		{
+			// inline
+			out.m_Writable = false;
+			out.p = Cast::NotConst(FetchInstruction(static_cast<Type::Size>(nSize)));
+			out.n = nSize;
+
+			return 0;
+		}
+
 		FetchPtr(br, out);
+		int res = 1;
 
 		if (FetchBit(br))
 		{
@@ -203,38 +261,79 @@ namespace bvm {
 			// dereference
 			const auto* p = out.RGet<uintBigFor<Type::Size>::Type>();
 			FetchPtr(br, out, *p);
+
+			res++;
 		}
+
+		if (bW)
+			Test(out.m_Writable);
+
+		if (nSize >= 0)
+		{
+			Test(out.n >= static_cast<uint32_t>(nSize));
+			out.n = static_cast<uint32_t>(nSize);
+		}
+
+		return res;
 	}
 
-	void Processor::FetchBuffer(BitReader& br, uint8_t* pBuf, Type::Size nSize)
+#define BVMOpParamConst_w
+#define BVMOpParamConst_r const
+#define BVMOpParamType_1 uintBig_t<1>
+#define BVMOpParamType_2 uintBig_t<2>
+#define BVMOpParamType_4 uintBig_t<4>
+#define BVMOpParamType_8 uintBig_t<8>
+#define BVMOpParamType_x Ptr
+#define BVMOpParamType_v Ptr
+
+	struct Processor::OpCodesImpl
+		:public Processor
 	{
-		Ptr ptr;
-		if (FetchBit(br)) // ptr or data
+		enum class OpCode : uint8_t
 		{
-			// dereference
-			FetchPtr(br, ptr);
-			Test(ptr.n >= nSize);
+#define THE_MACRO(name) n_##name,
+			BVM_OpCodes(THE_MACRO)
+#undef THE_MACRO
 
-			LogDeref();
-		}
-		else
-			ptr.p = Cast::NotConst(FetchInstruction(nSize));
+			count
+		};
 
-		memcpy(pBuf, ptr.p, nSize);
 
-		if (m_pDbg)
+#define THE_MACRO_ParamDecl(name, rw, len) BVMOpParamConst_##rw BVMOpParamType_##len& name##_,
+#define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
+
+		BVM_OpCodes(THE_MACRO)
+
+#undef THE_MACRO
+
+		void RunOnce();
+
+		struct MyWrap_Ptr
 		{
-			struct Dummy :public uintBigImpl {
-				static void Do(const uint8_t* pDst, uint32_t nDst, std::ostream& os) {
-					_Print(pDst, nDst, os);
-				}
-			};
+			static Ptr& get(Ptr& x) { return x; }
+		};
 
-			Dummy::Do(pBuf, nSize, *m_pDbg);
-		}
-	}
+		template <uint32_t nBytes>
+		struct MyWrap_uintBig_t
+		{
+			static uintBig_t<nBytes>& get(Ptr& x)
+			{
+				assert(x.n == nBytes);
+				return *reinterpret_cast<uintBig_t<nBytes>*>(x.p);
+			}
+
+			uintBig_t<nBytes>* m_Val;
+			uintBig_t<nBytes>& get() { return *m_Val; }
+		};
+	};
 
 	void Processor::RunOnce()
+	{
+		static_assert(sizeof(*this) == sizeof(OpCodesImpl));
+		Cast::Up<OpCodesImpl>(*this).RunOnce();
+	}
+
+	void Processor::OpCodesImpl::RunOnce()
 	{
 		if (m_pDbg)
 			*m_pDbg << "ip=" << Type::uintSize(m_Ip) << ", ";
@@ -242,16 +341,31 @@ namespace bvm {
 		uint8_t nOpCode = *FetchInstruction(1);
 		BitReader br;
 
+		constexpr int x = 0;
+		constexpr int v = -1;
+		constexpr bool r = false;
+		constexpr bool w = true;
+
 		switch (nOpCode)
 		{
-#define THE_MACRO_ParamPass(name, type) par##name,
-#define THE_MACRO_ParamRead(name, type) BVM_ParamType_##type par##name; LogVarName(#name); FetchParam(br, par##name); LogVarEnd();
+#define THE_MACRO_ParamPass(name, rw, len) MY_TOKENIZE1(MyWrap_, BVMOpParamType_##len)::get(par##name),
+#define THE_MACRO_ParamIsX(name, rw, len) (len == 0) |
+#define THE_MACRO_ParamRead(name, rw, len) \
+				LogVarName(#name); \
+				Ptr par##name; \
+				FetchOperand(br, par##name, rw, len, nSizeX); \
+				LogVarEnd();
 
 #define THE_MACRO(name) \
 		case static_cast<uint8_t>(OpCode::n_##name): \
 			{ \
 				if (m_pDbg) \
 					*m_pDbg << #name " "; \
+ \
+				constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
+				Type::Size nSizeX = FetchSizeX(br, bSizeX); \
+				nSizeX; \
+ \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
 			} \
@@ -270,130 +384,105 @@ namespace bvm {
 		Test(!br.m_Value); // unused bits must be zero
 	}
 
-#define THE_MACRO_ParamDecl(name, type) const BVM_ParamType_##type& name##_,
-#define BVM_METHOD(method) void Processor::On_##method(BVMOp_##method(THE_MACRO_ParamDecl) Zero_)
+#define BVM_METHOD(method) void Processor::OpCodesImpl::On_##method(BVMOp_##method(THE_MACRO_ParamDecl) Zero_)
 
-#define THE_MACRO(name) \
- \
-	BVM_METHOD(name) \
-	{ \
-		Type::Size nSize; \
-		nSize_.Export(nSize); \
-		On_##name(pDst_, pSrc_.RGet<uint8_t>(nSize), nSize); \
-	} \
- \
-	BVM_METHOD(name##1) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
-	BVM_METHOD(name##2) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
-	BVM_METHOD(name##4) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
-	BVM_METHOD(name##8) { On_##name(pDst_, nSrc_.m_pData, nSrc_.nBytes); } \
- \
-	void Processor::On_##name(const Ptr& pDst_, const uint8_t* pSrc, Type::Size nSize) \
-	{ \
-		On_##name(pDst_.WGet<uint8_t>(nSize), pSrc, nSize); \
+	BVM_METHOD(mov)
+	{
+		Test(pDst_.n == pSrc_.n);
+		memmove(pDst_.p, pSrc_.p, pSrc_.n);
 	}
 
-BVM_OpCodes_BinaryVar(THE_MACRO)
-#undef THE_MACRO
-
-#define BVM_METHOD_BinaryVar(name) void Processor::On_##name(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize)
-
-
-	BVM_METHOD_BinaryVar(mov)
+	BVM_METHOD(xor)
 	{
-		memmove(pDst, pSrc, nSize);
-	}
-
-	BVM_METHOD_BinaryVar(xor)
-	{
-		memxor(pDst, pSrc, nSize);
+		Test(pDst_.n == pSrc_.n);
+		memxor(pDst_.p, pSrc_.p, pSrc_.n);
 	}
 
 	BVM_METHOD(cmp)
 	{
-		Type::Size nSize;
-		nSize_.Export(nSize);
+		Test(p1_.n == p1_.n);
 
-		DoCmp(p1_.RGet<uint8_t>(nSize), p2_.RGet<uint8_t>(nSize), nSize);
-	}
-
-	BVM_METHOD(cmp1) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
-	BVM_METHOD(cmp2) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
-	BVM_METHOD(cmp4) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
-	BVM_METHOD(cmp8) { DoCmp(a_.m_pData, b_.m_pData, b_.nBytes); }
-
-	void Processor::DoCmp(const uint8_t* p1, const uint8_t* p2, Type::Size nSize)
-	{
-		int n = memcmp(p1, p2, nSize);
+		int n = memcmp(p1_.p, p2_.p, p2_.n);
 		m_Flags = (n < 0) ? -1 : (n > 0);
 	}
 
-	BVM_METHOD_BinaryVar(add)
+	BVM_METHOD(add)
 	{
 		struct Dummy :public uintBigImpl {
-			static uint8_t Do(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize) {
-				return _Inc(pDst, nSize, pSrc);
+			static uint8_t Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc) {
+				return _Inc(pDst, nDst, pSrc, nSrc);
 			}
 		};
 
-		m_Flags = Dummy::Do(pDst, pSrc, nSize);
+		m_Flags = Dummy::Do(pDst_.p, pDst_.n, pSrc_.p, pSrc_.n);
 	}
 
-	BVM_METHOD_BinaryVar(sub)
+	BVM_METHOD(inv)
 	{
 		struct Dummy :public uintBigImpl {
-			static void Neg(uint8_t* p, Type::Size n)
-			{
+			static void Do(uint8_t* p, uint32_t n) {
 				_Inv(p, n);
+			}
+		};
+
+		Dummy::Do(pDst_.p, pDst_.n);
+	}
+
+	BVM_METHOD(inc)
+	{
+		struct Dummy :public uintBigImpl {
+			static void Do(uint8_t* p, uint32_t n) {
 				_Inc(p, n);
 			}
-
-			static uint8_t Add(uint8_t* pDst, const uint8_t* pSrc, Type::Size nSize) {
-				return _Inc(pDst, nSize, pSrc);
-			}
 		};
 
-		Dummy::Neg(pDst, nSize);
-		On_add(pDst, pSrc, nSize);
-		Dummy::Neg(pDst, nSize);
+		Dummy::Do(pDst_.p, pDst_.n);
 	}
 
-	BVM_METHOD_BinaryVar(or)
+	BVM_METHOD(neg)
 	{
-		for (Type::Size i = 0; i < nSize; i++)
-			pDst[i] |= pSrc[i];
+		On_inv(pDst_, Zero);
+		On_inc(pDst_, Zero);
 	}
 
-	BVM_METHOD_BinaryVar(and)
+	BVM_METHOD(sub)
 	{
-		for (Type::Size i = 0; i < nSize; i++)
-			pDst[i] &= pSrc[i];
+		On_neg(pDst_, Zero);
+		On_add(pDst_, pSrc_, Zero);
+		On_neg(pDst_, Zero);
 	}
 
-	BVM_METHOD(mul_ex)
+	BVM_METHOD(or)
 	{
-		Type::Size nDst, nSrc1, nSrc2;
-		nDst_.Export(nDst);
-		nSrc1_.Export(nSrc1);
-		nSrc2_.Export(nSrc2);
+		Test(pDst_.n == pSrc_.n);
 
+		for (uint32_t i = 0; i < pSrc_.n; i++)
+			pDst_.p[i] |= pSrc_.p[i];
+	}
+
+	BVM_METHOD(and)
+	{
+		Test(pDst_.n == pSrc_.n);
+
+		for (uint32_t i = 0; i < pSrc_.n; i++)
+			pDst_.p[i] &= pSrc_.p[i];
+	}
+
+	BVM_METHOD(mul)
+	{
 		struct Dummy :public uintBigImpl {
 			static void Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1) {
 				_Mul(pDst, nDst, pSrc0, nSrc0, pSrc1, nSrc1);
 			}
 		};
 
-		Dummy::Do(pDst_.WGet<uint8_t>(nDst), nDst, pSrc1_.RGet<uint8_t>(nSrc1), nSrc1, pSrc2_.RGet<uint8_t>(nSrc2), nSrc2);
+		Dummy::Do(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n);
 	}
 
-	BVM_METHOD(div_ex)
+	BVM_METHOD(div)
 	{
-		Type::Size nDst, nSrc1, nSrc2;
-		nDst_.Export(nDst);
-		nSrc1_.Export(nSrc1);
-		nSrc2_.Export(nSrc2);
-
 		ByteBuffer buf;
-		buf.resize(nSrc1 * 2);
+		buf.resize(pSrc1_.n * 2);
 
 		uint8_t* pMul = buf.empty() ? nullptr : &buf.front();
 
@@ -403,12 +492,12 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 			}
 		};
 
-		Dummy::Do(pDst_.WGet<uint8_t>(nDst), nDst, pSrc1_.RGet<uint8_t>(nSrc1), nSrc1, pSrc2_.RGet<uint8_t>(nSrc2), nSrc2, pMul, pMul + nSrc1);
+		Dummy::Do(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n, pMul, pMul + pSrc1_.n);
 	}
 
 	BVM_METHOD(getsp)
 	{
-		*pRes_.WGet<Type::uintSize>() = m_Sp;
+		nRes_ = m_Sp;
 	}
 
 	BVM_METHOD(jmp) {
@@ -554,15 +643,13 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		VarKey vk;
 		SetVarKey(vk, pKey_, nKey_);
 
-		auto* pSizeDst = pnDst_.WGet<Type::uintSize>();
+		Type::Size nDst;
+		nDst_.Export(nDst);
+		Test(nDst <= Limits::VarSize);
 
-		Type::Size nDst_;
-		pSizeDst->Export(nDst_);
-		Test(nDst_ <= Limits::VarSize);
+		LoadVar(vk, pDst_.WGet<uint8_t>(nDst), nDst);
 
-		LoadVar(vk, pDst_.WGet<uint8_t>(nDst_), nDst_);
-
-		*pSizeDst = nDst_;
+		nDst_ = nDst;
 	}
 
 	BVM_METHOD(save_var)
@@ -606,8 +693,6 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 
 	BVM_METHOD(asset_create)
 	{
-		auto& aid = *pAid_.WGet<uintBigFor<Asset::ID>::Type>();
-
 		Type::Size n;
 		nMetaData_.Export(n);
 		Test(n && (n <= Asset::Info::s_MetadataMaxSize));
@@ -619,12 +704,12 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		AssetVar av;
 		bvm::get_AssetOwner(av.m_Owner, m_FarCalls.m_Stack.back().m_Cid, md);
 
-		aid = AssetCreate(md, av.m_Owner);
-		if (aid != Zero)
+		nAid_ = AssetCreate(md, av.m_Owner);
+		if (nAid_ != Zero)
 		{
 			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
 
-			SetAssetKey(av, aid);
+			SetAssetKey(av, nAid_);
 			SaveVar(av.m_vk, av.m_Owner.m_pData, static_cast<Type::Size>(av.m_Owner.nBytes));
 		}
 	}
@@ -801,6 +886,8 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
+#undef THE_MACRO_IsConst_w
+#undef THE_MACRO_IsConst_r
 
 	bool Processor::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, Type::Size n)
 	{
@@ -979,6 +1066,15 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		return false;
 	}
 
+	bool Compiler::MyBlob::SkipPrefix(const char* p_, uint32_t n_)
+	{
+		if ((n < n_) || memcmp(p, p_, n_))
+			return false;
+
+		Move(n_);
+		return true;
+	}
+
 	void Compiler::MyBlob::ExtractToken(Buf& res, char chSep)
 	{
 		res.p = p;
@@ -1050,17 +1146,46 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		return false;
 	}
 
-	void Compiler::ParseParam_Ptr(MyBlob& line)
+	uint8_t* Compiler::ParseOperand(MyBlob& line, bool bW, int nLen, Type::Size nSizeX)
 	{
+		if (!nLen)
+		{
+			if (!nSizeX)
+			{
+				// read operand size
+				uint8_t* pInl = ParseOperand(line, false, Type::uintSize::nBytes, 0);
+				if (pInl)
+				{
+					reinterpret_cast<Type::uintSize*>(pInl)->Export(nSizeX);
+					if (!nSizeX)
+						return nullptr;
+				}
+			}
+
+			nLen = nSizeX;
+		}
+
 		MyBlob x;
 		line.ExtractToken(x, ',');
 
-		if (x.n < 2)
+		if (!x.n)
 			Fail("");
 
 		uint8_t p1 = *x.p;
 		if (!IsPtrPrefix(p1))
-			Fail("");
+		{
+			if ((nLen <= 0) || bW)
+				Fail("can't inline operand");
+
+			size_t n0 = m_Result.size();
+			bool bLabel = ParseSignedNumberOrLabel(x, nLen);
+			if (bLabel)
+				return nullptr;
+
+			assert(!m_Result.empty());
+			return &m_Result.front() + n0;
+		}
+
 
 		x.Move1();
 
@@ -1072,26 +1197,17 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 			std::swap(p1, p2);
 		}
 
-		ParseParam_PtrDirect(x, p1);
+		bool bLabel = ParseSignedNumberOrLabel(x, sizeof(Type::Size));
+		if (bLabel && ('d' != p1))
+			Fail("label pointer must reference data");
+
+		BwAddPtrType(p1);
 
 		BwAdd(bIndirect);
 		if (bIndirect)
 			BwAddPtrType(p2);
-	}
 
-	void Compiler::ParseParam_PtrDirect(MyBlob& x, uint8_t p)
-	{
-		if (x.n && ('.' == *x.p))
-		{
-			if ('d' != p)
-				Fail("label pointer must reference data");
-
-			ParseLabel(x);
-		}
-		else
-			ParseSignedNumber(x, sizeof(Type::Size));
-
-		BwAddPtrType(p);
+		return nullptr;
 	}
 
 	void Compiler::ParseSignedRaw(MyBlob& x, uint32_t nBytes, uintBigFor<uint64_t>::Type& val2)
@@ -1137,6 +1253,18 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 
 	}
 
+	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
+	{
+		if ((sizeof(Type::Size) == nBytes) && x.n && ('.' == *x.p))
+		{
+			ParseLabel(x);
+			return true;
+		}
+
+		ParseSignedNumber(x, nBytes);
+		return false;
+	}
+
 	void Compiler::ParseHex(MyBlob& x, uint32_t nBytes)
 	{
 		struct Dummy :public uintBigImpl {
@@ -1156,37 +1284,6 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 		m_Result.resize(n0 + nBytes);
 		if (Dummy::Do(&m_Result.front() + n0, (const char*) x.p, nTxtLen) != nTxtLen)
 			Fail("hex parse");
-	}
-
-	void Compiler::ParseParam_uintBig(MyBlob& line, uint32_t nBytes)
-	{
-		MyBlob x;
-		line.ExtractToken(x, ',');
-
-		if (!x.n)
-			Fail("");
-
-		uint8_t p1 = *x.p;
-		uint8_t bIndirect = IsPtrPrefix(p1);
-		if (bIndirect)
-		{
-			x.Move1();
-			if (!x.n)
-				Fail("");
-		}
-
-		BwAdd(bIndirect);
-
-		if (bIndirect)
-			ParseParam_PtrDirect(x, p1);
-		else
-		{
-			if ((Type::uintSize::nBytes == nBytes) && ('.' == p1))
-				// must be a label
-				ParseLabel(x);
-			else
-				ParseSignedNumber(x, nBytes);
-		}
 	}
 
 	void Compiler::ParseLine(MyBlob& line)
@@ -1262,13 +1359,21 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 
 		BitWriter bw;
 
-#define MY_TOKENIZE2(a, b) a##b
-#define MY_TOKENIZE1(a, b) MY_TOKENIZE2(a, b)
-#define THE_MACRO_ParamCompile(name, type) MY_TOKENIZE1(ParseParam_, BVM_ParamType_##type)(line);
+		constexpr int x = 0;
+		constexpr int v = -1;
+		constexpr bool r = false;
+		constexpr bool w = true;
+
+#define THE_MACRO_ParamCompile(name, rw, len) ParseOperand(line, rw, len, nSizeX);
 #define THE_MACRO(name) \
-		if (opcode == #name) \
+		if (opcode.SkipPrefix(#name, sizeof(#name) - 1)) \
 		{ \
-			m_Result.push_back(static_cast<uint8_t>(OpCode::n_##name)); \
+			m_Result.push_back(static_cast<uint8_t>(Processor::OpCodesImpl::OpCode::n_##name)); \
+ \
+			constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
+			Type::Size nSizeX = ParseSizeX(opcode, bSizeX); \
+			nSizeX; \
+ \
 			BVMOp_##name(THE_MACRO_ParamCompile) \
 			return; \
 		}
@@ -1278,6 +1383,36 @@ BVM_OpCodes_BinaryVar(THE_MACRO)
 #undef THE_MACRO_ParamCompile
 
 		Fail("Invalid instruction");
+	}
+
+	Type::Size Compiler::ParseSizeX(MyBlob& opcode, bool b)
+	{
+		if (!b || !opcode.n)
+			return 0;
+
+		uint64_t num_ = ParseUnsignedRaw(opcode);
+
+		switch (num_)
+		{
+		case 1:
+		case 2:
+		case 4:
+		case 8:
+			break;
+
+		default:
+			Fail("invalid size specifier");
+		}
+
+		Type::Size num = static_cast<Type::Size>(num_);
+		Type::Size ret = num;
+
+		m_Result.push_back(num >= 4);
+		if (num >= 4)
+			num >>= 2;
+		m_Result.push_back(num >= 2);
+
+		return ret;
 	}
 
 	void Compiler::BwFlushStrict()
