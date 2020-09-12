@@ -1614,8 +1614,6 @@ namespace beam
 
 	namespace bvm
 	{
-
-
 		static const char g_szVault[] = "\
 .method_0                     # c'tor                 \n\
     ret                                               \n\
@@ -1641,9 +1639,8 @@ namespace beam
     # load current value into s4                      \n\
     # key is [pk | aid], 37 bytes                     \n\
                                                       \n\
-    mov2 s2, 8                # sizeof(Amount)        \n\
     mov8 s4, d.zero                                   \n\
-    load_var s4, s2, s-49, 37                         \n\
+    load_var 37,s-49, 8,s4, s2                        \n\
                                                       \n\
     {                                                 \n\
     cmp1 s0, 0                                        \n\
@@ -1676,7 +1673,7 @@ namespace beam
     mov2 s2, 8                                        \n\
                                                       \n\
 .save                                                 \n\
-    save_var s4, s2, s-49, 37                         \n\
+    save_var 37,s-49, s2,s4                           \n\
                                                       \n\
     ret                                               \n\
                                                       \n\
@@ -1685,8 +1682,6 @@ namespace beam
                                                       \n\
 .zero                                                 \n\
     const u8 0                                        \n\
-.some_id                                              \n\
-    const h10 deadbabe000FF1CEb00b                    \n\
 ";
 
 
@@ -1708,17 +1703,16 @@ namespace beam
     sub2 s0, 1                # iOracle--             \n\
     sub2 s2, 33               # ppPk--                \n\
     add_sig ss2               # add_sig(*ppPk)        \n\
-    save_var ss2, 33, s0, 2   # V=*ppPk, K=iOracle    \n\
+    save_var 2,s0, 33,ss2     # V=*ppPk, K=iOracle    \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
-    save_var s-16, 8, s0, 1   # V=nRate, K=(u1)0      \n\
+    save_var 1,0, 8,s-16      # V=nRate, K=(u1)0      \n\
     funds_lock 100500, 0                              \n\
     sub2 s2, s-8              # metadata start        \n\
-    asset_create s4, ss2, s-8                         \n\
+    asset_create s4, s-8,ss2                          \n\
     cmp4 s4, 0                                        \n\
     jz .error                                         \n\
-    mov1 s0, 1                                        \n\
-    save_var s4, 4, s0, 1     # V=aid,   K=(u1)1      \n\
+    save_var 1,1, 4,s4        # V=aid,   K=(u1)1      \n\
     asset_emit s4, 225, 1                             \n\
     asset_emit s4, 225, 0                             \n\
     ret                                               \n\
@@ -1728,22 +1722,19 @@ namespace beam
 {                                                     \n\
     # No arguments, just remove all the vars          \n\
     mov2 s0, 0                # iOracle = 0           \n\
-    save_var s0, 0, s0, 1     # del rate variable     \n\
-    mov2 s2, 33                                       \n\
+    save_var 1,0, 0           # del rate variable     \n\
 .loop                                                 \n\
-    load_var s4, s2, s0, 2                            \n\
+    load_var 2,s0, 33,s4, s2                          \n\
     cmp2 s2, 33               # pk loaded ok?         \n\
     jnz .loop_end                                     \n\
-    save_var s0, 0, s0, 2     # del pk variable       \n\
+    save_var 2,s0, 0          # del pk variable       \n\
     add_sig s4                                        \n\
     add2 s0, 1                # iOracle++             \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
     funds_unlock 100500, 0                            \n\
-    mov1 s0, 1                                        \n\
-    mov2 s2, 4                                        \n\
-    load_var s4, s2, s0, 1    # aid                   \n\
-    save_var s4, 0, s0, 1     # delete aid var        \n\
+    load_var 1,1, 4,s4, s2    # aid                   \n\
+    save_var 1,1, 0           # delete aid var        \n\
     asset_destroy s4                                  \n\
     jz .error                                         \n\
     ret                                               \n\
@@ -1756,13 +1747,11 @@ namespace beam
 {                                                     \n\
     #    iOracle, u2, s-6                             \n\
     #    rate, u8 s-14                                \n\
-    mov2 s0, 33                                       \n\
-    load_var s2, s0, s-6, 2                           \n\
+    load_var 2,s-6, 33,s2, s0                         \n\
     cmp2 s0, 33                                       \n\
     jnz .error                                        \n\
     add_sig s2                                        \n\
-    mov1 s0, 0                                        \n\
-    save_var s-14, 8, s0, 1                           \n\
+    save_var 1,0, 8,s-14                              \n\
     ret                                               \n\
 }                                                     \n\
 ";
