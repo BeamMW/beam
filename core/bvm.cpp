@@ -179,14 +179,8 @@ namespace bvm {
 
 	void Processor::LogValue(const Ptr& x)
 	{
-		struct Dummy :public uintBigImpl {
-			static void Do(const uint8_t* pDst, uint32_t nDst, std::ostream& os) {
-				_Print(pDst, nDst, os);
-			}
-		};
-
 		if (m_pDbg)
-			Dummy::Do(x.p, x.n, *m_pDbg);
+			uintBigImpl::_Print(x.p, x.n, *m_pDbg);
 	}
 
 	template <> void Processor::TestStackPtr<true>(Type::Size n) {
@@ -428,35 +422,17 @@ namespace bvm {
 
 	BVM_METHOD(add)
 	{
-		struct Dummy :public uintBigImpl {
-			static uint8_t Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc) {
-				return _Inc(pDst, nDst, pSrc, nSrc);
-			}
-		};
-
-		m_Flags = Dummy::Do(pDst_.p, pDst_.n, pSrc_.p, pSrc_.n);
+		m_Flags = uintBigImpl::_Inc(pDst_.p, pDst_.n, pSrc_.p, pSrc_.n);
 	}
 
 	BVM_METHOD(inv)
 	{
-		struct Dummy :public uintBigImpl {
-			static void Do(uint8_t* p, uint32_t n) {
-				_Inv(p, n);
-			}
-		};
-
-		Dummy::Do(pDst_.p, pDst_.n);
+		uintBigImpl::_Inv(pDst_.p, pDst_.n);
 	}
 
 	BVM_METHOD(inc)
 	{
-		struct Dummy :public uintBigImpl {
-			static void Do(uint8_t* p, uint32_t n) {
-				_Inc(p, n);
-			}
-		};
-
-		Dummy::Do(pDst_.p, pDst_.n);
+		uintBigImpl::_Inc(pDst_.p, pDst_.n);
 	}
 
 	BVM_METHOD(neg)
@@ -490,13 +466,7 @@ namespace bvm {
 
 	BVM_METHOD(mul)
 	{
-		struct Dummy :public uintBigImpl {
-			static void Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1) {
-				_Mul(pDst, nDst, pSrc0, nSrc0, pSrc1, nSrc1);
-			}
-		};
-
-		Dummy::Do(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n);
+		uintBigImpl::_Mul(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n);
 	}
 
 	BVM_METHOD(div)
@@ -506,13 +476,7 @@ namespace bvm {
 
 		uint8_t* pMul = buf.empty() ? nullptr : &buf.front();
 
-		struct Dummy :public uintBigImpl {
-			static void Do(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1, uint8_t* pMul, uint8_t* pTmp) {
-				_Div(pDst, nDst, pSrc0, nSrc0, pSrc1, nSrc1, pMul, pTmp);
-			}
-		};
-
-		Dummy::Do(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n, pMul, pMul + pSrc1_.n);
+		uintBigImpl::_Div(pDst_.p, pDst_.n, pSrc1_.p, pSrc1_.n, pSrc2_.p, pSrc2_.n, pMul, pMul + pSrc1_.n);
 	}
 
 	BVM_METHOD(getsp)
@@ -1293,12 +1257,6 @@ namespace bvm {
 
 	void Compiler::ParseHex(MyBlob& x, uint32_t nBytes)
 	{
-		struct Dummy :public uintBigImpl {
-			static uint32_t Do(uint8_t* pDst, const char* sz, uint32_t nTxtLen) {
-				return _Scan(pDst, sz, nTxtLen);
-			}
-		};
-
 		uint32_t nTxtLen = nBytes * 2;
 		if (x.n != nTxtLen)
 			Fail("hex size mismatch");
@@ -1308,7 +1266,7 @@ namespace bvm {
 
 		size_t n0 = m_Result.size();
 		m_Result.resize(n0 + nBytes);
-		if (Dummy::Do(&m_Result.front() + n0, (const char*) x.p, nTxtLen) != nTxtLen)
+		if (uintBigImpl::_Scan(&m_Result.front() + n0, (const char*) x.p, nTxtLen) != nTxtLen)
 			Fail("hex parse");
 	}
 

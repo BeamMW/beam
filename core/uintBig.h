@@ -22,8 +22,8 @@ namespace beam
 
 	// Simple arithmetics. For casual use only (not performance-critical)
 
-	class uintBigImpl {
-	protected:
+	struct uintBigImpl {
+
 		static void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
 		// all those return carry (exceeding byte)
@@ -109,7 +109,7 @@ namespace beam
 
 	template <uint32_t nBytes_>
 	struct uintBig_t
-		:public uintBigImpl
+		:protected uintBigImpl
 	{
 		static const uint32_t nBits = nBytes_ << 3;
 		static const uint32_t nBytes = nBytes_;
