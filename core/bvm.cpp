@@ -293,12 +293,33 @@ namespace bvm {
 
 #define BVMOpParamConst_w
 #define BVMOpParamConst_r const
-#define BVMOpParamType_1 uintBig_t<1>
-#define BVMOpParamType_2 uintBig_t<2>
-#define BVMOpParamType_4 uintBig_t<4>
-#define BVMOpParamType_8 uintBig_t<8>
-#define BVMOpParamType_x Ptr
-#define BVMOpParamType_v Ptr
+
+	template <int nSize>
+	struct Processor::ParamType
+		:public uintBig_t<nSize>
+	{
+		typedef uintBig_t<nSize> Type;
+		static Type& get(Ptr& x)
+		{
+			assert(x.n == nBytes);
+			return *reinterpret_cast<Type*>(x.p);
+		}
+	};
+
+	template <>
+	struct Processor::ParamType<0>
+		:public Processor::Ptr
+	{
+		typedef Processor::Ptr Type;
+
+		static Type& get(Ptr& x) { return x; }
+	};
+
+	template <>
+	struct Processor::ParamType<-1>
+		:public Processor::ParamType<0>
+	{
+	};
 
 	struct Processor::OpCodesImpl
 		:public Processor
@@ -312,8 +333,10 @@ namespace bvm {
 			count
 		};
 
+		static constexpr int x = 0;
+		static constexpr int v = -1;
 
-#define THE_MACRO_ParamDecl(name, rw, len) BVMOpParamConst_##rw BVMOpParamType_##len& name##_,
+#define THE_MACRO_ParamDecl(name, rw, len) BVMOpParamConst_##rw typename ParamType<len>::Type& name##_,
 #define THE_MACRO(name) void On_##name(BVMOp_##name(THE_MACRO_ParamDecl) Zero_);
 
 		BVM_OpCodes(THE_MACRO)
@@ -321,24 +344,6 @@ namespace bvm {
 #undef THE_MACRO
 
 		void RunOnce();
-
-		struct MyWrap_Ptr
-		{
-			static Ptr& get(Ptr& x) { return x; }
-		};
-
-		template <uint32_t nBytes>
-		struct MyWrap_uintBig_t
-		{
-			static uintBig_t<nBytes>& get(Ptr& x)
-			{
-				assert(x.n == nBytes);
-				return *reinterpret_cast<uintBig_t<nBytes>*>(x.p);
-			}
-
-			uintBig_t<nBytes>* m_Val;
-			uintBig_t<nBytes>& get() { return *m_Val; }
-		};
 	};
 
 	void Processor::RunOnce()
@@ -355,14 +360,12 @@ namespace bvm {
 		uint8_t nOpCode = *FetchInstruction(1);
 		BitReader br;
 
-		constexpr int x = 0;
-		constexpr int v = -1;
 		constexpr bool r = false;
 		constexpr bool w = true;
 
 		switch (nOpCode)
 		{
-#define THE_MACRO_ParamPass(name, rw, len) MY_TOKENIZE1(MyWrap_, BVMOpParamType_##len)::get(par##name),
+#define THE_MACRO_ParamPass(name, rw, len) ParamType<len>::get(par##name),
 #define THE_MACRO_ParamIsX(name, rw, len) (len == 0) |
 #define THE_MACRO_ParamRead(name, rw, len) \
 				LogVarName(#name); \

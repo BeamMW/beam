@@ -153,7 +153,9 @@ namespace bvm {
 			}
 		};
 
-		void DoCmp(const uint8_t*, const uint8_t*, Type::Size nSize);
+		template <int nSize>
+		struct ParamType;
+
 		void DoJmp(const Type::uintSize&);
 
 		const uint8_t* FetchInstruction(Type::Size n);
