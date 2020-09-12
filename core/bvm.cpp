@@ -420,7 +420,7 @@ namespace bvm {
 
 	BVM_METHOD(cmp)
 	{
-		Test(p1_.n == p1_.n);
+		Test(p1_.n == p2_.n);
 
 		int n = memcmp(p1_.p, p2_.p, p2_.n);
 		m_Flags = (n < 0) ? -1 : (n > 0);
