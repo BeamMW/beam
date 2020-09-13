@@ -1278,16 +1278,24 @@ namespace bvm {
 	{
 		x.Move1();
 
-		auto& var = m_ScopesActive.back().m_mapVars[x.as_Blob()];
-		if (!var.IsValid())
-			Fail("variable not found");
+		for (auto it = m_ScopesActive.rbegin(); ; it++)
+		{
+			if (m_ScopesActive.rend() == it)
+				Fail("variable not found");
 
-		Type::uintSize val = bPosOrSize ? var.m_Pos : var.m_Size;
-		for (; nBytes > val.nBytes; nBytes--)
-			m_Result.push_back(0);
+			auto& var = it->m_mapVars[x.as_Blob()];
+			if (var.IsValid())
+			{
+				Type::uintSize val = bPosOrSize ? var.m_Pos : var.m_Size;
+				for (; nBytes > val.nBytes; nBytes--)
+					m_Result.push_back(0);
 
-		for (uint32_t i = 0; i < nBytes; i++)
-			m_Result.push_back(val.m_pData[val.nBytes - nBytes + i]);
+				for (uint32_t i = 0; i < nBytes; i++)
+					m_Result.push_back(val.m_pData[val.nBytes - nBytes + i]);
+
+				break;
+			}
+		}
 	}
 
 	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
