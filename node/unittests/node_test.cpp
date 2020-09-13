@@ -3560,7 +3560,7 @@ namespace beam
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
-			InitStack(args);
+			InitStack(args, 0xcd);
 			CallFar(cid, iMethod);
 
 			uint32_t nCycles = 0;

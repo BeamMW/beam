@@ -46,14 +46,16 @@ namespace bvm {
 	/////////////////////////////////////////////
 	// Processor
 
-	void Processor::InitStack(const Buf& args)
+	void Processor::InitStack(const Buf& args, uint8_t nFill /* = 0 */)
 	{
 		Test(args.n <= Limits::StackSize - sizeof(StackFrame));
 		memcpy(m_pStack, args.p, args.n);
-		memset0(m_pStack + args.n, Limits::StackSize - args.n);
+		memset(m_pStack + args.n, nFill, Limits::StackSize - args.n);
 
+		memset0(m_pStack + args.n, sizeof(StackFrame));
 		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
 		LogStackPtr();
+
 		m_Ip = 0;
 	}
 

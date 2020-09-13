@@ -292,7 +292,7 @@ namespace bvm {
 
 		std::ostringstream* m_pDbg = nullptr;
 
-		void InitStack(const Buf& args); // initial arguments
+		void InitStack(const Buf& args, uint8_t nFill = 0); // initial arguments
 		void CallFar(const ContractID&, Type::Size iMethod);
 
 		void RunOnce();
