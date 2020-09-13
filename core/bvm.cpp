@@ -1592,7 +1592,15 @@ namespace bvm {
 
 	void Compiler::ScopeOpen()
 	{
+		Scope* pPrev = m_ScopesActive.empty() ? nullptr : &m_ScopesActive.back();
 		m_ScopesActive.Create_back();
+
+		if (pPrev)
+		{
+			Scope& s = m_ScopesActive.back();
+			s.m_nSizeArgs = pPrev->m_nSizeArgs;
+			s.m_nSizeLocal = pPrev->m_nSizeLocal;
+		}
 	}
 
 	void Compiler::ScopeClose()
