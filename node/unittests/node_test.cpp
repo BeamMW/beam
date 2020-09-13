@@ -1630,10 +1630,30 @@ namespace beam
 			res.swap(c.m_Result);
 		}
 
+		namespace Contract {
+
+			namespace Vault {
+
+#pragma pack (push, 1)
+
+				struct MoveFunds {
+					ECC::Point m_Pk;
+					uintBigFor<Asset::ID>::Type m_Aid;
+					uintBigFor<Amount>::Type m_Value;
+				};
+
+				struct Deposit :public MoveFunds {
+					static const Type::Size s_Method = 2;
+				};
+
+				struct Withdraw :public MoveFunds {
+					static const Type::Size s_Method = 3;
+				};
+
+#pragma pack (pop)
 
 
-
-		static const char g_szVault[] = "\
+				static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
     ret                                               \n\
                                                       \n\
@@ -1705,9 +1725,40 @@ namespace beam
 .zero                                                 \n\
     const u8 0                                        \n\
 ";
+			} // namespace Vault
 
 
-		static const char g_szOracle[] = "\
+			namespace Oracle {
+
+
+#pragma pack (push, 1)
+
+				struct Ctor {
+					static const Type::Size s_Method = 0;
+					// array of pks
+					uintBigFor<Amount>::Type m_InitialValue;
+					Type::uintSize m_NumOracles;
+				};
+
+				struct Dtor {
+					static const Type::Size s_Method = 1;
+				};
+
+				struct Set {
+					static const Type::Size s_Method = 2;
+
+					uintBigFor<Amount>::Type m_NewValue;
+					Type::uintSize m_iOracle;
+				};
+
+				struct Get {
+					static const Type::Size s_Method = 3;
+					uintBigFor<Amount>::Type m_Value;
+				};
+
+#pragma pack (pop)
+
+		static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
     arg u2 nNumOracles                                \n\
@@ -1783,7 +1834,7 @@ namespace beam
     var u33 pk                                        \n\
                                                       \n\
     load_var @iOracle,s_iOracle, 41,s_nValue, s_nSize \n\
-    cmp s_nSize, 41                                   \n\
+    cmp2 s_nSize, 41                                  \n\
     jnz .error                                        \n\
                                                       \n\
     mov8 s_nValue, s_nNewValue                        \n\
@@ -1799,7 +1850,7 @@ namespace beam
     arg u8 nRetVal                                    \n\
     var u2 nSize                                      \n\
                                                       \n\
-    load_var 1,0, @nRetVal, s_RetVal, s_nSize         \n\
+    load_var 1,0, @nRetVal, s_nRetVal, s_nSize        \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -1826,20 +1877,31 @@ namespace beam
     jmp .loop                                         \n\
 .loop_end                                             \n\
                                                       \n\
-    # loaded values: nBegin, nBegin+8, ...            \n\
+    # loaded values: nVal0, nVal0+8, ...              \n\
     # select the median                               \n\
                                                       \n\
-    sort s_nBegin, s_iOracle, @nVa0, 0, @nVal0        \n\
+    sort s_nVal0, s_iOracle, @nVal0, 0, @nVal0        \n\
                                                       \n\
     # pointer to median                               \n\
     div2 s_nSize, @iOracle,s_iOracle, 1,2             \n\
     mul2 s_pEnd, @nSize, s_nSize, 1,@nVal0            \n\
-    add2 s_pEnd, _nBegin                              \n\
+    add2 s_pEnd, _nVal0                               \n\
                                                       \n\
-    save_var 1,0, ss_pEnd,@nVal0                      \n\
+    save_var 1,0, @nVal0,ss_pEnd                      \n\
     ret                                               \n\
 }                                                     \n\
 ";
+
+			} // namespace Oracle
+
+		} // namespace Contract
+
+
+
+
+
+
+
 
 
 		static const char g_szProg[] = "\
@@ -3689,7 +3751,7 @@ namespace beam
 	void TestContract2()
 	{
 		ByteBuffer data;
-		bvm::Compile(data, bvm::g_szVault);
+		bvm::Compile(data, bvm::Contract::Vault::g_szProg);
 
 		MyBvmProcessor proc;
 		bvm::ContractID cid;
@@ -3697,13 +3759,7 @@ namespace beam
 		bvm::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
 		proc.SaveContract(cid, data);
 
-#pragma pack (push, 1)
-		struct Args {
-			ECC::Point m_Pk;
-			uintBigFor<Asset::ID>::Type m_Aid;
-			uintBigFor<Amount>::Type m_Value;
-		} args;
-#pragma pack (pop)
+		bvm::Contract::Vault::MoveFunds args;
 
 		ECC::Scalar::Native k;
 		ECC::SetRandom(k);
@@ -3720,8 +3776,61 @@ namespace beam
 
 		args.m_Value = 2U;
 		proc.RunMany(cid, 3, bvm::Buf(&args, sizeof(args))); // withdraw, pos terminated
-
 	}
+
+
+	void TestContract3()
+	{
+		ByteBuffer data;
+		bvm::Compile(data, bvm::Contract::Oracle::g_szProg);
+
+		MyBvmProcessor proc;
+		bvm::ContractID cid;
+
+		constexpr bvm::Type::Size nOracles = 5;
+
+		{
+			// c'tor
+			ByteBuffer buf;
+			size_t nSizePks = sizeof(ECC::Point) * nOracles;
+
+			buf.resize(sizeof(bvm::Contract::Oracle::Ctor) + nSizePks);
+
+			ECC::Point* pPk = reinterpret_cast<ECC::Point*>(&buf.front());
+			auto& args = *reinterpret_cast<bvm::Contract::Oracle::Ctor*>(&buf.front() + nSizePks);
+
+			args.m_InitialValue = 194U;
+			args.m_NumOracles = nOracles;
+
+			for (bvm::Type::Size i = 0; i < nOracles; i++)
+			{
+				ECC::Scalar::Native k;
+				ECC::SetRandom(k);
+
+				ECC::Point::Native pt = ECC::Context::get().G * k;
+				pPk[i] = pt;
+			}
+
+			bvm::get_Cid(cid, data, Blob(&args, sizeof(args)));
+			proc.SaveContract(cid, data);
+
+			proc.RunMany(cid, 0, buf);
+		}
+
+		// set rate, trigger median recalculation
+		for (bvm::Type::Size i = 0; i < nOracles; i++)
+		{
+			bvm::Contract::Oracle::Set args;
+			args.m_iOracle = i;
+			ECC::GenRandom(args.m_NewValue);
+
+			proc.RunMany(cid, bvm::Contract::Oracle::Set::s_Method, bvm::Buf(&args, sizeof(args)));
+		}
+
+		// d'tor
+		proc.RunMany(cid, bvm::Contract::Oracle::Dtor::s_Method, bvm::Buf(nullptr, 0));
+	}
+
 
 	void TestContracts()
 	{
@@ -3729,6 +3838,7 @@ namespace beam
 
 		TestContract1();
 		TestContract2();
+		TestContract3();
 	}
 
 }
