@@ -1688,6 +1688,139 @@ namespace beam
 ";
 
 
+		static const char g_szOracle[] = "\
+.method_0                     # c'tor                 \n\
+{                                                     \n\
+    arg u2 nNumOracles                                \n\
+    arg u8 nInitialValue                              \n\
+    #    pk[],     oracles pks (var size)             \n\
+                                                      \n\
+    var u2 iOracle                                    \n\
+    var u2 pPtr                                       \n\
+    var u8 nValue                                     \n\
+    var u33 pk                                        \n\
+                                                      \n\
+    mov2 s_iOracle, s_nNumOracles                     \n\
+    cmp2 s_iOracle, 0                                 \n\
+    jz .error                 # no oracles!           \n\
+                                                      \n\
+    mov2 s_pPtr, _nInitialValue    # end of array     \n\
+    mov8 s_nValue, s_nInitialValue                    \n\
+                                                      \n\
+.loop                                                 \n\
+    cmp2 s_iOracle, 0                                 \n\
+    jz .loop_end                                      \n\
+                                                      \n\
+    sub2 s_iOracle, 1                                 \n\
+    sub2 s_pPtr, @pk                                  \n\
+                                                      \n\
+    mov @pk, s_pk, ss_pPtr,                           \n\
+    add_sig s_pk                                      \n\
+    save_var @iOracle,s_iOracle, 41,s_nValue          \n\
+                                                      \n\
+    jmp .loop                                         \n\
+.loop_end                                             \n\
+                                                      \n\
+    save_var 1,0, @nValue,s_nValue  # current median  \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.method_1                     # d'tor                 \n\
+{                                                     \n\
+    # No arguments, just remove all the vars          \n\
+                                                      \n\
+    var u2 iOracle                                    \n\
+    var u2 nSize                                      \n\
+    var u8 nValue                                     \n\
+    var u33 pk                                        \n\
+                                                      \n\
+    mov2 s_iOracle, 0                                 \n\
+.loop                                                 \n\
+    load_var @iOracle,s_iOracle, 41,s_nValue, s_nSize \n\
+    cmp2 s_nSize, 41          # loaded?               \n\
+    jnz .loop_end                                     \n\
+                                                      \n\
+    save_var @iOracle,s_iOracle, 0                    \n\
+    add_sig s_pk                                      \n\
+    add2 s_iOracle, 1                                 \n\
+                                                      \n\
+    jmp .loop                                         \n\
+.loop_end                                             \n\
+                                                      \n\
+    save_var 1,0, 0           # del median            \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.error                                                \n\
+    fail                                              \n\
+                                                      \n\
+.method_2                     # Set                   \n\
+{                                                     \n\
+    arg u2 iOracle                                    \n\
+    arg u8 nNewValue                                  \n\
+                                                      \n\
+    var u2 nSize                                      \n\
+    var u8 nValue                                     \n\
+    var u33 pk                                        \n\
+                                                      \n\
+    load_var @iOracle,s_iOracle, 41,s_nValue, s_nSize \n\
+    cmp s_nSize, 41                                   \n\
+    jnz .error                                        \n\
+                                                      \n\
+    mov8 s_nValue, s_nNewValue                        \n\
+    save_var @iOracle,s_iOracle, 41,s_nValue          \n\
+    add_sig s_pk                                      \n\
+                                                      \n\
+    jmp .update_median                                \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.method_3                     # Get                   \n\
+{                                                     \n\
+    arg u8 nRetVal                                    \n\
+    var u2 nSize                                      \n\
+                                                      \n\
+    load_var 1,0, @nRetVal, s_RetVal, s_nSize         \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.update_median                                        \n\
+{                                                     \n\
+    #    load all values                              \n\
+    var u2 iOracle                                    \n\
+    var u2 nSize                                      \n\
+                                                      \n\
+    var u2 pEnd                                       \n\
+    var u8 nVal0 # start of the array                 \n\
+                                                      \n\
+    mov2 s_iOracle, 0                                 \n\
+    mov2 s_pEnd, _nVal0                               \n\
+                                                      \n\
+.loop                                                 \n\
+    load_var @iOracle,s_iOracle, 41, ss_pEnd, s_nSize \n\
+    cmp2 s_nSize, 41          # loaded?               \n\
+    jnz .loop_end                                     \n\
+                                                      \n\
+    add2 s_iOracle, 1                                 \n\
+    add2 s_pEnd, @nVal0                               \n\
+                                                      \n\
+    jmp .loop                                         \n\
+.loop_end                                             \n\
+                                                      \n\
+    # loaded values: nBegin, nBegin+8, ...            \n\
+    # select the median                               \n\
+                                                      \n\
+    sort s_nBegin, s_iOracle, @nVa0, 0, @nVal0        \n\
+                                                      \n\
+    # pointer to median                               \n\
+    div2 s_nSize, @iOracle,s_iOracle, 1,2             \n\
+    mul2 s_pEnd, @nSize, s_nSize, 1,@nVal0            \n\
+    add2 s_pEnd, _nBegin                              \n\
+                                                      \n\
+    save_var 1,0, ss_pEnd,@nVal0                      \n\
+    ret                                               \n\
+}                                                     \n\
+";
 
 
 		static const char g_szProg[] = "\
