@@ -322,7 +322,15 @@ namespace bvm {
 		switch (nSize)
 		{
 		case OpCodesImpl::flexible:
-			if (FetchSize(br, nSizeX))
+			if (m_pDbg)
+				*m_pDbg << '(';
+
+			nSize = FetchSize(br, nSizeX);
+
+			if (m_pDbg)
+				*m_pDbg << ") ";
+
+			if (nSize)
 				bCanInline = false;
 			else
 			{
@@ -1266,16 +1274,48 @@ namespace bvm {
 
 	}
 
+	void Compiler::ParseVariableUse(MyBlob& x, uint32_t nBytes, bool bPosOrSize)
+	{
+		x.Move1();
+
+		auto& var = m_ScopesActive.back().m_mapVars[x.as_Blob()];
+		if (!var.IsValid())
+			Fail("variable not found");
+
+		Type::uintSize val = bPosOrSize ? var.m_Pos : var.m_Size;
+		for (; nBytes > val.nBytes; nBytes--)
+			m_Result.push_back(0);
+
+		for (uint32_t i = 0; i < nBytes; i++)
+			m_Result.push_back(val.m_pData[val.nBytes - nBytes + i]);
+	}
+
 	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
 	{
-		if (x.n && ('.' == *x.p))
+		if (x.n)
 		{
-			if (sizeof(Type::Size) != nBytes)
-				Fail("Label size mismatch");
+			if ('.' == *x.p)
+			{
+				if (sizeof(Type::Size) != nBytes)
+					Fail("Label size mismatch");
 
-			ParseLabel(x);
-			return true;
+				ParseLabel(x);
+				return true;
+			}
+
+			if ('_' == *x.p)
+			{
+				ParseVariableUse(x, nBytes, true);
+				return false;
+			}
+
+			if ('@' == *x.p)
+			{
+				ParseVariableUse(x, nBytes, false);
+				return false;
+			}
 		}
+
 
 		ParseSignedNumber(x, nBytes);
 		return false;
@@ -1295,6 +1335,63 @@ namespace bvm {
 		if (uintBigImpl::_Scan(&m_Result.front() + n0, (const char*) x.p, nTxtLen) != nTxtLen)
 			Fail("hex parse");
 	}
+
+	char Compiler::ParseVariableType(MyBlob& line, Type::Size& res)
+	{
+		MyBlob var;
+		line.ExtractToken(var, ' ');
+
+		if (!var.n)
+			Fail("type expected");
+
+		char nTag = *var.p;
+		var.Move1();
+
+		switch (nTag)
+		{
+		case 'u':
+		case 'h':
+		case 'b':
+			break;
+
+		default:
+			Fail("invalid const type");
+		}
+
+		res = static_cast<Type::Size>(ParseUnsignedRaw(var));
+		//if (!res)
+		//	Fail("type size can't be zero");
+		return nTag;
+	}
+
+	void Compiler::ParseVariableDeclaration(MyBlob& line, bool bArg)
+	{
+		Type::Size nVarSize;
+		ParseVariableType(line, nVarSize);
+
+		MyBlob name;
+		line.ExtractToken(name, ' ');
+		if (!name.n)
+			Fail("variable name expected");
+
+		auto& s = m_ScopesActive.back();
+		auto& x = s.m_mapVars[name.as_Blob()];
+		if (x.IsValid())
+			Fail("variable name duplicated");
+
+		x.m_Size = nVarSize;
+		if (bArg)
+		{
+			s.m_nSizeArgs += nVarSize;
+			x.m_Pos = static_cast<Type::Size>(-s.m_nSizeArgs);
+		}
+		else
+		{
+			x.m_Pos = s.m_nSizeLocal;
+			s.m_nSizeLocal += nVarSize;
+		}
+	}
+
 
 	void Compiler::ParseLine(MyBlob& line)
 	{
@@ -1333,37 +1430,37 @@ namespace bvm {
 
 		if (opcode == "const")
 		{
-			line.ExtractToken(opcode, ' ');
-
-			if (!opcode.n)
-				Fail("");
-
-			char nTag = *opcode.p;
-			opcode.Move1();
+			Type::Size nVarSize;
+			char nTag = ParseVariableType(line, nVarSize);
 
 			switch (nTag)
 			{
 			case 'u':
-				{
-					uint64_t nBytes = ParseUnsignedRaw(opcode);
-					if (nBytes > sizeof(nBytes))
-						Fail("");
-
-					ParseSignedNumber(line, static_cast<uint32_t>(nBytes));
-				}
+				if (nVarSize > sizeof(uint64_t))
+					Fail("const too big");
+				ParseSignedNumber(line, nVarSize);
 				break;
 
 			case 'h':
-				{
-					uint64_t nBytes = ParseUnsignedRaw(opcode);
-					ParseHex(line, static_cast<uint32_t>(nBytes));
-				}
+				ParseHex(line, nVarSize);
 				break;
 
 			default:
 				Fail("invalid const type");
 			}
 
+			return;
+		}
+
+		if (opcode == "arg")
+		{
+			ParseVariableDeclaration(line, true);
+			return;
+		}
+
+		if (opcode == "var")
+		{
+			ParseVariableDeclaration(line, false);
 			return;
 		}
 

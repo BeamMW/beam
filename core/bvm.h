@@ -327,6 +327,21 @@ namespace bvm {
 			Label::Map m_Labels;
 
 			typedef intrusive::list_autoclear<Scope> List;
+
+			struct Variable
+			{
+				Type::Size m_Size;
+				Type::Size m_Pos = Label::s_Invalid;
+
+				bool IsValid() const { return Label::s_Invalid != m_Pos; }
+
+				typedef std::map<Blob, Variable> Map;
+			};
+
+			Variable::Map m_mapVars;
+
+			Type::Size m_nSizeArgs = sizeof(StackFrame);
+			Type::Size m_nSizeLocal = 0;
 		};
 
 
@@ -394,6 +409,9 @@ namespace bvm {
 		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes);
 		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
+		char ParseVariableType(MyBlob& line, Type::Size&);
+		void ParseVariableDeclaration(MyBlob& line, bool bArg);
+		void ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
 
 		uint64_t ParseUnsignedRaw(MyBlob&);
 		void ParseSignedRaw(MyBlob&, uint32_t nBytes, uintBigFor<uint64_t>::Type&);
