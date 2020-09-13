@@ -1614,6 +1614,25 @@ namespace beam
 
 	namespace bvm
 	{
+		void Compile(ByteBuffer& res, const char* sz)
+		{
+			Compiler c;
+
+			c.m_Input.p = (uint8_t*) sz;
+			c.m_Input.n = static_cast<uint32_t>(strlen(sz));
+
+			c.Start();
+
+			while (c.ParseOnce())
+				;
+
+			c.Finalyze();
+			res.swap(c.m_Result);
+		}
+
+
+
+
 		static const char g_szVault[] = "\
 .method_0                     # c'tor                 \n\
     ret                                               \n\
@@ -2600,21 +2619,7 @@ namespace beam
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
 
-				{
-					bvm::Compiler c;
-
-					c.m_Input.p = (uint8_t*)bvm::g_szProg;
-					c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
-
-					c.Start();
-
-					while (c.ParseOnce())
-						;
-
-					c.Finalyze();
-
-					pKrn->m_Data = std::move(c.m_Result);
-				}
+				bvm::Compile(pKrn->m_Data, bvm::g_szProg);
 
 #pragma pack (push, 1)
 
@@ -3626,19 +3631,8 @@ namespace beam
 
 	void TestContract1()
 	{
-
-		bvm::Compiler c;
-
-		c.m_Input.p = (uint8_t*) bvm::g_szProg;
-		c.m_Input.n = sizeof(bvm::g_szProg) - sizeof(bvm::g_szProg[0]);
-
-		c.Start();
-
-		while (c.ParseOnce())
-			;
-
-		c.Finalyze();
-
+		ByteBuffer data;
+		bvm::Compile(data, bvm::g_szProg);
 
 		MyBvmProcessor proc;
 		bvm::ContractID cid;
@@ -3670,8 +3664,8 @@ namespace beam
 				args.m_pPk[i] = pt;
 			}
 
-			bvm::get_Cid(cid, c.m_Result, Blob(&args, sizeof(args)));
-			proc.SaveContract(cid, c.m_Result);
+			bvm::get_Cid(cid, data, Blob(&args, sizeof(args)));
+			proc.SaveContract(cid, data);
 
 			proc.RunMany(cid, 0, bvm::Buf(&args, sizeof(args)));
 		}
@@ -3694,24 +3688,14 @@ namespace beam
 
 	void TestContract2()
 	{
-		bvm::Compiler c;
-
-		c.m_Input.p = (uint8_t*) bvm::g_szVault;
-		c.m_Input.n = sizeof(bvm::g_szVault) - sizeof(bvm::g_szVault[0]);
-
-		c.Start();
-
-		while (c.ParseOnce())
-			;
-
-		c.Finalyze();
-
+		ByteBuffer data;
+		bvm::Compile(data, bvm::g_szVault);
 
 		MyBvmProcessor proc;
 		bvm::ContractID cid;
 
-		bvm::get_Cid(cid, c.m_Result, Blob(nullptr, 0)); // c'tor is empty
-		proc.SaveContract(cid, c.m_Result);
+		bvm::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
+		proc.SaveContract(cid, data);
 
 #pragma pack (push, 1)
 		struct Args {
