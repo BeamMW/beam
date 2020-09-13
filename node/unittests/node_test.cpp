@@ -1630,50 +1630,53 @@ namespace beam
     jmp .move_funds                                   \n\
                                                       \n\
 .move_funds                                           \n\
-    # args:                                           \n\
-    #    u2, s-12,  amount                            \n\
-    #    u2, s-16,  aid                               \n\
-    #    u33, s-49,  pk                               \n\
-    #    u1, s0,    bWithdraw                         \n\
+                                                      \n\
+    arg u8 nChange                                    \n\
+    arg u4 nAid                                       \n\
+    arg u33 pk                                        \n\
+                                                      \n\
+    var u1 bWithdraw          # already set           \n\
+    var u2 nSize                                      \n\
+    var u8 nTotal                                     \n\
                                                       \n\
     # load current value into s4                      \n\
     # key is [pk | aid], 37 bytes                     \n\
                                                       \n\
-    mov8 s4, d.zero                                   \n\
-    load_var 37,s-49, 8,s4, s2                        \n\
+    mov8 s_nTotal, d.zero                             \n\
+    load_var 37,s_pk, @nTotal,s_nTotal, s_nSize       \n\
                                                       \n\
     {                                                 \n\
-    cmp1 s0, 0                                        \n\
+    cmp1 s_bWithdraw, 0                               \n\
     jz .if_deposit                                    \n\
                                                       \n\
     # withdrawal                                      \n\
-    cmp8 s4, s-12                                     \n\
+    cmp8 s_nTotal, s_nChange                          \n\
     jb .error                 # not enough funds      \n\
-    sub8 s4, s-12                                     \n\
+    sub8 s_nTotal, s_nChange                          \n\
                                                       \n\
-    add_sig s-49                                      \n\
-    funds_unlock s-12, s-16                           \n\
+    add_sig s_pk                                      \n\
+    funds_unlock s_nChange, s_nAid                    \n\
                                                       \n\
     jmp .endif                                        \n\
                                                       \n\
 .if_deposit                                           \n\
-    add8 s4, s-12                                     \n\
+    add8 s_nTotal, s_nChange                          \n\
     jnz .error                # overflow flag         \n\
                                                       \n\
-    funds_lock s-12, s-16                             \n\
+    funds_lock s_nChange, s_nAid                      \n\
                                                       \n\
 .endif                                                \n\
     }                                                 \n\
                                                       \n\
     # save result                                     \n\
                                                       \n\
-    mov2 s2, 0                                        \n\
-    cmp8 s4, 0                                        \n\
+    mov2 s_nSize, 0                                   \n\
+    cmp8 s_nTotal, d.zero                             \n\
     jz .save                                          \n\
-    mov2 s2, 8                                        \n\
+    mov2 s_nSize, @nTotal                             \n\
                                                       \n\
 .save                                                 \n\
-    save_var 37,s-49, s2,s4                           \n\
+    save_var 37,s_pk, s_nSize,s_nTotal                \n\
                                                       \n\
     ret                                               \n\
                                                       \n\
@@ -1690,52 +1693,63 @@ namespace beam
 		static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
-    #    u2, s-6,  nNumOracles                        \n\
-    #    u2, s-8,  nMeta                              \n\
-    #    u8, s-16, nRate                              \n\
+                                                      \n\
+    arg u2 nNumOracles                                \n\
+    arg u2 nMeta                                      \n\
+    arg u8 nRate                                      \n\
     #    pk[],     oracles pks (var size)             \n\
     #    u1[],     metadata                           \n\
-    mov2 s0, s-6              # iOracle = nNumOracles \n\
-    mov2 s2, -16              # ppPk, end of array    \n\
+                                                      \n\
+    var u2 iOracle                                    \n\
+    var u2 pPtr                                       \n\
+    var u4 nAid                                       \n\
+                                                      \n\
+    mov2 s_iOracle, s_nNumOracles                     \n\
+    mov2 s_pPtr, _nRate       # ppPk, end of array    \n\
 .loop                                                 \n\
-    cmp2 s0, 0                                        \n\
-    jz .loop_end              # iOracle == 0          \n\
-    sub2 s0, 1                # iOracle--             \n\
-    sub2 s2, 33               # ppPk--                \n\
-    add_sig ss2               # add_sig(*ppPk)        \n\
-    save_var 2,s0, 33,ss2     # V=*ppPk, K=iOracle    \n\
+    cmp2 s_iOracle, 0                                 \n\
+    jz .loop_end                                      \n\
+    sub2 s_iOracle, 1                                 \n\
+    sub2 s_pPtr, 33                                   \n\
+    add_sig ss_pPtr           # add_sig(*ppPk)        \n\
+    save_var @iOracle,s_iOracle, 33,ss_pPtr           \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
-    save_var 1,0, 8,s-16      # V=nRate, K=(u1)0      \n\
+    save_var 1,0, @nRate,s_nRate                      \n\
     funds_lock 100500, 0                              \n\
-    sub2 s2, s-8              # metadata start        \n\
-    asset_create s4, s-8,ss2                          \n\
-    cmp4 s4, 0                                        \n\
+    sub2 s_pPtr, s_nMeta      # metadata start        \n\
+    asset_create s_nAid, s_nMeta, ss_pPtr             \n\
+    cmp4 s_nAid, 0                                    \n\
     jz .error                                         \n\
-    save_var 1,1, 4,s4        # V=aid,   K=(u1)1      \n\
-    asset_emit s4, 225, 1                             \n\
-    asset_emit s4, 225, 0                             \n\
+    save_var 1,1, @nAid,s_nAid                        \n\
+    asset_emit s_nAid, 225, 1                         \n\
+    asset_emit s_nAid, 225, 0                         \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
 .method_1                     # d'tor                 \n\
 {                                                     \n\
     # No arguments, just remove all the vars          \n\
-    mov2 s0, 0                # iOracle = 0           \n\
+    var u2 iOracle                                    \n\
+    var u2 nSize                                      \n\
+    var u4 nAid                                       \n\
+    var u33 pk                                        \n\
+                                                      \n\
     save_var 1,0, 0           # del rate variable     \n\
+    mov2 s_iOracle, 0                                 \n\
 .loop                                                 \n\
-    load_var 2,s0, 33,s4, s2                          \n\
-    cmp2 s2, 33               # pk loaded ok?         \n\
+    load_var @iOracle,s_iOracle, @pk,s_pk, s_nSize    \n\
+    cmp2 s_nSize, @pk         # pk loaded ok?         \n\
     jnz .loop_end                                     \n\
-    save_var 2,s0, 0          # del pk variable       \n\
-    add_sig s4                                        \n\
-    add2 s0, 1                # iOracle++             \n\
+    save_var @iOracle,s_iOracle, 0                    \n\
+    add_sig s_pk                                      \n\
+    add2 s_iOracle, 1                                 \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
     funds_unlock 100500, 0                            \n\
-    load_var 1,1, 4,s4, s2    # aid                   \n\
-    save_var 1,1, 0           # delete aid var        \n\
-    asset_destroy s4                                  \n\
+    load_var 1,1, @nAid,s_nAid, s_nSize               \n\
+    save_var 1,1, 0                                   \n\
+    asset_destroy s_nAid                              \n\
     jz .error                                         \n\
     ret                                               \n\
 }                                                     \n\
@@ -1745,13 +1759,17 @@ namespace beam
                                                       \n\
 .method_2                     # SetRate               \n\
 {                                                     \n\
-    #    iOracle, u2, s-6                             \n\
-    #    rate, u8 s-14                                \n\
-    load_var 2,s-6, 33,s2, s0                         \n\
-    cmp2 s0, 33                                       \n\
+    arg u2 iOracle                                    \n\
+    arg u8 nRate                                      \n\
+                                                      \n\
+    var u2 nSize                                      \n\
+    var u33 pk                                        \n\
+                                                      \n\
+    load_var @iOracle,s_iOracle, @pk,s_pk, s_nSize    \n\
+    cmp2 s_nSize, @pk                                 \n\
     jnz .error                                        \n\
-    add_sig s2                                        \n\
-    save_var 1,0, 8,s-14                              \n\
+    add_sig s_pk                                      \n\
+    save_var 1,0, 8,s_nRate                           \n\
     ret                                               \n\
 }                                                     \n\
 ";
