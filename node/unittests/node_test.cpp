@@ -1655,8 +1655,6 @@ namespace beam
 
 				static const char g_szProg[] = "\
 .method_0                     # c'tor                 \n\
-    ret                                               \n\
-                                                      \n\
 .method_1                     # d'tor                 \n\
     ret                                               \n\
                                                       \n\
@@ -1668,21 +1666,26 @@ namespace beam
     mov1 s0, 1                                        \n\
     jmp .move_funds                                   \n\
                                                       \n\
+                                                      \n\
+                                                      \n\
+struct UserKey {                                      \n\
+    u33 pk                                            \n\
+    u4 nAid                                           \n\
+}                                                     \n\
+                                                      \n\
 .move_funds                                           \n\
                                                       \n\
     arg u8 nChange                                    \n\
-    arg u4 nAid                                       \n\
-    arg u33 pk                                        \n\
+    arg UserKey stUk                                  \n\
                                                       \n\
     var u1 bWithdraw          # already set           \n\
     var u2 nSize                                      \n\
     var u8 nTotal                                     \n\
                                                       \n\
     # load current value                              \n\
-    # key is [pk | aid], 37 bytes                     \n\
                                                       \n\
     mov8 s_nTotal, d.zero                             \n\
-    load_var 37,s_pk, @nTotal,s_nTotal, s_nSize       \n\
+    load_var @stUk,s_stUk, @nTotal,s_nTotal, s_nSize  \n\
                                                       \n\
     {                                                 \n\
     cmp1 s_bWithdraw, 0                               \n\
@@ -1693,8 +1696,8 @@ namespace beam
     jb .error                 # not enough funds      \n\
     sub8 s_nTotal, s_nChange                          \n\
                                                       \n\
-    add_sig s_pk                                      \n\
-    funds_unlock s_nChange, s_nAid                    \n\
+    add_sig s_stUk.pk                                 \n\
+    funds_unlock s_nChange, s_stUk.nAid               \n\
                                                       \n\
     jmp .endif                                        \n\
                                                       \n\
@@ -1702,7 +1705,7 @@ namespace beam
     add8 s_nTotal, s_nChange                          \n\
     jnz .error                # overflow flag         \n\
                                                       \n\
-    funds_lock s_nChange, s_nAid                      \n\
+    funds_lock s_nChange, s_stUk.nAid                 \n\
                                                       \n\
 .endif                                                \n\
     }                                                 \n\
@@ -1715,7 +1718,7 @@ namespace beam
     mov2 s_nSize, @nTotal                             \n\
                                                       \n\
 .save                                                 \n\
-    save_var 37,s_pk, s_nSize,s_nTotal                \n\
+    save_var @stUk,s_stUk, s_nSize,s_nTotal           \n\
                                                       \n\
     ret                                               \n\
                                                       \n\
@@ -1759,6 +1762,11 @@ namespace beam
 #pragma pack (pop)
 
 		static const char g_szProg[] = "\
+struct OracleData {                                   \n\
+    u8 nValue                                         \n\
+    u33 pk                                            \n\
+}                                                     \n\
+                                                      \n\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
     arg u2 nNumOracles                                \n\
@@ -1767,31 +1775,30 @@ namespace beam
                                                       \n\
     var u2 iOracle                                    \n\
     var u2 pPtr                                       \n\
-    var u8 nValue                                     \n\
-    var u33 pk                                        \n\
+    var OracleData stData                             \n\
                                                       \n\
     mov2 s_iOracle, s_nNumOracles                     \n\
     cmp2 s_iOracle, 0                                 \n\
     jz .error                 # no oracles!           \n\
                                                       \n\
     mov2 s_pPtr, _nInitialValue    # end of array     \n\
-    mov8 s_nValue, s_nInitialValue                    \n\
+    mov8 s_stData.nValue, s_nInitialValue             \n\
                                                       \n\
 .loop                                                 \n\
     cmp2 s_iOracle, 0                                 \n\
     jz .loop_end                                      \n\
                                                       \n\
     sub2 s_iOracle, 1                                 \n\
-    sub2 s_pPtr, @pk                                  \n\
+    sub2 s_pPtr, @stData.pk                           \n\
                                                       \n\
-    mov @pk, s_pk, ss_pPtr,                           \n\
-    add_sig s_pk                                      \n\
-    save_var @iOracle,s_iOracle, 41,s_nValue          \n\
+    mov @stData.pk, s_stData.pk, ss_pPtr,             \n\
+    add_sig s_stData.pk                               \n\
+    save_var @iOracle,s_iOracle, @stData,s_stData     \n\
                                                       \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
                                                       \n\
-    save_var 1,0, @nValue,s_nValue  # current median  \n\
+    save_var 1,0, @nInitialValue,s_nInitialValue  # current median  \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -1801,17 +1808,16 @@ namespace beam
                                                       \n\
     var u2 iOracle                                    \n\
     var u2 nSize                                      \n\
-    var u8 nValue                                     \n\
-    var u33 pk                                        \n\
+    var OracleData stData                             \n\
                                                       \n\
     mov2 s_iOracle, 0                                 \n\
 .loop                                                 \n\
-    load_var @iOracle,s_iOracle, 41,s_nValue, s_nSize \n\
-    cmp2 s_nSize, 41          # loaded?               \n\
+    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
+    cmp2 s_nSize, @stData     # loaded?               \n\
     jnz .loop_end                                     \n\
                                                       \n\
     save_var @iOracle,s_iOracle, 0                    \n\
-    add_sig s_pk                                      \n\
+    add_sig s_stData.pk                               \n\
     add2 s_iOracle, 1                                 \n\
                                                       \n\
     jmp .loop                                         \n\
@@ -1830,16 +1836,15 @@ namespace beam
     arg u8 nNewValue                                  \n\
                                                       \n\
     var u2 nSize                                      \n\
-    var u8 nValue                                     \n\
-    var u33 pk                                        \n\
+    var OracleData stData                             \n\
                                                       \n\
-    load_var @iOracle,s_iOracle, 41,s_nValue, s_nSize \n\
-    cmp2 s_nSize, 41                                  \n\
+    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
+    cmp2 s_nSize, @stData                             \n\
     jnz .error                                        \n\
                                                       \n\
-    mov8 s_nValue, s_nNewValue                        \n\
-    save_var @iOracle,s_iOracle, 41,s_nValue          \n\
-    add_sig s_pk                                      \n\
+    mov8 s_stData.nValue, s_nNewValue                 \n\
+    save_var @iOracle,s_iOracle, @stData,s_stData     \n\
+    add_sig s_stData.pk                               \n\
                                                       \n\
     jmp .update_median                                \n\
     ret                                               \n\
