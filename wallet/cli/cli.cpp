@@ -710,13 +710,13 @@ namespace
             }
             if (isMaxPrivacyToken)
             {
-                LOG_INFO() << "Generating max privacy token";
+                LOG_INFO() << "Generating max privacy address";
                 params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
             }
         }
         else if (isMaxPrivacyToken)
         {
-            LOG_INFO() << "Generating max privacy token";
+            LOG_INFO() << "Generating max privacy address";
             address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         }
