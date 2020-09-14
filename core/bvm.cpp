@@ -1306,15 +1306,40 @@ namespace bvm {
 			return;
 		}
 
+		MyBlob name0;
+		x.ExtractToken(name0, '.');
+
 		for (auto it = m_ScopesActive.rbegin(); ; it++)
 		{
 			if (m_ScopesActive.rend() == it)
 				Fail("variable not found");
 
-			auto& var = it->m_mapVars[x.as_Blob()];
+			auto& var = it->m_mapVars[name0.as_Blob()];
 			if (var.IsValid())
 			{
-				Type::uintSize val = bPosOrSize ? var.m_Pos : var.m_Size;
+				Type::Size res = bPosOrSize ? var.m_Pos : var.m_Size;
+				Struct* pType = var.m_pType;
+
+				while (x.n)
+				{
+					if (!pType)
+						Fail("not a struct");
+
+					x.ExtractToken(name0, '.');
+
+					auto& field = pType->m_mapFields[name0.as_Blob()];
+					if (!field.IsValid())
+						Fail("field not found");
+
+					if (bPosOrSize)
+						res += field.m_Pos;
+					else
+						res = field.m_Size;
+
+					pType = field.m_pType;
+				}
+
+				Type::uintSize val = res;
 				WriteFlexible(val, nBytes);
 				break;
 			}
@@ -1378,7 +1403,20 @@ namespace bvm {
 			Fail("hex parse");
 	}
 
-	char Compiler::ParseVariableType(MyBlob& line, Type::Size& res)
+	Compiler::Struct* Compiler::FindType(const MyBlob& x)
+	{
+		for (auto it = m_ScopesActive.rbegin(); m_ScopesActive.rend() != it; it++)
+		{
+			Scope& s = *it;
+			auto itS = s.m_mapStructs.find(x.as_Blob(), Struct::Comparator());
+			if (s.m_mapStructs.end() != itS)
+				return &(*itS);
+		}
+
+		return nullptr;
+	}
+
+	Compiler::Struct* Compiler::ParseVariableType(MyBlob& line, Type::Size& res, char& nTag)
 	{
 		MyBlob var;
 		line.ExtractToken(var, ' ');
@@ -1386,7 +1424,16 @@ namespace bvm {
 		if (!var.n)
 			Fail("type expected");
 
-		char nTag = *var.p;
+		// lookup struct type first
+		Struct* pType = FindType(var);
+		if (pType)
+		{
+			res = pType->m_Size;
+			nTag = 0;
+			return pType;
+		}
+
+		nTag = *var.p;
 		var.Move1();
 
 		switch (nTag)
@@ -1403,18 +1450,26 @@ namespace bvm {
 		res = static_cast<Type::Size>(ParseUnsignedRaw(var));
 		//if (!res)
 		//	Fail("type size can't be zero");
-		return nTag;
+		return nullptr;
+	}
+
+	Compiler::Struct* Compiler::ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size& nVarSize)
+	{
+		char nTag;
+		Struct* pType = ParseVariableType(line, nVarSize, nTag);
+
+		line.ExtractToken(name, ' ');
+		if (!name.n)
+			Fail("variable name expected");
+
+		return pType;
 	}
 
 	void Compiler::ParseVariableDeclaration(MyBlob& line, bool bArg)
 	{
-		Type::Size nVarSize;
-		ParseVariableType(line, nVarSize);
-
 		MyBlob name;
-		line.ExtractToken(name, ' ');
-		if (!name.n)
-			Fail("variable name expected");
+		Type::Size nVarSize;
+		Struct* pType = ParseVariableDeclarationRaw(line, name, nVarSize);
 
 		auto& s = m_ScopesActive.back();
 		auto& x = s.m_mapVars[name.as_Blob()];
@@ -1422,6 +1477,7 @@ namespace bvm {
 			Fail("variable name duplicated");
 
 		x.m_Size = nVarSize;
+		x.m_pType = pType;
 		if (bArg)
 		{
 			s.m_nSizeArgs += nVarSize;
@@ -1442,6 +1498,70 @@ namespace bvm {
 		if (!opcode.n)
 			return;
 
+		Scope& s = m_ScopesActive.back();
+
+		if (m_InsideStructDef)
+		{
+			assert(1 == s.m_mapStructs.size());
+			auto& st = *s.m_mapStructs.begin();
+
+			if (opcode == "}")
+			{
+				if (st.m_mapFields.empty())
+					Fail("empty struct");
+
+				Scope* pPrev = m_ScopesActive.get_Prev(s);
+				assert(pPrev);
+
+				s.m_mapStructs.erase(Struct::Map::s_iterator_to(st));
+				pPrev->m_mapStructs.insert(st);
+
+				ScopeClose();
+				m_InsideStructDef = false;
+			}
+			else
+			{
+				line.n += static_cast<uint32_t>(line.p - opcode.p);
+				line.p = opcode.p;
+
+				Type::Size nSize;
+				Struct* pType = ParseVariableDeclarationRaw(line, opcode, nSize);
+
+				auto& field = st.m_mapFields[opcode.as_Blob()];
+				if (field.IsValid())
+					Fail("duplicate field name");
+
+				field.m_Pos = st.m_Size;
+				field.m_Size = nSize;
+				field.m_pType = pType;
+				st.m_Size += nSize;
+			}
+
+			return;
+		}
+
+		if (opcode == "struct")
+		{
+			line.ExtractToken(opcode, ' ');
+			if (!opcode.n)
+				Fail("struct name expected");
+
+			if (!line.n || ('{' != *line.p))
+				Fail("struct open '{' expected");
+
+			auto it = s.m_mapStructs.find(opcode.as_Blob(), Struct::Comparator());
+			if (s.m_mapStructs.end() != it)
+				Fail("duplicate struct name");
+
+			ScopeOpen();
+			Scope& s2 = m_ScopesActive.back();
+			s2.m_mapStructs.Create(opcode.as_Blob());
+
+			m_InsideStructDef = true;
+
+			return;
+		}
+
 		if ('.' == *opcode.p)
 		{
 			opcode.Move1();
@@ -1449,7 +1569,7 @@ namespace bvm {
 			if (!opcode.n)
 				Fail("empty label");
 
-			Label& x = m_ScopesActive.back().m_Labels[opcode.as_Blob()];
+			Label& x = s.m_Labels[opcode.as_Blob()];
 			if (Label::s_Invalid != x.m_Pos)
 				Fail("duplicated label");
 
@@ -1473,7 +1593,8 @@ namespace bvm {
 		if (opcode == "const")
 		{
 			Type::Size nVarSize;
-			char nTag = ParseVariableType(line, nVarSize);
+			char nTag;
+			ParseVariableType(line, nVarSize, nTag);
 
 			switch (nTag)
 			{
@@ -1484,6 +1605,7 @@ namespace bvm {
 				break;
 
 			case 'h':
+			case 0: // struct, treat as hex
 				ParseHex(line, nVarSize);
 				break;
 
@@ -1637,17 +1759,22 @@ namespace bvm {
 		}
 	}
 
+	Compiler::Scope* Compiler::Scope::List::get_Prev(Scope& s)
+	{
+		auto it = s_iterator_to(s);
+		if (begin() == it)
+			return nullptr;
+		return &(*--it);
+	}
+
+
 	void Compiler::ScopeClose()
 	{
 		if (m_ScopesActive.empty())
 			Fail("no scope");
 
 		Scope& s = m_ScopesActive.back();
-
-		Scope* pPrev = nullptr;
-		auto itScope = Scope::List::s_iterator_to(s);
-		if (m_ScopesActive.begin() != itScope)
-			pPrev = &(* --itScope);
+		Scope* pPrev = m_ScopesActive.get_Prev(s);
 
 		for (auto it = s.m_Labels.begin(); s.m_Labels.end() != it; )
 		{

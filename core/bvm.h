@@ -324,32 +324,52 @@ namespace bvm {
 			};
 		};
 
+		struct Struct;
+
+		struct Variable
+		{
+			Type::Size m_Size;
+			Type::Size m_Pos = Label::s_Invalid;
+
+			Struct* m_pType = nullptr;
+
+			bool IsValid() const { return Label::s_Invalid != m_Pos; }
+
+			typedef std::map<Blob, Variable> Map;
+		};
+
+		struct Struct
+			:public intrusive::set_base_hook<Blob>
+		{
+			Variable::Map m_mapFields;
+			Type::Size m_Size = 0;
+
+			typedef intrusive::multiset_autoclear<Struct> Map;
+		};
+
 		struct Scope
 			:public boost::intrusive::list_base_hook<>
 		{
 			Label::Map m_Labels;
 
-			typedef intrusive::list_autoclear<Scope> List;
-
-			struct Variable
+			struct List
+				:public intrusive::list_autoclear<Scope>
 			{
-				Type::Size m_Size;
-				Type::Size m_Pos = Label::s_Invalid;
-
-				bool IsValid() const { return Label::s_Invalid != m_Pos; }
-
-				typedef std::map<Blob, Variable> Map;
+				Scope* get_Prev(Scope&);
 			};
 
 			Variable::Map m_mapVars;
 
 			Type::Size m_nSizeArgs = sizeof(StackFrame);
 			Type::Size m_nSizeLocal = 0;
+
+			Struct::Map m_mapStructs;
 		};
 
 
 		Scope::List m_ScopesActive;
 		Scope::List m_ScopesDone;
+		bool m_InsideStructDef = false;
 
 		void ScopeOpen();
 		void ScopeClose();
@@ -412,9 +432,11 @@ namespace bvm {
 		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes);
 		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
-		char ParseVariableType(MyBlob& line, Type::Size&);
+		Struct* ParseVariableType(MyBlob& line, Type::Size&, char& nTag);
 		void ParseVariableDeclaration(MyBlob& line, bool bArg);
+		Struct* ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size&);
 		void ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
+		Struct* FindType(const MyBlob&);
 
 		void WriteFlexible(const uint8_t*, uint32_t, uint32_t nSizeDst);
 		template <uint32_t nBytes>
