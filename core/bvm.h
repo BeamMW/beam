@@ -416,6 +416,13 @@ namespace bvm {
 		void ParseVariableDeclaration(MyBlob& line, bool bArg);
 		void ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
 
+		void WriteFlexible(const uint8_t*, uint32_t, uint32_t nSizeDst);
+		template <uint32_t nBytes>
+		void WriteFlexible(const uintBig_t<nBytes>& val, uint32_t nSizeDst)
+		{
+			WriteFlexible(val.m_pData, nBytes, nSizeDst);
+		}
+
 		uint64_t ParseUnsignedRaw(MyBlob&);
 		void ParseSignedRaw(MyBlob&, uint32_t nBytes, uintBigFor<uint64_t>::Type&);
 	};

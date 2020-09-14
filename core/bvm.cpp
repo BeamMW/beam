@@ -1290,15 +1290,21 @@ namespace bvm {
 	{
 		uintBigFor<uint64_t>::Type val2;
 		ParseSignedRaw(x, nBytes, val2);
-
-		for (uint32_t i = 0; i < nBytes; i++)
-			m_Result.push_back(val2.m_pData[val2.nBytes - nBytes + i]);
-
+		WriteFlexible(val2, nBytes);
 	}
 
 	void Compiler::ParseVariableUse(MyBlob& x, uint32_t nBytes, bool bPosOrSize)
 	{
 		x.Move1();
+
+		// intrinsic (built-in) variables
+		if (x == "local_size")
+		{
+			Scope& s = m_ScopesActive.back();
+			Type::uintSize val = s.m_nSizeLocal;
+			WriteFlexible(val, nBytes);
+			return;
+		}
 
 		for (auto it = m_ScopesActive.rbegin(); ; it++)
 		{
@@ -1309,15 +1315,21 @@ namespace bvm {
 			if (var.IsValid())
 			{
 				Type::uintSize val = bPosOrSize ? var.m_Pos : var.m_Size;
-				for (; nBytes > val.nBytes; nBytes--)
-					m_Result.push_back(0);
-
-				for (uint32_t i = 0; i < nBytes; i++)
-					m_Result.push_back(val.m_pData[val.nBytes - nBytes + i]);
-
+				WriteFlexible(val, nBytes);
 				break;
 			}
 		}
+	}
+
+	void Compiler::WriteFlexible(const uint8_t* pSrc, uint32_t nSizeSrc, uint32_t nSizeDst)
+	{
+		for (; nSizeDst > nSizeSrc; nSizeDst--)
+			m_Result.push_back(0);
+
+		pSrc += (nSizeSrc - nSizeDst);
+
+		for (uint32_t i = 0; i < nSizeDst; i++)
+			m_Result.push_back(pSrc[i]);
 	}
 
 	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
