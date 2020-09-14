@@ -198,7 +198,7 @@ namespace bvm {
 		if (m_pDbg)
 		{
 			if (x.n)
-				uintBigImpl::_Print(x.p, x.n, *m_pDbg);
+				*m_pDbg << uintBigImpl::_Str(x.p, x.n); // dynamically allocates str of needed length
 			else
 				*m_pDbg << '-';
 		}
