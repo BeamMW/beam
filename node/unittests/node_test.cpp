@@ -1678,7 +1678,7 @@ namespace beam
     var u2 nSize                                      \n\
     var u8 nTotal                                     \n\
                                                       \n\
-    # load current value into s4                      \n\
+    # load current value                              \n\
     # key is [pk | aid], 37 bytes                     \n\
                                                       \n\
     mov8 s_nTotal, d.zero                             \n\
@@ -1893,6 +1893,234 @@ namespace beam
 ";
 
 			} // namespace Oracle
+
+
+			namespace StableCoin {
+
+#pragma pack (push, 1)
+
+				struct Ctor {
+					static const Type::Size s_Method = 0;
+					// metadata
+					Type::uintSize m_Meta;
+					uintBigFor<Amount>::Type m_RiskFactor;
+					ECC::Hash::Value m_OracelID;
+				};
+
+				struct UpdatePosition {
+					static const Type::Size s_Method = 2;
+
+					uint8_t m_bBWithdraw;
+					uint8_t m_bAWithdraw;
+					uintBigFor<Amount>::Type m_BChange;
+					uintBigFor<Amount>::Type m_AChange;
+					ECC::Point m_Pk;
+				};
+
+#pragma pack (pop)
+
+
+
+				static const char g_szProg[] = "\
+.method_0                     # c'tor                 \n\
+{                                                     \n\
+    arg u32 nOracleID                                 \n\
+    arg u8 nRiskMicroPerc                             \n\
+    arg u2 nMeta                                      \n\
+    #    u1[],     metadata                           \n\
+                                                      \n\
+    var u4 nAid                                       \n\
+    var u2 pPtr                                       \n\
+                                                      \n\
+    ref_add s_nOracleID                               \n\
+    jz .error                                         \n\
+                                                      \n\
+    mov2 s_pPtr, _nMeta                               \n\
+    sub2 s_pPtr, s_nMeta                              \n\
+                                                      \n\
+    asset_create s_nAid, s_nMeta, ss_pPtr             \n\
+    cmp4 s_nAid, 0                                    \n\
+    jz .error                                         \n\
+                                                      \n\
+    # everything is ok                                \n\
+    save_var 1,0, @nOracleID, s_nOracleID             \n\
+    save_var 1,1, @nRiskMicroPerc, s_nRiskMicroPerc   \n\
+    save_var 1,2, @nAid, s_nAid                       \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.method_1                     # d'tor                 \n\
+{                                                     \n\
+    var u2 nSize                                      \n\
+    var u32 nOracleID                                 \n\
+                                                      \n\
+    load_var 1,0, @nOracleID, s_nOracleID, s_nSize    \n\
+    ref_release s_nOracleID                           \n\
+                                                      \n\
+    save_var 1,0, 0                                   \n\
+    save_var 1,1, 0                                   \n\
+    save_var 1,2, 0                                   \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.error                                                \n\
+    fail                                              \n\
+                                                      \n\
+.method_2                     # PositionUpdate        \n\
+{                                                     \n\
+    arg u33 pk                                        \n\
+    arg u8 nAChange                                   \n\
+    arg u8 nBChange                                   \n\
+    arg u1 bAWithdraw                                 \n\
+    arg u1 bBWithdraw                                 \n\
+                                                      \n\
+    var u2 nSize                                      \n\
+                                                      \n\
+    var u0 pPosition          # position fields       \n\
+    var u8 nAValue                                    \n\
+    var u8 nBValue                                    \n\
+                                                      \n\
+    load_var @pk,s_pk, 16,s_pPosition, s_nSize        \n\
+    cmp2 s_nSize, 16                                  \n\
+    jz .loaded                                        \n\
+    xor 16, s_pPosition, s_pPosition                  \n\
+.loaded                                               \n\
+                                                      \n\
+    {                                                 \n\
+        var u1 bWithdraw                              \n\
+        var u8 nChange                                \n\
+        var u2 pTotal                                 \n\
+        var u4 nAid                                   \n\
+                                                      \n\
+        mov1 s_bWithdraw, s_bAWithdraw                \n\
+        mov8 s_nChange, s_nAChange                    \n\
+        getsp s_pTotal                                \n\
+        add2 s_pTotal, _nAValue                       \n\
+        load_var 1,2, @nAid, s_nAid, s_nSize          \n\
+                                                      \n\
+        call .move_funds, _local_size                 \n\
+                                                      \n\
+        mov1 s_bWithdraw, s_bBWithdraw                \n\
+        mov8 s_nChange, s_nBChange                    \n\
+        getsp s_pTotal                                \n\
+        add2 s_pTotal, _nBValue                       \n\
+        mov4 s_nAid, 0                                \n\
+                                                      \n\
+        call .move_funds, _local_size                 \n\
+    }                                                 \n\
+                                                      \n\
+                                                      \n\
+    # check position                                  \n\
+    # nBValue >= nAValue * nRate * nRiskFactor        \n\
+                                                      \n\
+    var u24 nALong                                    \n\
+    var u24 nBLong                                    \n\
+                                                      \n\
+    {                                                 \n\
+        var u32 cid                                   \n\
+        load_var 1,0, @cid, s_cid, s_nSize            \n\
+                                                      \n\
+        var u8 nRate    # retval                      \n\
+        call_far s_cid, 3, _local_size                \n\
+                                                      \n\
+        # tmp = AValue * current_rate                 \n\
+        mul 16,s_nBLong, @nAValue,s_nAValue, @nRate, s_nRate        \n\
+                                                      \n\
+        # AValue = tmp * risk_factor                  \n\
+        load_var 1,1, @nRate, s_nRate, s_nSize        \n\
+        mul @nALong, s_nALong, 16,s_nBLong, @nRate,s_nRate          \n\
+                                                      \n\
+                                                      \n\
+        mul @nBLong, s_nBLong, @nBValue, s_nBValue, 8,10000000000000000     \n\
+    }                                                 \n\
+                                                      \n\
+    cmp 24, s_nALong, s_nBLong                        \n\
+    jg .error                                         \n\
+                                                      \n\
+    # ok                                              \n\
+    add_sig s_pk                                      \n\
+    save_var @pk,s_pk, 16,s_pPosition                 \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.move_funds                                           \n\
+{                                                     \n\
+    arg u4 nAid                                       \n\
+    arg u2 pTotal             # in/out                \n\
+    arg u8 nChange                                    \n\
+    arg u1 bWithdraw                                  \n\
+                                                      \n\
+    {                                                 \n\
+    cmp1 s_bWithdraw, 0                               \n\
+    jz .if_deposit                                    \n\
+                                                      \n\
+.if_withdrawal                                        \n\
+    call .manage_asset, 0                             \n\
+    funds_unlock s_nChange, s_nAid                    \n\
+    jmp .if_end                                       \n\
+                                                      \n\
+.if_deposit                                           \n\
+    funds_lock s_nChange, s_nAid                      \n\
+    call .manage_asset, 0                             \n\
+                                                      \n\
+.if_end                                               \n\
+    }                                                 \n\
+                                                      \n\
+                                                      \n\
+    {                                                 \n\
+    cmp1 s_bWithdraw, 0                               \n\
+    jz .if_balance_add                                \n\
+                                                      \n\
+.if_balance_sub                                       \n\
+    cmp8 ps_pTotal, s_nChange                         \n\
+    jb .error                 # not enough funds      \n\
+    sub8 ps_pTotal, s_nChange                         \n\
+    jmp .if_end                                       \n\
+                                                      \n\
+.if_balance_add                                       \n\
+    add8 ps_pTotal, s_nChange                         \n\
+    jnz .error                # overflow flag         \n\
+                                                      \n\
+.if_end                                               \n\
+    }                                                 \n\
+                                                      \n\
+    ret                                               \n\
+                                                      \n\
+.if_deposit                                           \n\
+                                                      \n\
+    funds_lock s_nChange, s_nAid                      \n\
+}                                                     \n\
+                                                      \n\
+.manage_asset                                         \n\
+{                                                     \n\
+    arg u4 nPrevFrame                                 \n\
+    arg u4 nAid                                       \n\
+    arg u2 pTotal                                     \n\
+    arg u8 nChange                                    \n\
+    arg u1 bWithdraw                                  \n\
+                                                      \n\
+    cmp4 s_nAid, 0                                    \n\
+    jz .not_asset                                     \n\
+                                                      \n\
+    asset_emit s_nAid, s_nChange, s_bWithdraw         \n\
+    jz .error                                         \n\
+                                                      \n\
+    # flip withdraw flag                              \n\
+    and1 s_bWithdraw, 1                               \n\
+    xor1 s_bWithdraw, 1                               \n\
+                                                      \n\
+.not_asset                                            \n\
+    ret                                               \n\
+}                                                     \n\
+";
+			} // namespace StableCoin
+
+
+
+
+
+
+
 
 		} // namespace Contract
 
@@ -3831,6 +4059,71 @@ namespace beam
 		proc.RunMany(cid, bvm::Contract::Oracle::Dtor::s_Method, bvm::Buf(nullptr, 0));
 	}
 
+	void TestContract4()
+	{
+		static const char szEmptyOracle[] = "\
+.method_3                     # Get                   \n\
+    arg u8 nRetVal                                    \n\
+    var u2 nSize                                      \n\
+                                                      \n\
+    mov8 s_nRetVal, 372000000                         \n\
+    mov2 s_nSize, 8                                   \n\
+                                                      \n\
+.method_0                     # c'tor                 \n\
+.method_1                     # d'tor                 \n\
+.method_2                     # Set                   \n\
+    ret                                               \n\
+";
+
+		ByteBuffer data;
+		bvm::Compile(data, szEmptyOracle);
+
+		bvm::ContractID cidOracle;
+		bvm::get_Cid(cidOracle, data, Blob(nullptr, 0));
+
+		MyBvmProcessor proc;
+		proc.SaveContract(cidOracle, data);
+
+		bvm::Compile(data, bvm::Contract::StableCoin::g_szProg);
+
+		bvm::ContractID cid;
+
+		{
+			std::string sMeta = "helo, world!";
+
+			// c'tor
+			ByteBuffer buf;
+			buf.resize(sizeof(bvm::Contract::StableCoin::Ctor) + sMeta.size());
+
+			memcpy(&buf.front(), sMeta.c_str(), sMeta.size());
+			auto& args = *reinterpret_cast<bvm::Contract::StableCoin::Ctor*>(&buf.front() + sMeta.size());
+
+			args.m_Meta = static_cast<bvm::Type::Size>(sMeta.size());
+			args.m_OracelID = cidOracle;
+			args.m_RiskFactor = 150000000U; // 1.5
+
+			bvm::get_Cid(cid, data, buf);
+			proc.SaveContract(cid, data);
+
+			proc.RunMany(cid, 0, buf);
+		}
+
+
+		{
+			// rate = 3.72
+			// risk = 1.5
+			// overall criteria beams >= stable_coins * 5.58
+
+			bvm::Contract::StableCoin::UpdatePosition args;
+			ZeroObject(args.m_Pk);
+			args.m_bAWithdraw = 1;
+			args.m_bBWithdraw = 0;
+			args.m_AChange = 200U;
+			args.m_BChange = 1116U;
+
+			proc.RunMany(cid, args.s_Method, bvm::Buf(&args, sizeof(args)));
+		}
+	}
 
 	void TestContracts()
 	{
@@ -3839,6 +4132,7 @@ namespace beam
 		TestContract1();
 		TestContract2();
 		TestContract3();
+		TestContract4();
 	}
 
 }
