@@ -180,10 +180,13 @@ namespace bvm {
 		void LogStackPtr();
 		void LogDeref();
 		void LogOpCode(const char*);
+		void LogOpResults(bool);
 		void LogVarName(const char* szName);
 		void LogValue(const Ptr&);
 		void LogVarEnd();
 		void PushFrame(const Type::uintSize& nFrame_);
+
+		void LogVarResult(const char* szName, const Ptr&);
 
 		template <bool>
 		void TestStackPtr(Type::Size);

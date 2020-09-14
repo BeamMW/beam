@@ -164,13 +164,27 @@ namespace bvm {
 
 	void Processor::LogOpCode(const char* szName)
 	{
+		if (m_pDbg)
+			*m_pDbg << szName << ' ';
+	}
+
+	void Processor::LogOpResults(bool bHasW)
+	{
+		if (m_pDbg && bHasW)
+			*m_pDbg << " res: ";
+	}
+
+	void Processor::LogVarResult(const char* szName, const Ptr& ptr)
+	{
 		LogVarName(szName);
+		LogValue(ptr);
+		LogVarEnd();
 	}
 
 	void Processor::LogVarName(const char* szName)
 	{
 		if (m_pDbg)
-			*m_pDbg << szName << " = ";
+			*m_pDbg << szName << "=";
 	}
 
 	void Processor::LogVarEnd()
@@ -411,17 +425,19 @@ namespace bvm {
 		{
 #define THE_MACRO_ParamPass(name, rw, len) ParamType<len>::get(par##name),
 #define THE_MACRO_ParamIsX(name, rw, len) (len == 0) |
+#define THE_MACRO_ParamIsPrintResult(name, rw, len) (rw && (v != len)) |
 #define THE_MACRO_ParamRead(name, rw, len) \
 				LogVarName(#name); \
 				Ptr par##name; \
 				FetchOperand(br, par##name, rw, len, nSizeX); \
 				LogVarEnd();
 
+#define THE_MACRO_ParamPrintResult(name, rw, len) if constexpr (rw && (v != len)) LogVarResult(#name, par##name);
+
 #define THE_MACRO(name) \
 		case static_cast<uint8_t>(OpCode::n_##name): \
 			{ \
-				if (m_pDbg) \
-					*m_pDbg << #name; \
+				LogOpCode(#name); \
  \
 				constexpr bool bSizeX = BVMOp_##name(THE_MACRO_ParamIsX) false; \
 				Type::Size nSizeX = FetchSizeX(br, bSizeX); \
@@ -429,6 +445,10 @@ namespace bvm {
  \
 				BVMOp_##name(THE_MACRO_ParamRead) \
 				On_##name(BVMOp_##name(THE_MACRO_ParamPass) Zero); \
+ \
+				constexpr bool bLogRes = BVMOp_##name(THE_MACRO_ParamIsPrintResult) false; \
+				LogOpResults(bLogRes); \
+				BVMOp_##name(THE_MACRO_ParamPrintResult) \
 			} \
 			break;
 
