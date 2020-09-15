@@ -8,35 +8,7 @@ if(POLICY CMP0069)
     cmake_policy(SET CMP0069 NEW)  # Allow LTO.
 endif()
 
-include(cmake/cable/bootstrap.cmake)
-
-include(CableBuildType)
-include(CableCompilerSettings)
-include(CableToolchains)
-include(CMakePackageConfigHelpers)
-include(HunterGate)
-
-include(defaults/HunterCacheServers)
-
-cable_configure_toolchain(DEFAULT cxx11)
-cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Release RelWithDebInfo Debug)
-
-if(NOT WIN32)
-    # Outside of Windows build only Release packages.
-    set(HUNTER_CONFIGURATION_TYPES Release
-        CACHE STRING "Build type of the Hunter packages")
-endif()
-
-HunterGate(
-    URL "https://github.com/cpp-pm/hunter/archive/v0.23.224.tar.gz"
-    SHA1 "18e57a43efc435f2e1dae1291e82e42afbf940be"
-)
-
-project(ethash)
-set(PROJECT_VERSION 0.5.2)
-
-cable_configure_compiler(NO_STACK_PROTECTION)
-if(CABLE_COMPILER_GNULIKE)
+if(!MSVC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
 
@@ -57,35 +29,8 @@ if(ETHASH_FUZZING)
     add_compile_options(-fno-omit-frame-pointer -fsanitize=fuzzer,undefined,integer -fno-sanitize-recover=all)
 endif()
 
-set(include_dir ${PROJECT_SOURCE_DIR}/include)
+set(include_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+include_directories(${include_dir})
 
 add_subdirectory(lib)
-
-option(ETHASH_BUILD_TESTS "Build unit tests" ON)
-if(ETHASH_BUILD_TESTS)
-    add_subdirectory(test)
-endif()
-
-
-install(
-    DIRECTORY
-    ${include_dir}/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-if(ETHASH_INSTALL_CMAKE_CONFIG)
-    write_basic_package_version_file(ethashConfigVersion.cmake COMPATIBILITY SameMajorVersion)
-    configure_package_config_file(cmake/Config.cmake.in ethashConfig.cmake INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ethash)
-
-    install(
-        EXPORT ethashTargets
-        NAMESPACE ethash::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ethash
-    )
-    install(
-        FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/ethashConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/ethashConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ethash
-    )
-endif()
