@@ -1784,10 +1784,8 @@ struct OracleData {                                   \n\
     mov2 s_pPtr, _nInitialValue    # end of array     \n\
     mov8 s_stData.nValue, s_nInitialValue             \n\
                                                       \n\
+    {                                                 \n\
 .loop                                                 \n\
-    cmp2 s_iOracle, 0                                 \n\
-    jz .loop_end                                      \n\
-                                                      \n\
     sub2 s_iOracle, 1                                 \n\
     sub2 s_pPtr, @stData.pk                           \n\
                                                       \n\
@@ -1795,8 +1793,9 @@ struct OracleData {                                   \n\
     add_sig s_stData.pk                               \n\
     save_var @iOracle,s_iOracle, @stData,s_stData     \n\
                                                       \n\
-    jmp .loop                                         \n\
-.loop_end                                             \n\
+    cmp2 s_iOracle, 0                                 \n\
+    jnz .loop                                         \n\
+    }                                                 \n\
                                                       \n\
     save_var 1,0, @nInitialValue,s_nInitialValue  # current median  \n\
     ret                                               \n\
@@ -1811,17 +1810,19 @@ struct OracleData {                                   \n\
     var OracleData stData                             \n\
                                                       \n\
     mov2 s_iOracle, 0                                 \n\
-.loop                                                 \n\
-    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
-    cmp2 s_nSize, @stData     # loaded?               \n\
-    jnz .loop_end                                     \n\
                                                       \n\
+    {                                                 \n\
+    jmp .loop_if                                      \n\
+.loop                                                 \n\
     save_var @iOracle,s_iOracle, 0                    \n\
     add_sig s_stData.pk                               \n\
     add2 s_iOracle, 1                                 \n\
                                                       \n\
-    jmp .loop                                         \n\
-.loop_end                                             \n\
+.loop_if                                              \n\
+    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
+    cmp2 s_nSize, @stData     # loaded?               \n\
+    jz .loop                                          \n\
+    }                                                 \n\
                                                       \n\
     save_var 1,0, 0           # del median            \n\
     ret                                               \n\
@@ -1847,7 +1848,6 @@ struct OracleData {                                   \n\
     add_sig s_stData.pk                               \n\
                                                       \n\
     jmp .update_median                                \n\
-    ret                                               \n\
 }                                                     \n\
                                                       \n\
 .method_3                     # Get                   \n\
@@ -1866,21 +1866,24 @@ struct OracleData {                                   \n\
     var u2 nSize                                      \n\
                                                       \n\
     var u2 pEnd                                       \n\
+    var OracleData stData                             \n\
     var u8 nVal0 # start of the array                 \n\
                                                       \n\
     mov2 s_iOracle, 0                                 \n\
     mov2 s_pEnd, _nVal0                               \n\
                                                       \n\
+    {                                                 \n\
+    jmp .loop_if                                      \n\
 .loop                                                 \n\
-    load_var @iOracle,s_iOracle, 41, ss_pEnd, s_nSize \n\
-    cmp2 s_nSize, 41          # loaded?               \n\
-    jnz .loop_end                                     \n\
-                                                      \n\
     add2 s_iOracle, 1                                 \n\
+    mov8 ss_pEnd, s_stData.nValue                     \n\
     add2 s_pEnd, @nVal0                               \n\
                                                       \n\
-    jmp .loop                                         \n\
-.loop_end                                             \n\
+.loop_if                                              \n\
+    load_var @iOracle,s_iOracle, @stData, s_stData, s_nSize \n\
+    cmp2 s_nSize, @stData     # loaded?               \n\
+    jz .loop                                          \n\
+    }                                                 \n\
                                                       \n\
     # loaded values: nVal0, nVal0+8, ...              \n\
     # select the median                               \n\
