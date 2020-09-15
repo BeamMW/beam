@@ -2068,59 +2068,49 @@ struct UpdFundsCtx {                                  \n\
 .move_funds                                           \n\
 {                                                     \n\
     arg UpdFundsCtx ctx                               \n\
+    var u1 bDec                                       \n\
                                                       \n\
-    {                                                 \n\
+    and1 s_bDec, s_ctx.bWithdraw                      \n\
+                                                      \n\
     cmp1 s_ctx.bWithdraw, 0                           \n\
-    jz .if_deposit                                    \n\
-                                                      \n\
-.if_withdrawal                                        \n\
-    call .manage_asset, 0                             \n\
-    funds_unlock s_ctx.nChange, s_ctx.nAid            \n\
-    jmp .if_end                                       \n\
-                                                      \n\
-.if_deposit                                           \n\
-    funds_lock s_ctx.nChange, s_ctx.nAid              \n\
-    call .manage_asset, 0                             \n\
-                                                      \n\
-.if_end                                               \n\
-    }                                                 \n\
-                                                      \n\
-                                                      \n\
     {                                                 \n\
-    cmp1 s_ctx.bWithdraw, 0                           \n\
-    jz .if_balance_add                                \n\
-                                                      \n\
-.if_balance_sub                                       \n\
-    cmp8 ps_ctx.pTotal, s_ctx.nChange                 \n\
-    jb .error                 # not enough funds      \n\
-    sub8 ps_ctx.pTotal, s_ctx.nChange                 \n\
-    ret                                               \n\
-                                                      \n\
-.if_balance_add                                       \n\
-    add8 ps_ctx.pTotal, s_ctx.nChange                 \n\
-    jnz .error                # overflow flag         \n\
-    ret                                               \n\
+        jnz .endif                                    \n\
+        funds_lock s_ctx.nChange, s_ctx.nAid          \n\
+        .endif                                        \n\
     }                                                 \n\
-                                                      \n\
-}                                                     \n\
-                                                      \n\
-.manage_asset                                         \n\
-{                                                     \n\
-    arg u4 nPrevFrame                                 \n\
-    arg UpdFundsCtx ctx                               \n\
                                                       \n\
     cmp4 s_ctx.nAid, 0                                \n\
-    jz .not_asset                                     \n\
+    {                                                 \n\
+        jz .endif                                     \n\
+        asset_emit s_ctx.nAid, s_ctx.nChange, s_ctx.bWithdraw         \n\
+        jz .error                                     \n\
                                                       \n\
-    asset_emit s_ctx.nAid, s_ctx.nChange, s_ctx.bWithdraw         \n\
-    jz .error                                         \n\
+        xor1 s_bDec, 1                                \n\
+        .endif                                        \n\
+    }                                                 \n\
                                                       \n\
-    # flip withdraw flag                              \n\
-    and1 s_ctx.bWithdraw, 1                           \n\
-    xor1 s_ctx.bWithdraw, 1                           \n\
+    cmp1 s_ctx.bWithdraw, 1                           \n\
+    {                                                 \n\
+        jnz .endif                                    \n\
+        funds_unlock s_ctx.nChange, s_ctx.nAid        \n\
+        .endif                                        \n\
+    }                                                 \n\
                                                       \n\
-.not_asset                                            \n\
-    ret                                               \n\
+    cmp1 s_bDec, 1                                    \n\
+    {                                                 \n\
+        jnz .else                                     \n\
+                                                      \n\
+        cmp8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        jb .error                 # not enough funds  \n\
+        sub8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        ret                                           \n\
+                                                      \n\
+        .else                                         \n\
+                                                      \n\
+        add8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        jnz .error                # overflow flag     \n\
+        ret                                           \n\
+    }                                                 \n\
 }                                                     \n\
 ";
 			} // namespace StableCoin
