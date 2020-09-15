@@ -4695,8 +4695,11 @@ namespace beam::wallet
                 const AmountBig::Type value = c.m_CoinID.m_Value;
                 switch(c.m_Status) {
                     case ShieldedCoin::Status::Available:
-                        totals.AvailShielded += value;
-                        totals.UnspentShielded += value;
+                        if (AmountBig::get_Lo(value) > Transaction::FeeSettings::MinShieldedFee)  // shielded dust
+                        {
+                            totals.AvailShielded += value;
+                            totals.UnspentShielded += value;
+                        }
                         break;
                     case ShieldedCoin::Status::Maturing:
                         totals.MaturingShielded += value;
