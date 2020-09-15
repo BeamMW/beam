@@ -34,6 +34,7 @@
 #include "wallet_model.h"
 #include "node_model.h"
 #include "version.h"
+#include <regex>
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -121,6 +122,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto amount = params->GetParameter<Amount>(TxParameterID::Amount);
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+    auto libVersion = params->GetParameter(TxParameterID::LibraryVersion);
+
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
@@ -133,10 +136,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(amount) 
             {
+                LOG_DEBUG() << "amount(" << *amount << ")";
+
                 setLongField(env, TransactionParametersClass, jParameters, "amount", *amount);
             }
             else 
             {
+                LOG_DEBUG() << "amount not found";
+
                 setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
             }
 
@@ -174,6 +181,33 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
             {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isOffline", false);
             }
+
+            if(libVersion) 
+            {
+                std::string libVersionStr;
+                beam::wallet::fromByteBuffer(*libVersion, libVersionStr);
+                std::string myLibVersionStr = PROJECT_VERSION;
+                std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
+                    if (std::regex_match(libVersionStr, libVersionRegex) &&
+                         std::lexicographical_compare(
+                            myLibVersionStr.begin(),
+                            myLibVersionStr.end(),
+                            libVersionStr.begin(),
+                            libVersionStr.end(),
+                            std::less<char>{}))
+                    {   
+                        setStringField(env, TransactionParametersClass, jParameters, "version", libVersionStr);
+                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", true);
+                    }
+                    else {
+                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
+                    }
+            }
+            else 
+            {
+                setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
+            }
+
     }
 
     if(requestInfo) 
@@ -208,9 +242,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     params.SetParameter(TxParameterID::PeerID, m_walletID);
     params.SetParameter(TxParameterID::PeerWalletIdentity, m_Identity);
     params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanentAddress);
+    params.SetParameter(TxParameterID::LibraryVersion, std::string(PROJECT_VERSION));
 
     if (amount > 0) {
-        params.SetParameter(TxParameterID::Amount, amount);
+        uint64_t bAmount = amount;
+        params.SetParameter(TxParameterID::Amount, bAmount);
     }
     
     if (maxPrivacy) {
@@ -221,7 +257,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     }
     
     if(nonInteractive) {
-        auto vouchers = walletModel->generateVouchers(ownId, 20);
+        auto vouchers = walletModel->generateVouchers(ownId, 10);
         if (!vouchers.empty())
         {
             params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
@@ -389,6 +425,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     LOG_ERROR() << "wallet not opened.";
 
     return nullptr;
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getLibVersion)(JNIEnv *env, jobject thiz)
+{
+    jstring str = env->NewStringUTF(PROJECT_VERSION.c_str());
+
+    return str;
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, jobject thiz)

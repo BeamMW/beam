@@ -55,9 +55,16 @@ namespace beam::wallet
         };
 
         struct ShieldedInput
-            :public ShieldedTxo::ID
+            : public ShieldedTxo::ID
         {
             Amount m_Fee;
+
+            template <typename Archive>
+			void serialize(Archive& ar)
+			{
+			    ShieldedTxo::ID::serialize(ar);
+				ar & m_Fee;
+			}
         };
 
         struct Method

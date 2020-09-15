@@ -84,7 +84,7 @@ namespace beam
         extern const char* MINER_KEY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
-        extern const char* GET_TOKEN;
+        extern const char* GET_ADDRESS;
         extern const char* SET_CONFIRMATIONS_COUNT;
         extern const char* GET_CONFIRMATIONS_COUNT;
         extern const char* CONFIRMATIONS_COUNT;
@@ -217,8 +217,9 @@ namespace beam
         extern const char* EXTRACT_FROM_POOL;
         extern const char* SHIELDED_UTXOS;
         extern const char* SHIELDED_ID;
-        extern const char* VOUCHER_COUNT;
         extern const char* MAX_PRIVACY;
+        extern const char* MAX_PRIVACY_ONLINE;
+        extern const char* MAX_PRIVACY_OFFLINE;
     }
 
     enum OptionsFlag : int

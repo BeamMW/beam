@@ -660,7 +660,7 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (auto it = vm.find(cli::VOUCHER_COUNT); it != vm.end())
+        if (auto it = vm.find(cli::MAX_PRIVACY_OFFLINE); it != vm.end())
         {
             auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
@@ -672,12 +672,14 @@ namespace
         }
     }
 
-    int GetToken(const po::variables_map& vm)
+    int GetAddress(const po::variables_map& vm)
     {
         TxParameters params;
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        bool isMaxPrivacyToken = (vm.find(cli::MAX_PRIVACY) != vm.end()) || (vm.find(cli::VOUCHER_COUNT) != vm.end());
+        auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
+        auto mpOfflineIt = vm.find(cli::MAX_PRIVACY_OFFLINE);
+        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (mpOfflineIt != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
@@ -701,15 +703,20 @@ namespace
                 LOG_ERROR() << "Cannot generate token, address is expired";
                 return -1;
             }
-            if (isMaxPrivacyToken && !address->isPermanent())
+            if (!address->isPermanent())
             {
-                LOG_ERROR() << "Cannot generate token, address is not permanent";
+                LOG_ERROR() << "The address expiration time must be never.";
                 return -1;
+            }
+            if (isMaxPrivacyToken)
+            {
+                LOG_INFO() << "Generating max privacy address";
+                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
             }
         }
         else if (isMaxPrivacyToken)
         {
-            LOG_INFO() << "Generating max privacy token";
+            LOG_INFO() << "Generating max privacy address";
             address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         }
@@ -730,7 +737,7 @@ namespace
         {
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
         }
-        LOG_INFO() << "token: " << to_string(params);
+        LOG_INFO() << "address: " << to_string(params);
         return 0;
     }
 
@@ -1353,7 +1360,7 @@ namespace
                     % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
                     % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
                     % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                    % boost::io::group(left, setw(columnWidths[6]), kTxToken)
+                    % boost::io::group(left, setw(columnWidths[6]), kTxAddress)
                     << std::endl;
 
                 for (auto& tx : txHistory) {
@@ -1502,7 +1509,7 @@ namespace
         LOG_INFO()
             << boost::format(kTxDetailsFormat) % txdetails % txstatus
             << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
-            << (!token.empty() ? "\nToken: " : "") << token;
+            << (!token.empty() ? "\nAddress: " : "") << token;
 
         return 0;
     }
@@ -2086,44 +2093,59 @@ namespace
                     CheckAssetsAllowed(vm);
                 }
 
-                std::vector<Coin> vSelStd;
-                std::vector<ShieldedCoin> vSelShielded;
-                walletDB->selectCoins2(amount + fee, assetId, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
+                auto params = CreateSimpleTransactionParameters();
+                LoadReceiverParams(vm, params);
+                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
+                bool isShielded = type && *type == TxType::PushTransaction;
 
-                Amount minFee = kMinFeeInGroth;
-                Amount shieldedFee = 0;
-                if (!vSelShielded.empty())
+                Transaction::FeeSettings fs;
+                Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
+                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
+
+                if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
                 {
-                    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+                    LOG_ERROR() << kErrorNotEnoughtCoins;
+                    return -1;
+                }
 
-                    if (sum < amount + fee) 
+                if (coinSelectionRes.minimalFee > fee)
+                {
+                    if (isShielded && !coinSelectionRes.shieldedInputsFee)
                     {
-                        LOG_ERROR() << kErrorNotEnoughtCoins;
-                        return -1;
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
                     }
-
-                    TxStats ts;
-                    ts.m_Outputs = sum > amount ? 2 : 1;
-                    ts.m_InputsShielded = vSelShielded.size();
-                    ts.m_Kernels = 1 + ts.m_InputsShielded;
-
-                    Transaction::FeeSettings fs;
-                    minFee = fs.Calculate(ts);
-                    shieldedFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
-
-                    if (fee < minFee)
+                    else
                     {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % minFee;;
+                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
+                    }
+                    return -1;
+                }
+
+                if (isShielded)
+                {
+                    const auto& ownAddresses = walletDB->getAddresses(true);
+                    auto it = std::find_if(
+                        ownAddresses.begin(), ownAddresses.end(),
+                        [&receiverWalletID] (const WalletAddress& addr)
+                        {
+                            return receiverWalletID == addr.m_walletID;
+                        });
+
+                    if (it != ownAddresses.end())
+                    {
+                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
                         return -1;
                     }
                 }
 
+
                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                auto params = CreateSimpleTransactionParameters();
-                LoadReceiverParams(vm, params);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, !!shieldedFee ? fee - shieldedFee : fee)
+                    // fee for shielded inputs included automaticaly
+                    .SetParameter(TxParameterID::Fee, !!coinSelectionRes.shieldedInputsFee ? fee - coinSelectionRes.shieldedInputsFee : fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);
@@ -2512,7 +2534,7 @@ int main_impl(int argc, char* argv[])
         {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
         {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
-        {cli::GET_TOKEN,            GetToken,                       "generate transaction token for a specific receiver (identifiable by SBBS address or wallet identity)"},
+        {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
 #ifdef BEAM_LASER_SUPPORT   

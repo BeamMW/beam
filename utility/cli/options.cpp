@@ -184,7 +184,7 @@ namespace beam
         const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
-        const char* GET_TOKEN = "get_token";
+        const char* GET_ADDRESS = "get_address";
         const char* SET_CONFIRMATIONS_COUNT = "set_confirmations_count";
         const char* GET_CONFIRMATIONS_COUNT = "get_confirmations_count";
         const char* CONFIRMATIONS_COUNT = "confirmations_count";
@@ -243,7 +243,6 @@ namespace beam
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
-        const char* VOUCHER_COUNT = "voucher_count";
 
         // values
         const char* EXPIRATION_TIME_24H = "24h";
@@ -318,6 +317,8 @@ namespace beam
         const char* SHIELDED_UTXOS      = "shielded_utxos";
         const char* SHIELDED_ID         = "shielded_id";
         const char* MAX_PRIVACY         = "max_privacy";
+        const char* MAX_PRIVACY_ONLINE  = "max_privacy_online";
+        const char* MAX_PRIVACY_OFFLINE = "max_privacy_offline";
     }
 
 
@@ -419,11 +420,12 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export wallet data (should be used with import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionary for a specific seed phrase validation")
-            (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
-            (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction");
+            (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction")
+            (cli::MAX_PRIVACY_ONLINE, po::bool_switch()->default_value(false), "generate online max privacy transaction")
+            (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

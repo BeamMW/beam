@@ -295,10 +295,10 @@ namespace beam::wallet
     {
         TxFailureReason reason = TxFailureReason::Unknown;
         if (!GetParameter(TxParameterID::FailureReason, reason))
-            return false;
+            return false; // there is no failure messages
 
         TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
-        if (s == TxStatus::InProgress)
+        if (s == TxStatus::InProgress || s == TxStatus::Pending)
         {
             if (reason == TxFailureReason::AssetsDisabledInWallet)
             {
@@ -311,9 +311,15 @@ namespace beam::wallet
             }
                 
             OnFailed(reason);
+            return true;
         }
-
-        return true;
+        else if (s == TxStatus::Failed || s == TxStatus::Canceled)
+        {
+            // this tx has been already failed
+            return true;
+        }
+        // at this moment we ignore all failure messages
+        return false;
     }
 
     void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)

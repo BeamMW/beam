@@ -1846,25 +1846,45 @@ namespace
         StoreShieldedCoins(3, 3000000, walletDB, node);
         Transaction::FeeSettings fs;
         Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
-        Amount beforehandFee = 1200000;
+        Amount nOutFee = fs.m_ShieldedOutput + fs.m_Kernel + fs.m_Output;
+        Amount beforehandFee = 1000100;
 
         auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 6000000, beforehandFee);
         WALLET_CHECK(6000000 > selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
-        WALLET_CHECK(selectionRes.shieldedFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
         WALLET_CHECK(selectionRes.change == 0);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, beforehandFee);
         WALLET_CHECK(4000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
-        WALLET_CHECK(selectionRes.shieldedFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
+        WALLET_CHECK(selectionRes.change != 0);
+
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, 100);
+        WALLET_CHECK(4000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
+        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
+        WALLET_CHECK(selectionRes.minimalFee > 100);
         WALLET_CHECK(selectionRes.change != 0);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 500000, beforehandFee);
         WALLET_CHECK(500000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
-        WALLET_CHECK(selectionRes.shieldedFee == nInpFee);
+        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee);
+        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
         WALLET_CHECK(selectionRes.change != 0);
+
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 3000000, beforehandFee, true);
+        WALLET_CHECK(3000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee * 3);
+        WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
+        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
+        WALLET_CHECK(selectionRes.change != 0);
+
+        cout << "\nShielded coins selection tested\n";
     }
 
     void TestMultiUserWallet()
