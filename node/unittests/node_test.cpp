@@ -1932,14 +1932,14 @@ struct OracleData {                                   \n\
 				static const char g_szProg[] = "\
 struct GlobalData {                                   \n\
     u32 nOracleID                                     \n\
-    u8 nRiskMicroPerc                                 \n\
+    u8 nRiskFp                                        \n\
     u4 nAid                                           \n\
 }                                                     \n\
                                                       \n\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
     arg u32 nOracleID                                 \n\
-    arg u8 nRiskMicroPerc                             \n\
+    arg u8 nRiskFp                                    \n\
     arg u2 nMeta                                      \n\
     #    u1[],     metadata                           \n\
                                                       \n\
@@ -1958,7 +1958,7 @@ struct GlobalData {                                   \n\
                                                       \n\
     # everything is ok                                \n\
     mov @nOracleID, s_stGD.nOracleID, s_nOracleID     \n\
-    mov8 s_stGD.nRiskMicroPerc, s_nRiskMicroPerc      \n\
+    mov8 s_stGD.nRiskFp, s_nRiskFp                    \n\
                                                       \n\
     save_var 1,0, @stGD, s_stGD                       \n\
     ret                                               \n\
@@ -2035,21 +2035,26 @@ struct UpdFundsCtx {                                  \n\
     # check position                                  \n\
     # nBValue >= nAValue * nRate * nRiskFactor        \n\
                                                       \n\
-    var u24 nALong                                    \n\
-    var u24 nBLong                                    \n\
+    var u24 nALong      # = stPos.nAVal * rate * risk \n\
                                                       \n\
     {                                                 \n\
         var u8 nRate    # retval                      \n\
         call_far s_stGD.nOracleID, 3, _local_size     \n\
                                                       \n\
-        # tmp = AValue * current_rate                 \n\
-        mul 16,s__nBLong, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
-                                                      \n\
-        # AValue = tmp * risk_factor                  \n\
-        mul @nALong, s_nALong, 16,s__nBLong, @stGD.nRiskMicroPerc,s_stGD.nRiskMicroPerc         \n\
-                                                      \n\
-        mul @nBLong, s_nBLong, @stPos.nBVal, s_stPos.nBVal, 8,10000000000000000     \n\
+        var u16 tmp                                   \n\
+        mul @tmp,s_tmp, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
+        mul @nALong, s_nALong, @tmp,s_tmp, @stGD.nRiskFp,s_stGD.nRiskFp    \n\
     }                                                 \n\
+                                                      \n\
+    struct u24Ex {                                    \n\
+        u8 Hi                                         \n\
+        u8 Mid                                        \n\
+        u8 Lo                                         \n\
+    }                                                 \n\
+                                                      \n\
+    var u24Ex nBLong    # = stPos.nBVal promoted      \n\
+    xor 24, s_nBLong, s_nBLong                        \n\
+    mov8 s_nBLong.Mid, s_stPos.nBVal                  \n\
                                                       \n\
     cmp @nALong, s_nALong, s_nBLong                   \n\
     jg .error                                         \n\
@@ -4071,7 +4076,7 @@ struct UpdFundsCtx {                                  \n\
     arg u8 nRetVal                                    \n\
     var u2 nSize                                      \n\
                                                       \n\
-    mov8 s_nRetVal, 372000000                         \n\
+    mov8 s_nRetVal, 16106127360     # 3.75 << 32      \n\
     mov2 s_nSize, 8                                   \n\
                                                       \n\
 .method_0                     # c'tor                 \n\
@@ -4105,7 +4110,7 @@ struct UpdFundsCtx {                                  \n\
 
 			args.m_Meta = static_cast<bvm::Type::Size>(sMeta.size());
 			args.m_OracelID = cidOracle;
-			args.m_RiskFactor = 150000000U; // 1.5
+			args.m_RiskFactor = 0x180000000ULL; // 1.5
 
 			bvm::get_Cid(cid, data, buf);
 			proc.SaveContract(cid, data);
@@ -4115,16 +4120,17 @@ struct UpdFundsCtx {                                  \n\
 
 
 		{
-			// rate = 3.72
+			// rate = 3.75
 			// risk = 1.5
 			// overall criteria beams >= stable_coins * 5.58
+			// beams/stable_coins >= 45/8
 
 			bvm::Contract::StableCoin::UpdatePosition args;
 			ZeroObject(args.m_Pk);
 			args.m_bAWithdraw = 1;
 			args.m_bBWithdraw = 0;
-			args.m_AChange = 200U;
-			args.m_BChange = 1116U;
+			args.m_AChange = 8ULL << 58;
+			args.m_BChange = 45ULL << 58;
 
 			proc.RunMany(cid, args.s_Method, bvm::Buf(&args, sizeof(args)));
 		}
