@@ -958,7 +958,7 @@ namespace bvm {
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
 
-		uintBigFor<Amount>::Type val0;
+		AmountBig::Type val0;
 		Load_T(vk, val0);
 
 		if (bLock)
@@ -970,9 +970,9 @@ namespace bvm {
 		{
 			Test(val0 >= val); // overflow test
 
-			uintBigFor<Amount>::Type val1 = val;
-			val1.Negate();
-			val0 += val1;
+			val0.Negate();
+			val0 += val;
+			val0.Negate();
 		}
 
 		Save_T(vk, val0);
