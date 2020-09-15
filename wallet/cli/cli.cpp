@@ -678,7 +678,8 @@ namespace
         boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
         auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
-        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (vm.find(cli::MAX_PRIVACY_OFFLINE) != vm.end());
+        auto mpOfflineIt = vm.find(cli::MAX_PRIVACY_OFFLINE);
+        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (mpOfflineIt != vm.end());
 
         if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
         {
@@ -707,10 +708,15 @@ namespace
                 LOG_ERROR() << "The address expiration time must be never.";
                 return -1;
             }
+            if (isMaxPrivacyToken)
+            {
+                LOG_INFO() << "Generating max privacy address";
+                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+            }
         }
         else if (isMaxPrivacyToken)
         {
-            LOG_INFO() << "Generating max privacy token";
+            LOG_INFO() << "Generating max privacy address";
             address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         }
