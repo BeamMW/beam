@@ -1927,6 +1927,12 @@ struct OracleData {                                   \n\
 
 
 				static const char g_szProg[] = "\
+struct GlobalData {                                   \n\
+    u32 nOracleID                                     \n\
+    u8 nRiskMicroPerc                                 \n\
+    u4 nAid                                           \n\
+}                                                     \n\
+                                                      \n\
 .method_0                     # c'tor                 \n\
 {                                                     \n\
     arg u32 nOracleID                                 \n\
@@ -1934,7 +1940,7 @@ struct OracleData {                                   \n\
     arg u2 nMeta                                      \n\
     #    u1[],     metadata                           \n\
                                                       \n\
-    var u4 nAid                                       \n\
+    var GlobalData stGD                               \n\
     var u2 pPtr                                       \n\
                                                       \n\
     ref_add s_nOracleID                               \n\
@@ -1943,33 +1949,44 @@ struct OracleData {                                   \n\
     mov2 s_pPtr, _nMeta                               \n\
     sub2 s_pPtr, s_nMeta                              \n\
                                                       \n\
-    asset_create s_nAid, s_nMeta, ss_pPtr             \n\
-    cmp4 s_nAid, 0                                    \n\
+    asset_create s_stGD.nAid, s_nMeta, ss_pPtr        \n\
+    cmp4 s_stGD.nAid, 0                               \n\
     jz .error                                         \n\
                                                       \n\
     # everything is ok                                \n\
-    save_var 1,0, @nOracleID, s_nOracleID             \n\
-    save_var 1,1, @nRiskMicroPerc, s_nRiskMicroPerc   \n\
-    save_var 1,2, @nAid, s_nAid                       \n\
+    mov @nOracleID, s_stGD.nOracleID, s_nOracleID     \n\
+    mov8 s_stGD.nRiskMicroPerc, s_nRiskMicroPerc      \n\
+                                                      \n\
+    save_var 1,0, @stGD, s_stGD                       \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
 .method_1                     # d'tor                 \n\
 {                                                     \n\
     var u2 nSize                                      \n\
-    var u32 nOracleID                                 \n\
+    var GlobalData stGD                               \n\
                                                       \n\
-    load_var 1,0, @nOracleID, s_nOracleID, s_nSize    \n\
-    ref_release s_nOracleID                           \n\
+    load_var 1,0, @stGD, s_stGD, s_nSize              \n\
+    ref_release s_stGD.nOracleID                      \n\
                                                       \n\
     save_var 1,0, 0                                   \n\
-    save_var 1,1, 0                                   \n\
-    save_var 1,2, 0                                   \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
 .error                                                \n\
     fail                                              \n\
+                                                      \n\
+struct Position {                                     \n\
+    u8 nAVal                                          \n\
+    u8 nBVal                                          \n\
+}                                                     \n\
+                                                      \n\
+struct UpdFundsCtx {                                  \n\
+    u4 nAid                                           \n\
+    u2 pTotal                 # in/out                \n\
+    u8 nChange                                        \n\
+    u1 bWithdraw                                      \n\
+}                                                     \n\
                                                       \n\
 .method_2                     # PositionUpdate        \n\
 {                                                     \n\
@@ -1980,36 +1997,33 @@ struct OracleData {                                   \n\
     arg u1 bBWithdraw                                 \n\
                                                       \n\
     var u2 nSize                                      \n\
+    var GlobalData stGD                               \n\
+    var Position stPos                                \n\
                                                       \n\
-    var u0 pPosition          # position fields       \n\
-    var u8 nAValue                                    \n\
-    var u8 nBValue                                    \n\
+    load_var 1,0, @stGD, s_stGD, s_nSize              \n\
                                                       \n\
-    load_var @pk,s_pk, 16,s_pPosition, s_nSize        \n\
-    cmp2 s_nSize, 16                                  \n\
+    load_var @pk,s_pk, @stPos,s_stPos, s_nSize        \n\
+    cmp2 s_nSize, @stPos                              \n\
     jz .loaded                                        \n\
-    xor 16, s_pPosition, s_pPosition                  \n\
+    xor @stPos, s_stPos, s_stPos                      \n\
 .loaded                                               \n\
                                                       \n\
     {                                                 \n\
-        var u1 bWithdraw                              \n\
-        var u8 nChange                                \n\
-        var u2 pTotal                                 \n\
-        var u4 nAid                                   \n\
+        var UpdFundsCtx ctx                           \n\
                                                       \n\
-        mov1 s_bWithdraw, s_bAWithdraw                \n\
-        mov8 s_nChange, s_nAChange                    \n\
-        getsp s_pTotal                                \n\
-        add2 s_pTotal, _nAValue                       \n\
-        load_var 1,2, @nAid, s_nAid, s_nSize          \n\
+        mov1 s_ctx.bWithdraw, s_bAWithdraw            \n\
+        mov8 s_ctx.nChange, s_nAChange                \n\
+        getsp s_ctx.pTotal                            \n\
+        add2 s_ctx.pTotal, _stPos.nAVal               \n\
+        mov4 s_ctx.nAid, s_stGD.nAid                  \n\
                                                       \n\
         call .move_funds, _local_size                 \n\
                                                       \n\
-        mov1 s_bWithdraw, s_bBWithdraw                \n\
-        mov8 s_nChange, s_nBChange                    \n\
-        getsp s_pTotal                                \n\
-        add2 s_pTotal, _nBValue                       \n\
-        mov4 s_nAid, 0                                \n\
+        mov1 s_ctx.bWithdraw, s_bBWithdraw            \n\
+        mov8 s_ctx.nChange, s_nBChange                \n\
+        getsp s_ctx.pTotal                            \n\
+        add2 s_ctx.pTotal, _stPos.nBVal               \n\
+        xor4 s_ctx.nAid, s_ctx.nAid                   \n\
                                                       \n\
         call .move_funds, _local_size                 \n\
     }                                                 \n\
@@ -2022,50 +2036,42 @@ struct OracleData {                                   \n\
     var u24 nBLong                                    \n\
                                                       \n\
     {                                                 \n\
-        var u32 cid                                   \n\
-        load_var 1,0, @cid, s_cid, s_nSize            \n\
-                                                      \n\
         var u8 nRate    # retval                      \n\
-        call_far s_cid, 3, _local_size                \n\
+        call_far s_stGD.nOracleID, 3, _local_size     \n\
                                                       \n\
         # tmp = AValue * current_rate                 \n\
-        mul 16,s_nBLong, @nAValue,s_nAValue, @nRate, s_nRate        \n\
+        mul 16,s_nBLong, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
                                                       \n\
         # AValue = tmp * risk_factor                  \n\
-        load_var 1,1, @nRate, s_nRate, s_nSize        \n\
-        mul @nALong, s_nALong, 16,s_nBLong, @nRate,s_nRate          \n\
+        mul @nALong, s_nALong, 16,s_nBLong, @stGD.nRiskMicroPerc,s_stGD.nRiskMicroPerc         \n\
                                                       \n\
-                                                      \n\
-        mul @nBLong, s_nBLong, @nBValue, s_nBValue, 8,10000000000000000     \n\
+        mul @nBLong, s_nBLong, @stPos.nBVal, s_stPos.nBVal, 8,10000000000000000     \n\
     }                                                 \n\
                                                       \n\
-    cmp 24, s_nALong, s_nBLong                        \n\
+    cmp @nALong, s_nALong, s_nBLong                   \n\
     jg .error                                         \n\
                                                       \n\
     # ok                                              \n\
     add_sig s_pk                                      \n\
-    save_var @pk,s_pk, 16,s_pPosition                 \n\
+    save_var @pk,s_pk, @stPos,s_stPos                 \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
 .move_funds                                           \n\
 {                                                     \n\
-    arg u4 nAid                                       \n\
-    arg u2 pTotal             # in/out                \n\
-    arg u8 nChange                                    \n\
-    arg u1 bWithdraw                                  \n\
+    arg UpdFundsCtx ctx                               \n\
                                                       \n\
     {                                                 \n\
-    cmp1 s_bWithdraw, 0                               \n\
+    cmp1 s_ctx.bWithdraw, 0                           \n\
     jz .if_deposit                                    \n\
                                                       \n\
 .if_withdrawal                                        \n\
     call .manage_asset, 0                             \n\
-    funds_unlock s_nChange, s_nAid                    \n\
+    funds_unlock s_ctx.nChange, s_ctx.nAid            \n\
     jmp .if_end                                       \n\
                                                       \n\
 .if_deposit                                           \n\
-    funds_lock s_nChange, s_nAid                      \n\
+    funds_lock s_ctx.nChange, s_ctx.nAid              \n\
     call .manage_asset, 0                             \n\
                                                       \n\
 .if_end                                               \n\
@@ -2073,46 +2079,37 @@ struct OracleData {                                   \n\
                                                       \n\
                                                       \n\
     {                                                 \n\
-    cmp1 s_bWithdraw, 0                               \n\
+    cmp1 s_ctx.bWithdraw, 0                           \n\
     jz .if_balance_add                                \n\
                                                       \n\
 .if_balance_sub                                       \n\
-    cmp8 ps_pTotal, s_nChange                         \n\
+    cmp8 ps_ctx.pTotal, s_ctx.nChange                 \n\
     jb .error                 # not enough funds      \n\
-    sub8 ps_pTotal, s_nChange                         \n\
-    jmp .if_end                                       \n\
-                                                      \n\
-.if_balance_add                                       \n\
-    add8 ps_pTotal, s_nChange                         \n\
-    jnz .error                # overflow flag         \n\
-                                                      \n\
-.if_end                                               \n\
-    }                                                 \n\
-                                                      \n\
+    sub8 ps_ctx.pTotal, s_ctx.nChange                 \n\
     ret                                               \n\
                                                       \n\
-.if_deposit                                           \n\
+.if_balance_add                                       \n\
+    add8 ps_ctx.pTotal, s_ctx.nChange                 \n\
+    jnz .error                # overflow flag         \n\
+    ret                                               \n\
+    }                                                 \n\
                                                       \n\
-    funds_lock s_nChange, s_nAid                      \n\
 }                                                     \n\
                                                       \n\
 .manage_asset                                         \n\
 {                                                     \n\
     arg u4 nPrevFrame                                 \n\
-    arg u4 nAid                                       \n\
-    arg u2 pTotal                                     \n\
-    arg u8 nChange                                    \n\
-    arg u1 bWithdraw                                  \n\
+    arg UpdFundsCtx ctx                               \n\
                                                       \n\
-    cmp4 s_nAid, 0                                    \n\
+    cmp4 s_ctx.nAid, 0                                \n\
     jz .not_asset                                     \n\
                                                       \n\
-    asset_emit s_nAid, s_nChange, s_bWithdraw         \n\
+    asset_emit s_ctx.nAid, s_ctx.nChange, s_ctx.bWithdraw         \n\
     jz .error                                         \n\
                                                       \n\
     # flip withdraw flag                              \n\
-    and1 s_bWithdraw, 1                               \n\
-    xor1 s_bWithdraw, 1                               \n\
+    and1 s_ctx.bWithdraw, 1                           \n\
+    xor1 s_ctx.bWithdraw, 1                           \n\
                                                       \n\
 .not_asset                                            \n\
     ret                                               \n\
