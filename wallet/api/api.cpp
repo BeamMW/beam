@@ -19,10 +19,7 @@
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_side.h"
-#include "wallet/transactions/swaps/bridges/litecoin/litecoin_side.h"
-#include "wallet/transactions/swaps/bridges/qtum/qtum_side.h"
-#include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include <regex>

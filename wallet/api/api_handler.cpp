@@ -52,14 +52,15 @@ namespace
         Amount swapAmount, Amount swapFeeRate)
     {
         beam::Amount total = swapAmount + swapFeeRate;
-
-        return swapProvider.getBalance(swapCoin) > total;
+        return swapProvider.getCoinAvailable(swapCoin) > total;
     }
 
     void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
     {
-        if (!swapProvider.isConnected(swapCoin))
+        if (!swapProvider.isCoinClientConnected(swapCoin))
+        {
             throw FailToConnectSwap(std::to_string(swapCoin));
+        }
     }
 
     boost::optional<SwapOffer> getOfferFromBoardByTxId(
@@ -1502,7 +1503,7 @@ namespace beam::wallet
         {
             checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
 
-            Amount available = _walletData.getAtomicSwapProvider().getBalance(data.coin);
+            Amount available = _walletData.getAtomicSwapProvider().getCoinAvailable(data.coin);
 
             doResponse(id, GetBalance::Response{ available });
         }
