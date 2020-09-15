@@ -2043,10 +2043,10 @@ struct UpdFundsCtx {                                  \n\
         call_far s_stGD.nOracleID, 3, _local_size     \n\
                                                       \n\
         # tmp = AValue * current_rate                 \n\
-        mul 16,s_nBLong, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
+        mul 16,s__nBLong, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
                                                       \n\
         # AValue = tmp * risk_factor                  \n\
-        mul @nALong, s_nALong, 16,s_nBLong, @stGD.nRiskMicroPerc,s_stGD.nRiskMicroPerc         \n\
+        mul @nALong, s_nALong, 16,s__nBLong, @stGD.nRiskMicroPerc,s_stGD.nRiskMicroPerc         \n\
                                                       \n\
         mul @nBLong, s_nBLong, @stPos.nBVal, s_stPos.nBVal, 8,10000000000000000     \n\
     }                                                 \n\

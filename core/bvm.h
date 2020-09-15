@@ -429,13 +429,13 @@ namespace bvm {
 		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
 
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
-		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes);
+		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes, int nIndirectOperandSize);
 		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
 		Struct* ParseVariableType(MyBlob& line, Type::Size&, char& nTag);
 		void ParseVariableDeclaration(MyBlob& line, bool bArg);
 		Struct* ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size&);
-		void ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
+		Type::Size ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
 		Struct* FindType(const MyBlob&);
 
 		void WriteFlexible(const uint8_t*, uint32_t, uint32_t nSizeDst);

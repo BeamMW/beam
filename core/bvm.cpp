@@ -1221,7 +1221,7 @@ namespace bvm {
 				Fail("can't inline operand");
 
 			size_t n0 = m_Result.size();
-			bool bLabel = ParseSignedNumberOrLabel(x, nLen);
+			bool bLabel = ParseSignedNumberOrLabel(x, nLen, -1);
 			if (bLabel)
 				return nullptr;
 
@@ -1240,7 +1240,7 @@ namespace bvm {
 			std::swap(p1, p2);
 		}
 
-		bool bLabel = ParseSignedNumberOrLabel(x, sizeof(Type::Size));
+		bool bLabel = ParseSignedNumberOrLabel(x, sizeof(Type::Size), bIndirect ? -1 : nLen);
 		if (bLabel && ('d' != p1))
 			Fail("label pointer must reference data");
 
@@ -1293,7 +1293,7 @@ namespace bvm {
 		WriteFlexible(val2, nBytes);
 	}
 
-	void Compiler::ParseVariableUse(MyBlob& x, uint32_t nBytes, bool bPosOrSize)
+	Type::Size Compiler::ParseVariableUse(MyBlob& x, uint32_t nBytes, bool bPosOrSize)
 	{
 		x.Move1();
 
@@ -1303,11 +1303,17 @@ namespace bvm {
 			Scope& s = m_ScopesActive.back();
 			Type::uintSize val = s.m_nSizeLocal;
 			WriteFlexible(val, nBytes);
-			return;
+			return sizeof(Type::Size);
 		}
+
+		bool bIgnoreRefSize = x.n && ('_' == *x.p);
+		if (bIgnoreRefSize)
+			x.Move1();
 
 		MyBlob name0;
 		x.ExtractToken(name0, '.');
+
+		Type::Size nTypeSize = 0;
 
 		for (auto it = m_ScopesActive.rbegin(); ; it++)
 		{
@@ -1318,6 +1324,7 @@ namespace bvm {
 			if (var.IsValid())
 			{
 				Type::Size res = bPosOrSize ? var.m_Pos : var.m_Size;
+				nTypeSize = var.m_Size;
 				Struct* pType = var.m_pType;
 
 				while (x.n)
@@ -1337,6 +1344,7 @@ namespace bvm {
 						res = field.m_Size;
 
 					pType = field.m_pType;
+					nTypeSize = field.m_Size;
 				}
 
 				Type::uintSize val = res;
@@ -1344,6 +1352,8 @@ namespace bvm {
 				break;
 			}
 		}
+
+		return bIgnoreRefSize ? Label::s_Invalid : nTypeSize;
 	}
 
 	void Compiler::WriteFlexible(const uint8_t* pSrc, uint32_t nSizeSrc, uint32_t nSizeDst)
@@ -1357,7 +1367,7 @@ namespace bvm {
 			m_Result.push_back(pSrc[i]);
 	}
 
-	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
+	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes, int nIndirectOperandSize)
 	{
 		if (x.n)
 		{
@@ -1372,7 +1382,12 @@ namespace bvm {
 
 			if ('_' == *x.p)
 			{
-				ParseVariableUse(x, nBytes, true);
+				Type::Size nSizeIndirect = ParseVariableUse(x, nBytes, true);
+				if ((Label::s_Invalid != nSizeIndirect) &&
+					(nIndirectOperandSize > 0) &&
+					(static_cast<Type::Size>(nIndirectOperandSize) != nSizeIndirect))
+					Fail("Referenced variable size mismatch");
+
 				return false;
 			}
 
