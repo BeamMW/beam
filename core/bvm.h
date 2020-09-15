@@ -30,9 +30,16 @@ namespace bvm {
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
-		static const uint32_t StackSize = 0x8000; // 32K
 		static const uint32_t VarKeySize = 256;
 		static const uint32_t VarSize = 0x2000; // 8K
+
+		// address space layout
+		// [data]
+		// [stack]
+		// No gaps (i.e. forbidden regions). Data is read-only.
+		// In case of stack overflow (may be induced by the caller, by allocating too much stack) - execution will fail on write attempt
+		static const uint32_t StackSize = 0xc000; // 48K
+		static const uint32_t DataSize = 0x4000; // 16K
 	};
 
 #pragma pack (push, 1)
@@ -135,21 +142,12 @@ namespace bvm {
 		struct Ptr
 			:public Buf
 		{
-			bool m_Writable;
-
 			template <typename T>
-			const T* RGet(Type::Size nCount = 1) const
+			T* Get(Type::Size nCount = 1) const
 			{
 				auto* ret = get_As<T>(nCount);
 				Test(ret != nullptr);
 				return ret;
-			}
-
-			template <typename T>
-			T* WGet(Type::Size nCount = 1) const
-			{
-				Test(m_Writable);
-				return Cast::NotConst(RGet<T>(nCount));
 			}
 		};
 
@@ -172,10 +170,10 @@ namespace bvm {
 		int FetchSize(BitReader& br, Type::Size&);
 		Type::Size FetchSizeX(BitReader& br, bool bSizeX);
 
-		void FetchPtr(BitReader& br, Ptr& out);
-		void FetchPtr(BitReader& br, Ptr& out, const Type::uintSize&);
+		bool FetchPtr(BitReader& br, Ptr& out); // return true if data ptr (read-only)
+		bool FetchPtr(BitReader& br, Ptr& out, const Type::uintSize&);
 		void SetPtrStack(Ptr& out, Type::Size n);
-		void SetPtrData(Ptr& out, Type::Size n);
+		static Type::Size get_StackOffset(Type::Size n);
 
 		void LogStackPtr();
 		void LogDeref();
@@ -187,9 +185,6 @@ namespace bvm {
 		void PushFrame(const Type::uintSize& nFrame_);
 
 		void LogVarResult(const char* szName, const Ptr&);
-
-		template <bool>
-		void TestStackPtr(Type::Size);
 
 		void HandleAmount(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);
 		void HandleAmountInner(const uintBigFor<Amount>::Type&, const uintBigFor<Asset::ID>::Type&, bool bLock);

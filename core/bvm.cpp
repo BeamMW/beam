@@ -53,7 +53,7 @@ namespace bvm {
 		memset(m_pStack + args.n, nFill, Limits::StackSize - args.n);
 
 		memset0(m_pStack + args.n, sizeof(StackFrame));
-		m_Sp = static_cast<Type::Size>(args.n + sizeof(StackFrame));
+		m_Sp = static_cast<Type::Size>(Limits::DataSize + args.n + sizeof(StackFrame));
 		LogStackPtr();
 
 		m_Ip = 0;
@@ -62,7 +62,7 @@ namespace bvm {
 	void Processor::LogStackPtr()
 	{
 		if (m_pDbg)
-			*m_pDbg << "sp=" << m_Sp << std::endl;
+			*m_pDbg << "sp=" << Type::uintSize(m_Sp) << std::endl;
 	}
 
 	void Processor::CallFar(const ContractID& cid, Type::Size iMethod)
@@ -81,9 +81,8 @@ namespace bvm {
 
 		Ptr ptr;
 		Cast::Down<Buf>(ptr) = m_Data;
-		ptr.m_Writable = false;
 
-		const auto* pHdr = ptr.RGet<Header>();
+		const auto* pHdr = ptr.Get<Header>();
 
 		Type::Size n;
 		pHdr->m_Version.Export(n);
@@ -94,7 +93,7 @@ namespace bvm {
 
 		Test(ptr.Move(sizeof(Header) - sizeof(Header::MethodEntry) * Header::s_MethodsMin + sizeof(Header::MethodEntry) * iMethod));
 
-		DoJmp(*ptr.RGet<Header::MethodEntry>());
+		DoJmp(*ptr.Get<Header::MethodEntry>());
 	}
 
 	const uint8_t* Processor::FetchInstruction(Type::Size n)
@@ -123,28 +122,27 @@ namespace bvm {
 		return ret;
 	}
 
-	void Processor::FetchPtr(BitReader& br, Ptr& out)
+	bool Processor::FetchPtr(BitReader& br, Ptr& out)
 	{
 		const auto* pAddr = reinterpret_cast<const Type::uintSize*>(FetchInstruction(Type::uintSize::nBytes));
-		FetchPtr(br, out, *pAddr);
+		return FetchPtr(br, out, *pAddr);
 	}
 
-	void Processor::FetchPtr(BitReader& br, Ptr& out, const Type::uintSize& addr)
+	bool Processor::FetchPtr(BitReader& br, Ptr& out, const Type::uintSize& addr)
 	{
-		uint8_t nRel = 1;
-		uint8_t bData = FetchBit(br); // data or stack
-		if (bData)
-		{
-			nRel = FetchBit(br); // data or stack absolute?
-			if (!nRel)
-				bData = 0;
-		}
+		uint8_t nRel = FetchBit(br); // absolute or relative to sp?
 
 		Type::Size n;
 		addr.Export(n);
 
+		bool bData = !nRel && (n < Limits::DataSize);
 		if (bData)
-			SetPtrData(out, n);
+		{
+			Test(n <= m_Data.n);
+
+			out.p = m_Data.p + n;
+			out.n = m_Data.n - n;
+		}
 		else
 		{
 			if (nRel)
@@ -153,7 +151,24 @@ namespace bvm {
 		}
 
 		if (m_pDbg)
-			*m_pDbg << (bData ? 'd' : nRel ? 's' : 'p') << static_cast<int>(out.p - (bData ? m_Data.p : (m_pStack + m_Sp)));
+		{
+			Type::uintSize val = addr;
+			if (nRel)
+			{
+				*m_pDbg << "sp";
+
+				if (0x80 & val.m_pData[0])
+				{
+					val.Negate();
+					*m_pDbg << '-';
+				}
+				else
+					*m_pDbg << '+';
+			}
+			*m_pDbg << val;
+		}
+
+		return bData;
 	}
 
 	void Processor::LogDeref()
@@ -204,29 +219,18 @@ namespace bvm {
 		}
 	}
 
-	template <> void Processor::TestStackPtr<true>(Type::Size n) {
+	Type::Size Processor::get_StackOffset(Type::Size n)
+	{
+		n -= Limits::DataSize;
 		Test(n <= Limits::StackSize);
-	}
-
-	template <> void Processor::TestStackPtr<false>(Type::Size) {
+		return n;
 	}
 
 	void Processor::SetPtrStack(Ptr& out, Type::Size n)
 	{
-		constexpr bool bAlwaysInRage = (static_cast<Type::Size>(-1) <= Limits::StackSize);
-		TestStackPtr<!bAlwaysInRage>(n);
-
-		out.m_Writable = true;
+		n = get_StackOffset(n);
 		out.p = m_pStack + n;
 		out.n = Limits::StackSize - n;
-	}
-
-	void Processor::SetPtrData(Ptr& out, Type::Size n)
-	{
-		Test(n <= m_Data.n);
-		out.m_Writable = false;
-		out.p = m_Data.p + n;
-		out.n = m_Data.n - n;
 	}
 
 	Type::Size Processor::FetchSizeX(BitReader& br, bool bSizeX)
@@ -264,7 +268,7 @@ namespace bvm {
 		Ptr out;
 		int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
 
-		out.RGet<Type::uintSize>()->Export(ret);
+		out.Get<Type::uintSize>()->Export(ret);
 		return nInd;
 	}
 
@@ -353,7 +357,6 @@ namespace bvm {
 				if (!nSizeX)
 				{
 					ZeroObject(out); // skipped
-					out.m_Writable = bW;
 					return 0;
 				}
 			}
@@ -367,7 +370,6 @@ namespace bvm {
 		if (bCanInline && FetchBit(br))
 		{
 			// inline
-			out.m_Writable = false;
 			out.p = Cast::NotConst(FetchInstruction(static_cast<Type::Size>(nSize)));
 			out.n = nSize;
 
@@ -376,21 +378,21 @@ namespace bvm {
 			return 0;
 		}
 
-		FetchPtr(br, out);
+		bool bReadOnly = FetchPtr(br, out);
 		int res = 1;
 
 		if (FetchBit(br))
 		{
 			LogDeref();
 			// dereference
-			const auto* p = out.RGet<uintBigFor<Type::Size>::Type>();
-			FetchPtr(br, out, *p);
+			const auto* p = out.Get<uintBigFor<Type::Size>::Type>();
+			bReadOnly = FetchPtr(br, out, *p);
 
 			res++;
 		}
 
 		if (bW)
-			Test(out.m_Writable);
+			Test(!bReadOnly);
 
 		if (nSize >= 0)
 		{
@@ -594,12 +596,13 @@ namespace bvm {
 
 		Ptr ptr;
 		SetPtrStack(ptr, m_Sp);
-		auto* pFrame = ptr.WGet<StackFrame>();
+		auto* pFrame = ptr.Get<StackFrame>();
 
 		pFrame->m_Prev = nFrame_;
 		pFrame->m_RetAddr = m_Ip;
 
 		m_Sp += sizeof(StackFrame);
+		get_StackOffset(m_Sp); // just test
 		LogStackPtr();
 	}
 
@@ -626,16 +629,17 @@ namespace bvm {
 
 	BVM_METHOD(ret)
 	{
-		Test(m_Sp >= sizeof(StackFrame));
-
 		m_Sp -= sizeof(StackFrame);
-		auto* pFrame = reinterpret_cast<StackFrame*>(m_pStack + m_Sp);
+		Ptr ptr;
+		SetPtrStack(ptr, m_Sp);
+
+		auto* pFrame = ptr.Get<StackFrame>();
 
 		Type::Size nFrame;
 		pFrame->m_Prev.Export(nFrame);
 
-		Test(m_Sp >= nFrame);
 		m_Sp -= nFrame;
+		get_StackOffset(m_Sp); // just test
 		LogStackPtr();
 
 		Type::Size& nDepth = m_FarCalls.m_Stack.back().m_LocalDepth;
@@ -766,7 +770,7 @@ namespace bvm {
 
 		ac.Realize();
 
-		uint8_t* p = pArray_.WGet<uint8_t>(ac.m_nSize);
+		uint8_t* p = pArray_.Get<uint8_t>(ac.m_nSize);
 
 		// Note! Don't call the crt/std qsort function. Its implementation may vary on different platforms (or lib versions), whereas we need 100% accurate repeatability
 		// Performance is less important here
@@ -1176,7 +1180,6 @@ namespace bvm {
 		switch (ch)
 		{
 		case 's':
-		case 'd':
 		case 'p':
 			return true;
 		}
@@ -1241,8 +1244,8 @@ namespace bvm {
 		}
 
 		bool bLabel = ParseSignedNumberOrLabel(x, sizeof(Type::Size), bIndirect ? -1 : nLen);
-		if (bLabel && ('d' != p1))
-			Fail("label pointer must reference data");
+		if (bLabel && ('p' != p1))
+			Fail("label pointer must be absolute");
 
 		BwAddPtrType(p1);
 
@@ -1736,11 +1739,8 @@ namespace bvm {
 
 	void Compiler::BwAddPtrType(uint8_t p)
 	{
-		uint8_t n = ('s' != p);
+		uint8_t n = ('s' == p);
 		BwAdd(n);
-
-		if (n)
-			BwAdd('d' == p);
 	}
 
 	void Compiler::BwAdd(uint8_t x)

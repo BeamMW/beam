@@ -1684,7 +1684,7 @@ struct UserKey {                                      \n\
                                                       \n\
     # load current value                              \n\
                                                       \n\
-    mov8 s_nTotal, d.zero                             \n\
+    mov8 s_nTotal, p.zero                             \n\
     load_var @stUk,s_stUk, @nTotal,s_nTotal, s_nSize  \n\
                                                       \n\
     {                                                 \n\
@@ -1713,7 +1713,7 @@ struct UserKey {                                      \n\
     # save result                                     \n\
                                                       \n\
     mov2 s_nSize, 0                                   \n\
-    cmp8 s_nTotal, d.zero                             \n\
+    cmp8 s_nTotal, p.zero                             \n\
     jz .save                                          \n\
     mov2 s_nSize, @nTotal                             \n\
                                                       \n\
@@ -1953,7 +1953,7 @@ struct GlobalData {                                   \n\
     sub2 s_pPtr, s_nMeta                              \n\
                                                       \n\
     asset_create s_stGD.nAid, s_nMeta, ss_pPtr        \n\
-    cmp4 s_stGD.nAid, 0                               \n\
+    cmp4 s_stGD.nAid, p.zero                          \n\
     jz .error                                         \n\
                                                       \n\
     # everything is ok                                \n\
@@ -1978,6 +1978,8 @@ struct GlobalData {                                   \n\
                                                       \n\
 .error                                                \n\
     fail                                              \n\
+.zero                                                 \n\
+    const u8 0                                        \n\
                                                       \n\
 struct Position {                                     \n\
     u8 nAVal                                          \n\
@@ -2079,7 +2081,7 @@ struct UpdFundsCtx {                                  \n\
         .endif                                        \n\
     }                                                 \n\
                                                       \n\
-    cmp4 s_ctx.nAid, 0                                \n\
+    cmp4 s_ctx.nAid, p.zero                           \n\
     {                                                 \n\
         jz .endif                                     \n\
         asset_emit s_ctx.nAid, s_ctx.nChange, s_ctx.bWithdraw         \n\
