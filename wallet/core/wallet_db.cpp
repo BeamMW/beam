@@ -1243,6 +1243,12 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        bool VouchersHasFlags(const WalletDB* db)
+        {
+            sqlite::Statement stm(db, "SELECT* FROM PRAGMA_table_info('Vouchers') WHERE name = 'Flags';");
+            return stm.step();
+        }
+
         void AddVouchersFlagsColumn(sqlite3* db)
         {
             const char* req = "ALTER TABLE " VOUCHERS_NAME " ADD Flags INTEGER NULL;";
@@ -1833,7 +1839,10 @@ namespace beam::wallet
 
                 case DbVersion23:
                     LOG_INFO() << "Converting DB from format 23...";
-                    AddVouchersFlagsColumn(db);
+                    if (!VouchersHasFlags(walletDB.get()))
+                    {
+                        AddVouchersFlagsColumn(db);
+                    }
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
