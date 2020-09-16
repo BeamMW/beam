@@ -20,13 +20,6 @@ namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
     const unsigned AddressUpdateInterval_ms = 60 * 1000; // check addresses every minute
-
-    beam::BbsChannel channel_from_wallet_id(const beam::wallet::WalletID& walletID)
-    {
-        beam::BbsChannel ret;
-        walletID.m_Channel.Export(ret);
-        return ret;
-    }
 }
 
 
@@ -37,9 +30,9 @@ namespace beam::wallet {
     BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
+        , m_pKdfSbbs(pWalletDB->get_SbbsKdf())
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
     {
-        m_pKdfSbbs = pWalletDB->get_SbbsKdf();
 
     }
 
@@ -107,13 +100,25 @@ namespace beam::wallet {
 
             if (bValid)
             {
-                WalletID wid;
-                wid.m_Pk = it->get_ParentObj().m_Pk;
-                wid.m_Channel = it->m_Value;
-                m_Wallet.OnWalletMessage(wid, msgWallet);
+                m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
                 break;
             }
         }
+    }
+
+    BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateOwnAddr(const WalletID& wid)
+    {
+        Addr* pAddr = new Addr;
+        pAddr->m_Wid.m_Value = wid;
+        pAddr->m_Channel.m_Value = wid.get_Channel();
+
+        m_Addresses.insert(pAddr->m_Wid);
+        m_Channels.insert(pAddr->m_Channel);
+
+        if (IsSingleChannelUser(pAddr->m_Channel))
+            OnChannelAdded(pAddr->m_Channel.m_Value);
+
+        return pAddr;
     }
 
     void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
@@ -122,42 +127,30 @@ namespace beam::wallet {
             return;
 
         Addr::Wid key;
-        key.m_OwnID = address.m_OwnID;
+        key.m_Value = address.m_walletID;
 
         Addr* pAddr = nullptr;
         auto itW = m_Addresses.find(key);
 
         if (m_Addresses.end() == itW)
         {
-            pAddr = new Addr;
-            pAddr->m_ExpirationTime = address.getExpirationTime();
-            pAddr->m_Wid.m_OwnID = address.m_OwnID;
-
-            m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Pk, address.m_OwnID);
-
-            pAddr->m_Channel.m_Value = channel_from_wallet_id(address.m_walletID);
-
-            m_Addresses.insert(pAddr->m_Wid);
-            m_Channels.insert(pAddr->m_Channel);
+            pAddr = CreateOwnAddr(address.m_walletID);
+            m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Wid.m_Value.m_Pk, address.m_OwnID);
         }
         else
         {
             pAddr = &(itW->get_ParentObj());
-            pAddr->m_ExpirationTime = address.getExpirationTime();
         }
 
-        if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
-        {
-            OnChannelAdded(pAddr->m_Channel.m_Value);
-        }
+        pAddr->m_ExpirationTime = address.getExpirationTime();
 
         LOG_INFO() << "WalletID " << to_string(address.m_walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
     }
 
-    void BaseMessageEndpoint::DeleteOwnAddress(uint64_t ownID)
+    void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
     {
         Addr::Wid key;
-        key.m_OwnID = ownID;
+        key.m_Value = wid;
 
         auto it = m_Addresses.find(key);
         if (m_Addresses.end() != it)
@@ -236,6 +229,18 @@ namespace beam::wallet {
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
+    void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk)
+    {
+        Addr* pAddr = CreateOwnAddr(addr);
+        pAddr->m_sk = sk;
+        pAddr->m_ExpirationTime = Timestamp(-1);
+    }
+
+    void BaseMessageEndpoint::Unlisten(const WalletID& wid)
+    {
+        DeleteOwnAddress(wid);
+    }
+
     ///////////////////////////
 
     BbsSender::BbsSender(proto::FlyClient::INetwork::Ptr nodeEndpoint)
@@ -268,7 +273,7 @@ namespace beam::wallet {
         pTask->m_Msg.m_Message = msg;
 
         pTask->m_Done = false;
-        pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+        pTask->m_Msg.m_Channel = peerID.get_Channel();
 
         pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
 
@@ -314,16 +319,7 @@ namespace beam::wallet {
         , m_NodeEndpoint(net)
         , m_WalletDB(pWalletDB)
     {
-		ByteBuffer buffer;
-		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
-		if (!buffer.empty())
-		{
-			Deserializer d;
-			d.reset(buffer.data(), buffer.size());
-
-			d & m_BbsTimestamps;
-		}
-
+        storage::getBlobVar(*m_WalletDB, BBS_TIMESTAMPS, m_BbsTimestamps);
         Subscribe();
         m_WalletDB->Subscribe(this);
 	}
@@ -358,14 +354,7 @@ namespace beam::wallet {
 			if (it2->second < tsThreshold)
 				m_BbsTimestamps.erase(it2);
 		}
-
-		Serializer s;
-		s & m_BbsTimestamps;
-
-		ByteBuffer buffer;
-		s.swap_buf(buffer);
-
-		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+        storage::setBlobVar(*m_WalletDB, BBS_TIMESTAMPS, m_BbsTimestamps);
 	}
 
 	void BbsSender::DeleteReq(WalletRequestBbsMsg& r)
@@ -497,14 +486,14 @@ namespace beam::wallet {
                 }
                 else
                 {
-                    DeleteOwnAddress(address.m_OwnID);
+                    DeleteOwnAddress(address.m_walletID);
                 }
             }
             break;
         case ChangeAction::Removed:
             for (const auto& address : items)
             {
-                DeleteOwnAddress(address.m_OwnID);
+                DeleteOwnAddress(address.m_walletID);
             }
             break;
         case ChangeAction::Reset:

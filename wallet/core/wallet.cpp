@@ -36,7 +36,7 @@ namespace beam::wallet
 
     namespace
     {
-        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource)
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
@@ -51,27 +51,37 @@ namespace beam::wallet
                     continue;
                 }
 
-                if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
+                if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
                 {
-                    if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
-                    {
-                        LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
-                        continue;
-                    }
-                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                    LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
+                    continue;
                 }
-                else
-                {
-                    LOG_WARNING() << "Attempt to set private tx parameter";
-                }
+
+                txChanged |= tx->GetWalletDB()->setTxParameter(tx->GetTxID(), subTxID, p.first, p.second, true, isInternalSource);
             }
             return txChanged;
+        }
+
+        Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)
+        {
+            Timestamp ts = tip.m_TimeStamp;
+            if (tip.m_Height > confirmHeight)
+            {
+                auto delta = (tip.m_Height - confirmHeight);
+                ts -= delta * Rules::get().DA.Target_s;
+            }
+            else if (tip.m_Height < confirmHeight)
+            {
+                auto delta = confirmHeight - tip.m_Height;
+                ts += delta * Rules::get().DA.Target_s;
+            }
+            return ts;
         }
     }
 
     // @param SBBS address as string
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
-    bool check_receiver_address(const std::string& addr)
+    bool CheckReceiverAddress(const std::string& addr)
     {
         WalletID walletID;
         return
@@ -79,9 +89,78 @@ namespace beam::wallet
             walletID.IsValid();
     }
 
+    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    {
+        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+        if (!myID)
+        {
+            throw InvalidTransactionParametersException("No MyID");
+        }
+
+        auto senderAddr = walletDB->getAddress(*myID);
+        if (!senderAddr || !senderAddr->isOwn() || senderAddr->isExpired())
+        {
+            throw SenderInvalidAddressException();
+        }
+    }
+
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
+    {
+        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (!peerID)
+        {
+            if (isMandatory)
+                throw InvalidTransactionParametersException("No PeerID");
+
+            return parameters;
+        }
+
+        auto receiverAddr = walletDB->getAddress(*peerID);
+        if (receiverAddr)
+        {
+            if (receiverAddr->isOwn() && receiverAddr->isExpired())
+            {
+                LOG_ERROR() << "Can't send to the expired address.";
+                throw ReceiverAddressExpiredException();
+            }
+
+            // update address comment if changed
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                auto messageStr = std::string(message->begin(), message->end());
+                if (messageStr != receiverAddr->m_label)
+                {
+                    receiverAddr->m_label = messageStr;
+                    walletDB->saveAddress(*receiverAddr);
+                }
+            }
+            
+            TxParameters temp{ parameters };
+            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
+            return temp;
+        }
+        else
+        {
+            WalletAddress address;
+            address.m_walletID = *peerID;
+            address.m_createTime = getTimestamp();
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                address.m_label = std::string(message->begin(), message->end());
+            }
+            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            {
+                address.m_Identity = *identity;
+            }
+            
+            walletDB->saveAddress(address);
+        }
+        return parameters;
+    }
+
     const char Wallet::s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB,  bool withAssets, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{ move(action) }
         , m_UpdateCompleted{ move(updateCompleted) }
@@ -90,7 +169,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB, withAssets));
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
     }
 
     Wallet::~Wallet()
@@ -161,7 +240,7 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // Rescan the blockchain for UTXOs
+    // Rescan the blockchain for UTXOs and shielded coins
     void Wallet::Rescan()
     {
         AbortEvents();
@@ -169,16 +248,32 @@ namespace beam::wallet
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
         std::vector<Coin> ocoins;
+        // do the same thing with shielded coins which are in progress
+        std::vector<ShieldedCoin> shieldedCoins;
         for (const auto& tx : m_ActiveTransactions)
         {
             const auto& txocoins = m_WalletDB->getCoinsCreatedByTx(tx.first);
             ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
+            auto shieldedCoin = m_WalletDB->getShieldedCoin(tx.first);
+
+            // save newly created coins only to be able to accomplish the transaction,
+            // all the others should be able to be restored from blockchain
+            if (shieldedCoin && shieldedCoin->m_createTxId && *shieldedCoin->m_createTxId == tx.first)
+            {
+                shieldedCoins.push_back(*shieldedCoin);
+            }
         }
 
         m_WalletDB->clearCoins();
+        m_WalletDB->clearShieldedCoins();
 
         // Restore Incoming coins of active transactions
         m_WalletDB->saveCoins(ocoins);
+        // Restore shielded coins
+        for (const auto& sc : shieldedCoins)
+        {
+            m_WalletDB->saveShieldedCoin(sc);
+        }
 
         storage::setVar(*m_WalletDB, s_szNextEvt, 0);
         RequestEvents();
@@ -216,6 +311,14 @@ namespace beam::wallet
                 MakeTransactionActive(t);
                 UpdateOnSynced(t);
             }
+        }
+    }
+
+    void Wallet::VisitActiveTransaction(const TxVisitor& visitor)
+    {
+        for(const auto& it: m_ActiveTransactions)
+        {
+            visitor(it.first, it.second);
         }
     }
 
@@ -287,12 +390,9 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the INegotiatorGateway::confirm_outputs
-    // TODO: Not used anywhere, consider removing
-    void Wallet::confirm_outputs(const vector<Coin>& coins)
+    void Wallet::on_tx_failed(const TxID& txID)
     {
-        for (auto& coin : coins)
-            getUtxoProof(coin);
+        on_tx_completed(txID);
     }
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -479,7 +579,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::get_proof_shielded_output(const TxID& txId, ECC::Point serialPublic, ProofShildedOutputCallback&& callback)
+    void Wallet::get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback)
     {
         MyRequestProofShieldedOutp::Ptr pVal(new MyRequestProofShieldedOutp);
         pVal->m_callback = std::move(callback);
@@ -501,6 +601,60 @@ namespace beam::wallet
         {
             UpdateOnNextTip(it->second);
         }
+    }
+
+    Wallet::VoucherManager::Request* Wallet::VoucherManager::CreateIfNew(const WalletID& trg)
+    {
+        Request::Target key;
+        key.m_Value = trg;
+        if (m_setTrg.end() != m_setTrg.find(key))
+            return nullptr;
+
+        ECC::Scalar::Native nonce;
+        nonce.GenRandomNnz();
+
+        Request* pReq = new Request;
+        pReq->m_Target.m_Value = trg;
+        m_setTrg.insert(pReq->m_Target);
+
+        pReq->m_OwnAddr.m_Pk.FromSk(nonce);
+        pReq->m_OwnAddr.SetChannelFromPk();
+
+        for (auto& p : get_ParentObj().m_MessageEndpoints)
+            p->Listen(pReq->m_OwnAddr, nonce);
+
+        return pReq;
+    }
+
+    void Wallet::VoucherManager::Delete(Request& r)
+    {
+        for (auto& p : get_ParentObj().m_MessageEndpoints)
+            p->Unlisten(r.m_OwnAddr);
+
+        m_setTrg.erase(Request::Target::Set::s_iterator_to(r.m_Target));
+        delete &r;
+    }
+
+    void Wallet::VoucherManager::DeleteAll()
+    {
+        while (!m_setTrg.empty())
+            Delete(m_setTrg.begin()->get_ParentObj());
+    }
+
+    void Wallet::get_UniqueVoucher(const WalletID& peerID, const TxID&, boost::optional<ShieldedTxo::Voucher>& res)
+    {
+        auto count = m_WalletDB->getVoucherCount(peerID);
+        const size_t VoucherCountThreshold = 5;
+
+        if (count < VoucherCountThreshold)
+        {
+            VoucherManager::Request* pReq = m_VoucherManager.CreateIfNew(peerID);
+            if (pReq)
+                RequestVouchersFrom(peerID, pReq->m_OwnAddr, 30);
+        }
+
+        if (count > 0)
+            res = m_WalletDB->grabVoucher(peerID);
     }
 
     void Wallet::SendSpecialMsg(const WalletID& peerID, SetTxParameter& msg)
@@ -526,21 +680,28 @@ namespace beam::wallet
         {
         case TxType::VoucherRequest:
             {
-                Key::IKdf::Ptr pKdf = m_WalletDB->get_MasterKdf();
-                if (!pKdf)
-                    return; // without master Kdf we can create the ticket, but can't sign it.
+                auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
+                if (!pKeyKeeper             // We can generate the ticket with OwnerKey, but can't sign it.
+                 || !m_OwnedNodesOnline)    // The wallet has no ability to recognoize received shielded coin
+                {
+                    FailVoucherRequest(msg.m_From, myID);
+                    return; 
+                }
 
                 uint32_t nCount = 0;
                 msg.GetParameter((TxParameterID) 0, nCount);
 
                 if (!nCount)
+                {
+                    FailVoucherRequest(msg.m_From, myID);
                     return; //?!
+                }
 
                 auto address = m_WalletDB->getAddress(myID);
                 if (!address.is_initialized() || !address->m_OwnID)
                     return;
 
-                auto res = GenerateVoucherList(pKdf, address->m_OwnID, nCount);
+                auto res = GenerateVoucherList(pKeyKeeper, address->m_OwnID, nCount);
 
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;
@@ -557,16 +718,28 @@ namespace beam::wallet
                 std::vector<ShieldedTxo::Voucher> res;
                 msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
                 if (res.empty())
+                {
+                    LOG_WARNING() << "Received an empty voucher list";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
+                }
 
                 auto address = m_WalletDB->getAddress(msg.m_From);
                 if (!address.is_initialized())
+                {
+                    LOG_WARNING() << "Received vouchers for unknown address";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
+                }
 
                 if (!IsValidVoucherList(res, address->m_Identity))
+                {
+                    LOG_WARNING() << "Invalid voucher list received";
+                    FailTxWaitingForVouchers(msg.m_From);
                     return;
+                }
 
-                OnVouchersFrom(*address, std::move(res));
+                OnVouchersFrom(*address, myID, std::move(res));
 
             }
             break;
@@ -576,8 +749,66 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::OnVouchersFrom(const WalletAddress& addr, std::vector<ShieldedTxo::Voucher>&& res)
+    std::vector<BaseTransaction::Ptr> Wallet::FindTxWaitingForVouchers(const WalletID& peerID) const
     {
+        std::vector<BaseTransaction::Ptr> res;
+        for (auto p : m_ActiveTransactions)
+        {
+            ShieldedTxo::Voucher voucher;
+            const auto& tx = p.second;
+            if (tx->GetType() == TxType::PushTransaction
+                && tx->GetMandatoryParameter<WalletID>(TxParameterID::PeerID) == peerID
+                && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
+            {
+                res.push_back(tx);
+            }
+        }
+        return res;
+    }
+
+    void Wallet::FailTxWaitingForVouchers(const WalletID& peerID)
+    {
+        auto transactions = FindTxWaitingForVouchers(peerID);
+        for (auto tx : transactions)
+        {
+            tx->SetParameter(TxParameterID::FailureReason, TxFailureReason::CannotGetVouchers);
+            UpdateTransaction(tx);
+        }
+    }
+
+    void Wallet::FailVoucherRequest(const WalletID& peerID, const WalletID& myID)
+    {
+        SetTxParameter msgOut;
+        msgOut.m_Type = TxType::VoucherResponse;
+        msgOut.m_From = myID;
+        msgOut.AddParameter(TxParameterID::FailureReason, TxFailureReason::CannotGetVouchers);
+
+        SendSpecialMsg(peerID, msgOut);
+    }
+
+    void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)
+    {
+        VoucherManager::Request::Target key;
+        key.m_Value = addr.m_walletID;
+
+        VoucherManager::Request::Target::Set::iterator it = m_VoucherManager.m_setTrg.find(key);
+        if (m_VoucherManager.m_setTrg.end() == it)
+            return;
+        VoucherManager::Request& r = it->get_ParentObj();
+
+        if (r.m_OwnAddr != ownAddr)
+            return;
+
+        m_VoucherManager.Delete(r);
+
+        for (const auto& v : res)
+            m_WalletDB->saveVoucher(v, addr.m_walletID);
+
+        auto transactions = FindTxWaitingForVouchers(addr.m_walletID);
+        for (auto tx : transactions)
+        {
+            UpdateTransaction(tx);
+        }
     }
 
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
@@ -593,19 +824,9 @@ namespace beam::wallet
             {
                 LOG_WARNING() << "Special msg failed: " << exc.what();
             }
-
-            return;
         }
-
-        auto t = GetTransaction(myID, msg);
-        if (!t)
-        {
-            return;
-        }
-
-        if (ApplyTransactionParameters(t, msg.m_Parameters, false))
-        {
-            UpdateTransaction(msg.m_TxID);
+        else {
+            OnTransactionMsg(myID, msg);
         }
     }
 
@@ -703,7 +924,7 @@ namespace beam::wallet
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
         // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
-        ProcessEventUtxo(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true);
+        ProcessEventUtxo(r.m_CoinID, proof.m_State.m_Maturity, proof.m_State.m_Maturity, true, {});
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -828,10 +1049,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
-        if (!r.m_Res.m_Proof.empty())
-        {
-            r.m_callback(r.m_Res);
-        }
+        r.m_callback(r.m_Res); // either successful or not
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
@@ -842,7 +1060,7 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestStateSummary& r)
     {
         // TODO: save full response?
-        storage::setVar(*m_WalletDB, kStateSummaryShieldedOutsDBPath, r.m_Res.m_ShieldedOuts);
+        m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()
@@ -884,39 +1102,26 @@ namespace beam::wallet
             Wallet& m_This;
             MyParser(Wallet& x) :m_This(x) {}
 
-            virtual void OnEvent(proto::Event::Base& evt_) override
+            virtual void OnEventType(proto::Event::Shielded& evt) override
             {
-                switch (evt_.get_Type())
-                {
-                    case proto::Event::Type::Shielded:
-                    {
-                        proto::Event::Shielded& shieldedEvt = Cast::Up<proto::Event::Shielded>(evt_);
-                        m_This.ProcessEventShieldedUtxo(shieldedEvt, m_Height);
-                        return;
-                    }
-                    case proto::Event::Type::AssetCtl:
-                    {
-                        proto::Event::AssetCtl assetEvt = Cast::Up<proto::Event::AssetCtl>(evt_);
-                        m_This.ProcessEventAsset(assetEvt, m_Height);
-                        return;
-                    }
-                    case proto::Event::Type::Utxo:
-                    {
-                        proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
-
-                        // filter-out false positives
-
-                        if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
-                            return;
-
-                        bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                        m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd);
-                        return;
-                    }
-                    default:
-                        break;
-                }
+                m_This.ProcessEventShieldedUtxo(evt, m_Height);
             }
+
+            virtual void OnEventType(proto::Event::AssetCtl& evt) override
+            {
+                m_This.ProcessEventAsset(evt, m_Height);
+            }
+
+            virtual void OnEventType(proto::Event::Utxo& evt) override
+            {
+                // filter-out false positives
+                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
+                    return;
+
+                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
+                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd, evt.m_User);
+            }
+
         } p(*this);
         
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
@@ -953,13 +1158,20 @@ namespace beam::wallet
         return h;
     }
 
-    void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd)
+    void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd, const Output::User& user)
     {
         Coin c;
         c.m_ID = cid;
-
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = hMaturity;
+
+
+        const auto* data = Output::User::ToPacked(user);
+        if (!memis0(data->m_TxID.m_pData, sizeof(TxID)))
+        {
+            c.m_createTxId.emplace();
+            std::copy_n(data->m_TxID.m_pData, sizeof(TxID), c.m_createTxId->begin());
+        }
 
         LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
 
@@ -994,22 +1206,19 @@ namespace beam::wallet
 
     void Wallet::ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h)
     {
-        // since there is not asset id passed we ignore this event at the moment
+        // TODO
     }
 
     void Wallet::ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h)
     {
-        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_Key);
+        auto shieldedCoin = m_WalletDB->getShieldedCoin(shieldedEvt.m_CoinID.m_Key);
         if (!shieldedCoin)
         {
             shieldedCoin = ShieldedCoin{};
-            shieldedCoin->m_Key = shieldedEvt.m_Key;
         }
 
-        shieldedCoin->m_User = shieldedEvt.m_User;
-        shieldedCoin->m_ID = shieldedEvt.m_ID;
-        shieldedCoin->m_assetID = shieldedEvt.m_AssetID;
-        shieldedCoin->m_value = shieldedEvt.m_Value;
+        shieldedCoin->m_CoinID = shieldedEvt.m_CoinID;
+        shieldedCoin->m_TxoID = shieldedEvt.m_TxoID;
 
         bool isAdd = 0 != (proto::Event::Flags::Add & shieldedEvt.m_Flags);
         if (isAdd)
@@ -1023,7 +1232,8 @@ namespace beam::wallet
 
         m_WalletDB->saveShieldedCoin(*shieldedCoin);
 
-        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_ID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        RestoreTransactionFromShieldedCoin(*shieldedCoin);
     }
 
     void Wallet::OnRolledBack()
@@ -1118,6 +1328,19 @@ namespace beam::wallet
         if (bMustRescan)
             Rescan();
 
+    }
+
+    void Wallet::OnNewPeer(const PeerID& id, io::Address address)
+    {
+        constexpr size_t MaxPeers = 10;
+        std::deque<io::Address> addresses;
+        storage::getBlobVar(*m_WalletDB, FallbackPeers, addresses);
+        addresses.push_back(address);
+        if (addresses.size() > MaxPeers)
+        {
+            addresses.pop_front();
+        }
+        storage::setBlobVar(*m_WalletDB, FallbackPeers, addresses);
     }
 
     void Wallet::OnNewTip()
@@ -1296,66 +1519,70 @@ namespace beam::wallet
         m_WalletDB->Unsubscribe(observer);
     }
 
-    BaseTransaction::Ptr Wallet::GetTransaction(const WalletID& myID, const SetTxParameter& msg)
+    void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
     {
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
-            if (it->second->GetType() != msg.m_Type)
+            const auto& pTx = it->second;
+
+            if (pTx->GetType() != msg.m_Type)
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
+                return;
             }
-            if (WalletID peerID; it->second->GetParameter(TxParameterID::PeerID, peerID) && peerID != msg.m_From)
+
+            WalletID peerID;
+            if (pTx->GetParameter(TxParameterID::PeerID, peerID))
             {
-                // if we already have PeerID, we should ignore messages from others
-                return BaseTransaction::Ptr();
+                if (peerID != msg.m_From)
+                    return; // if we already have PeerID, we should ignore messages from others
             }
             else
             {
-                it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+                pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
             }
-            return it->second;
+
+            if (ApplyTransactionParameters(pTx, msg.m_Parameters, false))
+                UpdateTransaction(pTx);
+
+            return;
         }
 
         TxType type = TxType::Simple;
         if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
-        {
             // we return only active transactions
-            return BaseTransaction::Ptr();
-        }
+            return;
 
         if (msg.m_Type == TxType::AtomicSwap)
-        {
-            // we don't create swap from SBBS message
-            return BaseTransaction::Ptr();
-        }
+            return; // we don't create swap from SBBS message
 
         bool isSender = false;
         if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
+            return;
+
+        BaseTransaction::Ptr pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
+        if (!pTx)
+            return;
+
+        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
+        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+        pTx->SetParameter(TxParameterID::MyID, myID, false);
+        pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+        pTx->SetParameter(TxParameterID::IsInitiator, false, false);
+        pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+        auto address = m_WalletDB->getAddress(myID);
+        if (address.is_initialized())
         {
-            return BaseTransaction::Ptr();
+            ByteBuffer message(address->m_label.begin(), address->m_label.end());
+            pTx->SetParameter(TxParameterID::Message, message);
         }
 
-        auto t = ConstructTransactionFromParameters(msg);
-        if (t)
-        {
-            t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-            t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-            t->SetParameter(TxParameterID::MyID, myID, false);
-            t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-            t->SetParameter(TxParameterID::IsInitiator, false, false);
-            t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+        MakeTransactionActive(pTx);
+        ApplyTransactionParameters(pTx, msg.m_Parameters, false);
 
-            auto address = m_WalletDB->getAddress(myID);
-            if (address.is_initialized())
-            {
-                ByteBuffer message(address->m_label.begin(), address->m_label.end());
-                t->SetParameter(TxParameterID::Message, message);
-            }
-
-            MakeTransactionActive(t);
-        }
-        return t;
+        UpdateTransaction(pTx);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)
@@ -1367,19 +1594,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, id);
-    }
-
-    BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
-    {
-        auto it = m_TxCreators.find(msg.m_Type);
-        if (it == m_TxCreators.end())
-        {
-            LOG_WARNING() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
-            return wallet::BaseTransaction::Ptr();
-        }
-
-        return it->second->Create(*this, m_WalletDB, msg.m_TxID);
+        return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -1412,7 +1627,7 @@ namespace beam::wallet
             }
         }
 
-        auto newTx = it->second->Create(*this, m_WalletDB, *parameters.GetTxID());
+        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }
@@ -1455,5 +1670,48 @@ namespace beam::wallet
     {
         MyRequestStateSummary::Ptr pReq(new MyRequestStateSummary);
         PostReqUnique(*pReq);
+    }
+
+    void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
+    {
+        // add virtual transaction for receiver
+        beam::Block::SystemState::Full tip;
+        m_WalletDB->get_History().get_Tip(tip);
+        storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
+
+        if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
+        {
+            return;
+        }
+        const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+        TxID txID;
+        std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+        auto tx = m_WalletDB->getTx(txID);
+        if (tx)
+        {
+            return;
+        }
+        else
+        {
+            WalletAddress tempAddress;
+            m_WalletDB->createAddress(tempAddress);
+
+            auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
+                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
+                .SetParameter(TxParameterID::PeerID, WalletID())
+                .SetParameter(TxParameterID::Status, TxStatus::Completed)
+                .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
+                .SetParameter(TxParameterID::IsSender, false)
+                .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
+                .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
+                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash());
+
+            auto packed = params.Pack();
+            for (const auto& p : packed)
+            {
+                storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
+            }
+        }
     }
 }

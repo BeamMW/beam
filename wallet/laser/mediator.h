@@ -44,6 +44,7 @@ public:
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {};
         virtual void OnTransferFailed(const ChannelIDPtr& chID) {};
+        virtual void OnExpired(const ChannelIDPtr& chID) {};
     protected:
         friend class Mediator;
         Mediator* m_observable;
@@ -82,7 +83,7 @@ public:
     bool GracefulClose(const std::string& channelID);
     bool Delete(const std::string& channelID);
     size_t getChannelsCount() const;
-    const std::unique_ptr<Channel>& getChannel(const ChannelIDPtr& p_channelID);
+    const Channel::Ptr& getChannel(const ChannelIDPtr& p_channelID);
 
     void AddObserver(Observer* observer);
     void RemoveObserver(Observer* observer);
@@ -92,23 +93,23 @@ private:
     bool OnIncoming(const ChannelIDPtr& channelID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = beam::Lightning::kDefaultOpenTxDh);
-    void TransferInternal(Amount amount, const ChannelIDPtr& chID);
-    void GracefulCloseInternal(const std::unique_ptr<Channel>& channel);
+    void TransferInternal(Amount amount, const Channel::Ptr& channel);
+    void GracefulCloseInternal(const Channel::Ptr& channel);
     void CloseInternal(const ChannelIDPtr& chID);
     void ClosingCompleted(const ChannelIDPtr& p_channelID);
     void HandleOpenedWithFailChannel(const ChannelIDPtr& p_channelID);
     ChannelIDPtr LoadChannel(const std::string& channelID);
-    std::unique_ptr<Channel> LoadChannelInternal(
+    Channel::Ptr LoadChannelInternal(
         const ChannelIDPtr& p_channelID);
     bool LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
-    void UpdateChannelExterior(const std::unique_ptr<Channel>& channel);
+    void UpdateChannelExterior(const Channel::Ptr& channel);
     bool ValidateTip();
     bool IsEnoughCoinsAvailable(Amount required);
     void Subscribe();
     void Unsubscribe();
     bool IsInSync();
-    bool IsChannelExpired(const std::unique_ptr<Channel>& channel);
+    void ExpireChannel(const Channel::Ptr& channel);
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
@@ -119,11 +120,11 @@ private:
     Amount m_feeAllowed = 0;
     WalletAddress m_myInAddr;
 
-    std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
+    std::unordered_map<ChannelIDPtr, Channel::Ptr> m_channels;
     std::vector<std::function<void()>> m_actionsQueue;
     std::vector<ChannelIDPtr> m_readyForCloseChannels;
     std::vector<ChannelIDPtr> m_openedWithFailChannels;
-    std::vector<std::unique_ptr<Channel>> m_closedChannels;
+    std::vector<Channel::Ptr> m_closedChannels;
     std::vector<Observer*> m_observers;
 
     Lightning::Channel::Params m_Params;

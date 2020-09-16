@@ -64,6 +64,8 @@ namespace beam
     const char kErrorTooBigAmount[] = "Amount %1% is too big. Maximum supported amount is %2%.";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
+    const char kErrorFeeForShieldedToLow[] = "Failed to initiate the send operation. This transaction will spend shielded coins. The minimum fee is %1% GROTH.";
+    const char kErrorFeeForShieldedOutToLow[] = "Failed to initiate the send operation. This is max privacy transaction. The minimum fee is %1% GROTH.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
     const char kErrorSwapWalletAddrNotResolved[] = "unable to resolve swap wallet address: %1%";
     const char kErrorSwapWalletAddrUnspecified[] = "swap wallet address should be specified";
@@ -96,6 +98,8 @@ namespace beam
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
+    const char kErrorNotEnoughtCoins[] = "Not enought coins for this transaction parameters";
+    const char kErrorCantSendMaxPrivacyToOwn[] = "Can not sent max privacy transaction to own address";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -149,7 +153,7 @@ namespace beam
     const char kSeedPhraseReadTitle[] = "Generating seed phrase...";
 
     // Wallet info
-    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n%23%%24%\n\n";
+    const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletUnreliableAsset[] = "This asset has been burned or reissued at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
     const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregisterd or asset info needs to be updated using asset_info command.\n\n";
@@ -172,14 +176,13 @@ namespace beam
     const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
-    const char kWalletSummaryFieldShielded[] = "Shielded";
-    const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
+    const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kCoinColumnId[] = "ID";
     const char kCoinColumnMaturity[] = "Maturity";
     const char kCoinColumnStatus[] = "Status";
     const char kCoinColumnType[] = "Type";
-    const char kCoinColumnIsUnlinked[] = "Unlinked";
-    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
+    const char kCoinsTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
+    const char kCoinConfirmationsCount[] = "Count of confirmations before you can't spend coin is: %1%";
 
     // Tx history
     const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
@@ -200,7 +203,7 @@ namespace beam
     const char kNoShieldedCoins[] = "No Shielded coins";
     const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
     const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
-    const char kTxToken[] = "token";
+    const char kTxAddress[] = "address";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
@@ -240,8 +243,6 @@ namespace beam
     const char kErrorAssetNotFound[]         = "Asset not found in a local database. Check asset ID, update asset info using asset_info command or provide asset metadata";
     const char kErrorAssetNotOwned[]         = "You do not own the asset";
     const char kErrorAssetLoadMeta[]         = "Cannot load asset metadata";
-    const char kErrorAssetsFork2[]           = "Confidential assets can be used only after fork2";
-    const char kErrorAssetsDisabled[]        = "Confidential assets are disabled. Add --enable_assets to command line";
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
@@ -252,6 +253,7 @@ namespace beam
     const char kLaserUpdating[] = "Updating";
     const char kLaserClosing[] = "Closing";
     const char kLaserClosed[] = "Closed";
+    const char kLaserExpired[] = "Expired";
     const char kLaserUnknown[] = "Unknown";
     const char kLaserErrorParamsRead[] = "Can't read lightning params";
     const char kLaserErrorMyAmountMissing[] = "My amount is missing.";
@@ -267,6 +269,7 @@ namespace beam
     const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
+    const char kLaserMessageExpired[] = "Expired : %1%";
     const char kLaserErrorTransferFailed[] = "Transfer to channel : %1% - failed.";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
     const char kLaserMessageUpdateFinished[] = "Update finished: %1%";

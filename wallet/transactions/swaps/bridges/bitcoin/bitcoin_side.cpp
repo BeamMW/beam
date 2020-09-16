@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "core/block_crypt.h"
+#include "utility/logger.h"
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
@@ -96,6 +97,19 @@ namespace
         libbitcoin::wallet::ec_public receiverPublicKey(isBtcOwner ? peerSwapPublicKeyStr : localPublicKeyStr);
 
         return AtomicSwapContract(senderPublicKey.point(), receiverPublicKey.point(), secretPublicKey.point(), locktime);
+    }
+
+    libbitcoin::ec_secret GetWithdrawTxLocalSecret(const beam::wallet::BaseTransaction& tx, beam::wallet::SubTxID subTxID, bool quickRefund)
+    {
+        NoLeak<uintBig> localPrivateKey;
+        if (beam::wallet::SubTxIndex::REFUND_TX == subTxID && quickRefund)
+            localPrivateKey.V = tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPeerPrivateKey);
+        else
+            localPrivateKey.V = tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
+
+        libbitcoin::ec_secret localSecret;
+        std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
+        return localSecret;
     }
 }
 
@@ -311,6 +325,11 @@ namespace beam::wallet
         return 70;
     }
 
+    bool BitcoinSide::IsSegwitSupported() const
+    {
+        return true;
+    }
+
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
         Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
@@ -325,11 +344,6 @@ namespace beam::wallet
     uint8_t BitcoinSide::GetAddressVersion() const
     {
         return m_settingsProvider.GetSettings().GetAddressVersion();
-    }
-
-    Amount BitcoinSide::GetFeeRate() const
-    {
-        return m_settingsProvider.GetSettings().GetFeeRate();
     }
 
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
@@ -450,9 +464,25 @@ namespace beam::wallet
             auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, GetAddressVersion());
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
 
+            libbitcoin::chain::script outputScript;
+            
+            if (CanUseSegwit())
+            {
+                libbitcoin::hash_digest embeddedScriptHash = libbitcoin::sha256_hash(contractScript.to_data(false));
+                libbitcoin::machine::operation::list p2shOperations;
+
+                p2shOperations.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
+                p2shOperations.push_back(libbitcoin::machine::operation(libbitcoin::to_chunk(embeddedScriptHash)));
+
+                outputScript = libbitcoin::chain::script(p2shOperations);
+            }
+            else
+            {
+                outputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
+            }
+
             libbitcoin::chain::transaction contractTx;
             contractTx.set_version(bitcoin::kTransactionVersion);
-            libbitcoin::chain::script outputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
             libbitcoin::chain::output output(swapAmount, outputScript);
             contractTx.outputs().push_back(output);
 
@@ -760,64 +790,14 @@ namespace beam::wallet
     {
         try
         {
-            libbitcoin::data_chunk tx_data;
-            libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
-            libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
-
-            auto addressVersion = GetAddressVersion();
-
-            NoLeak<uintBig> localPrivateKey;
-            bool quickRefund = IsQuickRefundAvailable();
-
-            if (SubTxIndex::REFUND_TX == subTxID && quickRefund)
-                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPeerPrivateKey);
-            else
-                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
-
-            libbitcoin::ec_secret localSecret;
-            std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
-            libbitcoin::endorsement sig;
-
-            uint32_t input_index = 0;
-            auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
-            libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
-
-            // Create input script
-            libbitcoin::machine::operation::list sig_script;
-
-            if (SubTxIndex::REFUND_TX == subTxID && !quickRefund)
+            if (CanUseSegwit())
             {
-                // <my sig> 0
-                sig_script.push_back(libbitcoin::machine::operation(sig));
-                sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
+                m_SwapWithdrawRawTx = FillSegwitWithdrawTxInput(subTxID);
             }
             else
             {
-                // AtomicSwapSecretPrivateKey -> libbitcoin::wallet::ec_private
-                NoLeak<uintBig> secretPrivateKey;
-                m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
-                libbitcoin::ec_secret secret;
-                std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
-
-                libbitcoin::endorsement secretSig;
-                libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
-
-               // 0 <their sig> <secret sig> 1
-                sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
-                sig_script.push_back(libbitcoin::machine::operation(sig));
-                sig_script.push_back(libbitcoin::machine::operation(secretSig));
-                sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_positive_1));
+                m_SwapWithdrawRawTx = FillWithdrawTxInput(subTxID);
             }
-
-            sig_script.push_back(libbitcoin::machine::operation(contractScript.to_data(false)));
-
-            libbitcoin::chain::script input_script(sig_script);
-
-            // Add input script to first input in transaction
-            withdrawTX.inputs()[0].set_script(input_script);
-
-            // update m_SwapWithdrawRawTx
-            m_SwapWithdrawRawTx = libbitcoin::encode_base16(withdrawTX.to_data());
 
             m_tx.SetParameter(TxParameterID::AtomicSwapExternalTx, *m_SwapWithdrawRawTx, subTxID);
             m_tx.SetState(SwapTxState::Constructed, subTxID);
@@ -834,6 +814,120 @@ namespace beam::wallet
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, subTxID);
         }
         m_tx.UpdateAsync();
+    }
+
+    std::string BitcoinSide::FillSegwitWithdrawTxInput(SubTxID subTxID)
+    {
+        libbitcoin::data_chunk tx_data;
+        libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
+        libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data, true, true);
+
+        auto addressVersion = GetAddressVersion();
+        bool quickRefund = IsQuickRefundAvailable();
+        libbitcoin::ec_secret localSecret = GetWithdrawTxLocalSecret(m_tx, subTxID, quickRefund);
+        Amount input_amount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        uint32_t input_index = 0;
+        auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
+        libbitcoin::endorsement sig;
+        libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
+            libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+
+        // Create input witness script
+        libbitcoin::data_stack witnessStack;
+        libbitcoin::data_chunk emptyChunk;
+
+        if (SubTxIndex::REFUND_TX == subTxID && !quickRefund)
+        {
+            // <my sig> 0
+            witnessStack.push_back(sig);
+            witnessStack.push_back(emptyChunk);
+        }
+        else
+        {
+            // AtomicSwapSecretPrivateKey -> libbitcoin::wallet::ec_private
+            NoLeak<uintBig> secretPrivateKey;
+            m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
+            libbitcoin::ec_secret secret;
+            std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
+
+            libbitcoin::endorsement secretSig;
+            libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
+                libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+
+            // 0 <their sig> <secret sig> 1
+            witnessStack.push_back(emptyChunk);
+            witnessStack.push_back(sig);
+            witnessStack.push_back(secretSig);
+            witnessStack.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(1)).to_data());
+        }
+        witnessStack.push_back(contractScript.to_data(false));
+
+        libbitcoin::chain::witness p2wshWitness(witnessStack);
+
+        // Add input witness script to first input in transaction
+        withdrawTX.inputs()[0].set_witness(p2wshWitness);
+
+        return libbitcoin::encode_base16(withdrawTX.to_data(true, true));
+    }
+
+    std::string BitcoinSide::FillWithdrawTxInput(SubTxID subTxID)
+    {
+        libbitcoin::data_chunk tx_data;
+        libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
+        libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
+
+        auto addressVersion = GetAddressVersion();
+        bool quickRefund = IsQuickRefundAvailable();
+        libbitcoin::ec_secret localSecret = GetWithdrawTxLocalSecret(m_tx, subTxID, quickRefund);
+        uint32_t input_index = 0;
+        auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
+        libbitcoin::endorsement sig;
+        libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
+            libbitcoin::machine::sighash_algorithm::all);
+
+        // Create input script
+        libbitcoin::machine::operation::list sig_script;
+
+        if (SubTxIndex::REFUND_TX == subTxID && !quickRefund)
+        {
+            // <my sig> 0
+            sig_script.push_back(libbitcoin::machine::operation(sig));
+            sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
+        }
+        else
+        {
+            // AtomicSwapSecretPrivateKey -> libbitcoin::wallet::ec_private
+            NoLeak<uintBig> secretPrivateKey;
+            m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
+            libbitcoin::ec_secret secret;
+            std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
+
+            libbitcoin::endorsement secretSig;
+            libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
+                libbitcoin::machine::sighash_algorithm::all);
+
+            // 0 <their sig> <secret sig> 1
+            sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
+            sig_script.push_back(libbitcoin::machine::operation(sig));
+            sig_script.push_back(libbitcoin::machine::operation(secretSig));
+            sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_positive_1));
+        }
+
+        sig_script.push_back(libbitcoin::machine::operation(contractScript.to_data(false)));
+
+        libbitcoin::chain::script input_script(sig_script);
+
+        // Add input script to first input in transaction
+        withdrawTX.inputs()[0].set_script(input_script);
+
+        return libbitcoin::encode_base16(withdrawTX.to_data());
+    }
+
+    bool BitcoinSide::CanUseSegwit() const
+    {
+        auto peerProtoVersion = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::PeerProtoVersion);
+
+        return IsSegwitSupported() && peerProtoVersion >= kSwapSegwitSupportMinProtoVersion;
     }
 
     void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& /*error*/, const std::string& hexScript, Amount amount, uint32_t confirmations)
@@ -864,7 +958,19 @@ namespace beam::wallet
             auto script = libbitcoin::chain::script::factory_from_data(scriptData, false);
 
             auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, GetAddressVersion());
-            libbitcoin::chain::script inputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
+            libbitcoin::machine::operation::list inputScriptOperations;
+
+            if (CanUseSegwit())
+            {
+                libbitcoin::hash_digest contractScriptHash = libbitcoin::sha256_hash(contractScript.to_data(false));
+                inputScriptOperations.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
+                inputScriptOperations.push_back(libbitcoin::machine::operation(libbitcoin::to_chunk(contractScriptHash)));
+            }
+            else
+            {
+                inputScriptOperations = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
+            }
+            libbitcoin::chain::script inputScript{inputScriptOperations};
             
             assert(script == inputScript);
 

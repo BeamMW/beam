@@ -205,6 +205,9 @@ struct Node
 
 	bool GenerateRecoveryInfo(const char*);
 	void PrintTxos();
+	void PrintRollbackStats();
+
+	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
 
 	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
 

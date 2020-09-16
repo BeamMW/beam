@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/core/base_transaction.h"
+#include "wallet/core/base_tx_builder.h"
 
 namespace beam::wallet::lelantus
 {
@@ -27,23 +28,20 @@ namespace beam::wallet::lelantus
     public:
         class Creator : public BaseTransaction::Creator
         {
-        public:
-            Creator(bool withAssets): m_withAssets(withAssets) {}
-
-        private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-            bool m_withAssets;
+        };
+
+        enum State : uint8_t
+        {
+            Initial,
+            Registration,
+            KernelConfirmation,
         };
 
     public:
-        PullTransaction(INegotiatorGateway& gateway
-                        , IWalletDB::Ptr walletDB
-                        , const TxID& txID
-                        , bool withAssets);
+        PullTransaction(const TxContext& context);
 
     private:
         TxType GetType() const override;
@@ -51,10 +49,8 @@ namespace beam::wallet::lelantus
         void UpdateImpl() override;
         void RollbackTx() override;
 
-        bool GetShieldedList();
-
     private:
-        std::shared_ptr<PullTxBuilder> m_TxBuilder;
-        bool m_withAssets;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> m_TxBuilder;
     };
 } // namespace beam::wallet::lelantus

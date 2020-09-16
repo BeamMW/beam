@@ -42,6 +42,7 @@ namespace beam::bitcoin
         void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) override;
         void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;
         void getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback) override;
+        void estimateFee(int blockAmount, std::function<void(const Error&, Amount)> callback) override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);

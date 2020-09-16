@@ -28,15 +28,15 @@ namespace beam::qtum
         Settings()
             : bitcoin::Settings()
         {
-            constexpr uint16_t kQtumDefaultTxMinConfirmations = 10;
-            constexpr double kQtumBlocksPerHour = 28.125;
-            constexpr uint32_t kQtumDefaultLockTimeInBlocks = static_cast<uint32_t>(12 * kQtumBlocksPerHour);  // 12h
-            constexpr Amount kQtumMinFeeRate = 500000;
+            constexpr uint16_t kDefaultTxMinConfirmations = 10;
+            constexpr double kBlocksPerHour = 28.125;
+            constexpr uint32_t kDefaultLockTimeInBlocks = static_cast<uint32_t>(12 * kBlocksPerHour);  // 12h
+            constexpr Amount kMinFeeRate = 400000;
 
-            SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
-            SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
-            SetFeeRate(kQtumMinFeeRate);
-            SetBlocksPerHour(kQtumBlocksPerHour);
+            SetTxMinConfirmations(kDefaultTxMinConfirmations);
+            SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
+            SetMinFeeRate(kMinFeeRate);
+            SetBlocksPerHour(kBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
 
@@ -46,17 +46,13 @@ namespace beam::qtum
             {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
                 "s1.qtum.info:50002",
-                "s2.qtum.info:50002",
                 "s3.qtum.info:50002",
                 "s4.qtum.info:50002",
-                "s5.qtum.info:50002",
                 "s7.qtum.info:50002",
                 "s8.qtum.info:50002",
                 "s9.qtum.info:50002"
 #else // MASTERNET and TESTNET
-                "s1.qtum.info:51002",
-                "s2.qtum.info:51002",
-                "s3.qtum.info:51002"
+                "s2.qtum.info:51002"
 #endif
             };
 

@@ -50,8 +50,8 @@ namespace beam::wallet
     protected:
         virtual uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;
         virtual uint8_t GetAddressVersion() const;
+        virtual bool IsSegwitSupported() const;
 
-        Amount GetFeeRate() const;
         Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
@@ -72,6 +72,10 @@ namespace beam::wallet
         std::string GetWithdrawAddress() const;
         void SetTxError(const bitcoin::IBridge::Error& error, SubTxID subTxID);
         void FillWithdrawTx(SubTxID subTxID);
+        bool CanUseSegwit() const;
+
+        std::string FillWithdrawTxInput(SubTxID subTxID);
+        std::string FillSegwitWithdrawTxInput(SubTxID subTxID);
 
         void OnGetRawChangeAddress(const bitcoin::IBridge::Error& error, const std::string& address);
         void OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos);

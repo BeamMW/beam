@@ -45,6 +45,8 @@ namespace beam::wallet
     macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
     macro(-32012, DatabaseError,             "Database error")                   \
     macro(-32013, DatabaseNotFound,          "Database not found")               \
+    macro(-32014, ThrottleError,             "Requests limit exceeded")          \
+    macro(-32015, NotOpenedError,            "Wallet not opened")
 
     enum ApiError
     {
@@ -65,7 +67,8 @@ namespace beam::wallet
     macro(AcceptOffer,      "swap_accept_offer",    API_WRITE_ACCESS)   \
     macro(OfferStatus,      "swap_offer_status",    API_READ_ACCESS)    \
     macro(DecodeToken,      "swap_decode_token",    API_READ_ACCESS)    \
-    macro(GetBalance,       "swap_get_balance",     API_READ_ACCESS)
+    macro(GetBalance,       "swap_get_balance",     API_READ_ACCESS)    \
+    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -93,6 +96,8 @@ namespace beam::wallet
     macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
     macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
     macro(GetAssetInfo,       "get_asset_info",       API_READ_ACCESS)    \
+    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS)    \
+    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS)    \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
@@ -234,6 +239,15 @@ namespace beam::wallet
         struct Response
         {
             Amount available;
+        };
+    };
+
+    struct RecommendedFeeRate
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount feeRate;
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -413,6 +427,7 @@ namespace beam::wallet
         struct Response
         {
             std::vector<Coin> utxos;
+            uint32_t confirmations_count = 0;
         };
     };
 
@@ -511,6 +526,22 @@ namespace beam::wallet
         };
     };
 
+    struct SetConfirmationsCount
+    {
+        uint32_t count = 0;
+        struct Response {
+            uint32_t count;
+        };
+    };
+
+    struct GetConfirmationsCount
+    {
+        struct Response
+        {
+            uint32_t count;
+        };
+    };
+
     class IApiHandler
     {
     public:
@@ -554,6 +585,18 @@ namespace beam::wallet
         static const char* getErrorMessage(ApiError code);
         static bool existsJsonParam(const json& params, const std::string& name);
         static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
+        static void throwParameterAbsence(const JsonRpcId& id, const std::string& name);
+
+        class ParameterReader
+        {
+        public:
+            ParameterReader(const JsonRpcId& id, const json& params);
+            Amount readAmount(const std::string& name, bool isMandatory = true, Amount defaultValue = 0);
+            boost::optional<TxID> readTxId(const std::string& name = "txId", bool isMandatory = true);
+        private:
+            const JsonRpcId& m_id;
+            const json& m_params;
+        };
 
     protected:
         IApiHandler& _handler;
@@ -571,7 +614,7 @@ namespace beam::wallet
     class WalletApi : public Api
     {
     public:
-        WalletApi(IWalletApiHandler& handler, bool withAssets, ACL acl = boost::none);
+        WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -593,8 +636,5 @@ namespace beam::wallet
         template<typename T>
         void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
         void checkCAEnabled(const JsonRpcId& id);
-
-    private:
-        bool m_withAssets = false;
     };
 }  // namespace beam::wallet

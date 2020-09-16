@@ -15,8 +15,8 @@
 
 // TODO:ASSETS move what you can to base class
 namespace beam::wallet {
-    AssetTransaction::AssetTransaction(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID)
-        : BaseTransaction(gateway, std::move(walletDB), txID)
+    AssetTransaction::AssetTransaction(const TxContext& context)
+        : BaseTransaction(context)
     {
     }
 
@@ -52,6 +52,13 @@ namespace beam::wallet {
             SetParameter(TxParameterID::MinHeight, minHeight);
         }
 
+        TxFailureReason enableReason = CheckAssetsEnabled(minHeight);
+        if (TxFailureReason::Count != enableReason)
+        {
+            OnFailed(enableReason);
+            return false;
+        }
+
         Height maxHeight = 0;
         if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
         {
@@ -64,7 +71,7 @@ namespace beam::wallet {
 
         if (!IsLoopbackTransaction())
         {
-            OnFailed(TxFailureReason::NotLoopback, true);
+            OnFailed(TxFailureReason::NotLoopback);
             return false;
         }
 
@@ -80,4 +87,48 @@ namespace beam::wallet {
     {
         return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
+
+    AssetTransaction::Builder::Builder(BaseTransaction& tx, SubTxID subTxID)
+        :BaseTxBuilder(tx, subTxID)
+    {
+        std::string sMeta;
+        GetParameterStrict(TxParameterID::AssetMetadata, sMeta);
+
+        if (sMeta.empty())
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
+
+        m_Md.m_Value = toByteBuffer(sMeta);
+        m_Md.UpdateHash();
+
+        m_Tx.get_MasterKdfStrict()->DeriveKey(m_skAsset, m_Md.m_Hash);
+        m_pidAsset.FromSk(m_skAsset);
+    }
+
+    void AssetTransaction::Builder::FinalyzeTxInternal()
+    {
+        assert(m_pKrn);
+        TxKernelAssetControl& krn = Cast::Up<TxKernelAssetControl>(*m_pKrn);
+
+        krn.m_Fee = m_Fee;
+        krn.m_Height = m_Height;
+        krn.m_Owner = m_pidAsset;
+
+        auto pKdf = m_Tx.get_MasterKdfStrict();
+
+        ECC::Scalar::Native sk;
+        krn.get_Sk(sk, *pKdf);
+        krn.Sign_(sk, m_skAsset);
+
+        SaveKernel();
+        SaveKernelID();
+
+        sk = -sk;
+        m_Coins.AddOffset(sk, pKdf);
+
+        m_pTransaction->m_Offset = sk;
+        SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
+
+        BaseTxBuilder::FinalyzeTxInternal();
+    }
+
 }

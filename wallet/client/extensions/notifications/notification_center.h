@@ -40,7 +40,7 @@ namespace beam::wallet
 
         void switchOnOffNotifications(Notification::Type, bool);
         size_t getUnreadCount(
-            std::function<size_t(Cache::const_iterator, Cache::const_iterator)> counter) const;
+            std::function<size_t(std::vector<Notification>::const_iterator, std::vector<Notification>::const_iterator)> counter);
 
         void Subscribe(INotificationsObserver* observer);
         void Unsubscribe(INotificationsObserver* observer);

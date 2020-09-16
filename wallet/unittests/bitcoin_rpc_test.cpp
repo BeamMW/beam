@@ -148,9 +148,16 @@ void testSuccessResponse()
         ++counter;
     });
 
+    bridge.estimateFee(3, [&counter](const bitcoin::IBridge::Error& error, Amount feeRate)
+    {
+        WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
+        WALLET_CHECK(feeRate > 0);
+        ++counter;
+    });
+
     reactor->run();
 
-    WALLET_CHECK(counter == 8);
+    WALLET_CHECK(counter == 9);
 }
 
 void testWrongCredentials()

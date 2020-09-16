@@ -20,10 +20,9 @@
 
 namespace beam::wallet
 {
-    BaseTransaction::Ptr AssetInfoTransaction::Creator::Create(INegotiatorGateway& gateway,
-            IWalletDB::Ptr walletDB, const TxID& txID)
+    BaseTransaction::Ptr AssetInfoTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new AssetInfoTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new AssetInfoTransaction(context));
     }
 
     TxParameters AssetInfoTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
@@ -57,10 +56,8 @@ namespace beam::wallet
         return result;
     }
 
-    AssetInfoTransaction::AssetInfoTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , const TxID& txID)
-        : AssetTransaction(gateway, std::move(walletDB), txID)
+    AssetInfoTransaction::AssetInfoTransaction(const TxContext& context)
+        : AssetTransaction(context)
     {
     }
 
@@ -105,7 +102,7 @@ namespace beam::wallet
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
             {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
             }
 
@@ -113,7 +110,7 @@ namespace beam::wallet
             {
                 if (GetAssetID() != info.m_ID)
                 {
-                    OnFailed(TxFailureReason::InvalidAssetId, true);
+                    OnFailed(TxFailureReason::InvalidAssetId);
                     return;
                 }
             }
@@ -122,7 +119,7 @@ namespace beam::wallet
             {
                 if(GetAssetOwnerID() != info.m_Owner)
                 {
-                    OnFailed(TxFailureReason::InvalidAssetOwnerId, true);
+                    OnFailed(TxFailureReason::InvalidAssetOwnerId);
                     return;
                 }
             }
@@ -137,7 +134,7 @@ namespace beam::wallet
                 auto masterKdf = get_MasterKdfStrict();
                 if (beam::wallet::GetAssetOwnerID(masterKdf, strMeta) == info.m_Owner)
                 {
-                    m_WalletDB->markAssetOwned(info.m_ID);
+                    GetWalletDB()->markAssetOwned(info.m_ID);
                     LOG_INFO() << GetTxID() << " You own this asset";
                 }
             }
@@ -173,21 +170,6 @@ namespace beam::wallet
         }
 
         throw TransactionFailedException(true, TxFailureReason::NoAssetId);
-    }
-
-    bool AssetInfoTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
-    {
-        switch (paramID)
-        {
-        case TxParameterID::MinHeight:
-        case TxParameterID::CreateTime:
-        case TxParameterID::IsSender:
-        case TxParameterID::Status:
-        case TxParameterID::TransactionType:
-            return true;
-        default:
-            return false;
-        }
     }
 
     TxType AssetInfoTransaction::GetType() const

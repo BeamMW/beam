@@ -24,13 +24,22 @@ namespace beam::wallet
     class HWWallet
     {
     public:
+        struct IHandler
+        {
+            using Ptr = std::shared_ptr<IHandler>;
+
+            virtual void ShowKeyKeeperMessage() = 0;
+            virtual void HideKeyKeeperMessage() = 0;
+            virtual void ShowKeyKeeperError(const std::string&) = 0;
+        };
+
         HWWallet();
 
         using Ptr = std::shared_ptr<HWWallet>;
 
         std::vector<std::string> getDevices() const;
         bool isConnected() const;
-        IPrivateKeyKeeper2::Ptr getKeyKeeper(const std::string& device);
+        IPrivateKeyKeeper2::Ptr getKeyKeeper(const std::string& device, const IHandler::Ptr& uiHandler = {});
 
         template<typename T> using Result = std::function<void(const T& key)>;
 

@@ -14,14 +14,24 @@
 
 #pragma once
 
-#include "base_lelantus_tx_builder.h"
+#include "../../core/base_tx_builder.h"
 
 namespace beam::wallet::lelantus
 {
-    class PushTxBuilder : public BaseLelantusTxBuilder
+    class PushTxBuilder : public BaseTxBuilder
     {
     public:
-        PushTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
-        Transaction::Ptr CreateTransaction() override;
+        PushTxBuilder(BaseTransaction& tx);
+
+        Amount m_Value = 0;
+        Asset::ID m_AssetID = 0;
+
+        void SignSendShielded();
+        void ResetSig();
+
+        const ShieldedTxo* get_Txo();
+        const ShieldedTxo& get_TxoStrict();
+    private:
+        void FillUserData(Output::User::Packed* user) override;
     };
 } // namespace beam::wallet::lelantus

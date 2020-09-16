@@ -28,32 +28,30 @@ namespace beam::wallet::lelantus
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(bool withAssets) : m_withAssets (withAssets) {}
+            Creator(IWalletDB::Ptr walletDB) 
+                : m_walletDB(walletDB)
+                {}
 
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                , IWalletDB::Ptr walletDB
-                , const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-            bool m_withAssets;
+            IWalletDB::Ptr m_walletDB;
         };
 
     public:
-        PushTransaction(INegotiatorGateway& gateway
-            , IWalletDB::Ptr walletDB
-            , const TxID& txID
-            , bool withAssets);
+        PushTransaction(const TxContext& context);
 
     private:
         TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
-
     private:
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
-        bool m_waitingShieldedProof = true;
-        bool m_withAssets;
+        TxoID m_OutpID = 0;
+        Height m_OutpHeight = 0;
+
+        void OnOutpProof(proto::ProofShieldedOutp&);
     };
 } // namespace beam::wallet::lelantus

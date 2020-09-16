@@ -28,13 +28,13 @@ namespace beam::litecoin
         Settings()
             : bitcoin::Settings()
         {
-            constexpr double kLTCBlocksPerHour = 24;
-            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 12 * 24;  // 12h
-            constexpr Amount kLtcMinFeeRate = 90000;
+            constexpr double kBlocksPerHour = 24;
+            constexpr uint32_t kDefaultLockTimeInBlocks = 12 * 24;  // 12h
+            constexpr Amount kMinFeeRate = 1000;
 
-            SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
-            SetFeeRate(kLtcMinFeeRate);
-            SetBlocksPerHour(kLTCBlocksPerHour);
+            SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
+            SetMinFeeRate(kMinFeeRate);
+            SetBlocksPerHour(kBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());
 
@@ -46,8 +46,7 @@ namespace beam::litecoin
                 "backup.electrum-ltc.org:443",
                 "btc.cihar.com:60002",
                 "electrum-ltc.bysh.me:50002",
-                "electrum.ltc.xurious.com:50002",
-                "ltc.litepay.ch.org:50022"
+                "electrum.ltc.xurious.com:50002"
 #else // MASTERNET and TESTNET
                 "electrum.ltc.xurious.com:51002",
                 "electrum-ltc.bysh.me:51002"

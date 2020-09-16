@@ -62,5 +62,6 @@ public class Wallet
     // not implemented
     public native void setNodeAddress(); //const std::string& addr);
 
+	public native WalletAddressDTO generateToken();
 }
 

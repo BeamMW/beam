@@ -50,8 +50,10 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
+	void Migrate21();
 	void InitializeUtxos();
 	bool TestDefinition();
+	void TestDefinitionStrict();
 	void CommitUtxosAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
@@ -73,18 +75,18 @@ class NodeProcessor
 
 	void Recognize(const Input&, Height);
 	void Recognize(const Output&, Height, Key::IPKdf&);
-	void Recognize(const TxKernelShieldedInput&, Height);
-	void Recognize(const TxKernelShieldedOutput&, Height);
-	void Recognize(const TxKernelAssetCreate&, Height);
-	void Recognize(const TxKernelAssetDestroy&, Height);
-	void Recognize(const TxKernelAssetEmit&, Height);
+
+#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
 
 	void InternalAssetAdd(Asset::Full&);
 	void InternalAssetDel(Asset::ID);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
+	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
 
-#define THE_MACRO(id, name) bool HandleKernel(const TxKernel##name&, BlockInterpretCtx&);
+#define THE_MACRO(id, name) bool HandleKernelType(const TxKernel##name&, BlockInterpretCtx&);
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
@@ -250,6 +252,8 @@ public:
 	void LogSyncData();
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
+
+	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
 	struct DataStatus {
 		enum Enum {
@@ -440,7 +444,7 @@ public:
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) = 0;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) = 0;
 	};
 
 	struct ITxoWalker_UnspentNaked
@@ -485,6 +489,12 @@ public:
 
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
+
+		typedef NodeDB::EventIndexType IndexType;
+
+		static const IndexType s_IdxInput = 0;
+		static const IndexType s_IdxOutput = 1;
+		static const IndexType s_IdxKernel = 2;
 	};
 
 	struct ShieldedBase
@@ -505,6 +515,13 @@ public:
 	{
 	};
 
+	struct AssetDataPacked {
+		AmountBig::Type m_Amount;
+		uintBigFor<Height>::Type m_LockHeight;
+
+		void set_Strict(const Blob&);
+	};
+
 #pragma pack (pop)
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
@@ -521,6 +538,64 @@ public:
 
 	} m_Mmr;
 
+	struct ValidatedCache
+	{
+		struct Entry
+		{
+			struct Key
+				:public boost::intrusive::set_base_hook<>
+			{
+				typedef ECC::Hash::Value Type;
+				Type m_Value;
+				bool operator < (const Key& x) const { return m_Value < x.m_Value; }
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
+			} m_Key;
+
+			struct Mru
+				:public boost::intrusive::list_base_hook<>
+			{
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Mru)
+			} m_Mru;
+
+			struct ShLo
+				:public boost::intrusive::set_base_hook<>
+			{
+				typedef TxoID Type;
+				Type m_End;
+				bool operator < (const ShLo& x) const { return m_End < x.m_End; }
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_ShLo)
+			} m_ShLo;
+		};
+
+		typedef boost::intrusive::multiset<Entry::Key> KeySet;
+		typedef boost::intrusive::multiset<Entry::ShLo> ShLoSet;
+		typedef boost::intrusive::list<Entry::Mru> MruList;
+
+		KeySet m_Keys;
+		ShLoSet m_ShLo;
+		MruList m_Mru;
+
+		~ValidatedCache() {
+			ShrinkTo(0);
+		}
+
+		void Delete(Entry&);
+		void MoveToFront(Entry&);
+
+		void ShrinkTo(uint32_t);
+		void OnShLo(const Entry::ShLo::Type& nShLo);
+
+		bool Find(const Entry::Key::Type&); // modifies MRU if found
+		void Insert(const Entry::Key::Type&, const Entry::ShLo::Type& nShLo);
+
+		void MoveInto(ValidatedCache& dst);
+
+	protected:
+		void InsertRaw(Entry&);
+		void RemoveRaw(Entry&);
+
+	} m_ValCache;
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);
@@ -531,13 +606,13 @@ private:
 	bool FindEvent(const TKey&, TEvt&);
 
 	template <typename TEvt, typename TKey>
-	void AddEvent(Height, const TEvt&, const TKey&);
+	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
 
 	template <typename TEvt>
-	void AddEvent(Height, const TEvt&);
+	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
 
 	template <typename TEvt>
-	void AddEventInternal(Height, const TEvt&, const Blob& key);
+	void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
 };
 
 struct LogSid

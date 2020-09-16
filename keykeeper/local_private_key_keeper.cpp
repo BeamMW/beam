@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "core/shielded.h"
 #include "utility/logger.h"
+#include "utility/executor.h"
 
 namespace beam::wallet
 {
@@ -82,9 +84,34 @@ namespace beam::wallet
 
         Values m_Ins;
         Values m_Outs;
+        Amount m_TotalFee = Amount(0);
+
+        bool Add(Values& vals, Amount v, Asset::ID aid)
+        {
+            bool bAdded = false;
+            if (aid)
+            {
+                if (m_AssetID)
+                {
+                    if (m_AssetID != aid)
+                        return false; // mixed assets are not allowed in a single tx
+                }
+                else
+                    m_AssetID = aid;
+
+                bAdded = Add(vals.m_Asset, v);
+            }
+            else
+                bAdded = Add(vals.m_Beam, v);
+
+            return bAdded;
+        }
 
         bool Aggregate(const Method::TxCommon&);
         bool Aggregate(const std::vector<CoinID>&, bool bOuts);
+        bool Aggregate(const std::vector<ShieldedInput>&);
+
+        bool ValidateSend();
     };
 
     bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const Method::TxCommon& tx)
@@ -92,6 +119,7 @@ namespace beam::wallet
         if (!tx.m_pKernel)
             return false;
         TxKernelStd& krn = *tx.m_pKernel;
+        m_TotalFee = krn.m_Fee;
 
         m_NonConventional = tx.m_NonConventional;
         if (m_NonConventional)
@@ -112,8 +140,13 @@ namespace beam::wallet
         }
 
         m_AssetID = 0;
+        ZeroObject(m_Ins);
+        ZeroObject(m_Outs);
 
         if (!Aggregate(tx.m_vInputs, false))
+            return false;
+
+        if (!Aggregate(tx.m_vInputsShielded))
             return false;
 
         m_sk = -m_sk;
@@ -127,7 +160,6 @@ namespace beam::wallet
     bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const std::vector<CoinID>& v, bool bOuts)
     {
         Values& vals = bOuts ? m_Outs : m_Ins;
-        ZeroObject(vals);
 
         Scalar::Native sk;
         for (size_t i = 0; i < v.size(); i++)
@@ -159,24 +191,56 @@ namespace beam::wallet
                     return false; // trustless wallet should not send funds to child subkeys (potentially belonging to miners)
             }
 
-            bool bAdded = false;
-            if (cid.m_AssetID)
-            {
-                if (m_AssetID)
-                {
-                    if (m_AssetID != cid.m_AssetID)
-                        return false; // mixed assets are not allowed in a single tx
-                }
-                else
-                    m_AssetID = cid.m_AssetID;
-
-                bAdded = Add(vals.m_Asset, cid.m_Value);
-            }
-            else
-                bAdded = Add(vals.m_Beam, cid.m_Value);
-
-            if (!bAdded)
+            if (!Add(vals, cid.m_Value,  cid.m_AssetID))
                 return false; // overflow
+        }
+
+        return true;
+    }
+
+    bool LocalPrivateKeyKeeper2::Aggregation::Aggregate(const std::vector<ShieldedInput>& v)
+    {
+        Values& vals = m_Ins;
+        Scalar::Native sk;
+        for (size_t i = 0; i < v.size(); i++)
+        {
+            const ShieldedInput& si = v[i];
+            si.get_SkOut(sk, si.m_Fee, *m_This.m_pKdf);
+
+            m_sk += sk;
+
+            if (m_NonConventional)
+                continue; // ignore values
+
+            if (!Add(vals, si.m_Value, si.m_AssetID))
+                return false; // overflow
+
+            if (!Add(m_TotalFee, si.m_Fee))
+                return false; // overflow
+        }
+
+        return true;
+    }
+
+    bool LocalPrivateKeyKeeper2::Aggregation::ValidateSend()
+    {
+        if (!m_Ins.Subtract(m_Outs))
+            return false; // not sending
+
+        if (m_AssetID)
+        {
+            if (!m_Ins.m_Asset)
+                return false; // asset involved, but no net transfer
+
+            if (m_Ins.m_Beam != m_TotalFee)
+                return false; // all beams must be consumed by the fee
+        }
+        else
+        {
+            if (m_Ins.m_Beam <= m_TotalFee)
+                return false; // not sending
+
+            m_Ins.m_Asset = m_Ins.m_Beam - m_TotalFee;
         }
 
         return true;
@@ -214,7 +278,87 @@ namespace beam::wallet
         x.m_pResult.reset(new Output);
 
         Scalar::Native sk;
-        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf);
+        x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf, Output::OpCode::Standard, &x.m_User);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateInputShielded& x)
+    {
+        assert(x.m_pKernel && x.m_pList);
+
+        Lelantus::Prover prover(*x.m_pList, x.m_pKernel->m_SpendProof);
+
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*m_pKdf, x.m_Key.m_nIdx);
+
+        ShieldedTxo::DataParams sdp;
+        sdp.m_Ticket.m_pK[0] = x.m_Key.m_kSerG;
+        sdp.m_Ticket.m_IsCreatedByViewer = x.m_Key.m_IsCreatedByViewer;
+        sdp.m_Ticket.Restore(viewer);
+
+        sdp.m_Output.m_Value = x.m_Value;
+        sdp.m_Output.m_AssetID = x.m_AssetID;
+        sdp.m_Output.m_User = x.m_User;
+
+        sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+
+        Key::IKdf::Ptr pSerialPrivate;
+        ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *m_pKdf, x.m_Key.m_nIdx);
+        pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
+
+        prover.m_Witness.V.m_L = x.m_iIdx;
+        prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
+        prover.m_Witness.V.m_R += sdp.m_Output.m_k;
+        prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
+
+        x.m_pKernel->UpdateMsg();
+        x.get_SkOut(prover.m_Witness.V.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
+
+        ExecutorMT exec;
+        Executor::Scope scope(exec);
+        x.m_pKernel->Sign(prover, x.m_AssetID);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateVoucherShielded& x)
+    {
+        if (!x.m_Count)
+            return Status::Success;
+        std::setmin(x.m_Count, 30U);
+
+        ECC::Scalar::Native sk;
+        m_pKdf->DeriveKey(sk, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+        PeerID pid;
+        pid.FromSk(sk);
+
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(*m_pKdf, 0);
+
+        x.m_Res.reserve(x.m_Count);
+
+        for (uint32_t i = 0; ; )
+        {
+            ShieldedTxo::Voucher& res = x.m_Res.emplace_back();
+
+            ShieldedTxo::Data::TicketParams tp;
+            tp.Generate(res.m_Ticket, viewer, x.m_Nonce);
+
+            res.m_SharedSecret = tp.m_SharedSecret;
+
+            ECC::Hash::Value hvMsg;
+            res.get_Hash(hvMsg);
+            res.m_Signature.Sign(hvMsg, sk);
+
+            if (++i == x.m_Count)
+                break;
+
+            ECC::Hash::Processor()
+                << "sh.v.n"
+                << x.m_Nonce
+                >> x.m_Nonce;
+        }
 
         return Status::Success;
     }
@@ -335,24 +479,8 @@ namespace beam::wallet
             if (x.m_Peer == Zero)
                 return Status::UserAbort; // conventional transfers must always be signed
 
-            if (!vals.Subtract(aggr.m_Outs))
+            if (!aggr.ValidateSend())
                 return Status::Unspecified; // not sending
-
-            if (aggr.m_AssetID)
-            {
-                if (!vals.m_Asset)
-                    return Status::Unspecified; // asset involved, but no net transfer
-
-                if (vals.m_Beam != krn.m_Fee)
-                    return Status::Unspecified; // all beams must be consumed by the fee
-            }
-            else
-            {
-                if (vals.m_Beam <= krn.m_Fee)
-                    return Status::Unspecified;
-
-                vals.m_Asset = vals.m_Beam - krn.m_Fee;
-            }
         }
 
         if (x.m_Slot >= get_NumSlots())
@@ -405,7 +533,7 @@ namespace beam::wallet
         {
             if (IsTrustless())
             {
-                Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, false);
+                Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, false);
                 if (Status::Success != res)
                     return res;
             }
@@ -444,7 +572,7 @@ namespace beam::wallet
         if (IsTrustless())
         {
             // 2nd user confirmation request. Now the kernel is complete, its ID can be calculated
-            Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, true);
+            Status::Type res = ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
             if (Status::Success != res)
                 return res;
         }
@@ -456,6 +584,97 @@ namespace beam::wallet
         kSig += krn.m_Signature.m_k;
         krn.m_Signature.m_k = kSig;
 
+        UpdateOffset(x, aggr.m_sk, kKrn);
+
+        return Status::Success;
+    }
+
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignSendShielded& x)
+    {
+        Aggregation aggr(*this);
+        if (!aggr.Aggregate(x))
+            return Status::Unspecified;
+
+        assert(x.m_pKernel);
+        TxKernelStd& krn = *x.m_pKernel;
+
+        Aggregation::Values& vals = aggr.m_Ins; // alias
+
+        ECC::Scalar::Native kKrn, kNonce;
+
+        if (!x.m_NonConventional)
+        {
+            if (!aggr.ValidateSend())
+                return Status::Unspecified; // not sending
+
+            if (!x.m_Voucher.IsValid(x.m_Peer)) // will fail if m_Peer is Zero
+                return Status::Unspecified;
+
+            if (x.m_MyIDKey)
+            {
+                m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+
+                PeerID pid;
+                pid.FromSk(kKrn);
+                if (pid != x.m_Peer)
+                    return Status::Unspecified;
+            }
+        }
+
+        ShieldedTxo::Data::Params pars;
+        pars.m_Output.m_Value = vals.m_Asset;
+        pars.m_Output.m_AssetID = aggr.m_AssetID;
+        pars.m_Output.m_User = x.m_User;
+        pars.m_Output.Restore_kG(x.m_Voucher.m_SharedSecret);
+
+        TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();
+        TxKernelShieldedOutput& krn1 = *pOutp;
+
+        krn1.m_CanEmbed = true;
+        krn1.m_Txo.m_Ticket = x.m_Voucher.m_Ticket;
+
+        krn1.UpdateMsg();
+        ECC::Oracle oracle;
+        oracle << krn1.m_Msg;
+
+        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, oracle, x.m_HideAssetAlways);
+        krn1.MsgToID();
+
+        assert(krn.m_vNested.empty());
+        krn.m_vNested.push_back(std::move(pOutp));
+
+        // select blinding factor for the outer kernel.
+        Hash::Processor()
+            << krn1.m_Internal.m_ID
+            << krn.m_Height.m_Min
+            << krn.m_Height.m_Max
+            << krn.m_Fee
+            << aggr.m_sk
+            >> krn.m_Internal.m_ID;
+
+        NonceGenerator ng("hw-wlt-snd-sh");
+        ng
+            << krn.m_Internal.m_ID
+            >> kKrn;
+        ng >> kNonce;
+
+        krn.m_Commitment = ECC::Context::get().G * kKrn;
+        krn.m_Signature.m_NoncePub = ECC::Context::get().G * kNonce;
+        krn.UpdateID();
+
+        if (IsTrustless())
+        {
+            Status::Type res = x.m_MyIDKey ?
+                ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true) : // sending to self, it's a split in fact
+                ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
+
+            if (Status::Success != res)
+                return res;
+        }
+
+        krn.m_Signature.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
+
+        kKrn += pars.m_Output.m_k;
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         return Status::Success;
@@ -474,7 +693,7 @@ namespace beam::wallet
         assert(x.m_pKernel);
         TxKernelStd& krn = *x.m_pKernel;
 
-        if (vals.m_Asset || vals.m_Beam != krn.m_Fee)
+        if (vals.m_Asset || vals.m_Beam != aggr.m_TotalFee)
             return Status::Unspecified; // some funds are missing!
 
         Scalar::Native kKrn, kNonce;
@@ -501,7 +720,7 @@ namespace beam::wallet
 
         krn.UpdateID();
 
-        Status::Type res = ConfirmSpend(0, 0, Zero, krn, true);
+        Status::Type res = ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true);
         if (Status::Success != res)
             return res;
 
@@ -513,28 +732,62 @@ namespace beam::wallet
 
     /////////////////////////
     // LocalPrivateKeyKeeperStd
-    void LocalPrivateKeyKeeperStd::State::Generate()
+    LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots)
+        : LocalPrivateKeyKeeper2(pkdf)
+        , m_numSlots(numSlots)
     {
-        for (Slot::Type i = 0; i < s_Slots; i++)
-            Regenerate(i);
     }
 
     IPrivateKeyKeeper2::Slot::Type LocalPrivateKeyKeeperStd::get_NumSlots()
     {
-        return s_Slots;
+        return m_numSlots;
+    }
+
+    ECC::Hash::Value* LocalPrivateKeyKeeperStd::State::get_At(Slot::Type iSlot, bool& bAlloc)
+    {
+        UsedMap::iterator it = m_Used.find(iSlot);
+        if (m_Used.end() != it)
+        {
+            bAlloc = false;
+            return &it->second;
+        }
+
+        if (!bAlloc)
+            return nullptr;
+
+        return &m_Used[iSlot];
+    }
+
+    ECC::Hash::Value& LocalPrivateKeyKeeperStd::State::get_AtReady(Slot::Type iSlot)
+    {
+        bool bAlloc = true;
+        ECC::Hash::Value* pVal = get_At(iSlot, bAlloc);
+        assert(pVal);
+
+        if (bAlloc)
+            Regenerate(*pVal);
+
+        return *pVal;
     }
 
     void LocalPrivateKeyKeeperStd::get_Nonce(ECC::Scalar::Native& ret, Slot::Type iSlot)
     {
-        assert(iSlot < s_Slots);
-        m_pKdf->DeriveKey(ret, m_State.m_pSlot[iSlot]);
+        m_pKdf->DeriveKey(ret, m_State.get_AtReady(iSlot));
+    }
+
+    void LocalPrivateKeyKeeperStd::State::Regenerate(ECC::Hash::Value& hv)
+    {
+        Hash::Processor() << m_hvLast >> m_hvLast;
+        hv = m_hvLast;
     }
 
     void LocalPrivateKeyKeeperStd::State::Regenerate(Slot::Type iSlot)
     {
-        assert(iSlot < s_Slots);
-        Hash::Processor() << m_hvLast >> m_hvLast;
-        m_pSlot[iSlot] = m_hvLast;
+        // Don't just erase this slot, because the user of our class may depend on occupied slots map
+        bool bAlloc = false;
+        ECC::Hash::Value* pVal = get_At(iSlot, bAlloc);
+        if (pVal)
+            Regenerate(*pVal);
     }
 
     void LocalPrivateKeyKeeperStd::Regenerate(Slot::Type iSlot)

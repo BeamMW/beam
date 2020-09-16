@@ -31,8 +31,8 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void OnAsyncStarted() override {}
     void OnAsyncFinished() override {}
     void on_tx_completed(const TxID&) override {}
+    void on_tx_failed(const TxID&) override {}
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
-    void confirm_outputs(const std::vector<Coin>&) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
@@ -121,8 +121,6 @@ public:
     {
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, toByteBuffer(p.m_amount), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Fee, toByteBuffer(p.m_fee), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeBeam, toByteBuffer(p.m_changeBeam), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ChangeAsset, toByteBuffer(p.m_changeAsset), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetMetadata, toByteBuffer(p.m_assetMeta), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
@@ -135,7 +133,6 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, toByteBuffer(p.m_status), false);
     };
     void deleteTx(const TxID&) override {};
-    void rollbackTx(const TxID&) override {}
 
     std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override { return {}; }
 
@@ -172,9 +169,9 @@ public:
     void changePassword(const SecString& password) override {}
 
     bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
-        const ByteBuffer& blob, bool shouldNotifyAboutChanges) override
+        const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) override
     {
-        if (paramID < wallet::TxParameterID::PrivateFirstParam)
+        if (!allowModify)
         {
             auto p = m_params.emplace(paramID, blob);
             return p.second;
@@ -301,14 +298,14 @@ struct TestGateway : wallet::INegotiatorGateway
         cout << __FUNCTION__ << "\n";
     }
 
+    void on_tx_failed(const TxID&) override
+    {
+        cout << __FUNCTION__ << "\n";
+    }
+
     void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override
     {
         cout << "sent tx registration request\n";
-    }
-
-    void confirm_outputs(const vector<Coin>&) override
-    {
-        cout << "confirm outputs\n";
     }
 
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID) override
@@ -367,7 +364,7 @@ class TestWallet : public Wallet
 {
 public:
     TestWallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
-        : Wallet{ walletDB, true, std::move(action), std::move(updateCompleted)}
+        : Wallet{ walletDB, std::move(action), std::move(updateCompleted)}
         , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
     {
 
@@ -955,6 +952,7 @@ public:
     }
 
     TestBlockchain m_Blockchain;
+    std::vector<ECC::Point::Storage> m_vShieldedPool;
 
     void AddBlock()
     {
@@ -982,7 +980,7 @@ private:
 
     struct Client
         :public proto::NodeConnection
-        , public boost::intrusive::list_base_hook<>
+        ,public boost::intrusive::list_base_hook<>
     {
         TestNode& m_This;
         bool m_Subscribed;
@@ -1098,8 +1096,32 @@ private:
 
         void OnMsg(proto::GetStateSummary&& msg) override
         {
-            Send(proto::StateSummary(Zero));
+            proto::StateSummary msgOut;
+            msgOut.m_ShieldedOuts = m_This.m_vShieldedPool.size();
+            Send(msgOut);
         }
+
+        void OnMsg(proto::GetShieldedList&& msg) override
+        {
+            const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
+
+            proto::ShieldedList msgOut;
+            msgOut.m_ShieldedOuts = v.size();
+
+            if (msg.m_Id0 < msgOut.m_ShieldedOuts)
+            {
+                size_t n = msgOut.m_ShieldedOuts - msg.m_Id0;
+                std::setmin(n, msg.m_Count);
+                std::setmin(n, Rules::get().Shielded.m_ProofMax.get_N() * 2);
+
+                msgOut.m_Items.resize(n);
+                std::copy(v.begin() + msg.m_Id0, v.begin() + msg.m_Id0 + n, msgOut.m_Items.begin());
+            }
+
+            Send(msgOut);
+        }
+
+
 
         void OnDisconnect(const DisconnectReason& r) override
         {

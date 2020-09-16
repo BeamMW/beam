@@ -21,18 +21,6 @@ namespace beam::wallet
 {
     using WalletIDKey = uint64_t;
 
-    struct IPrivateKeyKeeper
-    {
-        struct Handler
-        {
-            using Ptr = Handler*;
-
-            virtual void onShowKeyKeeperMessage() = 0;
-            virtual void onHideKeyKeeperMessage() = 0;
-            virtual void onShowKeyKeeperError(const std::string&) = 0;
-        };
-    };
-
     //
     // Interface to master key storage. HW wallet etc.
     // Only public info should cross its boundary.
@@ -66,6 +54,19 @@ namespace beam::wallet
             virtual void OnDone(Status::Type) = 0;
         };
 
+        struct ShieldedInput
+            : public ShieldedTxo::ID
+        {
+            Amount m_Fee;
+
+            template <typename Archive>
+			void serialize(Archive& ar)
+			{
+			    ShieldedTxo::ID::serialize(ar);
+				ar & m_Fee;
+			}
+        };
+
         struct Method
         {
             struct get_Kdf
@@ -86,13 +87,38 @@ namespace beam::wallet
             struct CreateOutput {
                 Height m_hScheme; // scheme prior to Fork1 isn't supported for trustless wallet
                 CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
+                Output::User m_User;
                 Output::Ptr m_pResult;
+
+                CreateOutput() { ZeroObject(m_User); }
+            };
+
+            struct CreateInputShielded
+                :public ShieldedTxo::ID
+            {
+                Sigma::CmList* m_pList;
+                uint32_t m_iIdx;
+
+                TxKernelShieldedInput::Ptr m_pKernel;
+                // before invocation the following must be set:
+                //  Fee, min/max Heights
+                //  m_WindowEnd
+                //  m_SpendProof.m_Cfg
+            };
+
+            struct CreateVoucherShielded
+            {
+                WalletIDKey m_MyIDKey;
+                ECC::Hash::Value m_Nonce;
+                uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
+                std::vector<ShieldedTxo::Voucher> m_Res;
             };
 
             struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
                 std::vector<CoinID> m_vOutputs;
+                std::vector<ShieldedInput> m_vInputsShielded;
             };
 
             struct TxCommon :public InOuts
@@ -125,14 +151,28 @@ namespace beam::wallet
                 // send funds to yourself. in/out difference must be equal to fee
             };
 
+            struct SignSendShielded :public TxCommon
+            {
+                ShieldedTxo::Voucher m_Voucher;
+                PeerID m_Peer;
+                WalletIDKey m_MyIDKey = 0; // set if sending to yourself (though makes no sense to do so)
+
+                // sent value and asset are derived from the tx balance (ins - outs)
+                ShieldedTxo::User m_User;
+                bool m_HideAssetAlways = false;
+            };
+
         };
 
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
 		macro(CreateOutput) \
+		macro(CreateInputShielded) \
+		macro(CreateVoucherShielded) \
 		macro(SignReceiver) \
 		macro(SignSender) \
+		macro(SignSendShielded) \
 		macro(SignSplit) \
 
 

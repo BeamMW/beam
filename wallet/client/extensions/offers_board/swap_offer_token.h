@@ -24,7 +24,7 @@ public:
     static bool isValid(const std::string& token);
 
     SwapOfferToken() = default;
-    SwapOfferToken(const SwapOffer& offer)
+    explicit SwapOfferToken(const SwapOffer& offer)
         : m_TxID(offer.m_txId),
             m_status(offer.m_status),
             m_publisherId(offer.m_publisherId),

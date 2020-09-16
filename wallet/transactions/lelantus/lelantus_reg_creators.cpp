@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,23 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#pragma once
-
-#include "wallet/core/base_tx_builder.h"
+#include "lelantus_reg_creators.h"
+#include "unlink_transaction.h"
+#include "push_transaction.h"
+#include "pull_transaction.h"
 
 namespace beam::wallet::lelantus
 {
-    class BaseLelantusTxBuilder : public BaseTxBuilder
+    void RegisterCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-    public:
-        BaseLelantusTxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee, bool withAssets);
-
-        bool GetInitialTxParams() override;
-        Height GetMaxHeight() const override;
-
-    protected:
-        static void Restore(ShieldedTxo::DataParams&, const ShieldedCoin&, const ShieldedTxo::Viewer&);
-        bool m_withAssets;
-    };
-} // namespace beam::wallet::lelantus
+        wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<PushTransaction::Creator>(walletDB));
+    }
+}

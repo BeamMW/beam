@@ -27,8 +27,6 @@ if (NOT ANDROID AND NOT IOS)
 
         add_subdirectory(broadcaster)
 
-        add_subdirectory(service)
-
         if(BEAM_TESTS_ENABLED)
             add_subdirectory(unittests)
         endif()

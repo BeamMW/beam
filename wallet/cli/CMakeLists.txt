@@ -5,11 +5,19 @@ set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 set(CLI_SRC
     cli.cpp
+    utils.cpp
 )
 if(BEAM_LASER_SUPPORT)
     set(CLI_SRC
         ${CLI_SRC}
         laser.cpp
+    )
+endif()
+
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    set(CLI_SRC
+        ${CLI_SRC}
+        swaps.cpp
     )
 endif()
 
@@ -22,9 +30,6 @@ if(LINUX)
             -static-libstdc++ 
             -static-libgcc)
 endif()
-
-configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(${TARGET_NAME}
     PRIVATE

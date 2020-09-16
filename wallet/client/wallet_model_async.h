@@ -33,6 +33,7 @@ namespace beam::wallet
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount amount) = 0;
+        virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;
@@ -51,6 +52,8 @@ namespace beam::wallet
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void activateAddress(const WalletID& id) = 0;
+        virtual void getAddress(const WalletID& id) = 0;
+        virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
 
         virtual void setNodeAddress(const std::string& addr) = 0;
 

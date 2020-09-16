@@ -365,10 +365,13 @@ bool Channel::Open(Height hOpenTxDh)
 bool Channel::TransformLastState()
 {
     auto state = get_State();
+    if(state == State::Closing1 && m_gracefulClose && !m_lastUpdateStart)
+        m_lastUpdateStart = get_Tip();
+
     if (m_lastState == state)
         return false;
 
-    if (state == State::Updating || (state == State::Closing1 && m_gracefulClose))
+    if (state == State::Updating)
     {
         m_lastUpdateStart = get_Tip();
     }
@@ -513,6 +516,9 @@ void Channel::LogState()
     case beam::Lightning::Channel::State::Closed:
         os << "Closed. Waiting for " << Rules::get().MaxRollback << " confirmations before forgetting";
         break;
+    case beam::Lightning::Channel::State::Expired:
+        os << "Expired (you can delete this channel)";
+        break;
     default:
         return;
     }
@@ -535,6 +541,8 @@ void Channel::Unsubscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
     m_isSubscribed = false;
+    if (!m_lastUpdateStart && m_gracefulClose)
+        m_lastUpdateStart = get_Tip();
     LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
     
 }
@@ -596,6 +604,8 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         der & m_iRole;
         der & m_gracefulClose;
         der & m_lastUpdateStart;
+        if (m_gracefulClose)
+            m_lastUpdateStart = 0;
 
         size_t vInpSize = 0;
         der & vInpSize;

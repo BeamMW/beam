@@ -27,8 +27,8 @@ class WalletApiHandler : public IWalletApiHandler
 public:
     struct IWalletData
     {
-        virtual IWalletDB::Ptr getWalletDB() = 0;
-        virtual Wallet& getWallet() = 0;
+        virtual IWalletDB::Ptr getWalletDBPtr() = 0;
+        virtual Wallet::Ptr getWalletPtr() = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual const IAtomicSwapProvider& getAtomicSwapProvider() const = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -36,7 +36,6 @@ public:
     WalletApiHandler(
         IWalletData& walletData
       , WalletApi::ACL acl
-      , bool withAssets
     );
     virtual ~WalletApiHandler();
 

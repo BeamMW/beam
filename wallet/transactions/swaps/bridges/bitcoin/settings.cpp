@@ -71,9 +71,9 @@ namespace beam::bitcoin
                GetCurrentConnectionType() == ISettings::ConnectionType::Electrum;
     }
 
-    Amount Settings::GetFeeRate() const
+    Amount Settings::GetMinFeeRate() const
     {
-        return m_feeRate;
+        return m_minFeeRate;
     }
 
     uint16_t Settings::GetTxMinConfirmations() const
@@ -126,9 +126,9 @@ namespace beam::bitcoin
         m_electrumConnectionSettings = connectionSettings;
     }
 
-    void Settings::SetFeeRate(Amount feeRate)
+    void Settings::SetMinFeeRate(beam::Amount feeRate)
     {
-        m_feeRate = feeRate;
+        m_minFeeRate = feeRate;
     }
 
     void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)

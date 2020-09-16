@@ -71,9 +71,8 @@ static void clean_old_logfiles_2(const std::string& directory, const std::string
 
         unsigned cleanPeriodDays = cleanPeriodSec / SECS_IN_DAY; // will take only working days into account, sex intraday
 
-        unsigned day = 0;
         for (const auto& x : days) {
-            if (day++ < cleanPeriodDays) continue; // skip specified working days
+            if (x.first < cleanPeriodDays) continue; // skip specified working days
             for (auto& p : x.second) {
                 LOG_INFO() << "removing old log file " << p;
                 boost::filesystem::remove_all(p);

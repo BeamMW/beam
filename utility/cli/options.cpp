@@ -15,6 +15,7 @@
 #include "options.h"
 
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
@@ -151,6 +152,8 @@ namespace beam
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
         const char* SELECT_SERVER_AUTOMATICALLY = "select_server_automatically";
         const char* ELECTRUM_ADDR = "electrum_addr";
+        const char* ADDRESSES_TO_RECEIVE = "addresses_to_receive";
+        const char* ADDRESSES_FOR_CHANGE = "addresses_for_change";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -165,6 +168,7 @@ namespace beam
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* PRINT_TXO = "print_txo";
+        const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
@@ -180,7 +184,10 @@ namespace beam
         const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
-        const char* GET_TOKEN = "get_token";
+        const char* GET_ADDRESS = "get_address";
+        const char* SET_CONFIRMATIONS_COUNT = "set_confirmations_count";
+        const char* GET_CONFIRMATIONS_COUNT = "get_confirmations_count";
+        const char* CONFIRMATIONS_COUNT = "confirmations_count";
         const char* NEW_ADDRESS_COMMENT = "comment";
         const char* EXPIRATION_TIME = "expiration_time";
         const char* SEND = "send";
@@ -226,6 +233,8 @@ namespace beam
         const char* SWAP_TOKEN = "swap_token";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
+        const char* ESTIMATE_SWAP_FEERATE = "recommended_fee_rate";
+        const char* GET_BALANCE = "get_balance";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
@@ -234,7 +243,6 @@ namespace beam
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
-        const char* VOUCHER_COUNT = "voucher_count";
 
         // values
         const char* EXPIRATION_TIME_24H = "24h";
@@ -304,15 +312,13 @@ namespace beam
         const char* EXCHANGE_UNIT     = "exch_unit";
 
         // lelantus
-        const char* INSERT_TO_POOL = "insert_to_pool";
-        const char* EXTRACT_FROM_POOL = "extract_from_pool";
-        const char* SHIELDED_UTXOS = "shielded_utxos";
-        const char* SHIELDED_ID = "shielded_id";
-        const char* WINDOW_BEGIN = "window_begin";
-        const char* SHIELDED_TX_HISTORY = "shielded_tx_history";
-
-        // Defaults
-        const Amount kMinimumFee = 100;
+        const char* INSERT_TO_POOL      = "insert_to_pool";
+        const char* EXTRACT_FROM_POOL   = "extract_from_pool";
+        const char* SHIELDED_UTXOS      = "shielded_utxos";
+        const char* SHIELDED_ID         = "shielded_id";
+        const char* MAX_PRIVACY         = "max_privacy";
+        const char* MAX_PRIVACY_ONLINE  = "max_privacy_online";
+        const char* MAX_PRIVACY_OFFLINE = "max_privacy_offline";
     }
 
 
@@ -322,8 +328,22 @@ namespace beam
             return x;
         }
 
+        template <typename TVar>
+        static void set(TVar& var, const T& value) {
+            var = value;
+        }
+
         static const T& get(const Difficulty& x) {
             return x.m_Packed;
+        }
+
+        static std::string get(ECC::uintBig& x) {
+            return x.str();
+        }
+
+        static void set(ECC::uintBig& var, const std::string& value) {
+            var = Zero;
+            var.Scan(value.c_str());
         }
     };
 
@@ -355,6 +375,7 @@ namespace beam
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
+            (cli::PRINT_ROLLBACK_STATS, po::value<bool>()->default_value(false), "Analyze and print recent reverted branches, check if there were double-spends.")
             (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
@@ -366,10 +387,10 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
-			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
-			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
-			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
+            (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
+            (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
+            (cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
+            (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -382,10 +403,11 @@ namespace beam
             (cli::PASS, po::value<string>(), "wallet password")
             (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
+            (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
@@ -398,10 +420,12 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export wallet data (should be used with import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionary for a specific seed phrase validation")
-            (cli::VOUCHER_COUNT, po::value<Positive<uint32_t>>(), "generate given number of vouchers  for direct anonymous payments")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
-            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address");
+            (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
+            (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction")
+            (cli::MAX_PRIVACY_ONLINE, po::bool_switch()->default_value(false), "generate online max privacy transaction")
+            (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -426,6 +450,8 @@ namespace beam
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
             (cli::ELECTRUM_ADDR, po::value<string>(), "set electrum wallet address")
+            (cli::ADDRESSES_TO_RECEIVE, po::value<Positive<uint32_t>>(), "number of electrum receiving addresses")
+            (cli::ADDRESSES_FOR_CHANGE, po::value<Positive<uint32_t>>(), "number of electrum change addresses")
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of the swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
@@ -462,12 +488,12 @@ namespace beam
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
 
-        po::options_description lelantus_options("Lelantus-MW");
-        lelantus_options.add_options()
-            (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
-            (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
-            (cli::WINDOW_BEGIN, po::value<Nonnegative<TxoID>>(), "window begin")
-            (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
+        // Basic lelantus operations are disabled starting from v5.1
+        // po::options_description lelantus_options("Lelantus-MW");
+        // lelantus_options.add_options()
+        //    (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
+        //    (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
+        //    (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
 
         po::options_description options{ "OPTIONS" };
         po::options_description visible_options{ "OPTIONS" };
@@ -490,7 +516,8 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
-            options.add(lelantus_options);
+            // Basic lelantus operations are disabled starting from v5.1
+            // options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
@@ -499,7 +526,8 @@ namespace beam
 
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
-             visible_options.add(lelantus_options);
+            // Basic lelantus operations are disabled starting from v5.1
+            // visible_options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
@@ -558,9 +586,14 @@ namespace beam
             macro(uint32_t, Shielded.MaxWindowBacklog, "Shielded max backlog for large anonymity set") \
             macro(uint32_t, Shielded.MaxIns, "Shielded max inputs per block") \
             macro(uint32_t, Shielded.MaxOuts, "Shielded max outputs per block") \
+            macro(std::string, Prehistoric, "Prehistoric hash") \
+            macro(std::string, TreasuryChecksum, "Treasury hash, or zero to disable treasury") \
+            macro(uint32_t, Magic.v0, "Fork0 magic number") \
+            macro(uint32_t, Magic.v2, "Fork2 magic number") \
+            macro(bool, Magic.IsTestnet, "magic testnet indicator") \
 
-		#define Fork1 pForks[1].m_Height
-		#define Fork2 pForks[2].m_Height
+        #define Fork1 pForks[1].m_Height
+        #define Fork2 pForks[2].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
@@ -574,11 +607,12 @@ namespace beam
 
     bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
-        std::ifstream cfg(szFile);
+        const auto fullPath = boost::filesystem::system_complete(szFile).string();
+        std::ifstream cfg(fullPath);
         if (!cfg)
             return false;
 
-        LOG_INFO() << "Reading config from " << szFile;
+        LOG_INFO() << "Reading config from " << fullPath;
         po::store(po::parse_config_file(cfg, desc), vm);
         return true;
     }
@@ -612,7 +646,7 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
+        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
     }

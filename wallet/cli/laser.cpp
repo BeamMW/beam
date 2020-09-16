@@ -89,6 +89,17 @@ void LaserObserver::OnTransferFailed(const laser::ChannelIDPtr& chID)
                 % to_hex(chID->m_pData, chID->nBytes);
 }
 
+void LaserObserver::OnExpired(const laser::ChannelIDPtr& chID)
+{
+    if (!m_observable->getChannelsCount())
+    {
+        io::Reactor::get_Current().stop();
+    }
+    LOG_INFO() << boost::format(kLaserMessageExpired)
+               % to_hex(chID->m_pData, chID->nBytes);
+    LaserShow(m_walletDB); 
+}
+
 bool LoadLaserParams(const po::variables_map& vm,
                      Amount* aMy,
                      Amount* aTrg,
@@ -135,7 +146,7 @@ bool LoadLaserParams(const po::variables_map& vm,
     if (vm.count(cli::LASER_FEE))
     {
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
-        if (*fee < cli::kMinimumFee)
+        if (*fee < kMinFeeInGroth)
         {
             LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
             return false;
@@ -199,6 +210,8 @@ const char* LaserChannelStateStr(int state)
         return kLaserClosing;
     case Lightning::Channel::State::Closed:
         return kLaserClosed;
+    case Lightning::Channel::State::Expired:
+        return kLaserExpired;
     default:
         return kLaserUnknown;
     }
@@ -208,7 +221,7 @@ bool LaserOpen(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
+    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
     WalletID receiverWalletID(Zero);
 
     if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID))
@@ -225,7 +238,7 @@ bool LaserWait(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
+    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
     WalletID receiverWalletID(Zero);
 
     if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, true))

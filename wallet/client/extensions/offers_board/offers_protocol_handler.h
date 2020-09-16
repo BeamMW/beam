@@ -36,7 +36,7 @@ namespace beam::wallet
          *  Create message with swap offer according to protocol.
          *  Message includes signature and pubKey for validation.
          */
-        OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf);
+        explicit OfferBoardProtocolHandler(ECC::Key::IKdf::Ptr sbbsKdf);
     
         /**
          * Create message signed with private key

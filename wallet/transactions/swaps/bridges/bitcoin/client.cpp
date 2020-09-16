@@ -58,6 +58,11 @@ namespace beam::bitcoin
             call_async(&IClientAsync::GetBalance);
         }
 
+        void EstimateFeeRate()
+        {
+            call_async(&IClientAsync::EstimateFeeRate);
+        }
+
         void ChangeSettings(const Settings& settings)
         {
             call_async(&IClientAsync::ChangeSettings, settings);
@@ -65,7 +70,8 @@ namespace beam::bitcoin
     };
     
     Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
-        : m_status(settingsProvider->GetSettings().IsActivated() ? Status::Connecting : Status::Uninitialized)
+        : m_status(settingsProvider->GetSettings().IsActivated() ? Status::Connecting : 
+            settingsProvider->GetSettings().IsInitialized() ? Status::Initialized : Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
         , m_settingsProvider{ std::move(settingsProvider) }
@@ -128,6 +134,31 @@ namespace beam::bitcoin
         });
     }
 
+    void Client::EstimateFeeRate()
+    {
+        auto bridge = GetBridge();
+
+        if (!bridge)
+        {
+            return;
+        }
+
+        // TODO need to investigate block amount
+        bridge->estimateFee(1, [this, weak = this->weak_from_this()](const IBridge::Error& error, Amount feeRate)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+            OnEstimatedFeeRate(feeRate);
+        });
+    }
+
     void Client::ChangeSettings(const Settings& settings)
     {
         {
@@ -144,6 +175,21 @@ namespace beam::bitcoin
                 if (m_settingsProvider->GetSettings().IsActivated())
                 {
                     SetStatus(Status::Connecting);
+                }
+                else if (m_settingsProvider->GetSettings().IsInitialized())
+                {
+                    SetStatus(Status::Initialized);
+                }
+                else
+                {
+                    SetStatus(Status::Uninitialized);
+                }
+            }
+            else if (!m_settingsProvider->GetSettings().IsActivated())
+            {
+                if (m_settingsProvider->GetSettings().IsInitialized())
+                {
+                    SetStatus(Status::Initialized);
                 }
                 else
                 {

@@ -25,9 +25,10 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<NodeNetwork>;
 
-        NodeNetwork(proto::FlyClient& fc, const std::string& nodeAddress)
+        NodeNetwork(proto::FlyClient& fc, const std::string& nodeAddress, std::vector<io::Address>&& fallbackAddresses = {})
             : proto::FlyClient::NetworkStd(fc)
             , m_nodeAddress(nodeAddress)
+            , m_fallbackAddresses(std::move(fallbackAddresses))
         {
         }
 
@@ -49,6 +50,7 @@ namespace beam::wallet
         uint8_t m_attemptToConnect = 0;
         std::vector<INodeConnectionObserver*> m_observers;
         std::string m_nodeAddress;
+        std::vector<io::Address> m_fallbackAddresses;
 
     };
 
