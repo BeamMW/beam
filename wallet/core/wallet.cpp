@@ -381,6 +381,8 @@ namespace beam::wallet
         {
             pGuard.swap(it->second);
             m_ActiveTransactions.erase(it);
+            m_NextTipTransactionToUpdate.erase(pGuard);
+            m_TransactionsToUpdate.erase(pGuard);
             pGuard->FreeResources();
         }
 
