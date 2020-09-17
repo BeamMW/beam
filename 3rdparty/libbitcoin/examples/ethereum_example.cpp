@@ -17,7 +17,7 @@
 #include <iostream>
 #include <vector>
 
-#include "utility\hex.h"
+#include "utility/hex.h"
 
 libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
 {
