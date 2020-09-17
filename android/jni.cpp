@@ -552,10 +552,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     CopyParameter(TxParameterID::PeerID, *txParameters, p);
     CopyParameter(TxParameterID::PeerWalletIdentity, *txParameters, p);
+   
     if (maxPrivacy)
     {
         CopyParameter(TxParameterID::TransactionType, *txParameters, p);
     }
+   
     CopyParameter(TxParameterID::ShieldedVoucherList, *txParameters, p);
     
     auto params = beam::wallet::ParseParameters(JString(env, receiverAddr).value());
@@ -564,7 +566,17 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     if (isToken)
     {
         p.SetParameter(beam::wallet::TxParameterID::OriginalToken, JString(env, receiverAddr).value());
+
+         auto type = p.GetParameter<TxType>(TxParameterID::TransactionType);
+
+        if(maxPrivacy && type) {
+            if(*type != beam::wallet::TxType::PushTransaction)
+            {
+                p.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+            }
+        }
     }
+
     
     walletModel->getAsync()->startTransaction(std::move(p));
 }
