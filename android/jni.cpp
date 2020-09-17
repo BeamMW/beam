@@ -227,6 +227,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     return jParameters;
 }
 
+ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isConnectionTrusted)(JNIEnv *env, jobject thiz)
+ {
+    return walletModel->isConnectionTrusted();
+ }
+
  JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateToken)(JNIEnv *env, jobject thiz, jboolean maxPrivacy, jboolean nonInteractive, jboolean isPermanentAddress, jlong amount, jstring walletId, jstring identity, jlong ownId)
  {
     LOG_DEBUG() << "generateToken()";
