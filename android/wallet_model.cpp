@@ -654,3 +654,14 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::v
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 }
+
+void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
+    LOG_DEBUG() << "onPostFunctionToClientContext()";
+    
+    doFunction(func);
+}
+
+void WalletModel::doFunction(const std::function<void()>& func)
+{
+    func();
+}
