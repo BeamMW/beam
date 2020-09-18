@@ -1991,6 +1991,67 @@ struct Position {                                     \n\
     u8 nBVal                                          \n\
 }                                                     \n\
                                                       \n\
+struct Worker {                                       \n\
+    GlobalData gd                                     \n\
+    u33 *pPk                                          \n\
+    Position pos                                      \n\
+    u8 nRate                                          \n\
+}                                                     \n\
+                                                      \n\
+                                                      \n\
+.wrk_load                                             \n\
+{                                                     \n\
+    arg Worker wrk                                    \n\
+    var u2 nSize                                      \n\
+                                                      \n\
+    # global                                          \n\
+    load_var 1,0, @wrk.gd, wrk.gd, nSize              \n\
+                                                      \n\
+    # position                                        \n\
+    load_var @wrk.*pPk,wrk.*pPk, @wrk.pos,wrk.pos, nSize  \n\
+    cmp2 nSize, @wrk.pos                              \n\
+    jz .loaded                                        \n\
+    xor @wrk.pos, wrk.pos, wrk.pos                    \n\
+    .loaded                                           \n\
+                                                      \n\
+    # rate from oracle                                \n\
+    {                                                 \n\
+        var u8 nRate    # retval                      \n\
+        call_far wrk.gd.nOracleID, 3, local_size      \n\
+        mov8 wrk.nRate, nRate                         \n\
+    }                                                 \n\
+                                                      \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
+.wrk_test_position                                    \n\
+{                                                     \n\
+    arg Worker *pWrk                                  \n\
+                                                      \n\
+    # nBValue >= nAValue * nRate * nRiskFactor        \n\
+                                                      \n\
+    var u24 nALong      # = stPos.nAVal * rate * risk \n\
+                                                      \n\
+    {                                                 \n\
+        var u16 tmp                                   \n\
+        mul @tmp,tmp, @*pWrk.pos.nAVal,*pWrk.pos.nAVal, @*pWrk.nRate, *pWrk.nRate  \n\
+        mul @nALong, nALong, @tmp,tmp, @*pWrk.gd.nRiskFp,*pWrk.gd.nRiskFp          \n\
+    }                                                 \n\
+                                                      \n\
+    struct u24Ex {                                    \n\
+        u8 Hi                                         \n\
+        u8 Mid                                        \n\
+        u8 Lo                                         \n\
+    }                                                 \n\
+                                                      \n\
+    var u24Ex nBLong    # = stPos.nBVal promoted      \n\
+    xor 24, nBLong, nBLong                            \n\
+    mov8 nBLong.Mid, *pWrk.pos.nBVal                  \n\
+                                                      \n\
+    cmp @nALong, nALong, nBLong                       \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
 struct UpdFundsCtx {                                  \n\
     u4 nAid                                           \n\
     u8 *pTotal                 # in/out               \n\
@@ -2007,66 +2068,39 @@ struct UpdFundsCtx {                                  \n\
     arg u1 bBWithdraw                                 \n\
                                                       \n\
     var u2 nSize                                      \n\
-    var GlobalData stGD                               \n\
-    var Position stPos                                \n\
+    var Worker wrk                                    \n\
                                                       \n\
-    load_var 1,0, @stGD, stGD, nSize                  \n\
-                                                      \n\
-    load_var @pk,pk, @stPos,stPos, nSize              \n\
-    cmp2 nSize, @stPos                                \n\
-    jz .loaded                                        \n\
-    xor @stPos, stPos, stPos                          \n\
-.loaded                                               \n\
+    mov2 wrk.pPk, &pk                                 \n\
+    call .wrk_load, local_size                        \n\
                                                       \n\
     {                                                 \n\
         var UpdFundsCtx ctx                           \n\
                                                       \n\
         mov1 ctx.bWithdraw, bAWithdraw                \n\
         mov8 ctx.nChange, nAChange                    \n\
-        mov2 ctx.pTotal, &stPos.nAVal                 \n\
-        mov4 ctx.nAid, stGD.nAid                      \n\
+        mov2 ctx.pTotal, &wrk.pos.nAVal               \n\
+        mov4 ctx.nAid, wrk.gd.nAid                    \n\
                                                       \n\
         call .move_funds, local_size                  \n\
                                                       \n\
         mov1 ctx.bWithdraw, bBWithdraw                \n\
         mov8 ctx.nChange, nBChange                    \n\
-        mov2 ctx.pTotal, &stPos.nBVal                 \n\
+        mov2 ctx.pTotal, &wrk.pos.nBVal               \n\
         xor4 ctx.nAid, ctx.nAid                       \n\
                                                       \n\
         call .move_funds, local_size                  \n\
     }                                                 \n\
                                                       \n\
-                                                      \n\
-    # check position                                  \n\
-    # nBValue >= nAValue * nRate * nRiskFactor        \n\
-                                                      \n\
-    var u24 nALong      # = stPos.nAVal * rate * risk \n\
-                                                      \n\
     {                                                 \n\
-        var u8 nRate    # retval                      \n\
-        call_far stGD.nOracleID, 3, local_size        \n\
-                                                      \n\
-        var u16 tmp                                   \n\
-        mul @tmp,tmp, @stPos.nAVal,stPos.nAVal, @nRate, nRate        \n\
-        mul @nALong, nALong, @tmp,tmp, @stGD.nRiskFp,stGD.nRiskFp    \n\
+        var Worker *pArg0                             \n\
+        mov2 pArg0, &wrk                              \n\
+        call .wrk_test_position, local_size           \n\
+        jg .error                                     \n\
     }                                                 \n\
-                                                      \n\
-    struct u24Ex {                                    \n\
-        u8 Hi                                         \n\
-        u8 Mid                                        \n\
-        u8 Lo                                         \n\
-    }                                                 \n\
-                                                      \n\
-    var u24Ex nBLong    # = stPos.nBVal promoted      \n\
-    xor 24, nBLong, nBLong                            \n\
-    mov8 nBLong.Mid, stPos.nBVal                      \n\
-                                                      \n\
-    cmp @nALong, nALong, nBLong                       \n\
-    jg .error                                         \n\
                                                       \n\
     # ok                                              \n\
     add_sig pk                                        \n\
-    save_var @pk,pk, @stPos,stPos                     \n\
+    save_var @pk,pk, @wrk.pos,wrk.pos                 \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -2075,6 +2109,7 @@ struct UpdFundsCtx {                                  \n\
     arg UpdFundsCtx ctx                               \n\
     var u1 bDec                                       \n\
                                                       \n\
+    mov1 bDec, 1                                      \n\
     and1 bDec, ctx.bWithdraw                          \n\
                                                       \n\
     cmp1 ctx.bWithdraw, 0                             \n\
