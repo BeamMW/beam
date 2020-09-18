@@ -1897,7 +1897,7 @@ struct OracleData {                                   \n\
                                                       \n\
     # pointer to median                               \n\
     div2 nSize, @iOracle,iOracle, 1,2                 \n\
-    mul2 pEnd, @nSize, nSize, 2,@nVal0                \n\
+    mul2 pEnd, @nSize, nSize, 1,@nVal0                \n\
     add2 pEnd, &nVal0                                 \n\
                                                       \n\
     save_var 1,0, @nVal0,*pEnd                        \n\

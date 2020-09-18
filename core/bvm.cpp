@@ -1275,13 +1275,13 @@ namespace bvm {
 			Fail("operand expected");
 
 		uint8_t nMod = *x.p;
-		bool bMod = false;
+		uint8_t bMod = 0;
 		switch (nMod)
 		{
 		case '@': // sizeof
 		case '&': // addr of a local var
 			x.Move1();
-			bMod = true;
+			bMod = 1;
 		}
 
 		VarAccess va;
@@ -1289,15 +1289,8 @@ namespace bvm {
 		{
 			assert(!va.m_Indirections.empty());
 
-			if (nLen > 0)
-			{
-				Type::Size nSizeMod = bMod ? Type::uintSize::nBytes : va.m_Size;
-				if (static_cast<Type::Size>(nLen) != nSizeMod)
-					Fail("operand size mismatch");
-			}
-
 			if (bCanInline)
-				BwAdd(!!bMod); // bIsInline
+				BwAdd(bMod); // bIsInline
 
 			if (bMod)
 			{
@@ -1315,8 +1308,10 @@ namespace bvm {
 					val = va.m_Indirections.front();
 				}
 
+				nSizeX = (nLen > 0) ? static_cast<Type::Size>(nLen) : Type::uintSize::nBytes;
+
 				size_t n0 = m_Result.size();
-				WriteFlexible(val, Type::uintSize::nBytes);
+				WriteFlexible(val, nSizeX);
 
 				BwAdd(!bSizeOf); // should add sp?
 
@@ -1324,6 +1319,9 @@ namespace bvm {
 			}
 			else
 			{
+				if ((nLen > 0) && (static_cast<Type::Size>(nLen) != va.m_Size))
+					Fail("operand size mismatch");
+
 				BwAdd(1); // should add sp?
 				for (size_t i = 0; ; )
 				{
@@ -1407,10 +1405,19 @@ namespace bvm {
 
 	void Compiler::WriteFlexible(const uint8_t* pSrc, uint32_t nSizeSrc, uint32_t nSizeDst)
 	{
-		for (; nSizeDst > nSizeSrc; nSizeDst--)
-			m_Result.push_back(0);
+		if (nSizeDst >= nSizeSrc)
+		{
+			for (; nSizeDst > nSizeSrc; nSizeDst--)
+				m_Result.push_back(0);
+		}
+		else
+		{
+			nSizeSrc -= nSizeDst;
+			if (!memis0(pSrc, nSizeSrc))
+				Fail("constant truncated");
 
-		pSrc += (nSizeSrc - nSizeDst);
+			pSrc += nSizeSrc;
+		}
 
 		for (uint32_t i = 0; i < nSizeDst; i++)
 			m_Result.push_back(pSrc[i]);
