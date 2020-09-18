@@ -1707,7 +1707,7 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, Merkle::Hash());
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
             auto packed = params.Pack();
             for (const auto& p : packed)
