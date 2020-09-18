@@ -17,25 +17,25 @@
 
 namespace beam::bitcoin
 {
-    boost::optional<ISettings::ConnectionType> from_string(const std::string& value)
+    boost::optional<Settings::ConnectionType> from_string(const std::string& value)
     {
         if (value == "core")
-            return ISettings::ConnectionType::Core;
+            return Settings::ConnectionType::Core;
         else if (value == "electrum")
-            return ISettings::ConnectionType::Electrum;
+            return Settings::ConnectionType::Electrum;
         else if (value == "none")
-            return ISettings::ConnectionType::None;
+            return Settings::ConnectionType::None;
 
-        return boost::optional<ISettings::ConnectionType>{};
+        return boost::optional<Settings::ConnectionType>{};
     }
 
-    std::string to_string(ISettings::ConnectionType connectionType)
+    std::string to_string(Settings::ConnectionType connectionType)
     {
         switch (connectionType)
         {
-        case ISettings::ConnectionType::Core:
+        case Settings::ConnectionType::Core:
             return "core";
-        case ISettings::ConnectionType::Electrum:
+        case Settings::ConnectionType::Electrum:
             return "electrum";
         default:
             return "none";
@@ -57,7 +57,7 @@ namespace beam::bitcoin
     bool Settings::IsCoreActivated() const
     {
         return GetConnectionOptions().IsInitialized() &&
-               GetCurrentConnectionType() == ISettings::ConnectionType::Core;
+               GetCurrentConnectionType() == Settings::ConnectionType::Core;
     }
 
     ElectrumSettings Settings::GetElectrumConnectionOptions() const
@@ -68,7 +68,7 @@ namespace beam::bitcoin
     bool Settings::IsElectrumActivated() const
     {
         return GetElectrumConnectionOptions().IsInitialized() &&
-               GetCurrentConnectionType() == ISettings::ConnectionType::Electrum;
+               GetCurrentConnectionType() == Settings::ConnectionType::Electrum;
     }
 
     Amount Settings::GetMinFeeRate() const
@@ -96,7 +96,7 @@ namespace beam::bitcoin
         return IsCoreActivated() || IsElectrumActivated();
     }
 
-    ISettings::ConnectionType Settings::GetCurrentConnectionType() const
+    Settings::ConnectionType Settings::GetCurrentConnectionType() const
     {
         return m_connectionType;
     }
@@ -141,7 +141,7 @@ namespace beam::bitcoin
         m_lockTimeInBlocks = lockTimeInBlocks;
     }
 
-    void Settings::ChangeConnectionType(ISettings::ConnectionType type)
+    void Settings::ChangeConnectionType(Settings::ConnectionType type)
     {
         m_connectionType = type;
     }

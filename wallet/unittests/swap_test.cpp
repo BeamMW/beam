@@ -117,12 +117,22 @@ namespace
 
         return parameters;
     }
+
+    class TestSettings : public bitcoin::Settings
+    {
+    public:
+        TestSettings()
+        {
+            SetTxMinConfirmations(kBtcTxMinConfirmations);
+            SetLockTimeInBlocks(kLockTimeInBlocks);
+        }
+    };
 }
 
-bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, std::shared_ptr<bitcoin::Settings> settings)
+bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, const TestSettings& settings)
 {
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-    settingsProvider->SetSettings(*settings);
+    settingsProvider->SetSettings(settings);
     return settingsProvider;
 }
 
@@ -186,13 +196,11 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -310,13 +318,11 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     TestElectrumWallet btcWallet(*mainReactor, address);
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -415,13 +421,11 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -498,15 +502,11 @@ void TestSwapBTCRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -600,15 +600,11 @@ void TestSwapBTCQuickRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -697,15 +693,11 @@ void TestElectrumSwapBTCRefundTransaction()
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -792,13 +784,11 @@ void TestSwapBeamRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -908,13 +898,11 @@ void TestSwapBeamAndBTCRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1043,13 +1031,11 @@ void TestSwapBTCRedeemAfterExpired()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1156,13 +1142,11 @@ void TestElectrumSwapBeamRefundTransaction()
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     TestElectrumWallet btcWallet(*mainReactor, address);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
@@ -1264,8 +1248,8 @@ void ExpireByResponseTime(bool isBeamSide)
     Height lifetime = 100;
     Height responseTime = 100;
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", senderAddress });
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", senderAddress });
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
     auto senderSP = InitSettingsProvider(senderWalletDB, aliceSettings);
@@ -1328,13 +1312,11 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1425,13 +1407,11 @@ void TestExpireByLifeTime()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1559,15 +1539,11 @@ void TestIgnoringThirdPeer()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);

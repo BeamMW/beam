@@ -210,7 +210,7 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 
         if (connectionType)
         {
-            if (*connectionType == bitcoin::ISettings::ConnectionType::Core)
+            if (*connectionType == bitcoin::Settings::ConnectionType::Core)
             {
                 auto settings = settingsProvider.GetSettings();
 
@@ -222,9 +222,9 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
                 {
                     settings.SetConnectionOptions(CoreSettings{});
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
+                    if (settings.GetCurrentConnectionType() == bitcoin::Settings::ConnectionType::Core)
                     {
-                        settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
+                        settings.ChangeConnectionType(bitcoin::Settings::ConnectionType::Electrum);
                     }
                 }
 
@@ -232,7 +232,7 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
                 return 0;
             }
 
-            if (*connectionType == bitcoin::ISettings::ConnectionType::Electrum)
+            if (*connectionType == bitcoin::Settings::ConnectionType::Electrum)
             {
                 auto settings = settingsProvider.GetSettings();
 
@@ -244,9 +244,9 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
                 {
                     settings.SetElectrumConnectionOptions(ElectrumSettings{});
 
-                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
+                    if (settings.GetCurrentConnectionType() == bitcoin::Settings::ConnectionType::Electrum)
                     {
-                        settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
+                        settings.ChangeConnectionType(bitcoin::Settings::ConnectionType::Core);
                     }
                 }
 
@@ -279,8 +279,8 @@ int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
             throw std::runtime_error("active_connection is wrong");
         }
 
-        if ((*typeConnection == bitcoin::ISettings::ConnectionType::Core && !settings.GetConnectionOptions().IsInitialized())
-            || (*typeConnection == bitcoin::ISettings::ConnectionType::Electrum && !settings.GetElectrumConnectionOptions().IsInitialized()))
+        if ((*typeConnection == bitcoin::Settings::ConnectionType::Core && !settings.GetConnectionOptions().IsInitialized())
+            || (*typeConnection == bitcoin::Settings::ConnectionType::Electrum && !settings.GetElectrumConnectionOptions().IsInitialized()))
         {
             throw std::runtime_error(vm[cli::ACTIVE_CONNECTION].as<string>() + " is not initialized");
         }
