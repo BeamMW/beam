@@ -1164,17 +1164,6 @@ namespace bvm {
 			m_Result.push_back(val.m_pData[i]);
 	}
 
-	uint8_t Compiler::IsPtrPrefix(char ch)
-	{
-		switch (ch)
-		{
-		case 's':
-		case 'p':
-			return true;
-		}
-		return false;
-	}
-
 	Compiler::Variable* Compiler::LookupVar(MyBlob& name)
 	{
 		for (auto it = m_ScopesActive.rbegin(); m_ScopesActive.rend() != it; it++)
