@@ -165,18 +165,23 @@ namespace bvm {
 
 		uint8_t FetchBit(BitReader& br);
 
-		int FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX); // returns num of indirections
+		struct Operand
+			:public Ptr
+		{
+			Type::uintSize m_Aux;
+		};
+
+		int FetchOperand(BitReader& br, Operand& out, bool bW, int nSize, Type::Size nSizeX); // returns num of indirections
 
 		int FetchSize(BitReader& br, Type::Size&);
 		Type::Size FetchSizeX(BitReader& br, bool bSizeX);
 
-		bool FetchPtr(BitReader& br, Ptr& out); // return true if data ptr (read-only)
-		bool FetchPtr(BitReader& br, Ptr& out, const Type::uintSize&);
+		//bool FetchPtr(BitReader& br, Ptr& out, const Type::uintSize& addr); // return true if data ptr (read-only)
+		bool FetchPtr(Ptr& out, Type::Size nAddr); // return true if data ptr (read-only)
 		void SetPtrStack(Ptr& out, Type::Size n);
 		static Type::Size get_StackOffset(Type::Size n);
 
 		void LogStackPtr();
-		void LogDeref();
 		void LogOpCode(const char*);
 		void LogOpResults(bool);
 		void LogVarName(const char* szName);
@@ -327,6 +332,7 @@ namespace bvm {
 			Type::Size m_Pos = Label::s_Invalid;
 
 			Struct* m_pType = nullptr;
+			uint32_t m_nPtrs = 0; // number of '*'s in declaration
 
 			bool IsValid() const { return Label::s_Invalid != m_Pos; }
 
@@ -423,13 +429,24 @@ namespace bvm {
 		void WriteSizeX(MyBlob&, Type::Size&, bool);
 		uint8_t* ParseOperand(MyBlob&, bool bW, int nLen, Type::Size nSizeX);
 
+		struct VarAccess
+		{
+			Type::Size m_Size;
+			std::vector<Type::Size> m_Indirections;
+		};
+
+		Variable* LookupVar(MyBlob&);
+		static uint32_t RemoveDerefs(MyBlob&);
+
+		bool ParseVariableAccess(MyBlob, VarAccess&);
+
 		void ParseSignedNumber(MyBlob&, uint32_t nBytes);
-		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes, int nIndirectOperandSize);
+		bool ParseSignedNumberOrLabel(MyBlob&, uint32_t nBytes);
 		void ParseHex(MyBlob&, uint32_t nBytes);
 		void ParseLabel(MyBlob&);
 		Struct* ParseVariableType(MyBlob& line, Type::Size&, char& nTag);
 		void ParseVariableDeclaration(MyBlob& line, bool bArg);
-		Struct* ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size&);
+		Struct* ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size&, uint32_t& nPtrs);
 		Type::Size ParseVariableUse(MyBlob&, uint32_t nBytes, bool bPosOrSize);
 		Struct* FindType(const MyBlob&);
 

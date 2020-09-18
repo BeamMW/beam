@@ -1659,13 +1659,18 @@ namespace beam
     ret                                               \n\
                                                       \n\
 .method_2                     # deposit               \n\
-    mov1 s0, 0                                        \n\
+{                                                     \n\
+    var u1 bWithdraw                                  \n\
+    mov1 bWithdraw, 0                                 \n\
     jmp .move_funds                                   \n\
+}                                                     \n\
                                                       \n\
 .method_3                     # withdraw              \n\
-    mov1 s0, 1                                        \n\
+{                                                     \n\
+    var u1 bWithdraw                                  \n\
+    mov1 bWithdraw, 1                                 \n\
     jmp .move_funds                                   \n\
-                                                      \n\
+}                                                     \n\
                                                       \n\
                                                       \n\
 struct UserKey {                                      \n\
@@ -1684,41 +1689,41 @@ struct UserKey {                                      \n\
                                                       \n\
     # load current value                              \n\
                                                       \n\
-    mov8 s_nTotal, p.zero                             \n\
-    load_var @stUk,s_stUk, @nTotal,s_nTotal, s_nSize  \n\
+    mov8 nTotal, 0                                    \n\
+    load_var @stUk,stUk, @nTotal,nTotal, nSize        \n\
                                                       \n\
     {                                                 \n\
-    cmp1 s_bWithdraw, 0                               \n\
+    cmp1 bWithdraw, 0                                 \n\
     jz .if_deposit                                    \n\
                                                       \n\
     # withdrawal                                      \n\
-    cmp8 s_nTotal, s_nChange                          \n\
+    cmp8 nTotal, nChange                              \n\
     jb .error                 # not enough funds      \n\
-    sub8 s_nTotal, s_nChange                          \n\
+    sub8 nTotal, nChange                              \n\
                                                       \n\
-    add_sig s_stUk.pk                                 \n\
-    funds_unlock s_nChange, s_stUk.nAid               \n\
+    add_sig stUk.pk                                   \n\
+    funds_unlock nChange, stUk.nAid                   \n\
                                                       \n\
     jmp .endif                                        \n\
                                                       \n\
 .if_deposit                                           \n\
-    add8 s_nTotal, s_nChange                          \n\
+    add8 nTotal, nChange                              \n\
     jnz .error                # overflow flag         \n\
                                                       \n\
-    funds_lock s_nChange, s_stUk.nAid                 \n\
+    funds_lock nChange, stUk.nAid                     \n\
                                                       \n\
 .endif                                                \n\
     }                                                 \n\
                                                       \n\
     # save result                                     \n\
                                                       \n\
-    mov2 s_nSize, 0                                   \n\
-    cmp8 s_nTotal, p.zero                             \n\
+    mov2 nSize, 0                                     \n\
+    cmp8 nTotal, 0                                    \n\
     jz .save                                          \n\
-    mov2 s_nSize, @nTotal                             \n\
+    mov2 nSize, @nTotal                               \n\
                                                       \n\
 .save                                                 \n\
-    save_var @stUk,s_stUk, s_nSize,s_nTotal           \n\
+    save_var @stUk,stUk, nSize,nTotal                 \n\
                                                       \n\
     ret                                               \n\
                                                       \n\
@@ -1774,30 +1779,30 @@ struct OracleData {                                   \n\
     #    pk[],     oracles pks (var size)             \n\
                                                       \n\
     var u2 iOracle                                    \n\
-    var u2 pPtr                                       \n\
+    var u33 *pPtr                                     \n\
     var OracleData stData                             \n\
                                                       \n\
-    mov2 s_iOracle, s_nNumOracles                     \n\
-    cmp2 s_iOracle, 0                                 \n\
+    mov2 iOracle, nNumOracles                         \n\
+    cmp2 iOracle, 0                                   \n\
     jz .error                 # no oracles!           \n\
                                                       \n\
-    mov2 s_pPtr, _nInitialValue    # end of array     \n\
-    mov8 s_stData.nValue, s_nInitialValue             \n\
+    mov2 pPtr, &nInitialValue    # end of array       \n\
+    mov8 stData.nValue, nInitialValue                 \n\
                                                       \n\
     {                                                 \n\
 .loop                                                 \n\
-    sub2 s_iOracle, 1                                 \n\
-    sub2 s_pPtr, @stData.pk                           \n\
+    sub2 iOracle, 1                                   \n\
+    sub2 pPtr, @stData.pk                             \n\
                                                       \n\
-    mov @stData.pk, s_stData.pk, ss_pPtr,             \n\
-    add_sig s_stData.pk                               \n\
-    save_var @iOracle,s_iOracle, @stData,s_stData     \n\
+    mov @stData.pk, stData.pk, *pPtr                  \n\
+    add_sig stData.pk                                 \n\
+    save_var @iOracle,iOracle, @stData,stData         \n\
                                                       \n\
-    cmp2 s_iOracle, 0                                 \n\
+    cmp2 iOracle, 0                                   \n\
     jnz .loop                                         \n\
     }                                                 \n\
                                                       \n\
-    save_var 1,0, @nInitialValue,s_nInitialValue  # current median  \n\
+    save_var 1,0, @nInitialValue,nInitialValue  # current median  \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -1809,18 +1814,18 @@ struct OracleData {                                   \n\
     var u2 nSize                                      \n\
     var OracleData stData                             \n\
                                                       \n\
-    mov2 s_iOracle, 0                                 \n\
+    mov2 iOracle, 0                                   \n\
                                                       \n\
     {                                                 \n\
     jmp .loop_if                                      \n\
 .loop                                                 \n\
-    save_var @iOracle,s_iOracle, 0                    \n\
-    add_sig s_stData.pk                               \n\
-    add2 s_iOracle, 1                                 \n\
+    save_var @iOracle,iOracle, 0                      \n\
+    add_sig stData.pk                                 \n\
+    add2 iOracle, 1                                   \n\
                                                       \n\
 .loop_if                                              \n\
-    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
-    cmp2 s_nSize, @stData     # loaded?               \n\
+    load_var @iOracle,iOracle, @stData,stData, nSize  \n\
+    cmp2 nSize, @stData     # loaded?                 \n\
     jz .loop                                          \n\
     }                                                 \n\
                                                       \n\
@@ -1839,13 +1844,13 @@ struct OracleData {                                   \n\
     var u2 nSize                                      \n\
     var OracleData stData                             \n\
                                                       \n\
-    load_var @iOracle,s_iOracle, @stData,s_stData, s_nSize \n\
-    cmp2 s_nSize, @stData                             \n\
+    load_var @iOracle,iOracle, @stData,stData, nSize  \n\
+    cmp2 nSize, @stData                               \n\
     jnz .error                                        \n\
                                                       \n\
-    mov8 s_stData.nValue, s_nNewValue                 \n\
-    save_var @iOracle,s_iOracle, @stData,s_stData     \n\
-    add_sig s_stData.pk                               \n\
+    mov8 stData.nValue, nNewValue                     \n\
+    save_var @iOracle,iOracle, @stData,stData         \n\
+    add_sig stData.pk                                 \n\
                                                       \n\
     jmp .update_median                                \n\
 }                                                     \n\
@@ -1855,7 +1860,7 @@ struct OracleData {                                   \n\
     arg u8 nRetVal                                    \n\
     var u2 nSize                                      \n\
                                                       \n\
-    load_var 1,0, @nRetVal, s_nRetVal, s_nSize        \n\
+    load_var 1,0, @nRetVal, nRetVal, nSize            \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -1865,37 +1870,37 @@ struct OracleData {                                   \n\
     var u2 iOracle                                    \n\
     var u2 nSize                                      \n\
                                                       \n\
-    var u2 pEnd                                       \n\
+    var u8 *pEnd                                      \n\
     var OracleData stData                             \n\
     var u8 nVal0 # start of the array                 \n\
                                                       \n\
-    mov2 s_iOracle, 0                                 \n\
-    mov2 s_pEnd, _nVal0                               \n\
+    mov2 iOracle, 0                                   \n\
+    mov2 pEnd, &nVal0                                 \n\
                                                       \n\
     {                                                 \n\
     jmp .loop_if                                      \n\
 .loop                                                 \n\
-    add2 s_iOracle, 1                                 \n\
-    mov8 ss_pEnd, s_stData.nValue                     \n\
-    add2 s_pEnd, @nVal0                               \n\
+    add2 iOracle, 1                                   \n\
+    mov8 *pEnd, stData.nValue                         \n\
+    add2 pEnd, @nVal0                                 \n\
                                                       \n\
 .loop_if                                              \n\
-    load_var @iOracle,s_iOracle, @stData, s_stData, s_nSize \n\
-    cmp2 s_nSize, @stData     # loaded?               \n\
+    load_var @iOracle,iOracle, @stData, stData, nSize \n\
+    cmp2 nSize, @stData     # loaded?                 \n\
     jz .loop                                          \n\
     }                                                 \n\
                                                       \n\
     # loaded values: nVal0, nVal0+8, ...              \n\
     # select the median                               \n\
                                                       \n\
-    sort s_nVal0, s_iOracle, @nVal0, 0, @nVal0        \n\
+    sort nVal0, iOracle, @nVal0, 0, @nVal0            \n\
                                                       \n\
     # pointer to median                               \n\
-    div2 s_nSize, @iOracle,s_iOracle, 1,2             \n\
-    mul2 s_pEnd, @nSize, s_nSize, 1,@nVal0            \n\
-    add2 s_pEnd, _nVal0                               \n\
+    div2 nSize, @iOracle,iOracle, 1,2                 \n\
+    mul2 pEnd, @nSize, nSize, 2,@nVal0                \n\
+    add2 pEnd, &nVal0                                 \n\
                                                       \n\
-    save_var 1,0, @nVal0,ss_pEnd                      \n\
+    save_var 1,0, @nVal0,*pEnd                        \n\
     ret                                               \n\
 }                                                     \n\
 ";
@@ -1944,23 +1949,23 @@ struct GlobalData {                                   \n\
     #    u1[],     metadata                           \n\
                                                       \n\
     var GlobalData stGD                               \n\
-    var u2 pPtr                                       \n\
+    var u1 *pPtr                                      \n\
                                                       \n\
-    ref_add s_nOracleID                               \n\
+    ref_add nOracleID                                 \n\
     jz .error                                         \n\
                                                       \n\
-    mov2 s_pPtr, _nMeta                               \n\
-    sub2 s_pPtr, s_nMeta                              \n\
+    mov2 pPtr, &nMeta                                 \n\
+    sub2 pPtr, nMeta                                  \n\
                                                       \n\
-    asset_create s_stGD.nAid, s_nMeta, ss_pPtr        \n\
-    cmp4 s_stGD.nAid, p.zero                          \n\
+    asset_create stGD.nAid, nMeta, *pPtr              \n\
+    cmp4 stGD.nAid, 0                                 \n\
     jz .error                                         \n\
                                                       \n\
     # everything is ok                                \n\
-    mov @nOracleID, s_stGD.nOracleID, s_nOracleID     \n\
-    mov8 s_stGD.nRiskFp, s_nRiskFp                    \n\
+    mov @nOracleID, stGD.nOracleID, nOracleID         \n\
+    mov8 stGD.nRiskFp, nRiskFp                        \n\
                                                       \n\
-    save_var 1,0, @stGD, s_stGD                       \n\
+    save_var 1,0, @stGD, stGD                         \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -1969,8 +1974,8 @@ struct GlobalData {                                   \n\
     var u2 nSize                                      \n\
     var GlobalData stGD                               \n\
                                                       \n\
-    load_var 1,0, @stGD, s_stGD, s_nSize              \n\
-    ref_release s_stGD.nOracleID                      \n\
+    load_var 1,0, @stGD, stGD, nSize                  \n\
+    ref_release stGD.nOracleID                        \n\
                                                       \n\
     save_var 1,0, 0                                   \n\
     ret                                               \n\
@@ -1988,7 +1993,7 @@ struct Position {                                     \n\
                                                       \n\
 struct UpdFundsCtx {                                  \n\
     u4 nAid                                           \n\
-    u2 pTotal                 # in/out                \n\
+    u8 *pTotal                 # in/out               \n\
     u8 nChange                                        \n\
     u1 bWithdraw                                      \n\
 }                                                     \n\
@@ -2005,32 +2010,30 @@ struct UpdFundsCtx {                                  \n\
     var GlobalData stGD                               \n\
     var Position stPos                                \n\
                                                       \n\
-    load_var 1,0, @stGD, s_stGD, s_nSize              \n\
+    load_var 1,0, @stGD, stGD, nSize                  \n\
                                                       \n\
-    load_var @pk,s_pk, @stPos,s_stPos, s_nSize        \n\
-    cmp2 s_nSize, @stPos                              \n\
+    load_var @pk,pk, @stPos,stPos, nSize              \n\
+    cmp2 nSize, @stPos                                \n\
     jz .loaded                                        \n\
-    xor @stPos, s_stPos, s_stPos                      \n\
+    xor @stPos, stPos, stPos                          \n\
 .loaded                                               \n\
                                                       \n\
     {                                                 \n\
         var UpdFundsCtx ctx                           \n\
                                                       \n\
-        mov1 s_ctx.bWithdraw, s_bAWithdraw            \n\
-        mov8 s_ctx.nChange, s_nAChange                \n\
-        getsp s_ctx.pTotal                            \n\
-        add2 s_ctx.pTotal, _stPos.nAVal               \n\
-        mov4 s_ctx.nAid, s_stGD.nAid                  \n\
+        mov1 ctx.bWithdraw, bAWithdraw                \n\
+        mov8 ctx.nChange, nAChange                    \n\
+        mov2 ctx.pTotal, &stPos.nAVal                 \n\
+        mov4 ctx.nAid, stGD.nAid                      \n\
                                                       \n\
-        call .move_funds, _local_size                 \n\
+        call .move_funds, local_size                  \n\
                                                       \n\
-        mov1 s_ctx.bWithdraw, s_bBWithdraw            \n\
-        mov8 s_ctx.nChange, s_nBChange                \n\
-        getsp s_ctx.pTotal                            \n\
-        add2 s_ctx.pTotal, _stPos.nBVal               \n\
-        xor4 s_ctx.nAid, s_ctx.nAid                   \n\
+        mov1 ctx.bWithdraw, bBWithdraw                \n\
+        mov8 ctx.nChange, nBChange                    \n\
+        mov2 ctx.pTotal, &stPos.nBVal                 \n\
+        xor4 ctx.nAid, ctx.nAid                       \n\
                                                       \n\
-        call .move_funds, _local_size                 \n\
+        call .move_funds, local_size                  \n\
     }                                                 \n\
                                                       \n\
                                                       \n\
@@ -2041,11 +2044,11 @@ struct UpdFundsCtx {                                  \n\
                                                       \n\
     {                                                 \n\
         var u8 nRate    # retval                      \n\
-        call_far s_stGD.nOracleID, 3, _local_size     \n\
+        call_far stGD.nOracleID, 3, local_size        \n\
                                                       \n\
         var u16 tmp                                   \n\
-        mul @tmp,s_tmp, @stPos.nAVal,s_stPos.nAVal, @nRate, s_nRate        \n\
-        mul @nALong, s_nALong, @tmp,s_tmp, @stGD.nRiskFp,s_stGD.nRiskFp    \n\
+        mul @tmp,tmp, @stPos.nAVal,stPos.nAVal, @nRate, nRate        \n\
+        mul @nALong, nALong, @tmp,tmp, @stGD.nRiskFp,stGD.nRiskFp    \n\
     }                                                 \n\
                                                       \n\
     struct u24Ex {                                    \n\
@@ -2055,15 +2058,15 @@ struct UpdFundsCtx {                                  \n\
     }                                                 \n\
                                                       \n\
     var u24Ex nBLong    # = stPos.nBVal promoted      \n\
-    xor 24, s_nBLong, s_nBLong                        \n\
-    mov8 s_nBLong.Mid, s_stPos.nBVal                  \n\
+    xor 24, nBLong, nBLong                            \n\
+    mov8 nBLong.Mid, stPos.nBVal                      \n\
                                                       \n\
-    cmp @nALong, s_nALong, s_nBLong                   \n\
+    cmp @nALong, nALong, nBLong                       \n\
     jg .error                                         \n\
                                                       \n\
     # ok                                              \n\
-    add_sig s_pk                                      \n\
-    save_var @pk,s_pk, @stPos,s_stPos                 \n\
+    add_sig pk                                        \n\
+    save_var @pk,pk, @stPos,stPos                     \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -2072,44 +2075,44 @@ struct UpdFundsCtx {                                  \n\
     arg UpdFundsCtx ctx                               \n\
     var u1 bDec                                       \n\
                                                       \n\
-    and1 s_bDec, s_ctx.bWithdraw                      \n\
+    and1 bDec, ctx.bWithdraw                          \n\
                                                       \n\
-    cmp1 s_ctx.bWithdraw, 0                           \n\
+    cmp1 ctx.bWithdraw, 0                             \n\
     {                                                 \n\
         jnz .endif                                    \n\
-        funds_lock s_ctx.nChange, s_ctx.nAid          \n\
+        funds_lock ctx.nChange, ctx.nAid              \n\
         .endif                                        \n\
     }                                                 \n\
                                                       \n\
-    cmp4 s_ctx.nAid, p.zero                           \n\
+    cmp4 ctx.nAid, 0                                  \n\
     {                                                 \n\
         jz .endif                                     \n\
-        asset_emit s_ctx.nAid, s_ctx.nChange, s_ctx.bWithdraw         \n\
+        asset_emit ctx.nAid, ctx.nChange, ctx.bWithdraw         \n\
         jz .error                                     \n\
                                                       \n\
-        xor1 s_bDec, 1                                \n\
+        xor1 bDec, 1                                  \n\
         .endif                                        \n\
     }                                                 \n\
                                                       \n\
-    cmp1 s_ctx.bWithdraw, 1                           \n\
+    cmp1 ctx.bWithdraw, 1                             \n\
     {                                                 \n\
         jnz .endif                                    \n\
-        funds_unlock s_ctx.nChange, s_ctx.nAid        \n\
+        funds_unlock ctx.nChange, ctx.nAid            \n\
         .endif                                        \n\
     }                                                 \n\
                                                       \n\
-    cmp1 s_bDec, 1                                    \n\
+    cmp1 bDec, 1                                      \n\
     {                                                 \n\
         jnz .else                                     \n\
                                                       \n\
-        cmp8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        cmp8 ctx.*pTotal, ctx.nChange                 \n\
         jb .error                 # not enough funds  \n\
-        sub8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        sub8 ctx.*pTotal, ctx.nChange                 \n\
         ret                                           \n\
                                                       \n\
         .else                                         \n\
                                                       \n\
-        add8 ps_ctx.pTotal, s_ctx.nChange             \n\
+        add8 ctx.*pTotal, ctx.nChange                 \n\
         jnz .error                # overflow flag     \n\
         ret                                           \n\
     }                                                 \n\
@@ -2145,29 +2148,29 @@ struct UpdFundsCtx {                                  \n\
     #    u1[],     metadata                           \n\
                                                       \n\
     var u2 iOracle                                    \n\
-    var u2 pPtr                                       \n\
+    var u33 *pPtr                                     \n\
     var u4 nAid                                       \n\
                                                       \n\
-    mov2 s_iOracle, s_nNumOracles                     \n\
-    mov2 s_pPtr, _nRate       # ppPk, end of array    \n\
+    mov2 iOracle, nNumOracles                         \n\
+    mov2 pPtr, &nRate         # ppPk, end of array    \n\
 .loop                                                 \n\
-    cmp2 s_iOracle, 0                                 \n\
+    cmp2 iOracle, 0                                   \n\
     jz .loop_end                                      \n\
-    sub2 s_iOracle, 1                                 \n\
-    sub2 s_pPtr, 33                                   \n\
-    add_sig ss_pPtr           # add_sig(*ppPk)        \n\
-    save_var @iOracle,s_iOracle, 33,ss_pPtr           \n\
+    sub2 iOracle, 1                                   \n\
+    sub2 pPtr, 33                                     \n\
+    add_sig *pPtr           # add_sig(*ppPk)          \n\
+    save_var @iOracle,iOracle, @*pPtr,*pPtr           \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
-    save_var 1,0, @nRate,s_nRate                      \n\
+    save_var 1,0, @nRate,nRate                        \n\
     funds_lock 100500, 0                              \n\
-    sub2 s_pPtr, s_nMeta      # metadata start        \n\
-    asset_create s_nAid, s_nMeta, ss_pPtr             \n\
-    cmp4 s_nAid, 0                                    \n\
+    sub2 pPtr, nMeta      # metadata start            \n\
+    asset_create nAid, nMeta, *pPtr                   \n\
+    cmp4 nAid, 0                                      \n\
     jz .error                                         \n\
-    save_var 1,1, @nAid,s_nAid                        \n\
-    asset_emit s_nAid, 225, 1                         \n\
-    asset_emit s_nAid, 225, 0                         \n\
+    save_var 1,1, @nAid,nAid                          \n\
+    asset_emit nAid, 225, 1                           \n\
+    asset_emit nAid, 225, 0                           \n\
     ret                                               \n\
 }                                                     \n\
                                                       \n\
@@ -2180,20 +2183,20 @@ struct UpdFundsCtx {                                  \n\
     var u33 pk                                        \n\
                                                       \n\
     save_var 1,0, 0           # del rate variable     \n\
-    mov2 s_iOracle, 0                                 \n\
+    mov2 iOracle, 0                                   \n\
 .loop                                                 \n\
-    load_var @iOracle,s_iOracle, @pk,s_pk, s_nSize    \n\
-    cmp2 s_nSize, @pk         # pk loaded ok?         \n\
+    load_var @iOracle,iOracle, @pk,pk, nSize          \n\
+    cmp2 nSize, @pk         # pk loaded ok?           \n\
     jnz .loop_end                                     \n\
-    save_var @iOracle,s_iOracle, 0                    \n\
-    add_sig s_pk                                      \n\
-    add2 s_iOracle, 1                                 \n\
+    save_var @iOracle,iOracle, 0                      \n\
+    add_sig pk                                        \n\
+    add2 iOracle, 1                                   \n\
     jmp .loop                                         \n\
 .loop_end                                             \n\
     funds_unlock 100500, 0                            \n\
-    load_var 1,1, @nAid,s_nAid, s_nSize               \n\
+    load_var 1,1, @nAid,nAid, nSize                   \n\
     save_var 1,1, 0                                   \n\
-    asset_destroy s_nAid                              \n\
+    asset_destroy nAid                                \n\
     jz .error                                         \n\
     ret                                               \n\
 }                                                     \n\
@@ -2209,11 +2212,11 @@ struct UpdFundsCtx {                                  \n\
     var u2 nSize                                      \n\
     var u33 pk                                        \n\
                                                       \n\
-    load_var @iOracle,s_iOracle, @pk,s_pk, s_nSize    \n\
-    cmp2 s_nSize, @pk                                 \n\
+    load_var @iOracle,iOracle, @pk,pk, nSize          \n\
+    cmp2 nSize, @pk                                   \n\
     jnz .error                                        \n\
-    add_sig s_pk                                      \n\
-    save_var 1,0, 8,s_nRate                           \n\
+    add_sig pk                                        \n\
+    save_var 1,0, 8,nRate                             \n\
     ret                                               \n\
 }                                                     \n\
 ";
@@ -4068,8 +4071,8 @@ struct UpdFundsCtx {                                  \n\
     arg u8 nRetVal                                    \n\
     var u2 nSize                                      \n\
                                                       \n\
-    mov8 s_nRetVal, 16106127360     # 3.75 << 32      \n\
-    mov2 s_nSize, 8                                   \n\
+    mov8 nRetVal, 16106127360     # 3.75 << 32        \n\
+    mov2 nSize, 8                                     \n\
                                                       \n\
 .method_0                     # c'tor                 \n\
 .method_1                     # d'tor                 \n\

@@ -122,59 +122,20 @@ namespace bvm {
 		return ret;
 	}
 
-	bool Processor::FetchPtr(BitReader& br, Ptr& out)
+	bool Processor::FetchPtr(Ptr& out, Type::Size nAddr)
 	{
-		const auto* pAddr = reinterpret_cast<const Type::uintSize*>(FetchInstruction(Type::uintSize::nBytes));
-		return FetchPtr(br, out, *pAddr);
-	}
-
-	bool Processor::FetchPtr(BitReader& br, Ptr& out, const Type::uintSize& addr)
-	{
-		uint8_t nRel = FetchBit(br); // absolute or relative to sp?
-
-		Type::Size n;
-		addr.Export(n);
-
-		bool bData = !nRel && (n < Limits::DataSize);
+		bool bData = (nAddr < Limits::DataSize);
 		if (bData)
 		{
-			Test(n <= m_Data.n);
+			Test(nAddr <= m_Data.n);
 
-			out.p = m_Data.p + n;
-			out.n = m_Data.n - n;
+			out.p = m_Data.p + nAddr;
+			out.n = m_Data.n - nAddr;
 		}
 		else
-		{
-			if (nRel)
-				n += m_Sp; // wraparound is ok, negative stack offsets are allowed
-			SetPtrStack(out, n);
-		}
-
-		if (m_pDbg)
-		{
-			Type::uintSize val = addr;
-			if (nRel)
-			{
-				*m_pDbg << "sp";
-
-				if (0x80 & val.m_pData[0])
-				{
-					val.Negate();
-					*m_pDbg << '-';
-				}
-				else
-					*m_pDbg << '+';
-			}
-			*m_pDbg << val;
-		}
+			SetPtrStack(out, nAddr);
 
 		return bData;
-	}
-
-	void Processor::LogDeref()
-	{
-		if (m_pDbg)
-			*m_pDbg << "=>";
 	}
 
 	void Processor::LogOpCode(const char* szName)
@@ -265,7 +226,7 @@ namespace bvm {
 
 	int Processor::FetchSize(BitReader& br, Type::Size& ret)
 	{
-		Ptr out;
+		Operand out;
 		int nInd = FetchOperand(br, out, false, Type::uintSize::nBytes, 0);
 
 		out.Get<Type::uintSize>()->Export(ret);
@@ -335,7 +296,7 @@ namespace bvm {
 	};
 
 
-	int Processor::FetchOperand(BitReader& br, Ptr& out, bool bW, int nSize, Type::Size nSizeX)
+	int Processor::FetchOperand(BitReader& br, Operand& out, bool bW, int nSize, Type::Size nSizeX)
 	{
 		bool bCanInline = !bW && (OpCodesImpl::v != nSize);
 
@@ -346,12 +307,13 @@ namespace bvm {
 				*m_pDbg << '(';
 
 			nSize = FetchSize(br, nSizeX);
+			// reuse variable nSize. It's actually the indirection count while reading the size
 
 			if (m_pDbg)
 				*m_pDbg << ") ";
 
 			if (nSize)
-				bCanInline = false;
+				bCanInline = false; // size was written indirectly, means the operand size was not known at compile time
 			else
 			{
 				if (!nSizeX)
@@ -373,22 +335,50 @@ namespace bvm {
 			out.p = Cast::NotConst(FetchInstruction(static_cast<Type::Size>(nSize)));
 			out.n = nSize;
 
+			if ((Type::uintSize::nBytes == static_cast<Type::Size>(nSize)) && FetchBit(br))
+			{
+				// taking address of a local variable
+				out.m_Aux = *out.Get<Type::uintSize>();
+
+				if (m_pDbg)
+					*m_pDbg << "sp+" << out.m_Aux << "=";
+
+				out.m_Aux += Type::uintSize(m_Sp);
+
+				out.p = out.m_Aux.m_pData;
+				out.n = out.m_Aux.nBytes;
+			}
+
 			LogValue(out);
 
 			return 0;
 		}
 
-		bool bReadOnly = FetchPtr(br, out);
-		int res = 1;
+		int nInd = 1; // num of indirections
+		bool bReadOnly = true;
 
-		if (FetchBit(br))
+		Type::Size nAddr = FetchBit(br) ? m_Sp : 0; // 1st indirection may account for sp, it's a typical access of a local variable
+
+		for (; ; nInd++)
 		{
-			LogDeref();
-			// dereference
-			const auto* p = out.Get<uintBigFor<Type::Size>::Type>();
-			bReadOnly = FetchPtr(br, out, *p);
+			const auto* pOffs = reinterpret_cast<const Type::uintSize*>(FetchInstruction(Type::uintSize::nBytes));
 
-			res++;
+			if (m_pDbg)
+				*m_pDbg << uintBigFrom(nAddr) << '+' << *pOffs << '=';
+
+			Type::Size nOffs;
+			pOffs->Export(nOffs);
+			nAddr += nOffs;
+
+			if (m_pDbg)
+				*m_pDbg << uintBigFrom(nAddr) << "=>";
+
+			bReadOnly = FetchPtr(out, nAddr);
+
+			if (!FetchBit(br))
+				break; // no more indirections
+
+			out.Get<Type::uintSize>()->Export(nAddr); // dereference operation
 		}
 
 		if (bW)
@@ -399,11 +389,10 @@ namespace bvm {
 			Test(out.n >= static_cast<uint32_t>(nSize));
 			out.n = static_cast<uint32_t>(nSize);
 
-			LogDeref();
 			LogValue(out);
 		}
 
-		return res;
+		return nInd;
 	}
 
 	void Processor::RunOnce()
@@ -430,7 +419,7 @@ namespace bvm {
 #define THE_MACRO_ParamIsPrintResult(name, rw, len) (rw && (v != len)) |
 #define THE_MACRO_ParamRead(name, rw, len) \
 				LogVarName(#name); \
-				Ptr par##name; \
+				Operand par##name; \
 				FetchOperand(br, par##name, rw, len, nSizeX); \
 				LogVarEnd();
 
@@ -1186,6 +1175,78 @@ namespace bvm {
 		return false;
 	}
 
+	Compiler::Variable* Compiler::LookupVar(MyBlob& name)
+	{
+		for (auto it = m_ScopesActive.rbegin(); m_ScopesActive.rend() != it; it++)
+		{
+			auto& var = it->m_mapVars[name.as_Blob()];
+			if (var.IsValid())
+				return &var;
+		}
+
+		return nullptr;
+	}
+
+	uint32_t Compiler::RemoveDerefs(MyBlob& x)
+	{
+		uint32_t i = 0;
+		for (; x.n && ('*' == *x.p); i++)
+			x.Move1();
+		return i;
+	}
+
+	bool Compiler::ParseVariableAccess(MyBlob x, VarAccess& res)
+	{
+		MyBlob name0;
+		x.ExtractToken(name0, '.');
+		uint32_t nDeref = RemoveDerefs(name0);
+
+		Variable* pVar = LookupVar(name0);
+		if (!pVar)
+			return false;
+
+		Type::Size nPos = 0;
+
+		while (true)
+		{
+			nPos += pVar->m_Pos;
+			bool bPtr = (nDeref < pVar->m_nPtrs);
+
+			if (nDeref > pVar->m_nPtrs)
+				Fail("too many derefs");
+
+			while (nDeref--)
+			{
+				res.m_Indirections.push_back(nPos);
+				nPos = 0;
+			}
+
+			// ...
+
+			x.ExtractToken(name0, '.');
+			if (!name0.n)
+			{
+				res.m_Indirections.push_back(nPos);
+				res.m_Size = bPtr ? Type::uintSize::nBytes : pVar->m_Size;
+				break;
+			}
+
+			nDeref = RemoveDerefs(name0);
+
+			auto* pType = pVar->m_pType;
+			if (!pType)
+				Fail("not a struct");
+
+			auto it = pType->m_mapFields.find(name0.as_Blob());
+			if (pType->m_mapFields.end() == it)
+				Fail("field not found");
+
+			pVar = &(it->second);
+		}
+
+		return true;
+	}
+
 	uint8_t* Compiler::ParseOperand(MyBlob& line, bool bW, int nLen, Type::Size nSizeX)
 	{
 		bool bCanInline = !bW && (Processor::OpCodesImpl::v != nLen);
@@ -1211,49 +1272,97 @@ namespace bvm {
 		line.ExtractToken(x, ',');
 
 		if (!x.n)
-			Fail("");
+			Fail("operand expected");
 
-		uint8_t p1 = *x.p;
-		uint8_t bIsInline = !IsPtrPrefix(p1);
-		if (bCanInline)
-			BwAdd(bIsInline);
-
-		if (bIsInline)
+		uint8_t nMod = *x.p;
+		bool bMod = false;
+		switch (nMod)
 		{
-			if (!bCanInline || !nLen)
-				Fail("can't inline operand");
-
-			size_t n0 = m_Result.size();
-			bool bLabel = ParseSignedNumberOrLabel(x, nLen, -1);
-			if (bLabel)
-				return nullptr;
-
-			assert(!m_Result.empty());
-			return &m_Result.front() + n0;
-		}
-
-
-		x.Move1();
-
-		uint8_t p2 = *x.p;
-		uint8_t bIndirect = IsPtrPrefix(p2);
-		if (bIndirect)
-		{
+		case '@': // sizeof
+		case '&': // addr of a local var
 			x.Move1();
-			std::swap(p1, p2);
+			bMod = true;
 		}
 
-		bool bLabel = ParseSignedNumberOrLabel(x, sizeof(Type::Size), bIndirect ? -1 : nLen);
-		if (bLabel && ('p' != p1))
-			Fail("label pointer must be absolute");
+		VarAccess va;
+		if (ParseVariableAccess(x, va))
+		{
+			assert(!va.m_Indirections.empty());
 
-		BwAddPtrType(p1);
+			if (nLen > 0)
+			{
+				Type::Size nSizeMod = bMod ? Type::uintSize::nBytes : va.m_Size;
+				if (static_cast<Type::Size>(nLen) != nSizeMod)
+					Fail("operand size mismatch");
+			}
 
-		BwAdd(bIndirect);
-		if (bIndirect)
-			BwAddPtrType(p2);
+			if (bCanInline)
+				BwAdd(!!bMod); // bIsInline
 
-		return nullptr;
+			if (bMod)
+			{
+				if (!bCanInline)
+					Fail("can't inline operand");
+
+				Type::uintSize val;
+				uint8_t bSizeOf = ('@' == nMod);
+				if (bSizeOf)
+					val = va.m_Size;
+				else
+				{
+					if (1 != va.m_Indirections.size())
+						Fail("can't get address");
+					val = va.m_Indirections.front();
+				}
+
+				size_t n0 = m_Result.size();
+				WriteFlexible(val, Type::uintSize::nBytes);
+
+				BwAdd(!bSizeOf); // should add sp?
+
+				return bSizeOf ? &m_Result.front() + n0 : nullptr;
+			}
+			else
+			{
+				BwAdd(1); // should add sp?
+				for (size_t i = 0; ; )
+				{
+					Type::uintSize val = va.m_Indirections[i];
+					WriteFlexible(val, Type::uintSize::nBytes);
+
+					uint8_t nMore = (++i < va.m_Indirections.size());
+					BwAdd(nMore);
+					if (!nMore)
+						break;
+				}
+
+			}
+
+			return nullptr;
+		}
+		else
+		{
+			if (bMod)
+				Fail("modifiers allowed on variables only");
+		}
+
+		if (!bCanInline || !nLen)
+			Fail("can't inline operand");
+
+
+		BwAdd(1); // inline
+
+		size_t n0 = m_Result.size();
+		bool bLabel = ParseSignedNumberOrLabel(x, nLen);
+
+		if ((Type::uintSize::nBytes == static_cast<Type::Size>(nLen)))
+			BwAdd(0); // not taking addr of local var
+
+		if (bLabel)
+			return nullptr;
+
+		assert(!m_Result.empty());
+		return &m_Result.front() + n0;
 	}
 
 	void Compiler::ParseSignedRaw(MyBlob& x, uint32_t nBytes, uintBigFor<uint64_t>::Type& val2)
@@ -1296,69 +1405,6 @@ namespace bvm {
 		WriteFlexible(val2, nBytes);
 	}
 
-	Type::Size Compiler::ParseVariableUse(MyBlob& x, uint32_t nBytes, bool bPosOrSize)
-	{
-		x.Move1();
-
-		// intrinsic (built-in) variables
-		if (x == "local_size")
-		{
-			Scope& s = m_ScopesActive.back();
-			Type::uintSize val = s.m_nSizeLocal;
-			WriteFlexible(val, nBytes);
-			return sizeof(Type::Size);
-		}
-
-		bool bIgnoreRefSize = x.n && ('_' == *x.p);
-		if (bIgnoreRefSize)
-			x.Move1();
-
-		MyBlob name0;
-		x.ExtractToken(name0, '.');
-
-		Type::Size nTypeSize = 0;
-
-		for (auto it = m_ScopesActive.rbegin(); ; it++)
-		{
-			if (m_ScopesActive.rend() == it)
-				Fail("variable not found");
-
-			auto& var = it->m_mapVars[name0.as_Blob()];
-			if (var.IsValid())
-			{
-				Type::Size res = bPosOrSize ? var.m_Pos : var.m_Size;
-				nTypeSize = var.m_Size;
-				Struct* pType = var.m_pType;
-
-				while (x.n)
-				{
-					if (!pType)
-						Fail("not a struct");
-
-					x.ExtractToken(name0, '.');
-
-					auto& field = pType->m_mapFields[name0.as_Blob()];
-					if (!field.IsValid())
-						Fail("field not found");
-
-					if (bPosOrSize)
-						res += field.m_Pos;
-					else
-						res = field.m_Size;
-
-					pType = field.m_pType;
-					nTypeSize = field.m_Size;
-				}
-
-				Type::uintSize val = res;
-				WriteFlexible(val, nBytes);
-				break;
-			}
-		}
-
-		return bIgnoreRefSize ? Label::s_Invalid : nTypeSize;
-	}
-
 	void Compiler::WriteFlexible(const uint8_t* pSrc, uint32_t nSizeSrc, uint32_t nSizeDst)
 	{
 		for (; nSizeDst > nSizeSrc; nSizeDst--)
@@ -1370,7 +1416,7 @@ namespace bvm {
 			m_Result.push_back(pSrc[i]);
 	}
 
-	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes, int nIndirectOperandSize)
+	bool Compiler::ParseSignedNumberOrLabel(MyBlob& x, uint32_t nBytes)
 	{
 		if (x.n)
 		{
@@ -1383,21 +1429,12 @@ namespace bvm {
 				return true;
 			}
 
-			if ('_' == *x.p)
+			if (x == "local_size")
 			{
-				Type::Size nSizeIndirect = ParseVariableUse(x, nBytes, true);
-				if ((Label::s_Invalid != nSizeIndirect) &&
-					(nIndirectOperandSize > 0) &&
-					(static_cast<Type::Size>(nIndirectOperandSize) != nSizeIndirect))
-					Fail("Referenced variable size mismatch");
-
-				return false;
-			}
-
-			if ('@' == *x.p)
-			{
-				ParseVariableUse(x, nBytes, false);
-				return false;
+				Scope& s = m_ScopesActive.back();
+				Type::uintSize val = s.m_nSizeLocal;
+				WriteFlexible(val, nBytes);
+				return true;
 			}
 		}
 
@@ -1471,7 +1508,7 @@ namespace bvm {
 		return nullptr;
 	}
 
-	Compiler::Struct* Compiler::ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size& nVarSize)
+	Compiler::Struct* Compiler::ParseVariableDeclarationRaw(MyBlob& line, MyBlob& name, Type::Size& nVarSize, uint32_t& nPtrs)
 	{
 		char nTag;
 		Struct* pType = ParseVariableType(line, nVarSize, nTag);
@@ -1480,6 +1517,8 @@ namespace bvm {
 		if (!name.n)
 			Fail("variable name expected");
 
+		nPtrs = RemoveDerefs(name);
+
 		return pType;
 	}
 
@@ -1487,7 +1526,8 @@ namespace bvm {
 	{
 		MyBlob name;
 		Type::Size nVarSize;
-		Struct* pType = ParseVariableDeclarationRaw(line, name, nVarSize);
+		uint32_t nPtrs;
+		Struct* pType = ParseVariableDeclarationRaw(line, name, nVarSize, nPtrs);
 
 		auto& s = m_ScopesActive.back();
 		auto& x = s.m_mapVars[name.as_Blob()];
@@ -1495,7 +1535,12 @@ namespace bvm {
 			Fail("variable name duplicated");
 
 		x.m_Size = nVarSize;
+		x.m_nPtrs = nPtrs;
 		x.m_pType = pType;
+
+		if (nPtrs)
+			nVarSize = Type::uintSize::nBytes;
+
 		if (bArg)
 		{
 			s.m_nSizeArgs += nVarSize;
@@ -1543,7 +1588,8 @@ namespace bvm {
 				line.p = opcode.p;
 
 				Type::Size nSize;
-				Struct* pType = ParseVariableDeclarationRaw(line, opcode, nSize);
+				uint32_t nPtrs;
+				Struct* pType = ParseVariableDeclarationRaw(line, opcode, nSize, nPtrs);
 
 				auto& field = st.m_mapFields[opcode.as_Blob()];
 				if (field.IsValid())
@@ -1551,8 +1597,9 @@ namespace bvm {
 
 				field.m_Pos = st.m_Size;
 				field.m_Size = nSize;
+				field.m_nPtrs = nPtrs;
 				field.m_pType = pType;
-				st.m_Size += nSize;
+				st.m_Size += nPtrs ? Type::uintSize::nBytes : nSize;
 			}
 
 			return;
