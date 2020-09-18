@@ -383,6 +383,19 @@ namespace bvm {
 
 		if (bW)
 			Test(!bReadOnly);
+		else
+		{
+			if ((Type::uintSize::nBytes == static_cast<uint32_t>(nSize)) && FetchBit(br))
+			{
+				// this is the ptr to the val
+				out.m_Aux = nAddr;
+				out.p = out.m_Aux.m_pData;
+				out.n = out.m_Aux.nBytes;
+
+				if (m_pDbg)
+					*m_pDbg << "<=";
+			}
+		}
 
 		if (nSize >= 0)
 		{
@@ -1264,13 +1277,11 @@ namespace bvm {
 			Fail("operand expected");
 
 		uint8_t nMod = *x.p;
-		uint8_t bMod = 0;
 		switch (nMod)
 		{
 		case '@': // sizeof
 		case '&': // addr of a local var
 			x.Move1();
-			bMod = 1;
 		}
 
 		VarAccess va;
@@ -1278,24 +1289,35 @@ namespace bvm {
 		{
 			assert(!va.m_Indirections.empty());
 
-			if (bCanInline)
-				BwAdd(bMod); // bIsInline
+			uint8_t bSizeOf = ('@' == nMod);
+			uint8_t bAmps = ('&' == nMod);
+			uint8_t bInline = bSizeOf;
+			if (bAmps)
+			{
+				va.m_Size = Type::uintSize::nBytes;
 
-			if (bMod)
+				if (1 == va.m_Indirections.size())
+					bInline = 1; // as well
+			}
+
+			if (bCanInline)
+				BwAdd(bInline);
+			else
+			{
+				if (bInline)
+					Fail("can't inline operand");
+			}
+
+			if (bInline)
 			{
 				if (!bCanInline)
 					Fail("can't inline operand");
 
 				Type::uintSize val;
-				uint8_t bSizeOf = ('@' == nMod);
 				if (bSizeOf)
 					val = va.m_Size;
 				else
-				{
-					if (1 != va.m_Indirections.size())
-						Fail("can't get address");
 					val = va.m_Indirections.front();
-				}
 
 				nSizeX = (nLen > 0) ? static_cast<Type::Size>(nLen) : Type::uintSize::nBytes;
 
@@ -1323,14 +1345,11 @@ namespace bvm {
 						break;
 				}
 
+				if (!bW && (Type::uintSize::nBytes == static_cast<uint32_t>(nLen)))
+					BwAdd(bAmps);
 			}
 
 			return nullptr;
-		}
-		else
-		{
-			if (bMod)
-				Fail("modifiers allowed on variables only");
 		}
 
 		if (!bCanInline || !nLen)

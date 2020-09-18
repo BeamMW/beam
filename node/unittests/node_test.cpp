@@ -1923,10 +1923,10 @@ struct OracleData {                                   \n\
 				struct UpdatePosition {
 					static const Type::Size s_Method = 2;
 
-					uint8_t m_bBWithdraw;
-					uint8_t m_bAWithdraw;
-					uintBigFor<Amount>::Type m_BChange;
 					uintBigFor<Amount>::Type m_AChange;
+					uintBigFor<Amount>::Type m_BChange;
+					uint8_t m_bAWithdraw;
+					uint8_t m_bBWithdraw;
 					ECC::Point m_Pk;
 				};
 
@@ -2059,13 +2059,41 @@ struct UpdFundsCtx {                                  \n\
     u1 bWithdraw                                      \n\
 }                                                     \n\
                                                       \n\
+struct InOuts {                                       \n\
+    u8 nAChange                                       \n\
+    u8 nBChange                                       \n\
+    u1 bAWithdraw                                     \n\
+    u1 bBWithdraw                                     \n\
+}                                                     \n\
+                                                      \n\
+.update_pos                                           \n\
+{                                                     \n\
+    arg InOuts *pIos                                  \n\
+    arg Worker *pWrk                                  \n\
+                                                      \n\
+    var UpdFundsCtx ctx                               \n\
+                                                      \n\
+    mov1 ctx.bWithdraw, *pIos.bAWithdraw              \n\
+    mov8 ctx.nChange, *pIos.nAChange                  \n\
+    mov2 ctx.pTotal, &*pWrk.pos.nAVal                 \n\
+    mov4 ctx.nAid, *pWrk.gd.nAid                      \n\
+                                                      \n\
+    call .move_funds, local_size                      \n\
+                                                      \n\
+    mov1 ctx.bWithdraw, *pIos.bBWithdraw              \n\
+    mov8 ctx.nChange, *pIos.nBChange                  \n\
+    mov2 ctx.pTotal, &*pWrk.pos.nBVal                 \n\
+    xor4 ctx.nAid, ctx.nAid                           \n\
+                                                      \n\
+    call .move_funds, local_size                      \n\
+                                                      \n\
+    ret                                               \n\
+}                                                     \n\
+                                                      \n\
 .method_2                     # PositionUpdate        \n\
 {                                                     \n\
     arg u33 pk                                        \n\
-    arg u8 nAChange                                   \n\
-    arg u8 nBChange                                   \n\
-    arg u1 bAWithdraw                                 \n\
-    arg u1 bBWithdraw                                 \n\
+    arg InOuts ios                                    \n\
                                                       \n\
     var u2 nSize                                      \n\
     var Worker wrk                                    \n\
@@ -2074,21 +2102,13 @@ struct UpdFundsCtx {                                  \n\
     call .wrk_load, local_size                        \n\
                                                       \n\
     {                                                 \n\
-        var UpdFundsCtx ctx                           \n\
+        var Worker *pArg1                             \n\
+        mov2 pArg1, &wrk                              \n\
                                                       \n\
-        mov1 ctx.bWithdraw, bAWithdraw                \n\
-        mov8 ctx.nChange, nAChange                    \n\
-        mov2 ctx.pTotal, &wrk.pos.nAVal               \n\
-        mov4 ctx.nAid, wrk.gd.nAid                    \n\
+        var InOuts *pIos                              \n\
+        mov2 pIos, &ios                               \n\
                                                       \n\
-        call .move_funds, local_size                  \n\
-                                                      \n\
-        mov1 ctx.bWithdraw, bBWithdraw                \n\
-        mov8 ctx.nChange, nBChange                    \n\
-        mov2 ctx.pTotal, &wrk.pos.nBVal               \n\
-        xor4 ctx.nAid, ctx.nAid                       \n\
-                                                      \n\
-        call .move_funds, local_size                  \n\
+        call .update_pos, local_size                  \n\
     }                                                 \n\
                                                       \n\
     {                                                 \n\
@@ -2109,8 +2129,10 @@ struct UpdFundsCtx {                                  \n\
     arg UpdFundsCtx ctx                               \n\
     var u1 bDec                                       \n\
                                                       \n\
-    mov1 bDec, 1                                      \n\
-    and1 bDec, ctx.bWithdraw                          \n\
+    cmp1 ctx.bWithdraw, 1                             \n\
+    jg .error   # must be 0 or 1                      \n\
+                                                      \n\
+    mov1 bDec, ctx.bWithdraw                          \n\
                                                       \n\
     cmp1 ctx.bWithdraw, 0                             \n\
     {                                                 \n\
