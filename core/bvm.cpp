@@ -779,6 +779,14 @@ namespace bvm {
 		ac.MergeSort(p);
 	}
 
+	BVM_METHOD(get_HdrH)
+	{
+		Block::SystemState::Full s;
+		get_Hdr(s);
+
+		hRes_ = s.m_Height;
+	}
+
 	void Processor::ArrayContext::Realize()
 	{
 		Test(static_cast<uint32_t>(m_nElementWidth) >= static_cast<uint32_t>(m_nKeyPos) + static_cast<uint32_t>(m_nKeyWidth));

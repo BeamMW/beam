@@ -108,6 +108,9 @@
 	macro(nKeyPos, r,2) \
 	macro(nKeyWidth, r,2) \
 
+#define BVMOp_get_HdrH(macro) \
+	macro(hRes, w,8)
+
 #define BVM_OpCodes(macro) \
 	macro(mov) \
 	macro(xor) \
@@ -144,4 +147,5 @@
 	macro(asset_emit) \
 	macro(asset_destroy) \
 	macro(sort) \
+	macro(get_HdrH) \
 

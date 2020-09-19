@@ -2041,6 +2041,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override;
 
+		virtual void get_Hdr(Block::SystemState::Full& s) override;
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
@@ -3938,6 +3939,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	}
 
 	return bExisted;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Hdr(Block::SystemState::Full& s)
+{
+	s = m_Proc.m_Cursor.m_Full;
 }
 
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner)
