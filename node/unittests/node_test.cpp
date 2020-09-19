@@ -1934,145 +1934,151 @@ struct OracleData {                                   \n\
 
 
 
-				static const char g_szProg[] = "\
-struct GlobalData {                                   \n\
-    u32 nOracleID                                     \n\
-    u8 nRiskFp                                        \n\
-    u4 nAid                                           \n\
-}                                                     \n\
-                                                      \n\
-.method_0                     # c'tor                 \n\
-{                                                     \n\
-    arg u32 nOracleID                                 \n\
-    arg u8 nRiskFp                                    \n\
-    arg u2 nMeta                                      \n\
-    #    u1[],     metadata                           \n\
-                                                      \n\
-    var GlobalData stGD                               \n\
-    var u1 *pPtr                                      \n\
-                                                      \n\
-    ref_add nOracleID                                 \n\
-    jz .error                                         \n\
-                                                      \n\
-    mov2 pPtr, &nMeta                                 \n\
-    sub2 pPtr, nMeta                                  \n\
-                                                      \n\
+				static const char g_szProg0[] = "\
+struct GlobalData {            \n\
+    u32 nOracleID              \n\
+    u8 nRiskFp                 \n\
+    u4 nAid                    \n\
+}                              \n\
+                               \n\
+.method_0             # c'tor  \n\
+{                              \n\
+    arg u32 nOracleID          \n\
+    arg u8 nRiskFp             \n\
+    arg u2 nMeta               \n\
+    #    u1[],     metadata    \n\
+                               \n\
+    var GlobalData stGD        \n\
+    var u1 *pPtr               \n\
+                               \n\
+    ref_add nOracleID          \n\
+    jz .error                  \n\
+                               \n\
+    mov2 pPtr, &nMeta          \n\
+    sub2 pPtr, nMeta           \n\
+                               \n\
     asset_create stGD.nAid, nMeta, *pPtr              \n\
-    cmp4 stGD.nAid, 0                                 \n\
-    jz .error                                         \n\
-                                                      \n\
-    # everything is ok                                \n\
+    cmp4 stGD.nAid, 0          \n\
+    jz .error                  \n\
+                               \n\
+    # everything is ok         \n\
     mov @nOracleID, stGD.nOracleID, nOracleID         \n\
-    mov8 stGD.nRiskFp, nRiskFp                        \n\
-                                                      \n\
-    save_var 1,0, @stGD, stGD                         \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
+    mov8 stGD.nRiskFp, nRiskFp \n\
+                               \n\
+    save_var 1,0, @stGD, stGD  \n\
+    ret                        \n\
+}                              \n\
+                               \n\
 .method_1                     # d'tor                 \n\
-{                                                     \n\
-    var u2 nSize                                      \n\
-    var GlobalData stGD                               \n\
-                                                      \n\
+{                              \n\
+    var u2 nSize               \n\
+    var GlobalData stGD        \n\
+                               \n\
     load_var 1,0, @stGD, stGD, nSize                  \n\
-    ref_release stGD.nOracleID                        \n\
-                                                      \n\
-    save_var 1,0, 0                                   \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.error                                                \n\
-    fail                                              \n\
-.zero                                                 \n\
-    const u8 0                                        \n\
-                                                      \n\
-struct Position {                                     \n\
-    u8 nAVal                                          \n\
-    u8 nBVal                                          \n\
-}                                                     \n\
-                                                      \n\
-struct Worker {                                       \n\
-    GlobalData gd                                     \n\
-    u33 *pPk                                          \n\
-    Position pos                                      \n\
-    u8 nRate                                          \n\
-}                                                     \n\
-                                                      \n\
-                                                      \n\
-.wrk_load                                             \n\
-{                                                     \n\
-    arg Worker wrk                                    \n\
-    var u2 nSize                                      \n\
-                                                      \n\
-    # global                                          \n\
+    ref_release stGD.nOracleID \n\
+                               \n\
+    save_var 1,0, 0            \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+.error                         \n\
+    fail                       \n\
+.zero                          \n\
+    const u8 0                 \n\
+                               \n\
+struct Bidding {               \n\
+    u33 pk                     \n\
+    u8 nValue                  \n\
+    u8 hLast                   \n\
+}                              \n\
+                               \n\
+struct Position {              \n\
+    u8 nAVal                   \n\
+    u8 nBVal                   \n\
+    Bidding bid                \n\
+}                              \n\
+                               \n\
+struct Worker {                \n\
+    GlobalData gd              \n\
+    u33 *pPk                   \n\
+    Position pos               \n\
+    u8 nRate                   \n\
+}                              \n\
+                               \n\
+.wrk_load                      \n\
+{                              \n\
+    arg Worker wrk             \n\
+    var u2 nSize               \n\
+                               \n\
+    # global                   \n\
     load_var 1,0, @wrk.gd, wrk.gd, nSize              \n\
-                                                      \n\
-    # position                                        \n\
+                               \n\
+    # position                 \n\
     load_var @wrk.*pPk,wrk.*pPk, @wrk.pos,wrk.pos, nSize  \n\
-    cmp2 nSize, @wrk.pos                              \n\
-    jz .loaded                                        \n\
+    cmp2 nSize, @wrk.pos       \n\
+    jz .loaded                 \n\
     xor @wrk.pos, wrk.pos, wrk.pos                    \n\
-    .loaded                                           \n\
-                                                      \n\
-    # rate from oracle                                \n\
-    {                                                 \n\
+    .loaded                    \n\
+                               \n\
+    # rate from oracle         \n\
+    {                          \n\
         var u8 nRate    # retval                      \n\
         call_far wrk.gd.nOracleID, 3, local_size      \n\
-        mov8 wrk.nRate, nRate                         \n\
-    }                                                 \n\
-                                                      \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.wrk_test_position                                    \n\
-{                                                     \n\
-    arg Worker *pWrk                                  \n\
-                                                      \n\
+        mov8 wrk.nRate, nRate  \n\
+    }                          \n\
+                               \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+.wrk_test_position             \n\
+{                              \n\
+    arg Worker *pWrk           \n\
+                               \n\
     # nBValue >= nAValue * nRate * nRiskFactor        \n\
-                                                      \n\
+                               \n\
     var u24 nALong      # = stPos.nAVal * rate * risk \n\
-                                                      \n\
-    {                                                 \n\
-        var u16 tmp                                   \n\
+                               \n\
+    {                          \n\
+        var u16 tmp            \n\
         mul @tmp,tmp, @*pWrk.pos.nAVal,*pWrk.pos.nAVal, @*pWrk.nRate, *pWrk.nRate  \n\
         mul @nALong, nALong, @tmp,tmp, @*pWrk.gd.nRiskFp,*pWrk.gd.nRiskFp          \n\
-    }                                                 \n\
-                                                      \n\
-    struct u24Ex {                                    \n\
-        u8 Hi                                         \n\
-        u8 Mid                                        \n\
-        u8 Lo                                         \n\
-    }                                                 \n\
-                                                      \n\
+    }                          \n\
+                               \n\
+    struct u24Ex {             \n\
+        u8 Hi                  \n\
+        u8 Mid                 \n\
+        u8 Lo                  \n\
+    }                          \n\
+                               \n\
     var u24Ex nBLong    # = stPos.nBVal promoted      \n\
-    xor 24, nBLong, nBLong                            \n\
+    xor 24, nBLong, nBLong     \n\
     mov8 nBLong.Mid, *pWrk.pos.nBVal                  \n\
-                                                      \n\
+                               \n\
     cmp @nALong, nALong, nBLong                       \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-struct UpdFundsCtx {                                  \n\
-    u4 nAid                                           \n\
-    u8 *pTotal                 # in/out               \n\
-    u8 nChange                                        \n\
-    u1 bWithdraw                                      \n\
-}                                                     \n\
-                                                      \n\
-struct InOuts {                                       \n\
-    u8 nAChange                                       \n\
-    u8 nBChange                                       \n\
-    u1 bAWithdraw                                     \n\
-    u1 bBWithdraw                                     \n\
-}                                                     \n\
-                                                      \n\
-.update_pos                                           \n\
-{                                                     \n\
-    arg InOuts *pIos                                  \n\
-    arg Worker *pWrk                                  \n\
-                                                      \n\
-    var UpdFundsCtx ctx                               \n\
-                                                      \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+struct UpdFundsCtx {           \n\
+    u4 nAid                    \n\
+    u8 *pTotal       # in/out  \n\
+    u8 nChange                 \n\
+    u1 bWithdraw               \n\
+}                              \n\
+                               \n\
+struct InOuts {                \n\
+    u8 nAChange                \n\
+    u8 nBChange                \n\
+    u1 bAWithdraw              \n\
+    u1 bBWithdraw              \n\
+}                              \n\
+                               \n\
+.update_pos                    \n\
+{                              \n\
+    arg InOuts *pIos           \n\
+    arg Worker *pWrk           \n\
+                               \n\
+    var UpdFundsCtx ctx        \n\
+                               \n\
     mov1 ctx.bWithdraw, *pIos.bAWithdraw              \n\
     mov8 ctx.nChange, *pIos.nAChange                  \n\
     mov2 ctx.pTotal, &*pWrk.pos.nAVal                 \n\
@@ -2086,28 +2092,86 @@ struct InOuts {                                       \n\
     xor4 ctx.nAid, ctx.nAid                           \n\
                                                       \n\
     call .move_funds, local_size                      \n\
-                                                      \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.method_2                     # PositionUpdate        \n\
-{                                                     \n\
-    arg u33 pk                                        \n\
-    arg InOuts ios                                    \n\
-                                                      \n\
-    var u2 nSize                                      \n\
-    var Worker wrk                                    \n\
-                                                      \n\
-    mov2 wrk.pPk, &pk                                 \n\
-    call .wrk_load, local_size                        \n\
-                                                      \n\
-    {                                                 \n\
-        var Worker *pArg1                             \n\
-        mov2 pArg1, &wrk                              \n\
-                                                      \n\
-        var InOuts *pIos                              \n\
-        mov2 pIos, &ios                               \n\
-                                                      \n\
+                               \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+.save_pos                      \n\
+{                              \n\
+    arg Worker *pWrk           \n\
+                               \n\
+    var u2 nSize               \n\
+    mov2 nSize, 0              \n\
+                               \n\
+    var Position noPos         \n\
+    xor @noPos, noPos, noPos   \n\
+    cmp @noPos, noPos, *pWrk.pos                      \n\
+    jz .empty                  \n\
+    mov2 nSize, @*pWrk.pos     \n\
+    .empty                     \n\
+                               \n\
+    save_var @*pWrk.*pPk,*pWrk.*pPk, nSize,*pWrk.pos  \n\
+                               \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+struct VaultOp {               \n\
+    u33 pk                     \n\
+    u4 nAid                    \n\
+    u8 nAmount                 \n\
+}                              \n\
+                               \n\
+                               \n\
+.vault_cid                     \n\
+    const h32 9711ff1e7b37bda8044d405d6244b5a166732599788bc5ad944501f39b154154	\n\
+                               \n\
+.pos_cancel_bidding            \n\
+{                              \n\
+    arg Position *pPos         \n\
+                               \n\
+    cmp8 *pPos.bid.nValue, 0   \n\
+    jz .end                    \n\
+                               \n\
+    funds_unlock *pPos.bid.nValue, 0                  \n\
+                               \n\
+    {                          \n\
+        var u32 *pCid          \n\
+        mov2 pCid, .vault_cid  \n\
+                               \n\
+        var VaultOp vop        \n\
+        mov @vop.pk, vop.pk, *pPos.bid.pk     \n\
+        xor4 vop.nAid, vop.nAid               \n\
+        mov8 vop.nAmount, *pPos.bid.nValue    \n\
+                                              \n\
+        call_far *pCid, 2, local_size         \n\
+    }                                         \n\
+                                              \n\
+    xor @*pPos.bid, *pPos.bid, *pPos.bid      \n\
+                               \n\
+    .end                       \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+";
+
+	static const char g_szProg1[] = "\
+.method_2    # PositionUpdate  \n\
+{                              \n\
+    arg u33 pk                 \n\
+    arg InOuts ios             \n\
+                               \n\
+    var Worker wrk             \n\
+                               \n\
+    mov2 wrk.pPk, &pk          \n\
+    call .wrk_load, local_size \n\
+                               \n\
+    {                          \n\
+        var Worker *pArg1      \n\
+        mov2 pArg1, &wrk       \n\
+                               \n\
+        var InOuts *pIos       \n\
+        mov2 pIos, &ios        \n\
+                               \n\
         call .update_pos, local_size                  \n\
     }                                                 \n\
                                                       \n\
@@ -2118,18 +2182,28 @@ struct InOuts {                                       \n\
         jg .error                                     \n\
     }                                                 \n\
                                                       \n\
-    # ok                                              \n\
-    add_sig pk                                        \n\
-    save_var @pk,pk, @wrk.pos,wrk.pos                 \n\
-    ret                                               \n\
-}                                                     \n\
+    {                                                 \n\
+        var Position *pPos                            \n\
+        mov2 pPos, &wrk.pos                           \n\
+        call .pos_cancel_bidding, local_size          \n\
+    }                                                 \n\
                                                       \n\
-.move_funds                                           \n\
-{                                                     \n\
-    arg UpdFundsCtx ctx                               \n\
-    var u1 bDec                                       \n\
-                                                      \n\
-    cmp1 ctx.bWithdraw, 1                             \n\
+    {                                                 \n\
+        var Worker *pArg0                             \n\
+        mov2 pArg0, &wrk                              \n\
+        call .save_pos, local_size                    \n\
+    }                                                 \n\
+                               \n\
+    add_sig pk                 \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+.move_funds                    \n\
+{                              \n\
+    arg UpdFundsCtx ctx        \n\
+    var u1 bDec                \n\
+                               \n\
+    cmp1 ctx.bWithdraw, 1      \n\
     jg .error   # must be 0 or 1                      \n\
                                                       \n\
     mov1 bDec, ctx.bWithdraw                          \n\
@@ -2174,6 +2248,111 @@ struct InOuts {                                       \n\
         ret                                           \n\
     }                                                 \n\
 }                                                     \n\
+                               \n\
+.pos_test_bid                  \n\
+{                              \n\
+    arg Worker *pWrk           \n\
+    arg u8 nAmount             \n\
+                               \n\
+    call .wrk_test_position, local_size           \n\
+    jbz .error  # the position is ok              \n\
+                                                  \n\
+    add8 *pWrk.pos.nBVal, nAmount # ignore overflow \n\
+    call .wrk_test_position, local_size           \n\
+    jg .error  # this bid is not enough           \n\
+                                                  \n\
+    sub8 *pWrk.pos.nBVal, nAmount                 \n\
+    ret                                           \n\
+}                              \n\
+                               \n\
+.method_3    # Place bid       \n\
+{                              \n\
+    arg u33 pkBidder           \n\
+    arg u33 pkTrg              \n\
+    arg u8 nAmount             \n\
+                               \n\
+    var Worker wrk             \n\
+                               \n\
+    mov2 wrk.pPk, &pkTrg       \n\
+    call .wrk_load, local_size \n\
+                               \n\
+    cmp8 wrk.pos.bid.nValue, nAmount    \n\
+    jgz .error       # not better       \n\
+                               \n\
+    {                                      \n\
+        var u8 nArg1                       \n\
+        var Worker *pArg0                  \n\
+        mov2 pArg0, &wrk                   \n\
+        mov8 nArg1, nAmount                \n\
+        call .pos_test_bid, local_size     \n\
+    }                                                 \n\
+                               \n\
+    {                                             \n\
+        var Position *pArg     \n\
+        mov2 pArg, &wrk.pos    \n\
+        call .pos_cancel_bidding, local_size      \n\
+    }                                             \n\
+                               \n\
+    mov @pkBidder, wrk.pos.bid.pk, pkBidder       \n\
+    mov8 wrk.pos.bid.nValue, nAmount              \n\
+    get_HdrH wrk.pos.bid.hLast \n\
+                               \n\
+    {                                                 \n\
+        var Worker *pArg0                             \n\
+        mov2 pArg0, &wrk                              \n\
+        call .save_pos, local_size                    \n\
+    }                                                 \n\
+                               \n\
+    funds_lock nAmount, 0      \n\
+    add_sig pkBidder           \n\
+    ret                        \n\
+}                              \n\
+                               \n\
+.method_4    # Finish bid      \n\
+{                              \n\
+    arg u33 pkBidder           \n\
+    arg u33 pkTrg              \n\
+                               \n\
+    var Worker wrk             \n\
+                               \n\
+    mov2 wrk.pPk, &pkTrg       \n\
+    call .wrk_load, local_size \n\
+                               \n\
+    cmp @pkBidder, pkBidder, wrk.pos.bid.pk  \n\
+    jnz .error   # not the current winner    \n\
+                               \n\
+    cmp8 wrk.pos.bid.hLast, 0     \n\
+    jz .error    # no bidding  \n\
+                               \n\
+    var u8 hNow                \n\
+    get_HdrH hNow              \n\
+    sub8 hNow, wrk.pos.bid.hLast  \n\
+    cmp8 hNow, 1440            \n\
+    jb .error    # too early   \n\
+                               \n\
+    {                                      \n\
+        var u8 nArg1                       \n\
+        var Worker *pArg0                  \n\
+        mov2 pArg0, &wrk                   \n\
+        mov8 nArg1, wrk.pos.bid.nValue     \n\
+        call .pos_test_bid, local_size     \n\
+    }                          \n\
+                               \n\
+    # erase the position       \n\
+    save_var @pkTrg,pkTrg, 0   \n\
+                               \n\
+    # add the bid to position  \n\
+    add8 wrk.pos.nBVal, wrk.pos.bid.nValue      \n\
+    xor @wrk.pos.bid, wrk.pos.bid, wrk.pos.bid  \n\
+                               \n\
+    # save under new owner     \n\
+    # TODO: add if trg exists! \n\
+    save_var @pkBidder,pkBidder, @wrk.pos, wrk.pos \n\
+                               \n\
+    add_sig pkBidder           \n\
+    ret                        \n\
+}                              \n\
+                               \n\
 ";
 			} // namespace StableCoin
 
@@ -4146,7 +4325,11 @@ struct InOuts {                                       \n\
 		MyBvmProcessor proc;
 		proc.SaveContract(cidOracle, data);
 
-		bvm::Compile(data, bvm::Contract::StableCoin::g_szProg);
+		std::string sProg;
+		sProg += bvm::Contract::StableCoin::g_szProg0;
+		sProg += bvm::Contract::StableCoin::g_szProg1;
+
+		bvm::Compile(data, sProg.c_str());
 
 		bvm::ContractID cid;
 
@@ -4178,7 +4361,7 @@ struct InOuts {                                       \n\
 			// beams/stable_coins >= 45/8
 
 			bvm::Contract::StableCoin::UpdatePosition args;
-			ZeroObject(args.m_Pk);
+			memset(&args.m_Pk, 0xab, sizeof(args.m_Pk));
 			args.m_bAWithdraw = 1;
 			args.m_bBWithdraw = 0;
 			args.m_AChange = 8ULL << 58;
