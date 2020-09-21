@@ -30,6 +30,8 @@ public:
     std::function<void()> myFunction;
 
 private:
+    void doFunction(const std::function<void()>& func);
+
     void onStatus(const beam::wallet::WalletStatus& status) override;
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
