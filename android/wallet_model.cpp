@@ -19,13 +19,17 @@
 #include <jni.h>
 #include "common.h"
 
+#include <thread>         // std::thread
+
 using namespace beam;
 using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
+    
 namespace
 {
+
     jobject fillNotificationInfo(JNIEnv* env, const Notification& notification)
     {
         jobject jNotificationInfo = env->AllocObject(NotificationClass);
@@ -658,10 +662,18 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::v
 void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
     LOG_DEBUG() << "onPostFunctionToClientContext()";
     
-    doFunction(func);
+    myFunction = func;
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPostFunctionToClientContext", "(Z)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, true);
 }
 
-void WalletModel::doFunction(const std::function<void()>& func)
+void WalletModel::callMyFunction()
 {
-    func();
+    myFunction();
 }
+
+

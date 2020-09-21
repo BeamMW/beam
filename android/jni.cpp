@@ -231,9 +231,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
      auto trusted = walletModel->isConnectionTrusted();
     
-     LOG_DEBUG() << "isConnectionTrusted()" << trusted;
+     LOG_DEBUG() << "isConnectionTrusted() " << trusted;
 
     return trusted;
+ }
+
+  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callMyMethod)(JNIEnv *env, jobject thiz)
+ {
+    walletModel->callMyFunction();
  }
 
  JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateToken)(JNIEnv *env, jobject thiz, jboolean maxPrivacy, jboolean nonInteractive, jboolean isPermanentAddress, jlong amount, jstring walletId, jstring identity, jlong ownId)
