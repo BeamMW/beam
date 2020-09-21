@@ -93,10 +93,14 @@ NodeClient::~NodeClient()
         m_shouldTerminateModel = true;
         m_waiting.notify_all();
         {
-            auto r = m_reactor.lock();
-            if (r)
             {
-                r->stop();
+                auto r = m_reactor.lock();
+                if (r)
+                {
+                    r->stop();
+                }
+            }
+            {
                 if (m_thread)
                 {
                     // TODO: check this
