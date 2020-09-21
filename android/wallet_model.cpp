@@ -19,8 +19,6 @@
 #include <jni.h>
 #include "common.h"
 
-#include <thread>         // std::thread
-
 using namespace beam;
 using namespace beam::wallet;
 using namespace beam::io;

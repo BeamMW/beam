@@ -16,7 +16,6 @@
 
 #include "wallet/client/wallet_client.h"
 
-#include <android/looper.h>
 #include <unistd.h>
 
 class WalletModel
