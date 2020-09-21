@@ -16,8 +16,6 @@
 
 #include "wallet/client/wallet_client.h"
 
-#include <unistd.h>
-
 class WalletModel
     : public beam::wallet::WalletClient
 {
