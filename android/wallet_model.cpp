@@ -24,8 +24,10 @@ using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
+    
 namespace
 {
+
     jobject fillNotificationInfo(JNIEnv* env, const Notification& notification)
     {
         jobject jNotificationInfo = env->AllocObject(NotificationClass);
@@ -466,11 +468,18 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";
 
+    if(isNodeConnected) 
+    {
+        auto trusted = this->isConnectionTrusted();
+
+        LOG_DEBUG() << "isConnectionTrustedCheck()" << trusted;
+    }
+
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectedStatusChanged", "(Z)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);    
 }
 
 void WalletModel::onWalletError(ErrorType error)
@@ -654,3 +663,30 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::v
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 }
+
+void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
+    LOG_DEBUG() << "onPostFunctionToClientContext()";
+    
+    doFunction(func);
+    // myFunction = func;
+
+    // JNIEnv* env = Android_JNI_getEnv();
+
+    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPostFunctionToClientContext", "(Z)V");
+
+    // env->CallStaticVoidMethod(WalletListenerClass, callback, true);
+
+    // LOG_DEBUG() << "onPostFunctionToClientContext()";
+}
+
+void WalletModel::callMyFunction()
+{
+    myFunction();
+}
+
+void WalletModel::doFunction(const std::function<void()>& func)
+{
+    func();  
+}
+
+

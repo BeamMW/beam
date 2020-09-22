@@ -26,9 +26,12 @@ public:
     WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
-    beam::wallet::WalletAddress generateToken(beam::wallet::IWalletDB::Ptr walletDB);
+    void callMyFunction();
+    std::function<void()> myFunction;
 
 private:
+    void doFunction(const std::function<void()>& func);
+
     void onStatus(const beam::wallet::WalletStatus& status) override;
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
@@ -56,7 +59,7 @@ private:
     void onNoDeviceConnected() override {}
     void onImportDataFromJson(bool isOk) override;
     void onExportDataToJson(const std::string& data) override;
-    void onPostFunctionToClientContext(MessageFunction&& func) override {};
+    void onPostFunctionToClientContext(MessageFunction&& func) override;
     void onExportTxHistoryToCsv(const std::string& data) override {};
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
