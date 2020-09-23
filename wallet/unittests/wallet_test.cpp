@@ -927,6 +927,90 @@ namespace
         }
     }
 
+    void TestNoResponse()
+    {
+        cout << "\nTesting no peer response...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 1;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 1;
+            }
+        };
+        TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
+        auto senderDB = createSenderWalletDB();
+        
+        auto newBlockFunc = [&receiver](Height height)
+        {
+            if (height == 150)
+            {
+                io::Reactor::get_Current().stop();
+            }
+            if (height == 158)
+            {
+                WALLET_CHECK(!"Something went wrong");
+                io::Reactor::get_Current().stop();
+            }
+        };
+
+        TestNode node(newBlockFunc);
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(1000, true, [&node]() {node.AddBlock(); });
+        {
+            TestWalletRig sender(senderDB, f);
+            WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+            WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
+
+            auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(0))
+                .SetParameter(TxParameterID::PeerResponseTime, Height(10)));
+
+            mainReactor->run();
+
+            {
+                vector<Coin> newSenderCoins = sender.GetCoins();
+                vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+                WALLET_CHECK(newSenderCoins.size() == 4);
+                WALLET_CHECK(newReceiverCoins.size() == 0);
+
+                auto sh = sender.m_WalletDB->getTxHistory();
+                WALLET_CHECK(sh.size() == 1);
+                WALLET_CHECK(sh[0].m_status == wallet::TxStatus::InProgress);
+                auto rh = receiver.m_WalletDB->getTxHistory();
+                WALLET_CHECK(rh.size() == 0);
+            }
+        }
+        {
+            // Recreate wallet
+            TestWalletRig sender(senderDB, f);
+            mainReactor->run();
+            vector<Coin> newSenderCoins = sender.GetCoins();
+            vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+            WALLET_CHECK(newSenderCoins.size() == 4);
+            WALLET_CHECK(newReceiverCoins.size() == 0);
+
+            auto sh = sender.m_WalletDB->getTxHistory();
+            WALLET_CHECK(sh.size() == 1);
+            WALLET_CHECK(sh[0].m_status == wallet::TxStatus::Failed);
+            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
+            auto rh = receiver.m_WalletDB->getTxHistory();
+            WALLET_CHECK(rh.size() == 0);
+        }
+    }
+
     void TestTransactionUpdate()
     {
         cout << "\nTesting transaction update ...\n";
@@ -2821,7 +2905,7 @@ int main()
     TestTxToHimself();
     
     TestExpiredTransaction();
-    
+    TestNoResponse();
     TestTransactionUpdate();
     //TestTxPerformance();
     //TestTxNonces();
