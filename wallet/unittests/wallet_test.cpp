@@ -947,7 +947,7 @@ namespace
         TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
         auto senderDB = createSenderWalletDB();
         
-        auto newBlockFunc = [&receiver](Height height)
+        auto newBlockFunc = [](Height height)
         {
             if (height == 150)
             {
