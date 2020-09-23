@@ -968,7 +968,7 @@ namespace
             WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
             WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
-            auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
