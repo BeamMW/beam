@@ -244,6 +244,11 @@ namespace beam
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
 
+        // ethereum
+        const char* ETHEREUM_SEED = "ethereum_seed";
+        const char* ETHEREUM_ADDRESS = "ethereum_address";
+        const char* ACCOUNT_INDEX = "account_index";
+        const char* SHOULD_CONNECT = "should_connect";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -460,7 +465,11 @@ namespace beam
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "specific feerate you are willing to pay (the smallest unit of the coin per KB)")
             (cli::SWAP_BEAM_SIDE, "should be always set by the swap party who owns BEAM")
             (cli::SWAP_TX_HISTORY, "print swap transaction history in info command")
-            (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap");
+            (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap")
+            (cli::ETHEREUM_SEED, po::value<string>(), "")
+            (cli::ETHEREUM_ADDRESS, po::value<string>(), "")
+            (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "")
+            (cli::SHOULD_CONNECT, po::value<bool>(), "");
 
         po::options_description wallet_assets_options("Confidential assets");
         wallet_assets_options.add_options()

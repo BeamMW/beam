@@ -33,6 +33,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Dogecoin;
     else if (value == "dash")
         return AtomicSwapCoin::Dash;
+    else if (value == "eth")
+        return AtomicSwapCoin::Ethereum;
 
     return AtomicSwapCoin::Unknown;
 }
@@ -89,6 +91,10 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     {
         return "Dash";
     }
+    case AtomicSwapCoin::Ethereum:
+    {
+        return "Ethereum";
+    }
     default:
     {
         assert(false && "unexpected swap coin!");
@@ -140,6 +146,8 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "DOGE";
     case beam::wallet::AtomicSwapCoin::Dash:
         return "DASH";
+    case beam::wallet::AtomicSwapCoin::Ethereum:
+        return "ETH";
     default:
         return "";
     }

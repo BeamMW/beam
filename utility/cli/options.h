@@ -145,6 +145,11 @@ namespace beam
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
         extern const char* ALLOWED_ORIGIN;
+        // ethereum
+        extern const char* ETHEREUM_SEED;
+        extern const char* ETHEREUM_ADDRESS;
+        extern const char* ACCOUNT_INDEX;
+        extern const char* SHOULD_CONNECT;
         // values
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;

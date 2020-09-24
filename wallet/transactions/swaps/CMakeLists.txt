@@ -34,6 +34,10 @@ set(SWAP_SRC
     bridges/qtum/common.cpp
     bridges/qtum/qtum_core_017.cpp
     bridges/qtum/qtum_side.cpp
+    bridges/ethereum/ethereum_side.cpp
+    bridges/ethereum/ethereum_bridge.cpp
+    bridges/ethereum/settings.cpp
+    bridges/ethereum/settings_provider.cpp
 )
 
 add_library(swap STATIC ${SWAP_SRC})

@@ -27,6 +27,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
 
@@ -199,7 +200,7 @@ bool ParseSwapSettings(const po::variables_map& vm, Settings& settings)
 }
 
 template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const char* swapCoin)
+int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const char* swapCoin)
 {
     SettingsProvider settingsProvider{ walletDB };
     settingsProvider.Initialize();
@@ -335,6 +336,109 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
     }
 
     LOG_INFO() << GetCoinName(swapCoin) << " settings are not initialized.";
+}
+
+int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+{
+    ethereum::SettingsProvider settingsProvider{ walletDB };
+    settingsProvider.Initialize();
+
+    if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
+    {
+        settingsProvider.SetSettings(ethereum::Settings{});
+        return 0;
+    }
+
+    auto settings = settingsProvider.GetSettings();
+    bool isChanged = false;
+
+    if (!settings.IsInitialized())
+    {
+        if (!vm.count(cli::ETHEREUM_SEED))
+        {
+            throw std::runtime_error("ethereum seed should be specified");
+        }
+
+        if (!vm.count(cli::ETHEREUM_ADDRESS))
+        {
+            throw std::runtime_error("ethereum address should be specified");
+        }
+    }
+
+    if (vm.count(cli::ETHEREUM_ADDRESS))
+    {
+        settings.m_address = vm[cli::ETHEREUM_ADDRESS].as<string>();
+        if (!io::Address().resolve(settings.m_address.c_str()))
+        {
+            throw std::runtime_error("unable to resolve electrum address: " + settings.m_address);
+        }
+        isChanged = true;
+    }
+
+    if (vm.count(cli::ETHEREUM_SEED))
+    {
+        auto tempPhrase = vm[cli::ETHEREUM_SEED].as<string>();
+        boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
+        settings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
+
+        // TODO roman.strilets check this code for ethereum
+        if (!bitcoin::validateElectrumMnemonic(settings.m_secretWords))
+        {
+            if (bitcoin::validateElectrumMnemonic(settings.m_secretWords, true))
+            {
+                throw std::runtime_error("Segwit seed phrase is not supported yet.");
+            }
+            throw std::runtime_error("seed is not valid");
+        }
+        isChanged = true;
+    }
+
+    if (!isChanged && !settings.IsInitialized())
+    {
+        LOG_INFO() << "settings should be specified.";
+        return -1;
+    }
+
+    if (vm.count(cli::ACCOUNT_INDEX))
+    {
+        settings.m_shouldConnect = vm[cli::ACCOUNT_INDEX].as<Nonnegative<uint32_t>>().value;
+        isChanged = true;
+    }
+
+    if (vm.count(cli::SHOULD_CONNECT))
+    {
+        settings.m_shouldConnect = vm[cli::SHOULD_CONNECT].as<bool>();
+        isChanged = true;
+    }
+
+    if (isChanged)
+    {
+        settingsProvider.SetSettings(settings);
+    }
+    return 0;
+}
+
+void ShowEthSettings(const IWalletDB::Ptr& walletDB)
+{
+    ethereum::SettingsProvider settingsProvider{ walletDB };
+    settingsProvider.Initialize();
+
+    auto settings = settingsProvider.GetSettings();
+
+    if (settings.IsInitialized())
+    {
+        ostringstream stream;
+        stream << "\n" << GetCoinName(AtomicSwapCoin::Ethereum) << " settings" << '\n';
+
+        stream << "Ethereum node: " << settings.m_address << '\n';
+        stream << "Account index: " << settings.m_accountIndex << '\n';
+        stream << "Should connect: " << settings.m_shouldConnect << '\n';
+        
+        LOG_INFO() << stream.str();
+        return;
+    }
+
+    LOG_INFO() << GetCoinName(AtomicSwapCoin::Ethereum) << " settings are not initialized.";
 }
 
 template<typename SettingsProvider, typename Electrum, typename Core>
@@ -745,38 +849,42 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
     {
     case beam::wallet::AtomicSwapCoin::Bitcoin:
     {
-        return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
+        return SetSwapSettings<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
             (vm, walletDB, kSwapCoinBTC);
     }
     case beam::wallet::AtomicSwapCoin::Litecoin:
     {
-        return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
+        return SetSwapSettings<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
             (vm, walletDB, kSwapCoinLTC);
     }
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
-        return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
+        return SetSwapSettings<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
             (vm, walletDB, kSwapCoinQTUM);
     }
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
-        return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
+        return SetSwapSettings<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
             (vm, walletDB, kSwapCoinBCH);
     }
     case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
     {
-        return HandleSwapCoin<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>
+        return SetSwapSettings<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>
             (vm, walletDB, kSwapCoinBSV);
     }
     case beam::wallet::AtomicSwapCoin::Dogecoin:
     {
-        return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
+        return SetSwapSettings<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
             (vm, walletDB, kSwapCoinDOGE);
     }
     case beam::wallet::AtomicSwapCoin::Dash:
     {
-        return HandleSwapCoin<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
+        return SetSwapSettings<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
             (vm, walletDB, kSwapCoinDASH);
+    }
+    case beam::wallet::AtomicSwapCoin::Ethereum:
+    {
+        return SetEthSettings(vm, walletDB);
     }
     default:
     {
@@ -822,6 +930,11 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     case beam::wallet::AtomicSwapCoin::Dash:
     {
         ShowSwapSettings<dash::SettingsProvider>(walletDB, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Ethereum:
+    {
+        ShowEthSettings(walletDB);
         break;
     }
     default:
