@@ -77,7 +77,7 @@ endif()
 
 set(TARGET_NAME ethereum_example)
 add_executable(${TARGET_NAME} ethereum_example.cpp)
-target_link_libraries(${TARGET_NAME} utility libbitcoin ethash)
+target_link_libraries(${TARGET_NAME} core utility libbitcoin ethash)
 if(MSVC)
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4244")
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4245")
