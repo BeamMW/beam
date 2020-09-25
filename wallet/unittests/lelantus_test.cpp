@@ -395,6 +395,7 @@ void TestPublicAddressTx()
         WALLET_CHECK(txHistory[0].m_txId == txID);
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
     }
 }
 
@@ -512,7 +513,7 @@ void TestDirectAnonymousPayment()
         {
             if (tx.m_txType == TxType::PushTransaction)
             {
-                WALLET_CHECK(tx.m_amount == 6000000);
+                WALLET_CHECK(tx.m_amount == 18000000);
             }
         }
     }
