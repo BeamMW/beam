@@ -982,10 +982,10 @@ namespace detail
 			p.V.m_Ser.m_PkG.m_Y = (4 & nFlags) != 0;
 			p.V.m_Ser.m_PkJ.m_Y = (8 & nFlags) != 0;
 
-			auto pKdf = std::make_shared<HKdfPub>();
+			auto pKdf = std::make_shared<ECC::HKdfPub>();
 			pKdf->Import(p.V.m_Gen);
 			x.m_pGen = pKdf;
-			pKdf = std::make_shared<HKdfPub>();
+			pKdf = std::make_shared<ECC::HKdfPub>();
 			pKdf->Import(p.V.m_Ser);
 			x.m_pSer = pKdf;
 

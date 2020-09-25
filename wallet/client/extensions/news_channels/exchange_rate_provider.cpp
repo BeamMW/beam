@@ -62,7 +62,7 @@ namespace beam::wallet
     std::vector<ExchangeRate> ExchangeRateProvider::getRates()
     {
         std::vector<ExchangeRate> rates; 
-        for (const auto r : m_cache)
+        for (const auto& r : m_cache)
         {
             rates.push_back(r.second);
         }
