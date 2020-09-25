@@ -526,4 +526,13 @@ namespace beam
 		m_pGen = v.m_pGen;
 	}
 
+	uint32_t ShieldedTxo::PublicGen::ExportP(void* p) const
+	{
+		uint32_t offset = m_pGen->ExportP(p);
+		if (p)
+			p = static_cast<uint8_t*>(p) + offset;
+
+		return offset + m_pSer->ExportP(p);
+	}
+
 } // namespace beam

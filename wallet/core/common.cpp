@@ -1350,4 +1350,30 @@ namespace beam::wallet
         return TxFailureReason::Count;
     }
 
+    ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)
+    {
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(kdf, index);
+        ShieldedTxo::PublicGen gen;
+        gen.FromViewer(viewer);
+        return gen;
+    }
+
+    ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const Scalar::Native& sk)
+    {
+        ShieldedTxo::Voucher voucher;
+        ECC::Hash::Value nonce;
+        ECC::GenRandom(nonce);
+
+        ShieldedTxo::Data::TicketParams tp;
+        tp.Generate(voucher.m_Ticket, gen, nonce);
+
+        voucher.m_SharedSecret = tp.m_SharedSecret;
+
+        ECC::Hash::Value hvMsg;
+        voucher.get_Hash(hvMsg);
+        voucher.m_Signature.Sign(hvMsg, sk);
+        return voucher;
+    }
+
 }  // namespace beam::wallet
