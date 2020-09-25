@@ -528,6 +528,9 @@ namespace beam
 
 	uint32_t ShieldedTxo::PublicGen::ExportP(void* p) const
 	{
+		if (!m_pSer || !m_pGen)
+			return 0;
+
 		uint32_t offset = m_pGen->ExportP(p);
 		if (p)
 			p = static_cast<uint8_t*>(p) + offset;

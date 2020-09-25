@@ -944,7 +944,9 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::ShieldedTxo::PublicGen& x)
 		{
 			ECC::NoLeak<PublicGenPacked> p;
-			assert(x.ExportP(nullptr) == sizeof(p));
+			if (x.ExportP(nullptr) != sizeof(p))
+				return ar;
+
 			x.ExportP(&p);
 			uint8_t nFlags =
 				(p.V.m_Gen.m_PkG.m_Y ? 1 : 0) |
