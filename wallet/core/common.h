@@ -312,6 +312,7 @@ namespace beam::wallet
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
     MACRO(ShieldedOutputId,                122, TxoID) \
+    MACRO(PublicAddreessGen,               123, ShieldedTxo::PublicGen) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \

@@ -343,7 +343,7 @@ void TestPublicAddressTx()
     // generate ticket from public address
     Scalar::Native sk;
     sk.GenRandomNnz();
-    PeerID pid;  // fakw peedID
+    PeerID pid;  // fake peedID
     pid.FromSk(sk);
 
     ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
