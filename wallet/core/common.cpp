@@ -1032,7 +1032,8 @@ namespace beam::wallet
         MACRO(std::vector<Output::Ptr>) \
         MACRO(std::vector<ExchangeRate>) \
         MACRO(ShieldedTxo::Voucher) \
-        MACRO(ShieldedVoucherList)
+        MACRO(ShieldedVoucherList) \
+        MACRO(ShieldedTxo::PublicGen)
 
 #define MACRO(type) \
         json ToJsonValue(const type&) \

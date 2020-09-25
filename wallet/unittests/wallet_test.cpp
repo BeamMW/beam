@@ -1361,6 +1361,7 @@ namespace
 
     struct MyZeroInit {
         static void Do(std::string&) {}
+        static void Do(beam::ShieldedTxo::PublicGen&) {}
         template <typename T> static void Do(std::vector<T>&) {}
         template <typename T> static void Do(T& x) { ZeroObject(x);  }
     };

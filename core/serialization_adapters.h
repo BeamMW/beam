@@ -15,6 +15,7 @@
 #pragma once
 
 #include "block_crypt.h"
+#include "shielded.h"
 #include "utility/serialize.h"
 
 namespace yas
