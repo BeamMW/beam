@@ -330,6 +330,11 @@ namespace beam::wallet
         return true;
     }
 
+    uint32_t BitcoinSide::GetWithdrawTxAverageSize() const
+    {
+        return bitcoin::kBTCWithdrawTxAverageSize;
+    }
+
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
         Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
@@ -532,7 +537,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
+            Amount fee = static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * GetFeeRate(subTxID)) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();
