@@ -5466,6 +5466,21 @@ namespace beam::wallet
             return ss.str();
         }
 
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID)
+        {
+            try
+            {
+                for (const auto& v : vouchers)
+                {
+                    walletDB.saveVoucher(v, walletID, true);
+                }
+            }
+            catch (const DatabaseException&)
+            {
+                // probably, we are trying to insert an existing voucher, ingnore
+            }
+        }
+
         namespace
         {
             void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)

@@ -1001,6 +1001,8 @@ namespace beam::wallet
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
+
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
