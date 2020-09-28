@@ -347,6 +347,24 @@ public:
         return ret;
     }
 
+    bool parse_transfer_encoding(HttpMsgReader::What& error) {
+        error = HttpMsgReader::nothing;
+        if (headers_state != incompleted) {
+            static const std::string transferEncoding("transfer-encoding");
+            static const std::string chunked("chunked");
+            std::string typeEncoding = find_header(transferEncoding);
+            if (!typeEncoding.empty()) {
+                if (equal_ci(typeEncoding.c_str(), chunked.c_str(), chunked.size())) {
+                    return true;
+                }
+                else {
+                    error = HttpMsgReader::unsupported_type;
+                }
+            }
+        }
+        return false;
+    }
+
     size_t feed_body(const uint8_t* p, size_t sz, bool& completed) {
         assert(_bodyCursor <= _body.size());
         size_t maxBytes = _body.size() - _bodyCursor;
@@ -361,6 +379,27 @@ public:
             _bodyCursor += maxBytes;
         }
         return maxBytes;
+    }
+
+    size_t feed_chunked_body(const uint8_t* p, size_t sz, bool& completed) {
+        struct phr_chunked_decoder decoder = {};
+
+        _body.resize(sz);
+        memcpy(_body.data(), p, sz);
+
+        size_t rsize = sz;
+        ssize_t pret = phr_decode_chunked(&decoder, (char*)_body.data(), &rsize);
+        // TODO process error
+        if (pret == -1)
+        { 
+            // TODO process error
+        }
+
+        _bodyCursor = rsize;
+        _body.resize(_bodyCursor);
+        completed = true;
+
+        return sz;
     }
 
 private:
@@ -404,7 +443,8 @@ bool HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const v
     size_t sz = size;
     size_t consumed = 0;
     while (sz > 0) {
-        consumed = _state == reading_header ? feed_header(p, sz) : feed_body(p, sz);
+        consumed = _state == reading_header ? feed_header(p, sz) : 
+            _state == reading_body ? feed_body(p, sz) : feed_chunked_body(p, sz);
         if (consumed == 0) {
             // error occured, no more reads from this stream
             // at this moment, the *this* may be deleted
@@ -425,14 +465,21 @@ size_t HttpMsgReader::feed_header(const uint8_t* p, size_t sz) {
     if (headers_completed) {
         size_t contentLength = _msg->parse_content_length(_maxBodySize, error);
         if (contentLength == 0) {
-            // message w/o body, completed
-            bool proceed = _callback(_streamId, Message(_msg));
-            if (proceed) {
-                _msg->reset(_bodySizeThreshold);
-                return consumed;
-            } else {
-                // the object may be deleted here
-                return 0;
+            if (_msg->parse_transfer_encoding(error))
+            {
+                _state = reading_chunked_body;
+            }
+            else {
+                // message w/o body, completed
+                bool proceed = _callback(_streamId, Message(_msg));
+                if (proceed) {
+                    _msg->reset(_bodySizeThreshold);
+                    return consumed;
+                }
+                else {
+                    // the object may be deleted here
+                    return 0;
+                }
             }
         } else if (error == nothing) {
             _state = reading_body;
@@ -459,6 +506,24 @@ size_t HttpMsgReader::feed_body(const uint8_t* p, size_t sz) {
             _msg->reset(_bodySizeThreshold);
             _state = reading_header;
         } else {
+            // the object may be deleted here
+            return 0;
+        }
+    }
+    return consumed;
+}
+
+size_t HttpMsgReader::feed_chunked_body(const uint8_t* p, size_t sz) {
+    bool completed = false;
+    size_t consumed = _msg->feed_chunked_body(p, sz, completed);
+    if (completed) {
+        _state = reading_header;
+        bool proceed = _callback(_streamId, Message(_msg));
+        if (proceed) {
+            _msg->reset(_bodySizeThreshold);
+            _state = reading_header;
+        }
+        else {
             // the object may be deleted here
             return 0;
         }
