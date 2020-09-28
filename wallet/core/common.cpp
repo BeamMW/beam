@@ -554,6 +554,18 @@ namespace beam::wallet
             }
             res &= true;
         }
+        if (auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen); publicGen)
+        {
+            // generate fake peerID 
+            Scalar::Native sk;
+            sk.GenRandomNnz();
+            PeerID pid;  // fake peedID
+            pid.FromSk(sk);
+            ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
+            params.SetParameter(TxParameterID::Voucher, voucher);
+            params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            res = true;
+        }
         if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
         {
             params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);

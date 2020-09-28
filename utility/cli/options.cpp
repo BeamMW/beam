@@ -319,6 +319,7 @@ namespace beam
         const char* MAX_PRIVACY         = "max_privacy";
         const char* MAX_PRIVACY_ONLINE  = "max_privacy_online";
         const char* MAX_PRIVACY_OFFLINE = "max_privacy_offline";
+        const char* PUBLIC_OFFLINE      = "public_offline";
     }
 
 
@@ -425,7 +426,8 @@ namespace beam
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction")
             (cli::MAX_PRIVACY_ONLINE, po::bool_switch()->default_value(false), "generate online max privacy transaction")
-            (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments");
+            (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments")
+            (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
