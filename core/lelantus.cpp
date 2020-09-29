@@ -670,19 +670,28 @@ void Prover::ExtractG(const Point::Native& ptBias)
 	mm.Reset();
 	mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
 	mm.m_pCasual[0].Init(-ptBias);
-	mm.m_Prepared = 1;
 	mm.m_Casual = 1;
+	mm.m_ReuseFlag = MultiMac::Reuse::Generate;
 
 	ECC::Point::Native comm;
 	for (uint32_t k = 0; k < m_Cfg.M; k++)
 	{
 		GB& gb = t.m_vGB[k];
 
-		mm.m_pKPrep[0] = m_Tau[k]; // don't set it by pointer, the calculation in secure mode overwrites it!
+		mm.m_pKPrep = m_Tau + k;
 		mm.m_pKCasual = &gb.m_kBias;
 		mm.Calculate(comm);
 
 		comm += gb.m_G;
+
+		if (!k)
+		{
+			Mode::Scope scope(Mode::Secure);
+			comm += Context::get().G * (*mm.m_pKPrep);
+
+			mm.m_ReuseFlag = MultiMac::Reuse::UseGenerated;
+			mm.m_Prepared = 1;
+		}
 
 		m_Proof.m_Part1.m_vG[k] = comm;
 	}
