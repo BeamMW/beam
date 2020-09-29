@@ -1471,11 +1471,38 @@ typedef struct
 	TxAggr0 m_Ins;
 	TxAggr0 m_Outs;
 
+	BeamCrypto_Amount m_TotalFee;
 	BeamCrypto_AssetID m_AssetID;
 	secp256k1_scalar m_sk;
 
 } TxAggr;
 
+
+static int TxAggregate_AddAmount(BeamCrypto_Amount val, BeamCrypto_AssetID aid, TxAggr0* pRes, TxAggr* pCommon)
+{
+	BeamCrypto_Amount* pVal;
+	if (aid)
+	{
+		if (pCommon->m_AssetID)
+		{
+			if (pCommon->m_AssetID != aid)
+				return 0; // multiple assets are not allowed
+		}
+		else
+			pCommon->m_AssetID = aid;
+
+		pVal = &pRes->m_Assets;
+	}
+	else
+		pVal = &pRes->m_Beams;
+
+	(*pVal) += val;
+
+	if (val > (*pVal))
+		return 0; // overflow
+
+	return 1;
+}
 
 static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* pCid, unsigned int nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
 {
@@ -1500,27 +1527,8 @@ static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* 
 				return 0;
 		}
 
-		BeamCrypto_Amount* pVal;
-		if (pCid[i].m_AssetID)
-		{
-			if (pCommon->m_AssetID)
-			{
-				if (pCommon->m_AssetID != pCid[i].m_AssetID)
-					return 0; // multiple assets are not allowed
-			}
-			else
-				pCommon->m_AssetID = pCid[i].m_AssetID;
-
-			pVal = &pRes->m_Assets;
-		}
-		else
-			pVal = &pRes->m_Beams;
-
-		BeamCrypto_Amount val = *pVal;
-		(*pVal) += pCid[i].m_Amount;
-
-		if (val > (*pVal))
-			return 0; // overflow
+		if (!TxAggregate_AddAmount(pCid[i].m_Amount, pCid[i].m_AssetID, pRes, pCommon))
+			return 0;
 
 		secp256k1_scalar sk;
 		BeamCrypto_CoinID_getSk(&p->m_MasterKey, pCid + i, &sk);
@@ -1535,6 +1543,7 @@ static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* 
 static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
 {
 	memset(pRes, 0, sizeof(*pRes));
+	pRes->m_TotalFee = pTx->m_Krn.m_Fee;
 
 	if (!TxAggregate0(p, pTx->m_pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
 		return 0;
@@ -1558,6 +1567,37 @@ static void TxImportSubtract(secp256k1_scalar* pK, const BeamCrypto_UintBig* pPr
 	secp256k1_scalar_set_b32(&kPeer, pPrev->m_pVal, &overflow);
 	secp256k1_scalar_negate(&kPeer, &kPeer);
 	secp256k1_scalar_add(pK, pK, &kPeer);
+}
+
+static int TxAggregate_SendOrSplit(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
+{
+	if (!TxAggregate(p, pTx, pRes))
+		return 0;
+
+	if (pRes->m_Ins.m_Beams < pRes->m_Outs.m_Beams)
+		return 0; // not sending
+	pRes->m_Ins.m_Beams -= pRes->m_Outs.m_Beams;
+
+	if (pRes->m_Ins.m_Assets != pRes->m_Outs.m_Assets)
+	{
+		if (pRes->m_Ins.m_Assets < pRes->m_Outs.m_Assets)
+			return 0; // not sending
+
+		if (pRes->m_Ins.m_Beams != pRes->m_TotalFee)
+			return 0; // balance mismatch, the lost amount must go entirely to fee
+
+		pRes->m_Ins.m_Assets -= pRes->m_Outs.m_Assets;
+	}
+	else
+	{
+		if (pRes->m_Ins.m_Beams < pRes->m_TotalFee)
+			return 0; // not sending
+
+		pRes->m_Ins.m_Assets = pRes->m_Ins.m_Beams - pRes->m_TotalFee;
+		pRes->m_AssetID = 0;
+	}
+
+	return 1;
 }
 
 //////////////////////////////
@@ -1617,15 +1657,10 @@ static int KernelUpdateKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* p
 int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx)
 {
 	TxAggr txAggr;
-	if (!TxAggregate(p, pTx, &txAggr))
+	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
-
-	if (txAggr.m_Ins.m_Assets != txAggr.m_Outs.m_Assets)
-		return BeamCrypto_KeyKeeper_Status_Unspecified;
-	if (txAggr.m_Ins.m_Beams < txAggr.m_Outs.m_Beams)
-		return BeamCrypto_KeyKeeper_Status_Unspecified;
-	if (txAggr.m_Ins.m_Beams - txAggr.m_Outs.m_Beams != pTx->m_Krn.m_Fee)
-		return BeamCrypto_KeyKeeper_Status_Unspecified;
+	if (txAggr.m_Ins.m_Assets)
+		return BeamCrypto_KeyKeeper_Status_Unspecified; // not split
 
 	// hash all visible params
 	secp256k1_sha256_t sha;
@@ -1789,34 +1824,13 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxMutualInfo* pMut, BeamCrypto_TxSenderParams* pSnd)
 {
 	TxAggr txAggr;
-	if (!TxAggregate(p, pTx, &txAggr))
+	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
+	if (!txAggr.m_Ins.m_Assets)
+		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending (no net transferred value)
 
 	if (IsUintBigZero(&pMut->m_Peer))
 		return BeamCrypto_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
-
-	if (txAggr.m_Ins.m_Beams < txAggr.m_Outs.m_Beams)
-		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
-	txAggr.m_Ins.m_Beams -= txAggr.m_Outs.m_Beams;
-
-	if (txAggr.m_Ins.m_Assets != txAggr.m_Outs.m_Assets)
-	{
-		if (txAggr.m_Ins.m_Assets < txAggr.m_Outs.m_Assets)
-			return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
-
-		if (txAggr.m_Ins.m_Beams != pTx->m_Krn.m_Fee)
-			return BeamCrypto_KeyKeeper_Status_Unspecified; // balance mismatch, the lost amount must go entirely to fee
-
-		txAggr.m_Ins.m_Assets -= txAggr.m_Outs.m_Assets;
-	}
-	else
-	{
-		if (txAggr.m_Ins.m_Beams <= pTx->m_Krn.m_Fee)
-			return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending
-
-		txAggr.m_Ins.m_Assets = txAggr.m_Ins.m_Beams - pTx->m_Krn.m_Fee;
-		txAggr.m_AssetID = 0;
-	}
 
 	secp256k1_scalar kKrn, kNonce;
 	BeamCrypto_UintBig hvMyID, hv;
