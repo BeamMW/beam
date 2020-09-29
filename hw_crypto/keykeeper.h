@@ -98,3 +98,17 @@ typedef struct
 } BeamCrypto_TxSenderParams;
 
 int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*, BeamCrypto_TxSenderParams*);
+
+typedef struct
+{
+	// ticket
+	BeamCrypto_CompactPoint m_SerialPub;
+	BeamCrypto_CompactPoint m_NoncePub;
+	BeamCrypto_UintBig m_pK[2];
+
+	BeamCrypto_UintBig m_SharedSecret;
+	BeamCrypto_Signature m_Signature;
+
+} BeamCrypto_ShieldedVoucher;
+
+int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper*, BeamCrypto_ShieldedVoucher*, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0);

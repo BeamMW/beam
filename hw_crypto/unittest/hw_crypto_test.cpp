@@ -770,7 +770,35 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateInputShiel
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateVoucherShielded& m)
 {
-	return Status::NotImplemented;
+	if (!m.m_Count)
+		return Status::Success;
+
+	uint32_t n = std::min(m.m_Count, 30U);
+	std::vector<BeamCrypto_ShieldedVoucher> vec(n);
+
+	Status::Type nRes = BeamCrypto_KeyKeeper_CreateVouchers(&m_Ctx, &vec.front(), n, m.m_MyIDKey, &Ecc2BC(m.m_Nonce));
+	if (Status::Success == nRes)
+	{
+		m.m_Res.resize(n);
+		for (uint32_t i = 0; i < n; i++)
+		{
+			const BeamCrypto_ShieldedVoucher& src = vec[i];
+			ShieldedTxo::Voucher& trg = m.m_Res[i];
+
+			Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
+			Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
+
+			static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
+			for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
+				Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
+
+			Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
+			Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
+			Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
+		}
+	}
+
+	return nRes;
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateOutput& m)
@@ -1318,6 +1346,60 @@ void KeyKeeperWrap::TestSend1()
 	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
 }
 
+void TestShielded()
+{
+	printf("Shielded vouchers...\n");
+
+	ECC::Hash::Value hv;
+	SetRandom(hv);
+	KeyKeeperWrap kkw(hv);
+
+
+	for (uint32_t i = 0; i < 3; i++)
+	{
+		wallet::IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
+		m.m_Count = 5;
+		m.m_MyIDKey = 12 + i;
+		m.m_Nonce = 776U + i;
+
+		PeerID pid;
+
+		{
+			wallet::IPrivateKeyKeeper2::Method::get_Kdf m2;
+			m2.m_iChild = 0;
+			verify_test(kkw.m_kkStd.InvokeSync(m2) == wallet::IPrivateKeyKeeper2::Status::Success);
+			verify_test(m2.m_pPKdf);
+
+			Key::ID(m.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
+			ECC::Point::Native pt;
+			m2.m_pPKdf->DerivePKeyG(pt, hv);
+			ECC::Point pt_(pt);
+			pid = pt_.m_X;
+		}
+
+		verify_test(kkw.m_kkStd.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
+		auto v0 = std::move(m.m_Res);
+
+		m.m_Nonce = 776U + i;
+		verify_test(kkw.m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
+		const auto& v1 = m.m_Res;
+
+		verify_test(v0.size() == v1.size());
+
+		for (size_t j = 0; j < v0.size(); j++)
+		{
+			const auto& x0 = v0[j];
+			const auto& x1 = v1[j];
+			
+			verify_test(x0.IsValid(pid) && x1.IsValid(pid));
+			verify_test(x0.m_Ticket.m_SerialPub == x1.m_Ticket.m_SerialPub);
+			verify_test(x0.m_Ticket.m_Signature.m_NoncePub == x1.m_Ticket.m_Signature.m_NoncePub);
+			for (size_t k = 0; k < _countof(x0.m_Ticket.m_Signature.m_pK); k++)
+				verify_test(x0.m_Ticket.m_Signature.m_pK[k] == x1.m_Ticket.m_Signature.m_pK[k]);
+		}
+	}
+}
+
 void TestKeyKeeperTxs()
 {
 	ECC::Hash::Value hv;
@@ -1406,6 +1488,7 @@ int main()
 	TestOracle();
 	TestKdf();
 	TestCoins();
+	TestShielded();
 	TestSignature();
 	TestKrn();
 	TestPKdfExport();

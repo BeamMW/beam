@@ -1910,3 +1910,200 @@ int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper* p, BeamCrypto_T
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
+
+//////////////////////////////
+// Voucher
+static void ShieldedHashTxt(secp256k1_sha256_t* pSha)
+{
+	secp256k1_sha256_initialize(pSha);
+	HASH_WRITE_STR(*pSha, "Output.Shielded.");
+}
+
+typedef struct
+{
+	BeamCrypto_Kdf m_Gen;
+	BeamCrypto_Kdf m_Ser;
+
+} ShieldedViewer;
+
+static void ShieldedViewerInit(ShieldedViewer* pRes, uint32_t iViewer, const BeamCrypto_KeyKeeper* p)
+{
+	// Shielded viewer
+	BeamCrypto_UintBig hv;
+	secp256k1_sha256_t sha;
+	secp256k1_scalar sk;
+
+	ShieldedHashTxt(&sha);
+	HASH_WRITE_STR(sha, "Own.Gen");
+	secp256k1_sha256_write_Num(&sha, iViewer);
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	BeamCrypto_Kdf_Derive_PKey(&p->m_MasterKey, &hv, &sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+
+	BeamCrypto_Kdf_Init(&pRes->m_Gen, &hv);
+
+	ShieldedHashTxt(&sha);
+	HASH_WRITE_STR(sha, "Own.Ser");
+	secp256k1_sha256_write_Num(&sha, iViewer);
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	BeamCrypto_Kdf_Derive_PKey(&p->m_MasterKey, &hv, &sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+
+	BeamCrypto_Kdf_Derive_PKey(&p->m_MasterKey, &hv, &sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+
+	BeamCrypto_Kdf_Init(&pRes->m_Ser, &hv);
+	secp256k1_scalar_mul(&pRes->m_Ser.m_kCoFactor, &pRes->m_Ser.m_kCoFactor, &sk);
+}
+
+static void BeamCrypto_MulGJ(BeamCrypto_FlexPoint* pFlex, const secp256k1_scalar* pK)
+{
+	BeamCrypto_MultiMac_Context ctx;
+	ctx.m_pRes = &pFlex->m_Gej;
+	ctx.m_pZDenom = 0;
+	ctx.m_Fast = 0;
+	ctx.m_Secure = 2;
+	ctx.m_pGenSecure = BeamCrypto_Context_get()->m_pGenGJ;
+	ctx.m_pSecureK = pK;
+
+	BeamCrypto_MultiMac_Calculate(&ctx);
+	pFlex->m_Flags = BeamCrypto_FlexPoint_Gej;
+}
+
+static void BeamCrypto_Ticket_Hash(BeamCrypto_UintBig* pRes, const BeamCrypto_ShieldedVoucher* pVoucher)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "Out-S");
+	secp256k1_sha256_write_CompactPoint(&sha, &pVoucher->m_SerialPub);
+	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
+}
+
+static void BeamCrypto_Voucher_Hash(BeamCrypto_UintBig* pRes, const BeamCrypto_ShieldedVoucher* pVoucher)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "voucher.1");
+	secp256k1_sha256_write_CompactPoint(&sha, &pVoucher->m_SerialPub);
+	secp256k1_sha256_write_CompactPoint(&sha, &pVoucher->m_NoncePub);
+	secp256k1_sha256_write(&sha, pVoucher->m_SharedSecret.m_pVal, sizeof(pVoucher->m_SharedSecret.m_pVal));
+	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
+}
+
+static void BeamCrypto_CreateVoucherInternal(BeamCrypto_ShieldedVoucher* pRes, const BeamCrypto_UintBig* pNonce, const ShieldedViewer* pViewer)
+{
+	secp256k1_scalar pK[2], pN[2], sk;
+	BeamCrypto_UintBig hv;
+	BeamCrypto_Oracle oracle;
+
+	// nonce -> kG
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "kG");
+	secp256k1_sha256_write(&oracle.m_sha, pNonce->m_pVal, sizeof(pNonce->m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	BeamCrypto_Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pK);
+
+	// kG -> serial preimage
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "kG-k");
+	secp256k1_scalar_get_b32(hv.m_pVal, pK);
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Gen, &hv, &sk);
+
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "k-pI");
+	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal); // SerialPreimage
+
+	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Ser, &hv, &sk); // spend sk
+
+	BeamCrypto_FlexPoint pt;
+	BeamCrypto_MulG(&pt, &sk); // spend pk
+
+	BeamCrypto_Oracle_Init(&oracle);
+	HASH_WRITE_STR(oracle.m_sha, "L.Spend");
+	secp256k1_sha256_write_Point(&oracle.m_sha, &pt);
+	BeamCrypto_Oracle_NextScalar(&oracle, pK + 1); // serial
+
+	BeamCrypto_MulGJ(&pt, pK);
+	BeamCrypto_FlexPoint_MakeCompact(&pt);
+	pRes->m_SerialPub = pt.m_Compact; // kG*G + serial*J
+
+	// DH
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "DH");
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pRes->m_SerialPub);
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Gen, &hv, &sk); // DH multiplier
+
+	secp256k1_scalar_mul(pN, pK, &sk);
+	secp256k1_scalar_mul(pN + 1, pK + 1, &sk);
+	BeamCrypto_MulGJ(&pt, pN); // shared point
+
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "sp-sec");
+	secp256k1_sha256_write_Point(&oracle.m_sha, &pt);
+	secp256k1_sha256_finalize(&oracle.m_sha, pRes->m_SharedSecret.m_pVal); // Shared secret
+
+	// nonces
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "nG");
+	secp256k1_sha256_write(&oracle.m_sha, pRes->m_SharedSecret.m_pVal, sizeof(pRes->m_SharedSecret.m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	BeamCrypto_Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pN);
+
+	ShieldedHashTxt(&oracle.m_sha);
+	HASH_WRITE_STR(oracle.m_sha, "nJ");
+	secp256k1_sha256_write(&oracle.m_sha, pRes->m_SharedSecret.m_pVal, sizeof(pRes->m_SharedSecret.m_pVal));
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	BeamCrypto_Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pN + 1);
+
+	BeamCrypto_MulGJ(&pt, pN);
+	BeamCrypto_FlexPoint_MakeCompact(&pt);
+	pRes->m_NoncePub = pt.m_Compact; // nG*G + nJ*J
+
+	// sign it
+	BeamCrypto_Ticket_Hash(&hv, pRes);
+	BeamCrypto_Signature_GetChallengeEx(&pRes->m_NoncePub, &hv, &sk);
+	BeamCrypto_Signature_SignPartialEx(pRes->m_pK, &sk, pK, pN);
+	BeamCrypto_Signature_SignPartialEx(pRes->m_pK + 1, &sk, pK + 1, pN + 1);
+}
+
+int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypto_ShieldedVoucher* pRes, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0)
+{
+	if (!n)
+		return BeamCrypto_KeyKeeper_Status_Ok;
+
+	ShieldedViewer viewer;
+	ShieldedViewerInit(&viewer, 0, p);
+
+	// key to sign the voucher(s)
+	BeamCrypto_UintBig hv;
+	secp256k1_scalar skSign;
+	GetWalletIDKey(p, nMyIDKey, &skSign, &hv);
+
+	for (uint32_t i = 0; ; pRes++)
+	{
+		BeamCrypto_CreateVoucherInternal(pRes, pNonce0, &viewer);
+
+		BeamCrypto_Voucher_Hash(&hv, pRes);
+		BeamCrypto_Signature_Sign(&pRes->m_Signature, &hv, &skSign);
+
+		if (++i == n)
+			break;
+
+		// regenerate nonce
+		BeamCrypto_Oracle oracle;
+		secp256k1_sha256_initialize(&oracle.m_sha);
+		HASH_WRITE_STR(oracle.m_sha, "sh.v.n");
+		secp256k1_sha256_write(&oracle.m_sha, pNonce0->m_pVal, sizeof(pNonce0->m_pVal));
+		secp256k1_sha256_finalize(&oracle.m_sha, pNonce0->m_pVal);
+	}
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
