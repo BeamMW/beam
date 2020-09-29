@@ -206,10 +206,10 @@ void InitContext()
 	ctx.m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
 
 	ctx.m_Ipp.G_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_GenG, pt, nums);
+	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[0], pt, nums);
 
 	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_GenJ, pt, nums);
+	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[1], pt, nums);
 
 	static_assert(ECC::InnerProduct::nDim * 2 == BeamCrypto_MultiMac_Fast_Idx_H);
 

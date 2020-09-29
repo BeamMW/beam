@@ -611,7 +611,7 @@ void BeamCrypto_MulPoint(BeamCrypto_FlexPoint* pFlex, const BeamCrypto_MultiMac_
 
 void BeamCrypto_MulG(BeamCrypto_FlexPoint* pFlex, const secp256k1_scalar* pK)
 {
-	BeamCrypto_MulPoint(pFlex, &BeamCrypto_Context_get()->m_GenG, pK);
+	BeamCrypto_MulPoint(pFlex, BeamCrypto_Context_get()->m_pGenGJ, pK);
 }
 
 void BeamCrypto_Sk2Pk(BeamCrypto_UintBig* pRes, secp256k1_scalar* pK)
@@ -913,7 +913,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	mmCtx.m_pRes = &pFlex[0].m_Gej;
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = pK;
-	mmCtx.m_pGenSecure = &pCtx->m_GenG;
+	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
 	mmCtx.m_Fast = 1;
 	mmCtx.m_pS = &u.mm.s;
 	mmCtx.m_pWnaf = &u.mm.wnaf;
@@ -948,7 +948,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 	// sk * J
 	mmCtx.m_pRes = &pFlex[1].m_Gej;
-	mmCtx.m_pGenSecure = &pCtx->m_GenJ;
+	mmCtx.m_pGenSecure = pCtx->m_pGenGJ + 1;
 	mmCtx.m_pZDenom = 0;
 	mmCtx.m_Fast = 0;
 
@@ -969,7 +969,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 	if (pComm)
 	{
-		mmCtx.m_pGenSecure = &pCtx->m_GenG; // not really secure here, just no good reason to have additional non-secure J-gen
+		mmCtx.m_pGenSecure = pCtx->m_pGenGJ; // not really secure here, just no good reason to have additional non-secure J-gen
 		mmCtx.m_pSecureK = &u.o.k1;
 
 		BeamCrypto_MultiMac_Calculate(&mmCtx);
@@ -1087,7 +1087,7 @@ static void BeamCrypto_RangeProof_Calculate_S(BeamCrypto_RangeProof_Worker* pWrk
 
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = &ro;
-	mmCtx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
+	mmCtx.m_pGenSecure = BeamCrypto_Context_get()->m_pGenGJ;
 
 	mmCtx.m_Fast = 0;
 	mmCtx.m_pGenFast = BeamCrypto_Context_get()->m_pGenFast;
@@ -1146,7 +1146,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	mmCtx.m_Fast = 0;
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = &pWrk->m_alpha;
-	mmCtx.m_pGenSecure = &pCtx->m_GenG;
+	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
 	mmCtx.m_pRes = &pFp[0].m_Gej;
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
@@ -1354,7 +1354,7 @@ int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature* p, const BeamCrypto
 	BeamCrypto_MultiMac_Context ctx;
 	ctx.m_pRes = &gej;
 	ctx.m_Secure = 1;
-	ctx.m_pGenSecure = &BeamCrypto_Context_get()->m_GenG;
+	ctx.m_pGenSecure = BeamCrypto_Context_get()->m_pGenGJ;
 	ctx.m_pSecureK = &k;
 
 	if (secp256k1_gej_is_infinity(&pPk->m_Gej))
@@ -1426,11 +1426,11 @@ static void Kdf2Pub(const BeamCrypto_Kdf* pKdf, BeamCrypto_KdfPub* pRes)
 
 	BeamCrypto_FlexPoint fp;
 
-	BeamCrypto_MulPoint(&fp, &pCtx->m_GenG, &pKdf->m_kCoFactor);
+	BeamCrypto_MulPoint(&fp, pCtx->m_pGenGJ, &pKdf->m_kCoFactor);
 	BeamCrypto_FlexPoint_MakeCompact(&fp);
 	pRes->m_CoFactorG = fp.m_Compact;
 
-	BeamCrypto_MulPoint(&fp, &pCtx->m_GenJ, &pKdf->m_kCoFactor);
+	BeamCrypto_MulPoint(&fp, pCtx->m_pGenGJ + 1, &pKdf->m_kCoFactor);
 	BeamCrypto_FlexPoint_MakeCompact(&fp);
 	pRes->m_CoFactorJ = fp.m_Compact;
 }
