@@ -703,10 +703,13 @@ struct KeyKeeperHwEmu
 	struct Encoder
 	{
 		std::vector<BeamCrypto_CoinID> m_vCids;
+		std::vector<BeamCrypto_ShieldedInput> m_vShInps;
 		BeamCrypto_TxCommon m_Res;
 
 		void TxImport(const Method::TxCommon&);
 		void TxExport(Method::TxCommon&) const;
+
+		static void Import(BeamCrypto_ShieldedTxoID&, const ShieldedTxo::ID&);
 	};
 
 
@@ -935,6 +938,22 @@ void KeyKeeperHwEmu::Encoder::TxImport(const Method::TxCommon& m)
 		m_Res.m_pOuts = &m_vCids.front() + m_Res.m_Ins;
 	}
 
+	m_Res.m_InsShielded = static_cast<unsigned int>(m.m_vInputsShielded.size());
+	m_vShInps.resize(m_Res.m_InsShielded);
+	if (!m_vShInps.empty())
+	{
+		for (uint32_t i = 0; i < m_Res.m_InsShielded; i++)
+		{
+			BeamCrypto_ShieldedInput& dst = m_vShInps[i];
+			const wallet::IPrivateKeyKeeper2::ShieldedInput& src = m.m_vInputsShielded[i];
+
+			dst.m_Fee = src.m_Fee;
+			Import(dst.m_TxoID, src);
+		}
+
+		m_Res.m_pInsShielded = &m_vShInps.front();
+	}
+
 	// kernel
 	assert(m.m_pKernel);
 	m_Res.m_Krn.m_Fee = m.m_pKernel->m_Fee;
@@ -968,6 +987,21 @@ void KeyKeeperHwEmu::Encoder::TxExport(Method::TxCommon& m) const
 	ECC::Scalar kOffs;
 	Ecc2BC(kOffs.m_Value) = m_Res.m_kOffset;
 	m.m_kOffset = kOffs;
+}
+
+void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_ShieldedTxoID& dst, const ShieldedTxo::ID& src)
+{
+	dst.m_Amount = src.m_Value;
+	dst.m_AssetID = src.m_AssetID;
+	dst.m_User.m_Sender = Ecc2BC(src.m_User.m_Sender);
+
+	static_assert(_countof(dst.m_User.m_pMessage) == _countof(src.m_User.m_pMessage));
+	for (uint32_t i = 0; i < _countof(src.m_User.m_pMessage); i++)
+		dst.m_User.m_pMessage[i] = Ecc2BC(src.m_User.m_pMessage[i]);
+
+	dst.m_IsCreatedByViewer = !!src.m_Key.m_IsCreatedByViewer;
+	dst.m_nViewerIdx = src.m_Key.m_nIdx;
+	dst.m_kSerG = Ecc2BC(src.m_Key.m_kSerG.m_Value);
 }
 
 
@@ -1008,6 +1042,7 @@ struct KeyKeeperWrap
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);
+	static wallet::IPrivateKeyKeeper2::ShieldedInput& AddSh(std::vector<wallet::IPrivateKeyKeeper2::ShieldedInput>& vec, Amount val, Amount nFee);
 
 	void ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
 	void TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2);
@@ -1177,6 +1212,26 @@ CoinID& KeyKeeperWrap::Add(std::vector<CoinID>& vec, Amount val)
 	SetRandomOrd(nIdx);
 
 	ret = CoinID(val, nIdx, Key::Type::Regular);
+	return ret;
+}
+
+wallet::IPrivateKeyKeeper2::ShieldedInput& KeyKeeperWrap::AddSh(std::vector<wallet::IPrivateKeyKeeper2::ShieldedInput>& vec, Amount val, Amount nFee)
+{
+	wallet::IPrivateKeyKeeper2::ShieldedInput& ret = vec.emplace_back();
+
+	SetRandom(ret.m_User.m_Sender);
+	SetRandom(ret.m_User.m_pMessage[0]);
+	SetRandom(ret.m_User.m_pMessage[1]);
+
+	ECC::Scalar::Native sk;
+	SetRandom(sk);
+	ret.m_Key.m_kSerG = sk;
+	ret.m_Key.m_kSerG.m_Value.ExportWord<0>(ret.m_Key.m_nIdx); // random
+	ret.m_Key.m_IsCreatedByViewer = !ret.m_Key.m_nIdx;
+
+	ret.m_Fee = nFee;
+	ret.m_Value = val;
+
 	return ret;
 }
 

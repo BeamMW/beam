@@ -982,6 +982,24 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	}
 }
 
+static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_ShieldedInput* pInp, secp256k1_scalar* pK)
+{
+	BeamCrypto_UintBig hv;
+	secp256k1_sha256_t sha;
+
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "sh.skout");
+	secp256k1_sha256_write_Num(&sha, pInp->m_TxoID.m_Amount);
+	secp256k1_sha256_write_Num(&sha, pInp->m_TxoID.m_AssetID);
+	secp256k1_sha256_write_Num(&sha, pInp->m_Fee);
+	secp256k1_sha256_write(&sha, pInp->m_TxoID.m_kSerG.m_pVal, sizeof(pInp->m_TxoID.m_kSerG.m_pVal));
+	secp256k1_sha256_write_Num(&sha, !!pInp->m_TxoID.m_IsCreatedByViewer);
+	secp256k1_sha256_write_Num(&sha, pInp->m_TxoID.m_nViewerIdx);
+	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+
+	BeamCrypto_Kdf_Derive_SKey(pKdf, &hv, pK);
+}
+
 //////////////////////////////
 // RangeProof
 
@@ -1540,12 +1558,36 @@ static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* 
 	return 1;
 }
 
+static int TxAggregateShIns(const BeamCrypto_KeyKeeper* p, const BeamCrypto_ShieldedInput* pIns, unsigned int nCount, TxAggr0* pRes, TxAggr* pCommon)
+{
+	for (unsigned int i = 0; i < nCount; i++)
+	{
+		if (!TxAggregate_AddAmount(pIns[i].m_TxoID.m_Amount, pIns[i].m_TxoID.m_AssetID, pRes, pCommon))
+			return 0;
+
+		pCommon->m_TotalFee += pIns[i].m_Fee;
+		if (pCommon->m_TotalFee < pIns[i].m_Fee)
+			return 0; // overflow
+
+		secp256k1_scalar sk;
+		BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, pIns + i, &sk);
+
+		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
+		SECURE_ERASE_OBJ(sk);
+	}
+
+	return 1;
+}
+
 static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
 {
 	memset(pRes, 0, sizeof(*pRes));
 	pRes->m_TotalFee = pTx->m_Krn.m_Fee;
 
 	if (!TxAggregate0(p, pTx->m_pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
+		return 0;
+
+	if (!TxAggregateShIns(p, pTx->m_pInsShielded, pTx->m_InsShielded, &pRes->m_Ins, pRes))
 		return 0;
 
 	secp256k1_scalar_negate(&pRes->m_sk, &pRes->m_sk);

@@ -62,10 +62,40 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel*);
 
 typedef struct
 {
+	BeamCrypto_UintBig m_Sender;
+	BeamCrypto_UintBig m_pMessage[2];
+
+} BeamCrypto_ShieldedTxoUser;
+
+typedef struct
+{
+	// ticket source params
+	BeamCrypto_UintBig m_kSerG;
+	uint32_t m_nViewerIdx;
+	uint8_t m_IsCreatedByViewer;
+
+	// sender params
+	BeamCrypto_ShieldedTxoUser m_User;
+	BeamCrypto_Amount m_Amount;
+	BeamCrypto_AssetID m_AssetID;
+
+} BeamCrypto_ShieldedTxoID;
+
+typedef struct
+{
+	BeamCrypto_ShieldedTxoID m_TxoID;
+	BeamCrypto_Amount m_Fee;
+
+} BeamCrypto_ShieldedInput;
+
+typedef struct
+{
 	const BeamCrypto_CoinID* m_pIns;
 	const BeamCrypto_CoinID* m_pOuts;
+	const BeamCrypto_ShieldedInput* m_pInsShielded;
 	unsigned int m_Ins;
 	unsigned int m_Outs;
+	unsigned int m_InsShielded;
 
 	BeamCrypto_TxKernel m_Krn;
 	BeamCrypto_UintBig m_kOffset;
