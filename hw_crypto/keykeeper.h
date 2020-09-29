@@ -27,6 +27,8 @@ typedef struct
 
 } BeamCrypto_KeyKeeper;
 
+void BeamCrypto_SecureEraseMem(void*, uint32_t);
+
 uint32_t BeamCrypto_KeyKeeper_getNumSlots();
 void BeamCrypto_KeyKeeper_ReadSlot(uint32_t, BeamCrypto_UintBig*);
 void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t);

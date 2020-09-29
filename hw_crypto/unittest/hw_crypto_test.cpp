@@ -35,6 +35,11 @@ using namespace beam;
 
 extern "C"
 {
+	void BeamCrypto_SecureEraseMem(void* p, uint32_t n)
+	{
+		memset0(p, n);
+	}
+
 	wallet::LocalPrivateKeyKeeperStd::State* g_pHwEmuNonces = nullptr;
 
 	uint32_t BeamCrypto_KeyKeeper_getNumSlots() {
