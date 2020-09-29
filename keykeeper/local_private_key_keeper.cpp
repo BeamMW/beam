@@ -305,15 +305,15 @@ namespace beam::wallet
 
         Key::IKdf::Ptr pSerialPrivate;
         ShieldedTxo::Viewer::GenerateSerPrivate(pSerialPrivate, *m_pKdf, x.m_Key.m_nIdx);
-        pSerialPrivate->DeriveKey(prover.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
+        pSerialPrivate->DeriveKey(prover.m_Witness.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
-        prover.m_Witness.V.m_L = x.m_iIdx;
-        prover.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0];
-        prover.m_Witness.V.m_R += sdp.m_Output.m_k;
-        prover.m_Witness.V.m_V = sdp.m_Output.m_Value;
+        prover.m_Witness.m_L = x.m_iIdx;
+        prover.m_Witness.m_R = sdp.m_Ticket.m_pK[0];
+        prover.m_Witness.m_R += sdp.m_Output.m_k;
+        prover.m_Witness.m_V = sdp.m_Output.m_Value;
 
         x.m_pKernel->UpdateMsg();
-        x.get_SkOut(prover.m_Witness.V.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
+        x.get_SkOut(prover.m_Witness.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
 
         ExecutorMT exec;
         Executor::Scope scope(exec);

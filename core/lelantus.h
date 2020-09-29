@@ -139,7 +139,7 @@ namespace Sigma {
 			uint32_t m_L;
 			ECC::Scalar::Native m_R;
 		};
-		ECC::NoLeak<Witness> m_Witness;
+		Witness m_Witness;
 
 		class UserData
 		{
@@ -203,7 +203,7 @@ namespace Lelantus
 			ECC::Scalar::Native m_R_Adj; // Assets: effective blinding factor (includes the blinding factor of the generator multiplied by value).
 			ECC::Scalar::Native m_SpendSk;
 		};
-		ECC::NoLeak<Witness> m_Witness;
+		Witness m_Witness;
 
 		Sigma::Prover::UserData* m_pUserData = nullptr;
 

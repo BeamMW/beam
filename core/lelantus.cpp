@@ -432,7 +432,7 @@ void Prover::CalculateP()
 	uint32_t nPwr = 1;
 	for (uint32_t j = 0; j < m_Cfg.M; j++)
 	{
-		uint32_t i0 = (m_Witness.V.m_L / nPwr) % m_Cfg.n;
+		uint32_t i0 = (m_Witness.m_L / nPwr) % m_Cfg.n;
 
 		pP += N;
 
@@ -511,7 +511,7 @@ void Prover::ExtractABCD()
 			}
 		} c;
 
-		c.m_L_Reduced = m_Witness.V.m_L;
+		c.m_L_Reduced = m_Witness.m_L;
 		c.m_pCfg = &m_Cfg;
 		c.Calculate(m_Proof.m_Part1.m_B, mm, m_vBuf[Idx::rB]);
 	}
@@ -537,7 +537,7 @@ void Prover::ExtractABCD()
 
 		c.m_p = this;
 		c.m_pCfg = &m_Cfg;
-		c.m_L_Reduced = m_Witness.V.m_L;
+		c.m_L_Reduced = m_Witness.m_L;
 		c.Calculate(m_Proof.m_Part1.m_C, mm, m_vBuf[Idx::rC]);
 	}
 
@@ -713,10 +713,10 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 
 	zR = -zR;
-	zR += m_Witness.V.m_R * xPwr;
+	zR += m_Witness.m_R * xPwr;
 	m_Proof.m_Part2.m_zR = zR;
 
-	uint32_t nL_Reduced = m_Witness.V.m_L;
+	uint32_t nL_Reduced = m_Witness.m_L;
 
 	Scalar::Native* pA = m_a;
 	auto itF = m_Proof.m_Part2.m_vF.begin();
@@ -844,12 +844,12 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* pHGen)
 {
 	const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
-		m_Witness.V.m_R_Adj :
-		m_Witness.V.m_R_Output;
+		m_Witness.m_R_Adj :
+		m_Witness.m_R_Output;
 	Point::Native ptBias = Context::get().G * sk;
-	Tag::AddValue(ptBias, pHGen, m_Witness.V.m_V);
+	Tag::AddValue(ptBias, pHGen, m_Witness.m_V);
 	m_Proof.m_Commitment = ptBias;
-	m_Proof.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
+	m_Proof.m_SpendPk = Context::get().G * m_Witness.m_SpendSk;
 
 	m_Proof.m_Cfg.Expose(oracle);
 
@@ -859,8 +859,8 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* 
 	Scalar::Native pSk[4], pRes[2];
 
 	pSk[0] = sk;
-	pSk[1] = m_Witness.V.m_V;
-	pSk[2] = m_Witness.V.m_SpendSk;
+	pSk[1] = m_Witness.m_V;
+	pSk[2] = m_Witness.m_SpendSk;
 	assert(pSk[3] == Zero);
 
 	if (ECC::Tag::IsCustom(pHGen))
@@ -881,9 +881,9 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* 
 	ptBias += Context::get().J * kSer;
 
 	Sigma::Prover spr(m_List, m_Proof.m_Cfg, m_Proof);
-	spr.m_Witness.V.m_L = m_Witness.V.m_L;
-	spr.m_Witness.V.m_R = m_Witness.V.m_R;
-	spr.m_Witness.V.m_R -= m_Witness.V.m_R_Output;
+	spr.m_Witness.m_L = m_Witness.m_L;
+	spr.m_Witness.m_R = m_Witness.m_R;
+	spr.m_Witness.m_R -= m_Witness.m_R_Output;
 	spr.m_pUserData = m_pUserData;
 
 	spr.Generate(seed, oracle, ptBias);

@@ -1834,21 +1834,21 @@ void TestLelantus(bool bWithAsset)
 	}
 	p.m_pUserData = &ud1;
 
-	p.m_Witness.V.m_V = 100500;
-	p.m_Witness.V.m_R = 4U;
-	p.m_Witness.V.m_R_Output = 756U;
-	p.m_Witness.V.m_L = 333 % N;
-	SetRandom(p.m_Witness.V.m_SpendSk);
+	p.m_Witness.m_V = 100500;
+	p.m_Witness.m_R = 4U;
+	p.m_Witness.m_R_Output = 756U;
+	p.m_Witness.m_L = 333 % N;
+	SetRandom(p.m_Witness.m_SpendSk);
 
-	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
+	Point::Native pt = Context::get().G * p.m_Witness.m_SpendSk;
 	Point pt_ = pt;
 	Scalar::Native ser;
 	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
 
-	pt = Context::get().G * p.m_Witness.V.m_R;
-	Tag::AddValue(pt, &hGen, p.m_Witness.V.m_V);
+	pt = Context::get().G * p.m_Witness.m_R;
+	Tag::AddValue(pt, &hGen, p.m_Witness.m_V);
 	pt += Context::get().J * ser;
-	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
+	pt.Export(lst.m_vec[p.m_Witness.m_L]);
 
 	if (bWithAsset)
 	{
@@ -1856,10 +1856,10 @@ void TestLelantus(bool bWithAsset)
 		Scalar::Native skGen = 77345U;
 		hGen = hGen + Context::get().G * skGen;
 
-		skGen *= p.m_Witness.V.m_V;
+		skGen *= p.m_Witness.m_V;
 
-		p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
-		p.m_Witness.V.m_R_Adj += -skGen;
+		p.m_Witness.m_R_Adj = p.m_Witness.m_R_Output;
+		p.m_Witness.m_R_Adj += -skGen;
 	}
 
 	beam::ByteBuffer bufProof;
