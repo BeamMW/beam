@@ -693,7 +693,7 @@ int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID* p, uint8_t* pS
 	return 1;
 }
 
-#define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&hash, str, sizeof(str))
+#define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&(hash), str, sizeof(str))
 
 void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
 {
@@ -1268,14 +1268,19 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 
 //////////////////////////////
 // Signature
-void BeamCrypto_Signature_GetChallenge(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, secp256k1_scalar* pE)
+void BeamCrypto_Signature_GetChallengeEx(const BeamCrypto_CompactPoint* pNoncePub, const BeamCrypto_UintBig* pMsg, secp256k1_scalar* pE)
 {
 	BeamCrypto_Oracle oracle;
 	BeamCrypto_Oracle_Init(&oracle);
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pNoncePub);
 	secp256k1_sha256_write(&oracle.m_sha, pMsg->m_pVal, sizeof(pMsg->m_pVal));
 
 	BeamCrypto_Oracle_NextScalar(&oracle, pE);
+}
+
+void BeamCrypto_Signature_GetChallenge(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, secp256k1_scalar* pE)
+{
+	BeamCrypto_Signature_GetChallengeEx(&p->m_NoncePub, pMsg, pE);
 }
 
 void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk)
@@ -1313,16 +1318,21 @@ void BeamCrypto_Signature_Sign(BeamCrypto_Signature* p, const BeamCrypto_UintBig
 	SECURE_ERASE_OBJ(u.nonce);
 }
 
+void BeamCrypto_Signature_SignPartialEx(BeamCrypto_UintBig* pRes, const secp256k1_scalar* pE, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
+{
+	secp256k1_scalar k;
+	secp256k1_scalar_mul(&k, pE, pSk);
+	secp256k1_scalar_add(&k, &k, pNonce);
+	secp256k1_scalar_negate(&k, &k);
+
+	secp256k1_scalar_get_b32(pRes->m_pVal, &k);
+}
+
 void BeamCrypto_Signature_SignPartial(BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
 {
 	secp256k1_scalar e;
 	BeamCrypto_Signature_GetChallenge(p, pMsg, &e);
-
-	secp256k1_scalar_mul(&e, &e, pSk);
-	secp256k1_scalar_add(&e, &e, pNonce);
-	secp256k1_scalar_negate(&e, &e);
-
-	secp256k1_scalar_get_b32(p->m_k.m_pVal, &e);
+	BeamCrypto_Signature_SignPartialEx(&p->m_k, &e, pSk, pNonce);
 }
 
 int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature* p, const BeamCrypto_UintBig* pMsg, BeamCrypto_FlexPoint* pPk)
