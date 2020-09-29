@@ -705,7 +705,7 @@ void Prover::ExtractBlinded(Scalar& out, const Scalar::Native& sk, const Scalar:
 	out = val;
 }
 
-void Prover::ExtractPart2(Oracle& oracle)
+void Prover::ExtractPart2(Oracle& oracle, bool bIsSinglePass)
 {
 	Scalar::Native x1;
 	oracle >> x1;
@@ -723,6 +723,10 @@ void Prover::ExtractPart2(Oracle& oracle)
 
 	zR = -zR;
 	zR += m_Witness.m_R * xPwr;
+
+	if (!bIsSinglePass)
+		zR += Scalar::Native(m_Proof.m_Part2.m_zR);
+
 	m_Proof.m_Part2.m_zR = zR;
 
 	uint32_t nL_Reduced = m_Witness.m_L;
@@ -747,7 +751,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 }
 
-void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& ptBias)
+void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& ptBias, Phase ePhase /* = Phase::SinglePass */)
 {
 	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
 	Mode::Scope scope(Mode::Fast);
@@ -755,22 +759,28 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& 
 	const uint32_t N = m_Cfg.get_N();
 	assert(N);
 
-	m_vBuf.reset(new Scalar::Native[Idx::count + m_Cfg.M * (1 + m_Cfg.n + N)]);
+	if (Phase::Step2 != ePhase)
+	{
+		m_vBuf.reset(new Scalar::Native[Idx::count + m_Cfg.M * (1 + m_Cfg.n + N)]);
 
-	m_Proof.m_Part1.m_vG.resize(m_Cfg.M);
-	m_Proof.m_Part2.m_vF.resize(m_Cfg.M * (m_Cfg.n - 1));
+		m_Proof.m_Part1.m_vG.resize(m_Cfg.M);
+		m_Proof.m_Part2.m_vF.resize(m_Cfg.M * (m_Cfg.n - 1));
 
-	m_Tau = m_vBuf.get() + Idx::count;
-	m_a = m_Tau + m_Cfg.M;
-	m_p = m_a + m_Cfg.M * m_Cfg.n;
+		m_Tau = m_vBuf.get() + Idx::count;
+		m_a = m_Tau + m_Cfg.M;
+		m_p = m_a + m_Cfg.M * m_Cfg.n;
 
-	InitNonces(seed);
-	ExtractABCD();
-	CalculateP();
-	ExtractG(ptBias);
+		InitNonces(seed);
+		ExtractABCD();
+		CalculateP();
+		ExtractG(ptBias);
+	}
 
-	m_Proof.m_Part1.Expose(oracle);
-	ExtractPart2(oracle);
+	if (Phase::Step1 != ePhase)
+	{
+		m_Proof.m_Part1.Expose(oracle);
+		ExtractPart2(oracle, Phase::SinglePass == ePhase);
+	}
 }
 
 

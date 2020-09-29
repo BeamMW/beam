@@ -118,7 +118,7 @@ namespace Sigma {
 		void ExtractG(const ECC::Point::Native& ptOut);
 		struct GB;
 		void ExtractG_Part(GB*, uint32_t i0, uint32_t i1);
-		void ExtractPart2(ECC::Oracle&);
+		void ExtractPart2(ECC::Oracle&, bool bIsSinglePass);
 
 		static void ExtractBlinded(ECC::Scalar& out, const ECC::Scalar::Native& sk, const ECC::Scalar::Native& challenge, const ECC::Scalar::Native& nonce);
 
@@ -152,7 +152,14 @@ namespace Sigma {
 
 		const UserData* m_pUserData = nullptr;
 
-		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native& ptBias);
+		enum struct Phase {
+			SinglePass, // regular
+			Step1, // export Part1
+			// other party can add tau[], and produce m_zR with additional blinding factor
+			Step2, // import initial value of m_zR
+		};
+
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native& ptBias, Phase ePhase = Phase::SinglePass);
 
 		// result
 		Proof& m_Proof;
