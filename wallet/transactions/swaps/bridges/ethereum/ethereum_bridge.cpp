@@ -14,7 +14,234 @@
 
 #include "ethereum_bridge.h"
 
+#include "utility/logger.h"
+#include "nlohmann/json.hpp"
+
+#include <bitcoin/bitcoin.hpp>
+#include <ethash/keccak.hpp>
+#include "utility/hex.h"
+#include "core/ecc.h"
+
+using json = nlohmann::json;
+
+namespace
+{
+libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
+{
+    static constexpr auto first = libbitcoin::wallet::hd_first_hardened_key;
+    const auto position = hard ? first + index : index;
+    return privateKey.derive_private(position);
+}
+}
+
 namespace beam::ethereum
 {
+EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider)
+    : m_httpClient(reactor)
+    , m_settingsProvider(settingsProvider)
+{
+}
 
+void EthereumBridge::getBalance(std::function<void(ECC::uintBig)> callback)
+{
+    std::string ethAddress = generateEthAddress();
+    sendRequest("eth_getBalance", "\"" + ethAddress + "\",\"latest\"", [callback](const json& result) {
+        ECC::uintBig balance;
+        std::string strBalance = result["result"].get<std::string>();
+
+        strBalance.erase(0, 2);
+        // TODO check this problem
+        balance.Scan(strBalance.c_str());
+
+        //if (error.m_type == IBridge::None)
+        //{
+        //    try
+        //    {
+        //        // TODO should avoid using of double type
+        //        balance = btc_to_satoshi(result.get<double>());
+        //    }
+        //    catch (const std::exception& ex)
+        //    {
+        //        error.m_type = IBridge::InvalidResultFormat;
+        //        error.m_message = ex.what();
+        //    }
+        //}
+        callback(balance);
+    });
+}
+
+void EthereumBridge::getBlockNumber(std::function<void(Amount)> callback)
+{
+    sendRequest("eth_blockNumber", "", [callback](const json& result) {
+        std::string strBlockNumber = result["result"].get<std::string>();
+        Amount blockNumber = std::stoull(strBlockNumber, nullptr, 16);
+
+        //if (error.m_type == IBridge::None)
+        //{
+        //    try
+        //    {
+        //        // TODO should avoid using of double type
+        //        balance = btc_to_satoshi(result.get<double>());
+        //    }
+        //    catch (const std::exception& ex)
+        //    {
+        //        error.m_type = IBridge::InvalidResultFormat;
+        //        error.m_message = ex.what();
+        //    }
+        //}
+        callback(blockNumber);
+    });
+}
+
+void EthereumBridge::getTransactionCount(std::function<void(Amount)> callback)
+{
+    std::string ethAddress = generateEthAddress();
+    sendRequest("eth_getTransactionCount", "\"" + ethAddress + "\",\"latest\"", [callback](const json& result) {
+        std::string strBlockNumber = result["result"].get<std::string>();
+        Amount blockNumber = std::stoull(strBlockNumber, nullptr, 16);
+
+        callback(blockNumber);
+    });
+}
+
+void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback)
+{
+    sendRequest("eth_sendRawTransaction", "\"" + rawTx + "\"", [callback](const json& result) {
+        std::string txHash = result["result"].get<std::string>();
+
+        callback(txHash);
+    });
+}
+
+void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void()> callback)
+{
+    sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](const json& result) {
+        callback();
+    });
+}
+
+void EthereumBridge::call(const std::string& to, const std::string& data, std::function<void()> callback)
+{
+    sendRequest("eth_call", "{\"to\":\"" + to + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](const json& result) {
+        
+        callback();
+    });
+}
+
+std::string EthereumBridge::generateEthAddress() const
+{
+    auto settings = m_settingsProvider.GetSettings();
+    auto seed = libbitcoin::wallet::decode_mnemonic(settings.m_secretWords);
+    libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
+
+    const auto prefixes = libbitcoin::wallet::hd_private::to_prefixes(0, 0);
+    libbitcoin::wallet::hd_private private_key(seed_chunk, prefixes);
+
+    private_key = ProcessHDPrivate(private_key, 44);
+    private_key = ProcessHDPrivate(private_key, 60);
+    private_key = ProcessHDPrivate(private_key, 0);
+    private_key = ProcessHDPrivate(private_key, 0, false);
+    private_key = ProcessHDPrivate(private_key, settings.m_accountIndex, false);
+
+    libbitcoin::ec_compressed point;
+
+    libbitcoin::secret_to_public(point, private_key.secret());
+
+    auto pk = libbitcoin::wallet::ec_public(point, false);
+    auto rawPk = pk.encoded();
+
+    auto tmp = beam::from_hex(std::string(rawPk.begin() + 2, rawPk.end()));
+
+    auto hash = ethash::keccak256(&tmp[0], tmp.size());
+    libbitcoin::data_chunk data;
+
+    for (int i = 12; i < 32; i++)
+    {
+        data.push_back(hash.bytes[i]);
+    }
+
+    return "0x" + libbitcoin::encode_base16(data);
+}
+
+void EthereumBridge::sendRequest(const std::string& method, const std::string& params, std::function<void(const nlohmann::json&)> callback)
+{
+    const std::string content = R"({"jsonrpc":"2.0","method":")" + method + R"(","params":[)" + params + R"(], "id":1})";
+    auto settings = m_settingsProvider.GetSettings();
+    io::Address address;
+
+    if (!address.resolve(settings.m_address.c_str()))
+    {
+
+        LOG_ERROR() << "unable to resolve electrum address: " << settings.m_address;
+
+        // TODO maybe to need async??
+        /*Error error{ IOError, "unable to resolve electrum address: " + electrumSettings.m_address };
+        json result;
+        callback(error, result, 0);*/
+        return;
+    }
+
+    const HeaderPair headers[] = {
+                {"Content-Type", "application/json"}
+    };
+    HttpClient::Request request;
+
+    request.address(address)
+        .connectTimeoutMsec(2000)
+        .pathAndQuery("/")
+        .headers(headers)
+        .numHeaders(1)
+        //.contentType("Content-Type: application/json")
+        .method("POST")
+        .body(content.c_str(), content.size());
+
+    request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
+    {
+        if (msg.what == HttpMsgReader::http_message)
+        {
+            size_t sz = 0;
+            const void* body = msg.msg->get_body(sz);
+            if (sz > 0 && body)
+            {
+                std::string strResponse = std::string(static_cast<const char*>(body), sz);
+
+                LOG_DEBUG() << "strResponse = " << strResponse;
+
+                try
+                {
+                    json reply = json::parse(strResponse);
+
+                    callback(reply);
+                    /*if (!reply["error"].empty())
+                    {
+                        error.m_type = IBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                    else if (reply["result"].empty())
+                    {
+                        error.m_type = IBridge::EmptyResult;
+                        error.m_message = "JSON has no \"result\" value";
+                    }
+                    else
+                    {
+                        result = reply["result"];
+                    }*/
+                }
+                catch (const std::exception& /*ex*/)
+                {
+                    /*error.m_type = IBridge::InvalidResultFormat;
+                    error.m_message = ex.what();*/
+                }
+            }
+            else
+            {
+                /*error.m_type = IBridge::ErrorType::InvalidResultFormat;
+                error.m_message = "Empty response.";*/
+            }
+        }
+        return false;
+    });
+
+    m_httpClient.send_request(request);
+}
 } // namespace beam::ethereum

@@ -370,7 +370,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         settings.m_address = vm[cli::ETHEREUM_ADDRESS].as<string>();
         if (!io::Address().resolve(settings.m_address.c_str()))
         {
-            throw std::runtime_error("unable to resolve electrum address: " + settings.m_address);
+            throw std::runtime_error("unable to resolve ethereum address: " + settings.m_address);
         }
         isChanged = true;
     }

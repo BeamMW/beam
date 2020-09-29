@@ -18,6 +18,7 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(swap_test node swap http)
     add_test_snippet(swap_board_test wallet_client node)
     add_test_snippet(electrum_test swap)
+    #add_test_snippet(ethereum_test swap)
 endif()
 
 if (BEAM_LASER_SUPPORT)

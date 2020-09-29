@@ -14,6 +14,11 @@
 
 #pragma once
 
+#include "utility/common.h"
+#include "core/ecc.h"
+#include <functional>
+#include <string>
+
 namespace beam::ethereum
 {
 class IBridge
@@ -21,6 +26,12 @@ class IBridge
 public:
     virtual ~IBridge() {};
 
-    virtual void getBalance(std::function<void(Amount)> callback) = 0;
+    virtual void getBalance(std::function<void(ECC::uintBig)> callback) = 0;
+    virtual void getBlockNumber(std::function<void(Amount)> callback) = 0;
+    virtual void getTransactionCount(std::function<void(Amount)> callback) = 0;
+    virtual void sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback) = 0;
+    virtual void getTransactionReceipt(const std::string& txHash, std::function<void()> callback) = 0;
+    virtual void call(const std::string& to, const std::string& data, std::function<void()> callback) = 0;
+    virtual std::string generateEthAddress() const = 0;
 };
 } // namespace beam::ethereum

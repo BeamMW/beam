@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma
+#pragma once
 
 #include "core/serialization_adapters.h"
 #include "utility/common.h"
@@ -58,7 +58,7 @@ protected:
     std::string GetAddressName() const;
     std::string GetSecretWordsName() const;
     std::string GetAccountIndexName() const;
-    std::string GetShouldConnectName() const;        
+    std::string GetShouldConnectName() const;
         
     template<typename T>
     void ReadFromDB(const std::string& name, T& value)

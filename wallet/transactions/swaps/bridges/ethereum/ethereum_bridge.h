@@ -14,7 +14,32 @@
 
 #pragma once
 
+#include "bridge.h"
+#include "http/http_client.h"
+#include "settings_provider.h"
+
 namespace beam::ethereum
 {
+class EthereumBridge : public IBridge
+{
+public:
+    EthereumBridge() = delete;
+    EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider);
 
+    void getBalance(std::function<void(ECC::uintBig)> callback) override;
+    void getBlockNumber(std::function<void(Amount)> callback) override;
+    void getTransactionCount(std::function<void(Amount)> callback) override;
+    void sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback) override;
+    void getTransactionReceipt(const std::string& txHash, std::function<void()> callback) override;
+    void call(const std::string& to, const std::string& data, std::function<void()> callback) override;
+    std::string generateEthAddress() const override;
+
+protected:
+    void sendRequest(const std::string& method, const std::string& params, std::function<void(const nlohmann::json&)> callback);
+    
+
+private:
+    HttpClient m_httpClient;
+    ISettingsProvider& m_settingsProvider;
+};
 } // namespace beam::ethereum
