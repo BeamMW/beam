@@ -130,6 +130,82 @@ void testBlockNumber()
     mainReactor->run();
 }
 
+void testTransactionCount()
+{
+    std::cout << "\nTesting transaction count...\n";
+
+    ethereum::Settings settings;
+    settings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
+    settings.m_accountIndex = 0;
+    settings.m_address = "127.0.0.1:7545";
+    settings.m_shouldConnect = true;
+
+    auto provider = std::make_shared<ethereum::Provider>(settings);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    ethereum::EthereumBridge bridge(*mainReactor, *provider);
+
+    //std::cout << bridge.generateEthAddress() << std::endl;
+
+    bridge.getTransactionCount([mainReactor](Amount blockNumber)
+    {
+        std::cout << blockNumber << std::endl;
+        mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
+void testTransactionReceipt()
+{
+    std::cout << "\nTesting transaction receipt...\n";
+
+    ethereum::Settings settings;
+    settings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
+    settings.m_accountIndex = 0;
+    settings.m_address = "127.0.0.1:7545";
+    settings.m_shouldConnect = true;
+
+    auto provider = std::make_shared<ethereum::Provider>(settings);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    ethereum::EthereumBridge bridge(*mainReactor, *provider);
+
+    //std::cout << bridge.generateEthAddress() << std::endl;
+
+    bridge.getTransactionReceipt("0xb860a0b859ec69dc20ac5849bc7902006bad012b1ff182aac98be24c91ab5aeb", [mainReactor]()
+    {
+        mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
+void testCall()
+{
+    std::cout << "\nTesting call...\n";
+
+    ethereum::Settings settings;
+    settings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
+    settings.m_accountIndex = 0;
+    settings.m_address = "127.0.0.1:7545";
+    settings.m_shouldConnect = true;
+
+    auto provider = std::make_shared<ethereum::Provider>(settings);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    ethereum::EthereumBridge bridge(*mainReactor, *provider);
+
+    //std::cout << bridge.generateEthAddress() << std::endl;
+
+    bridge.call("0x1Fa4e11e4C5973321216C31a1aA698c7157dFeDd", "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor]()
+    {
+        mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -138,6 +214,10 @@ int main()
     testAddress();
     testBalance();
     testBlockNumber();
+    testTransactionCount();
+    testTransactionReceipt();
+    testCall();
+
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
