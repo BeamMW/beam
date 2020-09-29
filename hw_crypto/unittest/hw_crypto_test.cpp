@@ -700,8 +700,14 @@ struct KeyKeeperHwEmu
 
 	static void CidCvt(BeamCrypto_CoinID&, const CoinID&);
 
-	static void TxImport(BeamCrypto_TxCommon&, const Method::TxCommon&, std::vector<BeamCrypto_CoinID>&);
-	static void TxExport(Method::TxCommon&, const BeamCrypto_TxCommon&);
+	struct Encoder
+	{
+		std::vector<BeamCrypto_CoinID> m_vCids;
+		BeamCrypto_TxCommon m_Res;
+
+		void TxImport(const Method::TxCommon&);
+		void TxExport(Method::TxCommon&) const;
+	};
 
 
 #define THE_MACRO(method) \
@@ -850,19 +856,18 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateOutput& m)
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
 {
-	std::vector<BeamCrypto_CoinID> vCvt;
-	BeamCrypto_TxCommon tx2;
-	TxImport(tx2, m, vCvt);
+	Encoder enc;
+	enc.TxImport(m);
 
 	BeamCrypto_TxMutualInfo txMut;
 	txMut.m_MyIDKey = m.m_MyIDKey;
 	txMut.m_Peer = Ecc2BC(m.m_Peer);
 
-	int nRet = BeamCrypto_KeyKeeper_SignTx_Receive(&m_Ctx, &tx2, &txMut);
+	int nRet = BeamCrypto_KeyKeeper_SignTx_Receive(&m_Ctx, &enc.m_Res, &txMut);
 
 	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
 	{
-		TxExport(m, tx2);
+		enc.TxExport(m);
 
 		Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = txMut.m_PaymentProofSignature.m_NoncePub;
 		Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = txMut.m_PaymentProofSignature.m_k;
@@ -873,9 +878,8 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 {
-	std::vector<BeamCrypto_CoinID> vCvt;
-	BeamCrypto_TxCommon tx2;
-	TxImport(tx2, m, vCvt);
+	Encoder enc;
+	enc.TxImport(m);
 
 	BeamCrypto_TxMutualInfo txMut;
 	txMut.m_MyIDKey = m.m_MyIDKey;
@@ -887,11 +891,11 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 	txSnd.m_iSlot = m.m_Slot;
 	txSnd.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
 
-	int nRet = BeamCrypto_KeyKeeper_SignTx_Send(&m_Ctx, &tx2, &txMut, &txSnd);
+	int nRet = BeamCrypto_KeyKeeper_SignTx_Send(&m_Ctx, &enc.m_Res, &txMut, &txSnd);
 
 	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
 	{
-		TxExport(m, tx2);
+		enc.TxExport(m);
 		Ecc2BC(m.m_UserAgreement) = txSnd.m_UserAgreement;
 	}
 
@@ -905,65 +909,64 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
 {
-	std::vector<BeamCrypto_CoinID> vCvt;
-	BeamCrypto_TxCommon tx2;
-	TxImport(tx2, m, vCvt);
+	Encoder enc;
+	enc.TxImport(m);
 
-	int nRet = BeamCrypto_KeyKeeper_SignTx_Split(&m_Ctx, &tx2);
+	int nRet = BeamCrypto_KeyKeeper_SignTx_Split(&m_Ctx, &enc.m_Res);
 
 	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-		TxExport(m, tx2);
+		enc.TxExport(m);
 
 	return static_cast<Status::Type>(nRet);
 }
 
-void KeyKeeperHwEmu::TxImport(BeamCrypto_TxCommon& tx2, const Method::TxCommon& m, std::vector<BeamCrypto_CoinID>& v)
+void KeyKeeperHwEmu::Encoder::TxImport(const Method::TxCommon& m)
 {
-	tx2.m_Ins = static_cast<unsigned int>(m.m_vInputs.size());
-	tx2.m_Outs = static_cast<unsigned int>(m.m_vOutputs.size());
+	m_Res.m_Ins = static_cast<unsigned int>(m.m_vInputs.size());
+	m_Res.m_Outs = static_cast<unsigned int>(m.m_vOutputs.size());
 
-	v.resize(tx2.m_Ins + tx2.m_Outs);
-	if (!v.empty())
+	m_vCids.resize(m_Res.m_Ins + m_Res.m_Outs);
+	if (!m_vCids.empty())
 	{
-		for (size_t i = 0; i < v.size(); i++)
-			CidCvt(v[i], (i < tx2.m_Ins) ? m.m_vInputs[i] : m.m_vOutputs[i - tx2.m_Ins]);
+		for (size_t i = 0; i < m_vCids.size(); i++)
+			CidCvt(m_vCids[i], (i < m_Res.m_Ins) ? m.m_vInputs[i] : m.m_vOutputs[i - m_Res.m_Ins]);
 
-		tx2.m_pIns = &v.front();
-		tx2.m_pOuts = &v.front() + tx2.m_Ins;
+		m_Res.m_pIns = &m_vCids.front();
+		m_Res.m_pOuts = &m_vCids.front() + m_Res.m_Ins;
 	}
 
 	// kernel
 	assert(m.m_pKernel);
-	tx2.m_Krn.m_Fee = m.m_pKernel->m_Fee;
-	tx2.m_Krn.m_hMin = m.m_pKernel->m_Height.m_Min;
-	tx2.m_Krn.m_hMax = m.m_pKernel->m_Height.m_Max;
+	m_Res.m_Krn.m_Fee = m.m_pKernel->m_Fee;
+	m_Res.m_Krn.m_hMin = m.m_pKernel->m_Height.m_Min;
+	m_Res.m_Krn.m_hMax = m.m_pKernel->m_Height.m_Max;
 
-	tx2.m_Krn.m_Commitment = Ecc2BC(m.m_pKernel->m_Commitment);
-	tx2.m_Krn.m_Signature.m_NoncePub = Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub);
-	tx2.m_Krn.m_Signature.m_k = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
+	m_Res.m_Krn.m_Commitment = Ecc2BC(m.m_pKernel->m_Commitment);
+	m_Res.m_Krn.m_Signature.m_NoncePub = Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub);
+	m_Res.m_Krn.m_Signature.m_k = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
 
 	// offset
 	ECC::Scalar kOffs(m.m_kOffset);
-	tx2.m_kOffset = Ecc2BC(kOffs.m_Value);
+	m_Res.m_kOffset = Ecc2BC(kOffs.m_Value);
 }
 
-void KeyKeeperHwEmu::TxExport(Method::TxCommon& m, const BeamCrypto_TxCommon& tx2)
+void KeyKeeperHwEmu::Encoder::TxExport(Method::TxCommon& m) const
 {
 	// kernel
 	assert(m.m_pKernel);
-	m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
-	m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
-	m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
+	m.m_pKernel->m_Fee = m_Res.m_Krn.m_Fee;
+	m.m_pKernel->m_Height.m_Min = m_Res.m_Krn.m_hMin;
+	m.m_pKernel->m_Height.m_Max = m_Res.m_Krn.m_hMax;
 
-	Ecc2BC(m.m_pKernel->m_Commitment) = tx2.m_Krn.m_Commitment;
-	Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = tx2.m_Krn.m_Signature.m_NoncePub;
-	Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value) = tx2.m_Krn.m_Signature.m_k;
+	Ecc2BC(m.m_pKernel->m_Commitment) = m_Res.m_Krn.m_Commitment;
+	Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = m_Res.m_Krn.m_Signature.m_NoncePub;
+	Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value) = m_Res.m_Krn.m_Signature.m_k;
 
 	m.m_pKernel->UpdateID();
 
 	// offset
 	ECC::Scalar kOffs;
-	Ecc2BC(kOffs.m_Value) = tx2.m_kOffset;
+	Ecc2BC(kOffs.m_Value) = m_Res.m_kOffset;
 	m.m_kOffset = kOffs;
 }
 
