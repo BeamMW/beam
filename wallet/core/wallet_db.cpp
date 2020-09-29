@@ -232,7 +232,6 @@ namespace beam::wallet
             }
             stringstream ss;
             ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(db);
-            LOG_DEBUG() << ss.str();
             if (res == SQLITE_NOTADB)
             {
                 throw FileIsNotDatabaseException();
