@@ -1832,7 +1832,7 @@ void TestLelantus(bool bWithAsset)
 			SetRandom(ud1.m_pS[i].m_Value);
 		while (!ud1.m_pS[i].IsValid());
 	}
-	p.m_pUserData = &ud1;
+	p.m_Sigma.m_pUserData = &ud1;
 
 	p.m_Witness.m_V = 100500;
 	p.m_Witness.m_R = 4U;

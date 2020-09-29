@@ -860,52 +860,76 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 	return true;
 }
 
-void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* pHGen)
+void Prover::GenerateSigGen(const ECC::Point::Native* pHGen)
 {
-	const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
-		m_Witness.m_R_Adj :
-		m_Witness.m_R_Output;
-	Point::Native ptBias = Context::get().G * sk;
-	Tag::AddValue(ptBias, pHGen, m_Witness.m_V);
-	m_Proof.m_Commitment = ptBias;
-	m_Proof.m_SpendPk = Context::get().G * m_Witness.m_SpendSk;
-
-	m_Proof.m_Cfg.Expose(oracle);
-
-	Hash::Value hv;
-	m_Proof.Expose0(oracle, hv);
-
 	Scalar::Native pSk[4], pRes[2];
 
-	pSk[0] = sk;
+	pSk[0] = ECC::Tag::IsCustom(pHGen) ?
+		m_Witness.m_R_Adj :
+		m_Witness.m_R_Output;
+
 	pSk[1] = m_Witness.m_V;
 	pSk[2] = m_Witness.m_SpendSk;
 	assert(pSk[3] == Zero);
 
+	Proof& p = Cast::Up<Proof>(m_Sigma.m_Proof); // alias
+	p.m_Signature.CreateNonces(Context::get().m_Sig.m_CfgGH2, m_hvSigGen, pSk, pRes);
+
 	if (ECC::Tag::IsCustom(pHGen))
 	{
-		m_Proof.m_Signature.CreateNonces(Context::get().m_Sig.m_CfgGH2, hv, pSk, pRes);
-
 		ECC::Point::Native ptNonce = ECC::Context::get().G * pRes[0];
 		ptNonce += (*pHGen) * pRes[1];
-		m_Proof.m_Signature.m_NoncePub = ptNonce;
-
-		m_Proof.m_Signature.SignRaw(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
+		p.m_Signature.m_NoncePub = ptNonce;
 	}
 	else
-		m_Proof.m_Signature.Sign(Context::get().m_Sig.m_CfgGH2, hv, m_Proof.m_Signature.m_pK, pSk, pRes);
+		p.m_Signature.SetNoncePub(Context::get().m_Sig.m_CfgGH2, pRes);
 
-	Scalar::Native kSer;
-	SpendKey::ToSerial(kSer, m_Proof.m_SpendPk);
-	ptBias += Context::get().J * kSer;
+	p.m_Signature.SignRaw(Context::get().m_Sig.m_CfgGH2, m_hvSigGen, p.m_Signature.m_pK, pSk, pRes);
+}
 
-	Sigma::Prover spr(m_List, m_Proof.m_Cfg, m_Proof);
-	spr.m_Witness.m_L = m_Witness.m_L;
-	spr.m_Witness.m_R = m_Witness.m_R;
-	spr.m_Witness.m_R -= m_Witness.m_R_Output;
-	spr.m_pUserData = m_pUserData;
+void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* pHGen, Phase ePhase /* = Phase::SinglePass */)
+{
+	Point::Native ptBias;
 
-	spr.Generate(seed, oracle, ptBias);
+	if (Phase::Step2 != ePhase)
+	{
+		Proof& p = Cast::Up<Proof>(m_Sigma.m_Proof); // alias
+
+		const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
+			m_Witness.m_R_Adj :
+			m_Witness.m_R_Output;
+
+		if (Phase::SinglePass == ePhase)
+		{
+			ptBias = Context::get().G * sk;
+			Tag::AddValue(ptBias, pHGen, m_Witness.m_V);
+			p.m_Commitment = ptBias;
+			p.m_SpendPk = Context::get().G * m_Witness.m_SpendSk;
+		}
+		else
+			// assume Commitment and SpendPk are already set
+			ptBias.Import(p.m_Commitment);
+
+		p.m_Cfg.Expose(oracle);
+		p.Expose0(oracle, m_hvSigGen);
+
+		if (Phase::SinglePass == ePhase)
+			GenerateSigGen(pHGen);
+
+		Scalar::Native kSer;
+		SpendKey::ToSerial(kSer, p.m_SpendPk);
+		ptBias += Context::get().J * kSer;
+	}
+
+	m_Sigma.m_Witness.m_L = m_Witness.m_L;
+
+	if (Phase::SinglePass == ePhase)
+	{
+		m_Sigma.m_Witness.m_R = m_Witness.m_R;
+		m_Sigma.m_Witness.m_R -= m_Witness.m_R_Output;
+	}
+
+	m_Sigma.Generate(seed, oracle, ptBias, ePhase);
 }
 
 

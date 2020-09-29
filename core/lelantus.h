@@ -191,13 +191,12 @@ namespace Lelantus
 		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs, const ECC::Point::Native* pHGen = nullptr) const;
 	};
 
-	class Prover
+	struct Prover
 	{
-		CmList& m_List;
-	public:
+		Sigma::Prover m_Sigma;
+
 		Prover(CmList& lst, Proof& proof)
-			:m_List(lst)
-			,m_Proof(proof)
+			:m_Sigma(lst, proof.m_Cfg, proof)
 		{
 		}
 
@@ -205,6 +204,7 @@ namespace Lelantus
 		struct Witness
 			:public Sigma::Prover::Witness
 		{
+			// all the following is ignored in MPC mode
 			Amount m_V;
 			ECC::Scalar::Native m_R_Output; // 'true' blinding factor of the being-spent output
 			ECC::Scalar::Native m_R_Adj; // Assets: effective blinding factor (includes the blinding factor of the generator multiplied by value).
@@ -212,12 +212,12 @@ namespace Lelantus
 		};
 		Witness m_Witness;
 
-		Sigma::Prover::UserData* m_pUserData = nullptr;
+		ECC::Hash::Value m_hvSigGen;
+		void GenerateSigGen(const ECC::Point::Native* pHGen);
 
-		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native* pHGen = nullptr);
+		typedef Sigma::Prover::Phase Phase;
 
-		// result
-		Proof& m_Proof;
+		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle, const ECC::Point::Native* pHGen = nullptr, Phase ePhase = Phase::SinglePass);
 	};
 
 } // namespace Lelantus
