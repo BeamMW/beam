@@ -40,6 +40,7 @@ namespace beam::wallet
         PullTransaction,
         VoucherRequest,
         VoucherResponse,
+        UnlinkFunds,
         ALL
     };
 
@@ -54,7 +55,6 @@ namespace beam::wallet
     constexpr Amount kMinFeeInGroth = 100;
     constexpr Amount kShieldedCoinMinFeeInGroth = Transaction::FeeSettings::MinShieldedFee;
     constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
-    inline const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
 
 #pragma pack (push, 1)
     struct WalletID
@@ -64,9 +64,9 @@ namespace beam::wallet
 
         WalletID() {}
         WalletID(Zero_)
-        {
-            m_Channel = Zero;
-            m_Pk = Zero;
+            : m_Channel(Zero)
+            , m_Pk(Zero)
+        {            
         }
 
         template <typename Archive>
@@ -82,14 +82,17 @@ namespace beam::wallet
 
         bool IsValid() const; // isn't cheap
 
+        BbsChannel get_Channel() const;
+        void SetChannelFromPk();
+
         int cmp(const WalletID&) const;
         COMPARISON_VIA_CMP
     };
 #pragma pack (pop)
 
-    boost::optional<PeerID> FromHex(const std::string& s);
+    boost::optional<PeerID> GetPeerIDFromHex(const std::string& s);
 
-    bool check_receiver_address(const std::string& addr);
+    bool CheckReceiverAddress(const std::string& addr);
 
     struct PrintableAmount
     {
@@ -162,10 +165,16 @@ namespace beam::wallet
     MACRO(KeyKeeperUserAbort,            40, "Aborted by the user") \
     MACRO(AssetExists,                   41, "Asset has been already registered") \
     MACRO(InvalidAssetOwnerId,           42, "Invalid asset owner id") \
-    MACRO(AssetsDisabled,                43, "Asset transactions are disabled in the wallet") \
-    MACRO(NoVouchers,                    44, "You have no vouchers to insert coins to lelentus") \
+    MACRO(AssetsDisabledInWallet,        43, "Asset transactions are disabled in the wallet") \
+    MACRO(NoVoucher,                     44, "No voucher, no address to receive it") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
-    MACRO(Count,                         46, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
+    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
+    MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
+    MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
+    MACRO(NoPeerIdentity,                50, "Peer Identity required") \
+    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for max privacy transaction") \
+    MACRO(Count,                         52, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {
@@ -258,6 +267,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   WalletID) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \
@@ -302,8 +312,8 @@ namespace beam::wallet
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
     MACRO(ShieldedOutputId,                122, TxoID) \
-    MACRO(WindowBegin,                     123, TxoID) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
+    MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
     MACRO(ClientVersion,                   126, std::string) \
     MACRO(LibraryVersion,                  127, std::string) 
@@ -318,7 +328,6 @@ namespace beam::wallet
 #undef MACRO
 
         // private parameters
-        PrivateFirstParam = 128,
 
         ModifyTime = 128,
         KernelProofHeight = 129,
@@ -335,8 +344,6 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
-        ChangeAsset = 149,
-        ChangeBeam = 150,
         Status = 151,
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
@@ -344,17 +351,19 @@ namespace beam::wallet
         PartialSignature = 159,
 
         SharedBlindingFactor = 160,
-        MyNonce = 162,
+        AggregateSignature = 161,
         NonceSlot = 163,
         PublicNonce = 164,
         PublicExcess = 165,
-        SharedBulletProof = 171,
+        MutualTxState = 166,
         SharedCoinID = 172,
-        SharedSeed = 173,
+        SharedCommitment = 174,
 
         Inputs = 180,
+        InputsShielded = 181,
         InputCoins = 183,
         OutputCoins = 184,
+        InputCoinsShielded = 185,
         Outputs = 190,
 
         Kernel = 200,
@@ -368,8 +377,6 @@ namespace beam::wallet
 
         InternalFailureReason = 210,
     
-        ShieldedSerialPub = 220,
-        UnusedShieldedVoucherList = 221,
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
         State = 255
@@ -475,32 +482,45 @@ namespace beam::wallet
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
-    struct TxStatusInterpreter
+    class TxStatusInterpreter
     {
-        using Creator = std::function<TxStatusInterpreter(const TxParameters& txParams)>;
-        explicit TxStatusInterpreter(const TxParameters& txParams);
-        virtual ~TxStatusInterpreter() {}
-        virtual std::string getStatus() const;
+    public:
+        typedef std::shared_ptr<TxStatusInterpreter> Ptr;
+        using Creator = std::function<Ptr (const TxParameters& txParams)>;
 
-        const TxParameters& m_txParams;
+        explicit TxStatusInterpreter(const TxParameters& txParams);
+        virtual ~TxStatusInterpreter() = default;
+        [[nodiscard]] virtual std::string getStatus() const;
+
+    protected:
         TxStatus m_status = TxStatus::Pending;
         bool m_sender = false;
         bool m_selfTx = false;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
     };
 
-    struct SimpleTxStatusInterpreter : public TxStatusInterpreter
+    class SimpleTxStatusInterpreter : public TxStatusInterpreter
     {
+    public:
         explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        std::string getStatus() const override;
+        [[nodiscard]] std::string getStatus() const override;
     };
 
-    struct AssetTxStatusInterpreter : public TxStatusInterpreter
+    class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
     {
-        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
-        virtual ~AssetTxStatusInterpreter() {}
-        std::string getStatus() const override;
+    public:
+        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        ~MaxPrivacyTxStatusInterpreter() override = default;
+        [[nodiscard]] std::string getStatus() const override;
+    };
 
+    class AssetTxStatusInterpreter : public TxStatusInterpreter
+    {
+    public:
+        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
+        ~AssetTxStatusInterpreter() override = default;
+        [[nodiscard]] std::string getStatus() const override;
+    protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
 
@@ -525,8 +545,6 @@ namespace beam::wallet
             , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
-            , m_changeBeam{0}
-            , m_changeAsset{0}
             , m_assetId{assetId}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
@@ -541,7 +559,7 @@ namespace beam::wallet
             , m_failureReason{ TxFailureReason::Unknown }
         {
         }
-        explicit TxDescription(const TxParameters);
+        explicit TxDescription(const TxParameters&);
         void fillFromTxParameters(const TxParameters&);
 
         [[nodiscard]] bool canResume() const;
@@ -559,8 +577,6 @@ namespace beam::wallet
         wallet::TxType m_txType = wallet::TxType::Simple;
         Amount m_amount = 0;
         Amount m_fee = 0;
-        Amount m_changeBeam = 0;
-        Amount m_changeAsset = 0;
         Asset::ID m_assetId = Asset::s_InvalidID;
         std::string m_assetMeta;
         Height m_minHeight = 0;
@@ -585,8 +601,6 @@ namespace beam::wallet
             TxParameterID::CreateTime,
             TxParameterID::IsSender,
             TxParameterID::Message,
-            TxParameterID::ChangeBeam,
-            TxParameterID::ChangeAsset,
             TxParameterID::ModifyTime,
             TxParameterID::Status,
             TxParameterID::KernelID,
@@ -657,11 +671,11 @@ namespace beam::wallet
     struct INegotiatorGateway : IAsyncContext
     {
         using ShieldedListCallback = std::function<void(TxoID, uint32_t, proto::ShieldedList&)>;
-        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp)>;
+        using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp&)>;
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
+        virtual void on_tx_failed(const TxID&) = 0;
         virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
-        virtual void confirm_outputs(const std::vector<Coin>&) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
@@ -669,8 +683,9 @@ namespace beam::wallet
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
         virtual void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
-        virtual void get_proof_shielded_output(const TxID&, ECC::Point serialPublic, ProofShildedOutputCallback&& callback) {};
+        virtual void get_proof_shielded_output(const TxID&, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
+        virtual void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) {}
     };
 
     enum class ErrorType : uint8_t
@@ -755,11 +770,18 @@ namespace beam::wallet
 
     std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
 
-    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count);
+    struct IPrivateKeyKeeper2;
+    ShieldedVoucherList GenerateVoucherList(const std::shared_ptr<IPrivateKeyKeeper2>&, uint64_t ownID, size_t count);
     bool IsValidVoucherList(const ShieldedVoucherList& vouchers, const PeerID& identity);
 
     std::string ConvertTokenToJson(const std::string& token);
     std::string ConvertJsonToToken(const std::string& json);
+
+    // add timestamp to the file name
+    std::string TimestampFile(const std::string& fileName);
+
+    extern bool g_AssetsEnabled; // global flag
+    TxFailureReason CheckAssetsEnabled(Height h);
 
 }    // beam::wallet
 
@@ -800,4 +822,6 @@ namespace std
             return std::hash<ECC::uintBig>{}(key.m_Pk);
         }
     };
+
+    unsigned to_unsigned(const std::string&, bool throws = true);
 }

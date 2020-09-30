@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 // limitations under the License.
 #pragma once
 
-namespace beam::wallet {
-    unsigned days2sec(unsigned days);
-}
+#include "wallet/core/wallet.h"
 
+namespace beam::wallet::lelantus
+{
+    void RegisterCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
+}

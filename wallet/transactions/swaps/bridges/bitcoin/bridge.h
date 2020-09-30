@@ -71,5 +71,7 @@ namespace beam::bitcoin
         virtual void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) = 0;
         // error, genesis block hash
         virtual void getGenesisBlockHash(std::function<void(const Error&, const std::string&)> callback) = 0;
+        // error, fee rate
+        virtual void estimateFee(int blockAmount, std::function<void(const Error&, Amount)> callback) = 0;
     };
 } // namespace beam::bitcoin

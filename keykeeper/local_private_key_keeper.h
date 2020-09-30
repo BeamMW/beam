@@ -52,7 +52,7 @@ namespace beam::wallet
 
         // user interaction emulation
         virtual bool IsTrustless() { return false; }
-        virtual Status::Type ConfirmSpend(Amount, Asset::ID, const PeerID&, const TxKernel&, bool bFinal) { return Status::Success; }
+        virtual Status::Type ConfirmSpend(Amount, Asset::ID, const PeerID&, const TxKernel&, Amount totalFee, bool bFinal) { return Status::Success; }
 
     };
 
@@ -60,26 +60,30 @@ namespace beam::wallet
         : public LocalPrivateKeyKeeper2
     {
     public:
-
-        static const Slot::Type s_Slots = 64;
+        static const Slot::Type s_DefNumSlots = 10 * 1024 * 1024;  // practically unlimited slots
 
         struct State
         {
-            ECC::Hash::Value m_pSlot[s_Slots];
             ECC::Hash::Value m_hvLast;
 
-            void Generate(); // must set m_hvLast before calling
+            typedef std::map<Slot::Type, ECC::Hash::Value> UsedMap;
+            UsedMap m_Used;
+
+            ECC::Hash::Value* get_At(Slot::Type, bool& bAlloc);
+            ECC::Hash::Value& get_AtReady(Slot::Type);
+            void Regenerate(ECC::Hash::Value&);
             void Regenerate(Slot::Type);
 
         } m_State;
 
-        using LocalPrivateKeyKeeper2::LocalPrivateKeyKeeper2;
+        LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots = s_DefNumSlots);
 
     protected:
-
         virtual Slot::Type get_NumSlots() override;
         virtual void get_Nonce(ECC::Scalar::Native&, Slot::Type) override;
         virtual void Regenerate(Slot::Type) override;
 
+    private:
+        Slot::Type m_numSlots;
     };
 }

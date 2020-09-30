@@ -24,12 +24,14 @@ namespace beam::wallet {
         explicit WalletAssetMeta(const Asset::Full& info);
 
         bool isStd() const;
+        bool isStd_v5_0() const;
         void LogInfo(const std::string& prefix = "\t") const;
 
         std::string GetUnitName() const;
         std::string GetNthUnitName() const;
         std::string GetName() const;
         std::string GetShortName() const;
+        unsigned GetSchemaVersion() const;
 
     private:
         void Parse();
@@ -37,6 +39,7 @@ namespace beam::wallet {
         typedef std::map<std::string, std::string> SMap;
         SMap _values;
         bool _std;
+        bool _std_v5_0;
         std::string _meta;
     };
 
@@ -45,6 +48,7 @@ namespace beam::wallet {
     public:
         WalletAsset() = default;
         WalletAsset(const Asset::Full& full, Height refreshHeight);
+        ~WalletAsset() = default;
         bool CanRollback(Height from) const;
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;

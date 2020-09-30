@@ -16,6 +16,7 @@
 
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/common.h"
+#include "wallet/core/wallet.h"
 
 namespace beam::wallet
 {
@@ -27,10 +28,8 @@ TxParameters InitNewSwap(
     bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
     Height responseTime = kDefaultTxResponseTime);
 
-class Wallet;
-void RegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB);
+void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB);
 
-Amount GetSwapFeeRate(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin);
 bool IsSwapAmountValid(
     AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate);
 } // namespace beam::wallet

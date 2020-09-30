@@ -214,9 +214,6 @@ namespace proto {
 #define BeamNodeMsg_GetEvents(macro) \
     macro(Height, HeightMin)
 
-#define BeamNodeMsg_EventsLegacy(macro) \
-    macro(std::vector<Event::Legacy>, Events)
-
 #define BeamNodeMsg_Events(macro) \
     macro(ByteBuffer, Events)
 
@@ -295,7 +292,7 @@ namespace proto {
     macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
-    macro(0x2d, EventsLegacy) \
+    /* macro(0x2d, EventsLegacy) Deprecated */ \
     macro(0x34, Events) \
     macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
@@ -336,9 +333,10 @@ namespace proto {
             // 3 - Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
+            // 6 - Newer Event::AssetCtl, newer Utxo events
 
-            static const uint32_t Minimum = 3;
-            static const uint32_t Maximum = 5;
+            static const uint32_t Minimum = 4;
+            static const uint32_t Maximum = 6;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
@@ -360,27 +358,29 @@ namespace proto {
         static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
-        macro(1, Utxo) \
+        macro(1, Utxo0) \
         macro(2, Shielded) \
-        macro(3, AssetCtl)
+        macro(3, AssetCtl) \
+        macro(4, Utxo)
 
-#define BeamEvent_Utxo(macro) \
+#define BeamEvent_Utxo0(macro) \
         macro(uint8_t, Flags) \
         macro(CoinID, Cid) \
         macro(ECC::Point, Commitment) \
         macro(Height, Maturity)
 
+#define BeamEvent_Utxo(macro) \
+        BeamEvent_Utxo0(macro) \
+        macro(Output::User, User)
+
 #define BeamEvent_Shielded(macro) \
         macro(uint8_t, Flags) \
-        macro(TxoID, ID) \
-        macro(Amount, Value) \
-        macro(Asset::ID, AssetID) \
-        macro(ShieldedTxo::BaseKey, Key) \
-        macro(ShieldedTxo::User, User)
+        macro(TxoID, TxoID) \
+        macro(ShieldedTxo::ID, CoinID)
 
 #define BeamEvent_AssetCtl(macro) \
+        macro(Asset::Full, Info) \
         macro(uint8_t, Flags) \
-        macro(Asset::Metadata, Metadata) \
         macro(AmountSigned, EmissionChange)
 
         struct Type {
@@ -431,12 +431,23 @@ namespace proto {
 #undef THE_MACRO_SER
 #undef THE_MACRO_DECL
 
-
-        struct IParser
+        struct IParserBase
         {
             void ProceedOnce(Deserializer&);
             void ProceedOnce(const Blob&);
-            virtual void OnEvent(Base&) {}
+
+            virtual void OnEventBase(Base&) {}
+
+#define THE_MACRO(id, name) \
+            virtual void OnEventType(name& evt) { OnEventBase(evt); }
+            BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+        };
+
+        struct IParser
+            :public IParserBase
+        {
+            virtual void OnEventType(Utxo0&) override;
         };
 
         struct IGroupParser
@@ -444,36 +455,6 @@ namespace proto {
         {
             Height m_Height;
             uint32_t Proceed(const Blob&);
-        };
-
-        // remove the following after Fork2
-        struct Legacy
-        {
-            Key::ID m_Kid;
-            Amount m_Value;
-            ECC::Point m_Commitment;
-
-            Height m_Height;
-            Height m_Maturity;
-
-            uint8_t m_Flags;
-
-            template <typename Archive>
-            void serialize(Archive& ar)
-            {
-                ECC::uintBig dummy(Zero);
-                ar
-                    & m_Commitment
-                    & m_Kid
-                    & m_Value
-                    & dummy
-                    & m_Height
-                    & m_Maturity
-                    & m_Flags;
-            }
-
-            void Import(const Utxo&);
-            void Export(Utxo&) const;
         };
 
     };
@@ -738,7 +719,6 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
-        virtual void OnMsg(EventsLegacy&&) override; // auto-convert
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

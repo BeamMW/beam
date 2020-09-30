@@ -278,6 +278,13 @@ namespace beam
 
 		} Shielded;
 
+		struct
+		{
+			uint32_t v0 = 14; // 15 for masternet and testnet, 14 for mainnet
+			uint32_t v2 = 2;
+			bool IsTestnet = false; // true for testnet, false for masternet and mainnet
+		} Magic;
+
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
@@ -489,6 +496,40 @@ namespace beam
 		{
 		}
 
+		struct User
+		{
+			ECC::Scalar m_pExtra[2];
+			User()
+			{
+				ZeroObject(m_pExtra);
+			}
+#pragma pack (push, 1)
+			struct Packed
+			{
+				typedef uintBig_t<16> TxID;
+				Amount m_Fee;
+				Amount m_Amount;
+				TxID m_TxID;
+				PeerID m_Peer;
+			};
+#pragma pack (pop)
+			static Packed* ToPacked(User& user)
+			{
+				return reinterpret_cast<Packed*>(user.m_pExtra);
+			}
+
+			static const Packed* ToPacked(const User& user)
+			{
+				return reinterpret_cast<const Packed*>(user.m_pExtra);
+			}
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar & m_pExtra;
+			}
+		};
+
 		static const Amount s_MinimumValue = 1;
 
 		// one of the following *must* be specified
@@ -505,9 +546,9 @@ namespace beam
 			};
 		};
 
-		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const CoinID&, Key::IPKdf& tagKdf, OpCode::Enum = OpCode::Standard, const User* = nullptr);
 
-		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID&, User* = nullptr) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const CoinID&) const;
 
 		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
@@ -599,6 +640,24 @@ namespace beam
 			PeerID m_Sender;
 			ECC::uintBig m_pMessage[2];
 
+#pragma pack (push, 1)
+			struct PackedMessage
+			{
+				typedef uintBig_t<16> TxID;
+				TxID m_TxID;
+				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID)];
+			};
+#pragma pack (pop)
+			static PackedMessage* ToPackedMessage(User& user)
+			{
+				return reinterpret_cast<PackedMessage*>(user.m_pMessage);
+			}
+
+			static const PackedMessage* ToPackedMessage(const User& user)
+			{
+				return reinterpret_cast<const PackedMessage*>(user.m_pMessage);
+			}
+
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{
@@ -606,6 +665,26 @@ namespace beam
 					& m_Sender
 					& m_pMessage;
 			}
+		};
+
+		struct ID
+		{
+			BaseKey m_Key;
+			User m_User;
+			Amount m_Value;
+			Asset::ID m_AssetID = 0;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Value
+					& m_AssetID
+					& m_Key
+					& m_User;
+			}
+
+			void get_SkOut(ECC::Scalar::Native&, Amount fee, Key::IKdf& kdf) const;
 		};
 
 		struct Voucher
@@ -687,11 +766,25 @@ namespace beam
 
 		struct IWalker
 		{
+			uint32_t m_nKrnIdx = 0;
+
 			virtual bool OnKrn(const TxKernel&) = 0;
 
 			bool Process(const std::vector<TxKernel::Ptr>&);
 			bool Process(const TxKernel&);
 		};
+
+#define THE_MACRO(id, name) \
+		TxKernel##name & CastTo_##name() { \
+			assert(get_Subtype() == Subtype::name); \
+			return Cast::Up<TxKernel##name>(*this); \
+		} \
+		const TxKernel##name & CastTo_##name() const { \
+			return Cast::NotConst(*this).CastTo_##name(); \
+		}
+
+		BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
 
 	protected:
 		void HashBase(ECC::Hash::Processor&) const;
@@ -769,6 +862,8 @@ namespace beam
 
 		void Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset);
 		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&, const Asset::Metadata&);
+
+		void get_Sk(ECC::Scalar::Native&, Key::IKdf&); // pseudo-random sk for this kernel
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
@@ -853,7 +948,6 @@ namespace beam
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
 
-		// Prover/Witness: the 'output' blinding factor and the seed are automatically set
 		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
 
 		virtual ~TxKernelShieldedInput() {}

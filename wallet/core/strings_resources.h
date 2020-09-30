@@ -64,6 +64,8 @@ namespace beam
     extern const char kErrorTooBigAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
+    extern const char kErrorFeeForShieldedToLow[];
+    extern const char kErrorFeeForShieldedOutToLow[];
     extern const char kErrorSwapFeeRateMissing[];
     extern const char kErrorSwapWalletAddrNotResolved[];
     extern const char kErrorSwapWalletAddrUnspecified[];
@@ -96,6 +98,8 @@ namespace beam
     extern const char kErrorImportPathInvalid[];
     extern const char kErrorFileLocationParamReqired[];
     extern const char kErrorConnectionFailed[];
+    extern const char kErrorNotEnoughtCoins[];
+    extern const char kErrorCantSendMaxPrivacyToOwn[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
@@ -167,14 +171,13 @@ namespace beam
     extern const char kWalletSummaryFieldAvaliableFee[];
     extern const char kWalletSummaryFieldTotalFee[];
     extern const char kWalletSummaryFieldTotalUnspent[];
-    extern const char kWalletSummaryFieldShielded[];
     extern const char kCoinsTableHeadFormat[];
     extern const char kCoinColumnId[];
     extern const char kCoinColumnMaturity[];
     extern const char kCoinColumnStatus[];
     extern const char kCoinColumnType[];
-    extern const char kCoinColumnIsUnlinked[];
     extern const char kCoinsTableFormat[];
+    extern const char kCoinConfirmationsCount[];
     // Tx history
     extern const char kTxHistoryTableHead[];
     extern const char kTxHistoryTableFormat[];
@@ -192,7 +195,7 @@ namespace beam
     extern const char kTxHistoryEmpty[];
     extern const char kTxHistoryUnreliableTxs[];
     extern const char kTxHistoryUnreliableCoins[];
-    extern const char kTxToken[];
+    extern const char kTxAddress[];
     extern const char kNoCoins[];
     extern const char kNoShieldedCoins[];
     extern const char kSwapTxHistoryEmpty[];
@@ -234,8 +237,6 @@ namespace beam
     extern const char kErrorAssetNotFound[];
     extern const char kErrorAssetNotOwned[];
     extern const char kErrorAssetLoadMeta[];
-    extern const char kErrorAssetsFork2[];
-    extern const char kErrorAssetsDisabled[];
 
     // Laser
 #ifdef BEAM_LASER_SUPPORT
@@ -246,6 +247,7 @@ namespace beam
     extern const char kLaserUpdating[];
     extern const char kLaserClosing[];
     extern const char kLaserClosed[];
+    extern const char kLaserExpired[];
     extern const char kLaserUnknown[];
     extern const char kLaserErrorParamsRead[];
     extern const char kLaserErrorMyAmountMissing[];
@@ -261,6 +263,7 @@ namespace beam
     extern const char kLaserChannelTableBody[];
     extern const char kLaserErrorOpenFailed[];
     extern const char kLaserMessageClosed[];
+    extern const char kLaserMessageExpired[];
     extern const char kLaserErrorTransferFailed[];
     extern const char kLaserMessageChannelServed[];
     extern const char kLaserMessageUpdateFinished[];

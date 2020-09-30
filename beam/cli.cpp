@@ -357,6 +357,9 @@ int main_impl(int argc, char* argv[])
 					if (vm[cli::PRINT_TXO].as<bool>())
 						node.PrintTxos();
 
+					if (vm[cli::PRINT_ROLLBACK_STATS].as<bool>())
+						node.PrintRollbackStats();
+
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))
 					{
 						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();

@@ -53,62 +53,16 @@ namespace beam::wallet
         auto devices = m_client->enumerate();
         std::vector<std::string> items;
 
-        if (devices.empty())
-            return items;
-
         for (auto device : devices)
         {
-            items.push_back("Trezor(device.path=" + device.path
-                + ",product=" + std::to_string(device.product)
-                + ",session=" + device.session
-                + ",vendor=" + std::to_string(device.vendor)
-                + ")");
+            items.push_back(std::to_string(device));
         }
 
         return items;
     }
 
-    std::shared_ptr<DeviceManager> getTrezor(std::shared_ptr<Client> client, const std::string& deviceName)
+    IPrivateKeyKeeper2::Ptr HWWallet::getKeyKeeper(const std::string& deviceName, const IHandler::Ptr& uiHandler)
     {
-        auto enumerates = client->enumerate();
-        auto& enumerate = enumerates.front();
-
-        if (enumerate.session != "null")
-        {
-            client->release(enumerate.session);
-            enumerate.session = "null";
-        }
-
-        auto trezor = std::make_shared<DeviceManager>();
-
-        trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
-        {
-            auto message = child_cast<Message, Failure>(msg).message();
-
-            //onError(message);
-
-            LOG_ERROR() << "TREZOR FAIL REASON: " << message;
-        });
-
-        trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
-        {
-            LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
-        });
-
-        try
-        {
-            trezor->init(enumerate);
-        }
-        catch (std::runtime_error e)
-        {
-            LOG_ERROR() << e.what();
-        }
-
-        return trezor;
-    }
-
-    IPrivateKeyKeeper2::Ptr HWWallet::getKeyKeeper(const std::string& device)
-    {
-        return std::make_shared<TrezorKeyKeeperProxy>(getTrezor(m_client, device));
+        return std::make_shared<TrezorKeyKeeperProxy>(std::make_shared<Client>(), deviceName, uiHandler);
     }
 }

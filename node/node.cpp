@@ -1026,7 +1026,7 @@ void Node::InitIDs()
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
-    hp << uint32_t(1); // change this whenever we change the format of the saved events
+    hp << uint32_t(4); // change this whenever we change the format of the saved events
 
 	ECC::Hash::Value hv0, hv1(Zero);
 
@@ -3511,10 +3511,15 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
+        bool bSkipAssets = (proto::LoginFlags::Extension::get(m_LoginFlags) < 6);
+        static_assert(proto::LoginFlags::Extension::Minimum < 6); // remove this logic when older protocol won't be supported
+
+        bool bUtxo0 = bSkipAssets;
+
         // we'll send up to s_Max num of events, even to older clients, they won't complain
         static_assert(proto::Event::s_Max > proto::Event::s_Max0);
 
-        Serializer ser;
+        Serializer ser, serCvt;
 
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
@@ -3523,6 +3528,38 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
+
+            if (bSkipAssets || bUtxo0)
+            {
+                Deserializer der;
+                der.reset(wlk.m_Body.p, wlk.m_Body.n);
+
+                proto::Event::Type::Enum eType;
+                der & eType;
+                if (bSkipAssets && (proto::Event::Type::AssetCtl == eType))
+                    continue; // skip
+
+                if (bUtxo0 && (proto::Event::Type::Utxo == eType))
+                {
+                    proto::Event::Utxo evt;
+                    der & evt;
+
+                    // convert to Utxo0.
+                    proto::Event::Utxo0 evt0;
+#define THE_MACRO(type, name) evt0.m_##name = std::move(evt.m_##name);
+                    BeamEvent_Utxo0(THE_MACRO)
+#undef THE_MACRO
+
+                    serCvt.reset();
+
+                    eType = proto::Event::Type::Utxo0;
+                    serCvt & eType;
+                    serCvt & evt0;
+
+                    wlk.m_Body.p = serCvt.buffer().first;
+                    wlk.m_Body.n = static_cast<uint32_t>(serCvt.buffer().second);
+                }
+            }
 
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
@@ -3535,37 +3572,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 4)
-    {
-        Send(msgOut);
-    }
-    else
-    {
-        // legacy client
-        struct MyParser
-            :public proto::Event::IGroupParser
-        {
-            proto::EventsLegacy m_msgOut;
-
-            virtual void OnEvent(proto::Event::Base& evt_) override
-            {
-                if (proto::Event::Type::Utxo != evt_.get_Type())
-                    return; // ignore
-                proto::Event::Utxo& evt = Cast::Up<proto::Event::Utxo>(evt_);
-
-                m_msgOut.m_Events.emplace_back();
-                proto::Event::Legacy& evt1 = m_msgOut.m_Events.back();
-
-                evt1.Import(evt);
-                evt1.m_Height = m_Height;
-            }
-
-        } parser;
-
-        parser.Proceed(msgOut.m_Events);
-
-        Send(parser.m_msgOut);
-    }
+    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
@@ -4528,6 +4535,12 @@ void Node::PrintTxos()
         pid.Import(ptN);
     }
 
+    struct PerAsset {
+        Amount m_Avail = 0;
+        Amount m_Locked = 0;
+    };
+    typedef std::map<Asset::ID, PerAsset> AssetMap;
+
     std::ostringstream os;
     os << "Printing Events for Key=" << pid << std::endl;
 
@@ -4538,23 +4551,197 @@ void Node::PrintTxos()
     if (hSerif0 >= Rules::HeightGenesis)
         os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
+    struct MyParser :public proto::Event::IParser
+    {
+        std::ostringstream& m_os;
+        AssetMap m_Map;
+        Height m_Height;
+
+        MyParser(std::ostringstream& os) :m_os(os) {}
+
+        virtual void OnEventBase(proto::Event::Base& x) override
+        {
+            x.Dump(m_os);
+        }
+
+        void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
+        {
+            PerAsset& pa = m_Map[aid];
+
+            if (proto::Event::Flags::Add & nFlags)
+                (bMature ? pa.m_Avail : pa.m_Locked) += v;
+            else
+                pa.m_Avail -= v;
+        }
+
+        virtual void OnEventType(proto::Event::Utxo& x) override
+        {
+            OnEventBase(x);
+            OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
+        }
+
+        virtual void OnEventType(proto::Event::Shielded& x) override
+        {
+            OnEventBase(x);
+            OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
+        }
+
+    } p(os);
+    p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
+
     NodeDB::WalkerEvent wlk;
     for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
-        struct MyParser :public proto::Event::IParser
-        {
-            std::ostringstream& m_os;
-            MyParser(std::ostringstream& os) :m_os(os) {}
-
-            virtual void OnEvent(proto::Event::Base& x) override {
-                x.Dump(m_os);
-            }
-
-        } p(os);
-
         os << "\tHeight=" << wlk.m_Height << ", ";
         p.ProceedOnce(wlk.m_Body);
         os << std::endl;
+    }
+
+    os << "Totals:" << std::endl;
+
+    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; it++)
+    {
+        const PerAsset& pa = it->second;
+        if (pa.m_Avail || pa.m_Locked)
+        {
+            os << "\tAssetID=" << it->first << ", Avail=" << pa.m_Avail << ", Locked=" << pa.m_Locked << std::endl;
+
+        }
+    }
+
+    LOG_INFO() << os.str();
+}
+
+void Node::PrintRollbackStats()
+{
+    std::ostringstream os;
+    os << "Printing recent rollback stats" << std::endl;
+
+    NodeDB& db = m_Processor.get_DB(); // alias
+
+    ByteBuffer bufP, bufE;
+    std::vector<NodeDB::StateInput> vIns;
+
+    NodeDB::WalkerState wlk;
+    for (db.EnumFunctionalTips(wlk); wlk.MoveNext(); )
+    {
+        Block::SystemState::Full sTip1;
+        db.get_State(wlk.m_Sid.m_Row, sTip1);
+        assert(sTip1.m_Height == wlk.m_Sid.m_Height);
+
+        typedef std::map<ECC::Point, Height> InputMap;
+        InputMap inpMap;
+
+        typedef std::map<ECC::Hash::Value, Height> KrnMap;
+        KrnMap krnMap;
+
+        NodeDB::StateID sidSplit = wlk.m_Sid;
+
+        for (; sidSplit.m_Row; db.get_Prev(sidSplit))
+        {
+            if (NodeDB::StateFlags::Active & db.GetStateFlags(sidSplit.m_Row))
+                break;
+
+            bufP.clear();
+            bufE.clear();
+            db.GetStateBlock(sidSplit.m_Row, &bufP, &bufE, nullptr);
+
+            Block::Body block;
+
+            Deserializer der;
+            der.reset(bufP);
+            der & Cast::Down<Block::BodyBase>(block);
+            der & Cast::Down<TxVectors::Perishable>(block);
+
+            der.reset(bufE);
+            der & Cast::Down<TxVectors::Eternal>(block);
+
+            for (size_t i = 0; i < block.m_vInputs.size(); i++)
+                inpMap[block.m_vInputs[i]->m_Commitment] = sidSplit.m_Height;
+
+            for (size_t i = 0; i < block.m_vKernels.size(); i++)
+                krnMap[block.m_vKernels[i]->m_Internal.m_ID] = sidSplit.m_Height;
+        }
+
+        if (inpMap.empty())
+            continue;
+
+        os << "Rollback " << sTip1.m_Height << " -> " << sidSplit.m_Height << std::endl;
+
+        Height h = sidSplit.m_Height;
+        while (h < m_Processor.m_Cursor.m_Full.m_Height)
+        {
+            uint64_t row = db.FindActiveStateStrict(++h);
+            Block::SystemState::Full s2;
+            db.get_State(row, s2);
+
+            if (s2.m_TimeStamp > sTip1.m_TimeStamp)
+            {
+                os << "	H=" << h << ", Stopping" << std::endl;
+                break;
+            }
+
+            vIns.clear();
+            db.get_StateInputs(row, vIns);
+
+            if (vIns.empty())
+                continue;
+
+            os << "	H=" << h << ", Inputs=" << vIns.size() << std::endl;
+
+            bufE.clear();
+            db.GetStateBlock(row, nullptr, &bufE, nullptr);
+
+            TxVectors::Eternal krns;
+
+            Deserializer der;
+            der.reset(bufE);
+            der & krns;
+
+            typedef std::map<Height, uint32_t> DoubleSpendMap;
+            DoubleSpendMap dsm;
+
+            for (size_t i = 0; i < vIns.size(); i++)
+            {
+                ECC::Point comm;
+                vIns[i].Get(comm);
+
+                InputMap::iterator it = inpMap.find(comm);
+                if (inpMap.end() != it)
+                {
+                    Height hOld = it->second;
+                    inpMap.erase(it);
+
+                    DoubleSpendMap::iterator it2 = dsm.find(hOld);
+                    if (dsm.end() == it2)
+                    {
+                        // check if there're corresponding kernels
+                        uint32_t nCommonKrns = 0;
+                        for (size_t j = 0; j < krns.m_vKernels.size(); j++)
+                        {
+                            if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->m_Internal.m_ID))
+                                nCommonKrns++;
+                        }
+
+                        it2 = dsm.insert(DoubleSpendMap::value_type(hOld, nCommonKrns ? uint32_t(-1) : 0)).first;
+                    }
+
+                    if (it2->second != uint32_t(-1))
+                        it2->second++;
+                }
+            }
+
+            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; it++)
+            {
+                uint32_t n = it->second;
+                if (uint32_t(-1) == n)
+                    continue;
+
+                os << "		Double-spend. Old Height=" << it->first << ", Count=" << n << std::endl;
+            }
+
+        }
+
     }
 
     LOG_INFO() << os.str();

@@ -18,12 +18,9 @@
 #include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "aissue_tx_builder.h"
 
 namespace beam::wallet
 {
-    class BaseTxBuilder;
-
     class AssetIssueTransaction : public AssetTransaction
     {
     public:
@@ -33,36 +30,31 @@ namespace beam::wallet
             explicit Creator(bool issue);
 
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID) override;
+            BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& p) override;
 
             bool _issue;
         };
 
     private:
-        AssetIssueTransaction(bool issue, INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, const TxID& txID);
+        AssetIssueTransaction(bool issue, const TxContext& context);
         TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
-        bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        AssetIssueTxBuilder& GetTxBuilder();
-        void ConfirmAsset();
 
         enum State : uint8_t
         {
             Initial,
-            AssetConfirm,
             AssetCheck,
             Making,
-            Registration,
             KernelConfirmation,
-            Finalizing
         };
         State GetState() const;
 
     private:
-        std::shared_ptr<AssetIssueTxBuilder> _builder;
+        struct MyBuilder;
+        std::shared_ptr<MyBuilder> _builder;
         bool _issue;
     };
 }

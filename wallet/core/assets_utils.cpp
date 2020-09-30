@@ -22,15 +22,20 @@ namespace beam::wallet {
     namespace
     {
         const char STD_META_MARK[]     = "STD:";
+        const char VERSION_KEY[]       = "SCH_VER";
         const char NAME_KEY[]          = "N";
         const char SHORT_NAME_KEY[]    = "SN";
         const char UNIT_NAME_KEY[]     = "UN";
         const char NTH_UNIT_NAME_KEY[] = "NTHUN";
+        const char OPT_SDESC_KEY[]     = "OPT_SHORT_DESC";
+        const char OPT_LDESC_KEY[]     = "OPT_LONG_DESC";
         const char ALLOWED_SYMBOLS[]   = " .,-_";
+        const unsigned CURRENT_META_VERSION = 1;
     }
 
     WalletAssetMeta::WalletAssetMeta(std::string meta)
         : _std(false)
+        , _std_v5_0(false)
         , _meta(std::move(meta))
     {
         Parse();
@@ -38,6 +43,7 @@ namespace beam::wallet {
 
     WalletAssetMeta::WalletAssetMeta(const Asset::Full& info)
         : _std(false)
+        , _std_v5_0(false)
     {
         const auto& mval = info.m_Metadata.m_Value;
         if (mval.empty())
@@ -81,14 +87,37 @@ namespace beam::wallet {
             if (it == _values.end()) return false;
 
             return std::all_of(it->second.begin(), it->second.end(), [](const char ch) -> bool {
-                return std::isalnum(ch, std::locale::classic()) || std::string(" .,-_").find(ch) != std::string::npos;
+                return std::isalnum(ch, std::locale::classic()) || std::string(ALLOWED_SYMBOLS).find(ch) != std::string::npos;
             });
         };
 
-        _std = fieldValid(NAME_KEY) &&
+        _std_v5_0 =
+               fieldValid(NAME_KEY) &&
                fieldValid(SHORT_NAME_KEY) &&
                fieldValid(UNIT_NAME_KEY) &&
                fieldValid(NTH_UNIT_NAME_KEY);
+
+        const auto versionValid = [&] () -> bool {
+            const auto it = _values.find(VERSION_KEY);
+            if (it == _values.end()) return false;
+
+            const auto version = std::to_unsigned(it->second, false);
+            return version == CURRENT_META_VERSION;
+        };
+
+        const auto optSDescValid = [&] () -> bool {
+            const auto it = _values.find(OPT_SDESC_KEY);
+            if (it == _values.end()) return true;
+            return it->second.length () <= 128;
+        };
+
+        const auto optLDescValid = [&] () -> bool {
+            const auto it = _values.find(OPT_LDESC_KEY);
+            if (it == _values.end()) return true;
+            return it->second.length () <= 1024;
+        };
+
+        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid();
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
@@ -119,28 +148,39 @@ namespace beam::wallet {
         return _std;
     }
 
+    bool WalletAssetMeta::isStd_v5_0() const
+    {
+        return _std_v5_0;
+    }
+
     std::string WalletAssetMeta::GetUnitName() const
     {
         const auto it = _values.find(UNIT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kAmountASSET);
     }
 
     std::string WalletAssetMeta::GetNthUnitName() const
     {
         const auto it = _values.find(NTH_UNIT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kAmountAGROTH);
     }
 
     std::string WalletAssetMeta::GetName() const
     {
         const auto it = _values.find(NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kNA);
     }
 
     std::string WalletAssetMeta::GetShortName() const
     {
         const auto it = _values.find(SHORT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string();
+        return it != _values.end() ? it->second : std::string(kNA);
+    }
+
+    unsigned WalletAssetMeta::GetSchemaVersion() const
+    {
+        const auto it = _values.find(SHORT_NAME_KEY);
+        return it != _values.end() ? std::to_unsigned(it->second, false) : 0;
     }
 
     WalletAsset::WalletAsset(const Asset::Full& full, Height refreshHeight)
@@ -183,5 +223,3 @@ namespace beam::wallet {
         LogInfo(prefix);
     }
 }
-
-

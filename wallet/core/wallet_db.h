@@ -67,6 +67,7 @@ namespace beam::wallet
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
+        bool isChange() const;
         bool isAsset() const;
         bool isAsset(Asset::ID) const;
         std::string toStringID() const;
@@ -87,10 +88,8 @@ namespace beam::wallet
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
-        bool m_isUnlinked = false;
-
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
-        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
+        Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
         
         std::string getStatusString() const;
         static boost::optional<Coin::ID> FromString(const std::string& str);
@@ -114,6 +113,7 @@ namespace beam::wallet
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         bool isOwn() const;
+        bool isPermanent() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
 
@@ -219,27 +219,73 @@ namespace beam::wallet
         ByteBuffer m_Message;
     };
 
+    struct IWalletDB;
+
     struct ShieldedCoin
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
-        bool IsAvailable() const
-        {
-            return m_confirmHeight != MaxHeight && m_spentHeight == MaxHeight && !m_spentTxId;
+        bool IsAsset() const {
+            return m_CoinID.m_AssetID != 0;
         }
 
-        ShieldedTxo::BaseKey m_Key;
-        ShieldedTxo::User m_User;
+        bool IsMaturityValid() const {
+            return m_Status != Status::Unavailable && m_Status != Status::Incoming;
+        }
 
-        TxoID m_ID = kTxoInvalidID;
-        Asset::ID m_assetID = 0;
+        Height get_Maturity(Height offset) const {
+            return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
+        }
 
-        Amount m_value = 0;
+        ShieldedTxo::ID m_CoinID;
+        TxoID m_TxoID = kTxoInvalidID;
+
         Height m_confirmHeight = MaxHeight;  // height at which the coin was confirmed (appeared in the chain)
         Height m_spentHeight = MaxHeight;    // height at which the coin was spent
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
+
+        // All the following is not stored in DB, it's deduced from the current blockchain state
+        enum Status
+        {
+            Unavailable,
+            Incoming,
+            Available,
+            Maturing, // relevant if confirmation offset is used. Not related to unlink state
+            Outgoing,
+            Spent,
+            Consumed,
+            count
+        };
+
+        Status m_Status = Unavailable;
+        uint32_t get_WndIndex(uint32_t N) const; // preferred index within a window of the specified size
+
+        struct UnlinkStatus
+        {
+            UnlinkStatus() = default;
+            UnlinkStatus(const ShieldedCoin& sc, TxoID nShieldedOuts) { Init(sc, nShieldedOuts); }
+
+            void Init(const ShieldedCoin& sc, TxoID nShieldedOuts);
+
+            uint32_t m_Progress = 0; // 0-100: cleaning
+            int32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
+            int32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+
+            bool IsLargeSpendWindowLost() const;
+            int get_SpendPriority() const;
+            // -1: don't spend unless have to
+            // 0: spend as much as needed atm
+            // 1: spend even more than needed (ideal spend window)
+            // 2: Spend urgently, or the window will close
+        };
+
+        typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
+        static void Sort(std::vector<WithStatus>&);
+
+    private:
+        static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
     // Notifications for all collection changes
@@ -255,7 +301,7 @@ namespace beam::wallet
     {
     public:
         explicit CannotGenerateSecretException()
-            : std::runtime_error("")
+            : std::runtime_error("CannotGenerateSecretException")
         {
         }
 
@@ -265,7 +311,7 @@ namespace beam::wallet
     {
     public:
         explicit DatabaseException(const std::string& message)
-            : std::runtime_error(message)
+            : std::runtime_error(message.length() ? message : "DatabaseException")
         {
         }
     };
@@ -347,6 +393,9 @@ namespace beam::wallet
         void createAddress(WalletAddress&);
         void get_Identity(PeerID&, uint64_t ownID) const;
 
+        TxoID get_ShieldedOuts() const;
+        void set_ShieldedOuts(TxoID);
+
 		struct IRecoveryProgress
 		{
 			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery
@@ -363,7 +412,7 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
-        virtual std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) = 0;
+        virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -382,11 +431,14 @@ namespace beam::wallet
         virtual void removeCoins(const std::vector<Coin::ID>&) = 0;
         virtual bool findCoin(Coin& coin) = 0;
         virtual void clearCoins() = 0;
+        virtual void setCoinConfirmationsOffset(uint32_t offset) = 0;
+        virtual uint32_t getCoinConfirmationsOffset() const = 0;
 
         // Generic visitors
         virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
         virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
         virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) = 0;
+        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) = 0;
 
         // Used in split API for session management
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
@@ -405,7 +457,9 @@ namespace beam::wallet
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
+        virtual void clearShieldedCoins() = 0;
         virtual void saveShieldedCoin(const ShieldedCoin& shieldedCoin) = 0;
+        virtual void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) = 0;
 
         // Rollback shielded UTXO set to known height (used in rollback scenario)
         virtual void rollbackConfirmedShieldedUtxo(Height minHeight) = 0;
@@ -417,10 +471,11 @@ namespace beam::wallet
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
-            const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
+            const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) = 0;
+        virtual bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual std::vector<TxParameter> getAllTxParameters() const = 0;
-        virtual void rollbackTx(const TxID& txId) = 0;
+        virtual void restoreCoinsSpentByTx(const TxID& txId) = 0;
         virtual void deleteCoinsCreatedByTx(const TxID& txId) = 0;
 
         virtual void restoreShieldedCoinsSpentByTx(const TxID& txId) = 0;
@@ -481,8 +536,13 @@ namespace beam::wallet
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
 
+        // Vouchers management
+        virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
+        virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
+        virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
-        TxStatusInterpreter getStatusInterpreter(const TxParameters& txParams) const;
+        TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
 
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
@@ -499,10 +559,11 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
-        static Ptr init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
-        static Ptr open(const std::string& path, const SecString& password);
+        static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
+        static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
+        static Ptr  initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
+        static Ptr  open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
+        static Ptr  open(const std::string& path, const SecString& password);
 
         WalletDB(sqlite3* db);
         WalletDB(sqlite3* db, sqlite3* sdb);
@@ -518,8 +579,8 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
-        std::vector<Coin> selectUnlinkedCoins(Amount amount, Asset::ID) override;
-        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool unlinked);
+        void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
+        std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
@@ -533,10 +594,13 @@ namespace beam::wallet
         void removeCoins(const std::vector<Coin::ID>&) override;
         bool findCoin(Coin& coin) override;
         void clearCoins() override;
+        void setCoinConfirmationsOffset(uint32_t offset) override;
+        uint32_t getCoinConfirmationsOffset() const override;
 
         void visitCoins(std::function<bool(const Coin& coin)> func) override;
         void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
         void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) override;
+        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -554,14 +618,16 @@ namespace beam::wallet
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
+        void clearShieldedCoins() override;
         void saveShieldedCoin(const ShieldedCoin& shieldedCoin) override;
+        void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
-        void rollbackTx(const TxID& txId) override;
+        void restoreCoinsSpentByTx(const TxID& txId) override;
         void deleteCoinsCreatedByTx(const TxID& txId) override;
         void restoreShieldedCoinsSpentByTx(const TxID& txId) override;
         void deleteShieldedCoinsCreatedByTx(const TxID& txId) override;
@@ -588,7 +654,8 @@ namespace beam::wallet
         void changePassword(const SecString& password) override;
 
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
-            const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
+            const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify = true) override;
+        bool delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
         std::vector<TxParameter> getAllTxParameters() const override;
 
@@ -620,8 +687,13 @@ namespace beam::wallet
         std::vector<ExchangeRate> getExchangeRates() const override;
         void saveExchangeRate(const ExchangeRate&) override;
 
+        boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
+        void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
+        size_t getVoucherCount(const WalletID& peerID) const override;
+
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
+
         void storeOwnerKey();
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
@@ -638,13 +710,15 @@ namespace beam::wallet
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
         void insertNewCoin(Coin&);
-        void saveCoinRaw(const Coin&);
+        bool saveCoinRaw(const Coin&);
         std::vector<Coin> getCoinsByRowIDs(const std::vector<int>& rowIDs) const;
         std::vector<Coin> getUpdatedCoins(const std::vector<Coin>& coins) const;
 
         bool updateShieldedCoinRaw(const ShieldedCoin& coin);
         void insertShieldedCoinRaw(const ShieldedCoin& coin);
         void saveShieldedCoinRaw(const ShieldedCoin& coin);
+
+        Amount selectCoinsStd(Amount nTrg, Amount nSel, Asset::ID, std::vector<Coin>&);
 
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
@@ -694,6 +768,9 @@ namespace beam::wallet
 
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
+        uint32_t m_coinConfirmationsOffset = 0;
+
+        struct ShieldedStatusCtx;
     };
 
     namespace storage
@@ -710,6 +787,25 @@ namespace beam::wallet
             return db.getVarRaw(name, &var, sizeof(var));
         }
 
+        template <typename Var>
+        void setBlobVar(IWalletDB& db, const char* name, const Var& var)
+        {
+            auto b = toByteBuffer(var);
+            db.setVarRaw(name, b.data(), b.size());
+        }
+
+        template <typename Var>
+        bool getBlobVar(const IWalletDB& db, const char* name, Var& var)
+        {
+            ByteBuffer b;
+            if (db.getBlob(name, b))
+            {
+                fromByteBuffer(b, var);
+                return true;
+            }
+            return false;
+        }
+
         template <typename T>
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value)
         {
@@ -722,7 +818,6 @@ namespace beam::wallet
             return false;
         }
 
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Scalar::Native& value);
 
@@ -732,7 +827,11 @@ namespace beam::wallet
             return db.setTxParameter(txID, subTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
-        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
+        inline bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, Zero_, bool)
+        {
+            return db.delTxParameter(txID, subTxID, paramID);
+        }
+
         bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
@@ -742,7 +841,6 @@ namespace beam::wallet
             return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
         }
 
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
 
@@ -752,7 +850,6 @@ namespace beam::wallet
             return setTxParameter(db, txID, kDefaultSubTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
-        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
@@ -761,8 +858,8 @@ namespace beam::wallet
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
 
-        Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
+        void DeduceStatus(const IWalletDB&, ShieldedCoin&, Height hTop);
 
         // Used in statistics
         struct Totals
@@ -781,8 +878,14 @@ namespace beam::wallet
                 AmountBig::Type AvailFee = 0U;
                 AmountBig::Type Fee = 0U;
                 AmountBig::Type Unspent = 0U;
-                AmountBig::Type Shielded = 0U;
-                Height MinCoinHeight = 0;
+                AmountBig::Type AvailShielded = 0U;
+                AmountBig::Type UnspentShielded = 0U;
+                AmountBig::Type MaturingShielded = 0U;
+                AmountBig::Type UnavailShielded = 0U;
+                AmountBig::Type OutgoingShielded = 0U;
+                AmountBig::Type IncomingShielded = 0U;
+                Height MinCoinHeightMW = 0;
+                Height MinCoinHeightShielded = 0;
             };
 
             Totals();
@@ -898,8 +1001,11 @@ namespace beam::wallet
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
+
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
+
     }  // namespace storage
 }  // namespace beam::wallet

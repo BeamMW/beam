@@ -119,13 +119,13 @@ namespace std
 
             if (intval >= Rules::Coin)
             {
-                ss << coin << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName);
+                ss << coin << " " << (amount.m_coinName.empty() ? "BEAMs" : amount.m_coinName);
             }
 
             if (groth > 0 || intval == 0)
             {
                 ss << (intval >= Rules::Coin ? (" ") : "")
-                   << groth << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName);
+                   << groth << " " << (amount.m_grothName.empty() ? "GROTH" : amount.m_grothName);
             }
 
             return ss.str();
@@ -157,6 +157,19 @@ namespace std
     {
         return EncodeToHex(id);
     }
+
+     unsigned to_unsigned(const std::string& what, bool throws)
+     {
+        try
+        {
+            return boost::lexical_cast<unsigned>(what);
+        }
+        catch(...)
+        {
+            if (throws) throw;
+            return 0;
+        }
+     }
 
 #ifndef EMSCRIPTEN
     string to_string(const beam::AmountBig::Type& amount)
@@ -226,11 +239,30 @@ namespace beam::wallet
 
     bool WalletID::IsValid() const
     {
+        BbsChannel channel;
+        m_Channel.Export(channel);
         Point::Native p;
-        return m_Pk.ExportNnz(p);
+        return m_Pk.ExportNnz(p) && channel < proto::Bbs::s_MaxWalletChannels;
     }
 
-    boost::optional<PeerID> FromHex(const std::string& s)
+    BbsChannel WalletID::get_Channel() const
+    {
+        BbsChannel ret;
+        m_Channel.Export(ret);
+        return ret;
+    }
+
+    void WalletID::SetChannelFromPk()
+    {
+        // derive the channel from the address
+        BbsChannel ch;
+        m_Pk.ExportWord<0>(ch);
+        ch %= proto::Bbs::s_MaxWalletChannels;
+
+        m_Channel = ch;
+    }
+
+    boost::optional<PeerID> GetPeerIDFromHex(const std::string& s)
     {
         boost::optional<PeerID> res;
         bool isValid = false;
@@ -488,7 +520,7 @@ namespace beam::wallet
         else // plain WalletID
         {
             WalletID walletID;
-            if (walletID.FromBuf(buffer))
+            if (walletID.FromBuf(buffer) && walletID.IsValid())
             {
                 auto result = boost::make_optional<TxParameters>({});
                 result->SetParameter(TxParameterID::PeerID, walletID);
@@ -521,6 +553,10 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::ShieldedVoucherList, *vouchers);
             }
             res &= true;
+        }
+        if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
+        {
+            params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
         }
 
 #ifdef BEAM_LIB_VERSION
@@ -561,7 +597,7 @@ namespace beam::wallet
         return true;
     }
 
-    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams) : m_txParams(txParams)
+    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams)
     {
         auto value = txParams.GetParameter(TxParameterID::Status);
         if (value) fromByteBuffer(*value, m_status);
@@ -580,14 +616,16 @@ namespace beam::wallet
     {
         switch (m_status)
         {
-            case TxStatus::Pending: return "pending";
+            case TxStatus::Pending:
+                return "pending";
             case TxStatus::InProgress:
                 return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
             case TxStatus::Registering: 
-                return m_selfTx ? "self sending" : (m_sender == false ? "receiving" : "sending");
+                return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving" );
             case TxStatus::Failed: 
                 return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
-            case TxStatus::Canceled: return "cancelled";
+            case TxStatus::Canceled:
+                return "cancelled";
             case TxStatus::Completed:
                 return m_selfTx ? "completed" : (m_sender ? "sent" : "received");
             default:
@@ -605,6 +643,22 @@ namespace beam::wallet
             return "sent to own address";
         else if (status == "self sending")
             return "sending to own address";
+        return status;
+    }
+
+    std::string MaxPrivacyTxStatusInterpreter::getStatus() const
+    {
+        const auto& status = TxStatusInterpreter::getStatus();
+        if (status == "receiving" || status == "sending")
+            return "in progress max privacy";
+        else if (status == "sent")
+            return "sent max privacy";
+        else if (status == "received")
+            return "received max privacy";
+        else if (status == "cancelled")
+            return "canceled max privacy";
+        else if (status == "failed")
+            return "failed max privacy";
         return status;
     }
 
@@ -633,7 +687,7 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
-    TxDescription::TxDescription(const TxParameters p)
+    TxDescription::TxDescription(const TxParameters& p)
         : TxParameters(p)
     {
         fillFromTxParameters(*this);
@@ -680,12 +734,6 @@ namespace beam::wallet
                         break;
                     case TxParameterID::Message:
                         fromByteBuffer(*value, m_message);
-                        break;
-                    case TxParameterID::ChangeBeam:
-                        fromByteBuffer(*value, m_changeBeam);
-                        break;
-                    case TxParameterID::ChangeAsset:
-                        fromByteBuffer(*value, m_changeAsset);
                         break;
                     case TxParameterID::ModifyTime:
                         fromByteBuffer(*value, m_modifyTime);
@@ -833,7 +881,7 @@ namespace beam::wallet
         {
             return "";
         }
-        auto identity = FromHex(identityStr);
+        auto identity = GetPeerIDFromHex(identityStr);
         if (!identity)
         {
             return "";
@@ -852,47 +900,21 @@ namespace beam::wallet
         return std::to_string(parameters);
     }
 
-    ShieldedVoucherList GenerateVoucherList(ECC::Key::IKdf::Ptr pKdf, uint64_t ownID, size_t count)
+    ShieldedVoucherList GenerateVoucherList(const std::shared_ptr<IPrivateKeyKeeper2>& pKeeper, uint64_t ownID, size_t count)
     {
         ShieldedVoucherList res;
-        if (!pKdf || count == 0)
-            return res;
 
-        const size_t MAX_VOUCHERS = 20;
-
-        if (MAX_VOUCHERS < count)
+        if (pKeeper && count)
         {
-            LOG_WARNING() << "You are trying to generate more than " << MAX_VOUCHERS << ". The list of vouchers will be truncated.";
+            IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
+            m.m_MyIDKey = ownID;
+            m.m_Count = static_cast<uint32_t>(count);
+            ECC::GenRandom(m.m_Nonce);
+
+            if (IPrivateKeyKeeper2::Status::Success == pKeeper->InvokeSync(m))
+                res = std::move(m.m_Res);
         }
 
-        res.reserve(std::min(count, MAX_VOUCHERS));
-
-        ECC::Scalar::Native sk;
-        pKdf->DeriveKey(sk, Key::ID(ownID, Key::Type::WalletID));
-        PeerID pid;
-        pid.FromSk(sk);
-
-        ECC::Hash::Value hv;
-        ShieldedTxo::Viewer viewer;
-        viewer.FromOwner(*pKdf, 0);
-        for (size_t i = 0; i < res.capacity(); ++i)
-        {
-            if (res.empty())
-                ECC::GenRandom(hv);
-            else
-                ECC::Hash::Processor() << hv >> hv;
-
-            ShieldedTxo::Voucher& voucher = res.emplace_back();
-
-            ShieldedTxo::Data::TicketParams tp;
-            tp.Generate(voucher.m_Ticket, viewer, hv);
-
-            voucher.m_SharedSecret = tp.m_SharedSecret;
-
-            ECC::Hash::Value hvMsg;
-            voucher.get_Hash(hvMsg);
-            voucher.m_Signature.Sign(hvMsg, sk);
-        }
         return res;
     }
 
@@ -1009,6 +1031,7 @@ namespace beam::wallet
         MACRO(std::vector<Input::Ptr>) \
         MACRO(std::vector<Output::Ptr>) \
         MACRO(std::vector<ExchangeRate>) \
+        MACRO(ShieldedTxo::Voucher) \
         MACRO(ShieldedVoucherList)
 
 #define MACRO(type) \
@@ -1291,7 +1314,40 @@ namespace beam::wallet
         {
         }
         return {};
+    }
 
+    std::string TimestampFile(const std::string& fileName)
+    {
+        size_t dotPos = fileName.find_last_of('.');
+
+        stringstream ss;
+        ss << fileName.substr(0, dotPos);
+        ss << getTimestamp();
+
+        if (dotPos != string::npos)
+        {
+            ss << fileName.substr(dotPos);
+        }
+
+        string timestampedPath = ss.str();
+        return timestampedPath;
+    }
+
+    bool g_AssetsEnabled = false; // OFF by default
+
+    TxFailureReason CheckAssetsEnabled(Height h)
+    {
+        const Rules& r = Rules::get();
+        if (h < r.pForks[2].m_Height)
+            return TxFailureReason::AssetsDisabledFork2;
+
+        if (!r.CA.Enabled)
+            return TxFailureReason::AssetsDisabledInRules;
+
+        if (!g_AssetsEnabled)
+            return TxFailureReason::AssetsDisabledInWallet;
+
+        return TxFailureReason::Count;
     }
 
 }  // namespace beam::wallet

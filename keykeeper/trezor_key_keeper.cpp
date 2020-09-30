@@ -25,6 +25,7 @@
 #include "client.hpp"
 #include "queue/working_queue.h"
 #include "device_manager.hpp"
+#include "utility/logger.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -40,6 +41,217 @@ namespace beam::wallet
 
     namespace
     {
+        std::string Hex(const std::string& s)
+        {
+            return "0x" + s;
+        }
+
+        void DumpCommonParameters(const IPrivateKeyKeeper2::Method::TxCommon& m)
+        {
+            using namespace nlohmann;
+            auto res = json
+            {
+                {"tx_common",
+                    {
+                        {"inputs", json::array()},
+
+                        {"outputs", json::array()},
+
+                        {"offset_sk", Hex(ECC::Scalar(m.m_kOffset).str())},
+                        {"kernel_parameters",
+                            {
+                                {"fee", m.m_pKernel->m_Fee},
+                                {"min_height", m.m_pKernel->m_Height.m_Min},
+                                {"max_height", m.m_pKernel->m_Height.m_Max},
+                                {"commitment",
+                                    {
+                                        {"x", Hex(m.m_pKernel->m_Commitment.m_X.str())},
+                                        {"y", m.m_pKernel->m_Commitment.m_Y}
+                                    }
+                                },
+                                {"signature",
+                                    {
+                                        {"nonce_pub",
+                                            {
+                                                {"x", Hex(m.m_pKernel->m_Signature.m_NoncePub.m_X.str())},
+                                                {"y", m.m_pKernel->m_Signature.m_NoncePub.m_Y}
+                                            }
+                                        },
+                                        {"k", Hex(m.m_pKernel->m_Signature.m_k.str())}
+                                    },
+
+                                }
+                            }
+                        }
+                    },
+                }
+            };
+
+            auto f = [](json& j, const std::vector<CoinID>& coins)
+            {
+                for (const auto& c : coins)
+                {
+                    j.push_back(
+                        {
+                           {"idx", c.m_Idx},
+                           {"type", int(c.m_Type)},
+                           {"sub_idx", c.m_SubIdx},
+                           {"amount", c.m_Value},
+                           {"asset_id", c.m_AssetID}
+                        }
+                    );
+                }
+            };
+
+            f(res["tx_common"]["outputs"], m.m_vOutputs);
+            f(res["tx_common"]["inputs"], m.m_vInputs);
+
+
+
+            std::cout << std::endl << res.dump() << std::endl;
+        }
+
+        void DumpSenderParameters(const IPrivateKeyKeeper2::Method::SignSender& m)
+        {
+            using namespace nlohmann;
+            auto res = json
+            {
+                {"tx_common", 
+                    {
+                        {"inputs", json::array()},
+                    
+                        {"outputs", json::array()},
+                                 
+                        {"offset_sk", Hex(ECC::Scalar(m.m_kOffset).str())},
+                        {"kernel_parameters",
+                            {
+                                {"fee", m.m_pKernel->m_Fee},
+                                {"min_height", m.m_pKernel->m_Height.m_Min},
+                                {"max_height", m.m_pKernel->m_Height.m_Max},
+                                {"commitment",
+                                    {
+                                        {"x", Hex(m.m_pKernel->m_Commitment.m_X.str())},
+                                        {"y", m.m_pKernel->m_Commitment.m_Y}
+                                    }
+                                },
+                                {"signature",
+                                    {
+                                        {"nonce_pub",
+                                            {
+                                                {"x", Hex(m.m_pKernel->m_Signature.m_NoncePub.m_X.str())},
+                                                {"y", m.m_pKernel->m_Signature.m_NoncePub.m_Y}
+                                            }
+                                        },
+                                        {"k", Hex(m.m_pKernel->m_Signature.m_k.str())}
+                                    },
+                                    
+                                }
+                            }
+                        }
+                    },
+                },
+                {"tx_mutual_info",
+                    {
+                        {"peer", Hex(m.m_Peer.str())},
+                        {"wallet_identity_key", m.m_MyIDKey},
+                        {"payment_proof_signature",
+                            {
+                                {"nonce_pub",
+                                    {
+                                        {"x", Hex(m.m_PaymentProofSignature.m_NoncePub.m_X.str())},
+                                        {"y", m.m_PaymentProofSignature.m_NoncePub.m_Y}
+                                    }
+                                },
+                                {"k", Hex(m.m_PaymentProofSignature.m_k.str())}
+                            },
+                        },
+                    }
+                },
+
+                {"nonce_slot", m.m_Slot},
+                {"user_agreement", Hex(m.m_UserAgreement.str())}
+            };
+
+            auto f = [](json& j, const std::vector<CoinID>& coins)
+            {
+                for (const auto& c : coins)
+                {
+                    j.push_back(
+                         {
+                            {"idx", c.m_Idx},
+                            {"type", int(c.m_Type)},
+                            {"sub_idx", c.m_SubIdx},
+                            {"amount", c.m_Value},
+                            {"asset_id", c.m_AssetID}
+                        }
+                    );
+                }
+            };
+            
+            f(res["tx_common"]["outputs"], m.m_vOutputs);
+            f(res["tx_common"]["inputs"], m.m_vInputs);
+
+           
+            
+            std::cout << std::endl << res.dump() << std::endl;
+        }
+
+        std::shared_ptr<DeviceManager> GetTrezor(std::shared_ptr<Client> client, const std::string& deviceName, std::shared_ptr<DeviceManager> existingDevice)
+        {
+            auto enumerates = client->enumerate();
+            if (enumerates.empty())
+                return nullptr;
+            //auto it = std::find_if(enumerates.begin(), enumerates.end(),
+            //    [&deviceName](const auto& d)
+            //    {
+            //        return deviceName == std::to_string(d);
+            //    });
+            //
+            //if (it == enumerates.end())
+            //{
+            //    return nullptr;
+            //}
+
+            auto& enumerate = enumerates.front();//*it;
+
+            if (enumerate.session != "null" && !existingDevice)
+            {
+                client->release(enumerate.session);
+                enumerate.session = "null";
+            }
+
+            auto trezor = existingDevice ? existingDevice : std::make_shared<DeviceManager>();
+
+            if (!existingDevice)
+            {
+                trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        auto message = child_cast<Message, Failure>(msg).message();
+
+                        //onError(message);
+
+                        LOG_ERROR() << "TREZOR FAIL REASON: " << message;
+                    });
+
+                trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
+                    });
+
+                try
+                {
+                    trezor->init(enumerate);
+                }
+                catch (std::runtime_error e)
+                {
+                    LOG_ERROR() << e.what();
+                    return nullptr;
+                }
+            }           
+
+            return trezor;
+        }
+
         BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
         {
             static_assert(sizeof(x) == sizeof(BeamCrypto_UintBig));
@@ -78,17 +290,15 @@ namespace beam::wallet
         {
             v.m_Inputs.resize(m.m_vInputs.size());
             v.m_Outputs.resize(m.m_vOutputs.size());
-            if (!v.m_Inputs.empty() && !v.m_Outputs.empty())
-            {
-                for (size_t i = 0; i < v.m_Inputs.size(); ++i)
-                    CidCvt(v.m_Inputs[i], m.m_vInputs[i]);
 
-                for (size_t i = 0; i < v.m_Outputs.size(); ++i)
-                    CidCvt(v.m_Outputs[i], m.m_vOutputs[i]);
-        
-                tx2.m_pIns = &v.m_Inputs;
-                tx2.m_pOuts = &v.m_Outputs;
-            }
+            for (size_t i = 0; i < v.m_Inputs.size(); ++i)
+                CidCvt(v.m_Inputs[i], m.m_vInputs[i]);
+
+            for (size_t i = 0; i < v.m_Outputs.size(); ++i)
+                CidCvt(v.m_Outputs[i], m.m_vOutputs[i]);
+
+            tx2.m_pIns = &v.m_Inputs;
+            tx2.m_pOuts = &v.m_Outputs;
         
             // kernel
             assert(m.m_pKernel);
@@ -136,9 +346,9 @@ namespace beam::wallet
         {
             // kernel
             assert(m.m_pKernel);
-            m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
-            m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
-            m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
+            //m.m_pKernel->m_Fee = tx2.m_Krn.m_Fee;
+            //m.m_pKernel->m_Height.m_Min = tx2.m_Krn.m_hMin;
+            //m.m_pKernel->m_Height.m_Max = tx2.m_Krn.m_hMax;
 
             Ecc2BC(m.m_pKernel->m_Commitment) = tx2.m_Krn.m_Commitment;
             Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = tx2.m_Krn.m_Signature.m_NoncePub;
@@ -153,6 +363,8 @@ namespace beam::wallet
         }
     }
 
+    ///////////
+    // Cache
     void TrezorKeyKeeperProxy::Cache::ShrinkMru(uint32_t nCount)
     {
         while (m_mruPKdfs.size() > nCount)
@@ -226,8 +438,12 @@ namespace beam::wallet
         }
     }
 
-    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<DeviceManager> deviceManager)
-        : m_DeviceManager(deviceManager)
+    //////////
+    // TrezorKeyKeeperProxy
+    TrezorKeyKeeperProxy::TrezorKeyKeeperProxy(std::shared_ptr<Client> client, const std::string& deviceName, HWWallet::IHandler::Ptr uiHandler)
+        : m_Client(client)
+        , m_DeviceName(deviceName)
+        , m_UIHandler(uiHandler)
     {
         EnsureEvtOut();
     }
@@ -242,8 +458,17 @@ namespace beam::wallet
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_Kdf& m, const Handler::Ptr& h)
     {
-        m_DeviceManager->call_BeamGetPKdf(m.m_Root, m.m_iChild, true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        if (m.m_Root)
         {
+            m.m_iChild = 0; // with another value we will get "Firmware error"
+        }
+        PushHandler(h);
+        //ShowUI();
+        GetDevice()->call_BeamGetPKdf(m.m_Root, m.m_iChild, false, 
+            [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        {
+           // HideUI();
+            PopHandler();
             const BeamPKdf& beamKdf = child_cast<Message, BeamPKdf>(msg);
             typedef struct
             {
@@ -294,8 +519,11 @@ namespace beam::wallet
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::get_NumSlots& m, const Handler::Ptr& h)
     {
-        m_DeviceManager->call_BeamGetNumSlots(true, [this, &m, h](const Message& msg, std::string session, size_t queue_size)
+        PushHandler(h);
+        GetDevice()->call_BeamGetNumSlots(false, 
+            [this, &m, h](const Message& msg, std::string session, size_t queue_size)
         {
+            PopHandler();
             m.m_Count = child_cast<Message, BeamNumSlots>(msg).num_slots();
 
             if (m.m_Count)
@@ -361,13 +589,8 @@ namespace beam::wallet
         };
 
         // TaskFin
-        virtual void Execute(Task::Ptr&) override;
+        void Execute(Task::Ptr&) override;
     };
-
-    void TrezorKeyKeeperProxy::PushOut1(Task::Ptr& p)
-    {
-        PrivateKeyKeeper_WithMarshaller::PushOut(p);
-    }
 
     void TrezorKeyKeeperProxy::CreateOutputCtx::Proceed1(Ptr& p)
     {
@@ -445,7 +668,7 @@ namespace beam::wallet
         ECC::Scalar::Native skDummy;
         ECC::HKdf kdfDummy;
         
-        m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_1);
+        m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_1, &m_Method.m_User);
         assert(m_pRes->m_pConfidential);
 
         BeamCrypto_CoinID cid;
@@ -468,10 +691,16 @@ namespace beam::wallet
             }
         };
 
+        static_assert(sizeof(BeamCrypto_UintBig) == sizeof(ECC::Scalar));
+        static_assert(_countof(m_Method.m_User.m_pExtra) == 2);
+        const BeamCrypto_UintBig* pExtra = reinterpret_cast<const BeamCrypto_UintBig*>(m_Method.m_User.m_pExtra);
+
         AutoMovePtr amp(std::move(p));
-        m_This.m_DeviceManager->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, nullptr, nullptr, 
+        m_This.PushHandler(amp.m_p->m_pHandler);
+        m_This.GetDevice()->call_BeamGenerateRangeproof(&cid, &pt0, &pt1, pExtra[0], pExtra[1],
             [this, amp](const Message& msg, std::string session, size_t queue_size)
         {
+            m_This.PopHandler();
             const BeamRangeproofData& brpd = child_cast<Message, BeamRangeproofData>(msg);
 
             if (!brpd.is_successful())
@@ -500,7 +729,7 @@ namespace beam::wallet
         {
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
-            m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_2); // Phase 3
+            m_pRes->Create(m_Method.m_hScheme, skDummy, kdfDummy, m_Method.m_Cid, *m_pOwner, Output::OpCode::Mpc_2, &m_Method.m_User); // Phase 3
 
             m_Method.m_pResult.swap(m_pRes);
         }
@@ -529,8 +758,11 @@ namespace beam::wallet
         txMutualInfo.m_MyIDKey = m.m_MyIDKey;
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
 
-        m_DeviceManager->call_BeamSignTransactionReceive(txCommon, txMutualInfo, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        PushHandler(h);
+        GetDevice()->call_BeamSignTransactionReceive(txCommon, txMutualInfo, 
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
+            PopHandler();
             const auto& txReceive = child_cast<Message, BeamSignTransactionReceive>(msg);
             TxExport(txCommon, txReceive.tx_common());
             BeamCrypto_Signature proofSignature;
@@ -559,8 +791,14 @@ namespace beam::wallet
         txSenderParams.m_iSlot = m.m_Slot;
         txSenderParams.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
 
-        m_DeviceManager->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        PushHandler(h);
+        ShowUI();
+        //DumpSenderParameters(m);
+        GetDevice()->call_BeamSignTransactionSend(txCommon, txMutualInfo, txSenderParams,
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
+            HideUI();
+            PopHandler();
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSend>(msg).tx_common());
             BeamCrypto_UintBig userAgreement = ConvertResultTo<BeamCrypto_UintBig>(child_cast<Message, BeamSignTransactionSend>(msg).user_agreement());
 
@@ -576,12 +814,84 @@ namespace beam::wallet
         Vectors v;
         TxImport(txCommon, m, v);
 
-        m_DeviceManager->call_BeamSignTransactionSplit(txCommon, [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
+        PushHandler(h);
+        ShowUI();
+        //DumpCommonParameters(m);
+        GetDevice()->call_BeamSignTransactionSplit(txCommon,
+            [this, &m, h, txCommon](const Message& msg, std::string session, size_t queue_size) mutable
         {
+            HideUI();
+            PopHandler();
             TxExport(txCommon, child_cast<Message, BeamSignTransactionSplit>(msg).tx_common());
             TxExport(m, txCommon);
             PushOut(Status::Success, h);
         });
     }
 
+    void TrezorKeyKeeperProxy::PushOut1(Task::Ptr& p)
+    {
+        PrivateKeyKeeper_WithMarshaller::PushOut(p);
+    }
+
+    void TrezorKeyKeeperProxy::PushHandler(const Handler::Ptr& handler)
+    {
+        m_Handlers.push(handler);
+    }
+
+    void TrezorKeyKeeperProxy::PopHandler()
+    {
+        assert(!m_Handlers.empty());
+        if (!m_Handlers.empty())
+        {
+            m_Handlers.pop();
+        }
+    }
+
+    void TrezorKeyKeeperProxy::ShowUI()
+    {
+        if (m_UIHandler)
+        {
+            m_UIHandler->ShowKeyKeeperMessage();
+        }
+    }
+
+    void TrezorKeyKeeperProxy::HideUI()
+    {
+        if (m_UIHandler)
+        {
+            m_UIHandler->HideKeyKeeperMessage();
+        }
+    }
+
+    std::shared_ptr<DeviceManager> TrezorKeyKeeperProxy::GetDevice()
+    {
+        {
+            auto deviceManager = GetTrezor(m_Client, m_DeviceName, m_DeviceManager);
+            if (!deviceManager)
+            {
+                if (m_UIHandler)
+                {
+                    m_UIHandler->ShowKeyKeeperError("HW wallet device is not connected");
+                }
+                throw std::runtime_error("no HW device");
+            }
+            if (!m_DeviceManager)
+            {
+                deviceManager->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+                    {
+                        auto message = child_cast<Message, Failure>(msg).message();
+                        HideUI();
+                        if (m_Handlers.empty())
+                        {
+                            return;
+                        }
+                        PushOut(Status::Unspecified, m_Handlers.front());
+                        m_Handlers.pop();
+                    });
+
+            }
+            m_DeviceManager = deviceManager;
+        }
+        return m_DeviceManager;
+    }
 }

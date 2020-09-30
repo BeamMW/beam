@@ -22,12 +22,10 @@ namespace beam::wallet
 class IAtomicSwapProvider
 {
 public:
-    virtual Amount getBtcAvailable() const = 0;
-    virtual Amount getLtcAvailable() const = 0;
-    virtual Amount getQtumAvailable() const = 0;
+    virtual Amount getBalance(AtomicSwapCoin swapCoin) const = 0;
+    virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
+    virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
-    virtual bool isBtcConnected() const = 0;
-    virtual bool isLtcConnected() const = 0;
-    virtual bool isQtumConnected() const = 0;
+    virtual bool isConnected(AtomicSwapCoin swapCoin) const = 0;
 };
 }  // namespace beam::wallet

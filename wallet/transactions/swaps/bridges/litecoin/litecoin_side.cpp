@@ -17,7 +17,7 @@
 
 namespace
 {
-    constexpr uint32_t kLitecoinWithdrawTxAverageSize = 360; 
+    constexpr uint32_t kLitecoinWithdrawTxAverageSize = 160; 
     constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
 }
 

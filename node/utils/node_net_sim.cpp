@@ -228,15 +228,7 @@ struct Context
 
     typedef Txo<CoinID, TxoBase> TxoMW;
 
-    struct TxoShieldedBase
-    {
-        Amount m_Value;
-        Asset::ID m_AssetID;
-        ShieldedTxo::BaseKey m_Key;
-        ShieldedTxo::User m_User;
-    };
-
-    typedef Txo<TxoID, TxoShieldedBase> TxoSH;
+    typedef Txo<TxoID, ShieldedTxo::ID> TxoSH;
 
     TxoMW::Container m_TxosMW;
     TxoSH::Container m_TxosSH;
@@ -259,20 +251,7 @@ struct Context
                 Context& m_This;
                 MyParser(Context& x) :m_This(x) {}
 
-                virtual void OnEvent(proto::Event::Base& evt) override
-                {
-                    if (MaxHeight == m_Height)
-                        return; // it shouldn't be anyway!
-
-                    if (proto::Event::Type::Utxo == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
-                    if (proto::Event::Type::Shielded == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
-                    if (proto::Event::Type::AssetCtl == evt.get_Type())
-                        return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
-                }
-
-                void OnEventType(proto::Event::Utxo& evt)
+                virtual void OnEventType(proto::Event::Utxo& evt) override
                 {
                     TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
@@ -299,10 +278,10 @@ struct Context
                     }
                 }
 
-                void OnEventType(proto::Event::Shielded& evt)
+                virtual void OnEventType(proto::Event::Shielded& evt) override
                 {
                     TxoSH::ID cid;
-                    cid.m_Value = evt.m_ID;
+                    cid.m_Value = evt.m_TxoID;
 
                     TxoSH::IDMap::iterator it = m_This.m_TxosSH.m_mapID.find(cid);
 
@@ -310,11 +289,8 @@ struct Context
                     {
                         if (m_This.m_TxosSH.m_mapID.end() == it)
                         {
-                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_ID, m_Height);
-                            pTxo->m_Value = evt.m_Value;
-                            pTxo->m_AssetID = evt.m_AssetID;
-                            pTxo->m_Key = evt.m_Key;
-                            pTxo->m_User = evt.m_User;
+                            TxoSH* pTxo = m_This.m_TxosSH.CreateConfirmed(evt.m_TxoID, m_Height);
+                            Cast::Down<ShieldedTxo::ID>(*pTxo) = evt.m_CoinID;
                         }
                     }
                     else
@@ -327,10 +303,6 @@ struct Context
                             // update txs?
                         }
                     }
-                }
-
-                void OnEventType(proto::Event::AssetCtl& evt)
-                {
                 }
 
             } p(get_ParentObj());
@@ -716,8 +688,12 @@ struct Context
         Transaction::Ptr pTx = std::make_shared<Transaction>();
         HeightRange hr(h, h + 10);
 
+        bool bShouldEmbed = 0 != (1 & txo.m_ID.m_Value.m_Idx); // just random. In reality wrapper is needed for sending to 3rd-party
+
         TxKernelShieldedOutput::Ptr pKrn = std::make_unique<TxKernelShieldedOutput>();
-        pKrn->m_Height = hr;
+        pKrn->m_CanEmbed = bShouldEmbed;
+        if (!bShouldEmbed)
+            pKrn->m_Height = hr;
 
         pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
 
@@ -729,6 +705,8 @@ struct Context
         ZeroObject(sdp.m_Output.m_User);
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
+        if (bShouldEmbed)
+            sdp.m_Output.m_Value -= m_Cfg.m_Fees.m_Kernel;
 
         ShieldedTxo::Viewer v;
         v.FromOwner(*m_pKdf, 0);
@@ -744,13 +722,40 @@ struct Context
         //if (!pKrn->IsValid(hr.m_Min, pt))
         //    __debugbreak();
 
-        pTx->m_vKernels.push_back(std::move(pKrn));
         ECC::Scalar::Native kOffs = -sdp.m_Output.m_k;
+
+        if (bShouldEmbed)
+        {
+            ECC::Scalar::Native kOuter;
+            m_pKdf->DeriveKey(kOuter, pKrn->m_Internal.m_ID);
+
+            TxKernelStd::Ptr pKrnOuter = std::make_unique<TxKernelStd>();
+            pKrnOuter->m_Height = hr;
+            pKrnOuter->m_Fee = m_Cfg.m_Fees.m_Kernel;
+
+            pKrnOuter->m_vNested.push_back(std::move(pKrn));
+
+            pKrnOuter->Sign(kOuter);
+            kOffs += -kOuter;
+
+            pTx->m_vKernels.push_back(std::move(pKrnOuter));
+        }
+        else
+            pTx->m_vKernels.push_back(std::move(pKrn));
 
         AddInp(*pTx, kOffs, txo, hr.m_Max);
 
         pTx->m_Offset = kOffs;
         pTx->Normalize();
+
+        //{
+        //    Transaction::Context::Params pars;
+        //    Transaction::Context ctx(pars);
+        //    ctx.m_Height.m_Min = h;
+
+        //    if (!pTx->IsValid(ctx))
+        //        __debugbreak();
+        //}
 
         SendTx(std::move(pTx));
     }
@@ -859,9 +864,12 @@ struct Context
         ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
         pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
+        pKrn->UpdateMsg();
+        txo.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Fee, *m_pKdf);
+
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, 0, true);
+            pKrn->Sign(p, txo.m_AssetID, true);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));
@@ -1058,7 +1066,7 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    Amount nMinInOut = (ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output) * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel * 3 + ctx.m_Cfg.m_Fees.m_Output * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
     std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;

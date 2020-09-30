@@ -138,18 +138,31 @@ public:
                          std::move(settingsProvider),
                          reactor)
         , _timer(beam::io::Timer::create(reactor))
+        , _feeTimer(beam::io::Timer::create(reactor))
         , _status(Status::Unknown)
     {
         requestBalance();
+        requestRecommendedFeeRate();
         _timer->start(1000, true, [this] ()
         {
             requestBalance();
+        });
+
+        // TODO need name for the parameter
+        _feeTimer->start(60 * 1000, true, [this]()
+        {
+            requestRecommendedFeeRate();
         });
     }
 
     Amount GetAvailable() const
     {
         return _balance.m_available;
+    }
+
+    Amount GetRecommendedFeeRate() const
+    {
+        return _recommendedFeeRate;
     }
 
     bool IsConnected() const
@@ -159,7 +172,9 @@ public:
 
 private:
     beam::io::Timer::Ptr _timer;
+    beam::io::Timer::Ptr _feeTimer;
     Balance _balance;
+    Amount _recommendedFeeRate = 0;
     Status _status;
     void requestBalance()
     {
@@ -169,6 +184,14 @@ private:
             GetAsync()->GetBalance();
         }
     }
+    void requestRecommendedFeeRate()
+    {
+        if (GetSettings().IsActivated())
+        {
+            // update recommended fee rate
+            GetAsync()->EstimateFeeRate();
+        }
+    }
     void OnStatus(Status status) override
     {
         _status = status;
@@ -176,6 +199,10 @@ private:
     void OnBalance(const Balance& balance) override
     {
         _balance = balance;
+    }
+    void OnEstimatedFeeRate(Amount feeRate) override
+    {
+        _recommendedFeeRate = feeRate;
     }
     void OnCanModifySettingsChanged(bool canModify) override {}
     void OnChangedSettings() override {}
@@ -197,8 +224,8 @@ class WalletApiServer
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 {
 public:
-    WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, 
-        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist, bool withAssets)
+    WalletApiServer(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, io::Reactor& reactor,
+        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
         : _reactor(reactor)
         , _bindAddress(listenTo)
         , _useHttp(useHttp)
@@ -207,7 +234,6 @@ public:
         , _wallet(wallet)
         , _acl(acl)
         , _whitelist(whitelist)
-        , _withAssets(withAssets)
     {
         start();
     }
@@ -218,19 +244,76 @@ public:
     }
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-    Amount getBtcAvailable() const override
+    Amount getBalance(AtomicSwapCoin swapCoin) const override
     {
-        return _bitcoinClient ? _bitcoinClient->GetAvailable() : 0;
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetAvailable() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetAvailable() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
     }
 
-    Amount getLtcAvailable() const override
+    Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        return _litecoinClient ? _litecoinClient->GetAvailable() : 0;
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetRecommendedFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetRecommendedFeeRate() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
     }
 
-    Amount getQtumAvailable() const override
+    Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        return _qtumClient ? _qtumClient->GetAvailable() : 0;
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient ? _bitcoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient ? _litecoinClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient ? _qtumClient->GetSettings().GetMinFeeRate() : 0;
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
     }
 
     const SwapOffersBoard& getSwapOffersBoard() const override
@@ -238,19 +321,28 @@ public:
         return *_offersBulletinBoard;
     }
 
-    bool isBtcConnected() const override
+    bool isConnected(AtomicSwapCoin swapCoin) const override
     {
-        return _bitcoinClient && _bitcoinClient->IsConnected();
-    }
-
-    bool isLtcConnected() const override
-    {
-        return _litecoinClient && _litecoinClient->IsConnected();
-    }
-
-    bool isQtumConnected() const override
-    {
-        return _qtumClient && _qtumClient->IsConnected();
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+        {
+            return _bitcoinClient && _bitcoinClient->IsConnected();
+        }
+        case AtomicSwapCoin::Litecoin:
+        {
+            return _litecoinClient && _litecoinClient->IsConnected();
+        }
+        case AtomicSwapCoin::Qtum:
+        {
+            return _qtumClient && _qtumClient->IsConnected();
+        }
+        default:
+        {
+            assert(false && "process new coin");
+            return 0;
+        }
+        }
     }
 
     using WalletDbSubscriber =
@@ -377,34 +469,43 @@ private:
 
         struct WalletData : WalletApiHandler::IWalletData
         {
-            WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider& atomicSwapProvider)
+                : m_atomicSwapProvider(atomicSwapProvider)
+                , m_walletDB(walletDB)
+                , m_wallet(wallet)
+            {
+            }
+            #else
+            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet)
                 : m_walletDB(walletDB)
                 , m_wallet(wallet)
-                , m_atomicSwapProvider(atomicSwapProvider)
-            {}
+            {
+            }
+            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
             virtual ~WalletData() {}
 
-            IWalletDB::Ptr getWalletDB() override
+            IWalletDB::Ptr getWalletDBPtr() override
             {
                 return m_walletDB;
             }
 
-            Wallet& getWallet() override
+            Wallet::Ptr getWalletPtr() override
             {
                 return m_wallet;
             }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             const IAtomicSwapProvider& getAtomicSwapProvider() const override
             {
                 return m_atomicSwapProvider;
             }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+            IAtomicSwapProvider& m_atomicSwapProvider;
+            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
             IWalletDB::Ptr m_walletDB;
-            Wallet& m_wallet;
-            IAtomicSwapProvider& m_atomicSwapProvider;
+            Wallet::Ptr m_wallet;
         };
 
     template<typename T>
@@ -412,15 +513,18 @@ private:
     {
         if (!_walletData)
         {
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
+            #else
+            _walletData = std::make_unique<WalletData>(_walletDB, _wallet);
+            #endif
         }
 
         return std::static_pointer_cast<WalletApiHandler>(
             std::make_shared<T>(*this
                                 , std::move(newStream)
                                 , *_walletData
-                                , _acl
-                                , _withAssets));
+                                , _acl));
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -458,11 +562,8 @@ private:
                     , io::TcpStream::Ptr&& newStream
                     , IWalletData& walletData
                     , WalletApi::ACL acl
-                    , bool withAssets
         )
-        : WalletApiHandler(walletData
-                      , acl
-                      , withAssets)
+        : WalletApiHandler(walletData , acl)
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -523,12 +624,10 @@ private:
                         , io::TcpStream::Ptr&& newStream
                         , IWalletData& walletData
                         , WalletApi::ACL acl
-                        , bool withAssets
             )
             : WalletApiHandler(
                   walletData
-                , acl
-                , withAssets)
+                , acl)
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -541,7 +640,7 @@ private:
                 peer.u64(),
                 BaseConnection::inbound,
                 BIND_THIS_MEMFN(on_request),
-                10000,
+                1024 * 1024,
                 1024,
                 std::move(newStream)
                 );
@@ -559,7 +658,7 @@ private:
 
         bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
         {
-            if (msg.what != HttpMsgReader::http_message || !msg.msg)
+            if ((msg.what != HttpMsgReader::http_message || !msg.msg) && msg.what != HttpMsgReader::message_too_long)
             {
                 LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
                 _connection->shutdown();
@@ -567,7 +666,11 @@ private:
                 return false;
             }
 
-            if (msg.msg->get_path() != "/api/wallet")
+            if (msg.what == HttpMsgReader::message_too_long)
+            {
+                _keepalive = send(_connection, 413, "Payload Too Large");
+            }
+            else if (msg.msg->get_path() != "/api/wallet")
             {
                 _keepalive = send(_connection, 404, "Not Found");
             }
@@ -643,12 +746,12 @@ private:
     std::unordered_map<uint64_t, std::shared_ptr<WalletApiHandler>> _connections;
 
     IWalletDB::Ptr _walletDB;
-    Wallet& _wallet;
-        std::unique_ptr<WalletData> _walletData;
+    Wallet::Ptr _wallet;
+
+    std::unique_ptr<WalletData> _walletData;
     std::vector<uint64_t> _pendingToClose;
     WalletApi::ACL _acl;
     std::vector<uint32_t> _whitelist;
-    bool _withAssets;
 };
 }  // namespace
 
@@ -685,7 +788,6 @@ int main(int argc, char* argv[])
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
-        bool withAssets = false;
 
         {
             po::options_description desc("Wallet API general options");
@@ -819,7 +921,7 @@ int main(int argc, char* argv[])
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
-            withAssets = vm[cli::WITH_ASSETS].as<bool>();
+            wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -827,9 +929,9 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
-        Wallet wallet{ walletDB, withAssets};
+        auto wallet = std::make_shared<Wallet>(walletDB);
 
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
         if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -849,25 +951,25 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
-		wallet.AddMessageEndpoint(wnet);
-        wallet.SetNodeEndpoint(nnet);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
+		wallet->AddMessageEndpoint(wnet);
+        wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(walletDB, wallet, *reactor, 
-            listenTo, options.useHttp, acl, tlsOptions, whitelist, withAssets);
+            listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-        if (Rules::get().CA.Enabled && withAssets)
+        if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
-            RegisterAssetCreators(wallet);
+            RegisterAssetCreators(*wallet);
         }
 
         // All TxCreators must be registered by this point
-        wallet.ResumeAllTransactions();
+        wallet->ResumeAllTransactions();
 
         io::Reactor::get_Current().run();
 

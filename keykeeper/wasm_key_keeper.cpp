@@ -320,7 +320,22 @@ private:
     struct MyKeyKeeper
         : public LocalPrivateKeyKeeperStd
     {
-        using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
+        static const Slot::Type s_DefNumSlots = 1024;
+
+        MyKeyKeeper(const Key::IKdf::Ptr& pKdf)
+            : LocalPrivateKeyKeeperStd(pKdf, s_DefNumSlots)
+        {
+            // WASM key keeper doesn't save and doesn't keep slot values
+            ECC::GenRandom(m_State.m_hvLast);
+        }
+
+        virtual void Regenerate(Slot::Type iSlot) override
+        {
+            // instead of regenerating the slot - just delete it
+            State::UsedMap::iterator it = m_State.m_Used.find(iSlot);
+            if (m_State.m_Used.end() != it)
+                m_State.m_Used.erase(it);
+        }
 
         bool IsTrustless() override { return true; }
 

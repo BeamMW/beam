@@ -275,8 +275,6 @@ void TestStoreTxRecord()
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxStatus::InProgress;
-    tr.m_changeBeam = 5;
-    tr.m_changeAsset = 7;
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
@@ -293,23 +291,19 @@ void TestStoreTxRecord()
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxStatus::Completed;
-    tr2.m_changeBeam = 5;
-    tr2.m_changeAsset = 7;
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     
     auto t = walletDB->getTxHistory();
     WALLET_CHECK(t.size() == 1);
-    WALLET_CHECK(t[0].m_txId == tr.m_txId);
-    WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_minHeight == tr.m_minHeight);
-    WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
-    WALLET_CHECK(t[0].m_myId == tr.m_myId);
-    WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
+    WALLET_CHECK(t[0].m_txId == tr2.m_txId);
+    WALLET_CHECK(t[0].m_amount == tr2.m_amount);
+    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
+    WALLET_CHECK(t[0].m_peerId == tr2.m_peerId);
+    WALLET_CHECK(t[0].m_myId == tr2.m_myId);
+    WALLET_CHECK(t[0].m_createTime == tr2.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
-    WALLET_CHECK(t[0].m_sender == tr.m_sender);
+    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
-    WALLET_CHECK(t[0].m_changeBeam == tr.m_changeBeam);
-    WALLET_CHECK(t[0].m_changeAsset == tr.m_changeAsset);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
@@ -569,7 +563,8 @@ void TestTxRollback()
     WALLET_CHECK(coins[2].m_status == Coin::Incoming);
     WALLET_CHECK(coins[2].m_createTxId == id);
 
-    walletDB->rollbackTx(id2);
+    walletDB->restoreCoinsSpentByTx(id2);
+    walletDB->deleteCoinsCreatedByTx(id2);
 
     coins.clear();
     walletDB->visitCoins([&coins](const Coin& c)->bool
@@ -590,7 +585,10 @@ void TestTxRollback()
         w.m_changes.push({ ChangeAction::Removed, { c } });
 
         walletDB->Subscribe(&w);
-        walletDB->rollbackTx(id);
+
+        walletDB->restoreCoinsSpentByTx(id);
+        walletDB->deleteCoinsCreatedByTx(id);
+
         walletDB->Unsubscribe(&w);
     }
 
@@ -728,8 +726,6 @@ void TestExportImportTx()
     tr.m_minHeight = 185;
     tr.m_sender = false;
     tr.m_status = TxStatus::Pending;
-    tr.m_changeBeam = 8;
-    tr.m_changeAsset = 9;
     tr.m_myId = wa.m_walletID;
     walletDB->saveTx(tr);
     storage::setTxParameter(
@@ -749,8 +745,6 @@ void TestExportImportTx()
     tr2.m_createTime = 4628;
     tr2.m_modifyTime = 45285;
     tr2.m_status = TxStatus::Canceled;
-    tr2.m_changeBeam = 8;
-    tr2.m_changeAsset = 9;
     tr2.m_myId = wa2.m_walletID;
     walletDB->saveTx(tr2); // without MyAddressID
 
@@ -1043,9 +1037,9 @@ void TestTxParameters()
     WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
-    WALLET_CHECK(amount == 8765);
+    WALLET_CHECK(amount == 786);
 
     // private parameter can be overriten
     TxStatus status = TxStatus::Pending;
@@ -1072,14 +1066,12 @@ void TestTxParameters()
     WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
-    ECC::Point p;
+    ECC::Point p, p2;
     p.m_X = unsigned(143521);
     p.m_Y = 0;
-    ECC::Point::Native pt, pt2;
-    pt.Import(p);
-    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
-    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
-    WALLET_CHECK(p == pt2);
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, p2));
+    WALLET_CHECK(p == p2);
 }
 
 void TestSelect3()
@@ -1448,6 +1440,57 @@ void TestExchangeRates()
     }
 }
 
+void TestVouchers()
+{
+    cout << "\nWallet database vouchers test\n";
+    auto db = createSqliteWalletDB();
+    WalletAddress address;
+    db->createAddress(address);
+    const WalletID& receiverID = address.m_walletID;
+    const uint32_t VOUCHERS_COUNT = 20;
+    auto voucher = db->grabVoucher(receiverID);
+    WALLET_CHECK(!voucher);
+    WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+    auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), address.m_OwnID, VOUCHERS_COUNT);
+    WALLET_CHECK(vouchers.size() == VOUCHERS_COUNT);
+    size_t preserveCounter = 2;
+    for (const auto& v : vouchers)
+    {
+        if (preserveCounter)
+        {
+            db->saveVoucher(v, receiverID, true);
+            --preserveCounter;
+        }
+        else
+        {
+            db->saveVoucher(v, receiverID);
+        }
+    }
+
+    WALLET_CHECK(db->getVoucherCount(receiverID) == VOUCHERS_COUNT);
+
+    for (uint32_t i = 0; i < VOUCHERS_COUNT; ++i)
+    {
+        auto v = db->grabVoucher(receiverID);
+        WALLET_CHECK(v);
+        WALLET_CHECK(v->IsValid(address.m_Identity));
+    }
+    {
+        auto v = db->grabVoucher(receiverID);
+        WALLET_CHECK(!v);
+    }
+    WALLET_CHECK(db->getVoucherCount(receiverID) == 0);
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID, true));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID, true));
+    
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[0], receiverID));
+    WALLET_CHECK_THROW(db->saveVoucher(vouchers[1], receiverID));
+    
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[2], receiverID, true));
+    WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[3], receiverID));
+}
+
 }
 
 int main() 
@@ -1480,6 +1523,7 @@ int main()
     TestWalletMessages();
     TestNotifications();
     TestExchangeRates();
+    TestVouchers();
 
     return WALLET_CHECK_RESULT;
 }

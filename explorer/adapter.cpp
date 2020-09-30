@@ -237,6 +237,22 @@ private:
             }
         };
 
+        static std::string get(const Asset::Metadata& md)
+        {
+            std::string sMetadata;
+            const ByteBuffer& bb = md.m_Value; // alias
+            sMetadata.reserve(bb.size());
+            for (size_t i = 0; i < bb.size(); i++)
+            {
+                char ch = bb[i];
+                if ((ch < 32) || (ch > 126))
+                    ch = '?';
+                sMetadata.push_back(ch);
+            }
+
+            return sMetadata;
+        }
+
         static std::string get(const Output& outp, Height h, Height hMaturity)
         {
             Writer w;
@@ -436,6 +452,30 @@ private:
                 );
             }
 
+            json assets = json::array();
+            Asset::Full ai;
+            for (ai.m_ID = 1; ; ai.m_ID++)
+            {
+                int ret = _nodeBackend.get_AssetAt(ai, height);
+                if (!ret)
+                    break;
+
+                if (ret > 0)
+                {
+                    assets.push_back(
+                        json{
+                            {"id", ai.m_ID},
+                            {"metadata", ExtraInfo::get(ai.m_Metadata)},
+                            {"metahash", hash_to_hex(buf, ai.m_Metadata.m_Hash)},
+                            {"owner", hash_to_hex(buf, ai.m_Owner)},
+                            {"value_lo", AmountBig::get_Lo(ai.m_Value)},
+                            {"value_hi", AmountBig::get_Hi(ai.m_Value)},
+                            {"lock_height",  ai.m_LockHeight}
+                        }
+                    );
+                }
+            }
+
             out = json{
                 {"found",      true},
                 {"timestamp",  blockState.m_TimeStamp},
@@ -445,6 +485,7 @@ private:
                 {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
                 {"subsidy",    Rules::get_Emission(blockState.m_Height)},
+                {"assets",     assets},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels}

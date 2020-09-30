@@ -961,29 +961,6 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
-void NodeConnection::OnMsg(EventsLegacy&& msg)
-{
-    // in-place convert. Remove this after Fork2
-    Serializer ser;
-
-    for (size_t i = 0; i < msg.m_Events.size(); i++)
-    {
-        const proto::Event::Legacy& evt0 = msg.m_Events[i];
-
-        proto::Event::Utxo evt1;
-        evt0.Export(evt1);
-
-        ser & evt0.m_Height;
-        ser & evt1.s_Type;
-        ser & evt1;
-    }
-
-    Events msgOut;
-    ser.swap_buf(msgOut.m_Events);
-
-    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msgOut));
-}
-
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
@@ -993,7 +970,7 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // Event
-void Event::IParser::ProceedOnce(Deserializer& der)
+void Event::IParserBase::ProceedOnce(Deserializer& der)
 {
     Type::Enum eType;
     der & eType;
@@ -1005,7 +982,7 @@ void Event::IParser::ProceedOnce(Deserializer& der)
         { \
             name evt; \
             der & evt; \
-            OnEvent(evt); \
+            OnEventType(evt); \
         } \
         break;
 
@@ -1017,7 +994,19 @@ void Event::IParser::ProceedOnce(Deserializer& der)
     }
 }
 
-void Event::IParser::ProceedOnce(const Blob& blob)
+void Event::IParser::OnEventType(Utxo0& evt0)
+{
+    Utxo evt;
+
+#define THE_MACRO(type, name) evt.m_##name = std::move(evt0.m_##name);
+    BeamEvent_Utxo0(THE_MACRO)
+#undef THE_MACRO
+
+    ZeroObject(evt.m_User);
+    Cast::Down<IParserBase>(*this).OnEventType(evt);
+}
+
+void Event::IParserBase::ProceedOnce(const Blob& blob)
 {
     Deserializer der;
     der.reset(blob.p, blob.n);
@@ -1044,10 +1033,16 @@ void Event::Utxo::Dump(std::ostringstream& os) const
     os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
 }
 
+void Event::Utxo0::Dump(std::ostringstream& os) const
+{
+    char ch = (Flags::Add & m_Flags) ? '+' : '-';
+    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
+}
+
 void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
-    os << ch << "Shielded Value=" << m_Value << ", TxoID=" << m_ID << ", Sender=" << m_User.m_Sender;
+    os << ch << "Shielded Value=" << m_CoinID.m_Value << ", TxoID=" << m_TxoID << ", Sender=" << m_CoinID.m_User.m_Sender;
 }
 
 void Event::AssetCtl::Dump(std::ostringstream& os) const
@@ -1057,33 +1052,10 @@ void Event::AssetCtl::Dump(std::ostringstream& os) const
     if (Flags::Delete & m_Flags)
         os << '-';
 
-    os << "Asset MetaHash=" << m_Metadata.m_Hash;
+    os << "Asset MetaHash=" << m_Info.m_Metadata.m_Hash << ", ID=" << m_Info.m_ID << ", Value=" << AmountBig::get_Lo(m_Info.m_Value) << ", LockHeight=" << m_Info.m_LockHeight;
 
     if (m_EmissionChange)
         os << ", Emit " << m_EmissionChange;
-}
-
-void Event::Legacy::Import(const Utxo& evt)
-{
-    m_Flags = evt.m_Flags ? proto::Event::Flags::Add : 0;
-
-    m_Kid = evt.m_Cid;
-    m_Value = evt.m_Cid.m_Value;
-
-    m_Commitment = evt.m_Commitment;
-    m_Maturity = evt.m_Maturity;
-}
-
-void Event::Legacy::Export(Utxo& evt) const
-{
-    evt.m_Flags = m_Flags ? proto::Event::Flags::Add : 0;
-
-    Cast::Down<Key::ID>(evt.m_Cid) = m_Kid;
-    evt.m_Cid.m_Value = m_Value;
-    evt.m_Cid.m_AssetID = 0;
-
-    evt.m_Commitment = m_Commitment;
-    evt.m_Maturity = m_Maturity;
 }
 
 } // namespace proto

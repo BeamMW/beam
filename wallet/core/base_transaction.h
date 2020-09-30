@@ -13,15 +13,13 @@
 // limitations under the License.
 
 #pragma once
-
 #include "common.h"
 #include "wallet_db.h"
 
 #include <boost/optional.hpp>
-#include "utility/logger.h"
+
 #include "private_key_keeper.h"
 
-#include <condition_variable>
 #include <memory>
 
 namespace beam::wallet
@@ -34,7 +32,7 @@ namespace beam::wallet
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
-        
+
         // Type of transaction
         virtual TxType GetType() const = 0;
 
@@ -45,7 +43,7 @@ namespace beam::wallet
 
         // Cancel active transaction
         virtual void Cancel() = 0;
-        
+
         // Rollback transation state up to give height
         virtual bool Rollback(Height height) = 0;
 
@@ -71,10 +69,54 @@ namespace beam::wallet
     // State machine for managing per transaction negotiations between wallets
     // 
     class BaseTransaction : public ITransaction
-                          , public std::enable_shared_from_this<ITransaction>
+        , public std::enable_shared_from_this<ITransaction>
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
+
+        class TxContext
+        {
+        public:
+            TxContext(INegotiatorGateway& gateway, IWalletDB::Ptr db, const TxID& txID, SubTxID subTxID = kDefaultSubTxID)
+                : m_Gateway(gateway)
+                , m_WalletDB(db)
+                , m_TxID(txID)
+                , m_SubTxID(subTxID)
+            {
+
+            }
+
+            TxContext(const TxContext& parentContext, INegotiatorGateway& gateway, SubTxID subTxID = kDefaultSubTxID)
+                : TxContext(gateway, parentContext.m_WalletDB, parentContext.m_TxID, (subTxID == kDefaultSubTxID) ? parentContext.m_SubTxID : subTxID)
+            {
+
+            }
+
+            INegotiatorGateway& GetGateway() const
+            {
+                return m_Gateway;
+            }
+
+            IWalletDB::Ptr GetWalletDB() const
+            {
+                return m_WalletDB;
+            }
+
+            const TxID& GetTxID() const
+            {
+                return m_TxID;
+            }
+
+            SubTxID GetSubTxID() const
+            {
+                return m_SubTxID;
+            }
+        private:
+            INegotiatorGateway& m_Gateway;
+            IWalletDB::Ptr m_WalletDB;
+            TxID m_TxID;
+            SubTxID m_SubTxID;
+        };
 
         class Creator
         {
@@ -82,18 +124,16 @@ namespace beam::wallet
             using Ptr = std::shared_ptr<Creator>;
 
             virtual ~Creator() = default;
-            
-            // �reates new instance of transaction (virtual constructor)
-            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, const TxID&) = 0;
-            
+
+            // Creates new instance of transaction (virtual constructor)
+            virtual BaseTransaction::Ptr Create(const TxContext& context) = 0;
+
             // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
             virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
         };
 
-        BaseTransaction(INegotiatorGateway& gateway
-                      , IWalletDB::Ptr walletDB
-                      , const TxID& txID);
-        virtual ~BaseTransaction(){}
+        BaseTransaction(const TxContext& context);
+        virtual ~BaseTransaction() = default;
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -106,48 +146,87 @@ namespace beam::wallet
 
         virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
         {
-            return true;
+            return false;
         }
 
         template <typename T>
-        bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
+        bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID) const
         {
-            return storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
+            return storage::getTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value);
         }
 
         template <typename T>
-        T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
+        bool GetParameter(TxParameterID paramID, T& value) const
+        {
+            return GetParameter(paramID, value, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID) const
         {
             T value{};
-			
+
             if (!GetParameter(paramID, value, subTxID))
             {
-                LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
+                LogFailedParameter(paramID, subTxID);
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID = kDefaultSubTxID)
+        T GetMandatoryParameter(TxParameterID paramID) const
         {
-            bool shouldNotifyAboutChanges = ShouldNotifyAboutChanges(paramID);
-            return SetParameter(paramID, value, shouldNotifyAboutChanges, subTxID);
+            return GetMandatoryParameter<T>(paramID, m_Context.GetSubTxID());
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID = kDefaultSubTxID)
+        bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID)
         {
-            return storage::setTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
+            return SetParameter(paramID, value, true, subTxID);
         }
 
         template <typename T>
-        void SetState(T state, SubTxID subTxID = kDefaultSubTxID)
+        bool SetParameter(TxParameterID paramID, const T& value)
+        {
+            return SetParameter(paramID, value, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID)
+        {
+            return storage::setTxParameter(*GetWalletDB(), GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return SetParameter(paramID, value, shouldNotifyAboutChanges, m_Context.GetSubTxID());
+        }
+
+        template <typename T>
+        void CopyParameter(TxParameterID paramID, BaseTransaction& tx)
+        {
+            T value;
+            if (GetParameter(paramID, value))
+            {
+                tx.SetParameter(paramID, value);
+            }
+        }
+
+        template <typename T>
+        void SetState(T state, SubTxID subTxID)
         {
             SetParameter(TxParameterID::State, state, true, subTxID);
         }
 
-        IWalletDB::Ptr GetWalletDB();
+        template <typename T>
+        void SetState(T state)
+        {
+            SetParameter(TxParameterID::State, state, true, m_Context.GetSubTxID());
+        }
+
+        IWalletDB::Ptr GetWalletDB() const;
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         Key::IKdf::Ptr get_MasterKdfStrict() const; // throws TxFailureReason::NoMasterKey if no master key
         static void TestKeyKeeperRet(IPrivateKeyKeeper2::Status::Type); // throws TxFailureReason::KeyKeeperError on error
@@ -159,6 +238,7 @@ namespace beam::wallet
         void UpdateAsync();
         void UpdateOnNextTip();
         INegotiatorGateway& GetGateway() const;
+        SubTxID GetSubTxID() const;
 
         IPrivateKeyKeeper2::Slot::Type GetSlotSafe(bool bAllocateIfAbsent);
         void FreeSlotSafe();
@@ -166,8 +246,14 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
+        void SendTxParametersStrict(SetTxParameter&& msg) const
+        {
+            if (!SendTxParameters(std::move(msg)))
+                throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
+        }
+
     protected:
-        
+
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
@@ -179,15 +265,17 @@ namespace beam::wallet
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
 
-        virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
         void SetCompletedTxCoinStatuses(Height proofHeight);
+        void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
     protected:
-
-        INegotiatorGateway& m_Gateway;
-        IWalletDB::Ptr m_WalletDB;
-
-        TxID m_ID;
+        TxContext m_Context;
         mutable boost::optional<bool> m_IsInitiator;
         io::AsyncEvent::Ptr m_EventToUpdate;
     };
+
+}
+
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const wallet::BaseTransaction::TxContext& context);
 }

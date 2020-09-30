@@ -1875,6 +1875,10 @@ namespace beam
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
+				pKrn->UpdateMsg();
+
+				ECC::SetRandom(p.m_Witness.V.m_R_Output);
+
 				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
@@ -2374,25 +2378,16 @@ namespace beam
 					MyClient& m_This;
 					MyParser(MyClient& x) :m_This(x) {}
 
-					virtual void OnEvent(proto::Event::Base& evt) override
+					virtual void OnEventBase(proto::Event::Base& evt) override
 					{
-						if (proto::Event::Type::Utxo == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::Utxo>(evt));
-
 						// log non-UTXO events
 						std::ostringstream os;
 						os << "Evt H=" << m_Height << ", ";
 						evt.Dump(os);
 						printf("%s\n", os.str().c_str());
-
-						if (proto::Event::Type::Shielded == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::Shielded>(evt));
-
-						if (proto::Event::Type::AssetCtl == evt.get_Type())
-							return OnEventType(Cast::Up<proto::Event::AssetCtl>(evt));
 					}
 
-					void OnEventType(proto::Event::Utxo& evt)
+					virtual void OnEventType(proto::Event::Utxo& evt) override
 					{
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
@@ -2415,24 +2410,26 @@ namespace beam
 						}
 					}
 
-					void OnEventType(proto::Event::Shielded& evt)
+					virtual void OnEventType(proto::Event::Shielded& evt) override
 					{
+						OnEventBase(evt);
+
 						// Restore all the relevent data
-						verify_test(evt.m_ID == 0);
+						verify_test(evt.m_TxoID == 0);
 
 						// Output parameters are fully recovered
-						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_User, sizeof(evt.m_User)));
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_Value);
-						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_AssetID);
+						verify_test(!memcmp(&m_This.m_Shielded.m_Params.m_Output.m_User, &evt.m_CoinID.m_User, sizeof(evt.m_CoinID.m_User)));
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_Value == evt.m_CoinID.m_Value);
+						verify_test(m_This.m_Shielded.m_Params.m_Output.m_AssetID == evt.m_CoinID.m_AssetID);
 						
 
 						// Shielded parameters: recovered only the part that is sufficient to spend it
 						ShieldedTxo::Viewer viewer;
-						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_Key.m_nIdx);
+						viewer.FromOwner(*m_This.m_Wallet.m_pKdf, evt.m_CoinID.m_Key.m_nIdx);
 
 						ShieldedTxo::Data::TicketParams sp;
-						sp.m_pK[0] = evt.m_Key.m_kSerG;
-						sp.m_IsCreatedByViewer = evt.m_Key.m_IsCreatedByViewer;
+						sp.m_pK[0] = evt.m_CoinID.m_Key.m_kSerG;
+						sp.m_IsCreatedByViewer = evt.m_CoinID.m_Key.m_IsCreatedByViewer;
 						sp.Restore(viewer); // restores only what is necessary for spend
 
 						verify_test(m_This.m_Shielded.m_Params.m_Ticket.m_IsCreatedByViewer == sp.m_IsCreatedByViewer);
@@ -2441,9 +2438,9 @@ namespace beam
 
 						// Recover the full data
 						ShieldedTxo::Data::OutputParams op;
-						op.m_Value = evt.m_Value;
-						op.m_AssetID = evt.m_AssetID;
-						op.m_User = evt.m_User;
+						op.m_Value = evt.m_CoinID.m_Value;
+						op.m_AssetID = evt.m_CoinID.m_AssetID;
+						op.m_User = evt.m_CoinID.m_User;
 						op.Restore_kG(sp.m_SharedSecret);
 
 						verify_test(m_This.m_Shielded.m_Params.m_Output.m_k == op.m_k);
@@ -2454,8 +2451,17 @@ namespace beam
 							m_This.m_Shielded.m_EvtSpend = true;
 					}
 
-					void OnEventType(proto::Event::AssetCtl& evt)
+					virtual void OnEventType(proto::Event::AssetCtl& evt) override
 					{
+						OnEventBase(evt);
+
+						if (m_This.m_Assets.m_ID) {
+							// creation event may come before the client got proof for its asset
+							verify_test(evt.m_Info.m_ID == m_This.m_Assets.m_ID);
+						}
+						verify_test(evt.m_Info.m_Metadata.m_Value == m_This.m_Assets.m_Metadata.m_Value);
+						verify_test(evt.m_Info.m_Owner == m_This.m_Assets.m_Owner);
+
 						if (proto::Event::Flags::Add & evt.m_Flags)
 						{
 							verify_test(!m_This.m_Assets.m_EvtCreated);
@@ -2586,7 +2592,7 @@ namespace beam
 
 			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
 
-			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&) override
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
 				m_Recovered++;
 				return true;

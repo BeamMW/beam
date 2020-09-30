@@ -454,6 +454,42 @@ namespace beam::bitcoin
         });
     }
 
+    void BitcoinCore016::estimateFee(int blockAmount, std::function<void(const Error&, Amount)> callback)
+    {
+        sendRequest("estimatesmartfee", std::to_string(blockAmount), [callback](IBridge::Error error, const json& result)
+        {
+            Amount feeRate = 0;
+
+            if (error.m_type == IBridge::None)
+            {
+                json::const_iterator itErr = result.find("errors");
+
+                if ((result.end() != itErr) && !itErr->empty())
+                {
+                    LOG_INFO() << "Bitcoin Core returns message: " << error.m_message;
+                }
+                else
+                {
+                    try
+                    {
+                        double rawFeeRate = result["feerate"].get<double>();
+                        if (rawFeeRate >= 0)
+                        {
+                            feeRate = btc_to_satoshi(rawFeeRate);
+                        }
+                    }
+                    catch (const std::exception& ex)
+                    {
+                        error.m_type = IBridge::InvalidResultFormat;
+                        error.m_message = ex.what();
+                    }
+                }
+            }
+            callback(error, feeRate);
+            return false;
+        });
+    }
+
     std::string BitcoinCore016::getCoinName() const
     {
         return "bitcoin";

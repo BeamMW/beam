@@ -40,6 +40,7 @@ namespace beam
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
+		static uint32_t _Scan(uint8_t* pDst, const char*, uint32_t nTxtLen);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
@@ -332,6 +333,12 @@ namespace beam
 		void Print(char* sz) const
 		{
 			_Print(m_pData, nBytes, sz);
+		}
+
+		uint32_t Scan(const char* sz)
+		{
+			// returns the number of text characters processed. If less than nTxtLen - the remaining bytes are not modified
+			return _Scan(m_pData, sz, nTxtLen);
 		}
 
 		std::string str() const

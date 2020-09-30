@@ -438,7 +438,7 @@ namespace beam
 	};
 #pragma pack (pop)
 
-	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp)
+	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const CoinID& cid, Key::IPKdf& tagKdf, OpCode::Enum eOp, const User* pUser)
 	{
 		CoinID::Worker wrk(cid);
 
@@ -496,6 +496,15 @@ namespace beam
 			else
 				assert(m_pConfidential);
 
+			ECC::Scalar::Native pKExtra[_countof(pUser->m_pExtra)];
+			if (pUser)
+			{
+				for (uint32_t i = 0; i < static_cast<uint32_t>(_countof(pUser->m_pExtra)); i++)
+					pKExtra[i] = pUser->m_pExtra[i];
+
+				cp.m_pExtra = pKExtra;
+			}
+
 			if (bUseCoinKdf)
 				m_pConfidential->Create(skSign, cp, oracle, &wrk.m_hGen);
 			else
@@ -536,7 +545,7 @@ namespace beam
 		}
 	}
 
-	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid) const
+	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid, User* pUser) const
 	{
 		ECC::RangeProof::CreatorParams cp;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
@@ -550,12 +559,21 @@ namespace beam
 			cp.m_Blob.p = &kida;
 			cp.m_Blob.n = sizeof(kida);
 
+			ECC::Scalar::Native pKExtra[_countof(pUser->m_pExtra)];
+			if (pUser)
+				cp.m_pExtra = pKExtra;
+
 			if (!m_pConfidential->Recover(oracle, cp))
 				return false;
 
 			Cast::Down<Key::ID>(cid) = kida.m_Kid;
-
 			kida.m_AssetID.Export(cid.m_AssetID);
+
+			if (pUser)
+			{
+				for (uint32_t i = 0; i < static_cast<uint32_t>(_countof(pUser->m_pExtra)); i++)
+					pUser->m_pExtra[i] = pKExtra[i];
+			}
 		}
 		else
 		{
@@ -571,6 +589,9 @@ namespace beam
 
 			Cast::Down<Key::ID>(cid) = kid;
 			cid.m_AssetID = 0; // can't be recovered atm
+
+			if (pUser)
+				ZeroObject(*pUser); // can't be recovered
 		}
 
 
@@ -893,9 +914,14 @@ namespace beam
 
 	bool TxKernel::IWalker::Process(const TxKernel& krn)
 	{
-		return
+		bool bRet = 
 			Process(krn.m_vNested) &&
 			OnKrn(krn);
+
+		if (bRet)
+			m_nKrnIdx++;
+
+		return bRet;
 	}
 
 	void TxKernelNonStd::UpdateID()
@@ -1004,6 +1030,19 @@ namespace beam
 		m_Owner.FromSk(skAsset);
 
 		Sign_(sk, skAsset);
+	}
+
+	void TxKernelAssetControl::get_Sk(ECC::Scalar::Native& sk, Key::IKdf& kdf)
+	{
+		m_Commitment = Zero;
+		UpdateMsg();
+
+		ECC::Hash::Processor()
+			<< "ac.sk"
+			<< m_Msg
+			>> m_Msg;
+
+		kdf.DeriveKey(sk, m_Msg);
 	}
 
 	/////////////
@@ -1234,8 +1273,6 @@ namespace beam
 
 	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
 	{
-		UpdateMsg();
-
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
@@ -1250,12 +1287,13 @@ namespace beam
 			<< w.m_L
 			<< w.m_V
 			<< w.m_R
+			<< w.m_R_Output
 			<< w.m_SpendSk
 			>> hvSeed.V;
 
 		ECC::NonceGenerator("krn.sh.i")
 			<< hvSeed.V
-			>> w.m_R_Output;
+			>> hvSeed.V;
 
 		ECC::Point::Native hGen;
 		if (aid)
@@ -1743,10 +1781,12 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(14) // increment this whenever we change something in the protocol
-#ifndef BEAM_TESTNET
-			<< "masternet"
-#endif
+			<< Magic.v0; // increment this whenever we change something in the protocol
+
+		if (!Magic.IsTestnet)
+			oracle << "masternet";
+
+		oracle
 			// out
 			>> pForks[0].m_Hash;
 
@@ -1763,7 +1803,17 @@ namespace beam
 			<< pForks[2].m_Height
 			<< MaxKernelValidityDH
 			<< Shielded.Enabled
-			<< uint32_t(2) // increment this whenever we change something in the protocol
+			<< Magic.v2; // increment this whenever we change something in the protocol
+
+		// for historical reasons we didn't include Shielded.MaxIns and Shielded.MaxOuts
+		if ((Shielded.MaxIns != 20) || (Shielded.MaxOuts != 30))
+		{
+			oracle
+				<< Shielded.MaxIns
+				<< Shielded.MaxOuts;
+		}
+
+		oracle
 			<< Shielded.m_ProofMax.n
 			<< Shielded.m_ProofMax.M
 			<< Shielded.m_ProofMin.n

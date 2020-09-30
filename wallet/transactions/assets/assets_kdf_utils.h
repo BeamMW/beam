@@ -18,12 +18,4 @@
 namespace beam::wallet
 {
     beam::PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& meta);
-    std::vector<Input::Ptr> GenerateAssetInputs(const Key::IKdf::Ptr& masterKdf, const wallet::CoinIDList& coins);
-    std::vector<Output::Ptr> GenerateAssetOutputs(const Key::IKdf::Ptr& masterKdf, Height minHeight, const CoinIDList& coins);
-
-    ECC::Scalar::Native SignAssetKernel(const Key::IKdf::Ptr& masterKdf,
-            const CoinIDList& inputs,
-            const CoinIDList& outputs,
-            const std::string& meta,
-            TxKernelAssetControl& kernel);
 }

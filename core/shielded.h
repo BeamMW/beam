@@ -96,6 +96,8 @@ namespace beam
 
 			void GenerateOutp(ShieldedTxo&, ECC::Oracle&, bool bHideAssetAlways = false);
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
+
+			void ToID(ID&) const;
 		};
 
 		struct HashTxt;
