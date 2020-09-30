@@ -1597,16 +1597,12 @@ void TestShielded()
 		PeerID pid;
 
 		{
-			wallet::IPrivateKeyKeeper2::Method::get_Kdf m2;
-			m2.m_iChild = 0;
-			verify_test(kkw.m_kkStd.InvokeSync(m2) == wallet::IPrivateKeyKeeper2::Status::Success);
-			verify_test(m2.m_pPKdf);
-
 			Key::ID(m.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
+
 			ECC::Point::Native pt;
-			m2.m_pPKdf->DerivePKeyG(pt, hv);
-			ECC::Point pt_(pt);
-			pid = pt_.m_X;
+			kkw.m_kkStd.get_Owner().DerivePKeyG(pt, hv);
+
+			pid.Import(pt);
 		}
 
 		verify_test(kkw.m_kkStd.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
