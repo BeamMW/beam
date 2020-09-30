@@ -295,7 +295,7 @@ namespace beam
 
 	void ShieldedTxo::Data::TicketParams::Restore(const Viewer& v)
 	{
-		set_FromkG(*v.m_pGen, v.m_pGen.get(), *v.m_pSer);
+		set_FromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
 
 		ECC::Point ptSerialPub;
 		set_SharedSecretFromKs(ptSerialPub, *v.m_pGen);
