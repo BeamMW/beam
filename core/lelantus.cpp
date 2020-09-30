@@ -895,12 +895,12 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* 
 	{
 		Proof& p = Cast::Up<Proof>(m_Sigma.m_Proof); // alias
 
-		const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
-			m_Witness.m_R_Adj :
-			m_Witness.m_R_Output;
-
 		if (Phase::SinglePass == ePhase)
 		{
+			const Scalar::Native& sk = ECC::Tag::IsCustom(pHGen) ?
+				m_Witness.m_R_Adj :
+				m_Witness.m_R_Output;
+
 			ptBias = Context::get().G * sk;
 			Tag::AddValue(ptBias, pHGen, m_Witness.m_V);
 			p.m_Commitment = ptBias;
