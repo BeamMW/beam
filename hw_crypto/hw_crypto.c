@@ -855,6 +855,73 @@ void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf* p, uint32_t iChild, const BeamCrypt
 
 //////////////////////////////
 // Kdf - CoinID key derivation
+void BeamCrypto_CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pkH, BeamCrypto_AssetID aid, BeamCrypto_FlexPoint* pComm)
+{
+	union
+	{
+		// save some space
+		struct
+		{
+			BeamCrypto_Oracle oracle;
+		} o;
+
+		struct
+		{
+			BeamCrypto_MultiMac_Scalar s;
+			BeamCrypto_MultiMac_WNaf wnaf;
+			BeamCrypto_MultiMac_Fast genAsset;
+			secp256k1_fe zDenom;
+		} mm;
+
+	} u;
+
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+
+	// sk*G + v*H
+	BeamCrypto_MultiMac_Context mmCtx;
+	mmCtx.m_pRes = &pComm->m_Gej;
+	mmCtx.m_Secure = 1;
+	mmCtx.m_pSecureK = pkG;
+	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
+	mmCtx.m_Fast = 1;
+	mmCtx.m_pS = &u.mm.s;
+	mmCtx.m_pWnaf = &u.mm.wnaf;
+
+	if (aid)
+	{
+		// derive asset gen
+		BeamCrypto_Oracle_Init(&u.o.oracle);
+
+		HASH_WRITE_STR(u.o.oracle.m_sha, "B.Asset.Gen.V1");
+		secp256k1_sha256_write_Num(&u.o.oracle.m_sha, aid);
+
+		BeamCrypto_Oracle_NextPoint(&u.o.oracle, pComm);
+
+		mmCtx.m_pGenFast = &u.mm.genAsset;
+		mmCtx.m_pZDenom = &u.mm.zDenom;
+
+		BeamCrypto_MultiMac_SetCustom_Nnz(&mmCtx, pComm);
+
+	}
+	else
+	{
+		mmCtx.m_pGenFast = pCtx->m_pGenFast + BeamCrypto_MultiMac_Fast_Idx_H;
+		mmCtx.m_pZDenom = 0;
+	}
+
+	*u.mm.s.m_pK = *pkH;
+
+	BeamCrypto_MultiMac_Calculate(&mmCtx);
+	pComm[0].m_Flags = BeamCrypto_FlexPoint_Gej;
+}
+
+void BeamCrypto_CoinID_getCommRaw(const secp256k1_scalar* pK, BeamCrypto_Amount amount, BeamCrypto_AssetID aid, BeamCrypto_FlexPoint* pComm)
+{
+	secp256k1_scalar kH;
+	secp256k1_scalar_set_u64(&kH, amount);
+	BeamCrypto_CoinID_getCommRawEx(pK, &kH, aid, pComm);
+}
+
 void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK)
 {
 	BeamCrypto_CoinID_getSkComm(pKdf, pCid, pK, 0);
@@ -881,14 +948,6 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 			secp256k1_scalar k1;
 		} o;
 
-		struct
-		{
-			BeamCrypto_MultiMac_Scalar s;
-			BeamCrypto_MultiMac_WNaf wnaf;
-			BeamCrypto_MultiMac_Fast genAsset;
-			secp256k1_fe zDenom;
-		} mm;
-
 	} u;
 
 	int nChild = BeamCrypto_CoinID_getSchemeAndSubkey(pCid, &u.k.nScheme, &u.k.nSubkey);
@@ -905,52 +964,18 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	if (nChild)
 		SECURE_ERASE_OBJ(u.k.kdfC);
 
+	BeamCrypto_CoinID_getCommRaw(pK, pCid->m_Amount, pCid->m_AssetID, pFlex);
+
 	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
 
-
-	// sk*G + v*H
-	BeamCrypto_MultiMac_Context mmCtx;
-	mmCtx.m_pRes = &pFlex[0].m_Gej;
-	mmCtx.m_Secure = 1;
-	mmCtx.m_pSecureK = pK;
-	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
-	mmCtx.m_Fast = 1;
-	mmCtx.m_pS = &u.mm.s;
-	mmCtx.m_pWnaf = &u.mm.wnaf;
-
-	if (pCid->m_AssetID)
-	{
-		// derive asset gen
-		BeamCrypto_Oracle_Init(&u.o.oracle);
-
-		HASH_WRITE_STR(u.o.oracle.m_sha, "B.Asset.Gen.V1");
-		secp256k1_sha256_write_Num(&u.o.oracle.m_sha, pCid->m_AssetID);
-
-		BeamCrypto_FlexPoint fpAsset;
-		BeamCrypto_Oracle_NextPoint(&u.o.oracle, &fpAsset);
-
-		mmCtx.m_pGenFast = &u.mm.genAsset;
-		mmCtx.m_pZDenom = &u.mm.zDenom;
-
-		BeamCrypto_MultiMac_SetCustom_Nnz(&mmCtx, &fpAsset);
-
-	}
-	else
-	{
-		mmCtx.m_pGenFast = pCtx->m_pGenFast + BeamCrypto_MultiMac_Fast_Idx_H;
-		mmCtx.m_pZDenom = 0;
-	}
-
-	secp256k1_scalar_set_u64(u.mm.s.m_pK, pCid->m_Amount);
-
-	BeamCrypto_MultiMac_Calculate(&mmCtx);
-	pFlex[0].m_Flags = BeamCrypto_FlexPoint_Gej;
-
 	// sk * J
+	BeamCrypto_MultiMac_Context mmCtx;
 	mmCtx.m_pRes = &pFlex[1].m_Gej;
+	mmCtx.m_Secure = 1;
+	mmCtx.m_Fast = 0;
+	mmCtx.m_pSecureK = pK;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ + 1;
 	mmCtx.m_pZDenom = 0;
-	mmCtx.m_Fast = 0;
 
 	BeamCrypto_MultiMac_Calculate(&mmCtx);
 	pFlex[1].m_Flags = BeamCrypto_FlexPoint_Gej;
@@ -2048,6 +2073,29 @@ static void BeamCrypto_Voucher_Hash(BeamCrypto_UintBig* pRes, const BeamCrypto_S
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
 }
 
+static void BeamCrypto_ShieldedGetSpendKey(const ShieldedViewer* pViewer, const secp256k1_scalar* pkG, uint8_t nIsGenByViewer, BeamCrypto_UintBig* pPreimage, secp256k1_scalar* pSk)
+{
+	secp256k1_sha256_t sha;
+	ShieldedHashTxt(&sha);
+	HASH_WRITE_STR(sha, "kG-k");
+	secp256k1_scalar_get_b32(pPreimage->m_pVal, pkG);
+	secp256k1_sha256_write(&sha, pPreimage->m_pVal, sizeof(pPreimage->m_pVal));
+	secp256k1_sha256_finalize(&sha, pPreimage->m_pVal);
+
+	if (nIsGenByViewer)
+		BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Gen, pPreimage, pSk);
+	else
+		BeamCrypto_Kdf_Derive_PKey(&pViewer->m_Gen, pPreimage, pSk);
+
+	ShieldedHashTxt(&sha);
+	HASH_WRITE_STR(sha, "k-pI");
+	secp256k1_scalar_get_b32(pPreimage->m_pVal, pSk);
+	secp256k1_sha256_write(&sha, pPreimage->m_pVal, sizeof(pPreimage->m_pVal));
+	secp256k1_sha256_finalize(&sha, pPreimage->m_pVal); // SerialPreimage
+
+	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Ser, pPreimage, pSk); // spend sk
+}
+
 static void BeamCrypto_CreateVoucherInternal(BeamCrypto_ShieldedVoucher* pRes, const BeamCrypto_UintBig* pNonce, const ShieldedViewer* pViewer)
 {
 	secp256k1_scalar pK[2], pN[2], sk;
@@ -2061,21 +2109,8 @@ static void BeamCrypto_CreateVoucherInternal(BeamCrypto_ShieldedVoucher* pRes, c
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 	BeamCrypto_Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pK);
 
-	// kG -> serial preimage
-	ShieldedHashTxt(&oracle.m_sha);
-	HASH_WRITE_STR(oracle.m_sha, "kG-k");
-	secp256k1_scalar_get_b32(hv.m_pVal, pK);
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
-	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Gen, &hv, &sk);
-
-	ShieldedHashTxt(&oracle.m_sha);
-	HASH_WRITE_STR(oracle.m_sha, "k-pI");
-	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal); // SerialPreimage
-
-	BeamCrypto_Kdf_Derive_SKey(&pViewer->m_Ser, &hv, &sk); // spend sk
+	// kG -> serial preimage and spend sk
+	BeamCrypto_ShieldedGetSpendKey(pViewer, pK, 1, &hv, &sk);
 
 	BeamCrypto_FlexPoint pt;
 	BeamCrypto_MulG(&pt, &sk); // spend pk
