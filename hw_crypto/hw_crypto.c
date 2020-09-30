@@ -2198,3 +2198,171 @@ int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
+//////////////////////////////
+// KeyKeeper - BeamCrypto_CreateShieldedInput
+int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_CreateShieldedInputParams* pPars)
+{
+	BeamCrypto_Oracle oracle;
+	secp256k1_scalar skOutp, skSpend, pN[3];
+	BeamCrypto_FlexPoint comm;
+	BeamCrypto_UintBig hv = { 0 }, hvSigGen;
+
+	ShieldedViewer viewer;
+	ShieldedViewerInit(&viewer, pPars->m_Inp.m_TxoID.m_nViewerIdx, p);
+
+	// calculate kernel Msg
+	secp256k1_sha256_initialize(&oracle.m_sha);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Inp.m_Fee);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_hMin);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_hMax);
+
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	hv.m_pVal[0] = 1;
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, 1);
+	secp256k1_sha256_write_Num(&oracle.m_sha, 4); // shielded input
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, 1); // nested break
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_WindowEnd);
+
+	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+
+	// init oracle
+	secp256k1_sha256_initialize(&oracle.m_sha);
+	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Sigma_n);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Sigma_M);
+
+	// output commitment
+	BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, &pPars->m_Inp, &skOutp);
+	BeamCrypto_CoinID_getCommRaw(&skOutp, pPars->m_Inp.m_TxoID.m_Amount, pPars->m_Inp.m_TxoID.m_AssetID, &comm);
+	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+
+	// spend sk/pk
+	int overflow;
+	secp256k1_scalar_set_b32(&skSpend, pPars->m_Inp.m_TxoID.m_kSerG.m_pVal, &overflow);
+	if (overflow)
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	BeamCrypto_ShieldedGetSpendKey(&viewer, &skSpend, pPars->m_Inp.m_TxoID.m_IsCreatedByViewer, &hv, &skSpend);
+	BeamCrypto_MulG(&comm, &skSpend);
+	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+
+	BeamCrypto_Oracle_NextHash(&oracle, &hvSigGen);
+
+	// Sigma::Part1
+	for (uint32_t i = 0; i < _countof(pPars->m_pABCD); i++)
+		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pPars->m_pABCD + i);
+
+	{
+		// hash all the visible to-date params
+		union {
+			secp256k1_sha256_t sha;
+			BeamCrypto_NonceGenerator ng;
+		} u;
+
+		u.sha = oracle.m_sha; // copy
+		for (uint32_t i = 0; i < pPars->m_Sigma_M; i++)
+			secp256k1_sha256_write_CompactPoint(&u.sha, pPars->m_pG + i);
+
+		secp256k1_scalar_get_b32(hv.m_pVal, &skOutp); // secret (invisible for the host)
+		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
+
+		secp256k1_sha256_write(&u.sha, pPars->m_AssetSk.m_pVal, sizeof(pPars->m_AssetSk.m_pVal));
+		secp256k1_sha256_write(&u.sha, pPars->m_OutpSk.m_pVal, sizeof(pPars->m_OutpSk.m_pVal));
+		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
+
+		// use current secret hv to seed our nonce generator
+		static const char szSalt[] = "lelantus.1";
+		BeamCrypto_NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &hv);
+
+		for (uint32_t i = 0; i < _countof(pN); i++)
+			BeamCrypto_NonceGenerator_NextScalar(&u.ng, pN + i);
+	}
+
+
+	{
+		// SigGen
+		secp256k1_scalar sAmount, s1, e;
+
+		BeamCrypto_CoinID_getCommRawEx(pN, pN + 1, pPars->m_Inp.m_TxoID.m_AssetID, &comm);
+		BeamCrypto_FlexPoint_MakeCompact(&comm);
+		pPars->m_NoncePub = comm.m_Compact;
+
+		BeamCrypto_Oracle o2;
+		BeamCrypto_Oracle_Init(&o2);
+		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &comm.m_Compact);
+		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
+
+		secp256k1_scalar_set_u64(&sAmount, pPars->m_Inp.m_TxoID.m_Amount);
+		secp256k1_scalar_set_b32(&s1, pPars->m_AssetSk.m_pVal, &overflow);
+		secp256k1_scalar_mul(&s1, &s1, &sAmount);
+		secp256k1_scalar_add(&s1, &s1, &skOutp); // skOutp + skAsset*amount
+
+		// 1st challenge
+		BeamCrypto_Oracle_NextScalar(&o2, &e);
+
+		secp256k1_scalar_mul(&s1, &s1, &e);
+		secp256k1_scalar_add(pN, pN, &s1); // nG += skOutp` * e
+
+		secp256k1_scalar_mul(&s1, &sAmount, &e);
+		secp256k1_scalar_add(pN + 1, pN + 1, &s1); // nH += amount * e
+
+		// 2nd challenge
+		BeamCrypto_Oracle_NextScalar(&o2, &e);
+		secp256k1_scalar_mul(&s1, &skSpend, &e);
+		secp256k1_scalar_add(pN, pN, &s1); // nG += skSpend * e
+
+		static_assert(_countof(pN) >= _countof(pPars->m_pSig), "");
+		for (uint32_t i = 0; i < _countof(pPars->m_pSig); i++)
+		{
+			secp256k1_scalar_negate(pN + i, pN + i);
+			secp256k1_scalar_get_b32(pPars->m_pSig[i].m_pVal, pN + i);
+		}
+	}
+
+	comm.m_Compact = pPars->m_pG[0];
+	comm.m_Flags = BeamCrypto_FlexPoint_Compact;
+
+	BeamCrypto_FlexPoint_MakeGe(&comm);
+	if (!comm.m_Flags)
+		return BeamCrypto_KeyKeeper_Status_Unspecified; // import failed
+
+	{
+		BeamCrypto_FlexPoint comm2;
+		BeamCrypto_MulG(&comm2, pN + 2);
+		secp256k1_gej_add_ge_var(&comm2.m_Gej, &comm2.m_Gej, &comm.m_Ge, 0);
+
+		BeamCrypto_FlexPoint_MakeCompact(&comm2);
+		pPars->m_pG[0] = comm2.m_Compact;
+	}
+
+	for (uint32_t i = 0; i < pPars->m_Sigma_M; i++)
+		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pPars->m_pG + i);
+
+	secp256k1_scalar e, xPwr;
+	BeamCrypto_Oracle_NextScalar(&oracle, &e);
+
+	// calculate zR
+	xPwr = e;
+	for (uint32_t i = 1; i < pPars->m_Sigma_M; i++)
+		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
+
+	secp256k1_scalar_negate(&skOutp, &skOutp);
+	secp256k1_scalar_set_b32(pN, pPars->m_OutpSk.m_pVal, &overflow);
+	secp256k1_scalar_add(&skOutp, &skOutp, pN); // skOld - skNew
+	secp256k1_scalar_mul(&skOutp, &skOutp, &xPwr);
+
+	secp256k1_scalar_negate(pN + 2, pN + 2);
+	secp256k1_scalar_add(pN + 2, pN + 2, &skOutp); // (skOld - skNew) * xPwr - tau
+
+	secp256k1_scalar_get_b32(pPars->m_zR.m_pVal, pN + 2);
+
+
+	SECURE_ERASE_OBJ(skSpend);
+	SECURE_ERASE_OBJ(skOutp);
+	SECURE_ERASE_OBJ(pN);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+

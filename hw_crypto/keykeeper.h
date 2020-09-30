@@ -90,6 +90,29 @@ typedef struct
 
 typedef struct
 {
+	// inputs
+	BeamCrypto_ShieldedInput m_Inp;
+	BeamCrypto_Height m_hMin;
+	BeamCrypto_Height m_hMax;
+	uint64_t m_WindowEnd;
+	uint32_t m_Sigma_M;
+	uint32_t m_Sigma_n;
+	BeamCrypto_UintBig m_AssetSk; // blinding for asset generator
+	BeamCrypto_UintBig m_OutpSk; // not mandatory, but simplifies things. The overall blinding factor of the shielded Txo (not secret)
+	BeamCrypto_CompactPoint m_pABCD[4];
+	BeamCrypto_CompactPoint* m_pG; // m_pG[0] is in/out
+
+	// outputs
+	BeamCrypto_CompactPoint m_NoncePub;
+	BeamCrypto_UintBig m_pSig[2];
+	BeamCrypto_UintBig m_zR;
+
+} BeamCrypto_CreateShieldedInputParams;
+
+int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper*, BeamCrypto_CreateShieldedInputParams*);
+
+typedef struct
+{
 	const BeamCrypto_CoinID* m_pIns;
 	const BeamCrypto_CoinID* m_pOuts;
 	const BeamCrypto_ShieldedInput* m_pInsShielded;
