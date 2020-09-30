@@ -1443,6 +1443,47 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 	if (tx2.m_pKernel)
 		tx2.m_pKernel->Clone(tx.m_vKernels.emplace_back());
 
+	if (!tx2.m_vInputsShielded.empty())
+	{
+		Sigma::Cfg cfg(2, 2);
+		uint32_t N = cfg.get_N();
+		assert(N);
+
+		// take arbitrary point (doesn't matter which)
+		const auto& pt_ge_storage = ECC::Context::get().m_Ipp.m_pGet1_Minus;
+		secp256k1_ge ge;
+		pt_ge_storage->Assign(ge);
+
+		ECC::Point::Storage ptS;
+		ptS.FromNnz(ge);
+
+		Sigma::CmListVec lst;
+		lst.m_vec.resize(N, ptS);
+
+		for (unsigned int i = 0; i < tx2.m_vInputsShielded.size(); i++)
+		{
+			const auto& x = tx2.m_vInputsShielded[i];
+
+			KeyKeeperHwEmu::Method::CreateInputShielded m;
+			Cast::Down<ShieldedTxo::ID>(m) = x;
+
+			m.m_iIdx = 0;
+			m.m_pKernel = std::make_unique<TxKernelShieldedInput>();
+
+			if (tx2.m_pKernel)
+				m.m_pKernel->m_Height = tx2.m_pKernel->m_Height;
+			m.m_pKernel->m_Fee = x.m_Fee;
+			m.m_pKernel->m_WindowEnd = 300500;
+			m.m_pKernel->m_SpendProof.m_Cfg = cfg;
+			m.m_pList = &lst;
+
+			verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
+
+			tx.m_vKernels.emplace_back() = std::move(m.m_pKernel);
+
+		}
+	}
+
 	// offset
 	tx.m_Offset = tx2.m_kOffset;
 
@@ -1501,7 +1542,8 @@ void KeyKeeperWrap::TestSplit()
 	TestTx(m);
 
 	// add asset
-	Add(m.m_vInputs, 16).m_AssetID = 12;
+	Add(m.m_vInputs, 750);
+	AddSh(m.m_vInputsShielded, 16, 750).m_AssetID = 12; // shielded inp
 	Add(m.m_vOutputs, 16).m_AssetID = 13;
 
 	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success); // different assets mixed (not allowed)
