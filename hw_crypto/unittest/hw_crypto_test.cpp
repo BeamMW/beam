@@ -718,6 +718,36 @@ struct KeyKeeperHwEmu
 
 	KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
+
+	struct ShieldedInpContext
+	{
+		Method::CreateInputShielded& m_Method;
+
+		BeamCrypto_CreateShieldedInputParams m_Pars;
+		Lelantus::Prover m_Prover;
+		ECC::Hash::Value m_hvSigmaSeed;
+		ECC::Oracle m_Oracle;
+
+		ShieldedInpContext(Method::CreateInputShielded& m)
+			:m_Method(m)
+			,m_Prover(*m.m_pList, m.m_pKernel->m_SpendProof)
+		{
+		}
+
+		static void get_InpParams(ShieldedTxo::Data::Params&, Key::IPKdf& owner, const ShieldedTxo::ID&);
+
+		struct ParamsPlus
+			:public ShieldedTxo::Data::Params
+		{
+			ECC::Point::Native m_hGen;
+			void Init(Key::IPKdf& owner, const ShieldedTxo::ID&);
+		};
+
+		void Setup(Key::IPKdf& owner);
+		void InvokeLocal1();
+		// call HW device
+		void InvokeLocal2();
+	};
 };
 
 bool KeyKeeperHwEmu::get_PKdf(Key::IPKdf::Ptr& pRes, const uint32_t* pChild)
@@ -772,9 +802,151 @@ void KeyKeeperHwEmu::CidCvt(BeamCrypto_CoinID& cid2, const CoinID& cid)
 	cid2.m_Amount = cid.m_Value;
 }
 
+void KeyKeeperHwEmu::ShieldedInpContext::get_InpParams(ShieldedTxo::Data::Params& sdp, Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
+{
+	ShieldedTxo::Viewer viewer;
+	viewer.FromOwner(ownerKey, id.m_Key.m_nIdx);
+
+	sdp.m_Ticket.m_IsCreatedByViewer = id.m_Key.m_IsCreatedByViewer;
+	sdp.m_Ticket.m_pK[0] = id.m_Key.m_kSerG;
+	sdp.m_Ticket.Restore(viewer);
+
+	sdp.m_Output.m_Value = id.m_Value;
+	sdp.m_Output.m_AssetID = id.m_AssetID;
+	sdp.m_Output.m_User = id.m_User;
+	sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
+	sdp.m_Output.m_k += sdp.m_Ticket.m_pK[0]; // full blinding factor
+}
+
+void KeyKeeperHwEmu::ShieldedInpContext::ParamsPlus::Init(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
+{
+	get_InpParams(*this, ownerKey, id);
+
+	if (id.m_AssetID)
+		Asset::Base(id.m_AssetID).get_Generator(m_hGen);
+}
+
+void KeyKeeperHwEmu::ShieldedInpContext::Setup(Key::IPKdf& ownerKey)
+{
+	auto& m = m_Method; // alias
+	assert(m.m_pList && m.m_pKernel);
+	auto& krn = *m.m_pKernel; // alias
+
+	ParamsPlus pp;
+	pp.Init(ownerKey, m);
+
+	KeyKeeperHwEmu::Encoder::Import(m_Pars.m_Inp.m_TxoID, m);
+
+	m_Pars.m_hMin = krn.m_Height.m_Min;
+	m_Pars.m_hMax = krn.m_Height.m_Max;
+	m_Pars.m_WindowEnd = krn.m_WindowEnd;
+	m_Pars.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
+	m_Pars.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
+	m_Pars.m_Inp.m_Fee = krn.m_Fee;
+
+	ECC::Scalar sk_;
+	sk_ = pp.m_Output.m_k;
+	m_Pars.m_OutpSk = Ecc2BC(sk_.m_Value);
+
+	Lelantus::Proof& proof = krn.m_SpendProof;
+
+	m_Prover.m_Witness.m_V = 0; // not used
+	m_Prover.m_Witness.m_L = m.m_iIdx;
+
+	// output commitment
+	ECC::Point::Native comm;
+	m.get_SkOutPreimage(m_hvSigmaSeed, krn.m_Fee);
+	ownerKey.DerivePKeyG(comm, m_hvSigmaSeed);
+	ECC::Tag::AddValue(comm, &pp.m_hGen, m.m_Value);
+
+	proof.m_Commitment = comm;
+	proof.m_SpendPk = pp.m_Ticket.m_SpendPk;
+
+	bool bHideAssetAlways = false; // TODO - parameter
+	if (bHideAssetAlways || m.m_AssetID)
+	{
+		ECC::Hash::Processor()
+			<< "asset-blind.sh"
+			<< proof.m_Commitment // pseudo-uniquely indentifies this specific Txo
+			>> m_hvSigmaSeed;
+
+		ECC::Scalar::Native skBlind;
+		ownerKey.DerivePKey(skBlind, m_hvSigmaSeed);
+
+		krn.m_pAsset = std::make_unique<Asset::Proof>();
+		krn.m_pAsset->Create(pp.m_hGen, skBlind, m.m_AssetID, pp.m_hGen);
+
+
+		sk_ = -skBlind;
+		m_Pars.m_AssetSk = Ecc2BC(sk_.m_Value);
+	}
+	else
+		ZeroObject(m_Pars.m_AssetSk);
+
+	krn.UpdateMsg();
+	m_Oracle << krn.m_Msg;
+
+	// generate seed for Sigma proof blinding. Use mix of deterministic + random params
+	ECC::GenRandom(m_hvSigmaSeed);
+	ECC::Hash::Processor()
+		<< "seed.sigma.sh"
+		<< m_hvSigmaSeed
+		<< krn.m_Msg
+		<< proof.m_Commitment
+		>> m_hvSigmaSeed;
+}
+
+void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal1()
+{
+	// proof phase1 generation
+	m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
+
+	auto& proof = m_Prover.m_Sigma.m_Proof;
+
+	// Invoke HW device
+	m_Pars.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
+	m_Pars.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
+	m_Pars.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
+	m_Pars.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
+
+	m_Pars.m_pG = &Ecc2BC(proof.m_Part1.m_vG.front());
+}
+
+void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal2()
+{
+	auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
+
+	// import SigGen and vG[0]
+	Ecc2BC(proof.m_Part1.m_vG.front()) = m_Pars.m_pG[0];
+	Ecc2BC(proof.m_Part2.m_zR.m_Value) = m_Pars.m_zR;
+
+	Ecc2BC(proof.m_Signature.m_NoncePub) = m_Pars.m_NoncePub;
+	Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = m_Pars.m_pSig[0];
+	Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = m_Pars.m_pSig[1];
+
+	// phase2
+	m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
+
+	m_Method.m_pKernel->MsgToID();
+	// finished
+}
+
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateInputShielded& m)
 {
-	return Status::NotImplemented;
+	assert(m.m_pList && m.m_pKernel);
+
+	if (!get_OwnerKey())
+		return Status::Unspecified;
+
+	ShieldedInpContext ctx(m);
+	ctx.Setup(*m_pOwnerKey);
+	ctx.InvokeLocal1();
+
+	Status::Type nRes = BeamCrypto_CreateShieldedInput(&m_Ctx, &ctx.m_Pars);
+	if (Status::Success == nRes)
+		ctx.InvokeLocal2();
+
+	return nRes;
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateVoucherShielded& m)
@@ -1475,146 +1647,50 @@ void TestShielded()
 
 	for (uint32_t i = 0; i < 4; i++)
 	{
-		ShieldedTxo::ID id_;
-		id_.m_Key.m_nIdx = i;
-		id_.m_Key.m_IsCreatedByViewer = (i >= 2);
+		wallet::IPrivateKeyKeeper2::Method::CreateInputShielded m;
 
-		ShieldedTxo::Data::TicketParams tp;
-		tp.m_IsCreatedByViewer = id_.m_Key.m_IsCreatedByViewer;
-		SetRandom(tp.m_pK[0]);
-		id_.m_Key.m_kSerG = tp.m_pK[0];
+		m.m_pList = &lst;
+		m.m_iIdx = 333 % N;
 
-		ShieldedTxo::Viewer viewer;
-		viewer.FromOwner(kkw.m_kkStd.get_Owner(), id_.m_Key.m_nIdx);
-		tp.Restore(viewer);
+		// full description
+		ECC::Scalar::Native sk;
+		SetRandom(sk);
+		m.m_Key.m_kSerG = sk;
+		m.m_Key.m_nIdx = i;
+		m.m_Key.m_IsCreatedByViewer = (i >= 2);
+		GenerateRandom(&m.m_User, sizeof(m.m_User));
+		m.m_Value = 100500;
+		m.m_AssetID = 1 & i;
 
-		GenerateRandom(&id_.m_User, sizeof(id_.m_User));
+		m.m_pKernel.reset(new TxKernelShieldedInput);
+		auto& krn = *m.m_pKernel;
+		krn.m_Height.m_Min = 500112;
+		krn.m_Height.m_Max = 600112;
+		krn.m_Fee = 1000000;
+		krn.m_SpendProof.m_Cfg = cfg;
+		krn.m_WindowEnd = 423125;
 
-		id_.m_AssetID = 1 & i;
-		id_.m_Value = 100500;
-
-
-		BeamCrypto_CreateShieldedInputParams pars;
-		KeyKeeperHwEmu::Encoder::Import(pars.m_Inp.m_TxoID, id_);
-
-		pars.m_hMin = 500112;
-		pars.m_hMax = 600112;
-		pars.m_WindowEnd = 423125;
-		pars.m_Sigma_M = cfg.M;
-		pars.m_Sigma_n = cfg.n;
-		pars.m_Inp.m_Fee = 1000000;
-
-		ECC::Scalar::Native skOrgOutp;
-		SetRandom(skOrgOutp);
-		ECC::Scalar sk_;
-		sk_ = skOrgOutp;
-		pars.m_OutpSk = Ecc2BC(sk_.m_Value);
-
-		ZeroObject(pars.m_AssetSk);
-
-		ECC::Point::Native hGen;
-		if (id_.m_AssetID)
-			Asset::Base(id_.m_AssetID).get_Generator(hGen);
-
-		TxKernelShieldedInput krn;
-		krn.m_Fee = pars.m_Inp.m_Fee;
-		krn.m_Height.m_Min = pars.m_hMin;
-		krn.m_Height.m_Max = pars.m_hMax;
-		krn.m_WindowEnd = pars.m_WindowEnd;
-
-		beam::Lelantus::Proof& proof = krn.m_SpendProof;
-		proof.m_Cfg = cfg;
-		beam::Lelantus::Prover p(lst, proof);
-
-		p.m_Witness.m_V = 0; // not used
-		p.m_Witness.m_L = 333 % N;
-
-		// input commitment
-		ECC::Point::Native comm = ECC::Context::get().G * skOrgOutp;
-		ECC::Tag::AddValue(comm, &hGen, id_.m_Value);
-
-		ECC::Scalar::Native ser;
-		Lelantus::SpendKey::ToSerial(ser, tp.m_SpendPk);
-
-		comm += ECC::Context::get().J * ser;
-		comm.Export(lst.m_vec[p.m_Witness.m_L]);
-
-		// output commitment
-		id_.get_SkOutPreimage(hv, pars.m_Inp.m_Fee);
-		kkw.m_kkStd.get_Owner().DerivePKeyG(comm, hv);
-		ECC::Tag::AddValue(comm, &hGen, id_.m_Value);
-		proof.m_Commitment = comm;
-		proof.m_SpendPk = tp.m_SpendPk;
-
-		if (id_.m_AssetID)
-		{
-			// hide asset generator
-			ECC::Scalar::Native skAsset;
-			SetRandom(skAsset);
-			sk_ = skAsset;
-			pars.m_AssetSk = Ecc2BC(sk_.m_Value);
-
-			skAsset = -skAsset;
-			hGen += ECC::Context::get().G * skAsset;
-		}
+		verify_test(kkw.m_kkEmu.get_OwnerKey());
 
 		{
-			ECC::Oracle oracle;
-			krn.UpdateMsg();
-			oracle << krn.m_Msg;
+			// get the input commitment (normally this is not necessary, but this is a test, we'll substitute the correct to-be-withdrawn commitment)
+			KeyKeeperHwEmu::ShieldedInpContext::ParamsPlus pp;
+			pp.Init(*kkw.m_kkEmu.m_pOwnerKey, m);
 
-			ECC::Hash::Value seed = Zero;
+			ECC::Point::Native comm = ECC::Context::get().G * pp.m_Output.m_k;
+			ECC::Tag::AddValue(comm, &pp.m_hGen, m.m_Value);
 
-			// proof phase1 generation
-			p.Generate(seed, oracle, nullptr, beam::Lelantus::Prover::Phase::Step1);
+			ECC::Scalar::Native ser;
+			Lelantus::SpendKey::ToSerial(ser, pp.m_Ticket.m_SpendPk);
+			comm += ECC::Context::get().J * ser;
 
-			pars.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
-			pars.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
-			pars.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
-			pars.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
-
-			pars.m_pG = &Ecc2BC(proof.m_Part1.m_vG.front());
-
-			int nRes = BeamCrypto_CreateShieldedInput(&kkw.m_kkEmu.m_Ctx, &pars);
-			verify_test(BeamCrypto_KeyKeeper_Status_Ok == nRes);
-
-			// import SigGen and vG[0]
-			Ecc2BC(proof.m_Part1.m_vG.front()) = pars.m_pG[0];
-			Ecc2BC(proof.m_Part2.m_zR.m_Value) = pars.m_zR;
-
-			Ecc2BC(proof.m_Signature.m_NoncePub) = pars.m_NoncePub;
-			Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pars.m_pSig[0];
-			Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = pars.m_pSig[1];
-
-			// phase2
-			p.Generate(seed, oracle, nullptr, beam::Lelantus::Prover::Phase::Step2);
-
-			//// Test SigGen individually
-			//ECC::Point::Native pPt[2];
-			//pPt[0].Import(proof.m_Commitment);
-			//pPt[1].Import(proof.m_SpendPk);
-
-			//ECC::Point::Native ptRes;
-			//ptRes.Import(proof.m_Signature.m_NoncePub);
-
-			//ptRes += ECC::Context::get().G * proof.m_Signature.m_pK[0];
-			//if (ECC::Tag::IsCustom(&hGen))
-			//	ptRes += hGen * proof.m_Signature.m_pK[1];
-			//else
-			//	ptRes += ECC::Context::get().H_Big * proof.m_Signature.m_pK[1];
-
-			//ECC::Oracle o3;
-			//proof.m_Signature.Expose(o3, p.m_hvSigGen);
-
-			//ECC::Scalar::Native e;
-			//o3 >> e;
-			//ptRes += pPt[0] * e;
-			//o3 >> e;
-			//ptRes += pPt[1] * e;
-			//verify_test(ptRes == Zero);
+			comm.Export(lst.m_vec[m.m_iIdx]); // save the correct to-be-withdrawn commitment in the pool
 		}
 
+		KeyKeeperHwEmu::Status::Type nRes = kkw.m_kkEmu.InvokeSync(m);
+		verify_test(KeyKeeperHwEmu::Status::Success == nRes);
 
+		// verify
 		typedef ECC::InnerProduct::BatchContextEx<4> MyBatch;
 		MyBatch bc;
 
@@ -1622,20 +1698,18 @@ void TestShielded()
 		vKs.resize(N);
 		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
 
-		bool bSuccess = true;
-
 		ECC::Oracle oracle;
 		oracle << krn.m_Msg;
 
-		if (!proof.IsValid(bc, oracle, &vKs.front(), &hGen))
-			bSuccess = false;
+		ECC::Point::Native hGen;
+		if (krn.m_pAsset)
+			verify_test(hGen.ImportNnz(krn.m_pAsset->m_hGen));
+
+		verify_test(krn.m_SpendProof.IsValid(bc, oracle, &vKs.front(), &hGen));
 
 		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
 
-		if (!bc.Flush())
-			bSuccess = false;
-
-		verify_test(bSuccess);
+		verify_test(bc.Flush());
 	}
 
 }
