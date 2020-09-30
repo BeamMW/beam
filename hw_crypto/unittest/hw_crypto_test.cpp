@@ -1012,6 +1012,8 @@ struct KeyKeeperStd
 
 	using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
 	virtual bool IsTrustless() override { return m_Trustless; }
+
+	Key::IPKdf& get_Owner() const { return *m_pKdf; }
 };
 
 
@@ -1456,6 +1458,157 @@ void TestShielded()
 				verify_test(x0.m_Ticket.m_Signature.m_pK[k] == x1.m_Ticket.m_Signature.m_pK[k]);
 		}
 	}
+
+	printf("Shielded inputs...\n");
+
+	Lelantus::Cfg cfg(3, 4); // 3^4 = 81
+	const uint32_t N = cfg.get_N();
+
+	Lelantus::CmListVec lst;
+	lst.m_vec.resize(N);
+
+	ECC::Point::Native rnd;
+	SetRandom(rnd);
+
+	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
+		rnd.Export(lst.m_vec[i]);
+
+	for (uint32_t i = 0; i < 4; i++)
+	{
+		ShieldedTxo::ID id_;
+		id_.m_Key.m_nIdx = i;
+		id_.m_Key.m_IsCreatedByViewer = (i >= 2);
+
+		ShieldedTxo::Data::TicketParams tp;
+		tp.m_IsCreatedByViewer = id_.m_Key.m_IsCreatedByViewer;
+		SetRandom(tp.m_pK[0]);
+		id_.m_Key.m_kSerG = tp.m_pK[0];
+
+		ShieldedTxo::Viewer viewer;
+		viewer.FromOwner(kkw.m_kkStd.get_Owner(), id_.m_Key.m_nIdx);
+		tp.Restore(viewer);
+
+		GenerateRandom(&id_.m_User, sizeof(id_.m_User));
+
+		id_.m_AssetID = 1 & i;
+		id_.m_Value = 100500;
+
+
+		BeamCrypto_CreateShieldedInputParams pars;
+		KeyKeeperHwEmu::Encoder::Import(pars.m_Inp.m_TxoID, id_);
+
+		pars.m_hMin = 500112;
+		pars.m_hMax = 600112;
+		pars.m_WindowEnd = 423125;
+		pars.m_Sigma_M = cfg.M;
+		pars.m_Sigma_n = cfg.n;
+		pars.m_Inp.m_Fee = 1000000;
+
+		ECC::Scalar::Native skOrgOutp;
+		SetRandom(skOrgOutp);
+		ECC::Scalar sk_;
+		sk_ = skOrgOutp;
+		pars.m_OutpSk = Ecc2BC(sk_.m_Value);
+
+		ZeroObject(pars.m_AssetSk);
+
+		ECC::Point::Native hGen;
+		if (id_.m_AssetID)
+			Asset::Base(id_.m_AssetID).get_Generator(hGen);
+
+		TxKernelShieldedInput krn;
+		krn.m_Fee = pars.m_Inp.m_Fee;
+		krn.m_Height.m_Min = pars.m_hMin;
+		krn.m_Height.m_Max = pars.m_hMax;
+		krn.m_WindowEnd = pars.m_WindowEnd;
+
+		beam::Lelantus::Proof& proof = krn.m_SpendProof;
+		proof.m_Cfg = cfg;
+		beam::Lelantus::Prover p(lst, proof);
+
+		p.m_Witness.m_V = 0; // not used
+		p.m_Witness.m_L = 333 % N;
+
+		// input commitment
+		ECC::Point::Native comm = ECC::Context::get().G * skOrgOutp;
+		ECC::Tag::AddValue(comm, &hGen, id_.m_Value);
+
+		ECC::Scalar::Native ser;
+		Lelantus::SpendKey::ToSerial(ser, tp.m_SpendPk);
+
+		comm += ECC::Context::get().J * ser;
+		comm.Export(lst.m_vec[p.m_Witness.m_L]);
+
+		// output commitment
+		id_.get_SkOutPreimage(hv, pars.m_Inp.m_Fee);
+		kkw.m_kkStd.get_Owner().DerivePKeyG(comm, hv);
+		ECC::Tag::AddValue(comm, &hGen, id_.m_Value);
+		proof.m_Commitment = comm;
+		proof.m_SpendPk = tp.m_SpendPk;
+
+		{
+			ECC::Oracle oracle;
+			krn.UpdateMsg();
+			oracle << krn.m_Msg;
+
+			ECC::Hash::Value seed = Zero;
+
+			// proof phase1 generation
+			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step1);
+
+			pars.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
+			pars.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
+			pars.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
+			pars.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
+
+			pars.m_pG = &Ecc2BC(proof.m_Part1.m_vG.front());
+
+			int nRes = BeamCrypto_CreateShieldedInput(&kkw.m_kkEmu.m_Ctx, &pars);
+			verify_test(BeamCrypto_KeyKeeper_Status_Ok == nRes);
+
+			// import SigGen and vG[0]
+			Ecc2BC(proof.m_Part1.m_vG.front()) = pars.m_pG[0];
+			Ecc2BC(proof.m_Part2.m_zR.m_Value) = pars.m_zR;
+
+			Ecc2BC(proof.m_Signature.m_NoncePub) = pars.m_NoncePub;
+			Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pars.m_pSig[0];
+			Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = pars.m_pSig[1];
+
+			// phase2
+			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+
+			//// Test SigGen individually
+			//ECC::Point::Native pPt[2];
+			//pPt[0].Import(proof.m_Commitment);
+			//pPt[1].Import(proof.m_SpendPk);
+			//bool bb = proof.m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgGH2, p.m_hvSigGen, proof.m_Signature.m_pK, pPt);
+			//verify_test(bb);
+		}
+
+
+		typedef ECC::InnerProduct::BatchContextEx<4> MyBatch;
+		MyBatch bc;
+
+		std::vector<ECC::Scalar::Native> vKs;
+		vKs.resize(N);
+		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
+
+		bool bSuccess = true;
+
+		ECC::Oracle oracle;
+		oracle << krn.m_Msg;
+
+		if (!proof.IsValid(bc, oracle, &vKs.front(), &hGen))
+			bSuccess = false;
+
+		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
+
+		if (!bc.Flush())
+			bSuccess = false;
+
+		verify_test(bSuccess);
+	}
+
 }
 
 void TestKeyKeeperTxs()
