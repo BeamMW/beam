@@ -1546,6 +1546,18 @@ void TestShielded()
 		proof.m_Commitment = comm;
 		proof.m_SpendPk = tp.m_SpendPk;
 
+		if (id_.m_AssetID)
+		{
+			// hide asset generator
+			ECC::Scalar::Native skAsset;
+			SetRandom(skAsset);
+			sk_ = skAsset;
+			pars.m_AssetSk = Ecc2BC(sk_.m_Value);
+
+			skAsset = -skAsset;
+			hGen += ECC::Context::get().G * skAsset;
+		}
+
 		{
 			ECC::Oracle oracle;
 			krn.UpdateMsg();
@@ -1554,7 +1566,7 @@ void TestShielded()
 			ECC::Hash::Value seed = Zero;
 
 			// proof phase1 generation
-			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step1);
+			p.Generate(seed, oracle, nullptr, beam::Lelantus::Prover::Phase::Step1);
 
 			pars.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
 			pars.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
@@ -1575,14 +1587,31 @@ void TestShielded()
 			Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = pars.m_pSig[1];
 
 			// phase2
-			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+			p.Generate(seed, oracle, nullptr, beam::Lelantus::Prover::Phase::Step2);
 
 			//// Test SigGen individually
 			//ECC::Point::Native pPt[2];
 			//pPt[0].Import(proof.m_Commitment);
 			//pPt[1].Import(proof.m_SpendPk);
-			//bool bb = proof.m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgGH2, p.m_hvSigGen, proof.m_Signature.m_pK, pPt);
-			//verify_test(bb);
+
+			//ECC::Point::Native ptRes;
+			//ptRes.Import(proof.m_Signature.m_NoncePub);
+
+			//ptRes += ECC::Context::get().G * proof.m_Signature.m_pK[0];
+			//if (ECC::Tag::IsCustom(&hGen))
+			//	ptRes += hGen * proof.m_Signature.m_pK[1];
+			//else
+			//	ptRes += ECC::Context::get().H_Big * proof.m_Signature.m_pK[1];
+
+			//ECC::Oracle o3;
+			//proof.m_Signature.Expose(o3, p.m_hvSigGen);
+
+			//ECC::Scalar::Native e;
+			//o3 >> e;
+			//ptRes += pPt[0] * e;
+			//o3 >> e;
+			//ptRes += pPt[1] * e;
+			//verify_test(ptRes == Zero);
 		}
 
 

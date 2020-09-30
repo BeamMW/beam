@@ -2293,10 +2293,16 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &comm.m_Compact);
 		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
 
+		secp256k1_scalar_set_b32(&e, pPars->m_AssetSk.m_pVal, &overflow); // the 'mix' term
+
+		// nG += nH * assetSk
+		secp256k1_scalar_mul(&s1, &e, pN + 1);
+		secp256k1_scalar_add(pN, pN, &s1);
+
+		// skOutp` = skOutp + amount * assetSk
 		secp256k1_scalar_set_u64(&sAmount, pPars->m_Inp.m_TxoID.m_Amount);
-		secp256k1_scalar_set_b32(&s1, pPars->m_AssetSk.m_pVal, &overflow);
-		secp256k1_scalar_mul(&s1, &s1, &sAmount);
-		secp256k1_scalar_add(&s1, &s1, &skOutp); // skOutp + skAsset*amount
+		secp256k1_scalar_mul(&s1, &e, &sAmount);
+		secp256k1_scalar_add(&s1, &s1, &skOutp);
 
 		// 1st challenge
 		BeamCrypto_Oracle_NextScalar(&o2, &e);

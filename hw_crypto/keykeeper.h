@@ -97,7 +97,7 @@ typedef struct
 	uint64_t m_WindowEnd;
 	uint32_t m_Sigma_M;
 	uint32_t m_Sigma_n;
-	BeamCrypto_UintBig m_AssetSk; // blinding for asset generator
+	BeamCrypto_UintBig m_AssetSk; // negated blinding for asset generator (H` = H - assetSk*G)
 	BeamCrypto_UintBig m_OutpSk; // not mandatory, but simplifies things. The overall blinding factor of the shielded Txo (not secret)
 	BeamCrypto_CompactPoint m_pABCD[4];
 	BeamCrypto_CompactPoint* m_pG; // m_pG[0] is in/out
