@@ -739,9 +739,7 @@ namespace
             params.SetParameter(TxParameterID::IsPermanentPeerID, address->isPermanent());
             AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
         }
-#ifdef BEAM_LIB_VERSION
-        params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
-#endif // BEAM_LIB_VERSION
+        AppendLibraryVersion(params);
         if (!params.GetParameter(TxParameterID::TransactionType))
         {
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);

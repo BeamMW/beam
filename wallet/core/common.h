@@ -786,6 +786,7 @@ namespace beam::wallet
 
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
     ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);
+    void AppendLibraryVersion(TxParameters& params);
 }    // beam::wallet
 
 namespace beam

@@ -78,6 +78,7 @@ namespace beam::wallet
         virtual void deleteNotification(const ECC::uintBig& id) = 0;
 
         virtual void getExchangeRates() = 0;
+        virtual void getPublicAddress() = 0;
 
         virtual ~IWalletModelAsync() {}
     };

@@ -256,7 +256,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     params.SetParameter(TxParameterID::PeerID, m_walletID);
     params.SetParameter(TxParameterID::PeerWalletIdentity, m_Identity);
     params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanentAddress);
-    params.SetParameter(TxParameterID::LibraryVersion, std::string(PROJECT_VERSION));
+    AppendLibraryVersion(params);
 
     if (amount > 0) {
         uint64_t bAmount = amount;

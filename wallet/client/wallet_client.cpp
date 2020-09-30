@@ -253,6 +253,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getExchangeRates);
     }
+
+    void getPublicAddress() override
+    {
+        call_async(&IWalletModelAsync::getPublicAddress);
+    }
 };
 }
 
@@ -1147,6 +1152,15 @@ namespace beam::wallet
         {
             onExchangeRates({});
         }
+    }
+
+    void WalletClient::getPublicAddress()
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*m_walletDB->get_OwnerKdf(), 0));
+        AppendLibraryVersion(params);
+        onPublicAddress(std::to_string(params));
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

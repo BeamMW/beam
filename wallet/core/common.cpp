@@ -1389,4 +1389,11 @@ namespace beam::wallet
         return voucher;
     }
 
+    void AppendLibraryVersion(TxParameters& params)
+    {
+#ifdef BEAM_LIB_VERSION
+        params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+#endif // BEAM_LIB_VERSION
+    }
+
 }  // namespace beam::wallet

@@ -62,10 +62,7 @@ namespace beam::wallet
 
         params->SetParameter(TxParameterID::Lifetime, lifetime);
         params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
-
-#ifdef BEAM_LIB_VERSION
-        params->SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
-#endif // BEAM_LIB_VERSION
+        AppendLibraryVersion(*params);
     }
 
     void FillSwapFee(
