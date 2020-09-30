@@ -99,10 +99,9 @@ namespace beam
 			IsValid(pk);
 	}
 
-	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, Amount fee, Key::IKdf& kdf) const
+	void ShieldedTxo::ID::get_SkOutPreimage(ECC::Hash::Value& hv, Amount fee) const
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
-		ECC::Hash::Value hv;
 		ECC::Hash::Processor()
 			<< "sh.skout"
 			<< m_Value
@@ -112,7 +111,12 @@ namespace beam
 			<< m_Key.m_IsCreatedByViewer
 			<< m_Key.m_nIdx
 			>> hv;
+	}
 
+	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, Amount fee, Key::IKdf& kdf) const
+	{
+		ECC::Hash::Value hv;
+		get_SkOutPreimage(hv, fee);
 		kdf.DeriveKey(out, hv);
 	}
 
