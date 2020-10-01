@@ -165,3 +165,39 @@ typedef struct
 } BeamCrypto_ShieldedVoucher;
 
 int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper*, BeamCrypto_ShieldedVoucher*, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0);
+
+#pragma pack (push, 1)
+typedef struct
+{
+	// packed into 674 bytes, serialized the same way
+	BeamCrypto_UintBig m_Ax;
+	BeamCrypto_UintBig m_Sx;
+	BeamCrypto_UintBig m_T1x;
+	BeamCrypto_UintBig m_T2x;
+	BeamCrypto_UintBig m_Taux;
+	BeamCrypto_UintBig m_Mu;
+	BeamCrypto_UintBig m_tDot;
+	BeamCrypto_UintBig m_pLRx[6][2];
+	BeamCrypto_UintBig m_pCondensed[2];
+	uint8_t m_pYs[2];
+
+} BeamCrypto_RangeProof_Packed;
+#pragma pack (pop)
+
+typedef struct
+{
+	BeamCrypto_ShieldedVoucher m_Voucher;
+	BeamCrypto_UintBig m_Receiver; // recipient
+	BeamCrypto_WalletIdentity m_MyIDKey; // set to nnz if sending to yourself
+
+	BeamCrypto_RangeProof_Packed m_RangeProof;
+
+	// ShieldedTxo::User
+	BeamCrypto_UintBig m_Sender; // right now - can be set to arbitrary data
+	BeamCrypto_UintBig m_pMessage[2];
+
+	// sent value and asset are derived from the tx balance (ins - outs)
+
+} BeamCrypto_TxSendShieldedParams;
+
+int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxSendShieldedParams*);

@@ -1333,6 +1333,222 @@ int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof* p)
 	return BeamCrypto_RangeProof_Calculate_After_S(&wrk);
 }
 
+typedef struct
+{
+	// in
+	BeamCrypto_UintBig m_SeedGen;
+	const BeamCrypto_UintBig* m_pSeedSk;
+	uint32_t m_nUser; // has to be no bigger than BeamCrypto_nBytes - sizeof(BeamCrypto_Amount). If less - zero-padding is verified
+	// out
+	void* m_pUser;
+	BeamCrypto_Amount m_Amount;
+
+	secp256k1_scalar* m_pSk;
+	secp256k1_scalar* m_pExtra;
+
+} RangeProof_Recovery_Context;
+
+static int RangeProof_Recover(const BeamCrypto_RangeProof_Packed* pRangeproof, BeamCrypto_Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
+{
+	static const char szSalt[] = "bulletproof";
+	BeamCrypto_NonceGenerator ng;
+	BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_SeedGen);
+
+	secp256k1_scalar alpha_minus_params, ro, x, y, z, tmp;
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &alpha_minus_params);
+	BeamCrypto_NonceGenerator_NextScalar(&ng, &ro);
+
+	// oracle << p1.A << p1.S
+	// oracle >> y, z
+	// oracle << p2.T1 << p2.T2
+	// oracle >> x
+	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_Ax, pRangeproof->m_pYs[1] >> 4);
+	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_Sx, pRangeproof->m_pYs[1] >> 5);
+	BeamCrypto_Oracle_NextScalar(pOracle, &y);
+	BeamCrypto_Oracle_NextScalar(pOracle, &z);
+	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_T1x, pRangeproof->m_pYs[1] >> 6);
+	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_T2x, pRangeproof->m_pYs[1] >> 7);
+	BeamCrypto_Oracle_NextScalar(pOracle, &x);
+
+	// m_Mu = alpha + ro*x
+	// alpha = m_Mu - ro*x = alpha_minus_params + params
+	// params = m_Mu - ro*x - alpha_minus_params
+	secp256k1_scalar_mul(&ro, &ro, &x);
+	secp256k1_scalar_add(&tmp, &alpha_minus_params, &ro);
+	secp256k1_scalar_negate(&tmp, &tmp); // - ro*x - alpha_minus_params
+
+	int overflow;
+	secp256k1_scalar_set_b32(&ro, pRangeproof->m_Mu.m_pVal, &overflow);
+	if (overflow)
+		return 0;
+
+	secp256k1_scalar_add(&tmp, &tmp, &ro);
+
+	{
+		static_assert(sizeof(ro) >= BeamCrypto_nBytes, "");
+		uint8_t* pBlob = (uint8_t*)&ro; // just reuse this mem
+
+		secp256k1_scalar_get_b32(pBlob, &tmp);
+
+		assert(pCtx->m_nUser <= BeamCrypto_nBytes - sizeof(BeamCrypto_Amount));
+		uint32_t nPad = BeamCrypto_nBytes - sizeof(BeamCrypto_Amount) - pCtx->m_nUser;
+
+		for (uint32_t i = 0; i < nPad; i++)
+			if (pBlob[i])
+				return 0;
+
+		memcpy(pCtx->m_pUser, pBlob + nPad, pCtx->m_nUser);
+
+		// recover value. It's always at the buf end
+		pCtx->m_Amount = ReadInNetworkOrder(pBlob + BeamCrypto_nBytes - sizeof(BeamCrypto_Amount), sizeof(BeamCrypto_Amount));
+	}
+
+	secp256k1_scalar_add(&alpha_minus_params, &alpha_minus_params, &tmp); // just alpha
+
+	// Recalculate p1.A, make sure we get the correct result
+	BeamCrypto_FlexPoint comm;
+	BeamCrypto_MulG(&comm, &alpha_minus_params);
+	BeamCrypto_RangeProof_Calculate_A_Bits(&comm.m_Gej, &comm.m_Ge, pCtx->m_Amount);
+	BeamCrypto_FlexPoint_MakeCompact(&comm);
+
+	if (memcmp(comm.m_Compact.m_X.m_pVal, pRangeproof->m_Ax.m_pVal, BeamCrypto_nBytes) || (comm.m_Compact.m_Y != (1 & (pRangeproof->m_pYs[1] >> 4))))
+		return 0; // false positive
+
+	if (pCtx->m_pSeedSk || pCtx->m_pExtra)
+		secp256k1_scalar_mul(&tmp, &z, &z); // z^2
+
+	if (pCtx->m_pSeedSk)
+	{
+		assert(pCtx->m_pSk);
+
+		secp256k1_scalar_set_b32(pCtx->m_pSk, pRangeproof->m_Taux.m_pVal, &overflow);
+
+		// recover the blinding factor
+		{
+			static const char szSaltSk[] = "bp-key";
+			BeamCrypto_NonceGenerator ngSk;
+			BeamCrypto_NonceGenerator_Init(&ngSk, szSaltSk, sizeof(szSaltSk), pCtx->m_pSeedSk);
+			BeamCrypto_NonceGenerator_NextScalar(&ngSk, &alpha_minus_params); // tau1
+			BeamCrypto_NonceGenerator_NextScalar(&ngSk, &ro); // tau2
+		}
+
+		secp256k1_scalar_mul(&ro, &ro, &x);
+		secp256k1_scalar_add(&ro, &ro, &alpha_minus_params);
+		secp256k1_scalar_mul(&ro, &ro, &x); // tau2*x^2 + tau1*x
+
+		secp256k1_scalar_negate(&ro, &ro);
+		secp256k1_scalar_add(pCtx->m_pSk, pCtx->m_pSk, &ro);
+
+		secp256k1_scalar_inverse(&ro, &tmp); // heavy operation
+		secp256k1_scalar_mul(pCtx->m_pSk, pCtx->m_pSk, &ro);
+	}
+
+	if (pCtx->m_pExtra)
+	{
+		secp256k1_scalar pE[2][_countof(pRangeproof->m_pLRx)];
+
+		secp256k1_sha256_write(&pOracle->m_sha, pRangeproof->m_tDot.m_pVal, sizeof(pRangeproof->m_tDot.m_pVal));
+		BeamCrypto_Oracle_NextScalar(pOracle, &ro); // dot-multiplier, unneeded atm
+
+		for (uint32_t iCycle = 0; iCycle < _countof(pRangeproof->m_pLRx); iCycle++)
+		{
+			BeamCrypto_Oracle_NextScalar(pOracle, pE[0] + iCycle); // challenge
+			secp256k1_scalar_inverse(pE[1] + iCycle, pE[0] + iCycle);
+
+			for (uint32_t j = 0; j < 2; j++)
+			{
+				uint32_t iBit = (iCycle << 1) + j;
+				secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, pRangeproof->m_pLRx[iCycle] + j, pRangeproof->m_pYs[iBit >> 3] >> (7 & iBit));
+			}
+		}
+
+		secp256k1_scalar yPwr;
+		secp256k1_scalar_set_int(&yPwr, 1);
+		secp256k1_scalar_set_int(&alpha_minus_params, 2);
+
+		secp256k1_scalar_negate(&ro, &yPwr);
+		secp256k1_scalar_add(&ro, &ro, &z);
+		const secp256k1_scalar* pZ[] = { &z, &ro }; // z, z-1
+
+		// tmp == z^2
+
+		static_assert(!(nDims & 1), ""); // must be even
+		secp256k1_scalar pS[nDims / 2]; // 32 elements, 1K stack size. Perform 1st condensation in-place (otherwise we'd need to prepare 64 elements first)
+
+		for (unsigned int j = 0; j < 2; j++)
+		{
+			for (uint32_t i = 0; i < nDims; i++)
+			{
+				secp256k1_scalar val;
+				BeamCrypto_NonceGenerator_NextScalar(&ng, &val);
+
+				uint32_t bit = 1 & (pCtx->m_Amount >> i);
+				secp256k1_scalar tmp2;
+
+				if (j)
+				{
+					secp256k1_scalar_mul(&val, &val, &x); // pS[i] *= x;
+					secp256k1_scalar_mul(&val, &val, &yPwr); // pS[i] *= yPwr;
+
+					secp256k1_scalar_mul(&tmp2, pZ[!bit], &yPwr);
+					secp256k1_scalar_add(&tmp2, &tmp2, &tmp);
+					secp256k1_scalar_add(&val, &val, &tmp2); // pS[i] += pZ[!bit]*yPwr + z^2*2^i
+
+					secp256k1_scalar_mul(&tmp, &tmp, &alpha_minus_params); // x2
+					secp256k1_scalar_mul(&yPwr, &yPwr, &y);
+				}
+				else
+				{
+					secp256k1_scalar_mul(&val, &val, &x); // pS[i] *= x;
+
+					secp256k1_scalar_negate(&tmp2, pZ[bit]);
+					secp256k1_scalar_add(&val, &val, &tmp2); // pS[i] -= pZ[bit];
+				}
+
+				// 1st condensation in-place
+				if (i < nDims / 2)
+					secp256k1_scalar_mul(pS + i, &val, pE[j]);
+				else
+				{
+					secp256k1_scalar_mul(&val, &val, pE[!j]);
+					secp256k1_scalar_add(pS + i - nDims / 2, pS + i - nDims / 2, &val);
+				}
+			}
+
+			// all other condensation cycles
+			uint32_t nStep = nDims / 2;
+			for (uint32_t iCycle = 1; iCycle < _countof(pRangeproof->m_pLRx); iCycle++)
+			{
+				nStep >>= 1;
+				assert(nStep);
+
+				for (uint32_t i = 0; i < nStep; i++)
+				{
+					secp256k1_scalar_mul(pS + i, pS + i, pE[j] + iCycle);
+					secp256k1_scalar_mul(pS + nStep + i, pS + nStep + i, pE[!j] + iCycle);
+					secp256k1_scalar_add(pS + i, pS + i, pS + nStep + i);
+				}
+
+			}
+			assert(1 == nStep);
+
+			secp256k1_scalar_set_b32(pS + 1, pRangeproof->m_pCondensed[j].m_pVal, &overflow);
+			secp256k1_scalar_negate(pS, pS);
+			secp256k1_scalar_add(pS, pS, pS + 1); // the difference
+
+			// now let's estimate the difference that would be if extra == 1.
+			pS[1] = x;
+			for (uint32_t iCycle = 0; iCycle < _countof(pRangeproof->m_pLRx); iCycle++)
+				secp256k1_scalar_mul(pS + 1, pS + 1, pE[j] + iCycle);
+
+			secp256k1_scalar_inverse(pCtx->m_pExtra + j, pS + 1);
+			secp256k1_scalar_mul(pCtx->m_pExtra + j, pCtx->m_pExtra + j, pS);
+		}
+	}
+
+	return 1;
+}
+
 //////////////////////////////
 // Signature
 void BeamCrypto_Signature_GetChallengeEx(const BeamCrypto_CompactPoint* pNoncePub, const BeamCrypto_UintBig* pMsg, secp256k1_scalar* pE)
