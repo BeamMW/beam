@@ -42,17 +42,13 @@ matrix:
 
     - os: osx
       language: cpp
-      cache: ccache
       osx_image: xcode10.1
       install:
         - export TZ=GMT-3
         - sudo systemsetup -gettimezone
-        - brew update
         - brew unlink cmake
         - brew install cmake
         - brew link cmake
-        - brew install ccache
-        - export PATH="/usr/local/opt/ccache/libexec:$PATH"
         - brew upgrade --ignore-pinned icu4c
         - brew uninstall --ignore-dependencies sfcgal
         - brew uninstall --ignore-dependencies cgal
