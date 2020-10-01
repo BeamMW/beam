@@ -107,6 +107,8 @@ void EthereumBridge::getTransactionCount(std::function<void(Amount)> callback)
 void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback)
 {
     sendRequest("eth_sendRawTransaction", "\"" + rawTx + "\"", [callback](const json& result) {
+        // TODO: remove after tests
+        LOG_DEBUG() << result.dump(4);
         std::string txHash = result["result"].get<std::string>();
 
         callback(txHash);

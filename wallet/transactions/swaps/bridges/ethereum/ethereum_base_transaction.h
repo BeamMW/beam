@@ -13,8 +13,26 @@
 // limitations under the License.
 
 #pragma once
+#include <bitcoin/bitcoin.hpp>
 
-#include "ethereum_bridge.h"
-#include "settings_provider.h"
-#include "ethereum_side.h"
-#include "ethereum_base_transaction.h"
+#include "core/ecc.h"
+
+
+namespace beam::ethereum
+{
+
+struct EthBaseTransaction
+{
+    libbitcoin::short_hash m_from;
+    libbitcoin::short_hash m_receiveAddress;
+    ECC::uintBig m_value = ECC::Zero;
+    beam::ByteBuffer m_data;
+    ECC::uintBig m_nonce = ECC::Zero;
+    ECC::uintBig m_gas = ECC::Zero;
+    ECC::uintBig m_gasPrice = ECC::Zero;
+
+    beam::ByteBuffer GetRawSigned(const libbitcoin::ec_secret& secret);
+    libbitcoin::recoverable_signature Sign(const libbitcoin::ec_secret& secret);
+};
+
+} // namespace beam::ethereum
