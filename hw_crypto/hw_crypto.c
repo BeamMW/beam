@@ -720,6 +720,14 @@ void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const BeamCry
 	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
 }
 
+void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const BeamCrypto_UintBig* pX, uint8_t nY)
+{
+	secp256k1_sha256_write(pSha, pX->m_pVal, sizeof(pX->m_pVal));
+
+	nY &= 1;
+	secp256k1_sha256_write(pSha, &nY, sizeof(nY));
+}
+
 void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, BeamCrypto_FlexPoint* pFlex)
 {
 	BeamCrypto_FlexPoint_MakeCompact(pFlex);
@@ -1037,6 +1045,17 @@ static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen
 	}
 }
 
+static uint64_t ReadInNetworkOrder(const uint8_t* pSrc, unsigned int nLen)
+{
+	assert(nLen);
+	uint64_t ret = pSrc[0];
+
+	for (unsigned int i = 1; i < nLen; i++)
+		ret = (ret << 8) | pSrc[i];
+
+	return ret;
+}
+
 typedef struct
 {
 	BeamCrypto_RangeProof* m_pRangeProof;
@@ -1167,6 +1186,23 @@ static void BeamCrypto_RangeProof_Calculate_S(BeamCrypto_RangeProof_Worker* pWrk
 		secp256k1_gej_add_var(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej, 0);
 }
 
+static void BeamCrypto_RangeProof_Calculate_A_Bits(secp256k1_gej* pRes, secp256k1_ge* pGeTmp, BeamCrypto_Amount v)
+{
+	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+	for (uint32_t i = 0; i < nDims; i++)
+	{
+		if (1 & (v >> i))
+			secp256k1_ge_from_storage(pGeTmp, pCtx->m_pGenFast[i].m_pPt);
+		else
+		{
+			secp256k1_ge_from_storage(pGeTmp, pCtx->m_pGenFast[nDims + i].m_pPt);
+			secp256k1_ge_neg(pGeTmp, pGeTmp);
+		}
+
+		secp256k1_gej_add_ge_var(pRes, pRes, pGeTmp, 0);
+	}
+}
+
 static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker* pWrk)
 {
 	BeamCrypto_RangeProof* p = pWrk->m_pRangeProof;
@@ -1195,20 +1231,8 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	BeamCrypto_MultiMac_Calculate(&mmCtx); // alpha*G
 	pFp[0].m_Flags = BeamCrypto_FlexPoint_Gej;
 
-	BeamCrypto_Amount v = p->m_Cid.m_Amount;
+	BeamCrypto_RangeProof_Calculate_A_Bits(&pFp[0].m_Gej, &pFp[0].m_Ge, p->m_Cid.m_Amount);
 
-	for (uint32_t i = 0; i < nDims; i++)
-	{
-		if (1 & (v >> i))
-			secp256k1_ge_from_storage(&pFp[0].m_Ge, pCtx->m_pGenFast[i].m_pPt);
-		else
-		{
-			secp256k1_ge_from_storage(&pFp[0].m_Ge, pCtx->m_pGenFast[nDims + i].m_pPt);
-			secp256k1_ge_neg(&pFp[0].m_Ge, &pFp[0].m_Ge);
-		}
-
-		secp256k1_gej_add_ge_var(&pFp[0].m_Gej, &pFp[0].m_Gej, &pFp[0].m_Ge, 0);
-	}
 
 	// normalize A,S at once, feed them to Oracle
 	BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
@@ -2277,6 +2301,8 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 
 		for (uint32_t i = 0; i < _countof(pN); i++)
 			BeamCrypto_NonceGenerator_NextScalar(&u.ng, pN + i);
+
+		SECURE_ERASE_OBJ(u);
 	}
 
 
