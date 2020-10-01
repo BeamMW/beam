@@ -232,7 +232,6 @@ namespace beam::wallet
             }
             stringstream ss;
             ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(db);
-            LOG_DEBUG() << ss.str();
             if (res == SQLITE_NOTADB)
             {
                 throw FileIsNotDatabaseException();
@@ -5464,6 +5463,21 @@ namespace beam::wallet
                    << strProof << std::endl;                                                        // Payment proof
             }
             return ss.str();
+        }
+
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID)
+        {
+            try
+            {
+                for (const auto& v : vouchers)
+                {
+                    walletDB.saveVoucher(v, walletID, true);
+                }
+            }
+            catch (const DatabaseException&)
+            {
+                // probably, we are trying to insert an existing voucher, ingnore
+            }
         }
 
         namespace

@@ -69,7 +69,7 @@ namespace
                 boost::filesystem::remove(path);
             }
         }
-        catch (std::exception & e)
+        catch (std::exception& e)
         {
             LOG_ERROR() << e.what();
         }
@@ -78,124 +78,34 @@ namespace
 
 namespace beam
 {
-NodeClient::NodeClient(INodeClientObserver* observer)
-    : m_observer(observer)
-    , m_shouldStartNode(false)
-    , m_shouldTerminateModel(false)
-    , m_isRunning(false)
-{
-}
-
-NodeClient::~NodeClient()
-{
-    try
+    NodeClient::NodeClient(INodeClientObserver* observer)
+        : m_observer(observer)
+        , m_shouldStartNode(false)
+        , m_shouldTerminateModel(false)
+        , m_isRunning(false)
     {
-        m_shouldTerminateModel = true;
-        m_waiting.notify_all();
-        {
-            {
-                auto r = m_reactor.lock();
-                if (r)
-                {
-                    r->stop();
-                }
-            }
-            {
-                if (m_thread)
-                {
-                    // TODO: check this
-                    m_thread->join();
-                }
-            }
-        }
     }
-    catch (const std::exception& e)
-    {
-        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-    }
-    catch (...) {
-        LOG_UNHANDLED_EXCEPTION();
-    }
-}
 
-void NodeClient::setKdf(beam::Key::IKdf::Ptr kdf)
-{
-    m_pKdf = kdf;
-}
-
-void NodeClient::setOwnerKey(beam::Key::IPKdf::Ptr key)
-{
-    m_ownerKey = key;
-}
-
-void NodeClient::startNode()
-{
-    m_shouldStartNode = true;
-    m_waiting.notify_all();
-}
-
-void NodeClient::stopNode()
-{
-    m_shouldStartNode = false;
-    auto reactor = m_reactor.lock();
-    if (reactor)
-    {
-        reactor->stop();
-    }
-}
-
-void NodeClient::start()
-{
-    m_thread = std::make_shared<std::thread>([this]()
+    NodeClient::~NodeClient()
     {
         try
         {
-            removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
-
-            auto reactor = io::Reactor::create();
-            m_reactor = reactor;// store weak ref
-            io::Reactor::Scope scope(*reactor);
-
-            std::mutex localMutex;
-
-            while (!m_shouldTerminateModel)
+            m_shouldTerminateModel = true;
+            m_waiting.notify_all();
             {
-                if (!m_shouldStartNode)
                 {
-                    std::unique_lock<std::mutex> lock(localMutex);
-
-                    while (!m_shouldStartNode && !m_shouldTerminateModel)
+                    auto r = m_reactor.lock();
+                    if (r)
                     {
-                        m_waiting.wait(lock);
+                        r->stop();
                     }
                 }
-
-                if (!m_shouldTerminateModel)
                 {
-                    bool bErr = true;
-                    try
+                    if (m_thread && m_thread->joinable())
                     {
-                        m_shouldStartNode = false;
-                        runLocalNode();
-                        bErr = false;
+                        // TODO: check this
+                        m_thread->join();
                     }
-                    catch (const io::Exception& ex)
-                    {
-                        LOG_ERROR() << ex.what();
-                        m_observer->onFailedToStartNode(ex.errorCode);
-                        bErr = false;
-                    }
-                    catch (const std::runtime_error& ex)
-                    {
-                        LOG_ERROR() << ex.what();
-                    }
-                    catch (const CorruptionException& ex)
-                    {
-                        LOG_ERROR() << "Corruption: " << ex.m_sErr;
-                    }
-
-                    if (bErr)
-                        m_observer->onSyncError(Node::IObserver::Error::Unknown);
                 }
             }
         }
@@ -206,152 +116,264 @@ void NodeClient::start()
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
-
-        m_observer->onNodeThreadFinished();
-    });
-}
-
-bool NodeClient::isNodeRunning() const
-{
-    return m_isRunning;
-}
-
-void NodeClient::runLocalNode()
-{
-    class ScopedNotifier final {
-    public:
-        explicit ScopedNotifier(INodeClientObserver& observer)
-            : _observer(observer)
-            , _nodeCreated(false)
-        {}
-
-        void notifyNodeCreated()
-        {
-            assert(!_nodeCreated);
-            _nodeCreated = true;
-            _observer.onNodeCreated();
-        }
-
-        ~ScopedNotifier()
-        {
-            if (_nodeCreated)
-            {
-                _observer.onNodeDestroyed();
-            }
-        }
-    private:
-        INodeClientObserver& _observer;
-        bool _nodeCreated = false;
-    } notifier(*m_observer);
-
-    // Scope, just for clarity. Notifier created above
-    // should be destroyed the last
-    {
-        Node node;
-        node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
-        node.m_Cfg.m_Listen.ip(INADDR_ANY);
-        node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
-        node.m_Cfg.m_MiningThreads = 0;
-        node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
-
-        if (m_pKdf)
-        {
-            node.m_Keys.SetSingleKey(m_pKdf);
-        }
-        else if(m_ownerKey)
-        {
-            node.m_Keys.m_pOwner = m_ownerKey;
-        }
-
-		node.m_Cfg.m_Horizon.SetStdFastSync();
-
-        auto peers = m_observer->getLocalNodePeers();
-
-        for (const auto& peer : peers)
-        {
-            io::Address peer_addr;
-            if (peer_addr.resolve(peer.c_str()))
-            {
-                node.m_Cfg.m_Connect.emplace_back(peer_addr);
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << peer;
-            }
-        }
-
-        LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-        class MyObserver final: public Node::IObserver
-        {
-        public:
-            MyObserver(Node& node, NodeClient& model)
-                : m_node(node)
-                , m_model(model)
-            {
-                assert(m_model.m_observer);
-            }
-
-            ~MyObserver()
-            {
-                assert(m_model.m_observer);
-                if (m_reportedStarted) m_model.m_observer->onStoppedNode();
-            }
-
-            void OnSyncProgress() override
-            {
-                Node::SyncStatus s = m_node.m_SyncStatus;
-
-				if (MaxHeight == m_Done0)
-					m_Done0 = s.m_Done;
-				s.ToRelative(m_Done0);
-
-                if (!m_reportedStarted && (s.m_Done == s.m_Total))
-                {
-                    m_reportedStarted = true;
-                    m_model.m_observer->onStartedNode();
-                }
-
-                // make sure no overflow during conversion from SyncStatus to int,int.
-                const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-                while (s.m_Total > threshold)
-                {
-                    s.m_Total >>= 1;
-                    s.m_Done >>= 1;
-                }
-
-                m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
-            }
-
-            void OnSyncError(Node::IObserver::Error error) override
-            {
-                m_model.m_observer->onSyncError(error);
-            }
-
-            void InitializeUtxosProgress(uint64_t done, uint64_t total) override
-            {
-                m_model.m_observer->onInitProgressUpdated(done, total);
-            }
-
-        private:
-            Node& m_node;
-            NodeClient& m_model;
-			Height m_Done0 = MaxHeight;
-            bool m_reportedStarted = false;
-        } obs(node, *this);
-
-        node.m_Cfg.m_Observer = &obs;
-        node.Initialize();
-        notifier.notifyNodeCreated();
-
-        if (node.get_AcessiblePeerCount() == 0)
-        {
-            throw std::runtime_error("Resolved peer list is empty");
-        }
-
-        m_isRunning = true;
-        io::Reactor::get_Current().run();
-        m_isRunning = false;
     }
-}
+
+    void NodeClient::setKdf(beam::Key::IKdf::Ptr kdf)
+    {
+        m_pKdf = kdf;
+    }
+
+    void NodeClient::setOwnerKey(beam::Key::IPKdf::Ptr key)
+    {
+        m_ownerKey = key;
+    }
+
+    void NodeClient::startNode()
+    {
+        std::unique_lock<std::mutex> lock(m_startMutex);
+        m_shouldStartNode = true;
+        m_waiting.notify_one();
+    }
+
+    void NodeClient::stopNode()
+    {
+        {
+            std::unique_lock<std::mutex> lock(m_startMutex);
+            m_shouldStartNode = false;
+            m_waiting.notify_one();
+        }
+        auto reactor = m_reactor.lock();
+        if (reactor)
+        {
+            reactor->stop();
+        }
+    }
+
+    void NodeClient::start()
+    {
+        m_thread = std::make_shared<std::thread>([this]()
+        {
+            try
+            {
+                removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
+
+                auto reactor = io::Reactor::create();
+                m_reactor = reactor;// store weak ref
+                io::Reactor::Scope scope(*reactor);
+
+                while (!m_shouldTerminateModel)
+                {
+                    {
+                        std::unique_lock<std::mutex> lock(m_startMutex);
+                        m_waiting.wait(lock, [&]() {return m_shouldStartNode || m_shouldTerminateModel; });
+                        m_shouldStartNode = false;
+                    }
+
+                    if (!m_shouldTerminateModel)
+                    {
+                        bool bErr = true;
+                        bool recreate = false;
+                        try
+                        {
+                            runLocalNode();
+                            bErr = false;
+                        }
+                        catch (const io::Exception& ex)
+                        {
+                            LOG_ERROR() << ex.what();
+                            m_observer->onFailedToStartNode(ex.errorCode);
+                            bErr = false;
+                            recreate = true;
+                        }
+                        catch (const std::runtime_error& ex)
+                        {
+                            LOG_ERROR() << ex.what();
+                        }
+                        catch (const CorruptionException& ex)
+                        {
+                            LOG_ERROR() << "Corruption: " << ex.m_sErr;
+                        }
+
+                        if (bErr)
+                            m_observer->onSyncError(Node::IObserver::Error::Unknown);
+
+                        if (recreate)
+                        {
+                            setRecreateTimer(); // attempt to start again
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e)
+            {
+                LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            }
+            catch (...)
+            {
+                LOG_UNHANDLED_EXCEPTION();
+            }
+
+            m_observer->onNodeThreadFinished();
+        });
+    }
+
+    bool NodeClient::isNodeRunning() const
+    {
+        return m_isRunning;
+    }
+
+    void NodeClient::runLocalNode()
+    {
+        class ScopedNotifier final {
+        public:
+            explicit ScopedNotifier(INodeClientObserver& observer)
+                : _observer(observer)
+                , _nodeCreated(false)
+            {}
+
+            void notifyNodeCreated()
+            {
+                assert(!_nodeCreated);
+                _nodeCreated = true;
+                _observer.onNodeCreated();
+            }
+
+            ~ScopedNotifier()
+            {
+                if (_nodeCreated)
+                {
+                    _observer.onNodeDestroyed();
+                }
+            }
+        private:
+            INodeClientObserver& _observer;
+            bool _nodeCreated = false;
+        } notifier(*m_observer);
+
+        // Scope, just for clarity. Notifier created above
+        // should be destroyed the last
+        {
+            Node node;
+            node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
+            node.m_Cfg.m_Listen.ip(INADDR_ANY);
+            node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
+            node.m_Cfg.m_MiningThreads = 0;
+            node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+
+            if (m_pKdf)
+            {
+                node.m_Keys.SetSingleKey(m_pKdf);
+            }
+            else if (m_ownerKey)
+            {
+                node.m_Keys.m_pOwner = m_ownerKey;
+            }
+
+            node.m_Cfg.m_Horizon.SetStdFastSync();
+
+            auto peers = m_observer->getLocalNodePeers();
+
+            for (const auto& peer : peers)
+            {
+                io::Address peer_addr;
+                if (peer_addr.resolve(peer.c_str()))
+                {
+                    node.m_Cfg.m_Connect.emplace_back(peer_addr);
+                }
+                else
+                {
+                    LOG_ERROR() << "Unable to resolve node address: " << peer;
+                }
+            }
+
+            LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+
+            class MyObserver final : public Node::IObserver
+            {
+            public:
+                MyObserver(Node& node, NodeClient& model)
+                    : m_node(node)
+                    , m_model(model)
+                {
+                    assert(m_model.m_observer);
+                }
+
+                ~MyObserver()
+                {
+                    assert(m_model.m_observer);
+                    if (m_reportedStarted) m_model.m_observer->onStoppedNode();
+                }
+
+                void OnSyncProgress() override
+                {
+                    Node::SyncStatus s = m_node.m_SyncStatus;
+
+                    if (MaxHeight == m_Done0)
+                        m_Done0 = s.m_Done;
+                    s.ToRelative(m_Done0);
+
+                    if (!m_reportedStarted && (s.m_Done == s.m_Total))
+                    {
+                        m_reportedStarted = true;
+                        m_model.m_observer->onStartedNode();
+                    }
+
+                    // make sure no overflow during conversion from SyncStatus to int,int.
+                    const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+                    while (s.m_Total > threshold)
+                    {
+                        s.m_Total >>= 1;
+                        s.m_Done >>= 1;
+                    }
+
+                    m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
+                }
+
+                void OnSyncError(Node::IObserver::Error error) override
+                {
+                    m_model.m_observer->onSyncError(error);
+                }
+
+                void InitializeUtxosProgress(uint64_t done, uint64_t total) override
+                {
+                    m_model.m_observer->onInitProgressUpdated(done, total);
+                }
+
+            private:
+                Node& m_node;
+                NodeClient& m_model;
+                Height m_Done0 = MaxHeight;
+                bool m_reportedStarted = false;
+            } obs(node, *this);
+
+            node.m_Cfg.m_Observer = &obs;
+            node.Initialize();
+            notifier.notifyNodeCreated();
+
+            if (node.get_AcessiblePeerCount() == 0)
+            {
+                throw std::runtime_error("Resolved peer list is empty");
+            }
+
+            m_isRunning = true;
+            io::Reactor::get_Current().run();
+            m_isRunning = false;
+        }
+    }
+
+    void NodeClient::setRecreateTimer()
+    {
+        if (!m_timer)
+        {
+            m_timer = io::Timer::create(io::Reactor::get_Current());
+        }
+        m_timer->start(5000, false, [this]()
+        {
+            io::Reactor::get_Current().stop();
+            startNode();
+        });
+        io::Reactor::get_Current().run();
+
+    }
+
 }

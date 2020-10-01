@@ -2104,6 +2104,10 @@ namespace
                 LoadReceiverParams(vm, params);
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
                 bool isShielded = type && *type == TxType::PushTransaction;
+                if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
+                {
+                    storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
+                }
 
                 Transaction::FeeSettings fs;
                 Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
