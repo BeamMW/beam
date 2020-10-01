@@ -46,12 +46,14 @@ void EthereumBridge::getBalance(std::function<void(ECC::uintBig)> callback)
 {
     std::string ethAddress = generateEthAddress();
     sendRequest("eth_getBalance", "\"" + ethAddress + "\",\"latest\"", [callback](const json& result) {
-        ECC::uintBig balance;
         std::string strBalance = result["result"].get<std::string>();
-
         strBalance.erase(0, 2);
-        // TODO check this problem
-        balance.Scan(strBalance.c_str());
+
+        libbitcoin::data_chunk dc;
+        libbitcoin::decode_base16(dc, strBalance);
+
+        ECC::uintBig balance = ECC::Zero;
+        std::copy(dc.crbegin(), dc.crend(), std::rbegin(balance.m_pData));
 
         //if (error.m_type == IBridge::None)
         //{
