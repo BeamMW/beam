@@ -1676,7 +1676,7 @@ int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature* p, const BeamCrypto
 
 //////////////////////////////
 // TxKernel
-void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg)
+void BeamCrypto_TxKernel_getID_Ex(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg, const BeamCrypto_UintBig* pNestedIDs, uint32_t nNestedIDs)
 {
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
@@ -1691,10 +1691,21 @@ void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintB
 	uint8_t nFlags = 0; // extended flags, irrelevent for HW wallet
 	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
 
+	for (uint32_t i = 0; i < nNestedIDs; i++)
+	{
+		secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
+		secp256k1_sha256_write(&sha, pNestedIDs[i].m_pVal, sizeof(pNestedIDs[i].m_pVal));
+	}
+
 	nFlags = 1; // no more nested kernels
 	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
 
 	secp256k1_sha256_finalize(&sha, pMsg->m_pVal);
+}
+
+void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg)
+{
+	BeamCrypto_TxKernel_getID_Ex(pKrn, pMsg, 0, 0);
 }
 
 int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
@@ -1707,6 +1718,22 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
 	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
 	return BeamCrypto_Signature_IsValid(&pKrn->m_Signature, &msg, &fp);
+}
+
+void BeamCrypto_TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, BeamCrypto_Amount fee, BeamCrypto_Height hMin, BeamCrypto_Height hMax, uint8_t nType)
+{
+	// calculate kernel Msg
+	secp256k1_sha256_initialize(pSha);
+	secp256k1_sha256_write_Num(pSha, fee);
+	secp256k1_sha256_write_Num(pSha, hMin);
+	secp256k1_sha256_write_Num(pSha, hMax);
+
+	BeamCrypto_UintBig hv = { 0 };
+	secp256k1_sha256_write(pSha, hv.m_pVal, sizeof(hv.m_pVal));
+	hv.m_pVal[0] = 1;
+	secp256k1_sha256_write(pSha, hv.m_pVal, 1);
+	secp256k1_sha256_write_Num(pSha, nType);
+	secp256k1_sha256_write(pSha, hv.m_pVal, 1); // nested break
 }
 
 //////////////////////////////
@@ -2445,24 +2472,14 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 	BeamCrypto_Oracle oracle;
 	secp256k1_scalar skOutp, skSpend, pN[3];
 	BeamCrypto_FlexPoint comm;
-	BeamCrypto_UintBig hv = { 0 }, hvSigGen;
+	BeamCrypto_UintBig hv, hvSigGen;
 
 	ShieldedViewer viewer;
 	ShieldedViewerInit(&viewer, pPars->m_Inp.m_TxoID.m_nViewerIdx, p);
 
 	// calculate kernel Msg
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Inp.m_Fee);
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_hMin);
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_hMax);
-
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
-	hv.m_pVal[0] = 1;
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, 1);
-	secp256k1_sha256_write_Num(&oracle.m_sha, 4); // shielded input
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, 1); // nested break
+	BeamCrypto_TxKernel_SpecialMsg(&oracle.m_sha, pPars->m_Inp.m_Fee, pPars->m_hMin, pPars->m_hMax, 4);
 	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_WindowEnd);
-
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 
 	// init oracle
