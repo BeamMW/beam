@@ -1359,20 +1359,23 @@ struct KeyKeeperWrap
 	int InvokeOnBoth(TMethod& m)
 	{
 		TMethod m2;
-		UpdateMethod(m2, m, 0);
+		UpdateMethod(m2, m, 0); // copy into m2
 
 		g_pHwEmuNonces = &m_Nonces;
 		int n1 = m_kkEmu.InvokeSync(m);
 		g_pHwEmuNonces = nullptr;
 
-		UpdateMethod(m2, m, 1);
+		UpdateMethod(m2, m, 1); // swap
 
 		int n2 = m_kkStd.InvokeSync(m);
 
 		verify_test(n1 == n2);
 
 		if (KeyKeeperHwEmu::Status::Success == n1)
-			UpdateMethod(m2, m, 2);
+		{
+			UpdateMethod(m2, m, 2); // test
+			UpdateMethod(m2, m, 1); // swap again, return original variant to the caller
+		}
 
 		return n1;
 	}
