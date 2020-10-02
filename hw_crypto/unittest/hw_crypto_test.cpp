@@ -712,6 +712,8 @@ struct KeyKeeperHwEmu
 		static void Import(BeamCrypto_ShieldedTxoID&, const ShieldedTxo::ID&);
 	};
 
+	static Amount CalcTxBalance(Asset::ID* pAid, const Method::TxCommon&);
+	static void CalcTxBalance(Amount&, Asset::ID* pAid, Amount, Asset::ID);
 
 #define THE_MACRO(method) \
         virtual Status::Type InvokeSync(Method::method& m) override;
@@ -1077,9 +1079,100 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 	return static_cast<Status::Type>(nRet);
 }
 
+Amount KeyKeeperHwEmu::CalcTxBalance(Asset::ID* pAid, const Method::TxCommon& m)
+{
+	Amount ret = 0;
+
+	for (const auto& x : m.m_vOutputs)
+		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+
+	ret = 0 - ret; // work-around compiler warning
+
+	for (const auto& x : m.m_vInputs)
+		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+
+	for (const auto& x : m.m_vInputsShielded)
+		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+
+	return ret;
+}
+
+void KeyKeeperHwEmu::CalcTxBalance(Amount& res, Asset::ID* pAid, Amount val, Asset::ID aid)
+{
+	if ((!pAid) == (!aid))
+	{
+		res += val;
+		if (pAid)
+			*pAid = aid;
+	}
+}
+
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded& m)
 {
-	return Status::NotImplemented;
+	Encoder enc;
+	enc.TxImport(m);
+
+	assert(m.m_pKernel);
+	TxKernelStd& krn = *m.m_pKernel;
+
+	ShieldedTxo::Data::OutputParams op;
+
+	// the amount and asset are not directly specified, they must be deduced from tx balance.
+	// Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
+
+	op.m_Value = CalcTxBalance(nullptr, m);
+	op.m_Value -= krn.m_Fee;
+
+	if (op.m_Value)
+		op.m_AssetID = 0;
+	else
+		// no net value transferred in beams, try assets
+		op.m_Value = CalcTxBalance(&op.m_AssetID, m);
+
+	op.m_User = m.m_User;
+	op.Restore_kG(m.m_Voucher.m_SharedSecret);
+
+	TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();
+	TxKernelShieldedOutput& krn1 = *pOutp;
+
+	krn1.m_CanEmbed = true;
+	krn1.m_Txo.m_Ticket = m.m_Voucher.m_Ticket;
+
+	krn1.UpdateMsg();
+	ECC::Oracle oracle;
+	oracle << krn1.m_Msg;
+
+	op.Generate(krn1.m_Txo, m.m_Voucher.m_SharedSecret, oracle, m.m_HideAssetAlways);
+	krn1.MsgToID();
+
+	BeamCrypto_TxSendShieldedParams pars;
+	pars.m_Voucher.m_SerialPub = Ecc2BC(m.m_Voucher.m_Ticket.m_SerialPub);
+	pars.m_Voucher.m_NoncePub = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+	pars.m_Voucher.m_pK[0] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+	pars.m_Voucher.m_pK[1] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+	pars.m_Voucher.m_SharedSecret = Ecc2BC(m.m_Voucher.m_SharedSecret);
+	pars.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m.m_Voucher.m_Signature.m_NoncePub);
+	pars.m_Voucher.m_Signature.m_k = Ecc2BC(m.m_Voucher.m_Signature.m_k.m_Value);
+	pars.m_Receiver = Ecc2BC(m.m_Peer);
+	pars.m_MyIDKey = m.m_MyIDKey;
+	pars.m_Sender = Ecc2BC(op.m_User.m_Sender);
+	pars.m_pMessage[0] = Ecc2BC(op.m_User.m_pMessage[0]);
+	pars.m_pMessage[1] = Ecc2BC(op.m_User.m_pMessage[1]);
+	pars.m_HideAssetAlways = m.m_HideAssetAlways;
+
+	SerializerIntoStaticBuf ser(&pars.m_RangeProof);
+	ser & krn1.m_Txo.m_RangeProof;
+	assert(ser.get_Size(&pars.m_RangeProof) == sizeof(pars.m_RangeProof));
+
+	int nRet = BeamCrypto_KeyKeeper_SignTx_SendShielded(&m_Ctx, &enc.m_Res, &pars);
+
+	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
+	{
+		krn.m_vNested.push_back(std::move(pOutp));
+		enc.TxExport(m);
+	}
+
+	return static_cast<Status::Type>(nRet);
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
