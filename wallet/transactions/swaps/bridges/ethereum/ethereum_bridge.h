@@ -38,6 +38,7 @@ public:
         const ECC::uintBig& gasPrice,
         std::function<void(const Error&, std::string)> callback) override;
     void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
+    void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) override;
     void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     libbitcoin::short_hash generateEthAddress() const override;
 

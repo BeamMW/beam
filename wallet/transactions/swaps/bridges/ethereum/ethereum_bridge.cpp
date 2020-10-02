@@ -161,6 +161,18 @@ void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::funct
     });
 }
 
+void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback)
+{
+    getTransactionReceipt(txHash, [callback](const Error& error, const nlohmann::json& result)
+    {
+        // TODO: process this situation
+        assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
+        uint64_t txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
+
+        callback(error, txBlockNumber);
+    });
+}
+
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     std::string addr = ConvertEthAddressToStr(to);

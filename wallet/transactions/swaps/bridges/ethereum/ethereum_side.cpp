@@ -154,8 +154,19 @@ bool EthereumSide::ConfirmLockTx()
             }
 
             // TODO
-            ECC::uintBig blockNumber = Zero;
-            std::move(resultData.begin(), resultData.begin() + 32, std::begin(blockNumber.m_pData));
+            /*ECC::uintBig blockNumber = Zero;
+            std::move(resultData.begin(), resultData.begin() + 32, std::begin(blockNumber.m_pData));*/
+
+            libbitcoin::data_chunk data;
+            std::copy(resultData.begin(), resultData.begin() + 32, std::back_inserter(data));
+            std::string st = libbitcoin::encode_base16(data);
+            uint64_t txBlockNumber = std::stoull(st, nullptr, 16);
+            uint64_t currentBlockNumber = GetBlockCount();
+
+            if (txBlockNumber < currentBlockNumber)
+            {
+                m_SwapLockTxConfirmations = currentBlockNumber - txBlockNumber;
+            }
         });
         return false;
     }
@@ -195,7 +206,7 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
     // getTransactionReceipt
     std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
 
-    m_ethBridge->getTransactionReceipt(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
+    m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
     {
         if (weak.expired())
         {
@@ -208,17 +219,12 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
             return;
         }
 
-        // TODO: parse result!
-        assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
-
-        uint64_t txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
         auto currentBlockCount = GetBlockCount();
         if (currentBlockCount >= txBlockNumber)
         {
             m_WithdrawTxConfirmations = currentBlockCount - txBlockNumber;
         }
-    }
-    );
+    });
 }
 
 bool EthereumSide::SendLockTx()
