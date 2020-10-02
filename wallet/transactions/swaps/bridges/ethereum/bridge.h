@@ -44,6 +44,13 @@ public:
     virtual void getBlockNumber(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;
+    virtual void send(
+        const libbitcoin::short_hash& to,
+        const libbitcoin::data_chunk& data,
+        const ECC::uintBig& value,
+        const ECC::uintBig& gas,
+        const ECC::uintBig& gasPrice,
+        std::function<void(const Error&, std::string)> callback) = 0;
     virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback) = 0;
     virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&)> callback) = 0;
     virtual libbitcoin::short_hash generateEthAddress() const = 0;

@@ -21,7 +21,8 @@
 
 #include <ethash/keccak.hpp>
 #include "utility/hex.h"
-#include "core/ecc.h"
+
+#include "ethereum_base_transaction.h"
 
 using json = nlohmann::json;
 
@@ -126,6 +127,32 @@ void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<
     });
 }
 
+void EthereumBridge::send(
+    const libbitcoin::short_hash& to,
+    const libbitcoin::data_chunk& data,
+    const ECC::uintBig& value,
+    const ECC::uintBig& gas,
+    const ECC::uintBig& gasPrice,
+    std::function<void(const Error&, std::string)> callback)
+{
+    EthBaseTransaction ethTx;
+    ethTx.m_receiveAddress = to;
+    ethTx.m_value = value;
+    ethTx.m_data = data;
+    ethTx.m_gas = gas;
+    ethTx.m_gasPrice = gasPrice;
+
+    getTransactionCount([this, ethTx, callback](const Error& error, Amount txCount) mutable
+    {
+        ethTx.m_nonce = txCount;
+
+        auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
+        std::string stTx = libbitcoin::encode_base16(signedTx);
+
+        sendRawTransaction(stTx, callback);
+    });
+}
+
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback)
 {
     sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](Error error, const json& result) {
@@ -137,7 +164,6 @@ void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& d
 {
     std::string addr = ConvertEthAddressToStr(to);
     sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](Error error, const json& result) {
-        
         callback(error);
     });
 }
