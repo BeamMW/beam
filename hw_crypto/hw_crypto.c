@@ -2732,11 +2732,25 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 		if (!RangeProof_Recover(&pSh->m_RangeProof, &oracle, &ctx))
 			return 0;
 
-		if (memcmp(pSk, &skRecovered, sizeof(skRecovered)) ||
-			memcmp(pExtra, pExtraRecovered, sizeof(pExtra)) ||
+		if (memcmp(pExtra, pExtraRecovered, sizeof(pExtra)) ||
 			(packed.m_Flags != nFlagsPacked) ||
 			(ctx.m_Amount != amount) ||
 			(ReadInNetworkOrder(packed.m_pAssetID, sizeof(packed.m_pAssetID)) != aid))
+			return 0;
+
+		if (aid || pSh->m_HideAssetAlways)
+		{
+			static const char szSalt[] = "skG-O";
+			BeamCrypto_NonceGenerator ng; // not really secret
+			BeamCrypto_NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pSh->m_Voucher.m_SharedSecret);
+			BeamCrypto_NonceGenerator_NextScalar(&ng, pExtraRecovered);
+
+			secp256k1_scalar_set_u64(pExtraRecovered + 1, amount);
+			secp256k1_scalar_mul(pExtraRecovered, pExtraRecovered, pExtraRecovered + 1);
+			secp256k1_scalar_add(&skRecovered, &skRecovered, pExtraRecovered);
+		}
+
+		if (memcmp(pSk, &skRecovered, sizeof(skRecovered)))
 			return 0;
 	}
 
@@ -2749,7 +2763,7 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 	return 1;
 }
 
-int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxSendShieldedParams* pSh)
+int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, const BeamCrypto_TxSendShieldedParams* pSh)
 {
 	TxAggr txAggr;
 	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
@@ -2788,7 +2802,10 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper* p, Beam
 	BeamCrypto_TxKernel_getID_Ex(&pTx->m_Krn, &hv, &hvKrn1, 1);
 
 	// all set
-	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, pSh->m_MyIDKey ? 0 : &pSh->m_Receiver, &pTx->m_Krn, &hv);
+	int res = pSh->m_MyIDKey ?
+		BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pTx->m_Krn, &hv) :
+		BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pSh->m_Receiver, &pTx->m_Krn, &hv);
+
 	if (BeamCrypto_KeyKeeper_Status_Ok != res)
 		return res;
 

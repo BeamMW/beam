@@ -189,7 +189,7 @@ typedef struct
 	BeamCrypto_ShieldedVoucher m_Voucher;
 	BeamCrypto_UintBig m_Receiver; // recipient
 	BeamCrypto_WalletIdentity m_MyIDKey; // set to nnz if sending to yourself
-
+	uint8_t m_HideAssetAlways; // important to specify, this affects expected blinding factor recovery
 	BeamCrypto_RangeProof_Packed m_RangeProof;
 
 	// ShieldedTxo::User
@@ -200,4 +200,4 @@ typedef struct
 
 } BeamCrypto_TxSendShieldedParams;
 
-int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxSendShieldedParams*);
+int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, const BeamCrypto_TxSendShieldedParams*);
