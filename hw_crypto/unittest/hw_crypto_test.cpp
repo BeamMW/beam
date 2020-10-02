@@ -1084,15 +1084,16 @@ Amount KeyKeeperHwEmu::CalcTxBalance(Asset::ID* pAid, const Method::TxCommon& m)
 	Amount ret = 0;
 
 	for (const auto& x : m.m_vOutputs)
-		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
-
-	ret = 0 - ret; // work-around compiler warning
+		CalcTxBalance(ret, pAid, 0 - x.m_Value, x.m_AssetID);
 
 	for (const auto& x : m.m_vInputs)
 		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
 
 	for (const auto& x : m.m_vInputsShielded)
+	{
 		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+		CalcTxBalance(ret, pAid, 0 - x.m_Fee, 0);
+	}
 
 	return ret;
 }
@@ -1888,6 +1889,9 @@ void TestShielded()
 
 		if (2 & i)
 			cid.m_AssetID = 0x12345678; // test asset encoding as well
+
+		kkw.AddSh(m.m_vInputsShielded, 400, 300); // check we account for shielded fees too
+		kkw.Add(m.m_vOutputs, 100);
 
 		if (1 & i)
 		{
