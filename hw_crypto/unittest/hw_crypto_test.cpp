@@ -1724,6 +1724,9 @@ void TestShielded()
 	SetRandom(hv);
 	KeyKeeperWrap kkw(hv);
 
+	std::vector<ShieldedTxo::Voucher> vVouchers;
+	PeerID pidRcv;
+	wallet::WalletIDKey nKeyRcv = 0;
 
 	for (uint32_t i = 0; i < 3; i++)
 	{
@@ -1762,6 +1765,13 @@ void TestShielded()
 			verify_test(x0.m_Ticket.m_Signature.m_NoncePub == x1.m_Ticket.m_Signature.m_NoncePub);
 			for (size_t k = 0; k < _countof(x0.m_Ticket.m_Signature.m_pK); k++)
 				verify_test(x0.m_Ticket.m_Signature.m_pK[k] == x1.m_Ticket.m_Signature.m_pK[k]);
+		}
+
+		if (vVouchers.empty())
+		{
+			vVouchers.swap(v0);
+			pidRcv = pid;
+			nKeyRcv = m.m_MyIDKey;
 		}
 	}
 
@@ -1846,6 +1856,51 @@ void TestShielded()
 		verify_test(bc.Flush());
 	}
 
+	printf("Shielded outputs...\n");
+
+	for (uint32_t i = 0; i < 4; i++)
+	{
+		wallet::IPrivateKeyKeeper2::Method::SignSendShielded m;
+		m.m_Voucher = vVouchers.front();
+		m.m_Peer = pidRcv;
+
+		GenerateRandom(&m.m_User, sizeof(m.m_User));
+
+		ECC::uintBig hvHuge = 12U;
+		hvHuge.Negate();
+		assert(hvHuge > ECC::Scalar::s_Order);
+
+		// test boundary conditions for embedded parameters (when they don't feet scalars)
+		if (1 == i)
+			m.m_User.m_Sender = hvHuge;
+		if (2 == i)
+			m.m_User.m_pMessage[0] = hvHuge;
+		if (3 == i)
+			m.m_User.m_pMessage[1] = hvHuge;
+
+		m.m_pKernel = std::make_unique<TxKernelStd>();
+		m.m_pKernel->m_Height.m_Min = g_hFork;
+		m.m_pKernel->m_Height.m_Max = g_hFork + 40;
+		m.m_pKernel->m_Fee = 1100000; // net value transfer is 5 groth
+
+		kkw.Add(m.m_vInputs, m.m_pKernel->m_Fee);
+		auto& cid = kkw.Add(m.m_vInputs, 100400);
+
+		if (2 & i)
+			cid.m_AssetID = 0x12345678; // test asset encoding as well
+
+		if (1 & i)
+		{
+			m.m_MyIDKey = nKeyRcv + 10; // wrong, should not pass
+			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
+			m.m_MyIDKey = nKeyRcv; // should pass
+
+			m.m_HideAssetAlways = true;
+		}
+
+		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // Sender Phase1
+		kkw.TestTx(m);
+	}
 }
 
 void TestKeyKeeperTxs()
