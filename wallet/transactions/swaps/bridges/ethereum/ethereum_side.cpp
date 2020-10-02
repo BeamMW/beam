@@ -112,17 +112,15 @@ bool EthereumSide::ConfirmLockTx()
     {
         return true;
     }
-    
-    GetBlockCount();
 
-    if (m_SwapLockTxConfirmations < GetTxMinConfirmations())
+    if (!m_SwapLockTxBlockNumber)
     {
         auto secretHash = GetSecretHash();
 
         // else: "contract call" + getTransactionReceipt (mb only "contract call")
         m_ethBridge->call(kContractAddress,
-                          kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash),
-                          [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
+            kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash),
+            [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
         {
             if (weak.expired())
             {
@@ -136,7 +134,7 @@ bool EthereumSide::ConfirmLockTx()
             }
 
             // TODO: parse result! check "value" and save m_SwapLockTxConfirmations
-            
+
             uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
 
             std::string resultStr = result.get<std::string>();
@@ -160,14 +158,20 @@ bool EthereumSide::ConfirmLockTx()
             libbitcoin::data_chunk data;
             std::copy(resultData.begin(), resultData.begin() + 32, std::back_inserter(data));
             std::string st = libbitcoin::encode_base16(data);
-            uint64_t txBlockNumber = std::stoull(st, nullptr, 16);
-            uint64_t currentBlockNumber = GetBlockCount();
-
-            if (txBlockNumber < currentBlockNumber)
-            {
-                m_SwapLockTxConfirmations = currentBlockNumber - txBlockNumber;
-            }
+            m_SwapLockTxBlockNumber = std::stoull(st, nullptr, 16);
         });
+        return false;
+    }
+
+    uint64_t currentBlockNumber = GetBlockCount();
+
+    if (m_SwapLockTxBlockNumber < currentBlockNumber)
+    {
+        m_SwapLockTxConfirmations = currentBlockNumber - m_SwapLockTxBlockNumber;
+    }
+    
+    if (m_SwapLockTxConfirmations < GetTxMinConfirmations())
+    {
         return false;
     }
 
@@ -201,30 +205,34 @@ bool EthereumSide::ConfirmWithdrawTx(SubTxID subTxID)
 
 void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
 {
-    GetBlockCount();
-
-    // getTransactionReceipt
-    std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
-
-    m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+    if (!m_WithdrawTxBlockNumber)
     {
-        if (weak.expired())
-        {
-            return;
-        }
+        // getTransactionReceipt
+            std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
 
-        if (error.m_type != ethereum::IBridge::None)
+        m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
         {
-            m_tx.UpdateOnNextTip();
-            return;
-        }
+            if (weak.expired())
+            {
+                return;
+            }
 
-        auto currentBlockCount = GetBlockCount();
-        if (currentBlockCount >= txBlockNumber)
-        {
-            m_WithdrawTxConfirmations = currentBlockCount - txBlockNumber;
-        }
-    });
+            if (error.m_type != ethereum::IBridge::None)
+            {
+                m_tx.UpdateOnNextTip();
+                return;
+            }
+
+            m_WithdrawTxBlockNumber = txBlockNumber;
+        });
+        return;
+    }
+
+    auto currentBlockCount = GetBlockCount();
+    if (currentBlockCount >= m_WithdrawTxBlockNumber)
+    {
+        m_WithdrawTxConfirmations = currentBlockCount - m_WithdrawTxBlockNumber;
+    }
 }
 
 bool EthereumSide::SendLockTx()
