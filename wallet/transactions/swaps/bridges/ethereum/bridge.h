@@ -25,14 +25,27 @@ namespace beam::ethereum
 class IBridge
 {
 public:
+    enum ErrorType
+    {
+        None,
+        InvalidResultFormat,
+        IOError
+    };
+
+    struct Error
+    {
+        ErrorType m_type;
+        std::string m_message;
+    };
+
     virtual ~IBridge() {};
 
-    virtual void getBalance(std::function<void(ECC::uintBig)> callback) = 0;
-    virtual void getBlockNumber(std::function<void(Amount)> callback) = 0;
-    virtual void getTransactionCount(std::function<void(Amount)> callback) = 0;
-    virtual void sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback) = 0;
-    virtual void getTransactionReceipt(const std::string& txHash, std::function<void()> callback) = 0;
-    virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void()> callback) = 0;
+    virtual void getBalance(std::function<void(const Error&, ECC::uintBig)> callback) = 0;
+    virtual void getBlockNumber(std::function<void(const Error&, Amount)> callback) = 0;
+    virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
+    virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;
+    virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback) = 0;
+    virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&)> callback) = 0;
     virtual libbitcoin::short_hash generateEthAddress() const = 0;
 };
 } // namespace beam::ethereum

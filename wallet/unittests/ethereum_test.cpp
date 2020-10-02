@@ -95,7 +95,7 @@ void testBalance()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.getBalance([mainReactor](ECC::uintBig balance)
+    bridge.getBalance([mainReactor](const ethereum::IBridge::Error&, ECC::uintBig balance)
     {
         std::cout << balance << std::endl;
         mainReactor->stop();
@@ -121,7 +121,7 @@ void testBlockNumber()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.getBlockNumber([mainReactor](Amount blockNumber)
+    bridge.getBlockNumber([mainReactor](const ethereum::IBridge::Error&, Amount blockNumber)
     {
         std::cout << blockNumber << std::endl;
         mainReactor->stop();
@@ -147,7 +147,7 @@ void testTransactionCount()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.getTransactionCount([mainReactor](Amount blockNumber)
+    bridge.getTransactionCount([mainReactor](const ethereum::IBridge::Error&, Amount blockNumber)
     {
         std::cout << blockNumber << std::endl;
         mainReactor->stop();
@@ -173,7 +173,7 @@ void testTransactionReceipt()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.getTransactionReceipt("0xb860a0b859ec69dc20ac5849bc7902006bad012b1ff182aac98be24c91ab5aeb", [mainReactor]()
+    bridge.getTransactionReceipt("0xb860a0b859ec69dc20ac5849bc7902006bad012b1ff182aac98be24c91ab5aeb", [mainReactor](const ethereum::IBridge::Error&)
     {
         mainReactor->stop();
     });
@@ -200,7 +200,7 @@ void testCall()
 
     auto addr = ethereum::ConvertStrToEthAddress("0x1Fa4e11e4C5973321216C31a1aA698c7157dFeDd");
 
-    bridge.call(addr, "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor]()
+    bridge.call(addr, "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor](const ethereum::IBridge::Error&)
     {
         mainReactor->stop();
     });
@@ -276,12 +276,12 @@ void testSwap()
     libbitcoin::decode_base16(secretDataAlice, "feea6be022b9ec09a1ee55820bba1d7acc98c889f590cf7939c4a6a8b0967e5b");
     libbitcoin::ec_secret secretAlice;
     std::move(secretDataAlice.begin(), secretDataAlice.end(), std::begin(secretAlice));
-    bridgeAlice.sendRawTransaction(libbitcoin::encode_base16(tx.GetRawSigned(secretAlice)), [&](std::string txHash)
+    bridgeAlice.sendRawTransaction(libbitcoin::encode_base16(tx.GetRawSigned(secretAlice)), [&](const ethereum::IBridge::Error&, std::string txHash)
         {
             LOG_DEBUG() << "TX hash: " << txHash;
             
             // get details
-            bridgeAlice.call(kContractAddress, kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash), [mainReactor]()
+            bridgeAlice.call(kContractAddress, kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash), [mainReactor](const ethereum::IBridge::Error&)
                 {
                 });
 
@@ -305,7 +305,7 @@ void testSwap()
             libbitcoin::ec_secret secretBob;
             std::move(secretDataBob.begin(), secretDataBob.end(), std::begin(secretBob));
 
-            bridgeBob.sendRawTransaction(libbitcoin::encode_base16(redeemTx.GetRawSigned(secretBob)), [mainReactor](std::string txHash)
+            bridgeBob.sendRawTransaction(libbitcoin::encode_base16(redeemTx.GetRawSigned(secretBob)), [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
                 {
                     LOG_DEBUG() << "TX hash: " << txHash;
                     mainReactor->stop();
