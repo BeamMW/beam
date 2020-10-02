@@ -173,7 +173,7 @@ void testTransactionReceipt()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.getTransactionReceipt("0xb860a0b859ec69dc20ac5849bc7902006bad012b1ff182aac98be24c91ab5aeb", [mainReactor](const ethereum::IBridge::Error&)
+    bridge.getTransactionReceipt("0xb860a0b859ec69dc20ac5849bc7902006bad012b1ff182aac98be24c91ab5aeb", [mainReactor](const ethereum::IBridge::Error&, const nlohmann::json&)
     {
         mainReactor->stop();
     });
@@ -200,7 +200,7 @@ void testCall()
 
     auto addr = ethereum::ConvertStrToEthAddress("0x1Fa4e11e4C5973321216C31a1aA698c7157dFeDd");
 
-    bridge.call(addr, "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor](const ethereum::IBridge::Error&)
+    bridge.call(addr, "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor](const ethereum::IBridge::Error&, const nlohmann::json&)
     {
         mainReactor->stop();
     });
@@ -281,7 +281,7 @@ void testSwap()
             LOG_DEBUG() << "TX hash: " << txHash;
             
             // get details
-            bridgeAlice.call(kContractAddress, kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash), [mainReactor](const ethereum::IBridge::Error&)
+            bridgeAlice.call(kContractAddress, kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash), [mainReactor](const ethereum::IBridge::Error&, const nlohmann::json&)
                 {
                 });
 
