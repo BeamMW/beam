@@ -71,10 +71,10 @@ void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> 
     });
 }
 
-void EthereumBridge::getBlockNumber(std::function<void(const Error&, Amount)> callback)
+void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> callback)
 {
     sendRequest("eth_blockNumber", "", [callback](Error error, const json& result) {
-        Amount blockNumber = 0;
+        uint64_t blockNumber = 0;
 
         if (error.m_type == IBridge::None)
         {
@@ -93,11 +93,11 @@ void EthereumBridge::getBlockNumber(std::function<void(const Error&, Amount)> ca
     });
 }
 
-void EthereumBridge::getTransactionCount(std::function<void(const Error&, Amount)> callback)
+void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64_t)> callback)
 {
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
     sendRequest("eth_getTransactionCount", "\"" + ethAddress + "\",\"latest\"", [callback](Error error, const json& result) {
-        Amount txCount = 0;
+        uint64_t txCount = 0;
 
         if (error.m_type == IBridge::None)
         {
@@ -136,13 +136,14 @@ void EthereumBridge::send(
     std::function<void(const Error&, std::string)> callback)
 {
     EthBaseTransaction ethTx;
+    ethTx.m_from = generateEthAddress();
     ethTx.m_receiveAddress = to;
     ethTx.m_value = value;
     ethTx.m_data = data;
     ethTx.m_gas = gas;
     ethTx.m_gasPrice = gasPrice;
 
-    getTransactionCount([this, ethTx, callback](const Error& error, Amount txCount) mutable
+    getTransactionCount([this, ethTx, callback](const Error& error, uint64_t txCount) mutable
     {
         ethTx.m_nonce = txCount;
 
@@ -153,18 +154,18 @@ void EthereumBridge::send(
     });
 }
 
-void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback)
+void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](Error error, const json& result) {
-        callback(error);
+        callback(error, result["result"]);
     });
 }
 
-void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&)> callback)
+void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     std::string addr = ConvertEthAddressToStr(to);
     sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](Error error, const json& result) {
-        callback(error);
+        callback(error, result["result"]);
     });
 }
 

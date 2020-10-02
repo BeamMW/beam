@@ -20,6 +20,8 @@
 #include <string>
 #include <bitcoin/bitcoin.hpp>
 
+#include "nlohmann/json.hpp"
+
 namespace beam::ethereum
 {
 class IBridge
@@ -37,11 +39,12 @@ public:
         ErrorType m_type;
         std::string m_message;
     };
-
+    
+    using Ptr = std::shared_ptr<IBridge>;
     virtual ~IBridge() {};
 
     virtual void getBalance(std::function<void(const Error&, ECC::uintBig)> callback) = 0;
-    virtual void getBlockNumber(std::function<void(const Error&, Amount)> callback) = 0;
+    virtual void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) = 0;
     virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;
     virtual void send(
@@ -51,8 +54,8 @@ public:
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
         std::function<void(const Error&, std::string)> callback) = 0;
-    virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback) = 0;
-    virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&)> callback) = 0;
+    virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
+    virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual libbitcoin::short_hash generateEthAddress() const = 0;
 };
 } // namespace beam::ethereum

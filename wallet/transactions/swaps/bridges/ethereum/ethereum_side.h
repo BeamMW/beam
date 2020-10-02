@@ -17,8 +17,8 @@
 #include "wallet/transactions/swaps/second_side.h"
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/core/base_transaction.h"
-//#include "bridge.h"
-//#include "settings_provider.h"
+#include "bridge.h"
+#include "settings_provider.h"
 
 #include <memory>
 
@@ -27,7 +27,7 @@ namespace beam::wallet
     class EthereumSide : public SecondSide, public std::enable_shared_from_this<EthereumSide>
     {
     public:
-        EthereumSide(BaseTransaction& tx);
+        EthereumSide(BaseTransaction& tx, ethereum::IBridge::Ptr ethBridge, ethereum::ISettingsProvider& settingsProvider, bool isBeamSide);
         virtual ~EthereumSide();
 
         bool Initialize() override;
@@ -43,5 +43,34 @@ namespace beam::wallet
         bool IsLockTimeExpired() override;
         bool HasEnoughTimeToProcessLockTx() override;
         bool IsQuickRefundAvailable() override;
+
+    private:
+        uint64_t GetBlockCount(bool notify = false);
+        void InitSecret();
+
+        uint16_t GetTxMinConfirmations() const;
+        uint32_t GetLockTimeInBlocks() const;
+        double GetBlocksPerHour() const;
+        uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;
+
+        bool ConfirmWithdrawTx(SubTxID subTxID);
+        void GetWithdrawTxConfirmations(SubTxID subTxID);
+
+        ByteBuffer GetSecretHash() const;
+
+        ECC::uintBig GetGas() const;
+        ECC::uintBig GetGasPrice() const;
+
+        void OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash);
+
+    private:
+        BaseTransaction& m_tx;
+        ethereum::IBridge::Ptr m_ethBridge;
+        ethereum::ISettingsProvider& m_settingsProvider;
+        bool m_isEthOwner;
+        uint64_t m_blockCount = 0;
+
+        uint64_t m_SwapLockTxConfirmations = 0;
+        uint64_t m_WithdrawTxConfirmations = 0;
     };
 } // namespace beam::wallet

@@ -25,4 +25,19 @@ bool Settings::IsActivated() const
 {
     return m_shouldConnect && IsInitialized();
 }
+
+uint16_t Settings::GetTxMinConfirmations() const
+{
+    return m_txMinConfirmations;
+}
+
+uint32_t Settings::GetLockTimeInBlocks() const
+{
+    return m_lockTimeInBlocks;
+}
+
+double Settings::GetBlocksPerHour() const
+{
+    return m_blocksPerHour;
+}
 } // namespace beam::ethereum

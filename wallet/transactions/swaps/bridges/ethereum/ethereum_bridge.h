@@ -27,8 +27,8 @@ public:
     EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider);
 
     void getBalance(std::function<void(const Error&, ECC::uintBig)> callback) override;
-    void getBlockNumber(std::function<void(const Error&, Amount)> callback) override;
-    void getTransactionCount(std::function<void(const Error&, Amount)> callback) override;
+    void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) override;
+    void getTransactionCount(std::function<void(const Error&, uint64_t)> callback) override;
     void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) override;
     void send(
         const libbitcoin::short_hash& to,
@@ -37,8 +37,8 @@ public:
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
         std::function<void(const Error&, std::string)> callback) override;
-    void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&)> callback) override;
-    void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&)> callback) override;
+    void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
+    void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     libbitcoin::short_hash generateEthAddress() const override;
 
 protected:
