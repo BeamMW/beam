@@ -14,10 +14,11 @@
 
 #include "ethereum_bridge.h"
 
+#include "common.h"
+
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
 
-#include <bitcoin/bitcoin.hpp>
 #include <ethash/keccak.hpp>
 #include "utility/hex.h"
 #include "core/ecc.h"
@@ -44,7 +45,7 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
 
 void EthereumBridge::getBalance(std::function<void(ECC::uintBig)> callback)
 {
-    std::string ethAddress = generateEthAddress();
+    std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
     sendRequest("eth_getBalance", "\"" + ethAddress + "\",\"latest\"", [callback](const json& result) {
         std::string strBalance = result["result"].get<std::string>();
         strBalance.erase(0, 2);
@@ -97,7 +98,7 @@ void EthereumBridge::getBlockNumber(std::function<void(Amount)> callback)
 
 void EthereumBridge::getTransactionCount(std::function<void(Amount)> callback)
 {
-    std::string ethAddress = generateEthAddress();
+    std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
     sendRequest("eth_getTransactionCount", "\"" + ethAddress + "\",\"latest\"", [callback](const json& result) {
         std::string strBlockNumber = result["result"].get<std::string>();
         Amount blockNumber = std::stoull(strBlockNumber, nullptr, 16);
@@ -124,32 +125,21 @@ void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::funct
     });
 }
 
-void EthereumBridge::call(const std::string& to, const std::string& data, std::function<void()> callback)
+void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void()> callback)
 {
-    sendRequest("eth_call", "{\"to\":\"" + to + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](const json& result) {
+    std::string addr = ConvertEthAddressToStr(to);
+    sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](const json& result) {
         
         callback();
     });
 }
 
-std::string EthereumBridge::generateEthAddress() const
+libbitcoin::short_hash EthereumBridge::generateEthAddress() const
 {
-    auto settings = m_settingsProvider.GetSettings();
-    auto seed = libbitcoin::wallet::decode_mnemonic(settings.m_secretWords);
-    libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
-
-    const auto prefixes = libbitcoin::wallet::hd_private::to_prefixes(0, 0);
-    libbitcoin::wallet::hd_private private_key(seed_chunk, prefixes);
-
-    private_key = ProcessHDPrivate(private_key, 44);
-    private_key = ProcessHDPrivate(private_key, 60);
-    private_key = ProcessHDPrivate(private_key, 0);
-    private_key = ProcessHDPrivate(private_key, 0, false);
-    private_key = ProcessHDPrivate(private_key, settings.m_accountIndex, false);
-
+    auto privateKey = generatePrivateKey();
     libbitcoin::ec_compressed point;
 
-    libbitcoin::secret_to_public(point, private_key.secret());
+    libbitcoin::secret_to_public(point, privateKey);
 
     auto pk = libbitcoin::wallet::ec_public(point, false);
     auto rawPk = pk.encoded();
@@ -157,14 +147,12 @@ std::string EthereumBridge::generateEthAddress() const
     auto tmp = beam::from_hex(std::string(rawPk.begin() + 2, rawPk.end()));
 
     auto hash = ethash::keccak256(&tmp[0], tmp.size());
+    libbitcoin::short_hash address;
     libbitcoin::data_chunk data;
 
-    for (int i = 12; i < 32; i++)
-    {
-        data.push_back(hash.bytes[i]);
-    }
+    std::copy_n(&hash.bytes[12], 20, address.begin());
 
-    return "0x" + libbitcoin::encode_base16(data);
+    return address;
 }
 
 void EthereumBridge::sendRequest(const std::string& method, const std::string& params, std::function<void(const nlohmann::json&)> callback)
@@ -186,7 +174,7 @@ void EthereumBridge::sendRequest(const std::string& method, const std::string& p
     }
 
     const HeaderPair headers[] = {
-                {"Content-Type", "application/json"}
+        {"Content-Type", "application/json"}
     };
     HttpClient::Request request;
 
@@ -247,5 +235,23 @@ void EthereumBridge::sendRequest(const std::string& method, const std::string& p
     });
 
     m_httpClient.send_request(request);
+}
+
+libbitcoin::ec_secret EthereumBridge::generatePrivateKey() const
+{
+    auto settings = m_settingsProvider.GetSettings();
+    auto seed = libbitcoin::wallet::decode_mnemonic(settings.m_secretWords);
+    libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
+
+    const auto prefixes = libbitcoin::wallet::hd_private::to_prefixes(0, 0);
+    libbitcoin::wallet::hd_private private_key(seed_chunk, prefixes);
+
+    private_key = ProcessHDPrivate(private_key, 44);
+    private_key = ProcessHDPrivate(private_key, 60);
+    private_key = ProcessHDPrivate(private_key, 0);
+    private_key = ProcessHDPrivate(private_key, 0, false);
+    private_key = ProcessHDPrivate(private_key, settings.m_accountIndex, false);
+
+    return private_key.secret();
 }
 } // namespace beam::ethereum

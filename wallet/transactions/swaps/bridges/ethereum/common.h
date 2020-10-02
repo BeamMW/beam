@@ -14,8 +14,11 @@
 
 #pragma once
 
-#include "ethereum_bridge.h"
-#include "settings_provider.h"
-#include "ethereum_side.h"
-#include "ethereum_base_transaction.h"
-#include "common.h"
+#include <string>
+#include <bitcoin/bitcoin.hpp>
+
+namespace beam::ethereum
+{
+std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
+libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
+} // namespace beam::ethereum

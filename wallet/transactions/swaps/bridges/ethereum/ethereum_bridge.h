@@ -31,12 +31,12 @@ public:
     void getTransactionCount(std::function<void(Amount)> callback) override;
     void sendRawTransaction(const std::string& rawTx, std::function<void(std::string)> callback) override;
     void getTransactionReceipt(const std::string& txHash, std::function<void()> callback) override;
-    void call(const std::string& to, const std::string& data, std::function<void()> callback) override;
-    std::string generateEthAddress() const override;
+    void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void()> callback) override;
+    libbitcoin::short_hash generateEthAddress() const override;
 
 protected:
     void sendRequest(const std::string& method, const std::string& params, std::function<void(const nlohmann::json&)> callback);
-    
+    libbitcoin::ec_secret generatePrivateKey() const;
 
 private:
     HttpClient m_httpClient;

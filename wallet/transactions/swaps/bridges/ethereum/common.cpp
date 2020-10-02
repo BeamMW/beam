@@ -12,10 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
-#include "ethereum_bridge.h"
-#include "settings_provider.h"
-#include "ethereum_side.h"
-#include "ethereum_base_transaction.h"
 #include "common.h"
+
+namespace beam::ethereum
+{
+std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr)
+{
+    return "0x" + libbitcoin::encode_base16(addr);
+}
+
+libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr)
+{
+    libbitcoin::short_hash address;
+    libbitcoin::decode_base16(address, std::string(addressStr.begin() + 2, addressStr.end()));
+    return address;
+}
+} // namespace beam::ethereum

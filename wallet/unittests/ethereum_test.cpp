@@ -75,7 +75,7 @@ void testAddress()
     io::Reactor::Scope scope(*mainReactor);
     ethereum::EthereumBridge bridge(*mainReactor, *provider);
 
-    std::cout << bridge.generateEthAddress() << std::endl;
+    std::cout << ethereum::ConvertEthAddressToStr(bridge.generateEthAddress()) << std::endl;
 }
 
 void testBalance()
@@ -198,7 +198,9 @@ void testCall()
 
     //std::cout << bridge.generateEthAddress() << std::endl;
 
-    bridge.call("0x1Fa4e11e4C5973321216C31a1aA698c7157dFeDd", "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor]()
+    auto addr = ethereum::ConvertStrToEthAddress("0x1Fa4e11e4C5973321216C31a1aA698c7157dFeDd");
+
+    bridge.call(addr, "0xd03f4cba0000000000000000000000000000000000000000000000000000000000000004", [mainReactor]()
     {
         mainReactor->stop();
     });
@@ -220,7 +222,7 @@ void testSwap()
     const std::string kRefundMethodHash = "0x7249fbb6";
     const std::string kRedeemMethodHash = "0xb31597ad";
     const std::string kGetDetailsMethodHash = "0x6bfec360";
-    const std::string kContractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E");
 
     ethereum::Settings settingsAlice;               
     settingsAlice.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
@@ -247,8 +249,8 @@ void testSwap()
     tx.m_gas = 200000u;
     tx.m_gasPrice = 3000000u;
     tx.m_value = 2'000'000'000'000'000'000u;
-    tx.m_from = ShortAddressFromStr(bridgeAlice.generateEthAddress());
-    tx.m_receiveAddress = ShortAddressFromStr(kContractAddress);
+    tx.m_from = bridgeAlice.generateEthAddress();
+    tx.m_receiveAddress = kContractAddress;
 
     // LockMethodHash + refundTimeInBlocks + hashedSecret + participant
     ECC::uintBig refundTimeInBlocks = 2u;
@@ -256,7 +258,7 @@ void testSwap()
     ECC::GenRandom(secret);
     libbitcoin::data_chunk secretDataChunk(std::begin(secret.m_pData), std::end(secret.m_pData));
     libbitcoin::hash_digest secretHash = libbitcoin::sha256_hash(secretDataChunk);
-    libbitcoin::short_hash participant = ShortAddressFromStr(bridgeBob.generateEthAddress());
+    libbitcoin::short_hash participant = bridgeBob.generateEthAddress();
 
     LOG_DEBUG() << "secret: " << secret.str();
     LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
@@ -289,8 +291,8 @@ void testSwap()
             redeemTx.m_gas = 150000u;
             redeemTx.m_gasPrice = 3000000u;
             redeemTx.m_value = 0u;
-            redeemTx.m_from = ShortAddressFromStr(bridgeBob.generateEthAddress());
-            redeemTx.m_receiveAddress = ShortAddressFromStr(kContractAddress);
+            redeemTx.m_from = bridgeBob.generateEthAddress();
+            redeemTx.m_receiveAddress = kContractAddress;
 
             // kRedeemMethodHash + secret + secretHash
             redeemTx.m_data.reserve(4 + 32 + 32);

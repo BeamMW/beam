@@ -34,6 +34,7 @@ set(SWAP_SRC
     bridges/qtum/common.cpp
     bridges/qtum/qtum_core_017.cpp
     bridges/qtum/qtum_side.cpp
+    bridges/ethereum/common.cpp
     bridges/ethereum/ethereum_base_transaction.cpp
     bridges/ethereum/ethereum_side.cpp
     bridges/ethereum/ethereum_bridge.cpp
