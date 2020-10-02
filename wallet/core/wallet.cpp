@@ -351,7 +351,7 @@ namespace beam::wallet
     {
         if (m_AsyncUpdateCounter == 0)
         {
-            LOG_DEBUG() << "Async update started!";
+            LOG_VERBOSE() << "Async update started!";
         }
         ++m_AsyncUpdateCounter;
     }
@@ -360,7 +360,7 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
-            LOG_DEBUG() << "Async update finished!";
+            LOG_VERBOSE() << "Async update finished!";
             if (m_UpdateCompleted)
             {
                 m_UpdateCompleted();
@@ -381,6 +381,8 @@ namespace beam::wallet
         {
             pGuard.swap(it->second);
             m_ActiveTransactions.erase(it);
+            m_NextTipTransactionToUpdate.erase(pGuard);
+            m_TransactionsToUpdate.erase(pGuard);
             pGuard->FreeResources();
         }
 
@@ -1705,7 +1707,7 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, Merkle::Hash());
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
             auto packed = params.Pack();
             for (const auto& p : packed)

@@ -148,6 +148,7 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
+        virtual void onPublicAddress(const std::string& publicAddr) {};
 
     private:
 
@@ -204,6 +205,7 @@ namespace beam::wallet
         void deleteNotification(const ECC::uintBig& id) override;
 
         void getExchangeRates() override;
+        void getPublicAddress() override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

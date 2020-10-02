@@ -24,6 +24,7 @@ namespace beam
 		Key::IPKdf::Ptr m_pSer;
 
 		void FromViewer(const Viewer&);
+		uint32_t ExportP(void* p) const;
 	};
 
 	struct ShieldedTxo::Viewer

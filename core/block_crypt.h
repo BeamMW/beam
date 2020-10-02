@@ -685,6 +685,7 @@ namespace beam
 			}
 
 			void get_SkOut(ECC::Scalar::Native&, Amount fee, Key::IKdf& kdf) const;
+			void get_SkOutPreimage(ECC::Hash::Value&, Amount fee) const;
 		};
 
 		struct Voucher

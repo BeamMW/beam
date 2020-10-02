@@ -984,10 +984,12 @@ namespace beam::wallet
         GetParameter(TxParameterID::IsSender, m_IsSender);
 
         Height responseTime = 0;
-        if (GetParameter(TxParameterID::PeerResponseTime, responseTime))
+        Height responseHeight = 0;
+        if (GetParameter(TxParameterID::PeerResponseTime, responseTime)
+          && !GetParameter(TxParameterID::PeerResponseHeight, responseHeight))
         {
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
-            // adjust response height, if min height din not set then then it should be equal to responce time
+            // adjust response height, if min height did not set then it should be equal to responce time
             SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
         }
     }

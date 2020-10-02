@@ -1793,11 +1793,12 @@ void TestTreasury()
 	}
 }
 
-void TestLelantus(bool bWithAsset)
+void TestLelantus(bool bWithAsset, bool bMpc)
 {
 	beam::Lelantus::Cfg cfg; // default
 
-	if (bWithAsset)
+	bool bSpecial = bWithAsset || bMpc;
+	if (bSpecial)
 	{
 		// set other parameters. Test small set (make it run faster)
 		cfg.n = 3;
@@ -1805,7 +1806,7 @@ void TestLelantus(bool bWithAsset)
 	}
 
 	const uint32_t N = cfg.get_N();
-	if (!bWithAsset)
+	if (!bSpecial)
 		printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
 
 	beam::Lelantus::CmListVec lst;
@@ -1832,23 +1833,32 @@ void TestLelantus(bool bWithAsset)
 			SetRandom(ud1.m_pS[i].m_Value);
 		while (!ud1.m_pS[i].IsValid());
 	}
-	p.m_pUserData = &ud1;
+	p.m_Sigma.m_pUserData = &ud1;
 
-	p.m_Witness.V.m_V = 100500;
-	p.m_Witness.V.m_R = 4U;
-	p.m_Witness.V.m_R_Output = 756U;
-	p.m_Witness.V.m_L = 333 % N;
-	SetRandom(p.m_Witness.V.m_SpendSk);
+	p.m_Witness.m_V = 100500;
+	p.m_Witness.m_R = 4U;
+	p.m_Witness.m_R_Output = 756U;
+	p.m_Witness.m_L = 333 % N;
+	SetRandom(p.m_Witness.m_SpendSk);
 
-	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
-	Point pt_ = pt;
+	Point::Native pt = Context::get().G * p.m_Witness.m_SpendSk;
+	Point ptSpendPk = pt;
 	Scalar::Native ser;
-	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
+	beam::Lelantus::SpendKey::ToSerial(ser, ptSpendPk);
 
-	pt = Context::get().G * p.m_Witness.V.m_R;
-	Tag::AddValue(pt, &hGen, p.m_Witness.V.m_V);
+	pt = Context::get().G * p.m_Witness.m_R;
+	Tag::AddValue(pt, &hGen, p.m_Witness.m_V);
 	pt += Context::get().J * ser;
-	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
+	pt.Export(lst.m_vec[p.m_Witness.m_L]);
+
+	if (bMpc)
+	{
+		proof.m_SpendPk = ptSpendPk;
+
+		pt = Context::get().G * p.m_Witness.m_R_Output;
+		Tag::AddValue(pt, &hGen, p.m_Witness.m_V);
+		proof.m_Commitment = pt;
+	}
 
 	if (bWithAsset)
 	{
@@ -1856,10 +1866,10 @@ void TestLelantus(bool bWithAsset)
 		Scalar::Native skGen = 77345U;
 		hGen = hGen + Context::get().G * skGen;
 
-		skGen *= p.m_Witness.V.m_V;
+		skGen *= p.m_Witness.m_V;
 
-		p.m_Witness.V.m_R_Adj = p.m_Witness.V.m_R_Output;
-		p.m_Witness.V.m_R_Adj += -skGen;
+		p.m_Witness.m_R_Adj = p.m_Witness.m_R_Output;
+		p.m_Witness.m_R_Adj += -skGen;
 	}
 
 	beam::ByteBuffer bufProof;
@@ -1878,9 +1888,48 @@ void TestLelantus(bool bWithAsset)
 		*PseudoRandomGenerator::s_pOverride = prg; // restore prnd state
 
 		Oracle oracle;
-		p.Generate(Zero, oracle, &hGen);
+		Hash::Value seed = Zero;
 
-		if (!bWithAsset)
+		if (bMpc)
+		{
+			// proof phase1 generation, Sigma with 0 blinding factor, SigGen is deferred
+			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step1);
+
+			// Complete SigGen (normally this is done on another device, we just reuse this code)
+			p.GenerateSigGen(&hGen);
+
+			Scalar::Native sVal = 432123U; // custom tau[0]
+			Point::Native ptG0;
+			verify_test(ptG0.Import(proof.m_Part1.m_vG.front()));
+			ptG0 += Context::get().G * sVal;
+			proof.m_Part1.m_vG.front() = ptG0;
+
+			Oracle o2(oracle); // copy
+			proof.m_Part1.Expose(o2);
+
+			Scalar::Native x;
+			o2 >> x; // challenge
+
+			// calculate initial zR
+			Scalar::Native xPwr(x);
+
+			for (uint32_t j = 1; j < proof.m_Cfg.M; j++)
+				xPwr *= x;
+
+			x = p.m_Witness.m_R - p.m_Witness.m_R_Output;
+
+			sVal = -sVal;
+			sVal += x * xPwr;
+
+			proof.m_Part2.m_zR = sVal;
+
+
+			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+		}
+		else
+			p.Generate(seed, oracle, &hGen);
+
+		if (!bSpecial)
 			printf("\tProof time = %u ms, Threads=%u\n", beam::GetTime_ms() - t, ex.get_Threads());
 
 		// serialization
@@ -1922,7 +1971,7 @@ void TestLelantus(bool bWithAsset)
 		der_.reset(bufProof);
 		der_ & proof;
 
-		if (!bWithAsset)
+		if (!bSpecial)
 			printf("\tProof size = %u\n", (uint32_t) bufProof.size());
 	}
 
@@ -1953,7 +2002,7 @@ void TestLelantus(bool bWithAsset)
 		if (!bc.Flush())
 			bSuccess = false;
 
-		if (!bWithAsset)
+		if (!bSpecial)
 			printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 	}
 
@@ -2154,8 +2203,10 @@ void TestAll()
 	TestTreasury();
 	TestAssetProof();
 	TestAssetEmission();
-	TestLelantus(false);
-	TestLelantus(true);
+	TestLelantus(false, false);
+	TestLelantus(false, true);
+	TestLelantus(true, false);
+	TestLelantus(true, true);
 	TestLelantusKeys();
 }
 

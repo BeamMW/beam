@@ -132,7 +132,10 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
         {
             return false;
         }
-        receiverWalletID = *params.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            receiverWalletID = *peerID;
+        }
     }
 
     if (!ReadAmount(vm, amount))

@@ -27,6 +27,8 @@ typedef struct
 
 } BeamCrypto_KeyKeeper;
 
+void BeamCrypto_SecureEraseMem(void*, uint32_t);
+
 uint32_t BeamCrypto_KeyKeeper_getNumSlots();
 void BeamCrypto_KeyKeeper_ReadSlot(uint32_t, BeamCrypto_UintBig*);
 void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t);
@@ -60,10 +62,63 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel*);
 
 typedef struct
 {
+	BeamCrypto_UintBig m_Sender;
+	BeamCrypto_UintBig m_pMessage[2];
+
+} BeamCrypto_ShieldedTxoUser;
+
+typedef struct
+{
+	// ticket source params
+	BeamCrypto_UintBig m_kSerG;
+	uint32_t m_nViewerIdx;
+	uint8_t m_IsCreatedByViewer;
+
+	// sender params
+	BeamCrypto_ShieldedTxoUser m_User;
+	BeamCrypto_Amount m_Amount;
+	BeamCrypto_AssetID m_AssetID;
+
+} BeamCrypto_ShieldedTxoID;
+
+typedef struct
+{
+	BeamCrypto_ShieldedTxoID m_TxoID;
+	BeamCrypto_Amount m_Fee;
+
+} BeamCrypto_ShieldedInput;
+
+typedef struct
+{
+	// inputs
+	BeamCrypto_ShieldedInput m_Inp;
+	BeamCrypto_Height m_hMin;
+	BeamCrypto_Height m_hMax;
+	uint64_t m_WindowEnd;
+	uint32_t m_Sigma_M;
+	uint32_t m_Sigma_n;
+	BeamCrypto_UintBig m_AssetSk; // negated blinding for asset generator (H` = H - assetSk*G)
+	BeamCrypto_UintBig m_OutpSk; // not mandatory, but simplifies things. The overall blinding factor of the shielded Txo (not secret)
+	BeamCrypto_CompactPoint m_pABCD[4];
+	BeamCrypto_CompactPoint* m_pG; // m_pG[0] is in/out
+
+	// outputs
+	BeamCrypto_CompactPoint m_NoncePub;
+	BeamCrypto_UintBig m_pSig[2];
+	BeamCrypto_UintBig m_zR;
+
+} BeamCrypto_CreateShieldedInputParams;
+
+int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper*, BeamCrypto_CreateShieldedInputParams*);
+
+typedef struct
+{
 	const BeamCrypto_CoinID* m_pIns;
 	const BeamCrypto_CoinID* m_pOuts;
+	const BeamCrypto_ShieldedInput* m_pInsShielded;
 	unsigned int m_Ins;
 	unsigned int m_Outs;
+	unsigned int m_InsShielded;
 
 	BeamCrypto_TxKernel m_Krn;
 	BeamCrypto_UintBig m_kOffset;
@@ -96,3 +151,53 @@ typedef struct
 } BeamCrypto_TxSenderParams;
 
 int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*, BeamCrypto_TxSenderParams*);
+
+typedef struct
+{
+	// ticket
+	BeamCrypto_CompactPoint m_SerialPub;
+	BeamCrypto_CompactPoint m_NoncePub;
+	BeamCrypto_UintBig m_pK[2];
+
+	BeamCrypto_UintBig m_SharedSecret;
+	BeamCrypto_Signature m_Signature;
+
+} BeamCrypto_ShieldedVoucher;
+
+int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper*, BeamCrypto_ShieldedVoucher*, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0);
+
+#pragma pack (push, 1)
+typedef struct
+{
+	// packed into 674 bytes, serialized the same way
+	BeamCrypto_UintBig m_Ax;
+	BeamCrypto_UintBig m_Sx;
+	BeamCrypto_UintBig m_T1x;
+	BeamCrypto_UintBig m_T2x;
+	BeamCrypto_UintBig m_Taux;
+	BeamCrypto_UintBig m_Mu;
+	BeamCrypto_UintBig m_tDot;
+	BeamCrypto_UintBig m_pLRx[6][2];
+	BeamCrypto_UintBig m_pCondensed[2];
+	uint8_t m_pYs[2];
+
+} BeamCrypto_RangeProof_Packed;
+#pragma pack (pop)
+
+typedef struct
+{
+	BeamCrypto_ShieldedVoucher m_Voucher;
+	BeamCrypto_UintBig m_Receiver; // recipient
+	BeamCrypto_WalletIdentity m_MyIDKey; // set to nnz if sending to yourself
+	uint8_t m_HideAssetAlways; // important to specify, this affects expected blinding factor recovery
+	BeamCrypto_RangeProof_Packed m_RangeProof;
+
+	// ShieldedTxo::User
+	BeamCrypto_UintBig m_Sender; // right now - can be set to arbitrary data
+	BeamCrypto_UintBig m_pMessage[2];
+
+	// sent value and asset are derived from the tx balance (ins - outs)
+
+} BeamCrypto_TxSendShieldedParams;
+
+int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, const BeamCrypto_TxSendShieldedParams*);

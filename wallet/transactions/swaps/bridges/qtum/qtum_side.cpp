@@ -49,4 +49,9 @@ namespace beam::wallet
     {
         return false;
     }
+
+    uint32_t QtumSide::GetWithdrawTxAverageSize() const
+    {
+        return kQtumWithdrawTxAverageSize;
+    }
 }

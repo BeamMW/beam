@@ -312,6 +312,7 @@ namespace beam::wallet
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
     MACRO(ShieldedOutputId,                122, TxoID) \
+    MACRO(PublicAddreessGen,               123, ShieldedTxo::PublicGen) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
@@ -783,6 +784,9 @@ namespace beam::wallet
     extern bool g_AssetsEnabled; // global flag
     TxFailureReason CheckAssetsEnabled(Height h);
 
+    ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
+    ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);
+    void AppendLibraryVersion(TxParameters& params);
 }    // beam::wallet
 
 namespace beam

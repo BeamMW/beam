@@ -2763,14 +2763,14 @@ struct VaultOp {               \n\
 				}
 
 				Lelantus::Prover p(lst, pKrn->m_SpendProof);
-				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
-				p.m_Witness.V.m_R = m_Shielded.m_Params.m_Ticket.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
-				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
-				p.m_Witness.V.m_V = m_Shielded.m_Params.m_Output.m_Value;
+				p.m_Witness.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
+				p.m_Witness.m_R = m_Shielded.m_Params.m_Ticket.m_pK[0] + m_Shielded.m_Params.m_Output.m_k; // total blinding factor of the shielded element
+				p.m_Witness.m_SpendSk = m_Shielded.m_skSpendKey;
+				p.m_Witness.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
 				pKrn->UpdateMsg();
 
-				ECC::SetRandom(p.m_Witness.V.m_R_Output);
+				ECC::SetRandom(p.m_Witness.m_R_Output);
 
 				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
@@ -2780,7 +2780,7 @@ struct VaultOp {               \n\
 				fee += Transaction::FeeSettings().m_ShieldedInput;
 
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.V.m_R_Output, false);
+				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.m_R_Output, false);
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 

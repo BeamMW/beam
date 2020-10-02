@@ -253,6 +253,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getExchangeRates);
     }
+
+    void getPublicAddress() override
+    {
+        call_async(&IWalletModelAsync::getPublicAddress);
+    }
 };
 }
 
@@ -969,17 +974,7 @@ namespace beam::wallet
                 // don't save vouchers if we already have to avoid zombie vouchers
                 return;
             }
-            try
-            {
-                for (const auto& v : vouchers)
-                {
-                    m_walletDB->saveVoucher(v, walletID, true);
-                }
-            }
-            catch (const DatabaseException&)
-            {
-                // probably, we are trying to insert an existing voucher, ingnore
-            }
+            storage::SaveVouchers(*m_walletDB, vouchers, walletID);
             
             // notify client about voucher count changes
             onGetAddress(walletID, m_walletDB->getAddress(walletID), m_walletDB->getVoucherCount(walletID));
@@ -1147,6 +1142,15 @@ namespace beam::wallet
         {
             onExchangeRates({});
         }
+    }
+
+    void WalletClient::getPublicAddress()
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*m_walletDB->get_OwnerKdf(), 0));
+        AppendLibraryVersion(params);
+        onPublicAddress(std::to_string(params));
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

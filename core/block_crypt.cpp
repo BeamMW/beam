@@ -1280,7 +1280,7 @@ namespace beam
 		ECC::NoLeak<ECC::uintBig> hvSeed;
 		ECC::GenRandom(hvSeed.V); // use both deterministic and random
 
-		Lelantus::Prover::Witness& w = p.m_Witness.V; // alias
+		Lelantus::Prover::Witness& w = p.m_Witness; // alias
 
 		ECC::Oracle(oracle) // copy
 			<< hvSeed.V
@@ -2752,8 +2752,8 @@ namespace beam
 		lst.m_Begin = m_Begin;
 
 		Sigma::Prover prover(lst, Rules::get().CA.m_ProofCfg, *this);
-		prover.m_Witness.V.m_L = nPos;
-		prover.m_Witness.V.m_R = -skGen;
+		prover.m_Witness.m_L = nPos;
+		prover.m_Witness.m_R = -skGen;
 
 		ECC::Hash::Value hvSeed;
 		ECC::Hash::Processor()

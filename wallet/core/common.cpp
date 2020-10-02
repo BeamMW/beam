@@ -554,6 +554,18 @@ namespace beam::wallet
             }
             res &= true;
         }
+        if (auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen); publicGen)
+        {
+            // generate fake peerID 
+            Scalar::Native sk;
+            sk.GenRandomNnz();
+            PeerID pid;  // fake peedID
+            pid.FromSk(sk);
+            ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
+            params.SetParameter(TxParameterID::Voucher, voucher);
+            params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            res = true;
+        }
         if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
         {
             params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
@@ -1032,7 +1044,8 @@ namespace beam::wallet
         MACRO(std::vector<Output::Ptr>) \
         MACRO(std::vector<ExchangeRate>) \
         MACRO(ShieldedTxo::Voucher) \
-        MACRO(ShieldedVoucherList)
+        MACRO(ShieldedVoucherList) \
+        MACRO(ShieldedTxo::PublicGen)
 
 #define MACRO(type) \
         json ToJsonValue(const type&) \
@@ -1348,6 +1361,39 @@ namespace beam::wallet
             return TxFailureReason::AssetsDisabledInWallet;
 
         return TxFailureReason::Count;
+    }
+
+    ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)
+    {
+        ShieldedTxo::Viewer viewer;
+        viewer.FromOwner(kdf, index);
+        ShieldedTxo::PublicGen gen;
+        gen.FromViewer(viewer);
+        return gen;
+    }
+
+    ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const Scalar::Native& sk)
+    {
+        ShieldedTxo::Voucher voucher;
+        ECC::Hash::Value nonce;
+        ECC::GenRandom(nonce);
+
+        ShieldedTxo::Data::TicketParams tp;
+        tp.Generate(voucher.m_Ticket, gen, nonce);
+
+        voucher.m_SharedSecret = tp.m_SharedSecret;
+
+        ECC::Hash::Value hvMsg;
+        voucher.get_Hash(hvMsg);
+        voucher.m_Signature.Sign(hvMsg, sk);
+        return voucher;
+    }
+
+    void AppendLibraryVersion(TxParameters& params)
+    {
+#ifdef BEAM_LIB_VERSION
+        params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+#endif // BEAM_LIB_VERSION
     }
 
 }  // namespace beam::wallet
