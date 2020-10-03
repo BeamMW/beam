@@ -25,6 +25,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 
 namespace beam::wallet
 {
@@ -50,6 +51,23 @@ ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
     };
 
     return wallet::MakeSecondSideFactory<SecondSide, Electrum, ISettingsProvider>(bridgeCreator, *settingsProvider);
+}
+
+template<typename SettingsProvider, typename Bridge, typename SecondSide, typename ISettingsProvider>
+ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
+{
+    auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
+    settingsProvider->Initialize();
+
+    auto bridgeCreator = [provider = settingsProvider]() -> Bridge::Ptr
+    {
+        if (provider->GetSettings().IsActivated())
+            return std::make_shared<Bridge>(io::Reactor::get_Current(), *provider);
+
+        return Bridge::Ptr();
+    };
+
+    return wallet::MakeSecondSideFactory<SecondSide, Bridge, ISettingsProvider>(bridgeCreator, *settingsProvider);
 }
 } // namespace
 
@@ -194,6 +212,14 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              dash::DashCore014,
              DashSide, 
              dash::ISettingsProvider>(walletDB));
+
+    swapTransactionCreator->RegisterFactory(
+        AtomicSwapCoin::Ethereum,
+        CreateFactory
+            <ethereum::SettingsProvider,
+             ethereum::EthereumBridge,
+             EthereumSide, 
+             ethereum::ISettingsProvider>(walletDB));
 }
 
 bool IsSwapAmountValid(
