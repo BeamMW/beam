@@ -90,29 +90,6 @@ typedef struct
 
 typedef struct
 {
-	// inputs
-	BeamCrypto_ShieldedInput m_Inp;
-	BeamCrypto_Height m_hMin;
-	BeamCrypto_Height m_hMax;
-	uint64_t m_WindowEnd;
-	uint32_t m_Sigma_M;
-	uint32_t m_Sigma_n;
-	BeamCrypto_UintBig m_AssetSk; // negated blinding for asset generator (H` = H - assetSk*G)
-	BeamCrypto_UintBig m_OutpSk; // not mandatory, but simplifies things. The overall blinding factor of the shielded Txo (not secret)
-	BeamCrypto_CompactPoint m_pABCD[4];
-	BeamCrypto_CompactPoint* m_pG; // m_pG[0] is in/out
-
-	// outputs
-	BeamCrypto_CompactPoint m_NoncePub;
-	BeamCrypto_UintBig m_pSig[2];
-	BeamCrypto_UintBig m_zR;
-
-} BeamCrypto_CreateShieldedInputParams;
-
-int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper*, BeamCrypto_CreateShieldedInputParams*);
-
-typedef struct
-{
 	const BeamCrypto_CoinID* m_pIns;
 	const BeamCrypto_CoinID* m_pOuts;
 	const BeamCrypto_ShieldedInput* m_pInsShielded;
@@ -219,9 +196,28 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
 	macro(BeamCrypto_KdfPub, Value)
 
+#define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
+	macro(BeamCrypto_ShieldedInput, Inp) \
+	macro(BeamCrypto_Height, hMin) \
+	macro(BeamCrypto_Height, hMax) \
+	macro(uint64_t, WindowEnd) \
+	macro(uint32_t, Sigma_M) \
+	macro(uint32_t, Sigma_n) \
+	macro(BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
+	macro(BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
+	macro(BeamCrypto_CompactPoint, pABCD[4]) \
+	/* followed by BeamCrypto_CompactPoint* pG[] */
+
+#define BeamCrypto_ProtoResponse_CreateShieldedInput(macro) \
+	macro(BeamCrypto_CompactPoint, G0) \
+	macro(BeamCrypto_CompactPoint, NoncePub) \
+	macro(BeamCrypto_UintBig, pSig[2]) \
+	macro(BeamCrypto_UintBig, zR)
+
 
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
 	macro(0x02, GetPKdf) \
+	macro(0x21, CreateShieldedInput) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);

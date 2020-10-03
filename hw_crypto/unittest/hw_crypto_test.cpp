@@ -718,6 +718,20 @@ struct KeyKeeperHwEmu
 		static void h2n(uint64_t& x) { h2n_u(x); }
 		static void n2h(uint64_t& x) { n2h_u(x); }
 
+		static void h2n(BeamCrypto_ShieldedInput& x) {
+			h2n(x.m_Fee);
+			h2n(x.m_TxoID.m_Amount);
+			h2n(x.m_TxoID.m_AssetID);
+			h2n(x.m_TxoID.m_nViewerIdx);
+		}
+
+		static void n2h(BeamCrypto_ShieldedInput& x) {
+			n2h(x.m_Fee);
+			n2h(x.m_TxoID.m_Amount);
+			n2h(x.m_TxoID.m_AssetID);
+			n2h(x.m_TxoID.m_nViewerIdx);
+		}
+
 #pragma pack (push, 1)
 
 #define THE_MACRO(id, name) \
@@ -748,21 +762,40 @@ struct KeyKeeperHwEmu
 	BeamCrypto_KeyKeeper m_Ctx;
 	Key::IPKdf::Ptr m_pOwnerKey; // cached
 
-	template <typename T>
-	int InvokeProto(T& msg, uint32_t nOutExtra = 0, uint32_t nInExtra = 0)
+	static uint8_t* PrepareBuf(ByteBuffer& buf, void* p, uint32_t n, const Blob& ex)
 	{
-		msg.m_Out.h2n();
+		if (!ex.n)
+			return reinterpret_cast<uint8_t*>(p);
+
+		buf.resize(n + ex.n);
+		memcpy(&buf.front(), p, n);
+		memcpy(&buf.front() + n, ex.p, ex.n);
+		return &buf.front();
+	}
+
+	template <typename TOut, typename TIn>
+	int InvokeProtoEx(TOut& out, TIn& in, Blob exOut = Blob(nullptr, 0), Blob exIn = Blob(nullptr, 0))
+	{
+		out.h2n();
+
+		ByteBuffer bufOut, bufIn;
 
 		int nRes = BeamCrypto_KeyKeeper_Invoke(&m_Ctx,
-			reinterpret_cast<uint8_t*>(&msg.m_Out),
-			static_cast<uint32_t>(sizeof(msg.m_Out)) + nOutExtra,
-			reinterpret_cast<uint8_t*>(&msg.m_In),
-			static_cast<uint32_t>(sizeof(msg.m_In)) + nInExtra);
+			PrepareBuf(bufOut, &out, static_cast<uint32_t>(sizeof(out)), exOut),
+			static_cast<uint32_t>(sizeof(out)) + exOut.n,
+			PrepareBuf(bufIn, &in, static_cast<uint32_t>(sizeof(in)), exIn),
+			static_cast<uint32_t>(sizeof(in)) + exIn.n);
 
 		if (Status::Success == nRes)
-			msg.m_In.n2h();
+			in.n2h();
 
 		return nRes;
+	}
+
+	template <typename T>
+	int InvokeProto(T& msg)
+	{
+		return InvokeProtoEx(msg.m_Out, msg.m_In);
 	}
 
 	void TestProto()
@@ -802,7 +835,8 @@ struct KeyKeeperHwEmu
 	{
 		Method::CreateInputShielded& m_Method;
 
-		BeamCrypto_CreateShieldedInputParams m_Pars;
+		Proto::CreateShieldedInput m_Msg;
+
 		Lelantus::Prover m_Prover;
 		ECC::Hash::Value m_hvSigmaSeed;
 		ECC::Oracle m_Oracle;
@@ -920,18 +954,18 @@ void KeyKeeperHwEmu::ShieldedInpContext::Setup(Key::IPKdf& ownerKey)
 	ParamsPlus pp;
 	pp.Init(ownerKey, m);
 
-	KeyKeeperHwEmu::Encoder::Import(m_Pars.m_Inp.m_TxoID, m);
+	KeyKeeperHwEmu::Encoder::Import(m_Msg.m_Out.m_Inp.m_TxoID, m);
 
-	m_Pars.m_hMin = krn.m_Height.m_Min;
-	m_Pars.m_hMax = krn.m_Height.m_Max;
-	m_Pars.m_WindowEnd = krn.m_WindowEnd;
-	m_Pars.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
-	m_Pars.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
-	m_Pars.m_Inp.m_Fee = krn.m_Fee;
+	m_Msg.m_Out.m_hMin = krn.m_Height.m_Min;
+	m_Msg.m_Out.m_hMax = krn.m_Height.m_Max;
+	m_Msg.m_Out.m_WindowEnd = krn.m_WindowEnd;
+	m_Msg.m_Out.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
+	m_Msg.m_Out.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
+	m_Msg.m_Out.m_Inp.m_Fee = krn.m_Fee;
 
 	ECC::Scalar sk_;
 	sk_ = pp.m_Output.m_k;
-	m_Pars.m_OutpSk = Ecc2BC(sk_.m_Value);
+	m_Msg.m_Out.m_OutpSk = Ecc2BC(sk_.m_Value);
 
 	Lelantus::Proof& proof = krn.m_SpendProof;
 
@@ -963,16 +997,16 @@ void KeyKeeperHwEmu::ShieldedInpContext::Setup(Key::IPKdf& ownerKey)
 
 
 		sk_ = -skBlind;
-		m_Pars.m_AssetSk = Ecc2BC(sk_.m_Value);
+		m_Msg.m_Out.m_AssetSk = Ecc2BC(sk_.m_Value);
 	}
 	else
-		ZeroObject(m_Pars.m_AssetSk);
+		ZeroObject(m_Msg.m_Out.m_AssetSk);
 
 	krn.UpdateMsg();
 	m_Oracle << krn.m_Msg;
 
 	// generate seed for Sigma proof blinding. Use mix of deterministic + random params
-	ECC::GenRandom(m_hvSigmaSeed);
+	//ECC::GenRandom(m_hvSigmaSeed);
 	ECC::Hash::Processor()
 		<< "seed.sigma.sh"
 		<< m_hvSigmaSeed
@@ -989,12 +1023,10 @@ void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal1()
 	auto& proof = m_Prover.m_Sigma.m_Proof;
 
 	// Invoke HW device
-	m_Pars.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
-	m_Pars.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
-	m_Pars.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
-	m_Pars.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
-
-	m_Pars.m_pG = &Ecc2BC(proof.m_Part1.m_vG.front());
+	m_Msg.m_Out.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
+	m_Msg.m_Out.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
+	m_Msg.m_Out.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
+	m_Msg.m_Out.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
 }
 
 void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal2()
@@ -1002,12 +1034,12 @@ void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal2()
 	auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
 
 	// import SigGen and vG[0]
-	Ecc2BC(proof.m_Part1.m_vG.front()) = m_Pars.m_pG[0];
-	Ecc2BC(proof.m_Part2.m_zR.m_Value) = m_Pars.m_zR;
+	Ecc2BC(proof.m_Part1.m_vG.front()) = m_Msg.m_In.m_G0;
+	Ecc2BC(proof.m_Part2.m_zR.m_Value) = m_Msg.m_In.m_zR;
 
-	Ecc2BC(proof.m_Signature.m_NoncePub) = m_Pars.m_NoncePub;
-	Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = m_Pars.m_pSig[0];
-	Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = m_Pars.m_pSig[1];
+	Ecc2BC(proof.m_Signature.m_NoncePub) = m_Msg.m_In.m_NoncePub;
+	Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = m_Msg.m_In.m_pSig[0];
+	Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = m_Msg.m_In.m_pSig[1];
 
 	// phase2
 	m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
@@ -1027,7 +1059,8 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateInputShiel
 	ctx.Setup(*m_pOwnerKey);
 	ctx.InvokeLocal1();
 
-	Status::Type nRes = BeamCrypto_CreateShieldedInput(&m_Ctx, &ctx.m_Pars);
+	const auto& vec = ctx.m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
+	Status::Type nRes = InvokeProtoEx(ctx.m_Msg.m_Out, ctx.m_Msg.m_In, Blob(&vec.front(), static_cast<uint32_t>(sizeof(vec[0]) * vec.size())));
 	if (Status::Success == nRes)
 		ctx.InvokeLocal2();
 
