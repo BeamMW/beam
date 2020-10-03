@@ -212,8 +212,16 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 #define BeamCrypto_ProtoResponse_Version(macro) \
 	macro(uint32_t, Value)
 
+#define BeamCrypto_ProtoRequest_GetPKdf(macro) \
+	macro(uint8_t, Root) \
+	macro(uint32_t, iChild)
+
+#define BeamCrypto_ProtoResponse_GetPKdf(macro) \
+	macro(BeamCrypto_KdfPub, Value)
+
 
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
+	macro(0x02, GetPKdf) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);

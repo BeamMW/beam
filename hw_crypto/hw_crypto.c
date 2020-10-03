@@ -1830,6 +1830,17 @@ PROTO_METHOD(Version)
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
+PROTO_METHOD(GetPKdf)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	ProtoN2H(pIn->m_iChild, uint32_t);
+	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Root ? 0 : &pIn->m_iChild);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
 //////////////////////////////
 // KeyKeeper - transaction common. Aggregation
 typedef struct

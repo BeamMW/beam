@@ -831,13 +831,19 @@ struct KeyKeeperHwEmu
 
 bool KeyKeeperHwEmu::get_PKdf(Key::IPKdf::Ptr& pRes, const uint32_t* pChild)
 {
-	BeamCrypto_KdfPub pkdf;
-	BeamCrypto_KeyKeeper_GetPKdf(&m_Ctx, &pkdf, pChild);
+	Proto::GetPKdf msg;
+	if (pChild)
+		msg.m_Out.m_iChild = *pChild;
+	else
+		msg.m_Out.m_Root = 1;
+
+	if (InvokeProto(msg) != Status::Success)
+		return false;
 
 	ECC::HKdfPub::Packed p;
-	Ecc2BC(p.m_Secret) = pkdf.m_Secret;
-	Ecc2BC(p.m_PkG) = pkdf.m_CoFactorG;
-	Ecc2BC(p.m_PkJ) = pkdf.m_CoFactorJ;
+	Ecc2BC(p.m_Secret) = msg.m_In.m_Value.m_Secret;
+	Ecc2BC(p.m_PkG) = msg.m_In.m_Value.m_CoFactorG;
+	Ecc2BC(p.m_PkJ) = msg.m_In.m_Value.m_CoFactorJ;
 
 	pRes = std::make_unique<ECC::HKdfPub>();
 
