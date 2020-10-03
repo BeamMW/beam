@@ -1036,13 +1036,16 @@ static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_Kdf* pKdf, const Bea
 //////////////////////////////
 // RangeProof
 
+static void WriteInNetworkOrderRaw(uint8_t* pDst, uint64_t val, unsigned int nLen)
+{
+	for (unsigned int i = nLen; i--; val >>= 8)
+		pDst[i] = (uint8_t) val;
+}
+
 static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen)
 {
-	for (unsigned int i = 0; i < nLen; i++, val >>= 8)
-	{
-		--*ppDst;
-		**ppDst = (uint8_t) val;
-	}
+	*ppDst -= nLen;
+	WriteInNetworkOrderRaw(*ppDst, val, nLen);
 }
 
 static uint64_t ReadInNetworkOrder(const uint8_t* pSrc, unsigned int nLen)
@@ -1765,6 +1768,66 @@ void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfP
 	}
 	else
 		Kdf2Pub(&p->m_MasterKey, pRes);
+}
+
+
+
+//////////////////
+// Protocol
+#define PROTO_METHOD(name) int HandleProto_##name(const BeamCrypto_KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut)
+
+#pragma pack (push, 1)
+#define THE_MACRO_Field(type, name) type m_##name;
+#define THE_MACRO_OpCode(id, name) \
+typedef struct { \
+	uint8_t m_OpCode; \
+	BeamCrypto_ProtoRequest_##name(THE_MACRO_Field) \
+} OpIn_##name; \
+typedef struct { \
+	BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
+} OpOut_##name; \
+PROTO_METHOD(name);
+
+BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
+
+#undef THE_MACRO_OpCode
+#undef THE_MACRO_Field
+
+#pragma pack (pop)
+
+#define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
+#define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field))
+
+int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut)
+{
+	if (!nIn)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	switch (*pIn)
+	{
+#define THE_MACRO(id, name) \
+	case id: \
+		if ((nIn < sizeof(OpIn_##name)) || (nOut < sizeof(OpOut_##name))) \
+			return BeamCrypto_KeyKeeper_Status_ProtoError; \
+		return HandleProto_##name(p, (OpIn_##name*) pIn, nIn - sizeof(OpIn_##name), (OpOut_##name*) pOut, nOut - sizeof(OpOut_##name)); \
+
+		BeamCrypto_ProtoMethods(THE_MACRO)
+#undef THE_MACRO
+
+	}
+
+	return BeamCrypto_KeyKeeper_Status_ProtoError;
+}
+
+PROTO_METHOD(Version)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	pOut->m_Value = BeamCrypto_CurrentProtoVer;
+	ProtoH2N(pOut->m_Value);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
 //////////////////////////////

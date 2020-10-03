@@ -692,8 +692,85 @@ void TestPKdfExport()
 struct KeyKeeperHwEmu
 	:public wallet::PrivateKeyKeeper_AsyncNotify
 {
+#define THE_MACRO_Field(type, name) type m_##name;
+#define THE_MACRO_Field_h2n(type, name) Proto::h2n(m_##name);
+#define THE_MACRO_Field_n2h(type, name) Proto::n2h(m_##name);
+
+	struct Proto
+	{
+		template <typename T> static void h2n(T&) {}
+		template <typename T> static void n2h(T&) {}
+
+		template <typename T> static void h2n_u(T& x) {
+			auto x_ = x;
+			reinterpret_cast<uintBigFor<T>::Type&>(x) = x_;
+		}
+
+		template <typename T> static void n2h_u(T& x) {
+			auto x_ = x;
+			reinterpret_cast<uintBigFor<T>::Type&>(x_).Export(x);
+		}
+
+		static void h2n(uint16_t& x) { h2n_u(x); }
+		static void n2h(uint16_t& x) { n2h_u(x); }
+		static void h2n(uint32_t& x) { h2n_u(x); }
+		static void n2h(uint32_t& x) { n2h_u(x); }
+		static void h2n(uint64_t& x) { h2n_u(x); }
+		static void n2h(uint64_t& x) { n2h_u(x); }
+
+#pragma pack (push, 1)
+
+#define THE_MACRO(id, name) \
+		struct name { \
+			struct Out { \
+				uint8_t m_OpCode; \
+				Out() { \
+					ZeroObject(*this); \
+					m_OpCode = id; \
+				} \
+				BeamCrypto_ProtoRequest_##name(THE_MACRO_Field) \
+				void h2n() { BeamCrypto_ProtoRequest_##name(THE_MACRO_Field_h2n) } \
+			}; \
+			struct In { \
+				BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
+				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_n2h) } \
+			}; \
+			Out m_Out; \
+			In m_In; \
+		};
+
+		BeamCrypto_ProtoMethods(THE_MACRO)
+#undef THE_MACRO
+#undef THE_MACRO_Field
+#pragma pack (pop)
+	};
+
 	BeamCrypto_KeyKeeper m_Ctx;
 	Key::IPKdf::Ptr m_pOwnerKey; // cached
+
+	template <typename T>
+	int InvokeProto(T& msg, uint32_t nOutExtra = 0, uint32_t nInExtra = 0)
+	{
+		msg.m_Out.h2n();
+
+		int nRes = BeamCrypto_KeyKeeper_Invoke(&m_Ctx,
+			reinterpret_cast<uint8_t*>(&msg.m_Out),
+			static_cast<uint32_t>(sizeof(msg.m_Out)) + nOutExtra,
+			reinterpret_cast<uint8_t*>(&msg.m_In),
+			static_cast<uint32_t>(sizeof(msg.m_In)) + nInExtra);
+
+		if (Status::Success == nRes)
+			msg.m_In.n2h();
+
+		return nRes;
+	}
+
+	void TestProto()
+	{
+		Proto::Version msg;
+		verify_test(InvokeProto(msg) == Status::Success);
+		verify_test(BeamCrypto_CurrentProtoVer == msg.m_In.m_Value);
+	}
 
 	bool get_PKdf(Key::IPKdf::Ptr&, const uint32_t*);
 	bool get_OwnerKey();
@@ -1305,6 +1382,8 @@ struct KeyKeeperWrap
 
 		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
+
+		m_kkEmu.TestProto();
 
 		m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
 	}

@@ -130,6 +130,8 @@ typedef struct
 #define BeamCrypto_KeyKeeper_Status_UserAbort 2
 #define BeamCrypto_KeyKeeper_Status_NotImpl 3
 
+#define BeamCrypto_KeyKeeper_Status_ProtoError 10
+
 // Split tx, no value transfer. Only fee is spent (hence the user agreement is required)
 int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*);
 
@@ -201,3 +203,17 @@ typedef struct
 } BeamCrypto_TxSendShieldedParams;
 
 int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, const BeamCrypto_TxSendShieldedParams*);
+
+//////////////////
+// Protocol
+#define BeamCrypto_CurrentProtoVer 1
+
+#define BeamCrypto_ProtoRequest_Version(macro)
+#define BeamCrypto_ProtoResponse_Version(macro) \
+	macro(uint32_t, Value)
+
+
+#define BeamCrypto_ProtoMethods(macro) \
+	macro(0x01, Version) \
+
+int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
