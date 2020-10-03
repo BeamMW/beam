@@ -143,8 +143,6 @@ typedef struct
 
 } BeamCrypto_ShieldedVoucher;
 
-int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper*, BeamCrypto_ShieldedVoucher*, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0);
-
 #pragma pack (push, 1)
 typedef struct
 {
@@ -214,10 +212,19 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 	macro(BeamCrypto_UintBig, pSig[2]) \
 	macro(BeamCrypto_UintBig, zR)
 
+#define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
+	macro(uint32_t, Count) \
+	macro(BeamCrypto_WalletIdentity, nMyIDKey) \
+	macro(BeamCrypto_UintBig, Nonce0) \
+
+#define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
+	macro(uint32_t, Count) \
+	/* followed by BeamCrypto_ShieldedVoucher[] */
 
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
 	macro(0x02, GetPKdf) \
 	macro(0x21, CreateShieldedInput) \
+	macro(0x22, CreateShieldedVouchers) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);

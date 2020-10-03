@@ -2513,9 +2513,19 @@ static void BeamCrypto_CreateVoucherInternal(BeamCrypto_ShieldedVoucher* pRes, c
 	BeamCrypto_Signature_SignPartialEx(pRes->m_pK + 1, &sk, pK + 1, pN + 1);
 }
 
-int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypto_ShieldedVoucher* pRes, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0)
+PROTO_METHOD(CreateShieldedVouchers)
 {
-	if (!n)
+	if (nIn)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	ProtoN2H(pIn->m_Count, uint32_t);
+	ProtoN2H(pIn->m_nMyIDKey, BeamCrypto_WalletIdentity);
+
+	BeamCrypto_ShieldedVoucher* pRes = (BeamCrypto_ShieldedVoucher*) (pOut + 1);
+	if (nOut != sizeof(*pRes) * pIn->m_Count)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	if (!pIn->m_Count)
 		return BeamCrypto_KeyKeeper_Status_Ok;
 
 	ShieldedViewer viewer;
@@ -2524,25 +2534,28 @@ int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	// key to sign the voucher(s)
 	BeamCrypto_UintBig hv;
 	secp256k1_scalar skSign;
-	GetWalletIDKey(p, nMyIDKey, &skSign, &hv);
+	GetWalletIDKey(p, pIn->m_nMyIDKey, &skSign, &hv);
 
 	for (uint32_t i = 0; ; pRes++)
 	{
-		BeamCrypto_CreateVoucherInternal(pRes, pNonce0, &viewer);
+		BeamCrypto_CreateVoucherInternal(pRes, &pIn->m_Nonce0, &viewer);
 
 		BeamCrypto_Voucher_Hash(&hv, pRes);
 		BeamCrypto_Signature_Sign(&pRes->m_Signature, &hv, &skSign);
 
-		if (++i == n)
+		if (++i == pIn->m_Count)
 			break;
 
 		// regenerate nonce
 		BeamCrypto_Oracle oracle;
 		secp256k1_sha256_initialize(&oracle.m_sha);
 		HASH_WRITE_STR(oracle.m_sha, "sh.v.n");
-		secp256k1_sha256_write(&oracle.m_sha, pNonce0->m_pVal, sizeof(pNonce0->m_pVal));
-		secp256k1_sha256_finalize(&oracle.m_sha, pNonce0->m_pVal);
+		secp256k1_sha256_write(&oracle.m_sha, pIn->m_Nonce0.m_pVal, sizeof(pIn->m_Nonce0.m_pVal));
+		secp256k1_sha256_finalize(&oracle.m_sha, pIn->m_Nonce0.m_pVal);
 	}
+
+	pOut->m_Count = pIn->m_Count;
+	ProtoH2N(pOut->m_Count);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }

@@ -762,29 +762,24 @@ struct KeyKeeperHwEmu
 	BeamCrypto_KeyKeeper m_Ctx;
 	Key::IPKdf::Ptr m_pOwnerKey; // cached
 
-	static uint8_t* PrepareBuf(ByteBuffer& buf, void* p, uint32_t n, const Blob& ex)
+	template <typename T>
+	T& ExtendBy(ByteBuffer& buf, const T& x, size_t nExtra)
 	{
-		if (!ex.n)
-			return reinterpret_cast<uint8_t*>(p);
-
-		buf.resize(n + ex.n);
-		memcpy(&buf.front(), p, n);
-		memcpy(&buf.front() + n, ex.p, ex.n);
-		return &buf.front();
+		buf.resize(sizeof(T) + nExtra);
+		memcpy(&buf.front(), &x, sizeof(T));
+		return *reinterpret_cast<T*>(&buf.front());
 	}
 
 	template <typename TOut, typename TIn>
-	int InvokeProtoEx(TOut& out, TIn& in, Blob exOut = Blob(nullptr, 0), Blob exIn = Blob(nullptr, 0))
+	int InvokeProtoEx(TOut& out, TIn& in, size_t nExOut, size_t nExIn)
 	{
 		out.h2n();
 
-		ByteBuffer bufOut, bufIn;
-
 		int nRes = BeamCrypto_KeyKeeper_Invoke(&m_Ctx,
-			PrepareBuf(bufOut, &out, static_cast<uint32_t>(sizeof(out)), exOut),
-			static_cast<uint32_t>(sizeof(out)) + exOut.n,
-			PrepareBuf(bufIn, &in, static_cast<uint32_t>(sizeof(in)), exIn),
-			static_cast<uint32_t>(sizeof(in)) + exIn.n);
+			reinterpret_cast<uint8_t*>(&out),
+			static_cast<uint32_t>(sizeof(out) + nExOut),
+			reinterpret_cast<uint8_t*>(&in),
+			static_cast<uint32_t>(sizeof(in) + nExIn));
 
 		if (Status::Success == nRes)
 			in.n2h();
@@ -795,7 +790,7 @@ struct KeyKeeperHwEmu
 	template <typename T>
 	int InvokeProto(T& msg)
 	{
-		return InvokeProtoEx(msg.m_Out, msg.m_In);
+		return InvokeProtoEx(msg.m_Out, msg.m_In, 0, 0);
 	}
 
 	void TestProto()
@@ -1060,7 +1055,14 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateInputShiel
 	ctx.InvokeLocal1();
 
 	const auto& vec = ctx.m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
-	Status::Type nRes = InvokeProtoEx(ctx.m_Msg.m_Out, ctx.m_Msg.m_In, Blob(&vec.front(), static_cast<uint32_t>(sizeof(vec[0]) * vec.size())));
+	size_t nSize = sizeof(vec[0]) * vec.size();
+
+	ByteBuffer buf;
+	auto& msgOut = ExtendBy(buf, ctx.m_Msg.m_Out, nSize);
+	if (nSize)
+		memcpy(&msgOut + 1, &vec.front(), nSize);
+
+	Status::Type nRes = InvokeProtoEx(msgOut, ctx.m_Msg.m_In, nSize, 0);
 	if (Status::Success == nRes)
 		ctx.InvokeLocal2();
 
@@ -1073,15 +1075,27 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateVoucherShi
 		return Status::Success;
 
 	uint32_t n = std::min(m.m_Count, 30U);
-	std::vector<BeamCrypto_ShieldedVoucher> vec(n);
+	size_t nSize = sizeof(BeamCrypto_ShieldedVoucher) * n;
 
-	Status::Type nRes = BeamCrypto_KeyKeeper_CreateVouchers(&m_Ctx, &vec.front(), n, m.m_MyIDKey, &Ecc2BC(m.m_Nonce));
+	Proto::CreateShieldedVouchers msg;
+	msg.m_Out.m_Count = n;
+	msg.m_Out.m_Nonce0 = Ecc2BC(m.m_Nonce);
+	msg.m_Out.m_nMyIDKey = m.m_MyIDKey;
+
+	ByteBuffer buf;
+	auto& msgIn = ExtendBy(buf, msg.m_In, nSize);
+	BeamCrypto_ShieldedVoucher* pRes = reinterpret_cast<BeamCrypto_ShieldedVoucher*>(&msgIn + 1);
+
+	Status::Type nRes = InvokeProtoEx(msg.m_Out, msgIn, 0, nSize);
 	if (Status::Success == nRes)
 	{
-		m.m_Res.resize(n);
-		for (uint32_t i = 0; i < n; i++)
+		if (msgIn.m_Count > n)
+			return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+		m.m_Res.resize(msgIn.m_Count);
+		for (uint32_t i = 0; i < msgIn.m_Count; i++)
 		{
-			const BeamCrypto_ShieldedVoucher& src = vec[i];
+			const BeamCrypto_ShieldedVoucher& src = pRes[i];
 			ShieldedTxo::Voucher& trg = m.m_Res[i];
 
 			Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
