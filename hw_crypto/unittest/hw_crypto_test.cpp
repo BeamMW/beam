@@ -56,6 +56,12 @@ extern "C"
 	{
 		g_pHwEmuNonces->Regenerate(iSlot);
 	}
+
+	int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, const BeamCrypto_UintBig* pKrnID)
+	{
+		return BeamCrypto_KeyKeeper_Status_Ok;
+	}
+
 }
 
 

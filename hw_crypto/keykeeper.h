@@ -27,8 +27,9 @@ typedef struct
 
 } BeamCrypto_KeyKeeper;
 
+//////////////////////////
+// External functions, implemented by the platform-specific code
 void BeamCrypto_SecureEraseMem(void*, uint32_t);
-
 uint32_t BeamCrypto_KeyKeeper_getNumSlots();
 void BeamCrypto_KeyKeeper_ReadSlot(uint32_t, BeamCrypto_UintBig*);
 void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t);
@@ -284,3 +285,14 @@ BeamCrypto_UintBig m_pMessage[2];
 	macro(0x36, TxSendShielded) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
+
+//////////////////////////
+// KeyKeeper - request user approval for spend
+//
+// pPeerID is NULL, if it's a Split tx (i.e. funds are transferred back to you, only the fee is spent).
+// pKrnID and pData are NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
+// pUser contains fee and min/max height (may be shown to the user)
+// pData (if specified) has commitments.
+int BeamCrypto_KeyKeeper_ConfirmSpend(
+	BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID,
+	const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, const BeamCrypto_UintBig* pKrnID);

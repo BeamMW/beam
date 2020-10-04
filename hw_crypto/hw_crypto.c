@@ -2127,16 +2127,6 @@ static int TxAggregate_SendOrSplit(const BeamCrypto_KeyKeeper* p, const BeamCryp
 }
 
 //////////////////////////////
-// KeyKeeper - user permission required
-static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, const BeamCrypto_UintBig* pKrnID)
-{
-	// pPeerID is NULL, if it's a Split tx.
-	// pKrnID may be NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
-
-	return BeamCrypto_KeyKeeper_Status_Ok; // TODO
-}
-
-//////////////////////////////
 // KeyKeeper - Kernel modification
 static int KernelUpdateKeysEx(BeamCrypto_CompactPoint* pCommitment, BeamCrypto_CompactPoint* pNoncePub, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
 {
