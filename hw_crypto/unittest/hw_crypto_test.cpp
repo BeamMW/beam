@@ -730,6 +730,7 @@ struct KeyKeeperHwEmu
 			n2h(x.m_TxoID.m_Amount);
 			n2h(x.m_TxoID.m_AssetID);
 			n2h(x.m_TxoID.m_nViewerIdx);
+		}
 
 		static void h2n(BeamCrypto_CoinID& cid) {
 			h2n(cid.m_Amount);
