@@ -1805,7 +1805,19 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 #define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
 #define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field)); static_assert(sizeof(field) == sizeof(type), "")
 
-void N2H_CoinID(BeamCrypto_CoinID* p)
+#define N2H_uint32_t(p) ProtoN2H((*p), uint32_t)
+#define H2N_uint32_t(p) ProtoH2N((*p))
+
+#define N2H_uint64_t(p) ProtoN2H((*p), uint64_t)
+#define H2N_uint64_t(p) ProtoH2N((*p))
+
+#define N2H_BeamCrypto_Height(p) ProtoN2H((*p), BeamCrypto_Height)
+#define H2N_BeamCrypto_Height(p) ProtoH2N((*p))
+
+#define N2H_BeamCrypto_WalletIdentity(p) ProtoN2H((*p), BeamCrypto_WalletIdentity)
+#define H2N_BeamCrypto_WalletIdentity(p) ProtoH2N((*p))
+
+void N2H_BeamCrypto_CoinID(BeamCrypto_CoinID* p)
 {
 	ProtoN2H(p->m_Amount, BeamCrypto_Amount);
 	ProtoN2H(p->m_AssetID, BeamCrypto_AssetID);
@@ -1814,7 +1826,7 @@ void N2H_CoinID(BeamCrypto_CoinID* p)
 	ProtoN2H(p->m_Type, uint32_t);
 }
 
-void N2H_ShieldedInput(BeamCrypto_ShieldedInput* p)
+void N2H_BeamCrypto_ShieldedInput(BeamCrypto_ShieldedInput* p)
 {
 	ProtoN2H(p->m_Fee, BeamCrypto_Amount);
 	ProtoN2H(p->m_TxoID.m_Amount, BeamCrypto_Amount);
@@ -1831,26 +1843,11 @@ int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uin
 	{
 #define THE_MACRO_CvtIn(cvt, type, name) THE_MACRO_CvtIn_##cvt(type, name)
 #define THE_MACRO_CvtIn_0(type, name)
-#define THE_MACRO_CvtIn_1(type, name) FieldCvtIn_##type(pOpIn->m_##name);
+#define THE_MACRO_CvtIn_1(type, name) N2H_##type(&pOpIn->m_##name);
 
 #define THE_MACRO_CvtOut(cvt, type, name) THE_MACRO_CvtOut_##cvt(type, name)
 #define THE_MACRO_CvtOut_0(type, name)
-#define THE_MACRO_CvtOut_1(type, name) FieldCvtOut_##type(pOpOut->m_##name);
-
-#define FieldCvtIn_uint32_t(field) ProtoN2H(field, uint32_t)
-#define FieldCvtOut_uint32_t(field) ProtoH2N(field)
-
-#define FieldCvtIn_uint64_t(field) ProtoN2H(field, uint64_t)
-#define FieldCvtOut_uint64_t(field) ProtoH2N(field)
-
-#define FieldCvtIn_BeamCrypto_Height(field) ProtoN2H(field, BeamCrypto_Height)
-#define FieldCvtOut_BeamCrypto_Height(field) ProtoH2N(field)
-
-#define FieldCvtIn_BeamCrypto_WalletIdentity(field) ProtoN2H(field, BeamCrypto_WalletIdentity)
-#define FieldCvtOut_BeamCrypto_WalletIdentity(field) ProtoH2N(field)
-
-#define FieldCvtIn_BeamCrypto_CoinID(field) N2H_CoinID(&field)
-#define FieldCvtIn_BeamCrypto_ShieldedInput(field) N2H_ShieldedInput(&field)
+#define THE_MACRO_CvtOut_1(type, name) H2N_##type(&pOpOut->m_##name);
 
 #define THE_MACRO(id, name) \
 	case id: \
