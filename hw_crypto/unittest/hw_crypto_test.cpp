@@ -614,12 +614,12 @@ void TestKrn()
 		krn1.Sign(sk);
 
 		BeamCrypto_TxKernel krn2;
-		krn2.m_Fee = krn1.m_Fee;
-		krn2.m_hMin = krn1.m_Height.m_Min;
-		krn2.m_hMax = krn1.m_Height.m_Max;
-		krn2.m_Commitment = Ecc2BC(krn1.m_Commitment);
-		krn2.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
-		krn2.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
+		krn2.m_User.m_Fee = krn1.m_Fee;
+		krn2.m_User.m_hMin = krn1.m_Height.m_Min;
+		krn2.m_User.m_hMax = krn1.m_Height.m_Max;
+		krn2.m_Data.m_Commitment = Ecc2BC(krn1.m_Commitment);
+		krn2.m_Data.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
+		krn2.m_Data.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
 
 		verify_test(BeamCrypto_TxKernel_IsValid(&krn2));
 
@@ -628,7 +628,7 @@ void TestKrn()
 		verify_test(msg == krn1.m_Internal.m_ID);
 
 		// tamper
-		krn2.m_Fee++;
+		krn2.m_User.m_Fee++;
 		verify_test(!BeamCrypto_TxKernel_IsValid(&krn2));
 	}
 }
@@ -1359,13 +1359,13 @@ void KeyKeeperHwEmu::Encoder::TxImport(const Method::TxCommon& m)
 
 	// kernel
 	assert(m.m_pKernel);
-	m_Res.m_Krn.m_Fee = m.m_pKernel->m_Fee;
-	m_Res.m_Krn.m_hMin = m.m_pKernel->m_Height.m_Min;
-	m_Res.m_Krn.m_hMax = m.m_pKernel->m_Height.m_Max;
+	m_Res.m_Krn.m_User.m_Fee = m.m_pKernel->m_Fee;
+	m_Res.m_Krn.m_User.m_hMin = m.m_pKernel->m_Height.m_Min;
+	m_Res.m_Krn.m_User.m_hMax = m.m_pKernel->m_Height.m_Max;
 
-	m_Res.m_Krn.m_Commitment = Ecc2BC(m.m_pKernel->m_Commitment);
-	m_Res.m_Krn.m_Signature.m_NoncePub = Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub);
-	m_Res.m_Krn.m_Signature.m_k = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
+	m_Res.m_Krn.m_Data.m_Commitment = Ecc2BC(m.m_pKernel->m_Commitment);
+	m_Res.m_Krn.m_Data.m_Signature.m_NoncePub = Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub);
+	m_Res.m_Krn.m_Data.m_Signature.m_k = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
 
 	// offset
 	ECC::Scalar kOffs(m.m_kOffset);
@@ -1376,13 +1376,13 @@ void KeyKeeperHwEmu::Encoder::TxExport(Method::TxCommon& m) const
 {
 	// kernel
 	assert(m.m_pKernel);
-	m.m_pKernel->m_Fee = m_Res.m_Krn.m_Fee;
-	m.m_pKernel->m_Height.m_Min = m_Res.m_Krn.m_hMin;
-	m.m_pKernel->m_Height.m_Max = m_Res.m_Krn.m_hMax;
+	m.m_pKernel->m_Fee = m_Res.m_Krn.m_User.m_Fee;
+	m.m_pKernel->m_Height.m_Min = m_Res.m_Krn.m_User.m_hMin;
+	m.m_pKernel->m_Height.m_Max = m_Res.m_Krn.m_User.m_hMax;
 
-	Ecc2BC(m.m_pKernel->m_Commitment) = m_Res.m_Krn.m_Commitment;
-	Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = m_Res.m_Krn.m_Signature.m_NoncePub;
-	Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value) = m_Res.m_Krn.m_Signature.m_k;
+	Ecc2BC(m.m_pKernel->m_Commitment) = m_Res.m_Krn.m_Data.m_Commitment;
+	Ecc2BC(m.m_pKernel->m_Signature.m_NoncePub) = m_Res.m_Krn.m_Data.m_Signature.m_NoncePub;
+	Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value) = m_Res.m_Krn.m_Data.m_Signature.m_k;
 
 	m.m_pKernel->UpdateID();
 

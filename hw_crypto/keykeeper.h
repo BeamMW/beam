@@ -51,9 +51,19 @@ typedef struct
 	BeamCrypto_Amount m_Fee;
 	BeamCrypto_Height m_hMin;
 	BeamCrypto_Height m_hMax;
+} BeamCrypto_TxKernelUser;
 
+typedef struct
+{
 	BeamCrypto_CompactPoint m_Commitment;
 	BeamCrypto_Signature m_Signature;
+
+} BeamCrypto_TxKernelData;
+
+typedef struct
+{
+	BeamCrypto_TxKernelUser m_User;
+	BeamCrypto_TxKernelData m_Data;
 
 } BeamCrypto_TxKernel;
 
