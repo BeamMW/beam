@@ -61,7 +61,7 @@ bool EthereumSide::Initialize()
         InitSecret();
     }
     // InitLocalKeys - ? init publicSwap & secretSwap keys
-    return false;
+    return true;
 }
 
 bool EthereumSide::InitLockTime()

@@ -34,9 +34,23 @@ namespace beam::wallet
                           Height responseTime = kDefaultTxResponseTime,
                           Height lifetime = kDefaultTxLifetime);
 
+    void FillSwapTxParams(TxParameters* params,
+                          const WalletID& myID,
+                          Height minHeight,
+                          Amount amount,
+                          Amount beamFee,
+                          AtomicSwapCoin swapCoin,
+                          ECC::uintBig swapAmount,
+                          bool isBeamSide = true,
+                          Height responseTime = kDefaultTxResponseTime,
+                          Height lifetime = kDefaultTxLifetime);
+
     void FillSwapFee(
         TxParameters* params, Amount beamFee,
         Amount swapFeeRate, bool isBeamSide = true);
+
+    void FillSwapFee(
+        TxParameters* params, Amount beamFee, bool isBeamSide = true);
 
     TxParameters MirrorSwapTxParams(const TxParameters& original,
                                     bool isOwn = true);

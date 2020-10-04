@@ -68,6 +68,36 @@ namespace beam::wallet
 #endif // BEAM_LIB_VERSION
     }
 
+    void FillSwapTxParams(TxParameters* params,
+                          const WalletID& myID,
+                          Height minHeight,
+                          Amount amount,
+                          Amount beamFee,
+                          AtomicSwapCoin swapCoin,
+                          ECC::uintBig swapAmount,
+                          bool isBeamSide /*= true*/,
+                          Height responseTime /*= kDefaultTxResponseTime*/,
+                          Height lifetime /*= kDefaultTxLifetime*/)
+    {
+        params->SetParameter(TxParameterID::MyID, myID);
+        params->SetParameter(TxParameterID::MinHeight, minHeight);
+        params->SetParameter(TxParameterID::Amount, amount);
+        params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
+        params->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
+        params->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+        params->SetParameter(TxParameterID::IsSender, isBeamSide);
+        params->SetParameter(TxParameterID::IsInitiator, false);
+
+        FillSwapFee(params, beamFee, isBeamSide);
+
+        params->SetParameter(TxParameterID::Lifetime, lifetime);
+        params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
+
+#ifdef BEAM_LIB_VERSION
+        params->SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+#endif // BEAM_LIB_VERSION
+    }
+
     void FillSwapFee(
         TxParameters* params, Amount beamFee,
         Amount swapFeeRate, bool isBeamSide/* = true*/)
@@ -91,6 +121,24 @@ namespace beam::wallet
                 TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
         }
     }
+
+    void FillSwapFee(
+        TxParameters* params, Amount beamFee, bool isBeamSide/* = true*/)
+    {
+        if (isBeamSide)
+        {
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_LOCK_TX);
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REFUND_TX);
+        }
+        else
+        {
+            params->SetParameter(
+                TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REDEEM_TX);
+        }
+    }
+
 
     TxParameters MirrorSwapTxParams(const TxParameters& original,
                                     bool isOwn  /* = true */)

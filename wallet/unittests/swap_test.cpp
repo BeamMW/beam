@@ -23,6 +23,7 @@
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/transactions/swaps/second_side.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"
@@ -109,6 +110,44 @@ namespace
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
             parameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
             parameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::REFUND_TX);
+        }
+
+        parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+        parameters.SetParameter(TxParameterID::IsInitiator, true);
+
+        return parameters;
+    }
+
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee)
+    {
+        TxParameters parameters = initialParameters;
+
+        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
+        parameters.SetParameter(TxParameterID::MyID, myID);
+
+        bool isBeamSide = !*parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+
+        if (isBeamSide)
+        {
+            // delete parameters from other side
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
+
+            // add our parameters
+            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+        }
+        else
+        {
+            // delete parameters from other side
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
+            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
+
+            // add our parameters
+            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
         }
 
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
@@ -1628,6 +1667,204 @@ void TestIgnoringThirdPeer()
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 }
 
+namespace beam::ethereum
+{
+    class Provider : public ISettingsProvider
+    {
+    public:
+        Provider(const Settings& settings)
+            : m_settings(settings)
+        {
+        }
+
+        Settings GetSettings() const override
+        {
+            return m_settings;
+        }
+
+        void SetSettings(const Settings& settings) override
+        {
+            m_settings = settings;
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
+    private:
+        Settings m_settings;
+    };
+}
+
+ethereum::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, const ethereum::Settings& settings)
+{
+    auto settingsProvider = std::make_shared<ethereum::SettingsProvider>(walletDB);
+    settingsProvider->SetSettings(settings);
+    return settingsProvider;
+}
+
+void InitEthereum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, ethereum::ISettingsProvider& settingsProvider)
+{
+    auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
+    auto bridge = std::make_shared<ethereum::EthereumBridge>(reactor, settingsProvider);
+    // TODO should refactored this code
+    auto bitcoinBridgeCreator = [bridge]() -> ethereum::IBridge::Ptr
+    {
+        return bridge;
+    };
+    auto factory = wallet::MakeSecondSideFactory<EthereumSide, ethereum::EthereumBridge, ethereum::ISettingsProvider>(bitcoinBridgeCreator, settingsProvider);
+    creator->RegisterFactory(AtomicSwapCoin::Ethereum, factory);
+    wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
+}
+
+void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+{
+    cout << "\nTesting ethereum atomic swap transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    io::Address receiverAddress;
+    receiverAddress.resolve("127.0.0.1:10300");
+
+    Amount beamAmount = 300;
+    Amount beamFee = 101;
+    ECC::uintBig swapAmount = 1000000000000u;
+    //Amount feeRate = 256;
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+
+    ethereum::Settings aliceSettings;
+    aliceSettings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
+    aliceSettings.m_accountIndex = 0;
+    aliceSettings.m_address = "127.0.0.1:7545";
+    aliceSettings.m_shouldConnect = true;
+
+    ethereum::Settings bobSettings;
+    bobSettings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
+    bobSettings.m_accountIndex = 1;
+    bobSettings.m_address = "127.0.0.1:7545";
+    bobSettings.m_shouldConnect = true;
+
+    /*TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
+
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });*/
+
+    /*TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);*/
+
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    InitEthereum(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitEthereum(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    //receiverBtcWallet.addPeer(senderAddress);
+
+    TxID txID = { {0} };
+
+    auto receiverCoins = receiver.GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    Node node;
+
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == fork1Height + 5)
+        {
+            auto currentHeight = cursor.m_Sid.m_Height;
+            bool isBeamSide = !isBeamOwnerStart;
+            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+                currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, isBeamSide);
+
+            if (useSecureIDs)
+            {
+                parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+            }
+
+            TestWalletRig* initiator = &sender;
+            TestWalletRig* acceptor = &receiver;
+            if (isBeamOwnerStart)
+            {
+                std::swap(initiator, acceptor);
+            }
+
+            initiator->m_Wallet.StartTransaction(parameters);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee);
+            if (useSecureIDs)
+            {
+                acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
+            }
+            txID = acceptor->m_Wallet.StartTransaction(acceptParams);
+        }
+    });
+
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    receiverCoins = receiver.GetCoins();
+    WALLET_CHECK(receiverCoins.size() == 1);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
+    WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
+
+    auto senderCoins = sender.GetCoins();
+    WALLET_CHECK(senderCoins.size() == kDefaultTestAmounts.size() + 1);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
+    WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
+    // change
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
+    WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(senderCoins[4].m_createTxId == txID);
+
+    // check secret
+    NoLeak<uintBig> senderSecretPrivateKey;
+    storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, senderSecretPrivateKey.V);
+    NoLeak<uintBig> receiverSecretPrivateKey;
+    storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, receiverSecretPrivateKey.V);
+    WALLET_CHECK(senderSecretPrivateKey.V != Zero && senderSecretPrivateKey.V == receiverSecretPrivateKey.V);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1675,6 +1912,8 @@ int main()
 #endif // BEAM_TESTNET
 
     TestIgnoringThirdPeer();
+
+    //TestEthSwapTransaction(true, fork1Height);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

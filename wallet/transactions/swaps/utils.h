@@ -28,6 +28,12 @@ TxParameters InitNewSwap(
     bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
     Height responseTime = kDefaultTxResponseTime);
 
+TxParameters InitNewSwap(
+    const WalletID& myID, Height minHeight, Amount amount,
+    Amount fee, AtomicSwapCoin swapCoin, ECC::uintBig swapAmount,
+    bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
+    Height responseTime = kDefaultTxResponseTime);
+
 void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB);
 
 bool IsSwapAmountValid(
