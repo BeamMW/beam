@@ -60,15 +60,8 @@ typedef struct
 
 } BeamCrypto_TxKernelData;
 
-typedef struct
-{
-	BeamCrypto_TxKernelUser m_User;
-	BeamCrypto_TxKernelData m_Data;
-
-} BeamCrypto_TxKernel;
-
-void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel*, BeamCrypto_UintBig* pMsg);
-int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel*);
+void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernelUser*, const BeamCrypto_TxKernelData*, BeamCrypto_UintBig* pMsg);
+int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernelUser*, const BeamCrypto_TxKernelData*);
 
 typedef struct
 {
@@ -100,17 +93,29 @@ typedef struct
 
 typedef struct
 {
-	const BeamCrypto_CoinID* m_pIns;
-	const BeamCrypto_CoinID* m_pOuts;
-	const BeamCrypto_ShieldedInput* m_pInsShielded;
-	unsigned int m_Ins;
-	unsigned int m_Outs;
-	unsigned int m_InsShielded;
+	BeamCrypto_TxKernelUser m_Krn;
 
-	BeamCrypto_TxKernel m_Krn;
+	uint32_t m_Ins;
+	uint32_t m_Outs;
+	uint32_t m_InsShielded;
+
+} BeamCrypto_TxCommonIn;
+
+typedef struct
+{
+	BeamCrypto_TxKernelData m_Krn;
 	BeamCrypto_UintBig m_kOffset;
 
-} BeamCrypto_TxCommon;
+} BeamCrypto_TxCommonOut;
+
+typedef struct
+{
+	BeamCrypto_UintBig m_Peer;
+	BeamCrypto_WalletIdentity m_MyIDKey;
+
+} BeamCrypto_TxMutualIn;
+
+
 
 #define BeamCrypto_KeyKeeper_Status_Ok 0
 #define BeamCrypto_KeyKeeper_Status_Unspecified 1
@@ -119,18 +124,6 @@ typedef struct
 
 #define BeamCrypto_KeyKeeper_Status_ProtoError 10
 
-// Split tx, no value transfer. Only fee is spent (hence the user agreement is required)
-int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*);
-
-typedef struct
-{
-	BeamCrypto_UintBig m_Peer;
-	BeamCrypto_WalletIdentity m_MyIDKey;
-	BeamCrypto_Signature m_PaymentProofSignature;
-
-} BeamCrypto_TxMutualInfo;
-
-int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*);
 
 typedef struct
 {
@@ -138,8 +131,6 @@ typedef struct
 	BeamCrypto_UintBig m_UserAgreement; // set to Zero on 1st invocation
 
 } BeamCrypto_TxSenderParams;
-
-int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, BeamCrypto_TxMutualInfo*, BeamCrypto_TxSenderParams*);
 
 typedef struct
 {
@@ -170,24 +161,6 @@ typedef struct
 
 } BeamCrypto_RangeProof_Packed;
 #pragma pack (pop)
-
-typedef struct
-{
-	BeamCrypto_ShieldedVoucher m_Voucher;
-	BeamCrypto_UintBig m_Receiver; // recipient
-	BeamCrypto_WalletIdentity m_MyIDKey; // set to nnz if sending to yourself
-	uint8_t m_HideAssetAlways; // important to specify, this affects expected blinding factor recovery
-	BeamCrypto_RangeProof_Packed m_RangeProof;
-
-	// ShieldedTxo::User
-	BeamCrypto_UintBig m_Sender; // right now - can be set to arbitrary data
-	BeamCrypto_UintBig m_pMessage[2];
-
-	// sent value and asset are derived from the tx balance (ins - outs)
-
-} BeamCrypto_TxSendShieldedParams;
-
-int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCrypto_TxCommon*, const BeamCrypto_TxSendShieldedParams*);
 
 //////////////////
 // Protocol
@@ -240,11 +213,65 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 	macro(1, uint32_t, Count) \
 	/* followed by BeamCrypto_ShieldedVoucher[] */
 
+#define BeamCrypto_ProtoRequest_TxSplit(macro) \
+	macro(1, BeamCrypto_TxCommonIn, Tx) \
+	/* followed by in/outs */
+
+#define BeamCrypto_ProtoResponse_TxSplit(macro) \
+	macro(0, BeamCrypto_TxCommonOut, Tx) \
+
+#define BeamCrypto_ProtoRequest_TxReceive(macro) \
+	macro(1, BeamCrypto_TxCommonIn, Tx) \
+	macro(1, BeamCrypto_TxMutualIn, Mut) \
+	macro(0, BeamCrypto_TxKernelData, Krn) \
+	/* followed by in/outs */
+
+#define BeamCrypto_ProtoResponse_TxReceive(macro) \
+	macro(0, BeamCrypto_TxCommonOut, Tx) \
+	macro(0, BeamCrypto_Signature, PaymentProof) \
+
+#define BeamCrypto_ProtoRequest_TxSend(macro) \
+	macro(1, BeamCrypto_TxCommonIn, Tx) \
+	macro(1, BeamCrypto_TxMutualIn, Mut) \
+	macro(0, BeamCrypto_TxCommonOut, Semi) \
+	macro(0, BeamCrypto_Signature, PaymentProof) \
+	macro(0, BeamCrypto_UintBig, UserAgreement) \
+	macro(1, uint32_t, iSlot) \
+	/* followed by in/outs */
+
+#define BeamCrypto_ProtoResponse_TxSend(macro) \
+	macro(0, BeamCrypto_TxCommonOut, Tx) \
+	macro(0, BeamCrypto_UintBig, UserAgreement) \
+
+#define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
+	macro(1, BeamCrypto_TxCommonIn, Tx) \
+	macro(1, BeamCrypto_TxMutualIn, Mut) \
+	macro(0, BeamCrypto_ShieldedVoucher, Voucher) \
+	macro(0, BeamCrypto_ShieldedTxoUser, User) \
+	macro(0, BeamCrypto_RangeProof_Packed, RangeProof) \
+	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
+	/* followed by in/outs */
+
+#define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
+	macro(0, BeamCrypto_TxCommonOut, Tx) \
+
+
+// ShieldedTxo::User
+BeamCrypto_UintBig m_Sender; // right now - can be set to arbitrary data
+BeamCrypto_UintBig m_pMessage[2];
+
+// sent value and asset are derived from the tx balance (ins - outs)
+
+
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
 	macro(0x02, GetPKdf) \
 	macro(0x10, CreateOutput) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
+	macro(0x30, TxSplit) \
+	macro(0x31, TxReceive) \
+	macro(0x32, TxSend) \
+	macro(0x33, TxSendShielded) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
