@@ -185,49 +185,49 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
-	macro(uint32_t, Value)
+	macro(1, uint32_t, Value)
 
 #define BeamCrypto_ProtoRequest_GetPKdf(macro) \
-	macro(uint8_t, Root) \
-	macro(uint32_t, iChild)
+	macro(0, uint8_t, Root) \
+	macro(1, uint32_t, iChild)
 
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
-	macro(BeamCrypto_KdfPub, Value)
+	macro(0, BeamCrypto_KdfPub, Value)
 
 #define BeamCrypto_ProtoRequest_CreateOutput(macro) \
-	macro(BeamCrypto_CoinID, Cid) \
-	macro(BeamCrypto_UintBig, pKExtra[2]) \
-	macro(BeamCrypto_CompactPoint, pT[2]) \
+	macro(1, BeamCrypto_CoinID, Cid) \
+	macro(0, BeamCrypto_UintBig, pKExtra[2]) \
+	macro(0, BeamCrypto_CompactPoint, pT[2]) \
 
 #define BeamCrypto_ProtoResponse_CreateOutput(macro) \
-	macro(BeamCrypto_CompactPoint, pT[2]) \
-	macro(BeamCrypto_UintBig, TauX) \
+	macro(0, BeamCrypto_CompactPoint, pT[2]) \
+	macro(0, BeamCrypto_UintBig, TauX) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
-	macro(BeamCrypto_ShieldedInput, Inp) \
-	macro(BeamCrypto_Height, hMin) \
-	macro(BeamCrypto_Height, hMax) \
-	macro(uint64_t, WindowEnd) \
-	macro(uint32_t, Sigma_M) \
-	macro(uint32_t, Sigma_n) \
-	macro(BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
-	macro(BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
-	macro(BeamCrypto_CompactPoint, pABCD[4]) \
+	macro(1, BeamCrypto_ShieldedInput, Inp) \
+	macro(1, BeamCrypto_Height, hMin) \
+	macro(1, BeamCrypto_Height, hMax) \
+	macro(1, uint64_t, WindowEnd) \
+	macro(1, uint32_t, Sigma_M) \
+	macro(1, uint32_t, Sigma_n) \
+	macro(0, BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
+	macro(0, BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
+	macro(0, BeamCrypto_CompactPoint, pABCD[4]) \
 	/* followed by BeamCrypto_CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput(macro) \
-	macro(BeamCrypto_CompactPoint, G0) \
-	macro(BeamCrypto_CompactPoint, NoncePub) \
-	macro(BeamCrypto_UintBig, pSig[2]) \
-	macro(BeamCrypto_UintBig, zR)
+	macro(0, BeamCrypto_CompactPoint, G0) \
+	macro(0, BeamCrypto_CompactPoint, NoncePub) \
+	macro(0, BeamCrypto_UintBig, pSig[2]) \
+	macro(0, BeamCrypto_UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
-	macro(uint32_t, Count) \
-	macro(BeamCrypto_WalletIdentity, nMyIDKey) \
-	macro(BeamCrypto_UintBig, Nonce0) \
+	macro(1, uint32_t, Count) \
+	macro(1, BeamCrypto_WalletIdentity, nMyIDKey) \
+	macro(0, BeamCrypto_UintBig, Nonce0) \
 
 #define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
-	macro(uint32_t, Count) \
+	macro(1, uint32_t, Count) \
 	/* followed by BeamCrypto_ShieldedVoucher[] */
 
 #define BeamCrypto_ProtoMethods(macro) \

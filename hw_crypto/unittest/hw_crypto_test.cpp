@@ -692,15 +692,18 @@ void TestPKdfExport()
 struct KeyKeeperHwEmu
 	:public wallet::PrivateKeyKeeper_AsyncNotify
 {
-#define THE_MACRO_Field(type, name) type m_##name;
-#define THE_MACRO_Field_h2n(type, name) Proto::h2n(m_##name);
-#define THE_MACRO_Field_n2h(type, name) Proto::n2h(m_##name);
+#define THE_MACRO_Field(cvt, type, name) type m_##name;
+
+#define THE_MACRO_Field_h2n(cvt, type, name) THE_MACRO_Field_h2n_##cvt(m_##name)
+#define THE_MACRO_Field_h2n_0(field)
+#define THE_MACRO_Field_h2n_1(field) Proto::h2n(field);
+
+#define THE_MACRO_Field_n2h(cvt, type, name) THE_MACRO_Field_n2h_##cvt(m_##name)
+#define THE_MACRO_Field_n2h_0(field)
+#define THE_MACRO_Field_n2h_1(field) Proto::n2h(field);
 
 	struct Proto
 	{
-		template <typename T> static void h2n(T&) {}
-		template <typename T> static void n2h(T&) {}
-
 		template <typename T> static void h2n_u(T& x) {
 			auto x_ = x;
 			reinterpret_cast<typename uintBigFor<T>::Type&>(x) = x_;
@@ -723,13 +726,6 @@ struct KeyKeeperHwEmu
 			h2n(x.m_TxoID.m_Amount);
 			h2n(x.m_TxoID.m_AssetID);
 			h2n(x.m_TxoID.m_nViewerIdx);
-		}
-
-		static void n2h(BeamCrypto_ShieldedInput& x) {
-			n2h(x.m_Fee);
-			n2h(x.m_TxoID.m_Amount);
-			n2h(x.m_TxoID.m_AssetID);
-			n2h(x.m_TxoID.m_nViewerIdx);
 		}
 
 		static void h2n(BeamCrypto_CoinID& cid) {

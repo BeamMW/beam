@@ -1784,7 +1784,7 @@ void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfP
 #define PROTO_METHOD(name) int HandleProto_##name(const BeamCrypto_KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut)
 
 #pragma pack (push, 1)
-#define THE_MACRO_Field(type, name) type m_##name;
+#define THE_MACRO_Field(cvt, type, name) type m_##name;
 #define THE_MACRO_OpCode(id, name) \
 typedef struct { \
 	uint8_t m_OpCode; \
@@ -1805,6 +1805,23 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 #define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
 #define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field)); static_assert(sizeof(field) == sizeof(type), "")
 
+void N2H_CoinID(BeamCrypto_CoinID* p)
+{
+	ProtoN2H(p->m_Amount, BeamCrypto_Amount);
+	ProtoN2H(p->m_AssetID, BeamCrypto_AssetID);
+	ProtoN2H(p->m_Idx, uint64_t);
+	ProtoN2H(p->m_SubIdx, uint32_t);
+	ProtoN2H(p->m_Type, uint32_t);
+}
+
+void N2H_ShieldedInput(BeamCrypto_ShieldedInput* p)
+{
+	ProtoN2H(p->m_Fee, BeamCrypto_Amount);
+	ProtoN2H(p->m_TxoID.m_Amount, BeamCrypto_Amount);
+	ProtoN2H(p->m_TxoID.m_AssetID, BeamCrypto_AssetID);
+	ProtoN2H(p->m_TxoID.m_nViewerIdx, uint32_t);
+}
+
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut)
 {
 	if (!nIn)
@@ -1812,11 +1829,48 @@ int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uin
 
 	switch (*pIn)
 	{
+#define THE_MACRO_CvtIn(cvt, type, name) THE_MACRO_CvtIn_##cvt(type, name)
+#define THE_MACRO_CvtIn_0(type, name)
+#define THE_MACRO_CvtIn_1(type, name) FieldCvtIn_##type(pOpIn->m_##name);
+
+#define THE_MACRO_CvtOut(cvt, type, name) THE_MACRO_CvtOut_##cvt(type, name)
+#define THE_MACRO_CvtOut_0(type, name)
+#define THE_MACRO_CvtOut_1(type, name) FieldCvtOut_##type(pOpOut->m_##name);
+
+#define FieldCvtIn_uint32_t(field) ProtoN2H(field, uint32_t)
+#define FieldCvtOut_uint32_t(field) ProtoH2N(field)
+
+#define FieldCvtIn_uint64_t(field) ProtoN2H(field, uint64_t)
+#define FieldCvtOut_uint64_t(field) ProtoH2N(field)
+
+#define FieldCvtIn_BeamCrypto_Height(field) ProtoN2H(field, BeamCrypto_Height)
+#define FieldCvtOut_BeamCrypto_Height(field) ProtoH2N(field)
+
+#define FieldCvtIn_BeamCrypto_WalletIdentity(field) ProtoN2H(field, BeamCrypto_WalletIdentity)
+#define FieldCvtOut_BeamCrypto_WalletIdentity(field) ProtoH2N(field)
+
+#define FieldCvtIn_BeamCrypto_CoinID(field) N2H_CoinID(&field)
+#define FieldCvtIn_BeamCrypto_ShieldedInput(field) N2H_ShieldedInput(&field)
+
 #define THE_MACRO(id, name) \
 	case id: \
+	{ \
 		if ((nIn < sizeof(OpIn_##name)) || (nOut < sizeof(OpOut_##name))) \
 			return BeamCrypto_KeyKeeper_Status_ProtoError; \
-		return HandleProto_##name(p, (OpIn_##name*) pIn, nIn - sizeof(OpIn_##name), (OpOut_##name*) pOut, nOut - sizeof(OpOut_##name)); \
+ \
+		OpIn_##name* pOpIn = (OpIn_##name*) pIn; \
+		BeamCrypto_ProtoRequest_##name(THE_MACRO_CvtIn) \
+\
+		OpOut_##name* pOpOut = (OpOut_##name*) pOut; \
+\
+		int nRes = HandleProto_##name(p, pOpIn, nIn - sizeof(*pOpIn), pOpOut, nOut - sizeof(*pOpOut)); \
+		if (BeamCrypto_KeyKeeper_Status_Ok == nRes) \
+		{ \
+			BeamCrypto_ProtoResponse_##name(THE_MACRO_CvtOut) \
+		} \
+		return nRes; \
+	} \
+	break; \
 
 		BeamCrypto_ProtoMethods(THE_MACRO)
 #undef THE_MACRO
@@ -1832,8 +1886,6 @@ PROTO_METHOD(Version)
 		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
 
 	pOut->m_Value = BeamCrypto_CurrentProtoVer;
-	ProtoH2N(pOut->m_Value);
-
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
@@ -1842,19 +1894,9 @@ PROTO_METHOD(GetPKdf)
 	if (nIn || nOut)
 		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
 
-	ProtoN2H(pIn->m_iChild, uint32_t);
 	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Root ? 0 : &pIn->m_iChild);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
-}
-
-void N2H_CoinID(BeamCrypto_CoinID* p)
-{
-	ProtoN2H(p->m_Amount, BeamCrypto_Amount);
-	ProtoN2H(p->m_AssetID, BeamCrypto_AssetID);
-	ProtoN2H(p->m_Idx, uint64_t);
-	ProtoN2H(p->m_SubIdx, uint32_t);
-	ProtoN2H(p->m_Type, uint32_t);
 }
 
 PROTO_METHOD(CreateOutput)
@@ -1864,8 +1906,6 @@ PROTO_METHOD(CreateOutput)
 
 	BeamCrypto_RangeProof ctx;
 	ctx.m_Cid = pIn->m_Cid;
-	N2H_CoinID(&ctx.m_Cid);
-
 	ctx.m_pKdf = &p->m_MasterKey;
 
 	static_assert(sizeof(ctx.m_pT) == sizeof(pIn->m_pT), "");
@@ -1894,14 +1934,6 @@ PROTO_METHOD(CreateOutput)
 	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, &ctx.m_TauX);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
-}
-
-void N2H_ShieldedInput(BeamCrypto_ShieldedInput* p)
-{
-	ProtoN2H(p->m_Fee, BeamCrypto_Amount);
-	ProtoN2H(p->m_TxoID.m_Amount, BeamCrypto_Amount);
-	ProtoN2H(p->m_TxoID.m_AssetID, BeamCrypto_AssetID);
-	ProtoN2H(p->m_TxoID.m_nViewerIdx, uint32_t);
 }
 
 //////////////////////////////
@@ -2573,9 +2605,6 @@ PROTO_METHOD(CreateShieldedVouchers)
 	if (nIn)
 		return BeamCrypto_KeyKeeper_Status_ProtoError;
 
-	ProtoN2H(pIn->m_Count, uint32_t);
-	ProtoN2H(pIn->m_nMyIDKey, BeamCrypto_WalletIdentity);
-
 	BeamCrypto_ShieldedVoucher* pRes = (BeamCrypto_ShieldedVoucher*) (pOut + 1);
 	if (nOut != sizeof(*pRes) * pIn->m_Count)
 		return BeamCrypto_KeyKeeper_Status_ProtoError;
@@ -2610,8 +2639,6 @@ PROTO_METHOD(CreateShieldedVouchers)
 	}
 
 	pOut->m_Count = pIn->m_Count;
-	ProtoH2N(pOut->m_Count);
-
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
@@ -2621,13 +2648,6 @@ PROTO_METHOD(CreateShieldedInput)
 {
 	if (nOut)
 		return BeamCrypto_KeyKeeper_Status_ProtoError;
-
-	N2H_ShieldedInput(&pIn->m_Inp);
-	ProtoN2H(pIn->m_hMin, BeamCrypto_Height);
-	ProtoN2H(pIn->m_hMax, BeamCrypto_Height);
-	ProtoN2H(pIn->m_WindowEnd, uint64_t);
-	ProtoN2H(pIn->m_Sigma_M, uint32_t);
-	ProtoN2H(pIn->m_Sigma_n, uint32_t);
 
 	BeamCrypto_CompactPoint* pG = (BeamCrypto_CompactPoint*)(pIn + 1);
 	if (nIn != sizeof(*pG) * pIn->m_Sigma_M)
