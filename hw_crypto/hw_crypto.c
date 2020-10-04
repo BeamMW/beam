@@ -483,13 +483,17 @@ void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k
 	}
 }
 
-static int IsUintBigZero(const BeamCrypto_UintBig* p)
+int memis0(const uint8_t* p, uint32_t n)
 {
-	// const-time isn't required
-	for (unsigned int i = 0; i < _countof(p->m_pVal); i++)
-		if (p->m_pVal[i])
+	for (uint32_t i = 0; i < n; i++)
+		if (p[i])
 			return 0;
 	return 1;
+}
+
+static int IsUintBigZero(const BeamCrypto_UintBig* p)
+{
+	return memis0(p->m_pVal, sizeof(p->m_pVal));
 }
 
 //////////////////////////////
@@ -1350,14 +1354,6 @@ typedef struct
 	secp256k1_scalar* m_pExtra;
 
 } RangeProof_Recovery_Context;
-
-int memis0(const uint8_t* p, uint32_t n)
-{
-	for (uint32_t i = 0; i < n; i++)
-		if (p[i])
-			return 0;
-	return 1;
-}
 
 static int RangeProof_Recover(const BeamCrypto_RangeProof_Packed* pRangeproof, BeamCrypto_Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
 {
