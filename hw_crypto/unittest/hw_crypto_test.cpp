@@ -703,12 +703,12 @@ struct KeyKeeperHwEmu
 
 		template <typename T> static void h2n_u(T& x) {
 			auto x_ = x;
-			reinterpret_cast<uintBigFor<T>::Type&>(x) = x_;
+			reinterpret_cast<typename uintBigFor<T>::Type&>(x) = x_;
 		}
 
 		template <typename T> static void n2h_u(T& x) {
 			auto x_ = x;
-			reinterpret_cast<uintBigFor<T>::Type&>(x_).Export(x);
+			reinterpret_cast<typename uintBigFor<T>::Type&>(x_).Export(x);
 		}
 
 		static void h2n(uint16_t& x) { h2n_u(x); }
