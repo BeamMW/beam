@@ -845,6 +845,7 @@ struct KeyKeeperHwEmu
 		static void Import(BeamCrypto_TxCommonOut&, const Method::TxCommon&);
 		static void Import(BeamCrypto_TxMutualIn&, const Method::TxMutual&);
 		static void Import(BeamCrypto_ShieldedTxoID&, const ShieldedTxo::ID&);
+		static void Import(BeamCrypto_ShieldedTxoUser&, const ShieldedTxo::User&);
 
 		static void Export(Method::TxCommon&, const BeamCrypto_TxCommonOut&);
 	};
@@ -1308,8 +1309,6 @@ void KeyKeeperHwEmu::CalcTxBalance(Amount& res, Asset::ID* pAid, Amount val, Ass
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded& m)
 {
-	return Status::NotImplemented;
-/*
 	Encoder enc;
 	Proto::TxSendShielded msg;
 	uint32_t nOutExtra;
@@ -1318,18 +1317,15 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded
 	out.m_Mut.m_Peer = Ecc2BC(m.m_Peer);
 	out.m_Mut.m_MyIDKey = m.m_MyIDKey;
 	out.m_HideAssetAlways = m.m_HideAssetAlways;
-	out.m_User.m_Sender = m.m_User.m_Sender;
+	enc.Import(out.m_User, m.m_User);
 
-		pars.m_Sender = Ecc2BC(op.m_User.m_Sender);
-	pars.m_pMessage[0] = Ecc2BC(op.m_User.m_pMessage[0]);
-	pars.m_pMessage[1] = Ecc2BC(op.m_User.m_pMessage[1]);
-
-
-	Encoder enc;
-	enc.TxImport(m);
-
-	assert(m.m_pKernel);
-	TxKernelStd& krn = *m.m_pKernel;
+	out.m_Voucher.m_SerialPub = Ecc2BC(m.m_Voucher.m_Ticket.m_SerialPub);
+	out.m_Voucher.m_NoncePub = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+	out.m_Voucher.m_pK[0] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+	out.m_Voucher.m_pK[1] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+	out.m_Voucher.m_SharedSecret = Ecc2BC(m.m_Voucher.m_SharedSecret);
+	out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m.m_Voucher.m_Signature.m_NoncePub);
+	out.m_Voucher.m_Signature.m_k = Ecc2BC(m.m_Voucher.m_Signature.m_k.m_Value);
 
 	ShieldedTxo::Data::OutputParams op;
 
@@ -1337,7 +1333,7 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded
 	// Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
 
 	op.m_Value = CalcTxBalance(nullptr, m);
-	op.m_Value -= krn.m_Fee;
+	op.m_Value -= out.m_Tx.m_Krn.m_Fee;
 
 	if (op.m_Value)
 		op.m_AssetID = 0;
@@ -1361,34 +1357,18 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded
 	op.Generate(krn1.m_Txo, m.m_Voucher.m_SharedSecret, oracle, m.m_HideAssetAlways);
 	krn1.MsgToID();
 
-	BeamCrypto_TxSendShieldedParams pars;
-	pars.m_Voucher.m_SerialPub = Ecc2BC(m.m_Voucher.m_Ticket.m_SerialPub);
-	pars.m_Voucher.m_NoncePub = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-	pars.m_Voucher.m_pK[0] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-	pars.m_Voucher.m_pK[1] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-	pars.m_Voucher.m_SharedSecret = Ecc2BC(m.m_Voucher.m_SharedSecret);
-	pars.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m.m_Voucher.m_Signature.m_NoncePub);
-	pars.m_Voucher.m_Signature.m_k = Ecc2BC(m.m_Voucher.m_Signature.m_k.m_Value);
-	pars.m_Receiver = Ecc2BC(m.m_Peer);
-	pars.m_MyIDKey = m.m_MyIDKey;
-	pars.m_Sender = Ecc2BC(op.m_User.m_Sender);
-	pars.m_pMessage[0] = Ecc2BC(op.m_User.m_pMessage[0]);
-	pars.m_pMessage[1] = Ecc2BC(op.m_User.m_pMessage[1]);
-	pars.m_HideAssetAlways = m.m_HideAssetAlways;
-
-	SerializerIntoStaticBuf ser(&pars.m_RangeProof);
+	SerializerIntoStaticBuf ser(&out.m_RangeProof);
 	ser & krn1.m_Txo.m_RangeProof;
-	assert(ser.get_Size(&pars.m_RangeProof) == sizeof(pars.m_RangeProof));
+	assert(ser.get_Size(&out.m_RangeProof) == sizeof(out.m_RangeProof));
 
-	int nRet = BeamCrypto_KeyKeeper_SignTx_SendShielded(&m_Ctx, &enc.m_Res, &pars);
-
+	int nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
 	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
 	{
-		krn.m_vNested.push_back(std::move(pOutp));
-		enc.TxExport(m);
+		m.m_pKernel->m_vNested.push_back(std::move(pOutp));
+		enc.Export(m, msg.m_In.m_Tx);
 	}
 
-	return static_cast<Status::Type>(nRet);*/
+	return static_cast<Status::Type>(nRet);
 }
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
@@ -1498,15 +1478,21 @@ void KeyKeeperHwEmu::Encoder::Export(Method::TxCommon& m, const BeamCrypto_TxCom
 	m.m_kOffset = kOffs;
 }
 
+void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_ShieldedTxoUser& dst, const ShieldedTxo::User& src)
+{
+	dst.m_Sender = Ecc2BC(src.m_Sender);
+
+	static_assert(_countof(dst.m_pMessage) == _countof(src.m_pMessage));
+	for (uint32_t i = 0; i < _countof(src.m_pMessage); i++)
+		dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
+}
+
 void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_ShieldedTxoID& dst, const ShieldedTxo::ID& src)
 {
+	Import(dst.m_User, src.m_User);
+
 	dst.m_Amount = src.m_Value;
 	dst.m_AssetID = src.m_AssetID;
-	dst.m_User.m_Sender = Ecc2BC(src.m_User.m_Sender);
-
-	static_assert(_countof(dst.m_User.m_pMessage) == _countof(src.m_User.m_pMessage));
-	for (uint32_t i = 0; i < _countof(src.m_User.m_pMessage); i++)
-		dst.m_User.m_pMessage[i] = Ecc2BC(src.m_User.m_pMessage[i]);
 
 	dst.m_IsCreatedByViewer = !!src.m_Key.m_IsCreatedByViewer;
 	dst.m_nViewerIdx = src.m_Key.m_nIdx;
@@ -2240,7 +2226,7 @@ int main()
 	TestOracle();
 	TestKdf();
 	TestCoins();
-	//TestShielded();
+	TestShielded();
 	TestSignature();
 	TestKrn();
 	TestPKdfExport();
