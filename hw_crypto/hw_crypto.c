@@ -1256,8 +1256,8 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 	for (unsigned int i = 0; i < 2; i++)
 	{
-		secp256k1_hmac_sha256_write(&hmac, p->m_pT[i].m_X.m_pVal, sizeof(p->m_pT[i].m_X.m_pVal));
-		secp256k1_hmac_sha256_write(&hmac, &p->m_pT[i].m_Y, sizeof(p->m_pT[i].m_Y));
+		secp256k1_hmac_sha256_write(&hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
+		secp256k1_hmac_sha256_write(&hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
 
 		BeamCrypto_Oracle_NextScalar(&oracle, pChallenge); // challenges y,z. The 'y' is not needed, will be overwritten by 'z'.
 		secp256k1_scalar_get_b32(hv.m_pVal, pChallenge);
@@ -1276,7 +1276,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 		BeamCrypto_MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
 
-		pFp[i].m_Compact = p->m_pT[i];
+		pFp[i].m_Compact = p->m_pT_In[i];
 		pFp[i].m_Flags = BeamCrypto_FlexPoint_Compact;
 		BeamCrypto_FlexPoint_MakeGe(pFp + i);
 		if (!pFp[i].m_Flags)
@@ -1300,7 +1300,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 		{
 			secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
 			assert(BeamCrypto_FlexPoint_Compact & pFp[i].m_Flags);
-			p->m_pT[i] = pFp[i].m_Compact;
+			p->m_pT_Out[i] = pFp[i].m_Compact;
 		}
 
 		// last challenge
@@ -1313,9 +1313,9 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 		secp256k1_scalar_mul(pChallenge, pChallenge, pChallenge); // z^2
 
-		secp256k1_scalar_mul(&p->m_TauX, &pWrk->m_sk, pChallenge); // sk*z^2
-		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK);
-		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK + 1);
+		secp256k1_scalar_mul(p->m_pTauX, &pWrk->m_sk, pChallenge); // sk*z^2
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK);
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK + 1);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_sk);
@@ -1907,32 +1907,31 @@ PROTO_METHOD(CreateOutput)
 	BeamCrypto_RangeProof ctx;
 	ctx.m_Cid = pIn->m_Cid;
 	ctx.m_pKdf = &p->m_MasterKey;
+	ctx.m_pT_In = pIn->m_pT;
+	ctx.m_pT_Out = pOut->m_pT;
 
-	static_assert(sizeof(ctx.m_pT) == sizeof(pIn->m_pT), "");
-	memcpy(ctx.m_pT, pIn->m_pT, sizeof(pIn->m_pT));
+	static_assert(sizeof(BeamCrypto_UintBig) == sizeof(secp256k1_scalar), "");
+	ctx.m_pTauX = (secp256k1_scalar*) pIn->m_pKExtra;
 
 	if (memis0(pIn->m_pKExtra->m_pVal, sizeof(pIn->m_pKExtra)))
 		ctx.m_pKExtra = 0;
 	else
 	{
+		// in-place convert, overwrite the original pIn->m_pKExtra
+		ctx.m_pKExtra = ctx.m_pTauX;
+
 		for (uint32_t i = 0; i < _countof(pIn->m_pKExtra); i++)
 		{
-			static_assert(sizeof(pOut->m_TauX) == sizeof(secp256k1_scalar), "");
-
+			memcpy(pOut->m_TauX.m_pVal, pIn->m_pKExtra[i].m_pVal, sizeof(pOut->m_TauX.m_pVal));
 			int overflow;
-			secp256k1_scalar_set_b32((secp256k1_scalar*) &pOut->m_TauX, pIn->m_pKExtra[i].m_pVal, &overflow);
-			memcpy(pIn->m_pKExtra[i].m_pVal, &pOut->m_TauX, sizeof(pOut->m_TauX));
+			secp256k1_scalar_set_b32((secp256k1_scalar*) ctx.m_pKExtra + i, pOut->m_TauX.m_pVal, &overflow);
 		}
-
-		ctx.m_pKExtra = (secp256k1_scalar*) pIn->m_pKExtra;
 	}
 
 	if (!BeamCrypto_RangeProof_Calculate(&ctx))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
-	memcpy(pOut->m_pT, ctx.m_pT, sizeof(pOut->m_pT));
-	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, &ctx.m_TauX);
-
+	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, ctx.m_pTauX);
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 

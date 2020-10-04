@@ -435,21 +435,25 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	outp.Create(g_hFork, skDummy, kdfDummy, cid, kdf, Output::OpCode::Mpc_1, &user); // Phase 1
 	assert(outp.m_pConfidential);
 
+	BeamCrypto_CompactPoint pT[2];
+	pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
+	pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
+
+	ECC::Scalar::Native tauX;
+
 	BeamCrypto_RangeProof rp;
 	rp.m_pKdf = &kdf2;
 	rp.m_Cid = cid2;
-	rp.m_pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
-	rp.m_pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
+	rp.m_pT_In = pT;
+	rp.m_pT_Out = pT;
 	rp.m_pKExtra = &pKExtra->get();
-	ZeroObject(rp.m_TauX);
+	rp.m_pTauX = &tauX.get_Raw();
 
 	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
 
-	Ecc2BC(outp.m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
-	Ecc2BC(outp.m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
+	Ecc2BC(outp.m_pConfidential->m_Part2.m_T1) = pT[0];
+	Ecc2BC(outp.m_pConfidential->m_Part2.m_T2) = pT[1];
 
-	ECC::Scalar::Native tauX;
-	tauX.get_Raw() = rp.m_TauX;
 	outp.m_pConfidential->m_Part3.m_TauX = tauX;
 
 	outp.Create(g_hFork, skDummy, kdfDummy, cid, kdf, Output::OpCode::Mpc_2, &user); // Phase 3
