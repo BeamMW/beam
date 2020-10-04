@@ -1351,6 +1351,14 @@ typedef struct
 
 } RangeProof_Recovery_Context;
 
+int memis0(const uint8_t* p, uint32_t n)
+{
+	for (uint32_t i = 0; i < n; i++)
+		if (p[i])
+			return 0;
+	return 1;
+}
+
 static int RangeProof_Recover(const BeamCrypto_RangeProof_Packed* pRangeproof, BeamCrypto_Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
 {
 	static const char szSalt[] = "bulletproof";
@@ -1396,9 +1404,8 @@ static int RangeProof_Recover(const BeamCrypto_RangeProof_Packed* pRangeproof, B
 		assert(pCtx->m_nUser <= BeamCrypto_nBytes - sizeof(BeamCrypto_Amount));
 		uint32_t nPad = BeamCrypto_nBytes - sizeof(BeamCrypto_Amount) - pCtx->m_nUser;
 
-		for (uint32_t i = 0; i < nPad; i++)
-			if (pBlob[i])
-				return 0;
+		if (!memis0(pBlob, nPad))
+			return 0;
 
 		memcpy(pCtx->m_pUser, pBlob + nPad, pCtx->m_nUser);
 
@@ -1796,7 +1803,7 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 #pragma pack (pop)
 
 #define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
-#define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field))
+#define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field)); static_assert(sizeof(field) == sizeof(type), "")
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut)
 {
@@ -1837,6 +1844,54 @@ PROTO_METHOD(GetPKdf)
 
 	ProtoN2H(pIn->m_iChild, uint32_t);
 	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Root ? 0 : &pIn->m_iChild);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+void N2H_CoinID(BeamCrypto_CoinID* p)
+{
+	ProtoN2H(p->m_Amount, BeamCrypto_Amount);
+	ProtoN2H(p->m_AssetID, BeamCrypto_AssetID);
+	ProtoN2H(p->m_Idx, uint64_t);
+	ProtoN2H(p->m_SubIdx, uint32_t);
+	ProtoN2H(p->m_Type, uint32_t);
+}
+
+PROTO_METHOD(CreateOutput)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	BeamCrypto_RangeProof ctx;
+	ctx.m_Cid = pIn->m_Cid;
+	N2H_CoinID(&ctx.m_Cid);
+
+	ctx.m_pKdf = &p->m_MasterKey;
+
+	static_assert(sizeof(ctx.m_pT) == sizeof(pIn->m_pT), "");
+	memcpy(ctx.m_pT, pIn->m_pT, sizeof(pIn->m_pT));
+
+	if (memis0(pIn->m_pKExtra->m_pVal, sizeof(pIn->m_pKExtra)))
+		ctx.m_pKExtra = 0;
+	else
+	{
+		for (uint32_t i = 0; i < _countof(pIn->m_pKExtra); i++)
+		{
+			static_assert(sizeof(pOut->m_TauX) == sizeof(secp256k1_scalar), "");
+
+			int overflow;
+			secp256k1_scalar_set_b32((secp256k1_scalar*) &pOut->m_TauX, pIn->m_pKExtra[i].m_pVal, &overflow);
+			memcpy(pIn->m_pKExtra[i].m_pVal, &pOut->m_TauX, sizeof(pOut->m_TauX));
+		}
+
+		ctx.m_pKExtra = (secp256k1_scalar*) pIn->m_pKExtra;
+	}
+
+	if (!BeamCrypto_RangeProof_Calculate(&ctx))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	memcpy(pOut->m_pT, ctx.m_pT, sizeof(pOut->m_pT));
+	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, &ctx.m_TauX);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }

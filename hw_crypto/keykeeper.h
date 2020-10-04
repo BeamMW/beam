@@ -194,6 +194,15 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
 	macro(BeamCrypto_KdfPub, Value)
 
+#define BeamCrypto_ProtoRequest_CreateOutput(macro) \
+	macro(BeamCrypto_CoinID, Cid) \
+	macro(BeamCrypto_UintBig, pKExtra[2]) \
+	macro(BeamCrypto_CompactPoint, pT[2]) \
+
+#define BeamCrypto_ProtoResponse_CreateOutput(macro) \
+	macro(BeamCrypto_CompactPoint, pT[2]) \
+	macro(BeamCrypto_UintBig, TauX) \
+
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
 	macro(BeamCrypto_ShieldedInput, Inp) \
 	macro(BeamCrypto_Height, hMin) \
@@ -224,6 +233,7 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper*, BeamCr
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
 	macro(0x02, GetPKdf) \
+	macro(0x10, CreateOutput) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
 

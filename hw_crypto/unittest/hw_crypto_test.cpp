@@ -730,6 +730,13 @@ struct KeyKeeperHwEmu
 			n2h(x.m_TxoID.m_Amount);
 			n2h(x.m_TxoID.m_AssetID);
 			n2h(x.m_TxoID.m_nViewerIdx);
+
+		static void h2n(BeamCrypto_CoinID& cid) {
+			h2n(cid.m_Amount);
+			h2n(cid.m_AssetID);
+			h2n(cid.m_Idx);
+			h2n(cid.m_SubIdx);
+			h2n(cid.m_Type);
 		}
 
 #pragma pack (push, 1)
@@ -1135,24 +1142,23 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateOutput& m)
 	pOutp->Create(g_hFork, skDummy, kdfDummy, m.m_Cid, *m_pOwnerKey, Output::OpCode::Mpc_1);
 	assert(pOutp->m_pConfidential);
 
-	BeamCrypto_RangeProof rp;
-	rp.m_pKdf = &m_Ctx.m_MasterKey;
-	CidCvt(rp.m_Cid, m.m_Cid);
+	Proto::CreateOutput msg;
+	CidCvt(msg.m_Out.m_Cid, m.m_Cid);
+	msg.m_Out.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
+	msg.m_Out.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
 
-	rp.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
-	rp.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
-	rp.m_pKExtra = nullptr;
-	ZeroObject(rp.m_TauX);
+	msg.m_Out.m_pKExtra[0] = Ecc2BC(m.m_User.m_pExtra[0].m_Value);
+	msg.m_Out.m_pKExtra[1] = Ecc2BC(m.m_User.m_pExtra[1].m_Value);
 
-	if (!BeamCrypto_RangeProof_Calculate(&rp)) // Phase 2
-		return Status::Unspecified;
+	Status::Type nRes = InvokeProto(msg);
+	if (Status::Success != nRes)
+		return nRes;
 
-	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = rp.m_pT[0];
-	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = rp.m_pT[1];
 
-	ECC::Scalar::Native tauX;
-	tauX.get_Raw() = rp.m_TauX;
-	pOutp->m_pConfidential->m_Part3.m_TauX = tauX;
+	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = msg.m_In.m_pT[0];
+	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = msg.m_In.m_pT[1];
+
+	Ecc2BC(pOutp->m_pConfidential->m_Part3.m_TauX.m_Value) = msg.m_In.m_TauX;
 
 	pOutp->Create(g_hFork, skDummy, kdfDummy, m.m_Cid, *m_pOwnerKey, Output::OpCode::Mpc_2); // Phase 3
 
