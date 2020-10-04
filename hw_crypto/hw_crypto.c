@@ -2074,11 +2074,16 @@ static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommonI
 	return TxAggregate0(p, pOuts, pTx->m_Outs, &pRes->m_Outs, pRes, 1);
 }
 
-static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_TxCommonOut* pTx)
+static void TxAggrToOffsetEx(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_UintBig* pOffs)
 {
 	secp256k1_scalar_add(&pAggr->m_sk, &pAggr->m_sk, pKrn);
 	secp256k1_scalar_negate(&pAggr->m_sk, &pAggr->m_sk);
-	secp256k1_scalar_get_b32(pTx->m_kOffset.m_pVal, &pAggr->m_sk);
+	secp256k1_scalar_get_b32(pOffs->m_pVal, &pAggr->m_sk);
+}
+
+static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_TxCommonOut* pTx)
+{
+	TxAggrToOffsetEx(pAggr, pKrn, &pTx->m_kOffset);
 }
 
 static void TxImportSubtract(secp256k1_scalar* pK, const BeamCrypto_UintBig* pPrev)
@@ -2133,7 +2138,7 @@ static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_A
 
 //////////////////////////////
 // KeyKeeper - Kernel modification
-static int KernelUpdateKeys(BeamCrypto_TxKernelData* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
+static int KernelUpdateKeysEx(BeamCrypto_CompactPoint* pCommitment, BeamCrypto_CompactPoint* pNoncePub, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
 {
 	BeamCrypto_FlexPoint pFp[2];
 
@@ -2165,12 +2170,17 @@ static int KernelUpdateKeys(BeamCrypto_TxKernelData* pKrn, const secp256k1_scala
 	BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
 
 	BeamCrypto_FlexPoint_MakeCompact(pFp);
-	pKrn->m_Commitment = pFp[0].m_Compact;
+	*pCommitment = pFp[0].m_Compact;
 
 	BeamCrypto_FlexPoint_MakeCompact(pFp + 1);
-	pKrn->m_Signature.m_NoncePub = pFp[1].m_Compact;
+	*pNoncePub = pFp[1].m_Compact;
 
 	return 1;
+}
+
+static int KernelUpdateKeys(BeamCrypto_TxKernelData* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
+{
+	return KernelUpdateKeysEx(&pKrn->m_Commitment, &pKrn->m_Signature.m_NoncePub, pSk, pNonce, pAdd);
 }
 
 //////////////////////////////
@@ -2346,12 +2356,12 @@ PROTO_METHOD(TxReceive)
 
 //////////////////////////////
 // KeyKeeper - SendTx
-PROTO_METHOD(TxSend)
+int HandleTxSend(const BeamCrypto_KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2, uint32_t nOut)
 {
 	if (nOut)
 		return BeamCrypto_KeyKeeper_Status_ProtoError;
 	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
+	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pInExtra, nInExtra))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 	if (!txAggr.m_Ins.m_Assets)
 		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending (no net transferred value)
@@ -2405,23 +2415,29 @@ PROTO_METHOD(TxSend)
 	if (IsUintBigZero(&hv))
 		hv.m_pVal[_countof(hv.m_pVal) - 1] = 1;
 
-	if (IsUintBigZero(&pIn->m_UserAgreement))
+	if (pOut1)
 	{
 		int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
 		if (BeamCrypto_KeyKeeper_Status_Ok != res)
 			return res;
 
-		pOut->m_UserAgreement = hv;
+		pOut1->m_UserAgreement = hv;
 
-		KernelUpdateKeys(&pOut->m_Tx.m_Krn, &kKrn, &kNonce, 0);
+		KernelUpdateKeysEx(&pOut1->m_HalfKrn.m_Commitment, &pOut1->m_HalfKrn.m_NoncePub, &kKrn, &kNonce, 0);
 
 		return BeamCrypto_KeyKeeper_Status_Ok;
 	}
 
+	assert(pOut2);
+
 	if (memcmp(pIn->m_UserAgreement.m_pVal, hv.m_pVal, sizeof(hv.m_pVal)))
 		return BeamCrypto_KeyKeeper_Status_Unspecified; // incorrect user agreement token
 
-	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &pIn->m_Semi.m_Krn, &hv);
+	BeamCrypto_TxKernelData krn;
+	krn.m_Commitment = pIn->m_HalfKrn.m_Commitment;
+	krn.m_Signature.m_NoncePub = pIn->m_HalfKrn.m_NoncePub;
+
+	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &krn, &hv);
 
 	// verify payment confirmation signature
 	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, txAggr.m_Ins.m_Assets, txAggr.m_AssetID);
@@ -2435,21 +2451,29 @@ PROTO_METHOD(TxSend)
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pIn->m_Semi.m_Krn, &hvMyID);
+	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
 	if (BeamCrypto_KeyKeeper_Status_Ok != res)
 		return res;
 
 	// Regenerate the slot (BEFORE signing), and sign
 	BeamCrypto_KeyKeeper_RegenerateSlot(pIn->m_iSlot);
 
-	TxImportSubtract(&kNonce, &pIn->m_Semi.m_Krn.m_Signature.m_k);
-	pOut->m_Tx.m_Krn.m_Signature.m_NoncePub = pIn->m_Semi.m_Krn.m_Signature.m_NoncePub;
-	BeamCrypto_Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+	BeamCrypto_Signature_SignPartial(&krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxImportSubtract(&kKrn, &pIn->m_Semi.m_kOffset);
-	TxAggrToOffset(&txAggr, &kKrn, &pOut->m_Tx);
+	pOut2->m_kSig = krn.m_Signature.m_k;
+	TxAggrToOffsetEx(&txAggr, &kKrn, &pOut2->m_kOffset);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(TxSend1)
+{
+	return HandleTxSend(p, (OpIn_TxSend2*) pIn, pIn + 1, nIn, pOut, 0, nOut);
+}
+
+PROTO_METHOD(TxSend2)
+{
+	return HandleTxSend(p, pIn, pIn + 1, nIn, 0, pOut, nOut);
 }
 
 //////////////////////////////

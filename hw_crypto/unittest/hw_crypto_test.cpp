@@ -1216,49 +1216,63 @@ KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
 
 KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
 {
-	bool bInitial = (m.m_UserAgreement == Zero);
-
 	Encoder enc;
-	Proto::TxSend msg;
 	uint32_t nOutExtra;
+	int nRet;
 
-	auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-	out.m_iSlot = m.m_Slot;
-	enc.Import(out.m_Mut, m);
-
-	if (!bInitial)
+	if (m.m_UserAgreement == Zero)
 	{
-		out.m_PaymentProof.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
-		out.m_PaymentProof.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
+		Proto::TxSend1 msg;
+		auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
 
-		enc.Import(out.m_Semi, m);
-		out.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
-	}
+		out.m_iSlot = m.m_Slot;
+		enc.Import(out.m_Mut, m);
 
-	int nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-	{
-		auto& krn = *m.m_pKernel;
-
-		if (bInitial)
+		nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
+		if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
 		{
+			auto& krn = *m.m_pKernel;
+
 			Ecc2BC(m.m_UserAgreement) = msg.m_In.m_UserAgreement;
-			Ecc2BC(krn.m_Commitment) = msg.m_In.m_Tx.m_Krn.m_Commitment;
-			Ecc2BC(krn.m_Signature.m_NoncePub) = msg.m_In.m_Tx.m_Krn.m_Signature.m_NoncePub;
+			Ecc2BC(krn.m_Commitment) = msg.m_In.m_HalfKrn.m_Commitment;
+			Ecc2BC(krn.m_Signature.m_NoncePub) = msg.m_In.m_HalfKrn.m_NoncePub;
 
 			krn.UpdateID();
 		}
-		else
-		{
-			Ecc2BC(krn.m_Signature.m_k.m_Value) = msg.m_In.m_Tx.m_Krn.m_Signature.m_k;
-
-			// offset
-			ECC::Scalar kOffs;
-			Ecc2BC(kOffs.m_Value) = msg.m_In.m_Tx.m_kOffset;
-			m.m_kOffset = kOffs;
-		}
-
 	}
+	else
+	{
+		Proto::TxSend2 msg;
+		auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
+
+		out.m_iSlot = m.m_Slot;
+		enc.Import(out.m_Mut, m);
+
+		out.m_PaymentProof.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
+		out.m_PaymentProof.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
+
+		auto& krn = *m.m_pKernel;
+
+		out.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
+		out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
+		out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
+
+		nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
+		if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
+		{
+			// add scalars
+			ECC::Scalar k_;
+			Ecc2BC(k_.m_Value) = msg.m_In.m_kSig;
+
+			ECC::Scalar::Native k(krn.m_Signature.m_k);
+			k += k_;
+			krn.m_Signature.m_k = k;
+
+			Ecc2BC(k_.m_Value) = msg.m_In.m_kOffset;
+			m.m_kOffset += k_;
+		}
+	}
+
 
 	return static_cast<Status::Type>(nRet);
 }

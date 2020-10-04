@@ -65,6 +65,13 @@ int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernelUser*, const BeamCrypto
 
 typedef struct
 {
+	BeamCrypto_CompactPoint m_Commitment;
+	BeamCrypto_CompactPoint m_NoncePub;
+
+} BeamCrypto_TxKernelCommitments;
+
+typedef struct
+{
 	BeamCrypto_UintBig m_Sender;
 	BeamCrypto_UintBig m_pMessage[2];
 
@@ -124,13 +131,6 @@ typedef struct
 
 #define BeamCrypto_KeyKeeper_Status_ProtoError 10
 
-
-typedef struct
-{
-	uint32_t m_iSlot;
-	BeamCrypto_UintBig m_UserAgreement; // set to Zero on 1st invocation
-
-} BeamCrypto_TxSenderParams;
 
 typedef struct
 {
@@ -230,18 +230,26 @@ typedef struct
 	macro(0, BeamCrypto_TxCommonOut, Tx) \
 	macro(0, BeamCrypto_Signature, PaymentProof) \
 
-#define BeamCrypto_ProtoRequest_TxSend(macro) \
+#define BeamCrypto_ProtoRequest_TxSend1(macro) \
 	macro(1, BeamCrypto_TxCommonIn, Tx) \
 	macro(1, BeamCrypto_TxMutualIn, Mut) \
-	macro(0, BeamCrypto_TxCommonOut, Semi) \
-	macro(0, BeamCrypto_Signature, PaymentProof) \
-	macro(0, BeamCrypto_UintBig, UserAgreement) \
 	macro(1, uint32_t, iSlot) \
 	/* followed by in/outs */
 
-#define BeamCrypto_ProtoResponse_TxSend(macro) \
-	macro(0, BeamCrypto_TxCommonOut, Tx) \
+#define BeamCrypto_ProtoResponse_TxSend1(macro) \
+	macro(0, BeamCrypto_TxKernelCommitments, HalfKrn) \
 	macro(0, BeamCrypto_UintBig, UserAgreement) \
+
+#define BeamCrypto_ProtoRequest_TxSend2(macro) \
+	BeamCrypto_ProtoRequest_TxSend1(macro) \
+	macro(0, BeamCrypto_TxKernelCommitments, HalfKrn) \
+	macro(0, BeamCrypto_Signature, PaymentProof) \
+	macro(0, BeamCrypto_UintBig, UserAgreement) \
+	/* followed by in/outs */
+
+#define BeamCrypto_ProtoResponse_TxSend2(macro) \
+	macro(0, BeamCrypto_UintBig, kSig) \
+	macro(0, BeamCrypto_UintBig, kOffset) \
 
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(1, BeamCrypto_TxCommonIn, Tx) \
@@ -271,7 +279,8 @@ BeamCrypto_UintBig m_pMessage[2];
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \
-	macro(0x32, TxSend) \
-	macro(0x33, TxSendShielded) \
+	macro(0x32, TxSend1) \
+	macro(0x33, TxSend2) \
+	macro(0x36, TxSendShielded) \
 
 int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
