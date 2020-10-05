@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "remote_key_keeper.h"
+#include "utility/executor.h"
 
 extern "C" {
 #   include "../hw_crypto/keykeeper.h"
@@ -827,8 +828,13 @@ namespace beam::wallet
 
             Setup();
 
-            // proof phase1 generation
-            m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
+            {
+                ExecutorMT exec;
+                Executor::Scope scope(exec);
+
+                // proof phase1 generation (the most computationally expensive)
+                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
+            }
 
             auto& proof = m_Prover.m_Sigma.m_Proof;
 
