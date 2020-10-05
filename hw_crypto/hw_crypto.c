@@ -1897,6 +1897,15 @@ PROTO_METHOD(Version)
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
+PROTO_METHOD(GetNumSlots)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	pOut->m_Value = BeamCrypto_KeyKeeper_getNumSlots();
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
 PROTO_METHOD(GetPKdf)
 {
 	if (nIn || nOut)

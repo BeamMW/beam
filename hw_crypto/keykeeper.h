@@ -171,6 +171,10 @@ typedef struct
 #define BeamCrypto_ProtoResponse_Version(macro) \
 	macro(1, uint32_t, Value)
 
+#define BeamCrypto_ProtoRequest_GetNumSlots(macro)
+#define BeamCrypto_ProtoResponse_GetNumSlots(macro) \
+	macro(1, uint32_t, Value)
+
 #define BeamCrypto_ProtoRequest_GetPKdf(macro) \
 	macro(0, uint8_t, Root) \
 	macro(1, uint32_t, iChild)
@@ -274,7 +278,8 @@ BeamCrypto_UintBig m_pMessage[2];
 
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
-	macro(0x02, GetPKdf) \
+	macro(0x02, GetNumSlots) \
+	macro(0x03, GetPKdf) \
 	macro(0x10, CreateOutput) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
