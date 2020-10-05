@@ -29,6 +29,7 @@ extern "C" {
 #include "../core/block_crypt.h"
 
 #include "../keykeeper/local_private_key_keeper.h"
+#include "../keykeeper/remote_key_keeper.h"
 
 
 using namespace beam;
@@ -699,811 +700,43 @@ void TestPKdfExport()
 	}
 }
 
-
 struct KeyKeeperHwEmu
-	:public wallet::PrivateKeyKeeper_AsyncNotify
+	:public wallet::RemoteKeyKeeper
 {
-#define THE_MACRO_Field(cvt, type, name) type m_##name;
-
-#define THE_MACRO_Field_h2n(cvt, type, name) THE_MACRO_Field_h2n_##cvt(m_##name)
-#define THE_MACRO_Field_h2n_0(field)
-#define THE_MACRO_Field_h2n_1(field) Proto::h2n(field);
-
-#define THE_MACRO_Field_n2h(cvt, type, name) THE_MACRO_Field_n2h_##cvt(m_##name)
-#define THE_MACRO_Field_n2h_0(field)
-#define THE_MACRO_Field_n2h_1(field) Proto::n2h(field);
-
-	struct Proto
-	{
-		template <typename T> static void h2n_u(T& x) {
-			auto x_ = x;
-			reinterpret_cast<typename uintBigFor<T>::Type&>(x) = x_;
-		}
-
-		template <typename T> static void n2h_u(T& x) {
-			auto x_ = x;
-			reinterpret_cast<typename uintBigFor<T>::Type&>(x_).Export(x);
-		}
-
-		static void h2n(uint16_t& x) { h2n_u(x); }
-		static void n2h(uint16_t& x) { n2h_u(x); }
-		static void h2n(uint32_t& x) { h2n_u(x); }
-		static void n2h(uint32_t& x) { n2h_u(x); }
-		static void h2n(uint64_t& x) { h2n_u(x); }
-		static void n2h(uint64_t& x) { n2h_u(x); }
-
-		static void h2n(BeamCrypto_ShieldedInput& x) {
-			h2n(x.m_Fee);
-			h2n(x.m_TxoID.m_Amount);
-			h2n(x.m_TxoID.m_AssetID);
-			h2n(x.m_TxoID.m_nViewerIdx);
-		}
-
-		static void h2n(BeamCrypto_CoinID& cid) {
-			h2n(cid.m_Amount);
-			h2n(cid.m_AssetID);
-			h2n(cid.m_Idx);
-			h2n(cid.m_SubIdx);
-			h2n(cid.m_Type);
-		}
-
-		static void h2n(BeamCrypto_TxCommonIn& tx) {
-			h2n(tx.m_Ins);
-			h2n(tx.m_Outs);
-			h2n(tx.m_InsShielded);
-			h2n(tx.m_Krn.m_Fee);
-			h2n(tx.m_Krn.m_hMin);
-			h2n(tx.m_Krn.m_hMax);
-		}
-
-		static void h2n(BeamCrypto_TxMutualIn& mut) {
-			h2n(mut.m_MyIDKey);
-		}
-
-#pragma pack (push, 1)
-
-#define THE_MACRO(id, name) \
-		struct name { \
-			struct Out { \
-				uint8_t m_OpCode; \
-				Out() { \
-					ZeroObject(*this); \
-					m_OpCode = id; \
-				} \
-				BeamCrypto_ProtoRequest_##name(THE_MACRO_Field) \
-				void h2n() { BeamCrypto_ProtoRequest_##name(THE_MACRO_Field_h2n) } \
-			}; \
-			struct In { \
-				BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
-				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_n2h) } \
-			}; \
-			Out m_Out; \
-			In m_In; \
-		};
-
-		BeamCrypto_ProtoMethods(THE_MACRO)
-#undef THE_MACRO
-#undef THE_MACRO_Field
-#pragma pack (pop)
-	};
-
 	BeamCrypto_KeyKeeper m_Ctx;
-	Key::IPKdf::Ptr m_pOwnerKey; // cached
 
-	template <typename T>
-	T& ExtendBy(ByteBuffer& buf, const T& x, size_t nExtra)
+	struct MyTask
+		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
 	{
-		buf.resize(sizeof(T) + nExtra);
-		memcpy(&buf.front(), &x, sizeof(T));
-		return *reinterpret_cast<T*>(&buf.front());
-	}
+		KeyKeeperHwEmu* m_pThis;
+		Blob m_msgOut;
+		Blob m_msgIn;
 
-	template <typename TOut, typename TIn>
-	int InvokeProtoEx(TOut& out, TIn& in, size_t nExOut, size_t nExIn)
-	{
-		out.h2n();
-
-		int nRes = BeamCrypto_KeyKeeper_Invoke(&m_Ctx,
-			reinterpret_cast<uint8_t*>(&out),
-			static_cast<uint32_t>(sizeof(out) + nExOut),
-			reinterpret_cast<uint8_t*>(&in),
-			static_cast<uint32_t>(sizeof(in) + nExIn));
-
-		if (Status::Success == nRes)
-			in.n2h();
-
-		return nRes;
-	}
-
-	template <typename T>
-	int InvokeProto(T& msg)
-	{
-		return InvokeProtoEx(msg.m_Out, msg.m_In, 0, 0);
-	}
-
-	void TestProto()
-	{
-		Proto::Version msg;
-		verify_test(InvokeProto(msg) == Status::Success);
-		verify_test(BeamCrypto_CurrentProtoVer == msg.m_In.m_Value);
-	}
-
-	bool get_PKdf(Key::IPKdf::Ptr&, const uint32_t*);
-	bool get_OwnerKey();
-
-	static void CidCvt(BeamCrypto_CoinID&, const CoinID&);
-
-	struct Encoder
-	{
-		ByteBuffer m_Buf;
-
-		template <typename T>
-		T& ExtendByCommon(T& x, const Method::TxCommon& tx, uint32_t& nOutExtra)
+		virtual void Execute(Task::Ptr&) override
 		{
-			ExtendByInternal(reinterpret_cast<const uint8_t*>(&x), static_cast<uint32_t>(sizeof(x)), x.m_Tx, tx, nOutExtra);
-			return *reinterpret_cast<T*>(&m_Buf.front());
+			int nRes = BeamCrypto_KeyKeeper_Invoke(&m_pThis->m_Ctx,
+				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgOut.p)),
+				static_cast<uint32_t>(m_msgOut.n),
+				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgIn.p)),
+				static_cast<uint32_t>(m_msgIn.n));
+
+			m_pHandler->OnDone((Status::Type) nRes);
 		}
-
-		void ExtendByInternal(const uint8_t* p, uint32_t nSize, BeamCrypto_TxCommonIn&, const Method::TxCommon& tx, uint32_t& nOutExtra);
-
-		static void Import(BeamCrypto_TxKernelUser&, const Method::TxCommon&);
-		static void Import(BeamCrypto_TxKernelData&, const Method::TxCommon&);
-		static void Import(BeamCrypto_TxCommonOut&, const Method::TxCommon&);
-		static void Import(BeamCrypto_TxMutualIn&, const Method::TxMutual&);
-		static void Import(BeamCrypto_ShieldedTxoID&, const ShieldedTxo::ID&);
-		static void Import(BeamCrypto_ShieldedTxoUser&, const ShieldedTxo::User&);
-
-		static void Export(Method::TxCommon&, const BeamCrypto_TxCommonOut&);
 	};
 
-	static Amount CalcTxBalance(Asset::ID* pAid, const Method::TxCommon&);
-	static void CalcTxBalance(Amount&, Asset::ID* pAid, Amount, Asset::ID);
-
-#define THE_MACRO(method) \
-        virtual Status::Type InvokeSync(Method::method& m) override;
-
-	KEY_KEEPER_METHODS(THE_MACRO)
-#undef THE_MACRO
-
-	struct ShieldedInpContext
+	virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler)
 	{
-		Method::CreateInputShielded& m_Method;
+		Task::Ptr pTask = std::make_unique<MyTask>();
+		auto& t = Cast::Up<MyTask>(*pTask);
 
-		Proto::CreateShieldedInput m_Msg;
+		t.m_pThis = this;
+		t.m_msgOut = msgOut;
+		t.m_msgIn = msgIn;
+		t.m_pHandler = pHandler;
 
-		Lelantus::Prover m_Prover;
-		ECC::Hash::Value m_hvSigmaSeed;
-		ECC::Oracle m_Oracle;
-
-		ShieldedInpContext(Method::CreateInputShielded& m)
-			:m_Method(m)
-			,m_Prover(*m.m_pList, m.m_pKernel->m_SpendProof)
-		{
-		}
-
-		static void get_InpParams(ShieldedTxo::Data::Params&, Key::IPKdf& owner, const ShieldedTxo::ID&);
-
-		struct ParamsPlus
-			:public ShieldedTxo::Data::Params
-		{
-			ECC::Point::Native m_hGen;
-			void Init(Key::IPKdf& owner, const ShieldedTxo::ID&);
-		};
-
-		void Setup(Key::IPKdf& owner);
-		void InvokeLocal1();
-		// call HW device
-		void InvokeLocal2();
-	};
+		PushOut(pTask);
+	}
 };
-
-bool KeyKeeperHwEmu::get_PKdf(Key::IPKdf::Ptr& pRes, const uint32_t* pChild)
-{
-	Proto::GetPKdf msg;
-	if (pChild)
-		msg.m_Out.m_iChild = *pChild;
-	else
-		msg.m_Out.m_Root = 1;
-
-	if (InvokeProto(msg) != Status::Success)
-		return false;
-
-	ECC::HKdfPub::Packed p;
-	Ecc2BC(p.m_Secret) = msg.m_In.m_Value.m_Secret;
-	Ecc2BC(p.m_PkG) = msg.m_In.m_Value.m_CoFactorG;
-	Ecc2BC(p.m_PkJ) = msg.m_In.m_Value.m_CoFactorJ;
-
-	pRes = std::make_unique<ECC::HKdfPub>();
-
-	if (Cast::Up<ECC::HKdfPub>(*pRes).Import(p))
-		return true;
-
-	pRes.reset();
-	return false;
-}
-
-bool KeyKeeperHwEmu::get_OwnerKey()
-{
-	return m_pOwnerKey || get_PKdf(m_pOwnerKey, nullptr);
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::get_Kdf& m)
-{
-	if (m.m_Root)
-	{
-		get_OwnerKey();
-		m.m_pPKdf = m_pOwnerKey;
-	}
-	else
-		get_PKdf(m.m_pPKdf, &m.m_iChild);
-
-	return m.m_pPKdf ? Status::Success : Status::Unspecified;
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::get_NumSlots& m)
-{
-	m.m_Count = 64;
-	return Status::Success;
-}
-
-void KeyKeeperHwEmu::CidCvt(BeamCrypto_CoinID& cid2, const CoinID& cid)
-{
-	cid2.m_Idx = cid.m_Idx;
-	cid2.m_SubIdx = cid.m_SubIdx;
-	cid2.m_Type = cid.m_Type;
-	cid2.m_AssetID = cid.m_AssetID;
-	cid2.m_Amount = cid.m_Value;
-}
-
-void KeyKeeperHwEmu::ShieldedInpContext::get_InpParams(ShieldedTxo::Data::Params& sdp, Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
-{
-	ShieldedTxo::Viewer viewer;
-	viewer.FromOwner(ownerKey, id.m_Key.m_nIdx);
-
-	sdp.m_Ticket.m_IsCreatedByViewer = id.m_Key.m_IsCreatedByViewer;
-	sdp.m_Ticket.m_pK[0] = id.m_Key.m_kSerG;
-	sdp.m_Ticket.Restore(viewer);
-
-	sdp.m_Output.m_Value = id.m_Value;
-	sdp.m_Output.m_AssetID = id.m_AssetID;
-	sdp.m_Output.m_User = id.m_User;
-	sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
-	sdp.m_Output.m_k += sdp.m_Ticket.m_pK[0]; // full blinding factor
-}
-
-void KeyKeeperHwEmu::ShieldedInpContext::ParamsPlus::Init(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
-{
-	get_InpParams(*this, ownerKey, id);
-
-	if (id.m_AssetID)
-		Asset::Base(id.m_AssetID).get_Generator(m_hGen);
-}
-
-void KeyKeeperHwEmu::ShieldedInpContext::Setup(Key::IPKdf& ownerKey)
-{
-	auto& m = m_Method; // alias
-	assert(m.m_pList && m.m_pKernel);
-	auto& krn = *m.m_pKernel; // alias
-
-	ParamsPlus pp;
-	pp.Init(ownerKey, m);
-
-	KeyKeeperHwEmu::Encoder::Import(m_Msg.m_Out.m_Inp.m_TxoID, m);
-
-	m_Msg.m_Out.m_hMin = krn.m_Height.m_Min;
-	m_Msg.m_Out.m_hMax = krn.m_Height.m_Max;
-	m_Msg.m_Out.m_WindowEnd = krn.m_WindowEnd;
-	m_Msg.m_Out.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
-	m_Msg.m_Out.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
-	m_Msg.m_Out.m_Inp.m_Fee = krn.m_Fee;
-
-	ECC::Scalar sk_;
-	sk_ = pp.m_Output.m_k;
-	m_Msg.m_Out.m_OutpSk = Ecc2BC(sk_.m_Value);
-
-	Lelantus::Proof& proof = krn.m_SpendProof;
-
-	m_Prover.m_Witness.m_V = 0; // not used
-	m_Prover.m_Witness.m_L = m.m_iIdx;
-
-	// output commitment
-	ECC::Point::Native comm;
-	m.get_SkOutPreimage(m_hvSigmaSeed, krn.m_Fee);
-	ownerKey.DerivePKeyG(comm, m_hvSigmaSeed);
-	ECC::Tag::AddValue(comm, &pp.m_hGen, m.m_Value);
-
-	proof.m_Commitment = comm;
-	proof.m_SpendPk = pp.m_Ticket.m_SpendPk;
-
-	bool bHideAssetAlways = false; // TODO - parameter
-	if (bHideAssetAlways || m.m_AssetID)
-	{
-		ECC::Hash::Processor()
-			<< "asset-blind.sh"
-			<< proof.m_Commitment // pseudo-uniquely indentifies this specific Txo
-			>> m_hvSigmaSeed;
-
-		ECC::Scalar::Native skBlind;
-		ownerKey.DerivePKey(skBlind, m_hvSigmaSeed);
-
-		krn.m_pAsset = std::make_unique<Asset::Proof>();
-		krn.m_pAsset->Create(pp.m_hGen, skBlind, m.m_AssetID, pp.m_hGen);
-
-
-		sk_ = -skBlind;
-		m_Msg.m_Out.m_AssetSk = Ecc2BC(sk_.m_Value);
-	}
-	else
-		ZeroObject(m_Msg.m_Out.m_AssetSk);
-
-	krn.UpdateMsg();
-	m_Oracle << krn.m_Msg;
-
-	// generate seed for Sigma proof blinding. Use mix of deterministic + random params
-	//ECC::GenRandom(m_hvSigmaSeed);
-	ECC::Hash::Processor()
-		<< "seed.sigma.sh"
-		<< m_hvSigmaSeed
-		<< krn.m_Msg
-		<< proof.m_Commitment
-		>> m_hvSigmaSeed;
-}
-
-void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal1()
-{
-	// proof phase1 generation
-	m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
-
-	auto& proof = m_Prover.m_Sigma.m_Proof;
-
-	// Invoke HW device
-	m_Msg.m_Out.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
-	m_Msg.m_Out.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
-	m_Msg.m_Out.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
-	m_Msg.m_Out.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
-}
-
-void KeyKeeperHwEmu::ShieldedInpContext::InvokeLocal2()
-{
-	auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
-
-	// import SigGen and vG[0]
-	Ecc2BC(proof.m_Part1.m_vG.front()) = m_Msg.m_In.m_G0;
-	Ecc2BC(proof.m_Part2.m_zR.m_Value) = m_Msg.m_In.m_zR;
-
-	Ecc2BC(proof.m_Signature.m_NoncePub) = m_Msg.m_In.m_NoncePub;
-	Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = m_Msg.m_In.m_pSig[0];
-	Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = m_Msg.m_In.m_pSig[1];
-
-	// phase2
-	m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
-
-	m_Method.m_pKernel->MsgToID();
-	// finished
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateInputShielded& m)
-{
-	assert(m.m_pList && m.m_pKernel);
-
-	if (!get_OwnerKey())
-		return Status::Unspecified;
-
-	ShieldedInpContext ctx(m);
-	ctx.Setup(*m_pOwnerKey);
-	ctx.InvokeLocal1();
-
-	const auto& vec = ctx.m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
-	size_t nSize = sizeof(vec[0]) * vec.size();
-
-	ByteBuffer buf;
-	auto& msgOut = ExtendBy(buf, ctx.m_Msg.m_Out, nSize);
-	if (nSize)
-		memcpy(&msgOut + 1, &vec.front(), nSize);
-
-	Status::Type nRes = InvokeProtoEx(msgOut, ctx.m_Msg.m_In, nSize, 0);
-	if (Status::Success == nRes)
-		ctx.InvokeLocal2();
-
-	return nRes;
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateVoucherShielded& m)
-{
-	if (!m.m_Count)
-		return Status::Success;
-
-	uint32_t n = std::min(m.m_Count, 30U);
-	size_t nSize = sizeof(BeamCrypto_ShieldedVoucher) * n;
-
-	Proto::CreateShieldedVouchers msg;
-	msg.m_Out.m_Count = n;
-	msg.m_Out.m_Nonce0 = Ecc2BC(m.m_Nonce);
-	msg.m_Out.m_nMyIDKey = m.m_MyIDKey;
-
-	ByteBuffer buf;
-	auto& msgIn = ExtendBy(buf, msg.m_In, nSize);
-	BeamCrypto_ShieldedVoucher* pRes = reinterpret_cast<BeamCrypto_ShieldedVoucher*>(&msgIn + 1);
-
-	Status::Type nRes = InvokeProtoEx(msg.m_Out, msgIn, 0, nSize);
-	if (Status::Success == nRes)
-	{
-		if (msgIn.m_Count > n)
-			return BeamCrypto_KeyKeeper_Status_ProtoError;
-
-		m.m_Res.resize(msgIn.m_Count);
-		for (uint32_t i = 0; i < msgIn.m_Count; i++)
-		{
-			const BeamCrypto_ShieldedVoucher& src = pRes[i];
-			ShieldedTxo::Voucher& trg = m.m_Res[i];
-
-			Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
-			Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
-
-			static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
-			for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
-				Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
-
-			Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
-			Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
-			Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
-		}
-	}
-
-	return nRes;
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::CreateOutput& m)
-{
-	if (m.m_hScheme < Rules::get().pForks[1].m_Height)
-		return Status::NotImplemented;
-
-	if (!get_OwnerKey())
-		return Status::Unspecified;
-
-	Output::Ptr pOutp = std::make_unique<Output>();
-
-	ECC::Point::Native comm;
-	get_Commitment(comm, m.m_Cid);
-	pOutp->m_Commitment = comm;
-
-	// rangeproof
-	ECC::Scalar::Native skDummy;
-	ECC::HKdf kdfDummy;
-
-	pOutp->Create(g_hFork, skDummy, kdfDummy, m.m_Cid, *m_pOwnerKey, Output::OpCode::Mpc_1);
-	assert(pOutp->m_pConfidential);
-
-	Proto::CreateOutput msg;
-	CidCvt(msg.m_Out.m_Cid, m.m_Cid);
-	msg.m_Out.m_pT[0] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1);
-	msg.m_Out.m_pT[1] = Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2);
-
-	msg.m_Out.m_pKExtra[0] = Ecc2BC(m.m_User.m_pExtra[0].m_Value);
-	msg.m_Out.m_pKExtra[1] = Ecc2BC(m.m_User.m_pExtra[1].m_Value);
-
-	Status::Type nRes = InvokeProto(msg);
-	if (Status::Success != nRes)
-		return nRes;
-
-
-	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T1) = msg.m_In.m_pT[0];
-	Ecc2BC(pOutp->m_pConfidential->m_Part2.m_T2) = msg.m_In.m_pT[1];
-
-	Ecc2BC(pOutp->m_pConfidential->m_Part3.m_TauX.m_Value) = msg.m_In.m_TauX;
-
-	pOutp->Create(g_hFork, skDummy, kdfDummy, m.m_Cid, *m_pOwnerKey, Output::OpCode::Mpc_2); // Phase 3
-
-	m.m_pResult.swap(pOutp);
-
-	return Status::Success;
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignReceiver& m)
-{
-	Encoder enc;
-	Proto::TxReceive msg;
-	uint32_t nOutExtra;
-
-	auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-	enc.Import(out.m_Krn, m);
-	enc.Import(out.m_Mut, m);
-
-	int nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-	{
-		enc.Export(m, msg.m_In.m_Tx);
-
-		Ecc2BC(m.m_PaymentProofSignature.m_NoncePub) = msg.m_In.m_PaymentProof.m_NoncePub;
-		Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value) = msg.m_In.m_PaymentProof.m_k;
-	}
-
-	return static_cast<Status::Type>(nRet);
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSender& m)
-{
-	Encoder enc;
-	uint32_t nOutExtra;
-	int nRet;
-
-	if (m.m_UserAgreement == Zero)
-	{
-		Proto::TxSend1 msg;
-		auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-
-		out.m_iSlot = m.m_Slot;
-		enc.Import(out.m_Mut, m);
-
-		nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-		if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-		{
-			auto& krn = *m.m_pKernel;
-
-			Ecc2BC(m.m_UserAgreement) = msg.m_In.m_UserAgreement;
-			Ecc2BC(krn.m_Commitment) = msg.m_In.m_HalfKrn.m_Commitment;
-			Ecc2BC(krn.m_Signature.m_NoncePub) = msg.m_In.m_HalfKrn.m_NoncePub;
-
-			krn.UpdateID();
-		}
-	}
-	else
-	{
-		Proto::TxSend2 msg;
-		auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-
-		out.m_iSlot = m.m_Slot;
-		enc.Import(out.m_Mut, m);
-
-		out.m_PaymentProof.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
-		out.m_PaymentProof.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);
-
-		auto& krn = *m.m_pKernel;
-
-		out.m_UserAgreement = Ecc2BC(m.m_UserAgreement);
-		out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
-		out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
-
-		nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-		if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-		{
-			// add scalars
-			ECC::Scalar k_;
-			Ecc2BC(k_.m_Value) = msg.m_In.m_kSig;
-
-			ECC::Scalar::Native k(krn.m_Signature.m_k);
-			k += k_;
-			krn.m_Signature.m_k = k;
-
-			Ecc2BC(k_.m_Value) = msg.m_In.m_kOffset;
-			m.m_kOffset += k_;
-		}
-	}
-
-
-	return static_cast<Status::Type>(nRet);
-}
-
-Amount KeyKeeperHwEmu::CalcTxBalance(Asset::ID* pAid, const Method::TxCommon& m)
-{
-	Amount ret = 0;
-
-	for (const auto& x : m.m_vOutputs)
-		CalcTxBalance(ret, pAid, 0 - x.m_Value, x.m_AssetID);
-
-	for (const auto& x : m.m_vInputs)
-		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
-
-	for (const auto& x : m.m_vInputsShielded)
-	{
-		CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
-		CalcTxBalance(ret, pAid, 0 - x.m_Fee, 0);
-	}
-
-	return ret;
-}
-
-void KeyKeeperHwEmu::CalcTxBalance(Amount& res, Asset::ID* pAid, Amount val, Asset::ID aid)
-{
-	if ((!pAid) == (!aid))
-	{
-		res += val;
-		if (pAid)
-			*pAid = aid;
-	}
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSendShielded& m)
-{
-	Encoder enc;
-	Proto::TxSendShielded msg;
-	uint32_t nOutExtra;
-
-	auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-	out.m_Mut.m_Peer = Ecc2BC(m.m_Peer);
-	out.m_Mut.m_MyIDKey = m.m_MyIDKey;
-	out.m_HideAssetAlways = m.m_HideAssetAlways;
-	enc.Import(out.m_User, m.m_User);
-
-	out.m_Voucher.m_SerialPub = Ecc2BC(m.m_Voucher.m_Ticket.m_SerialPub);
-	out.m_Voucher.m_NoncePub = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-	out.m_Voucher.m_pK[0] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-	out.m_Voucher.m_pK[1] = Ecc2BC(m.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-	out.m_Voucher.m_SharedSecret = Ecc2BC(m.m_Voucher.m_SharedSecret);
-	out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m.m_Voucher.m_Signature.m_NoncePub);
-	out.m_Voucher.m_Signature.m_k = Ecc2BC(m.m_Voucher.m_Signature.m_k.m_Value);
-
-	ShieldedTxo::Data::OutputParams op;
-
-	// the amount and asset are not directly specified, they must be deduced from tx balance.
-	// Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
-
-	op.m_Value = CalcTxBalance(nullptr, m);
-	op.m_Value -= out.m_Tx.m_Krn.m_Fee;
-
-	if (op.m_Value)
-		op.m_AssetID = 0;
-	else
-		// no net value transferred in beams, try assets
-		op.m_Value = CalcTxBalance(&op.m_AssetID, m);
-
-	op.m_User = m.m_User;
-	op.Restore_kG(m.m_Voucher.m_SharedSecret);
-
-	TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();
-	TxKernelShieldedOutput& krn1 = *pOutp;
-
-	krn1.m_CanEmbed = true;
-	krn1.m_Txo.m_Ticket = m.m_Voucher.m_Ticket;
-
-	krn1.UpdateMsg();
-	ECC::Oracle oracle;
-	oracle << krn1.m_Msg;
-
-	op.Generate(krn1.m_Txo, m.m_Voucher.m_SharedSecret, oracle, m.m_HideAssetAlways);
-	krn1.MsgToID();
-
-	SerializerIntoStaticBuf ser(&out.m_RangeProof);
-	ser & krn1.m_Txo.m_RangeProof;
-	assert(ser.get_Size(&out.m_RangeProof) == sizeof(out.m_RangeProof));
-
-	int nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-	{
-		m.m_pKernel->m_vNested.push_back(std::move(pOutp));
-		enc.Export(m, msg.m_In.m_Tx);
-	}
-
-	return static_cast<Status::Type>(nRet);
-}
-
-KeyKeeperHwEmu::Status::Type KeyKeeperHwEmu::InvokeSync(Method::SignSplit& m)
-{
-	Encoder enc;
-	Proto::TxSplit msg;
-	uint32_t nOutExtra;
-
-	auto& out = enc.ExtendByCommon(msg.m_Out, m, nOutExtra);
-
-	int nRet = InvokeProtoEx(out, msg.m_In, nOutExtra, 0);
-	if (BeamCrypto_KeyKeeper_Status_Ok == nRet)
-		enc.Export(m, msg.m_In.m_Tx);
-
-	return static_cast<Status::Type>(nRet);
-}
-
-void KeyKeeperHwEmu::Encoder::ExtendByInternal(const uint8_t* p, uint32_t nSize, BeamCrypto_TxCommonIn& txIn, const Method::TxCommon& m, uint32_t& nOutExtra)
-{
-	Import(txIn.m_Krn, m); // do it before reallocation
-
-	txIn.m_Ins = static_cast<uint32_t>(m.m_vInputs.size());
-	txIn.m_Outs = static_cast<uint32_t>(m.m_vOutputs.size());
-	txIn.m_InsShielded = static_cast<uint32_t>(m.m_vInputsShielded.size());
-
-	uint32_t nExtra =
-		static_cast <uint32_t>(sizeof(BeamCrypto_CoinID)) * (txIn.m_Ins + txIn.m_Outs) +
-		static_cast <uint32_t>(sizeof(BeamCrypto_ShieldedInput)) * txIn.m_InsShielded;
-	nOutExtra = nExtra;
-
-	m_Buf.resize(nSize + nExtra);
-	memcpy(&m_Buf.front(), p, nSize);
-
-	BeamCrypto_CoinID* pCid = (BeamCrypto_CoinID*) (&m_Buf.front() + nSize);
-
-	for (uint32_t i = 0; i < txIn.m_Ins; i++, pCid++)
-	{
-		CidCvt(*pCid, m.m_vInputs[i]);
-		Proto::h2n(*pCid);
-	}
-
-	for (uint32_t i = 0; i < txIn.m_Outs; i++, pCid++)
-	{
-		CidCvt(*pCid, m.m_vOutputs[i]);
-		Proto::h2n(*pCid);
-	}
-
-	BeamCrypto_ShieldedInput* pShInp = (BeamCrypto_ShieldedInput*) pCid;
-	for (uint32_t i = 0; i < txIn.m_InsShielded; i++, pShInp++)
-	{
-		const auto& src = m.m_vInputsShielded[i];
-		pShInp->m_Fee = src.m_Fee;
-		Import(pShInp->m_TxoID, src);
-		Proto::h2n(*pShInp);
-	}
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_TxKernelUser& krn, const Method::TxCommon& m)
-{
-	assert(m.m_pKernel);
-	const auto& src = *m.m_pKernel;
-
-	krn.m_Fee = src.m_Fee;
-	krn.m_hMin = src.m_Height.m_Min;
-	krn.m_hMax = src.m_Height.m_Max;
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_TxKernelData& krn, const Method::TxCommon& m)
-{
-	assert(m.m_pKernel);
-	const auto& src = *m.m_pKernel;
-
-	krn.m_Commitment = Ecc2BC(src.m_Commitment);
-	krn.m_Signature.m_NoncePub = Ecc2BC(src.m_Signature.m_NoncePub);
-	krn.m_Signature.m_k = Ecc2BC(src.m_Signature.m_k.m_Value);
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_TxCommonOut& txOut, const Method::TxCommon& m)
-{
-	Import(txOut.m_Krn, m);
-
-	ECC::Scalar kOffs(m.m_kOffset);
-	txOut.m_kOffset = Ecc2BC(kOffs.m_Value);
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_TxMutualIn& txIn, const Method::TxMutual& m)
-{
-	txIn.m_MyIDKey = m.m_MyIDKey;
-	txIn.m_Peer = Ecc2BC(m.m_Peer);
-}
-
-void KeyKeeperHwEmu::Encoder::Export(Method::TxCommon& m, const BeamCrypto_TxCommonOut& txOut)
-{
-	// kernel
-	assert(m.m_pKernel);
-	auto& krn = *m.m_pKernel;
-
-	Ecc2BC(krn.m_Commitment) = txOut.m_Krn.m_Commitment;
-	Ecc2BC(krn.m_Signature.m_NoncePub) = txOut.m_Krn.m_Signature.m_NoncePub;
-	Ecc2BC(krn.m_Signature.m_k.m_Value) = txOut.m_Krn.m_Signature.m_k;
-
-	krn.UpdateID();
-
-	// offset
-	ECC::Scalar kOffs;
-	Ecc2BC(kOffs.m_Value) = txOut.m_kOffset;
-	m.m_kOffset = kOffs;
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_ShieldedTxoUser& dst, const ShieldedTxo::User& src)
-{
-	dst.m_Sender = Ecc2BC(src.m_Sender);
-
-	static_assert(_countof(dst.m_pMessage) == _countof(src.m_pMessage));
-	for (uint32_t i = 0; i < _countof(src.m_pMessage); i++)
-		dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
-}
-
-void KeyKeeperHwEmu::Encoder::Import(BeamCrypto_ShieldedTxoID& dst, const ShieldedTxo::ID& src)
-{
-	Import(dst.m_User, src.m_User);
-
-	dst.m_Amount = src.m_Value;
-	dst.m_AssetID = src.m_AssetID;
-
-	dst.m_IsCreatedByViewer = !!src.m_Key.m_IsCreatedByViewer;
-	dst.m_nViewerIdx = src.m_Key.m_nIdx;
-	dst.m_kSerG = Ecc2BC(src.m_Key.m_kSerG.m_Value);
-}
 
 
 struct KeyKeeperStd
@@ -1541,7 +774,8 @@ struct KeyKeeperWrap
 		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
-		m_kkEmu.TestProto();
+		wallet::IPrivateKeyKeeper2::Method::get_NumSlots m;
+		verify_test(m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
 
 		m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
 	}
@@ -1562,8 +796,7 @@ struct KeyKeeperWrap
 		Key::ID(nKeyID, Key::Type::WalletID).get_Hash(hv);
 
 		ECC::Point::Native ptN;
-		verify_test(m_kkEmu.get_OwnerKey());
-		m_kkEmu.m_pOwnerKey->DerivePKeyG(ptN, hv);
+		m_kkStd.get_Owner().DerivePKeyG(ptN, hv);
 
 		pid = ECC::Point(ptN).m_X;
 	}
@@ -1693,7 +926,7 @@ struct KeyKeeperWrap
 		UpdateMethod(m2, m, 0); // copy into m2
 
 		g_pHwEmuNonces = &m_Nonces;
-		int n1 = m_kkEmu.InvokeSync(m);
+		int n1 = Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
 		g_pHwEmuNonces = nullptr;
 
 		UpdateMethod(m2, m, 1); // swap
@@ -1766,7 +999,7 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		m.m_hScheme = g_hFork;
 		m.m_Cid = tx2.m_vOutputs[i];
 		
-		verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
+		verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 		assert(m.m_pResult);
 
 		tx.m_vOutputs.emplace_back().swap(m.m_pResult);
@@ -1811,7 +1044,7 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 			m.m_pKernel->m_SpendProof.m_Cfg = cfg;
 			m.m_pList = &lst;
 
-			verify_test(m_kkEmu.InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
+			verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 
 			tx.m_vKernels.emplace_back() = std::move(m.m_pKernel);
 
@@ -1988,7 +1221,7 @@ void TestShielded()
 		auto v0 = std::move(m.m_Res);
 
 		m.m_Nonce = 776U + i;
-		verify_test(kkw.m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
+		verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(kkw.m_kkEmu).InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
 		const auto& v1 = m.m_Res;
 
 		verify_test(v0.size() == v1.size());
@@ -2052,12 +1285,10 @@ void TestShielded()
 		krn.m_SpendProof.m_Cfg = cfg;
 		krn.m_WindowEnd = 423125;
 
-		verify_test(kkw.m_kkEmu.get_OwnerKey());
-
 		{
 			// get the input commitment (normally this is not necessary, but this is a test, we'll substitute the correct to-be-withdrawn commitment)
 			ShieldedTxo::Data::Params pars;
-			pars.Set(*kkw.m_kkEmu.m_pOwnerKey, m);
+			pars.Set(kkw.m_kkStd.get_Owner(), m);
 
 			ShieldedTxo::Data::Params::Plus plus(pars);
 
@@ -2071,7 +1302,7 @@ void TestShielded()
 			comm.Export(lst.m_vec[m.m_iIdx]); // save the correct to-be-withdrawn commitment in the pool
 		}
 
-		KeyKeeperHwEmu::Status::Type nRes = kkw.m_kkEmu.InvokeSync(m);
+		KeyKeeperHwEmu::Status::Type nRes = Cast::Down<wallet::IPrivateKeyKeeper2>(kkw.m_kkEmu).InvokeSync(m);
 		verify_test(KeyKeeperHwEmu::Status::Success == nRes);
 
 		// verify
@@ -2226,6 +1457,9 @@ int main()
 	Rules::get().CA.Enabled = true;
 	Rules::get().pForks[1].m_Height = g_hFork;
 	Rules::get().pForks[2].m_Height = g_hFork;
+
+	io::Reactor::Ptr pReactor(io::Reactor::create());
+	io::Reactor::Scope scope(*pReactor);
 
 	//InitContext();
 

@@ -30,7 +30,6 @@ namespace beam::wallet
         RemoteKeyKeeper();
         virtual ~RemoteKeyKeeper() = default;
 
-    protected:
         // special cases, attempt to get result from cache, bypassing the async mechanism
         Status::Type InvokeSync(Method::get_Kdf& m) override;
         Status::Type InvokeSync(Method::get_NumSlots& m) override;
@@ -40,6 +39,8 @@ namespace beam::wallet
 
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
+
+    protected:
 
         // communication with the remote
         virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler) = 0;
