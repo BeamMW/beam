@@ -483,13 +483,17 @@ void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator* p, secp256k
 	}
 }
 
-static int IsUintBigZero(const BeamCrypto_UintBig* p)
+int memis0(const uint8_t* p, uint32_t n)
 {
-	// const-time isn't required
-	for (unsigned int i = 0; i < _countof(p->m_pVal); i++)
-		if (p->m_pVal[i])
+	for (uint32_t i = 0; i < n; i++)
+		if (p[i])
 			return 0;
 	return 1;
+}
+
+static int IsUintBigZero(const BeamCrypto_UintBig* p)
+{
+	return memis0(p->m_pVal, sizeof(p->m_pVal));
 }
 
 //////////////////////////////
@@ -1036,13 +1040,16 @@ static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_Kdf* pKdf, const Bea
 //////////////////////////////
 // RangeProof
 
+static void WriteInNetworkOrderRaw(uint8_t* pDst, uint64_t val, unsigned int nLen)
+{
+	for (unsigned int i = nLen; i--; val >>= 8)
+		pDst[i] = (uint8_t) val;
+}
+
 static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen)
 {
-	for (unsigned int i = 0; i < nLen; i++, val >>= 8)
-	{
-		--*ppDst;
-		**ppDst = (uint8_t) val;
-	}
+	*ppDst -= nLen;
+	WriteInNetworkOrderRaw(*ppDst, val, nLen);
 }
 
 static uint64_t ReadInNetworkOrder(const uint8_t* pSrc, unsigned int nLen)
@@ -1253,8 +1260,8 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 	for (unsigned int i = 0; i < 2; i++)
 	{
-		secp256k1_hmac_sha256_write(&hmac, p->m_pT[i].m_X.m_pVal, sizeof(p->m_pT[i].m_X.m_pVal));
-		secp256k1_hmac_sha256_write(&hmac, &p->m_pT[i].m_Y, sizeof(p->m_pT[i].m_Y));
+		secp256k1_hmac_sha256_write(&hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
+		secp256k1_hmac_sha256_write(&hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
 
 		BeamCrypto_Oracle_NextScalar(&oracle, pChallenge); // challenges y,z. The 'y' is not needed, will be overwritten by 'z'.
 		secp256k1_scalar_get_b32(hv.m_pVal, pChallenge);
@@ -1273,7 +1280,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 		BeamCrypto_MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
 
-		pFp[i].m_Compact = p->m_pT[i];
+		pFp[i].m_Compact = p->m_pT_In[i];
 		pFp[i].m_Flags = BeamCrypto_FlexPoint_Compact;
 		BeamCrypto_FlexPoint_MakeGe(pFp + i);
 		if (!pFp[i].m_Flags)
@@ -1297,7 +1304,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 		{
 			secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
 			assert(BeamCrypto_FlexPoint_Compact & pFp[i].m_Flags);
-			p->m_pT[i] = pFp[i].m_Compact;
+			p->m_pT_Out[i] = pFp[i].m_Compact;
 		}
 
 		// last challenge
@@ -1310,9 +1317,9 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 
 		secp256k1_scalar_mul(pChallenge, pChallenge, pChallenge); // z^2
 
-		secp256k1_scalar_mul(&p->m_TauX, &pWrk->m_sk, pChallenge); // sk*z^2
-		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK);
-		secp256k1_scalar_add(&p->m_TauX, &p->m_TauX, pK + 1);
+		secp256k1_scalar_mul(p->m_pTauX, &pWrk->m_sk, pChallenge); // sk*z^2
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK);
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK + 1);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_sk);
@@ -1393,9 +1400,8 @@ static int RangeProof_Recover(const BeamCrypto_RangeProof_Packed* pRangeproof, B
 		assert(pCtx->m_nUser <= BeamCrypto_nBytes - sizeof(BeamCrypto_Amount));
 		uint32_t nPad = BeamCrypto_nBytes - sizeof(BeamCrypto_Amount) - pCtx->m_nUser;
 
-		for (uint32_t i = 0; i < nPad; i++)
-			if (pBlob[i])
-				return 0;
+		if (!memis0(pBlob, nPad))
+			return 0;
 
 		memcpy(pCtx->m_pUser, pBlob + nPad, pCtx->m_nUser);
 
@@ -1676,16 +1682,16 @@ int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature* p, const BeamCrypto
 
 //////////////////////////////
 // TxKernel
-void BeamCrypto_TxKernel_getID_Ex(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg, const BeamCrypto_UintBig* pNestedIDs, uint32_t nNestedIDs)
+void BeamCrypto_TxKernel_getID_Ex(const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, BeamCrypto_UintBig* pMsg, const BeamCrypto_UintBig* pNestedIDs, uint32_t nNestedIDs)
 {
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 
-	secp256k1_sha256_write_Num(&sha, pKrn->m_Fee);
-	secp256k1_sha256_write_Num(&sha, pKrn->m_hMin);
-	secp256k1_sha256_write_Num(&sha, pKrn->m_hMax);
+	secp256k1_sha256_write_Num(&sha, pUser->m_Fee);
+	secp256k1_sha256_write_Num(&sha, pUser->m_hMin);
+	secp256k1_sha256_write_Num(&sha, pUser->m_hMax);
 
-	secp256k1_sha256_write_CompactPoint(&sha, &pKrn->m_Commitment);
+	secp256k1_sha256_write_CompactPoint(&sha, &pData->m_Commitment);
 	secp256k1_sha256_write_Num(&sha, 0); // former m_AssetEmission
 
 	uint8_t nFlags = 0; // extended flags, irrelevent for HW wallet
@@ -1703,21 +1709,21 @@ void BeamCrypto_TxKernel_getID_Ex(const BeamCrypto_TxKernel* pKrn, BeamCrypto_Ui
 	secp256k1_sha256_finalize(&sha, pMsg->m_pVal);
 }
 
-void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernel* pKrn, BeamCrypto_UintBig* pMsg)
+void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, BeamCrypto_UintBig* pMsg)
 {
-	BeamCrypto_TxKernel_getID_Ex(pKrn, pMsg, 0, 0);
+	BeamCrypto_TxKernel_getID_Ex(pUser, pData, pMsg, 0, 0);
 }
 
-int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernel* pKrn)
+int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData)
 {
 	BeamCrypto_UintBig msg;
-	BeamCrypto_TxKernel_getID(pKrn, &msg);
+	BeamCrypto_TxKernel_getID(pUser, pData, &msg);
 
 	BeamCrypto_FlexPoint fp;
-	fp.m_Compact = pKrn->m_Commitment;
+	fp.m_Compact = pData->m_Commitment;
 	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
-	return BeamCrypto_Signature_IsValid(&pKrn->m_Signature, &msg, &fp);
+	return BeamCrypto_Signature_IsValid(&pData->m_Signature, &msg, &fp);
 }
 
 void BeamCrypto_TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, BeamCrypto_Amount fee, BeamCrypto_Height hMin, BeamCrypto_Height hMax, uint8_t nType)
@@ -1767,6 +1773,185 @@ void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper* p, BeamCrypto_KdfP
 		Kdf2Pub(&p->m_MasterKey, pRes);
 }
 
+
+
+//////////////////
+// Protocol
+#define PROTO_METHOD(name) int HandleProto_##name(const BeamCrypto_KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut)
+
+#pragma pack (push, 1)
+#define THE_MACRO_Field(cvt, type, name) type m_##name;
+#define THE_MACRO_OpCode(id, name) \
+typedef struct { \
+	uint8_t m_OpCode; \
+	BeamCrypto_ProtoRequest_##name(THE_MACRO_Field) \
+} OpIn_##name; \
+typedef struct { \
+	BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
+} OpOut_##name; \
+PROTO_METHOD(name);
+
+BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
+
+#undef THE_MACRO_OpCode
+#undef THE_MACRO_Field
+
+#pragma pack (pop)
+
+#define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
+#define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field)); static_assert(sizeof(field) == sizeof(type), "")
+
+#define N2H_uint32_t(p) ProtoN2H((*p), uint32_t)
+#define H2N_uint32_t(p) ProtoH2N((*p))
+
+#define N2H_uint64_t(p) ProtoN2H((*p), uint64_t)
+#define H2N_uint64_t(p) ProtoH2N((*p))
+
+#define N2H_BeamCrypto_Height(p) ProtoN2H((*p), BeamCrypto_Height)
+#define H2N_BeamCrypto_Height(p) ProtoH2N((*p))
+
+#define N2H_BeamCrypto_WalletIdentity(p) ProtoN2H((*p), BeamCrypto_WalletIdentity)
+#define H2N_BeamCrypto_WalletIdentity(p) ProtoH2N((*p))
+
+void N2H_BeamCrypto_CoinID(BeamCrypto_CoinID* p)
+{
+	ProtoN2H(p->m_Amount, BeamCrypto_Amount);
+	ProtoN2H(p->m_AssetID, BeamCrypto_AssetID);
+	ProtoN2H(p->m_Idx, uint64_t);
+	ProtoN2H(p->m_SubIdx, uint32_t);
+	ProtoN2H(p->m_Type, uint32_t);
+}
+
+void N2H_BeamCrypto_ShieldedInput(BeamCrypto_ShieldedInput* p)
+{
+	ProtoN2H(p->m_Fee, BeamCrypto_Amount);
+	ProtoN2H(p->m_TxoID.m_Amount, BeamCrypto_Amount);
+	ProtoN2H(p->m_TxoID.m_AssetID, BeamCrypto_AssetID);
+	ProtoN2H(p->m_TxoID.m_nViewerIdx, uint32_t);
+}
+
+void N2H_BeamCrypto_TxCommonIn(BeamCrypto_TxCommonIn* p)
+{
+	ProtoN2H(p->m_Ins, uint32_t);
+	ProtoN2H(p->m_Outs, uint32_t);
+	ProtoN2H(p->m_InsShielded, uint32_t);
+	ProtoN2H(p->m_Krn.m_Fee, BeamCrypto_Amount);
+	ProtoN2H(p->m_Krn.m_hMin, BeamCrypto_Height);
+	ProtoN2H(p->m_Krn.m_hMax, BeamCrypto_Height);
+}
+
+void N2H_BeamCrypto_TxMutualIn(BeamCrypto_TxMutualIn* p)
+{
+	ProtoN2H(p->m_MyIDKey, BeamCrypto_WalletIdentity);
+}
+
+int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut)
+{
+	if (!nIn)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	switch (*pIn)
+	{
+#define THE_MACRO_CvtIn(cvt, type, name) THE_MACRO_CvtIn_##cvt(type, name)
+#define THE_MACRO_CvtIn_0(type, name)
+#define THE_MACRO_CvtIn_1(type, name) N2H_##type(&pOpIn->m_##name);
+
+#define THE_MACRO_CvtOut(cvt, type, name) THE_MACRO_CvtOut_##cvt(type, name)
+#define THE_MACRO_CvtOut_0(type, name)
+#define THE_MACRO_CvtOut_1(type, name) H2N_##type(&pOpOut->m_##name);
+
+#define THE_MACRO(id, name) \
+	case id: \
+	{ \
+		if ((nIn < sizeof(OpIn_##name)) || (nOut < sizeof(OpOut_##name))) \
+			return BeamCrypto_KeyKeeper_Status_ProtoError; \
+ \
+		OpIn_##name* pOpIn = (OpIn_##name*) pIn; \
+		BeamCrypto_ProtoRequest_##name(THE_MACRO_CvtIn) \
+\
+		OpOut_##name* pOpOut = (OpOut_##name*) pOut; \
+\
+		int nRes = HandleProto_##name(p, pOpIn, nIn - sizeof(*pOpIn), pOpOut, nOut - sizeof(*pOpOut)); \
+		if (BeamCrypto_KeyKeeper_Status_Ok == nRes) \
+		{ \
+			BeamCrypto_ProtoResponse_##name(THE_MACRO_CvtOut) \
+		} \
+		return nRes; \
+	} \
+	break; \
+
+		BeamCrypto_ProtoMethods(THE_MACRO)
+#undef THE_MACRO
+
+	}
+
+	return BeamCrypto_KeyKeeper_Status_ProtoError;
+}
+
+PROTO_METHOD(Version)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	pOut->m_Value = BeamCrypto_CurrentProtoVer;
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(GetNumSlots)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	pOut->m_Value = BeamCrypto_KeyKeeper_getNumSlots();
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(GetPKdf)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Root ? 0 : &pIn->m_iChild);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(CreateOutput)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	BeamCrypto_RangeProof ctx;
+	ctx.m_Cid = pIn->m_Cid;
+	ctx.m_pKdf = &p->m_MasterKey;
+	ctx.m_pT_In = pIn->m_pT;
+	ctx.m_pT_Out = pOut->m_pT;
+
+	static_assert(sizeof(BeamCrypto_UintBig) == sizeof(secp256k1_scalar), "");
+	ctx.m_pTauX = (secp256k1_scalar*) pIn->m_pKExtra;
+
+	if (memis0(pIn->m_pKExtra->m_pVal, sizeof(pIn->m_pKExtra)))
+		ctx.m_pKExtra = 0;
+	else
+	{
+		// in-place convert, overwrite the original pIn->m_pKExtra
+		ctx.m_pKExtra = ctx.m_pTauX;
+
+		for (uint32_t i = 0; i < _countof(pIn->m_pKExtra); i++)
+		{
+			memcpy(pOut->m_TauX.m_pVal, pIn->m_pKExtra[i].m_pVal, sizeof(pOut->m_TauX.m_pVal));
+			int overflow;
+			secp256k1_scalar_set_b32((secp256k1_scalar*) ctx.m_pKExtra + i, pOut->m_TauX.m_pVal, &overflow);
+		}
+	}
+
+	if (!BeamCrypto_RangeProof_Calculate(&ctx))
+		return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, ctx.m_pTauX);
+	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
 //////////////////////////////
 // KeyKeeper - transaction common. Aggregation
 typedef struct
@@ -1814,13 +1999,15 @@ static int TxAggregate_AddAmount(BeamCrypto_Amount val, BeamCrypto_AssetID aid, 
 	return 1;
 }
 
-static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* pCid, unsigned int nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
+static int TxAggregate0(const BeamCrypto_KeyKeeper* p, BeamCrypto_CoinID* pCid, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
 {
-	for (unsigned int i = 0; i < nCount; i++)
+	for (uint32_t i = 0; i < nCount; i++, pCid++)
 	{
+		N2H_BeamCrypto_CoinID(pCid);
+
 		uint8_t nScheme;
 		uint32_t nSubkey;
-		BeamCrypto_CoinID_getSchemeAndSubkey(pCid + i, &nScheme, &nSubkey);
+		BeamCrypto_CoinID_getSchemeAndSubkey(pCid, &nScheme, &nSubkey);
 
 		if (nSubkey && isOuts)
 			return 0; // HW wallet should not send funds to child subkeys (potentially belonging to miners)
@@ -1837,11 +2024,11 @@ static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* 
 				return 0;
 		}
 
-		if (!TxAggregate_AddAmount(pCid[i].m_Amount, pCid[i].m_AssetID, pRes, pCommon))
+		if (!TxAggregate_AddAmount(pCid->m_Amount, pCid->m_AssetID, pRes, pCommon))
 			return 0;
 
 		secp256k1_scalar sk;
-		BeamCrypto_CoinID_getSk(&p->m_MasterKey, pCid + i, &sk);
+		BeamCrypto_CoinID_getSk(&p->m_MasterKey, pCid, &sk);
 
 		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
 		SECURE_ERASE_OBJ(sk);
@@ -1850,19 +2037,21 @@ static int TxAggregate0(const BeamCrypto_KeyKeeper* p, const BeamCrypto_CoinID* 
 	return 1;
 }
 
-static int TxAggregateShIns(const BeamCrypto_KeyKeeper* p, const BeamCrypto_ShieldedInput* pIns, unsigned int nCount, TxAggr0* pRes, TxAggr* pCommon)
+static int TxAggregateShIns(const BeamCrypto_KeyKeeper* p, BeamCrypto_ShieldedInput* pIns, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon)
 {
-	for (unsigned int i = 0; i < nCount; i++)
+	for (uint32_t i = 0; i < nCount; i++, pIns++)
 	{
-		if (!TxAggregate_AddAmount(pIns[i].m_TxoID.m_Amount, pIns[i].m_TxoID.m_AssetID, pRes, pCommon))
+		N2H_BeamCrypto_ShieldedInput(pIns);
+
+		if (!TxAggregate_AddAmount(pIns->m_TxoID.m_Amount, pIns->m_TxoID.m_AssetID, pRes, pCommon))
 			return 0;
 
-		pCommon->m_TotalFee += pIns[i].m_Fee;
-		if (pCommon->m_TotalFee < pIns[i].m_Fee)
+		pCommon->m_TotalFee += pIns->m_Fee;
+		if (pCommon->m_TotalFee < pIns->m_Fee)
 			return 0; // overflow
 
 		secp256k1_scalar sk;
-		BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, pIns + i, &sk);
+		BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, pIns, &sk);
 
 		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
 		SECURE_ERASE_OBJ(sk);
@@ -1871,27 +2060,39 @@ static int TxAggregateShIns(const BeamCrypto_KeyKeeper* p, const BeamCrypto_Shie
 	return 1;
 }
 
-static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
+static int TxAggregate(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
 {
+	BeamCrypto_CoinID* pIns = (BeamCrypto_CoinID*) pExtra;
+	BeamCrypto_CoinID* pOuts = pIns + pTx->m_Ins;
+	BeamCrypto_ShieldedInput* pInsShielded = (BeamCrypto_ShieldedInput*)(pOuts + pTx->m_Outs);
+
+	if ((uint8_t*) (pInsShielded + pTx->m_InsShielded) != ((uint8_t*) pExtra) + nExtra)
+		return 0;
+
 	memset(pRes, 0, sizeof(*pRes));
 	pRes->m_TotalFee = pTx->m_Krn.m_Fee;
 
-	if (!TxAggregate0(p, pTx->m_pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
+	if (!TxAggregate0(p, pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
 		return 0;
 
-	if (!TxAggregateShIns(p, pTx->m_pInsShielded, pTx->m_InsShielded, &pRes->m_Ins, pRes))
+	if (!TxAggregateShIns(p, pInsShielded, pTx->m_InsShielded, &pRes->m_Ins, pRes))
 		return 0;
 
 	secp256k1_scalar_negate(&pRes->m_sk, &pRes->m_sk);
 
-	return TxAggregate0(p, pTx->m_pOuts, pTx->m_Outs, &pRes->m_Outs, pRes, 1);
+	return TxAggregate0(p, pOuts, pTx->m_Outs, &pRes->m_Outs, pRes, 1);
 }
 
-static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_TxCommon* pTx)
+static void TxAggrToOffsetEx(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_UintBig* pOffs)
 {
 	secp256k1_scalar_add(&pAggr->m_sk, &pAggr->m_sk, pKrn);
 	secp256k1_scalar_negate(&pAggr->m_sk, &pAggr->m_sk);
-	secp256k1_scalar_get_b32(pTx->m_kOffset.m_pVal, &pAggr->m_sk);
+	secp256k1_scalar_get_b32(pOffs->m_pVal, &pAggr->m_sk);
+}
+
+static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, BeamCrypto_TxCommonOut* pTx)
+{
+	TxAggrToOffsetEx(pAggr, pKrn, &pTx->m_kOffset);
 }
 
 static void TxImportSubtract(secp256k1_scalar* pK, const BeamCrypto_UintBig* pPrev)
@@ -1903,9 +2104,9 @@ static void TxImportSubtract(secp256k1_scalar* pK, const BeamCrypto_UintBig* pPr
 	secp256k1_scalar_add(pK, pK, &kPeer);
 }
 
-static int TxAggregate_SendOrSplit(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommon* pTx, TxAggr* pRes)
+static int TxAggregate_SendOrSplit(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
 {
-	if (!TxAggregate(p, pTx, pRes))
+	if (!TxAggregate(p, pTx, pRes, pExtra, nExtra))
 		return 0;
 
 	if (pRes->m_Ins.m_Beams < pRes->m_Outs.m_Beams)
@@ -1935,28 +2136,18 @@ static int TxAggregate_SendOrSplit(const BeamCrypto_KeyKeeper* p, const BeamCryp
 }
 
 //////////////////////////////
-// KeyKeeper - user permission required
-static int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernel* pKrn, const BeamCrypto_UintBig* pKrnID)
-{
-	// pPeerID is NULL, if it's a Split tx.
-	// pKrnID may be NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
-
-	return BeamCrypto_KeyKeeper_Status_Ok; // TODO
-}
-
-//////////////////////////////
 // KeyKeeper - Kernel modification
-static int KernelUpdateKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, int nAdd)
+static int KernelUpdateKeysEx(BeamCrypto_CompactPoint* pCommitment, BeamCrypto_CompactPoint* pNoncePub, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
 {
 	BeamCrypto_FlexPoint pFp[2];
 
 	BeamCrypto_MulG(pFp, pSk);
 	BeamCrypto_MulG(pFp + 1, pNonce);
 
-	if (nAdd)
+	if (pAdd)
 	{
 		BeamCrypto_FlexPoint fp;
-		fp.m_Compact = pKrn->m_Commitment;
+		fp.m_Compact = pAdd->m_Commitment;
 		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
 		BeamCrypto_FlexPoint_MakeGe(&fp);
@@ -1965,7 +2156,7 @@ static int KernelUpdateKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* p
 
 		secp256k1_gej_add_ge_var(&pFp[0].m_Gej, &pFp[0].m_Gej, &fp.m_Ge, 0);
 
-		fp.m_Compact = pKrn->m_Signature.m_NoncePub;
+		fp.m_Compact = pAdd->m_Signature.m_NoncePub;
 		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
 		BeamCrypto_FlexPoint_MakeGe(&fp);
@@ -1978,20 +2169,27 @@ static int KernelUpdateKeys(BeamCrypto_TxKernel* pKrn, const secp256k1_scalar* p
 	BeamCrypto_FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
 
 	BeamCrypto_FlexPoint_MakeCompact(pFp);
-	pKrn->m_Commitment = pFp[0].m_Compact;
+	*pCommitment = pFp[0].m_Compact;
 
 	BeamCrypto_FlexPoint_MakeCompact(pFp + 1);
-	pKrn->m_Signature.m_NoncePub = pFp[1].m_Compact;
+	*pNoncePub = pFp[1].m_Compact;
 
 	return 1;
 }
 
+static int KernelUpdateKeys(BeamCrypto_TxKernelData* pKrn, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const BeamCrypto_TxKernelData* pAdd)
+{
+	return KernelUpdateKeysEx(&pKrn->m_Commitment, &pKrn->m_Signature.m_NoncePub, pSk, pNonce, pAdd);
+}
+
 //////////////////////////////
 // KeyKeeper - SplitTx
-int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx)
+PROTO_METHOD(TxSplit)
 {
+	if (nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
 	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
+	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 	if (txAggr.m_Ins.m_Assets)
 		return BeamCrypto_KeyKeeper_Status_Unspecified; // not split
@@ -1999,9 +2197,9 @@ int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_
 	// hash all visible params
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMin);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMax);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_Fee);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
 
 	BeamCrypto_UintBig hv;
 	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
@@ -2018,17 +2216,17 @@ int BeamCrypto_KeyKeeper_SignTx_Split(const BeamCrypto_KeyKeeper* p, BeamCrypto_
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 0);
+	KernelUpdateKeys(&pOut->m_Tx.m_Krn, &kKrn, &kNonce, 0);
 
-	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv);
+	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 
-	int res = BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pTx->m_Krn, &hv);
+	int res = BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 	if (BeamCrypto_KeyKeeper_Status_Ok != res)
 		return res;
 
-	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+	BeamCrypto_Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxAggrToOffset(&txAggr, &kKrn, pTx);
+	TxAggrToOffset(&txAggr, &kKrn, &pOut->m_Tx);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
@@ -2074,10 +2272,12 @@ static void GetWalletIDKey(const BeamCrypto_KeyKeeper* p, BeamCrypto_WalletIdent
 
 //////////////////////////////
 // KeyKeeper - ReceiveTx
-int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxMutualInfo* pMut)
+PROTO_METHOD(TxReceive)
 {
+	if (nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
 	TxAggr txAggr;
-	if (!TxAggregate(p, pTx, &txAggr))
+	if (!TxAggregate(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
 	if (txAggr.m_Ins.m_Beams != txAggr.m_Outs.m_Beams)
@@ -2105,15 +2305,15 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	secp256k1_sha256_initialize(&sha);
 
 	BeamCrypto_UintBig hv;
-	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // not a final ID yet
+	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &pIn->m_Krn, &hv); // not a final ID yet
 
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_write_CompactPoint(&sha, &pTx->m_Krn.m_Signature.m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&sha, &pIn->m_Krn.m_Signature.m_NoncePub);
 
 	uint8_t nFlag = 0; // not nonconventional
 	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
-	secp256k1_sha256_write(&sha, pMut->m_Peer.m_pVal, sizeof(pMut->m_Peer.m_pVal));
-	secp256k1_sha256_write_Num(&sha, pMut->m_MyIDKey);
+	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
+	secp256k1_sha256_write_Num(&sha, pIn->m_Mut.m_MyIDKey);
 
 	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
@@ -2133,21 +2333,21 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	if (!KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 1))
+	if (!KernelUpdateKeys(&pOut->m_Tx.m_Krn, &kKrn, &kNonce, &pIn->m_Krn))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
-	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // final ID
-	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv); // final ID
+	BeamCrypto_Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxAggrToOffset(&txAggr, &kKrn, pTx);
+	TxAggrToOffset(&txAggr, &kKrn, &pOut->m_Tx);
 
-	if (pMut->m_MyIDKey)
+	if (pIn->m_Mut.m_MyIDKey)
 	{
 		// sign
 		BeamCrypto_UintBig hvID;
-		GetWalletIDKey(p, pMut->m_MyIDKey, &kKrn, &hvID);
-		GetPaymentConfirmationMsg(&hvID, &pMut->m_Peer, &hv, txAggr.m_Outs.m_Assets, txAggr.m_AssetID);
-		BeamCrypto_Signature_Sign(&pMut->m_PaymentProofSignature, &hvID, &kKrn);
+		GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &kKrn, &hvID);
+		GetPaymentConfirmationMsg(&hvID, &pIn->m_Mut.m_Peer, &hv, txAggr.m_Outs.m_Assets, txAggr.m_AssetID);
+		BeamCrypto_Signature_Sign(&pOut->m_PaymentProof, &hvID, &kKrn);
 	}
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
@@ -2155,32 +2355,34 @@ int BeamCrypto_KeyKeeper_SignTx_Receive(const BeamCrypto_KeyKeeper* p, BeamCrypt
 
 //////////////////////////////
 // KeyKeeper - SendTx
-int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, BeamCrypto_TxMutualInfo* pMut, BeamCrypto_TxSenderParams* pSnd)
+int HandleTxSend(const BeamCrypto_KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2, uint32_t nOut)
 {
+	if (nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
 	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
+	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pInExtra, nInExtra))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 	if (!txAggr.m_Ins.m_Assets)
 		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending (no net transferred value)
 
-	if (IsUintBigZero(&pMut->m_Peer))
+	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return BeamCrypto_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
 
 	secp256k1_scalar kKrn, kNonce;
 	BeamCrypto_UintBig hvMyID, hv;
-	GetWalletIDKey(p, pMut->m_MyIDKey, &kNonce, &hvMyID);
+	GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &kNonce, &hvMyID);
 
-	if (pSnd->m_iSlot >= BeamCrypto_KeyKeeper_getNumSlots())
+	if (pIn->m_iSlot >= BeamCrypto_KeyKeeper_getNumSlots())
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
-	BeamCrypto_KeyKeeper_ReadSlot(pSnd->m_iSlot, &hv);
+	BeamCrypto_KeyKeeper_ReadSlot(pIn->m_iSlot, &hv);
 	BeamCrypto_Kdf_Derive_SKey(&p->m_MasterKey, &hv, &kNonce);
 
 	// during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_Fee);
-	secp256k1_sha256_write(&sha, pMut->m_Peer.m_pVal, sizeof(pMut->m_Peer.m_pVal));
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
+	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
 	secp256k1_sha256_write(&sha, hvMyID.m_pVal, sizeof(hvMyID.m_pVal));
 
 	uint8_t nFlag = 0; // not nonconventional
@@ -2212,51 +2414,65 @@ int BeamCrypto_KeyKeeper_SignTx_Send(const BeamCrypto_KeyKeeper* p, BeamCrypto_T
 	if (IsUintBigZero(&hv))
 		hv.m_pVal[_countof(hv.m_pVal) - 1] = 1;
 
-	if (IsUintBigZero(&pSnd->m_UserAgreement))
+	if (pOut1)
 	{
-		int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pMut->m_Peer, &pTx->m_Krn, 0);
+		int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
 		if (BeamCrypto_KeyKeeper_Status_Ok != res)
 			return res;
 
-		pSnd->m_UserAgreement = hv;
+		pOut1->m_UserAgreement = hv;
 
-		KernelUpdateKeys(&pTx->m_Krn, &kKrn, &kNonce, 0);
+		KernelUpdateKeysEx(&pOut1->m_HalfKrn.m_Commitment, &pOut1->m_HalfKrn.m_NoncePub, &kKrn, &kNonce, 0);
 
 		return BeamCrypto_KeyKeeper_Status_Ok;
 	}
 
-	if (memcmp(pSnd->m_UserAgreement.m_pVal, hv.m_pVal, sizeof(hv.m_pVal)))
+	assert(pOut2);
+
+	if (memcmp(pIn->m_UserAgreement.m_pVal, hv.m_pVal, sizeof(hv.m_pVal)))
 		return BeamCrypto_KeyKeeper_Status_Unspecified; // incorrect user agreement token
 
-	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv);
+	BeamCrypto_TxKernelData krn;
+	krn.m_Commitment = pIn->m_HalfKrn.m_Commitment;
+	krn.m_Signature.m_NoncePub = pIn->m_HalfKrn.m_NoncePub;
+
+	BeamCrypto_TxKernel_getID(&pIn->m_Tx.m_Krn, &krn, &hv);
 
 	// verify payment confirmation signature
 	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, txAggr.m_Ins.m_Assets, txAggr.m_AssetID);
 
 	BeamCrypto_FlexPoint fp;
-	fp.m_Compact.m_X = pMut->m_Peer;
+	fp.m_Compact.m_X = pIn->m_Mut.m_Peer;
 	fp.m_Compact.m_Y = 0;
 	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
-	if (!BeamCrypto_Signature_IsValid(&pMut->m_PaymentProofSignature, &hvMyID, &fp))
+	if (!BeamCrypto_Signature_IsValid(&pIn->m_PaymentProof, &hvMyID, &fp))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pMut->m_Peer, &pTx->m_Krn, &hvMyID);
+	int res = BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
 	if (BeamCrypto_KeyKeeper_Status_Ok != res)
 		return res;
 
 	// Regenerate the slot (BEFORE signing), and sign
-	BeamCrypto_KeyKeeper_RegenerateSlot(pSnd->m_iSlot);
+	BeamCrypto_KeyKeeper_RegenerateSlot(pIn->m_iSlot);
 
-	TxImportSubtract(&kNonce, &pTx->m_Krn.m_Signature.m_k);
-	BeamCrypto_TxKernel_getID(&pTx->m_Krn, &hv); // final ID
-	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &kKrn, &kNonce);
+	BeamCrypto_Signature_SignPartial(&krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxImportSubtract(&kKrn, &pTx->m_kOffset);
-	TxAggrToOffset(&txAggr, &kKrn, pTx);
+	pOut2->m_kSig = krn.m_Signature.m_k;
+	TxAggrToOffsetEx(&txAggr, &kKrn, &pOut2->m_kOffset);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(TxSend1)
+{
+	return HandleTxSend(p, (OpIn_TxSend2*) pIn, pIn + 1, nIn, pOut, 0, nOut);
+}
+
+PROTO_METHOD(TxSend2)
+{
+	return HandleTxSend(p, pIn, pIn + 1, nIn, 0, pOut, nOut);
 }
 
 //////////////////////////////
@@ -2431,9 +2647,16 @@ static void BeamCrypto_CreateVoucherInternal(BeamCrypto_ShieldedVoucher* pRes, c
 	BeamCrypto_Signature_SignPartialEx(pRes->m_pK + 1, &sk, pK + 1, pN + 1);
 }
 
-int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypto_ShieldedVoucher* pRes, uint32_t n, BeamCrypto_WalletIdentity nMyIDKey, BeamCrypto_UintBig* pNonce0)
+PROTO_METHOD(CreateShieldedVouchers)
 {
-	if (!n)
+	if (nIn)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	BeamCrypto_ShieldedVoucher* pRes = (BeamCrypto_ShieldedVoucher*) (pOut + 1);
+	if (nOut != sizeof(*pRes) * pIn->m_Count)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	if (!pIn->m_Count)
 		return BeamCrypto_KeyKeeper_Status_Ok;
 
 	ShieldedViewer viewer;
@@ -2442,73 +2665,81 @@ int BeamCrypto_KeyKeeper_CreateVouchers(const BeamCrypto_KeyKeeper* p, BeamCrypt
 	// key to sign the voucher(s)
 	BeamCrypto_UintBig hv;
 	secp256k1_scalar skSign;
-	GetWalletIDKey(p, nMyIDKey, &skSign, &hv);
+	GetWalletIDKey(p, pIn->m_nMyIDKey, &skSign, &hv);
 
 	for (uint32_t i = 0; ; pRes++)
 	{
-		BeamCrypto_CreateVoucherInternal(pRes, pNonce0, &viewer);
+		BeamCrypto_CreateVoucherInternal(pRes, &pIn->m_Nonce0, &viewer);
 
 		BeamCrypto_Voucher_Hash(&hv, pRes);
 		BeamCrypto_Signature_Sign(&pRes->m_Signature, &hv, &skSign);
 
-		if (++i == n)
+		if (++i == pIn->m_Count)
 			break;
 
 		// regenerate nonce
 		BeamCrypto_Oracle oracle;
 		secp256k1_sha256_initialize(&oracle.m_sha);
 		HASH_WRITE_STR(oracle.m_sha, "sh.v.n");
-		secp256k1_sha256_write(&oracle.m_sha, pNonce0->m_pVal, sizeof(pNonce0->m_pVal));
-		secp256k1_sha256_finalize(&oracle.m_sha, pNonce0->m_pVal);
+		secp256k1_sha256_write(&oracle.m_sha, pIn->m_Nonce0.m_pVal, sizeof(pIn->m_Nonce0.m_pVal));
+		secp256k1_sha256_finalize(&oracle.m_sha, pIn->m_Nonce0.m_pVal);
 	}
 
+	pOut->m_Count = pIn->m_Count;
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
 //////////////////////////////
 // KeyKeeper - BeamCrypto_CreateShieldedInput
-int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_CreateShieldedInputParams* pPars)
+PROTO_METHOD(CreateShieldedInput)
 {
+	if (nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
+	BeamCrypto_CompactPoint* pG = (BeamCrypto_CompactPoint*)(pIn + 1);
+	if (nIn != sizeof(*pG) * pIn->m_Sigma_M)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
+
 	BeamCrypto_Oracle oracle;
 	secp256k1_scalar skOutp, skSpend, pN[3];
 	BeamCrypto_FlexPoint comm;
 	BeamCrypto_UintBig hv, hvSigGen;
 
 	ShieldedViewer viewer;
-	ShieldedViewerInit(&viewer, pPars->m_Inp.m_TxoID.m_nViewerIdx, p);
+	ShieldedViewerInit(&viewer, pIn->m_Inp.m_TxoID.m_nViewerIdx, p);
 
 	// calculate kernel Msg
-	BeamCrypto_TxKernel_SpecialMsg(&oracle.m_sha, pPars->m_Inp.m_Fee, pPars->m_hMin, pPars->m_hMax, 4);
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_WindowEnd);
+	BeamCrypto_TxKernel_SpecialMsg(&oracle.m_sha, pIn->m_Inp.m_Fee, pIn->m_hMin, pIn->m_hMax, 4);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_WindowEnd);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 
 	// init oracle
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Sigma_n);
-	secp256k1_sha256_write_Num(&oracle.m_sha, pPars->m_Sigma_M);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_n);
+	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_M);
 
 	// output commitment
-	BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, &pPars->m_Inp, &skOutp);
-	BeamCrypto_CoinID_getCommRaw(&skOutp, pPars->m_Inp.m_TxoID.m_Amount, pPars->m_Inp.m_TxoID.m_AssetID, &comm);
+	BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, &pIn->m_Inp, &skOutp);
+	BeamCrypto_CoinID_getCommRaw(&skOutp, pIn->m_Inp.m_TxoID.m_Amount, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
 
 	// spend sk/pk
 	int overflow;
-	secp256k1_scalar_set_b32(&skSpend, pPars->m_Inp.m_TxoID.m_kSerG.m_pVal, &overflow);
+	secp256k1_scalar_set_b32(&skSpend, pIn->m_Inp.m_TxoID.m_kSerG.m_pVal, &overflow);
 	if (overflow)
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
-	BeamCrypto_ShieldedGetSpendKey(&viewer, &skSpend, pPars->m_Inp.m_TxoID.m_IsCreatedByViewer, &hv, &skSpend);
+	BeamCrypto_ShieldedGetSpendKey(&viewer, &skSpend, pIn->m_Inp.m_TxoID.m_IsCreatedByViewer, &hv, &skSpend);
 	BeamCrypto_MulG(&comm, &skSpend);
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
 
 	BeamCrypto_Oracle_NextHash(&oracle, &hvSigGen);
 
 	// Sigma::Part1
-	for (uint32_t i = 0; i < _countof(pPars->m_pABCD); i++)
-		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pPars->m_pABCD + i);
+	for (uint32_t i = 0; i < _countof(pIn->m_pABCD); i++)
+		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pIn->m_pABCD + i);
 
 	{
 		// hash all the visible to-date params
@@ -2518,14 +2749,14 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 		} u;
 
 		u.sha = oracle.m_sha; // copy
-		for (uint32_t i = 0; i < pPars->m_Sigma_M; i++)
-			secp256k1_sha256_write_CompactPoint(&u.sha, pPars->m_pG + i);
+		for (uint32_t i = 0; i < pIn->m_Sigma_M; i++)
+			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
 
 		secp256k1_scalar_get_b32(hv.m_pVal, &skOutp); // secret (invisible for the host)
 		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-		secp256k1_sha256_write(&u.sha, pPars->m_AssetSk.m_pVal, sizeof(pPars->m_AssetSk.m_pVal));
-		secp256k1_sha256_write(&u.sha, pPars->m_OutpSk.m_pVal, sizeof(pPars->m_OutpSk.m_pVal));
+		secp256k1_sha256_write(&u.sha, pIn->m_AssetSk.m_pVal, sizeof(pIn->m_AssetSk.m_pVal));
+		secp256k1_sha256_write(&u.sha, pIn->m_OutpSk.m_pVal, sizeof(pIn->m_OutpSk.m_pVal));
 		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
 
 		// use current secret hv to seed our nonce generator
@@ -2543,23 +2774,23 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 		// SigGen
 		secp256k1_scalar sAmount, s1, e;
 
-		BeamCrypto_CoinID_getCommRawEx(pN, pN + 1, pPars->m_Inp.m_TxoID.m_AssetID, &comm);
+		BeamCrypto_CoinID_getCommRawEx(pN, pN + 1, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
 		BeamCrypto_FlexPoint_MakeCompact(&comm);
-		pPars->m_NoncePub = comm.m_Compact;
+		pOut->m_NoncePub = comm.m_Compact;
 
 		BeamCrypto_Oracle o2;
 		BeamCrypto_Oracle_Init(&o2);
 		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &comm.m_Compact);
 		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
 
-		secp256k1_scalar_set_b32(&e, pPars->m_AssetSk.m_pVal, &overflow); // the 'mix' term
+		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
 
 		// nG += nH * assetSk
 		secp256k1_scalar_mul(&s1, &e, pN + 1);
 		secp256k1_scalar_add(pN, pN, &s1);
 
 		// skOutp` = skOutp + amount * assetSk
-		secp256k1_scalar_set_u64(&sAmount, pPars->m_Inp.m_TxoID.m_Amount);
+		secp256k1_scalar_set_u64(&sAmount, pIn->m_Inp.m_TxoID.m_Amount);
 		secp256k1_scalar_mul(&s1, &e, &sAmount);
 		secp256k1_scalar_add(&s1, &s1, &skOutp);
 
@@ -2577,15 +2808,15 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 		secp256k1_scalar_mul(&s1, &skSpend, &e);
 		secp256k1_scalar_add(pN, pN, &s1); // nG += skSpend * e
 
-		static_assert(_countof(pN) >= _countof(pPars->m_pSig), "");
-		for (uint32_t i = 0; i < _countof(pPars->m_pSig); i++)
+		static_assert(_countof(pN) >= _countof(pOut->m_pSig), "");
+		for (uint32_t i = 0; i < _countof(pOut->m_pSig); i++)
 		{
 			secp256k1_scalar_negate(pN + i, pN + i);
-			secp256k1_scalar_get_b32(pPars->m_pSig[i].m_pVal, pN + i);
+			secp256k1_scalar_get_b32(pOut->m_pSig[i].m_pVal, pN + i);
 		}
 	}
 
-	comm.m_Compact = pPars->m_pG[0];
+	comm.m_Compact = pG[0];
 	comm.m_Flags = BeamCrypto_FlexPoint_Compact;
 
 	BeamCrypto_FlexPoint_MakeGe(&comm);
@@ -2598,29 +2829,30 @@ int BeamCrypto_CreateShieldedInput(const BeamCrypto_KeyKeeper* p, BeamCrypto_Cre
 		secp256k1_gej_add_ge_var(&comm2.m_Gej, &comm2.m_Gej, &comm.m_Ge, 0);
 
 		BeamCrypto_FlexPoint_MakeCompact(&comm2);
-		pPars->m_pG[0] = comm2.m_Compact;
+		pOut->m_G0 = comm2.m_Compact;
+		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pOut->m_G0);
 	}
 
-	for (uint32_t i = 0; i < pPars->m_Sigma_M; i++)
-		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pPars->m_pG + i);
+	for (uint32_t i = 1; i < pIn->m_Sigma_M; i++)
+		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pG + i);
 
 	secp256k1_scalar e, xPwr;
 	BeamCrypto_Oracle_NextScalar(&oracle, &e);
 
 	// calculate zR
 	xPwr = e;
-	for (uint32_t i = 1; i < pPars->m_Sigma_M; i++)
+	for (uint32_t i = 1; i < pIn->m_Sigma_M; i++)
 		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
 
 	secp256k1_scalar_negate(&skOutp, &skOutp);
-	secp256k1_scalar_set_b32(pN, pPars->m_OutpSk.m_pVal, &overflow);
+	secp256k1_scalar_set_b32(pN, pIn->m_OutpSk.m_pVal, &overflow);
 	secp256k1_scalar_add(&skOutp, &skOutp, pN); // skOld - skNew
 	secp256k1_scalar_mul(&skOutp, &skOutp, &xPwr);
 
 	secp256k1_scalar_negate(pN + 2, pN + 2);
 	secp256k1_scalar_add(pN + 2, pN + 2, &skOutp); // (skOld - skNew) * xPwr - tau
 
-	secp256k1_scalar_get_b32(pPars->m_zR.m_pVal, pN + 2);
+	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 2);
 
 
 	SECURE_ERASE_OBJ(skSpend);
@@ -2640,14 +2872,14 @@ static uint8_t Msg2Scalar(secp256k1_scalar* p, const BeamCrypto_UintBig* pMsg)
 	return !!overflow;
 }
 
-int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_TxSendShieldedParams* pSh, BeamCrypto_Amount amount, BeamCrypto_AssetID aid, secp256k1_scalar* pSk, BeamCrypto_UintBig* pKrnID)
+int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const OpIn_TxSendShielded* pSh, BeamCrypto_Amount amount, BeamCrypto_AssetID aid, secp256k1_scalar* pSk, BeamCrypto_UintBig* pKrnID)
 {
 	// check the voucher
 	BeamCrypto_UintBig hv;
 	BeamCrypto_Voucher_Hash(&hv, &pSh->m_Voucher);
 
 	BeamCrypto_FlexPoint comm;
-	comm.m_Compact.m_X = pSh->m_Receiver;
+	comm.m_Compact.m_X = pSh->m_Mut.m_Peer;
 	comm.m_Compact.m_Y = 0;
 	comm.m_Flags = BeamCrypto_FlexPoint_Compact;
 
@@ -2655,10 +2887,10 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 		return 0;
 	// skip the voucher's ticket verification, don't care if it's valid, as it was already signed by the receiver.
 
-	if (pSh->m_MyIDKey)
+	if (pSh->m_Mut.m_MyIDKey)
 	{
-		GetWalletIDKey(p, pSh->m_MyIDKey, pSk, &hv);
-		if (memcmp(hv.m_pVal, pSh->m_Receiver.m_pVal, sizeof(hv.m_pVal)))
+		GetWalletIDKey(p, pSh->m_Mut.m_MyIDKey, pSk, &hv);
+		if (memcmp(hv.m_pVal, pSh->m_Mut.m_Peer.m_pVal, sizeof(hv.m_pVal)))
 			return 0;
 	}
 
@@ -2672,7 +2904,7 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 
 	secp256k1_scalar pExtra[2];
 
-	uint8_t nFlagsPacked = Msg2Scalar(pExtra, &pSh->m_Sender);
+	uint8_t nFlagsPacked = Msg2Scalar(pExtra, &pSh->m_User.m_Sender);
 
 	{
 		static const char szSalt[] = "kG-O";
@@ -2684,8 +2916,8 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 	secp256k1_scalar_add(pSk, pSk, pExtra); // output blinding factor
 	BeamCrypto_CoinID_getCommRaw(pSk, amount, aid, &comm); // output commitment
 
-	nFlagsPacked |= (Msg2Scalar(pExtra, &pSh->m_pMessage[0]) << 1);
-	nFlagsPacked |= (Msg2Scalar(pExtra + 1, &pSh->m_pMessage[1]) << 2);
+	nFlagsPacked |= (Msg2Scalar(pExtra, &pSh->m_User.m_pMessage[0]) << 1);
+	nFlagsPacked |= (Msg2Scalar(pExtra + 1, &pSh->m_User.m_pMessage[1]) << 2);
 
 	// We have the commitment, and params that are supposed to be packed in the rangeproof.
 	// Recover the parameters, make sure they match
@@ -2763,29 +2995,29 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const BeamCrypto_T
 	return 1;
 }
 
-int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper* p, BeamCrypto_TxCommon* pTx, const BeamCrypto_TxSendShieldedParams* pSh)
+PROTO_METHOD(TxSendShielded)
 {
+	if (nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError;
 	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, pTx, &txAggr))
+	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
-	if (!txAggr.m_Ins.m_Assets)
-		return BeamCrypto_KeyKeeper_Status_Unspecified; // not sending (no net transferred value)
 
-	if (IsUintBigZero(&pSh->m_Receiver))
+	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return BeamCrypto_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
 
 	BeamCrypto_UintBig hvKrn1, hv;
 	secp256k1_scalar skKrn1, skKrnOuter, kNonce;
-	if (!VerifyShieldedOutputParams(p, pSh, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &skKrn1, &hvKrn1))
+	if (!VerifyShieldedOutputParams(p, pIn, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &skKrn1, &hvKrn1))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
 
 	// select blinding factor for the outer kernel.
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 	secp256k1_sha256_write(&sha, hvKrn1.m_pVal, sizeof(hvKrn1.m_pVal));
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMin);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_hMax);
-	secp256k1_sha256_write_Num(&sha, pTx->m_Krn.m_Fee);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
 	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
@@ -2798,21 +3030,21 @@ int BeamCrypto_KeyKeeper_SignTx_SendShielded(const BeamCrypto_KeyKeeper* p, Beam
 	BeamCrypto_NonceGenerator_NextScalar(&ng, &kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	KernelUpdateKeys(&pTx->m_Krn, &skKrnOuter, &kNonce, 0);
-	BeamCrypto_TxKernel_getID_Ex(&pTx->m_Krn, &hv, &hvKrn1, 1);
+	KernelUpdateKeys(&pOut->m_Tx.m_Krn, &skKrnOuter, &kNonce, 0);
+	BeamCrypto_TxKernel_getID_Ex(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv, &hvKrn1, 1);
 
 	// all set
-	int res = pSh->m_MyIDKey ?
-		BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pTx->m_Krn, &hv) :
-		BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pSh->m_Receiver, &pTx->m_Krn, &hv);
+	int res = pIn->m_Mut.m_MyIDKey ?
+		BeamCrypto_KeyKeeper_ConfirmSpend(0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv) :
+		BeamCrypto_KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 
 	if (BeamCrypto_KeyKeeper_Status_Ok != res)
 		return res;
 
-	BeamCrypto_Signature_SignPartial(&pTx->m_Krn.m_Signature, &hv, &skKrnOuter, &kNonce);
+	BeamCrypto_Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &skKrnOuter, &kNonce);
 
 	secp256k1_scalar_add(&skKrnOuter, &skKrnOuter, &skKrn1);
-	TxAggrToOffset(&txAggr, &skKrnOuter, pTx);
+	TxAggrToOffset(&txAggr, &skKrnOuter, &pOut->m_Tx);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
