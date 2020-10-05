@@ -269,13 +269,6 @@ typedef struct
 	macro(0, BeamCrypto_TxCommonOut, Tx) \
 
 
-// ShieldedTxo::User
-BeamCrypto_UintBig m_Sender; // right now - can be set to arbitrary data
-BeamCrypto_UintBig m_pMessage[2];
-
-// sent value and asset are derived from the tx balance (ins - outs)
-
-
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
 	macro(0x02, GetNumSlots) \

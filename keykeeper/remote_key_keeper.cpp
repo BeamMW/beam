@@ -491,6 +491,7 @@ namespace beam::wallet
                 m_This.m_Cache.AddPKdf(pRes, m_M.m_Root ? nullptr : &m_M.m_iChild);
 
                 m_M.m_pPKdf = std::move(pRes);
+                Fin();
             }
             else
                 Fin(Status::Unspecified);
@@ -619,7 +620,7 @@ namespace beam::wallet
             // have owner key
             if (m_M.m_Cid.get_ChildKdfIndex(m_GetKey.m_iChild))
             {
-                if (!m_This.m_Cache.FindPKdf(m_pOwner, &m_GetKey.m_iChild))
+                if (!m_This.m_Cache.FindPKdf(m_pChild, &m_GetKey.m_iChild))
                 {
                     m_GetKey.m_Root = false;
                     m_This.InvokeAsync(m_GetKey, shared_from_this());
