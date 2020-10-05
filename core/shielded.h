@@ -99,6 +99,16 @@ namespace beam
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 
 			void ToID(ID&) const;
+
+			void Set(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id);
+
+			struct Plus
+			{
+				ECC::Point::Native m_hGen;
+				ECC::Scalar::Native m_skFull;
+
+				Plus(const Params&);
+			};
 		};
 
 		struct HashTxt;

@@ -2056,14 +2056,16 @@ void TestShielded()
 
 		{
 			// get the input commitment (normally this is not necessary, but this is a test, we'll substitute the correct to-be-withdrawn commitment)
-			KeyKeeperHwEmu::ShieldedInpContext::ParamsPlus pp;
-			pp.Init(*kkw.m_kkEmu.m_pOwnerKey, m);
+			ShieldedTxo::Data::Params pars;
+			pars.Set(*kkw.m_kkEmu.m_pOwnerKey, m);
 
-			ECC::Point::Native comm = ECC::Context::get().G * pp.m_Output.m_k;
-			ECC::Tag::AddValue(comm, &pp.m_hGen, m.m_Value);
+			ShieldedTxo::Data::Params::Plus plus(pars);
+
+			ECC::Point::Native comm = ECC::Context::get().G * plus.m_skFull;
+			ECC::Tag::AddValue(comm, &plus.m_hGen, m.m_Value);
 
 			ECC::Scalar::Native ser;
-			Lelantus::SpendKey::ToSerial(ser, pp.m_Ticket.m_SpendPk);
+			Lelantus::SpendKey::ToSerial(ser, pars.m_Ticket.m_SpendPk);
 			comm += ECC::Context::get().J * ser;
 
 			comm.Export(lst.m_vec[m.m_iIdx]); // save the correct to-be-withdrawn commitment in the pool

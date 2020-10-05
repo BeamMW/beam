@@ -749,43 +749,15 @@ namespace beam::wallet
             }
         }
 
-        static void get_InpParams(ShieldedTxo::Data::Params& sdp, Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
-        {
-            ShieldedTxo::Viewer viewer;
-            viewer.FromOwner(ownerKey, id.m_Key.m_nIdx);
-
-            sdp.m_Ticket.m_IsCreatedByViewer = id.m_Key.m_IsCreatedByViewer;
-            sdp.m_Ticket.m_pK[0] = id.m_Key.m_kSerG;
-            sdp.m_Ticket.Restore(viewer);
-
-            sdp.m_Output.m_Value = id.m_Value;
-            sdp.m_Output.m_AssetID = id.m_AssetID;
-            sdp.m_Output.m_User = id.m_User;
-            sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
-            sdp.m_Output.m_k += sdp.m_Ticket.m_pK[0]; // full blinding factor
-        }
-
-        struct ParamsPlus
-            :public ShieldedTxo::Data::Params
-        {
-            ECC::Point::Native m_hGen;
-            void Init(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
-            {
-                get_InpParams(*this, ownerKey, id);
-
-                if (id.m_AssetID)
-                    Asset::Base(id.m_AssetID).get_Generator(m_hGen);
-            }
-        };
-
         void Setup()
         {
             auto& m = m_M; // alias
             assert(m.m_pList && m.m_pKernel);
             auto& krn = *m.m_pKernel; // alias
 
-            ParamsPlus pp;
-            pp.Init(*m_GetKey.m_pPKdf, m);
+            ShieldedTxo::Data::Params pars;
+            pars.Set(*m_GetKey.m_pPKdf, m);
+            ShieldedTxo::Data::Params::Plus plus(pars);
 
             Encoder::Import(m_Msg.m_Out.m_Inp.m_TxoID, m);
 
@@ -797,7 +769,7 @@ namespace beam::wallet
             m_Msg.m_Out.m_Inp.m_Fee = krn.m_Fee;
 
             ECC::Scalar sk_;
-            sk_ = pp.m_Output.m_k;
+            sk_ = plus.m_skFull;
             m_Msg.m_Out.m_OutpSk = Ecc2BC(sk_.m_Value);
 
             Lelantus::Proof& proof = krn.m_SpendProof;
@@ -809,10 +781,10 @@ namespace beam::wallet
             ECC::Point::Native comm;
             m.get_SkOutPreimage(m_hvSigmaSeed, krn.m_Fee);
             m_GetKey.m_pPKdf->DerivePKeyG(comm, m_hvSigmaSeed);
-            ECC::Tag::AddValue(comm, &pp.m_hGen, m.m_Value);
+            ECC::Tag::AddValue(comm, &plus.m_hGen, m.m_Value);
 
             proof.m_Commitment = comm;
-            proof.m_SpendPk = pp.m_Ticket.m_SpendPk;
+            proof.m_SpendPk = pars.m_Ticket.m_SpendPk;
 
             bool bHideAssetAlways = false; // TODO - parameter
             if (bHideAssetAlways || m.m_AssetID)
@@ -826,7 +798,7 @@ namespace beam::wallet
                 m_GetKey.m_pPKdf->DerivePKey(skBlind, m_hvSigmaSeed);
 
                 krn.m_pAsset = std::make_unique<Asset::Proof>();
-                krn.m_pAsset->Create(pp.m_hGen, skBlind, m.m_AssetID, pp.m_hGen);
+                krn.m_pAsset->Create(plus.m_hGen, skBlind, m.m_AssetID, plus.m_hGen);
 
 
                 sk_ = -skBlind;

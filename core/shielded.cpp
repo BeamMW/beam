@@ -489,6 +489,29 @@ namespace beam
 		cid.m_Key.m_kSerG = m_Ticket.m_pK[0];
 	}
 
+	void ShieldedTxo::Data::Params::Set(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
+	{
+		ShieldedTxo::Viewer viewer;
+		viewer.FromOwner(ownerKey, id.m_Key.m_nIdx);
+
+		m_Ticket.m_IsCreatedByViewer = id.m_Key.m_IsCreatedByViewer;
+		m_Ticket.m_pK[0] = id.m_Key.m_kSerG;
+		m_Ticket.Restore(viewer);
+
+		m_Output.m_Value = id.m_Value;
+		m_Output.m_AssetID = id.m_AssetID;
+		m_Output.m_User = id.m_User;
+		m_Output.Restore_kG(m_Ticket.m_SharedSecret);
+	}
+
+	ShieldedTxo::Data::Params::Plus::Plus(const Params& pars)
+	{
+		m_skFull = pars.m_Output.m_k + pars.m_Ticket.m_pK[0]; // full blinding factor
+
+		if (pars.m_Output.m_AssetID)
+			Asset::Base(pars.m_Output.m_AssetID).get_Generator(m_hGen);
+	}
+
 	/////////////
 	// Generators
 	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key, Key::Index nIdx/* = 0 */)
