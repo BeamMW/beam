@@ -424,6 +424,35 @@ namespace beam::wallet
     }
 
 
+    Amount RemoteKeyKeeper::Impl::CalcTxBalance(Asset::ID* pAid, const Method::TxCommon& m)
+    {
+        Amount ret = 0;
+
+        for (const auto& x : m.m_vOutputs)
+            CalcTxBalance(ret, pAid, 0 - x.m_Value, x.m_AssetID);
+
+        for (const auto& x : m.m_vInputs)
+            CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+
+        for (const auto& x : m.m_vInputsShielded)
+        {
+            CalcTxBalance(ret, pAid, x.m_Value, x.m_AssetID);
+            CalcTxBalance(ret, pAid, 0 - x.m_Fee, 0);
+        }
+
+        return ret;
+    }
+
+    void RemoteKeyKeeper::Impl::CalcTxBalance(Amount& res, Asset::ID* pAid, Amount val, Asset::ID aid)
+    {
+        if ((!pAid) == (!aid))
+        {
+            res += val;
+            if (pAid)
+                *pAid = aid;
+        }
+    }
+
     //////////////
     // RemoteKeyKeeper
     RemoteKeyKeeper::RemoteKeyKeeper()
@@ -963,14 +992,28 @@ namespace beam::wallet
         }
 
         Method::SignReceiver& m_M;
+        Proto::TxReceive m_Msg;
+        Impl::Encoder m_Enc;
 
         void Do()
         {
-            Fin(Status::NotImplemented);
+            uint32_t nOutExtra;
+
+            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
+            m_Enc.Import(out.m_Krn, m_M);
+            m_Enc.Import(out.m_Mut, m_M);
+
+            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
         }
 
         virtual void OnRemoteData() override
         {
+            m_Msg.m_In.n2h();
+            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+
+            Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub) = m_Msg.m_In.m_PaymentProof.m_NoncePub;
+            Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value) = m_Msg.m_In.m_PaymentProof.m_k;
+            Fin();
         }
     };
 
@@ -984,14 +1027,75 @@ namespace beam::wallet
         }
 
         Method::SignSender& m_M;
+        Proto::TxSend1 m_Msg1; // TODO union
+        Proto::TxSend2 m_Msg2;
+        Impl::Encoder m_Enc;
+        bool m_Initial;
 
         void Do()
         {
-            Fin(Status::NotImplemented);
+            m_Initial = (m_M.m_UserAgreement == Zero);
+            uint32_t nOutExtra;
+
+            if (m_Initial)
+            {
+                auto& out = m_Enc.ExtendByCommon(m_Msg1.m_Out, m_M, nOutExtra);
+
+                out.m_iSlot = m_M.m_Slot;
+                m_Enc.Import(out.m_Mut, m_M);
+
+                InvokeProtoEx(out, m_Msg1.m_In, nOutExtra, 0);
+            }
+            else
+            {
+                auto& out = m_Enc.ExtendByCommon(m_Msg2.m_Out, m_M, nOutExtra);
+
+                out.m_iSlot = m_M.m_Slot;
+                m_Enc.Import(out.m_Mut, m_M);
+
+                out.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
+                out.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
+
+                auto& krn = *m_M.m_pKernel;
+
+                out.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
+                out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
+                out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
+
+                InvokeProtoEx(out, m_Msg2.m_In, nOutExtra, 0);
+            }
         }
 
         virtual void OnRemoteData() override
         {
+            auto& krn = *m_M.m_pKernel;
+
+            if (m_Initial)
+            {
+                m_Msg1.m_In.n2h();
+
+                Ecc2BC(m_M.m_UserAgreement) = m_Msg1.m_In.m_UserAgreement;
+                Ecc2BC(krn.m_Commitment) = m_Msg1.m_In.m_HalfKrn.m_Commitment;
+                Ecc2BC(krn.m_Signature.m_NoncePub) = m_Msg1.m_In.m_HalfKrn.m_NoncePub;
+
+                krn.UpdateID(); // not really required, the kernel isn't full yet
+            }
+            else
+            {
+                m_Msg2.m_In.n2h();
+                // add scalars
+                ECC::Scalar k_;
+                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_kSig;
+
+                ECC::Scalar::Native k(krn.m_Signature.m_k);
+                k += k_;
+                krn.m_Signature.m_k = k;
+
+                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_kOffset;
+                m_M.m_kOffset += k_;
+            }
+
+            Fin();
         }
     };
 
@@ -1005,14 +1109,72 @@ namespace beam::wallet
         }
 
         Method::SignSendShielded& m_M;
+        Proto::TxSendShielded m_Msg;
+        Encoder m_Enc;
+        TxKernelShieldedOutput::Ptr m_pOutp;
 
         void Do()
         {
-            Fin(Status::NotImplemented);
+            uint32_t nOutExtra;
+
+            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
+            out.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
+            out.m_Mut.m_MyIDKey = m_M.m_MyIDKey;
+            out.m_HideAssetAlways = m_M.m_HideAssetAlways;
+            m_Enc.Import(out.m_User, m_M.m_User);
+
+            out.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
+            out.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+            out.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+            out.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+            out.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
+            out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
+            out.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
+
+            ShieldedTxo::Data::OutputParams op;
+
+            // the amount and asset are not directly specified, they must be deduced from tx balance.
+            // Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
+
+            op.m_Value = CalcTxBalance(nullptr, m_M);
+            op.m_Value -= out.m_Tx.m_Krn.m_Fee;
+
+            if (op.m_Value)
+                op.m_AssetID = 0;
+            else
+                // no net value transferred in beams, try assets
+                op.m_Value = CalcTxBalance(&op.m_AssetID, m_M);
+
+            op.m_User = m_M.m_User;
+            op.Restore_kG(m_M.m_Voucher.m_SharedSecret);
+
+            m_pOutp = std::make_unique<TxKernelShieldedOutput>();
+            TxKernelShieldedOutput& krn1 = *m_pOutp;
+
+            krn1.m_CanEmbed = true;
+            krn1.m_Txo.m_Ticket = m_M.m_Voucher.m_Ticket;
+
+            krn1.UpdateMsg();
+            ECC::Oracle oracle;
+            oracle << krn1.m_Msg;
+
+            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, oracle, m_M.m_HideAssetAlways);
+            krn1.MsgToID();
+
+            SerializerIntoStaticBuf ser(&out.m_RangeProof);
+            ser& krn1.m_Txo.m_RangeProof;
+            assert(ser.get_Size(&out.m_RangeProof) == sizeof(out.m_RangeProof));
+
+            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
         }
 
         virtual void OnRemoteData() override
         {
+            m_Msg.m_In.n2h();
+            m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
+            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+
+            Fin();
         }
     };
 
@@ -1026,14 +1188,21 @@ namespace beam::wallet
         }
 
         Method::SignSplit& m_M;
+        Proto::TxSplit m_Msg;
+        Encoder m_Enc;
 
         void Do()
         {
-            Fin(Status::NotImplemented);
+            uint32_t nOutExtra;
+            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
+            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
         }
 
         virtual void OnRemoteData() override
         {
+            m_Msg.m_In.n2h();
+            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+            Fin();
         }
     };
 
