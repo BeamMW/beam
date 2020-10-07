@@ -1294,7 +1294,7 @@ namespace beam::wallet
 
                 if (m_pKrn->CastTo_Std().m_pHashLock)
                 {
-                    auto lockImage = m_pKrn->CastTo_Std().m_pHashLock->get_Image(m_pKrn->CastTo_Std().m_pHashLock->m_Value);
+                    ECC::Hash::Value lockImage = m_pKrn->CastTo_Std().m_pHashLock->get_Image(lockImage);
                     msg.AddParameter(TxParameterID::PeerLockImage, lockImage);
                 }
 
