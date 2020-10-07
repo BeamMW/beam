@@ -125,7 +125,7 @@ namespace beam::wallet
             }
 
             // update address comment if changed
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 auto messageStr = std::string(message->begin(), message->end());
                 if (messageStr != receiverAddr->m_label)
@@ -144,7 +144,7 @@ namespace beam::wallet
             WalletAddress address;
             address.m_walletID = *peerID;
             address.m_createTime = getTimestamp();
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
@@ -1616,7 +1616,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter(TxParameterID::PeerWalletIdentity); peerID)
+        if (auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)

@@ -29,6 +29,7 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
+#include <queue>
 
 #define NOSEP
 #define COMMA ", "
@@ -2323,12 +2324,9 @@ namespace beam::wallet
 
     TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
     {
-        if (auto txTypeO = txParams.GetParameter(TxParameterID::TransactionType); txTypeO)
+        if (auto txType = txParams.GetParameter<TxType>(TxParameterID::TransactionType); txType)
         {
-            TxType txType = TxType::Simple;
-            fromByteBuffer(*txTypeO, txType);
-
-            auto it = m_statusInterpreterCreators.find(txType);
+            auto it = m_statusInterpreterCreators.find(*txType);
             if (it != m_statusInterpreterCreators.end())
             {
                 auto creator = it->second;
@@ -3231,11 +3229,14 @@ namespace beam::wallet
                 stm.bind(4, typeBlob);
             }
 
+            const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
+            sqlite::Statement stm2(this, gtParamReq);
+
             while (stm.step())
             {
                 TxID txID;
                 stm.get(0, txID);
-                auto t = getTx(txID);
+                auto t = getTxImpl(txID, stm2);
                 if (t.is_initialized())
                 {
                     res.emplace_back(*t);
@@ -3252,10 +3253,20 @@ namespace beam::wallet
         // load only simple TX that supported by TxDescription
         const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(this, req);
+        return getTxImpl(txId, stm);
+    }
+
+    boost::optional<TxDescription> WalletDB::getTxImpl(const TxID& txId, sqlite::Statement& stm) const
+    {
+        stm.Reset();
         stm.bind(1, txId);
 
         TxDescription txDescription(txId);
-        std::set<TxParameterID> gottenParams;
+        struct Set : public std::priority_queue<TxParameterID, std::vector<TxParameterID>, std::greater<TxParameterID> >
+        {
+            container_type::const_iterator begin() const noexcept { return c.begin(); }
+            container_type::const_iterator end() const noexcept { return c.end(); }
+        } gottenParams;
 
         while (stm.step())
         {
@@ -3264,7 +3275,7 @@ namespace beam::wallet
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
             auto parameterID = static_cast<TxParameterID>(parameter.m_paramID);
 
-            txDescription.SetParameter(parameterID, parameter.m_value, static_cast<SubTxID>(parameter.m_subTxID));
+            txDescription.SetParameter(parameterID, std::move(parameter.m_value), static_cast<SubTxID>(parameter.m_subTxID));
 
             if (parameter.m_subTxID == kDefaultSubTxID)
             {

@@ -735,6 +735,7 @@ namespace beam::wallet
         void onFlushTimer();
         void onPrepareToModify();
         void MigrateCoins();
+        boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -1006,6 +1007,5 @@ namespace beam::wallet
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
-
     }  // namespace storage
 }  // namespace beam::wallet

@@ -183,8 +183,8 @@ namespace
             public:
                 explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
                 {
-                    auto value = txParams.GetParameter(wallet::TxParameterID::State);
-                    if (value) fromByteBuffer(*value, m_state);
+                    if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
+                        m_state = *value;
                 }
 
                 ~CliSwapTxStatusInterpreter() override = default;
@@ -740,7 +740,7 @@ namespace
             AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
         }
         AppendLibraryVersion(params);
-        if (!params.GetParameter(TxParameterID::TransactionType))
+        if (!params.GetParameter<TxType>(TxParameterID::TransactionType))
         {
             params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
         }
