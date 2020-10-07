@@ -24,7 +24,7 @@ using namespace ECC;
 namespace
 {
     // TODO: check
-    constexpr uint32_t kExternalHeightMaxDifference = 50;
+    constexpr uint32_t kExternalHeightMaxDifference = 10;
 
     const std::string kLockMethodHash = "0xae052147";
     const std::string kRefundMethodHash = "0x7249fbb6";
@@ -61,6 +61,8 @@ bool EthereumSide::Initialize()
         InitSecret();
     }
     // InitLocalKeys - ? init publicSwap & secretSwap keys
+    m_tx.SetParameter(TxParameterID::AtomicSwapPublicKey, ethereum::ConvertEthAddressToStr(m_ethBridge->generateEthAddress()));
+
     return true;
 }
 
@@ -101,8 +103,10 @@ bool EthereumSide::ValidateLockTime()
         && peerEstCurrentHeight <= height + kExternalHeightMaxDifference;
 }
 
-void EthereumSide::AddTxDetails(SetTxParameter& /*txParameters*/)
+void EthereumSide::AddTxDetails(SetTxParameter& txParameters)
 {
+    // TODO: check
+    txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, ethereum::ConvertEthAddressToStr(m_ethBridge->generateEthAddress()));
     // addd LOCK_TX txID ?
 }
 
@@ -145,7 +149,7 @@ bool EthereumSide::ConfirmLockTx()
             if (amount != swapAmount)
             {
                 LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
-                    << " Unexpected amount, expected: " << swapAmount << ", got: " << amount;
+                    << " Unexpected amount, expected: " << swapAmount.str() << ", got: " << amount.str();
                 m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return;
@@ -307,7 +311,7 @@ bool EthereumSide::SendRedeem()
         return true;
 
     auto secretHash = GetSecretHash();
-    auto secret = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapSecretPrivateKey, SubTxIndex::BEAM_REDEEM_TX);
+    auto secret = m_tx.GetMandatoryParameter<Hash::Value>(TxParameterID::PreImage, SubTxIndex::BEAM_REDEEM_TX);
 
     // kRedeemMethodHash + secret + secretHash
     libbitcoin::data_chunk data;
@@ -399,9 +403,9 @@ uint64_t EthereumSide::GetBlockCount(bool notify)
 
 void EthereumSide::InitSecret()
 {
-    NoLeak<uintBig> secretPrivateKey;
-    GenRandom(secretPrivateKey.V);
-    m_tx.SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, false, BEAM_REDEEM_TX);
+    NoLeak<uintBig> secret;
+    GenRandom(secret.V);
+    m_tx.SetParameter(TxParameterID::PreImage, secret.V, false, BEAM_REDEEM_TX);
 }
 
 uint16_t EthereumSide::GetTxMinConfirmations() const
@@ -427,8 +431,18 @@ uint32_t EthereumSide::GetLockTxEstimatedTimeInBeamBlocks() const
 
 ByteBuffer EthereumSide::GetSecretHash() const
 {
-    Point publicKeyPoint = m_tx.GetMandatoryParameter<Point>(TxParameterID::AtomicSwapSecretPublicKey, SubTxIndex::BEAM_REDEEM_TX);
-    return SerializePubkey(ConvertPointToPubkey(publicKeyPoint));
+    Hash::Value lockImage(Zero);
+
+    if (NoLeak<uintBig> secret; m_tx.GetParameter(TxParameterID::PreImage, secret.V, SubTxIndex::BEAM_REDEEM_TX))
+    {
+        Hash::Processor() << secret.V >> lockImage;
+    }
+    else
+    {
+        lockImage = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::PeerLockImage, SubTxIndex::BEAM_REDEEM_TX);
+    }
+
+    return libbitcoin::to_chunk(lockImage.m_pData);
 }
 
 ECC::uintBig EthereumSide::GetGas() const
