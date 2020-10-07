@@ -77,6 +77,12 @@ namespace beam::wallet
         if (!IsRedeem())
             return true;
 
+        if (Hash::Value preImage; GetParameter(TxParameterID::PreImage, preImage))
+        {
+            // hashlock scheme
+            return true;
+        }
+
         switch (m_Status)
         {
             case Status::SndFull:
@@ -109,6 +115,12 @@ namespace beam::wallet
             return false;
         if (!IsRedeem())
             return true;
+
+        if (Hash::Value lockImage; GetParameter(TxParameterID::PeerLockImage, lockImage))
+        {
+            // hashlock scheme
+            return true;
+        }
 
         switch (m_Status)
         {
