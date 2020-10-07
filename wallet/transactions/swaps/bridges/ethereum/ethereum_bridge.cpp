@@ -148,7 +148,7 @@ void EthereumBridge::send(
         ethTx.m_nonce = txCount;
 
         auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
-        std::string stTx = libbitcoin::encode_base16(signedTx);
+        std::string stTx = "0x" + libbitcoin::encode_base16(signedTx);
 
         sendRawTransaction(stTx, callback);
     });

@@ -163,6 +163,7 @@ bool EthereumSide::ConfirmLockTx()
             std::copy(resultData.begin(), resultData.begin() + 32, std::back_inserter(data));
             std::string st = libbitcoin::encode_base16(data);
             m_SwapLockTxBlockNumber = std::stoull(st, nullptr, 16);
+            m_tx.UpdateAsync();
         });
         return false;
     }
