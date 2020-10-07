@@ -137,11 +137,15 @@ bool EthereumSide::ConfirmLockTx()
                 return;
             }
 
-            // TODO: parse result! check "value" and save m_SwapLockTxConfirmations
+            std::string resultStr = result.get<std::string>();
+
+            if (std::all_of(resultStr.begin() + 2, resultStr.end(), [](const char& c) { return c == '0';}))
+            {
+                // lockTx isn't ready yet
+                return;
+            }
 
             uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
-
-            std::string resultStr = result.get<std::string>();
             auto resultData = beam::from_hex(std::string(resultStr.begin() + 2, resultStr.end()));
             ECC::uintBig amount = Zero;
             std::move(resultData.begin() + 32, resultData.end(), std::begin(amount.m_pData));
@@ -154,10 +158,6 @@ bool EthereumSide::ConfirmLockTx()
                 m_tx.UpdateAsync();
                 return;
             }
-
-            // TODO
-            /*ECC::uintBig blockNumber = Zero;
-            std::move(resultData.begin(), resultData.begin() + 32, std::begin(blockNumber.m_pData));*/
 
             libbitcoin::data_chunk data;
             std::copy(resultData.begin(), resultData.begin() + 32, std::back_inserter(data));
@@ -279,7 +279,7 @@ bool EthereumSide::SendRefund()
 {
     // TODO: check
     std::string txID;
-    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REFUND_TX))
+    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REFUND_TX))
         return true;
 
     auto secretHash = GetSecretHash();
@@ -300,6 +300,7 @@ bool EthereumSide::SendRefund()
             OnSentWithdrawTx(SubTxIndex::BEAM_REFUND_TX, error, txHash);
         }
     });
+    m_isWithdrawTxSent = true;
     return true;
 }
 
@@ -307,7 +308,7 @@ bool EthereumSide::SendRedeem()
 {
     // TODO: check
     std::string txID;
-    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REDEEM_TX))
+    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REDEEM_TX))
         return true;
 
     auto secretHash = GetSecretHash();
@@ -326,10 +327,10 @@ bool EthereumSide::SendRedeem()
     {
         if (!weak.expired())
         {
-            OnSentWithdrawTx(SubTxIndex::BEAM_REDEEM_TX, error, txHash);
+            OnSentWithdrawTx(SubTxIndex::REDEEM_TX, error, txHash);
         }
     });
-
+    m_isWithdrawTxSent = true;
     return true;
 }
 
@@ -338,6 +339,7 @@ void EthereumSide::OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Er
     if (error.m_type != ethereum::IBridge::None)
     {
         // TODO: handle error
+        m_isWithdrawTxSent = false;
         return;
     }
 

@@ -1753,7 +1753,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
 
     Amount beamAmount = 300;
     Amount beamFee = 101;
-    ECC::uintBig swapAmount = 1000000000000u;
+    ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
     //Amount feeRate = 256;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -1858,11 +1858,11 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
     // check secret
-    NoLeak<uintBig> senderSecretPrivateKey;
-    storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, senderSecretPrivateKey.V);
-    NoLeak<uintBig> receiverSecretPrivateKey;
-    storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, receiverSecretPrivateKey.V);
-    WALLET_CHECK(senderSecretPrivateKey.V != Zero && senderSecretPrivateKey.V == receiverSecretPrivateKey.V);
+    uintBig senderSecret(Zero);
+    storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, senderSecret);
+    uintBig receiverSecret(Zero);
+    storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, receiverSecret);
+    WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
 }
 
 int main()

@@ -68,6 +68,7 @@ namespace beam::wallet
         ethereum::IBridge::Ptr m_ethBridge;
         ethereum::ISettingsProvider& m_settingsProvider;
         bool m_isEthOwner;
+        bool m_isWithdrawTxSent = false;
         uint64_t m_blockCount = 0;
 
         uint64_t m_SwapLockTxConfirmations = 0;
