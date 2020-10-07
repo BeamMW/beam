@@ -645,7 +645,8 @@ namespace beam
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
-				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID)];
+				uint8_t m_maxPrivacyMinAnonimitySet;
+				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t)];
 			};
 #pragma pack (pop)
 			static PackedMessage* ToPackedMessage(User& user)

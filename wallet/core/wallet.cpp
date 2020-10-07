@@ -1709,6 +1709,9 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
+            if (message->m_maxPrivacyMinAnonimitySet)
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_maxPrivacyMinAnonimitySet);
+
             auto packed = params.Pack();
             for (const auto& p : packed)
             {

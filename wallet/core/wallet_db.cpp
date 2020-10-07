@@ -2416,6 +2416,12 @@ namespace beam::wallet
                 nTrg += feeShielded;
 
             const auto& x = vShielded[iPosShielded];
+
+            // TODO check current anonimity set
+            const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(x.first.m_CoinID.m_User);
+            if (packedMessage->m_maxPrivacyMinAnonimitySet)
+                continue;
+
             nSel += x.first.m_CoinID.m_Value;
             vSelShielded.push_back(x.first);
         }
