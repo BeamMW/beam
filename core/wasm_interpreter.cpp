@@ -86,7 +86,7 @@ namespace Wasm {
 
 		static_assert(sizeof(T) <= sizeof(uint64_t));
 		T ret = static_cast<T>(x);
-		Test(x == ret);
+		// Test(ret == static_cast<uint64_t>(x)); // overflow test. Skip currently (not really important)
 
 		return ret;
 	}
@@ -485,7 +485,7 @@ namespace Wasm {
 		{
 			auto nType = m_Code.Read<uint32_t>();
 			Test(0x40 == nType);
-			PerType tp = { 0 };
+			PerType tp = { { 0 } };
 			BlockOpen(tp);
 
 			m_p0 = nullptr; // don't write
