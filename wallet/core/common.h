@@ -402,18 +402,17 @@ namespace beam::wallet
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
         {
-            boost::optional<T> res;
             auto subTxIt = m_Parameters.find(subTxID);
             if (subTxIt == m_Parameters.end())
             {
-                return res;
+                return {};
             }
             auto pit = subTxIt->second.find(parameterID);
             if (pit == subTxIt->second.end())
             {
-                return res;
+                return {};
             }
-
+            boost::optional<T> res;
             res.emplace();
             const ByteBuffer& b = pit->second;
             fromByteBuffer(b, *res);

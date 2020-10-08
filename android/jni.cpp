@@ -182,7 +182,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setBooleanField(env, TransactionParametersClass, jParameters, "isOffline", false);
             }
 
-            ProcessLibraryVersion(
             if(libVersion) 
             {
                 std::string myLibVersionStr = PROJECT_VERSION;
