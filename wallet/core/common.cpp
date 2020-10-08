@@ -1370,4 +1370,16 @@ namespace beam::wallet
         }
     }
 
+    Amount GetShieldedFee(size_t shieldedCount)
+    {
+        Amount shieldedFee = 0;
+        if (shieldedCount)
+        {
+            Transaction::FeeSettings fs;
+            shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
+        }
+
+        return shieldedFee;
+    }
+
 }  // namespace beam::wallet

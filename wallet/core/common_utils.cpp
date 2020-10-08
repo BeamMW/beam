@@ -154,14 +154,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
 
 Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
 {
-    auto shieldedCount = builder.m_Coins.m_InputShielded.size();
-    Amount shieldedFee = 0;
-    if (shieldedCount)
-    {
-        Transaction::FeeSettings fs;
-        shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
-    }
-
+    Amount shieldedFee = GetShieldedFee(builder.m_Coins.m_InputShielded.size());
     return !!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee;
 }
 
