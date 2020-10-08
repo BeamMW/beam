@@ -291,8 +291,7 @@ bool EthereumSide::SendRefund()
     libbitcoin::decode_base16(data, std::string(std::begin(kRefundMethodHash) + 2, std::end(kRefundMethodHash)));
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
-    uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
-
+    uintBig swapAmount = ECC::Zero;
     m_ethBridge->send(kContractAddress, data, swapAmount, GetGas(), GetGasPrice(),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
@@ -322,7 +321,7 @@ bool EthereumSide::SendRedeem()
     data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
-    uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
+    uintBig swapAmount = ECC::Zero;
     m_ethBridge->send(kContractAddress, data, swapAmount, GetGas(), GetGasPrice(),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
