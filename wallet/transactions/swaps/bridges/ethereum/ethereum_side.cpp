@@ -30,9 +30,6 @@ namespace
     const std::string kRefundMethodHash = "0x7249fbb6";
     const std::string kRedeemMethodHash = "0xb31597ad";
     const std::string kGetDetailsMethodHash = "0x6bfec360";
-
-    // TODO: -> settings
-    const libbitcoin::short_hash kContractAddress = beam::ethereum::ConvertStrToEthAddress("0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E");
 }
 
 namespace beam::wallet
@@ -122,7 +119,7 @@ bool EthereumSide::ConfirmLockTx()
         auto secretHash = GetSecretHash();
 
         // else: "contract call" + getTransactionReceipt (mb only "contract call")
-        m_ethBridge->call(kContractAddress,
+        m_ethBridge->call(GetContractAddress(),
             kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash),
             [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
         {
@@ -258,7 +255,7 @@ bool EthereumSide::SendLockTx()
     data.insert(data.end(), std::begin(participant), std::end(participant));
 
     uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
-    m_ethBridge->send(kContractAddress, data, swapAmount, GetGas(), GetGasPrice(),
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -292,7 +289,7 @@ bool EthereumSide::SendRefund()
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
     uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(kContractAddress, data, swapAmount, GetGas(), GetGasPrice(),
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -322,7 +319,7 @@ bool EthereumSide::SendRedeem()
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
     uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(kContractAddress, data, swapAmount, GetGas(), GetGasPrice(),
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -457,6 +454,11 @@ ECC::uintBig EthereumSide::GetGasPrice() const
 {
     // TODO: -> settings
     return 3000000u;
+}
+
+libbitcoin::short_hash EthereumSide::GetContractAddress() const
+{
+    return ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetContractAddress());
 }
 
 } // namespace beam::wallet

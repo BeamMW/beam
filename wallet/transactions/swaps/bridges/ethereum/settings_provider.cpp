@@ -34,6 +34,7 @@ void SettingsProvider::SetSettings(const Settings& settings)
     WriteToDb(GetSecretWordsName(), settings.m_secretWords);
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
+    WriteToDb(GetContractAddressName(), settings.m_contractAddress);
     
     // update m_settings
     m_settings = std::make_unique<Settings>(settings);
@@ -48,6 +49,7 @@ void SettingsProvider::Initialize()
         ReadFromDB(GetSecretWordsName(), m_settings->m_secretWords);
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
+        ReadFromDB(GetContractAddressName(), m_settings->m_contractAddress);
     }
 }
 
@@ -97,5 +99,10 @@ std::string SettingsProvider::GetAccountIndexName() const
 std::string SettingsProvider::GetShouldConnectName() const
 {
     return GetSettingsName() + "_ShouldConnect";
+}
+
+std::string SettingsProvider::GetContractAddressName() const
+{
+    return GetSettingsName() + "_ContractAddress";
 }
 } // namespace beam::ethereum

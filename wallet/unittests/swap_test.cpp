@@ -1764,12 +1764,16 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     aliceSettings.m_accountIndex = 0;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
+    aliceSettings.m_txMinConfirmations = 2;
+    aliceSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
     bobSettings.m_accountIndex = 1;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
+    bobSettings.m_txMinConfirmations = 2;
+    bobSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
 
     /*TestSettings bobSettings;
     bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });

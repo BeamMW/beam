@@ -59,6 +59,7 @@ protected:
     std::string GetSecretWordsName() const;
     std::string GetAccountIndexName() const;
     std::string GetShouldConnectName() const;
+    std::string GetContractAddressName() const;
         
     template<typename T>
     void ReadFromDB(const std::string& name, T& value)

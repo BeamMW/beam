@@ -61,6 +61,8 @@ namespace beam::wallet
         ECC::uintBig GetGas() const;
         ECC::uintBig GetGasPrice() const;
 
+        libbitcoin::short_hash GetContractAddress() const;
+
         void OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash);
 
     private:

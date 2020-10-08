@@ -28,6 +28,7 @@ struct Settings
     uint16_t m_txMinConfirmations = 12;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
+    std::string m_contractAddress = "";
 
     bool IsInitialized() const;
     bool IsActivated() const;
@@ -35,5 +36,6 @@ struct Settings
     uint16_t GetTxMinConfirmations() const;
     uint32_t GetLockTimeInBlocks() const;
     double GetBlocksPerHour() const;
+    std::string GetContractAddress() const;
 };
 } // namespace beam::ethereum

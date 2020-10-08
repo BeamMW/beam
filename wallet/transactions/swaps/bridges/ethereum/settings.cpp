@@ -40,4 +40,9 @@ double Settings::GetBlocksPerHour() const
 {
     return m_blocksPerHour;
 }
+
+std::string Settings::GetContractAddress() const
+{
+    return m_contractAddress;
+}
 } // namespace beam::ethereum
