@@ -23,6 +23,7 @@ set(CORE_SRC
     treasury.cpp
     shielded.cpp
     bvm.cpp
+    wasm_interpreter.cpp
 # ~etc
 )
 
