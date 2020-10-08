@@ -142,7 +142,7 @@ bool EthereumSide::ConfirmLockTx()
                 return;
             }
 
-            uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
+            uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
             auto resultData = beam::from_hex(std::string(resultStr.begin() + 2, resultStr.end()));
             ECC::uintBig amount = Zero;
             std::move(resultData.begin() + 32, resultData.end(), std::begin(amount.m_pData));
@@ -254,8 +254,8 @@ bool EthereumSide::SendLockTx()
     data.insert(data.end(), 12u, 0x00);
     data.insert(data.end(), std::begin(participant), std::end(participant));
 
-    uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapAmount);
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
+    uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -289,7 +289,7 @@ bool EthereumSide::SendRefund()
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
     uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::REFUND_TX), GetGasPrice(SubTxIndex::REFUND_TX),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -319,7 +319,7 @@ bool EthereumSide::SendRedeem()
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
     uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(), GetGasPrice(),
+    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::REDEEM_TX), GetGasPrice(SubTxIndex::REDEEM_TX),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -444,16 +444,14 @@ ByteBuffer EthereumSide::GetSecretHash() const
     return libbitcoin::to_chunk(lockImage.m_pData);
 }
 
-ECC::uintBig EthereumSide::GetGas() const
+ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
 {
-    // TODO: -> settings
-    return 200000u;
+    return m_tx.GetMandatoryParameter<ECC::uintBig>(TxParameterID::AtomicSwapGas, subTxID);
 }
 
-ECC::uintBig EthereumSide::GetGasPrice() const
+ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
 {
-    // TODO: -> settings
-    return 3000000u;
+    return m_tx.GetMandatoryParameter<ECC::uintBig>(TxParameterID::AtomicSwapGasPrice, subTxID);
 }
 
 libbitcoin::short_hash EthereumSide::GetContractAddress() const

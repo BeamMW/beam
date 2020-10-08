@@ -149,6 +149,7 @@ TxParameters InitNewSwap(
 TxParameters InitNewSwap(
     const WalletID& myID, Height minHeight, Amount amount,
     Amount fee, AtomicSwapCoin swapCoin, ECC::uintBig swapAmount,
+    ECC::uintBig gas, ECC::uintBig gasPrice,
     bool isBeamSide/* = true*/, Height lifetime/*= kDefaultTxLifetime*/,
     Height responseTime/* = kDefaultTxResponseTime*/)
 {
@@ -160,6 +161,8 @@ TxParameters InitNewSwap(
                      fee,
                      swapCoin,
                      swapAmount,
+                     gas,
+                     gasPrice,
                      isBeamSide);
     return swapTxParameters;
 }

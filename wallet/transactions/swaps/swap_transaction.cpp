@@ -75,6 +75,8 @@ namespace beam::wallet
                           Amount beamFee,
                           AtomicSwapCoin swapCoin,
                           ECC::uintBig swapAmount,
+                          ECC::uintBig gas, 
+                          ECC::uintBig gasPrice,
                           bool isBeamSide /*= true*/,
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
@@ -83,12 +85,12 @@ namespace beam::wallet
         params->SetParameter(TxParameterID::MinHeight, minHeight);
         params->SetParameter(TxParameterID::Amount, amount);
         params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
-        params->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
+        params->SetParameter(TxParameterID::AtomicSwapEthAmount, swapAmount);
         params->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
         params->SetParameter(TxParameterID::IsSender, isBeamSide);
         params->SetParameter(TxParameterID::IsInitiator, false);
 
-        FillSwapFee(params, beamFee, isBeamSide);
+        FillSwapFee(params, beamFee, gas, gasPrice, isBeamSide);
 
         params->SetParameter(TxParameterID::Lifetime, lifetime);
         params->SetParameter(TxParameterID::PeerResponseTime, responseTime);
@@ -123,7 +125,7 @@ namespace beam::wallet
     }
 
     void FillSwapFee(
-        TxParameters* params, Amount beamFee, bool isBeamSide/* = true*/)
+        TxParameters* params, Amount beamFee, ECC::uintBig gas, ECC::uintBig gasPrice, bool isBeamSide/* = true*/)
     {
         if (isBeamSide)
         {
@@ -131,11 +133,23 @@ namespace beam::wallet
                 TxParameterID::Fee, beamFee, SubTxIndex::BEAM_LOCK_TX);
             params->SetParameter(
                 TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REFUND_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGas, gas, SubTxIndex::REDEEM_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REDEEM_TX);
         }
         else
         {
             params->SetParameter(
                 TxParameterID::Fee, beamFee, SubTxIndex::BEAM_REDEEM_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGas, gas, SubTxIndex::LOCK_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::LOCK_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGas, gas, SubTxIndex::REFUND_TX);
+            params->SetParameter(
+                TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REFUND_TX);
         }
     }
 
@@ -152,6 +166,7 @@ namespace beam::wallet
 
         copyParameter<Amount>(TxParameterID::Amount, original, res);
         copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
+        copyParameter<Amount>(TxParameterID::AtomicSwapEthAmount, original, res);
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 
@@ -196,6 +211,7 @@ namespace beam::wallet
 
         copyParameter<Amount>(TxParameterID::Amount, original, res);
         copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
+        copyParameter<Amount>(TxParameterID::AtomicSwapEthAmount, original, res);
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 

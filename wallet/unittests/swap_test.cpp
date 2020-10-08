@@ -119,7 +119,8 @@ namespace
         return parameters;
     }
 
-    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee)
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee,
+        const ECC::uintBig& gas, const ECC::uintBig& gasPrice)
     {
         TxParameters parameters = initialParameters;
 
@@ -132,22 +133,31 @@ namespace
         {
             // delete parameters from other side
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::LOCK_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::LOCK_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::REFUND_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REFUND_TX);
 
             // add our parameters
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::REDEEM_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REDEEM_TX);
         }
         else
         {
             // delete parameters from other side
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::REDEEM_TX);
+            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REDEEM_TX);
 
             // add our parameters
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::LOCK_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::LOCK_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::REFUND_TX);
+            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REFUND_TX);
         }
 
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
@@ -1754,6 +1764,8 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     Amount beamAmount = 300;
     Amount beamFee = 101;
     ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
+    ECC::uintBig gas = 200000u;
+    ECC::uintBig gasPrice = 3000000u;
     //Amount feeRate = 256;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -1814,7 +1826,8 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
             auto currentHeight = cursor.m_Sid.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
             auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
-                currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, isBeamSide);
+                currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, 
+                gas, gasPrice, isBeamSide);
 
             if (useSecureIDs)
             {
@@ -1829,7 +1842,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
             }
 
             initiator->m_Wallet.StartTransaction(parameters);
-            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gas, gasPrice);
             if (useSecureIDs)
             {
                 acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
