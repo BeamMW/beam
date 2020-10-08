@@ -1616,7 +1616,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerWalletIdentity); peerID)
+        if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)

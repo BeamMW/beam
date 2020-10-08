@@ -417,12 +417,7 @@ namespace beam::wallet
 
     TxParameters& TxParameters::SetParameter(TxParameterID parameterID, ByteBuffer&& parameter, SubTxID subTxID)
     {
-        auto& subTx = m_Parameters[subTxID];
-        auto pit = subTx.find(parameterID);
-        if (pit == subTx.end())
-        {
-            subTx.emplace(parameterID, std::move(parameter));
-        }
+        m_Parameters[subTxID][parameterID] = parameter;
         return *this;
     }
 
