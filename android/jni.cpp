@@ -186,20 +186,20 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
             {
                 std::string myLibVersionStr = PROJECT_VERSION;
                 std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
-                    if (std::regex_match(libVersion, libVersionRegex) &&
-                         std::lexicographical_compare(
-                            myLibVersionStr.begin(),
-                            myLibVersionStr.end(),
-                            libVersion->begin(),
-                            libVersion->end(),
-                            std::less<char>{}))
-                    {   
-                        setStringField(env, TransactionParametersClass, jParameters, "version", *libVersion);
-                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", true);
-                    }
-                    else {
-                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
-                    }
+                if (std::regex_match(*libVersion, libVersionRegex) &&
+                        std::lexicographical_compare(
+                        myLibVersionStr.begin(),
+                        myLibVersionStr.end(),
+                        libVersion->begin(),
+                        libVersion->end(),
+                        std::less<char>{}))
+                {   
+                    setStringField(env, TransactionParametersClass, jParameters, "version", *libVersion);
+                    setBooleanField(env, TransactionParametersClass, jParameters, "versionError", true);
+                }
+                else {
+                    setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
+                }
             }
             else 
             {
