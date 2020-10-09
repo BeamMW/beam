@@ -417,7 +417,7 @@ namespace beam::wallet
 
     TxParameters& TxParameters::SetParameter(TxParameterID parameterID, ByteBuffer&& parameter, SubTxID subTxID)
     {
-        m_Parameters[subTxID][parameterID] = parameter;
+        m_Parameters[subTxID][parameterID] = std::move(parameter);
         return *this;
     }
 
