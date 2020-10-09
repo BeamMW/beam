@@ -384,7 +384,7 @@ namespace proto {
         macro(AmountSigned, EmissionChange)
 
         struct Type {
-            enum Enum {
+            enum Enum : int32_t{
 #define THE_MACRO(id, name) name = id,
                 BeamEventsAll(THE_MACRO)
 #undef THE_MACRO
