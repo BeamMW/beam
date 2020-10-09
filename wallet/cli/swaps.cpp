@@ -363,6 +363,11 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         {
             throw std::runtime_error("ethereum address should be specified");
         }
+
+        if (!vm.count(cli::ETH_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("ethereum contract address should be specified");
+        }
     }
 
     if (vm.count(cli::ETHEREUM_ADDRESS))
@@ -375,6 +380,12 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         isChanged = true;
     }
 
+    if (vm.count(cli::ETH_CONTRACT_ADDRESS))
+    {
+        settings.m_contractAddress = vm[cli::ETH_CONTRACT_ADDRESS].as<string>();
+        isChanged = true;
+    }
+
     if (vm.count(cli::ETHEREUM_SEED))
     {
         auto tempPhrase = vm[cli::ETHEREUM_SEED].as<string>();
@@ -382,14 +393,14 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         settings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
         // TODO roman.strilets check this code for ethereum
-        if (!bitcoin::validateElectrumMnemonic(settings.m_secretWords))
+        /*if (!bitcoin::validateElectrumMnemonic(settings.m_secretWords))
         {
             if (bitcoin::validateElectrumMnemonic(settings.m_secretWords, true))
             {
                 throw std::runtime_error("Segwit seed phrase is not supported yet.");
             }
             throw std::runtime_error("seed is not valid");
-        }
+        }*/
         isChanged = true;
     }
 
@@ -401,7 +412,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
 
     if (vm.count(cli::ACCOUNT_INDEX))
     {
-        settings.m_shouldConnect = vm[cli::ACCOUNT_INDEX].as<Nonnegative<uint32_t>>().value;
+        settings.m_accountIndex = vm[cli::ACCOUNT_INDEX].as<Nonnegative<uint32_t>>().value;
         isChanged = true;
     }
 
@@ -433,6 +444,7 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         stream << "Ethereum node: " << settings.m_address << '\n';
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
+        stream << "Contract address: " << settings.m_contractAddress << '\n';
         
         LOG_INFO() << stream.str();
         return;
@@ -635,7 +647,6 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorSwapAmountMissing);
     }
 
-    Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
     wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
     if (vm.count(cli::SWAP_COIN) > 0)
@@ -643,30 +654,58 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
     }
 
-    if (vm.count(cli::SWAP_FEERATE) == 0)
+    ECC::uintBig ethAmout = ECC::Zero;
+    ECC::uintBig gasLimit = ECC::Zero;
+    ECC::uintBig gasPrice = ECC::Zero;
+    Amount swapAmount = 0;
+    Amount swapFeeRate = 0;
+
+    if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        throw std::runtime_error("swap_feerate should be specified");
+        if (vm.count(cli::ETH_GAS) == 0)
+        {
+            throw std::runtime_error("eth_gas should be specified");
+        }
+
+        if (vm.count(cli::ETH_GAS_PRICE) == 0)
+        {
+            throw std::runtime_error("eth_gas_price should be specified");
+        }
+
+        ethAmout = ethereum::ConvertStrToUintBig(vm[cli::SWAP_AMOUNT].as<std::string>(), false);
+        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS].as<std::string>(), false);
+        gasPrice = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_PRICE].as<std::string>(), false);
     }
-
-    Amount estimatedFeeRate = EstimateSwapFeerate(swapCoin, walletDB);
-    Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-    if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+    else
     {
-        throw std::runtime_error("swap_feerate must be greater than the recommended fee rate.");
+        swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
+
+        if (vm.count(cli::SWAP_FEERATE) == 0)
+        {
+            throw std::runtime_error("swap_feerate should be specified");
+        }
+
+        Amount estimatedFeeRate = EstimateSwapFeerate(swapCoin, walletDB);
+
+        swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+        if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the recommended fee rate.");
+        }
+
+        Amount minFeeRate = GetMinSwapFeeRate(swapCoin, walletDB);
+
+        if (minFeeRate > 0 && minFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
+        }
+
+        bool isSwapAmountValid =
+            IsSwapAmountValid(swapCoin, swapAmount, swapFeeRate);
+        if (!isSwapAmountValid)
+            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
     }
-
-    Amount minFeeRate = GetMinSwapFeeRate(swapCoin, walletDB);
-
-    if (minFeeRate > 0 && minFeeRate > swapFeeRate)
-    {
-        throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
-    }
-
-    bool isSwapAmountValid =
-        IsSwapAmountValid(swapCoin, swapAmount, swapFeeRate);
-    if (!isSwapAmountValid)
-        throw std::runtime_error("The swap amount must be greater than the redemption fee.");
 
     bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
@@ -685,11 +724,6 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorCantSwapAsset);
     }
 
-    if (vm.count(cli::SWAP_AMOUNT) == 0)
-    {
-        throw std::runtime_error(kErrorSwapAmountMissing);
-    }
-
     if (amount <= kMinFeeInGroth)
     {
         throw std::runtime_error(kErrorSwapAmountTooLow);
@@ -701,15 +735,32 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
-    FillSwapTxParams(&swapTxParameters,
-                        senderAddress.m_walletID,
-                        minHeight,
-                        amount,
-                        fee,
-                        swapCoin,
-                        swapAmount,
-                        swapFeeRate,
-                        isBeamSide);
+
+    if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
+    {
+        FillSwapTxParams(&swapTxParameters,
+            senderAddress.m_walletID,
+            minHeight,
+            amount,
+            fee,
+            swapCoin,
+            ethAmout,
+            gasLimit,
+            gasPrice,
+            isBeamSide);
+    }
+    else
+    {
+        FillSwapTxParams(&swapTxParameters,
+            senderAddress.m_walletID,
+            minHeight,
+            amount,
+            fee,
+            swapCoin,
+            swapAmount,
+            swapFeeRate,
+            isBeamSide);
+    }
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -740,44 +791,68 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     auto swapCoin = swapTxParameters->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
     auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
     auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+    auto ethAmount = swapTxParameters->GetParameter<ECC::uintBig>(TxParameterID::AtomicSwapEthAmount);
     auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
     auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
     auto createTime = swapTxParameters->GetParameter<Height>(TxParameterID::CreateTime);
     auto minHeight = swapTxParameters->GetParameter<Height>(TxParameterID::MinHeight);
 
-    bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime && createTime && minHeight;
+    bool isValidToken = isBeamSide && swapCoin && beamAmount && (swapAmount || ethAmount) && peerID && peerResponseTime && createTime && minHeight;
 
     if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
     {
         throw std::runtime_error("swap transaction token is invalid.");
     }
 
-    if (vm.count(cli::SWAP_FEERATE) == 0)
+    ECC::uintBig gasLimit = ECC::Zero;
+    ECC::uintBig gasPrice = ECC::Zero;
+    Amount swapFeeRate = 0;
+
+    if (*swapCoin == AtomicSwapCoin::Ethereum)
     {
-        throw std::runtime_error("swap_feerate should be specified");
+        if (vm.count(cli::ETH_GAS) == 0)
+        {
+            throw std::runtime_error("eth_gas should be specified");
+        }
+
+        if (vm.count(cli::ETH_GAS_PRICE) == 0)
+        {
+            throw std::runtime_error("eth_gas_price should be specified");
+        }
+
+        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS].as<std::string>(), false);
+        gasPrice = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_PRICE].as<std::string>(), false);
     }
-
-    // TODO need to unite with InitSwap
-    Amount estimatedFeeRate = EstimateSwapFeerate(*swapCoin, walletDB);
-    Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-    if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+    else
     {
-        throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
-    }
+        if (vm.count(cli::SWAP_FEERATE) == 0)
+        {
+            throw std::runtime_error("swap_feerate should be specified");
+        }
 
-    Amount minFeeRate = GetMinSwapFeeRate(*swapCoin, walletDB);
+        // TODO need to unite with InitSwap
+        Amount estimatedFeeRate = EstimateSwapFeerate(*swapCoin, walletDB);
+        
+        swapFeeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-    if (minFeeRate > 0 && minFeeRate > swapFeeRate)
-    {
-        throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
-    }
+        if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the etimate fee rate.");
+        }
 
-    RequestToBridge(walletDB, *swapCoin);
+        Amount minFeeRate = GetMinSwapFeeRate(*swapCoin, walletDB);
 
-    if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
-    {
-        throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+        if (minFeeRate > 0 && minFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
+        }
+
+        RequestToBridge(walletDB, *swapCoin);
+
+        if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
+        {
+            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+        }
     }
 
 #ifdef BEAM_LIB_VERSION
@@ -808,7 +883,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam side:    " << *isBeamSide << "\n"
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
-        << " Swap amount:  " << *swapAmount << "\n"
+        << " Swap amount:  " << (*swapCoin == AtomicSwapCoin::Ethereum ? *ethAmount: *swapAmount) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
 
     // get accepting
@@ -838,7 +913,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-    FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
+    if (*swapCoin == AtomicSwapCoin::Ethereum)
+    {
+        FillSwapFee(&(*swapTxParameters), fee, gasLimit, gasPrice, *isBeamSide);
+    }
+    else
+    {
+        FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
+    }
 
     return wallet.StartTransaction(*swapTxParameters);
 }

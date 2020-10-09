@@ -166,7 +166,7 @@ namespace beam::wallet
 
         copyParameter<Amount>(TxParameterID::Amount, original, res);
         copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
-        copyParameter<Amount>(TxParameterID::AtomicSwapEthAmount, original, res);
+        copyParameter<ECC::uintBig>(TxParameterID::AtomicSwapEthAmount, original, res);
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 
@@ -211,7 +211,7 @@ namespace beam::wallet
 
         copyParameter<Amount>(TxParameterID::Amount, original, res);
         copyParameter<Amount>(TxParameterID::AtomicSwapAmount, original, res);
-        copyParameter<Amount>(TxParameterID::AtomicSwapEthAmount, original, res);
+        copyParameter<ECC::uintBig>(TxParameterID::AtomicSwapEthAmount, original, res);
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 

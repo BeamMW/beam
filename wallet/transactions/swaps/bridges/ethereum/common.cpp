@@ -14,6 +14,9 @@
 
 #include "common.h"
 
+#include <boost/multiprecision/cpp_int.hpp>
+#include "utility/hex.h"
+
 namespace beam::ethereum
 {
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr)
@@ -26,5 +29,29 @@ libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr)
     libbitcoin::short_hash address;
     libbitcoin::decode_base16(address, std::string(addressStr.begin() + 2, addressStr.end()));
     return address;
+}
+
+ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex)
+{
+    // TODO roman.strilets process prefix 0x
+    libbitcoin::data_chunk dc;
+
+    if (hex)
+    {
+        //libbitcoin::decode_base16(dc, number);
+        dc = beam::from_hex(number);
+    }
+    else
+    {
+        boost::multiprecision::uint256_t value(number);
+        std::stringstream stream;
+
+        stream << std::hex << value;
+        dc = beam::from_hex(stream.str());
+    }
+
+    ECC::uintBig result = ECC::Zero;
+    std::copy(dc.crbegin(), dc.crend(), std::rbegin(result.m_pData));
+    return result;
 }
 } // namespace beam::ethereum

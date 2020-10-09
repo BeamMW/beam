@@ -16,9 +16,11 @@
 
 #include <string>
 #include <bitcoin/bitcoin.hpp>
+#include "core/ecc.h"
 
 namespace beam::ethereum
 {
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
+ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex = true);
 } // namespace beam::ethereum

@@ -57,9 +57,7 @@ void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> 
                 std::string strBalance = result["result"].get<std::string>();
                 strBalance.erase(0, 2);
 
-                libbitcoin::data_chunk dc;
-                libbitcoin::decode_base16(dc, strBalance);
-                std::copy(dc.crbegin(), dc.crend(), std::rbegin(balance.m_pData));
+                balance = ConvertStrToUintBig(strBalance);
             }
             catch (const std::exception& ex)
             {
@@ -195,7 +193,6 @@ libbitcoin::short_hash EthereumBridge::generateEthAddress() const
 
     auto hash = ethash::keccak256(&tmp[0], tmp.size());
     libbitcoin::short_hash address;
-    libbitcoin::data_chunk data;
 
     std::copy_n(&hash.bytes[12], 20, address.begin());
 

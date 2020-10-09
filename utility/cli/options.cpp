@@ -249,6 +249,9 @@ namespace beam
         const char* ETHEREUM_ADDRESS = "ethereum_address";
         const char* ACCOUNT_INDEX = "account_index";
         const char* SHOULD_CONNECT = "should_connect";
+        const char* ETH_CONTRACT_ADDRESS = "eth_contract_address";
+        const char* ETH_GAS = "eth_gas";
+        const char* ETH_GAS_PRICE = "eth_gas_price";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -461,7 +464,7 @@ namespace beam
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
             (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM)")
-            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin (e.g. satoshi for BTC)")
+            (cli::SWAP_AMOUNT, po::value<string>(), "swap amount in the smallest unit of the coin (e.g. satoshi for BTC)")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "specific feerate you are willing to pay (the smallest unit of the coin per KB)")
             (cli::SWAP_BEAM_SIDE, "should be always set by the swap party who owns BEAM")
             (cli::SWAP_TX_HISTORY, "print swap transaction history in info command")
@@ -469,7 +472,10 @@ namespace beam
             (cli::ETHEREUM_SEED, po::value<string>(), "")
             (cli::ETHEREUM_ADDRESS, po::value<string>(), "")
             (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "")
-            (cli::SHOULD_CONNECT, po::value<bool>(), "");
+            (cli::SHOULD_CONNECT, po::value<bool>(), "")
+            (cli::ETH_CONTRACT_ADDRESS, po::value<string>(), "")
+            (cli::ETH_GAS, po::value<string>(), "")
+            (cli::ETH_GAS_PRICE, po::value<string>(), "");
 
         po::options_description wallet_assets_options("Confidential assets");
         wallet_assets_options.add_options()
