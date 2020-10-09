@@ -2722,7 +2722,7 @@ int main(int argc, char* argv[]) {
             // TODO: this hungs app on OSX
             //lock_signals_in_this_thread();
             int ret = main_impl(argc, argv);
-            kill(0, SIGINT);
+            _Exit(0);
             return ret;
         }
     );
