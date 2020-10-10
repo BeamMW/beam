@@ -92,6 +92,11 @@ namespace Wasm {
 		return ReadInternal<uint32_t, true>();
 	}
 
+	template <>
+	int64_t Reader::Read<int64_t>()
+	{
+		return ReadInternal<uint64_t, true>();
+	}
 
 	/////////////////////////////////////////////
 	// Common
@@ -117,55 +122,42 @@ namespace Wasm {
 				return 2;
 			}
 		}
+
+		static int32_t SignedFrom(uint32_t x) { return x; }
+		static int64_t SignedFrom(uint64_t x) { return x; }
 	};
 
+#define WasmInstructions_unop_Polymorphic_32(macro) \
+	macro(eqz   , 0x45, 0x50) \
 
-#define WasmInstructions_unop_i32_i32(macro) \
-	macro(0x45, i32_eqz) \
-	/*macro(0x69, i32_popcnt)*/ \
+#define WasmInstructions_binop_Polymorphic_32(macro) \
+	macro(eq    , 0x46, 0x51) \
+	macro(ne    , 0x47, 0x52) \
+	macro(lt_s  , 0x48, 0x53) \
+	macro(lt_u  , 0x49, 0x54) \
+	macro(gt_s  , 0x4A, 0x55) \
+	macro(gt_u  , 0x4B, 0x56) \
+	macro(le_s  , 0x4C, 0x57) \
+	macro(le_u  , 0x4D, 0x58) \
+	macro(ge_s  , 0x4E, 0x59) \
+	macro(ge_u  , 0x4F, 0x5A) \
 
-#define WasmInstructions_unop_i32_i64(macro) \
-	macro(0x50, i64_eqz) \
-
-#define WasmInstructions_binop_i32_i32(macro) \
-	macro(0x46, i32_eq) \
-	macro(0x47, i32_ne) \
-	macro(0x48, i32_lt_s) \
-	macro(0x49, i32_lt_u) \
-	macro(0x4A, i32_gt_s) \
-	macro(0x4B, i32_gt_u) \
-	macro(0x4C, i32_le_s) \
-	macro(0x4D, i32_le_u) \
-	macro(0x4E, i32_ge_s) \
-	macro(0x4F, i32_ge_u) \
-	macro(0x6A, i32_add) \
-	macro(0x6B, i32_sub) \
-	macro(0x6C, i32_mul) \
-	macro(0x6D, i32_div_s) \
-	macro(0x6E, i32_div_u) \
-	macro(0x6F, i32_rem_s) \
-	macro(0x70, i32_rem_u) \
-	macro(0x71, i32_and) \
-	macro(0x72, i32_or) \
-	macro(0x73, i32_xor) \
-	macro(0x74, i32_shl) \
-	macro(0x75, i32_shr_s) \
-	macro(0x76, i32_shr_u) \
-	macro(0x77, i32_rotl) \
-	macro(0x78, i32_rotr) \
-
-
-#define WasmInstructions_binop_i32_i64(macro) \
-	macro(0x51, i64_eq) \
-	macro(0x52, i64_ne) \
-	macro(0x53, i64_lt_s) \
-	macro(0x54, i64_lt_u) \
-	macro(0x55, i64_gt_s) \
-	macro(0x56, i64_gt_u) \
-	macro(0x57, i64_le_s) \
-	macro(0x58, i64_le_u) \
-	macro(0x59, i64_ge_s) \
-	macro(0x5A, i64_ge_u) \
+#define WasmInstructions_binop_Polymorphic_x(macro) \
+	macro(add   , 0x6A, 0x7C) \
+	macro(sub   , 0x6B, 0x7D) \
+	macro(mul   , 0x6C, 0x7E) \
+	macro(div_s , 0x6D, 0x7F) \
+	macro(div_u , 0x6E, 0x80) \
+	macro(rem_s , 0x6F, 0x81) \
+	macro(rem_u , 0x70, 0x82) \
+	macro(and   , 0x71, 0x83) \
+	macro(or    , 0x72, 0x84) \
+	macro(xor   , 0x73, 0x85) \
+	macro(shl   , 0x74, 0x86) \
+	macro(shr_s , 0x75, 0x87) \
+	macro(shr_u , 0x76, 0x88) \
+	macro(rotl  , 0x77, 0x89) \
+	macro(rotr  , 0x78, 0x8A) \
 
 #define WasmInstructions_CustomPorted(macro) \
 	macro(0x1A, drop) \
@@ -180,29 +172,42 @@ namespace Wasm {
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
 	macro(0x41, i32_const) \
+	macro(0x42, i64_const) \
 
 #define WasmInstructions_Proprietary(macro) \
 	macro(0x07, ret) \
 	macro(0x08, call_ext) \
 
 #define WasmInstructions_NotPorted(macro) \
+	macro(0x01, nop) \
 	macro(0x02, block) \
 	macro(0x03, loop) \
 	macro(0x0B, end_block) \
 
 #define WasmInstructions_AllInitial(macro) \
 	WasmInstructions_CustomPorted(macro) \
-	WasmInstructions_NotPorted(macro) \
+	WasmInstructions_NotPorted(macro)/* \
 	WasmInstructions_unop_i32_i32(macro) \
 	WasmInstructions_unop_i32_i64(macro) \
 	WasmInstructions_binop_i32_i32(macro) \
 	WasmInstructions_binop_i32_i64(macro) \
+	WasmInstructions_binop_i64_i64(macro) \*/
 
 	enum Instruction
 	{
 #define THE_MACRO(id, name) name = id,
-		WasmInstructions_AllInitial(THE_MACRO) \
+		WasmInstructions_CustomPorted(THE_MACRO) \
+		WasmInstructions_NotPorted(THE_MACRO) \
 		WasmInstructions_Proprietary(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, id32, id64) \
+		i32_##name = id32, \
+		i64_##name = id64,
+
+		WasmInstructions_unop_Polymorphic_32(THE_MACRO)
+		WasmInstructions_binop_Polymorphic_32(THE_MACRO)
+		WasmInstructions_binop_Polymorphic_x(THE_MACRO)
 #undef THE_MACRO
 
 	};
@@ -687,6 +692,10 @@ namespace Wasm {
 			UpdTopBlockLabel();
 		}
 
+		void On_nop() {
+			m_p0 = nullptr;
+		}
+
 		void On_end_block() {
 			BlockClose();
 		}
@@ -701,7 +710,13 @@ namespace Wasm {
 		}
 
 		void On_i32_const() {
-			auto val = m_Code.Read<uint32_t>();
+			auto val = m_Code.Read<int32_t>();
+			val;
+			Push(Type::i32);
+		}
+
+		void On_i64_const() {
+			auto val = m_Code.Read<int64_t>();
 			val;
 			Push(Type::i32);
 		}
@@ -873,27 +888,26 @@ namespace Wasm {
 			WasmInstructions_NotPorted(THE_MACRO)
 #undef THE_MACRO
 
-#define THE_MACRO(id, name) case id:
-			WasmInstructions_unop_i32_i32(THE_MACRO)
-#undef THE_MACRO
+
+#define THE_MACRO_ID32(name, id32, id64) case id32:
+#define THE_MACRO_ID64(name, id32, id64) case id64:
+
+			WasmInstructions_unop_Polymorphic_32(THE_MACRO_ID32)
 			{
 				Pop(Type::i32);
 				Push(Type::i32);
 
 			} break;
 
-#define THE_MACRO(id, name) case id:
-			WasmInstructions_unop_i32_i64(THE_MACRO)
-#undef THE_MACRO
+			WasmInstructions_unop_Polymorphic_32(THE_MACRO_ID64)
 			{
 				Pop(Type::i64);
 				Push(Type::i32);
 
 			} break;
 
-#define THE_MACRO(id, name) case id:
-			WasmInstructions_binop_i32_i32(THE_MACRO)
-#undef THE_MACRO
+			WasmInstructions_binop_Polymorphic_32(THE_MACRO_ID32)
+			WasmInstructions_binop_Polymorphic_x(THE_MACRO_ID32)
 			{
 				Pop(Type::i32);
 				Pop(Type::i32);
@@ -901,15 +915,24 @@ namespace Wasm {
 
 			} break;
 
-#define THE_MACRO(id, name) case id:
-			WasmInstructions_binop_i32_i64(THE_MACRO)
-#undef THE_MACRO
+			WasmInstructions_binop_Polymorphic_32(THE_MACRO_ID64)
 			{
 				Pop(Type::i64);
 				Pop(Type::i64);
 				Push(Type::i32);
 
 			} break;
+
+			WasmInstructions_binop_Polymorphic_x(THE_MACRO_ID64)
+			{
+				Pop(Type::i64);
+				Pop(Type::i64);
+				Push(Type::i64);
+
+			} break;
+
+#undef THE_MACRO_ID32
+#undef THE_MACRO_ID64
 
 			default:
 				Fail();
@@ -944,7 +967,7 @@ namespace Wasm {
 		return Pop1();
 	}
 
-	template <> void Processor::Stack::Push(const Word& x)
+	template <> void Processor::Stack::Push<Word>(const Word& x)
 	{
 		Push1(x);
 	}
@@ -967,34 +990,30 @@ namespace Wasm {
 		:public Processor
 	{
 
-#define THE_MACRO_unop(tout, tin, name) \
+#define THE_MACRO_unop(name) \
+		template <typename TOut, typename TIn> \
 		void On_##name() \
 		{ \
-			m_Stack.Push<tout>(Eval_##name(m_Stack.Pop<tin>())); \
+			m_Stack.Push<TOut>(Eval_##name<TOut, TIn>(m_Stack.Pop<TIn>())); \
 		}
 
-#define THE_MACRO_binop(tout, tin, name) \
+#define THE_MACRO_binop(name) \
+		template <typename TOut, typename TIn> \
 		void On_##name() \
 		{ \
-			tin b = m_Stack.Pop<tin>(); \
-			tin a = m_Stack.Pop<tin>(); \
-			m_Stack.Push<tout>(Eval_##name(a, b)); \
+			TIn b = m_Stack.Pop<TIn>(); \
+			TIn a = m_Stack.Pop<TIn>(); \
+			m_Stack.Push<TOut>(Eval_##name<TOut, TIn>(a, b)); \
 		}
 
-#define THE_MACRO(id, name) THE_MACRO_unop(uint32_t, uint32_t, name)
-		WasmInstructions_unop_i32_i32(THE_MACRO)
+
+#define THE_MACRO(name, id32, id64) THE_MACRO_unop(name)
+		WasmInstructions_unop_Polymorphic_32(THE_MACRO)
 #undef THE_MACRO
 
-#define THE_MACRO(id, name) THE_MACRO_unop(uint32_t, uint64_t, name)
-		WasmInstructions_unop_i32_i64(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, name) THE_MACRO_binop(uint32_t, uint32_t, name)
-		WasmInstructions_binop_i32_i32(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, name) THE_MACRO_binop(uint32_t, uint64_t, name)
-		WasmInstructions_binop_i32_i64(THE_MACRO)
+#define THE_MACRO(name, id32, id64) THE_MACRO_binop(name)
+		WasmInstructions_binop_Polymorphic_32(THE_MACRO)
+		WasmInstructions_binop_Polymorphic_x(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(id, name) void On_##name();
@@ -1002,49 +1021,35 @@ namespace Wasm {
 		WasmInstructions_Proprietary(THE_MACRO)
 #undef THE_MACRO
 
-#define UNOP(tout, tin, name) static tout Eval_##name(const tin& x)
-#define BINOP(tout, tin, name) static tout Eval_##name(const tin& a, const tin& b)
+#define UNOP(name) template <typename TOut, typename TIn> static TOut Eval_##name(TIn x)
+#define BINOP(name) template <typename TOut, typename TIn> static TOut Eval_##name(TIn a, TIn b)
 
-
-		UNOP(uint32_t, uint32_t, i32_eqz) { return x == 0; }
-		// UNOP(uint32_t, uint32_t, i32_popcnt) { return __popcnt(x); }
-		BINOP(uint32_t, uint32_t, i32_eq) { return a == b; }
-		BINOP(uint32_t, uint32_t, i32_ne) { return a != b; }
-		BINOP(uint32_t, uint32_t, i32_lt_s) { return static_cast<int32_t>(a) < static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_gt_s) { return static_cast<int32_t>(a) > static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_le_s) { return static_cast<int32_t>(a) <= static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_ge_s) { return static_cast<int32_t>(a) >= static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_lt_u) { return a < b; }
-		BINOP(uint32_t, uint32_t, i32_gt_u) { return a > b; }
-		BINOP(uint32_t, uint32_t, i32_le_u) { return a <= b; }
-		BINOP(uint32_t, uint32_t, i32_ge_u) { return a >= b; }
-		BINOP(uint32_t, uint32_t, i32_add) { return a + b; }
-		BINOP(uint32_t, uint32_t, i32_sub) { return a - b; }
-		BINOP(uint32_t, uint32_t, i32_mul) { return a * b; }
-		BINOP(uint32_t, uint32_t, i32_div_s) { Test(b);  return static_cast<int32_t>(a) / static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_div_u) { Test(b);  return a / b; }
-		BINOP(uint32_t, uint32_t, i32_rem_s) { Test(b);  return static_cast<int32_t>(a) % static_cast<int32_t>(b); }
-		BINOP(uint32_t, uint32_t, i32_rem_u) { Test(b);  return a % b; }
-		BINOP(uint32_t, uint32_t, i32_and) { return a & b; }
-		BINOP(uint32_t, uint32_t, i32_or) { return a | b; }
-		BINOP(uint32_t, uint32_t, i32_xor) { return a ^ b; }
-		BINOP(uint32_t, uint32_t, i32_shl) { Test(b < 32); return a << b; }
-		BINOP(uint32_t, uint32_t, i32_shr_s) { Test(b < 32); return static_cast<int32_t>(a) >> b; }
-		BINOP(uint32_t, uint32_t, i32_shr_u) { Test(b < 32); return a >> b; }
-		BINOP(uint32_t, uint32_t, i32_rotl) { Test(b < 32); if (!b) return a; return (a << b) | (a >> (32-b)); }
-		BINOP(uint32_t, uint32_t, i32_rotr) { Test(b < 32); if (!b) return a; return (a >> b) | (a << (32 - b)); }
-
-		UNOP(uint32_t, uint64_t, i64_eqz) { return x == 0; }
-		BINOP(uint32_t, uint64_t, i64_eq) { return a == b; }
-		BINOP(uint32_t, uint64_t, i64_ne) { return a != b; }
-		BINOP(uint32_t, uint64_t, i64_lt_s) { return static_cast<int64_t>(a) < static_cast<int64_t>(b); }
-		BINOP(uint32_t, uint64_t, i64_gt_s) { return static_cast<int64_t>(a) > static_cast<int64_t>(b); }
-		BINOP(uint32_t, uint64_t, i64_le_s) { return static_cast<int64_t>(a) <= static_cast<int64_t>(b); }
-		BINOP(uint32_t, uint64_t, i64_ge_s) { return static_cast<int64_t>(a) >= static_cast<int64_t>(b); }
-		BINOP(uint32_t, uint64_t, i64_lt_u) { return a < b; }
-		BINOP(uint32_t, uint64_t, i64_gt_u) { return a > b; }
-		BINOP(uint32_t, uint64_t, i64_le_u) { return a <= b; }
-		BINOP(uint32_t, uint64_t, i64_ge_u) { return a >= b; }
+		UNOP(eqz) { return x == 0; }
+		BINOP(eq) { return a == b; }
+		BINOP(ne) { return a != b; }
+		BINOP(lt_s) { return Type::SignedFrom(a) < Type::SignedFrom(b); }
+		BINOP(gt_s) { return Type::SignedFrom(a) > Type::SignedFrom(b); }
+		BINOP(le_s) { return Type::SignedFrom(a) <= Type::SignedFrom(b); }
+		BINOP(ge_s) { return Type::SignedFrom(a) >= Type::SignedFrom(b); }
+		BINOP(lt_u) { return a < b; }
+		BINOP(gt_u) { return a > b; }
+		BINOP(le_u) { return a <= b; }
+		BINOP(ge_u) { return a >= b; }
+		BINOP(add) { return a + b; }
+		BINOP(sub) { return a - b; }
+		BINOP(mul) { return a * b; }
+		BINOP(div_s) { Test(b);  return Type::SignedFrom(a) / Type::SignedFrom(b); }
+		BINOP(div_u) { Test(b);  return a / b; }
+		BINOP(rem_s) { Test(b);  return Type::SignedFrom(a) % Type::SignedFrom(b); }
+		BINOP(rem_u) { Test(b);  return a % b; }
+		BINOP(and) { return a & b; }
+		BINOP(or) { return a | b; }
+		BINOP(xor) { return a ^ b; }
+		BINOP(shl) { Test(b < (sizeof(a) * 8)); return a << b; }
+		BINOP(shr_s) { Test(b < (sizeof(a) * 8)); return Type::SignedFrom(a) >> b; }
+		BINOP(shr_u) { Test(b < (sizeof(a) * 8)); return a >> b; }
+		BINOP(rotl) { Test(b < (sizeof(a) * 8)); if (!b) return a; return (a << b) | (a >> ((sizeof(a) * 8) - b)); }
+		BINOP(rotr) { Test(b < (sizeof(a) * 8)); if (!b) return a; return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
 
 
 		uint32_t ReadAddr()
@@ -1114,15 +1119,24 @@ namespace Wasm {
 			switch (nInstruction)
 			{
 #define THE_MACRO(id, name) case I::name: On_##name(); break;
-
-			WasmInstructions_unop_i32_i32(THE_MACRO)
-			WasmInstructions_unop_i32_i64(THE_MACRO)
-			WasmInstructions_binop_i32_i32(THE_MACRO)
-			WasmInstructions_binop_i32_i64(THE_MACRO)
 			WasmInstructions_CustomPorted(THE_MACRO)
 			WasmInstructions_Proprietary(THE_MACRO)
 #undef THE_MACRO
 
+#define THE_MACRO(name, id32, id64) \
+			case id32: On_##name<uint32_t, uint32_t>(); break; \
+			case id64: On_##name<uint32_t, uint64_t>(); break;
+
+			WasmInstructions_unop_Polymorphic_32(THE_MACRO)
+			WasmInstructions_binop_Polymorphic_32(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, id32, id64) \
+			case id32: On_##name<uint32_t, uint32_t>(); break; \
+			case id64: On_##name<uint64_t, uint64_t>(); break;
+
+			WasmInstructions_binop_Polymorphic_x(THE_MACRO)
+#undef THE_MACRO
 
 			default:
 				Fail();
@@ -1240,7 +1254,12 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i32_const()
 	{
-		m_Stack.Push1(m_Instruction.Read<int32_t>());
+		m_Stack.Push<uint32_t>(m_Instruction.Read<int32_t>());
+	}
+
+	void ProcessorPlus::On_i64_const()
+	{
+		m_Stack.Push<uint64_t>(m_Instruction.Read<int64_t>());
 	}
 
 	void ProcessorPlus::On_ret()
