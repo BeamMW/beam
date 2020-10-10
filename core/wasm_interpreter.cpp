@@ -48,48 +48,50 @@ namespace Wasm {
 		return pRet;
 	}
 
-	template <bool bSigned>
-	uint64_t Reader::ReadInternal()
+	template <typename T, bool bSigned>
+	T Reader::ReadInternal()
 	{
-		uint64_t ret = 0;
-		for (uint32_t nShift = 0; ; )
+		static_assert(!std::numeric_limits<T>::is_signed); // the sign flag must be specified separately
+
+		T ret = 0;
+		for (unsigned int nShift = 0; ; )
 		{
 			uint8_t n = Read1();
 			bool bEnd = !(0x80 & n);
 			if (!bEnd)
 				n &= ~0x80;
 
-			ret |= uint64_t(n) << nShift;
-
+			ret |= T(n) << nShift;
 			nShift += 7;
-			if (nShift >= sizeof(ret) * 8)
-				break;
 
 			if (bEnd)
 			{
 				if constexpr (bSigned)
 				{
 					if (0x40 & n)
-						ret |= (~static_cast<uint64_t>(0) << nShift);
+						ret |= (~static_cast<T>(0) << nShift);
 				}
 				break;
 			}
+
+			Test(nShift < sizeof(ret) * 8);
 		}
 
 		return ret;
 	}
 
-	template <typename T>
-	T Reader::Read()
+	template <>
+	uint32_t Reader::Read<uint32_t>()
 	{
-		uint64_t x = ReadInternal<std::numeric_limits<T>::is_signed>();
-
-		static_assert(sizeof(T) <= sizeof(uint64_t));
-		T ret = static_cast<T>(x);
-		// Test(ret == static_cast<uint64_t>(x)); // overflow test. Skip currently (not really important)
-
-		return ret;
+		return ReadInternal<uint32_t, false>();
 	}
+
+	template <>
+	int32_t Reader::Read<int32_t>()
+	{
+		return ReadInternal<uint32_t, true>();
+	}
+
 
 	/////////////////////////////////////////////
 	// Common
@@ -103,16 +105,16 @@ namespace Wasm {
 
 		static const uint8_t s_Base = 0x7C; // for the 2-bit type encoding
 
-		static uint8_t SizeOf(uint8_t t) {
+		static uint8_t Words(uint8_t t) {
 			switch (t) {
 			default:
 				Fail();
 			case i32:
 			case f32:
-				return 4;
+				return 1;
 			case i64:
 			case f64:
-				return 8;
+				return 2;
 			}
 		}
 	};
@@ -207,19 +209,19 @@ namespace Wasm {
 
 	/////////////////////////////////////////////
 	// Compiler
-	uint32_t Compiler::PerFunction::Locals::get_Size() const
+	uint32_t Compiler::PerFunction::Locals::get_SizeWords() const
 	{
-		return m_v.empty() ? 0 : m_v.back().m_Pos + m_v.back().m_Size;
+		return m_v.empty() ? 0 : m_v.back().m_PosWords + m_v.back().m_SizeWords;
 	}
 
 	void Compiler::PerFunction::Locals::Add(uint8_t nType)
 	{
-		uint32_t nPos = get_Size();
+		uint32_t nPosWords = get_SizeWords();
 
 		auto& v = m_v.emplace_back();
 		v.m_Type = nType;
-		v.m_Pos = nPos;
-		v.m_Size = Type::SizeOf(nType);
+		v.m_PosWords = nPosWords;
+		v.m_SizeWords = Type::Words(nType);
 	}
 
 	struct CompilerPlus
@@ -427,7 +429,7 @@ namespace Wasm {
 
 		std::vector<Block> m_Blocks;
 		std::vector<uint8_t> m_Operands;
-		uint32_t m_SizeOperands = 0;
+		uint32_t m_WordsOperands = 0;
 
 
 		Block& get_B() {
@@ -437,7 +439,7 @@ namespace Wasm {
 
 		void Push(uint8_t x) {
 			m_Operands.push_back(x);
-			m_SizeOperands += Type::SizeOf(x);
+			m_WordsOperands += Type::Words(x);
 		}
 
 		uint8_t Pop() {
@@ -445,7 +447,7 @@ namespace Wasm {
 			uint8_t ret = m_Operands.back();
 			m_Operands.pop_back();
 
-			m_SizeOperands -= Type::SizeOf(ret);
+			m_WordsOperands -= Type::Words(ret);
 			return ret;
 		}
 
@@ -502,12 +504,12 @@ namespace Wasm {
 			m_This.m_Labels.m_Items[m_Blocks.back().m_iLabel] = static_cast<uint32_t>(m_This.m_Result.size());
 		}
 
-		static uint32_t SizeOfVars(const Vec<uint8_t>& v)
+		static uint32_t WordsOfVars(const Vec<uint8_t>& v)
 		{
-			uint32_t nSize = 0;
+			uint32_t nWords = 0;
 			for (uint32_t i = 0; i < v.n; i++)
-				nSize += Type::SizeOf(v.p[i]);
-			return nSize;
+				nWords += Type::Words(v.p[i]);
+			return nWords;
 		}
 
 		void WriteRet()
@@ -523,14 +525,14 @@ namespace Wasm {
 
 			// to allow for correct return we need to provide the following:
 
-			uint32_t nSizeLocal = m_This.m_Functions[m_iFunc].m_Locals.get_Size(); // sizeof(args) + sizeof(locals)
+			uint32_t nWordsLocal = m_This.m_Functions[m_iFunc].m_Locals.get_SizeWords(); // sizeof(args) + sizeof(locals)
 
 			const auto& tp = get_B().m_Type;
-			uint32_t nSizeArgs = SizeOfVars(tp.m_Args);
+			uint32_t nWordsArgs = WordsOfVars(tp.m_Args);
 
-			WriteResU(SizeOfVars(tp.m_Rets) >> 2); // sizeof(retval)
-			WriteResU((nSizeLocal - nSizeArgs) >> 2); // sizeof(locals), excluding args
-			WriteResU(nSizeArgs >> 2);
+			WriteResU(WordsOfVars(tp.m_Rets)); // sizeof(retval)
+			WriteResU(nWordsLocal - nWordsArgs); // sizeof(locals), excluding args
+			WriteResU(nWordsArgs);
 		}
 
 		void BlockClose()
@@ -606,17 +608,16 @@ namespace Wasm {
 			// locals
 			// current operand stack
 
-			uint32_t nOffs = m_SizeOperands + f.m_Locals.get_Size() - var.m_Pos;
+			uint32_t nOffsWords = m_WordsOperands + f.m_Locals.get_SizeWords() - var.m_PosWords;
 
 			const auto& fType = m_This.m_Types[f.m_TypeIdx];
 			if (iVar < fType.m_Args.n)
-				nOffs += sizeof(uint32_t); // retaddr
+				nOffsWords++; // retaddr
 
-			assert(!(nOffs & 3));
-			assert(var.m_Type - Type::s_Base <= 3);;
-			nOffs |= (var.m_Type - Type::s_Base);
+			assert(var.m_Type - Type::s_Base < sizeof(Word));
 
-			WriteResU(nOffs);
+			uint32_t nValue = (nOffsWords * sizeof(Word)) | (var.m_Type - Type::s_Base);
+			WriteResU(nValue);
 
 			return var.m_Type;
 		}
@@ -926,7 +927,41 @@ namespace Wasm {
 
 	/////////////////////////////////////////////
 	// Processor
+	Word& Processor::Stack::Pop1()
+	{
+		Test(m_Pos);
+		return m_pPtr[--m_Pos];
+	}
 
+	void Processor::Stack::Push1(const Word& x)
+	{
+		Test(m_Pos < m_Size);
+		m_pPtr[m_Pos++] = x;
+	}
+
+	template <> Word Processor::Stack::Pop()
+	{
+		return Pop1();
+	}
+
+	template <> void Processor::Stack::Push(const Word& x)
+	{
+		Push1(x);
+	}
+
+	// for well-formed wasm program we don't need to care about multi-word types bits words order, since there should be no type mixing (i.e. push as uint64, pop as uint32).
+	// But the attacker may violate this rule, and cause different behavior on different machines. So we do the proper conversion
+	template <> uint64_t Processor::Stack::Pop()
+	{
+		uint64_t ret = Pop1(); // loword
+		return ret | static_cast<uint64_t>(Pop1()) << 32; // hiword
+	}
+
+	template <> void Processor::Stack::Push(const uint64_t& x)
+	{
+		Push1(static_cast<Word>(x >> 32)); // hiword
+		Push1(static_cast<Word>(x)); // loword
+	}
 
 	struct ProcessorPlus
 		:public Processor
@@ -935,15 +970,15 @@ namespace Wasm {
 #define THE_MACRO_unop(tout, tin, name) \
 		void On_##name() \
 		{ \
-			Push<tout>(Eval_##name(*Pop<tin>())); \
+			m_Stack.Push<tout>(Eval_##name(m_Stack.Pop<tin>())); \
 		}
 
 #define THE_MACRO_binop(tout, tin, name) \
 		void On_##name() \
 		{ \
-			const tin* pB = Pop<tin>(); \
-			const tin* pA = Pop<tin>(); \
-			Push<tout>(Eval_##name(*pA, *pB)); \
+			tin b = m_Stack.Pop<tin>(); \
+			tin a = m_Stack.Pop<tin>(); \
+			m_Stack.Push<tout>(Eval_##name(a, b)); \
 		}
 
 #define THE_MACRO(id, name) THE_MACRO_unop(uint32_t, uint32_t, name)
@@ -1024,47 +1059,47 @@ namespace Wasm {
 		{
 			uint32_t nOffset = m_Instruction.Read<uint32_t>();
 
-			uint8_t nType = Type::s_Base + static_cast<uint8_t>(3 & (nOffset - Type::s_Base));
-			uint8_t nSize = Type::SizeOf(nType);
+			uint8_t nType = Type::s_Base + static_cast<uint8_t>((sizeof(Word) - 1) & (nOffset - Type::s_Base));
+			uint8_t nWords = Type::Words(nType);
 
-			nOffset >>= 2;
-			nSize >>= 2;
+			nOffset /= sizeof(Word);
 
-			Test((nOffset >= nSize) && (nOffset <= m_Sp));
+			Test((nOffset >= nWords) && (nOffset <= m_Stack.m_Pos));
 
-			uint32_t* pDst = m_pStack + m_Sp - nOffset;
-			uint32_t* pSrc = m_pStack + m_Sp;
+			uint32_t* pSrc = m_Stack.m_pPtr + m_Stack.m_Pos;
+			uint32_t* pDst = pSrc - nOffset;
 
 			if (!bSet)
 			{
 				std::swap(pDst, pSrc);
-				m_Sp += nSize;
-				Test(m_Sp <= _countof(m_pStack));
+				m_Stack.m_Pos += nWords;
+				Test(m_Stack.m_Pos <= m_Stack.m_Size);
 			}
 			else
 			{
-				pSrc -= nSize;
+				pSrc -= nWords;
 
 				if (!bGet)
-					m_Sp -= nSize;
+					m_Stack.m_Pos -= nWords;
 			}
 
-			for (uint32_t i = 0; i < nSize; i++)
+			for (uint32_t i = 0; i < nWords; i++)
 				pDst[i] = pSrc[i];
 		}
 
 		uint8_t* get_LinearAddr(uint32_t nOffset, uint32_t nSize)
 		{
-			Test(nOffset + nSize >= nSize); // no overflow
-			Test(nOffset + nSize < _countof(m_pLinearMem));
-			return m_pLinearMem + nOffset;
+			nSize += nOffset;
+			Test(nSize >= nOffset); // no overflow
+			Test(nSize <= m_LinearMem.n);
+			return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + nOffset;
 		}
 
 		uint8_t* On_Load(uint32_t nSize)
 		{
-			auto nPad = m_Instruction.Read<uint32_t>(); nPad;
-			auto nOffs = m_Instruction.Read<uint32_t>();
-			nOffs += *Pop<uint32_t>();
+			auto nPad = m_Instruction.Read<Word>(); nPad;
+			auto nOffs = m_Instruction.Read<Word>();
+			nOffs += m_Stack.Pop1();
 
 			return get_LinearAddr(nOffs, nSize);
 		}
@@ -1134,48 +1169,47 @@ namespace Wasm {
 
 	void ProcessorPlus::On_drop()
 	{
-		uint32_t nSize = Type::SizeOf(m_Instruction.Read1()) >> 2;
-		Test(m_Sp >= nSize);
-		m_Sp -= nSize;
+		uint32_t nWords = Type::Words(m_Instruction.Read1());
+		Test(m_Stack.m_Pos >= nWords);
+		m_Stack.m_Pos -= nWords;
 	}
 
 	void ProcessorPlus::On_select()
 	{
-		uint32_t nSize = Type::SizeOf(m_Instruction.Read1()) >> 2;
-		auto nSel = Pop<uint32_t>();
+		uint32_t nWords = Type::Words(m_Instruction.Read1());
+		auto nSel = m_Stack.Pop1();
 
-		Test(m_Sp >= (nSize << 1)); // must be at least 2 such operands
-		m_Sp -= nSize;
+		Test(m_Stack.m_Pos >= (nWords << 1)); // must be at least 2 such operands
+		m_Stack.m_Pos -= nWords;
 
 		if (!nSel)
 		{
-			for (uint32_t i = 0; i < nSize; i++)
-				m_pStack[m_Sp + i - nSize] = m_pStack[m_Sp + i];
+			for (uint32_t i = 0; i < nWords; i++)
+				m_Stack.m_pPtr[m_Stack.m_Pos + i - nWords] = m_Stack.m_pPtr[m_Stack.m_Pos + i];
 		}
 	}
 
 	void ProcessorPlus::On_i32_load8_u()
 	{
 		uint32_t val = *On_Load(1);
-		Push(val);
+		m_Stack.Push1(val);
 	}
 
 	void ProcessorPlus::On_i32_load8_s()
 	{
 		char ch = *On_Load(1);
 		int32_t val = ch; // promoted w.r.t. sign
-		Push<uint32_t>(val);
+		m_Stack.Push1(val);
 	}
 
 	void ProcessorPlus::On_i32_store8()
 	{
-		uint32_t val = *Pop<uint32_t>();
-		auto nPad = m_Instruction.Read<uint32_t>(); nPad;
-		auto nOffs = m_Instruction.Read<uint32_t>();
-		nOffs += *Pop<uint32_t>();
+		Word val = m_Stack.Pop1();
+		auto nPad = m_Instruction.Read<Word>(); nPad;
+		auto nOffs = m_Instruction.Read<Word>();
+		nOffs += m_Stack.Pop1();
 
-		Test(nOffs < _countof(m_pLinearMem));
-		m_pLinearMem[nOffs] = static_cast<uint8_t>(val);
+		*get_LinearAddr(nOffs, 1) = static_cast<uint8_t>(val);
 	}
 
 	void ProcessorPlus::On_br()
@@ -1185,16 +1219,16 @@ namespace Wasm {
 
 	void ProcessorPlus::On_br_if()
 	{
-		uint32_t addr = ReadAddr();
-		if (*Pop<uint32_t>())
+		Word addr = ReadAddr();
+		if (m_Stack.Pop1())
 			Jmp(addr);
 	}
 
 	void ProcessorPlus::On_call()
 	{
-		uint32_t nAddr = ReadAddr();
-		uint32_t nRetAddr = static_cast<uint32_t>(m_Instruction.m_p0 - (const uint8_t*) m_Code.p);
-		Push(nRetAddr);
+		Word nAddr = ReadAddr();
+		Word nRetAddr = static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*) m_Code.p);
+		m_Stack.Push1(nRetAddr);
 		Jmp(nAddr);
 	}
 
@@ -1206,7 +1240,7 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i32_const()
 	{
-		Push<int32_t>(m_Instruction.Read<int32_t>());
+		m_Stack.Push1(m_Instruction.Read<int32_t>());
 	}
 
 	void ProcessorPlus::On_ret()
@@ -1222,8 +1256,8 @@ namespace Wasm {
 		// locals
 		// retval
 
-		uint32_t nPosRetSrc = m_Sp - nRets;
-		Test(nPosRetSrc <= m_Sp);
+		uint32_t nPosRetSrc = m_Stack.m_Pos - nRets;
+		Test(nPosRetSrc <= m_Stack.m_Pos);
 
 		uint32_t nPosAddr = nPosRetSrc - (nLocals + 1);
 		Test(nPosAddr < nPosRetSrc);
@@ -1231,13 +1265,13 @@ namespace Wasm {
 		uint32_t nPosRetDst = nPosAddr - nArgs;
 		Test(nPosRetDst <= nPosAddr);
 
-		uint32_t nRetAddr = m_pStack[nPosAddr];
+		Word nRetAddr = m_Stack.m_pPtr[nPosAddr];
 
 		for (uint32_t i = 0; i < nRets; i++)
-			m_pStack[nPosRetDst + i] = m_pStack[nPosRetSrc + i];
+			m_Stack.m_pPtr[nPosRetDst + i] = m_Stack.m_pPtr[nPosRetSrc + i];
 
 
-		m_Sp = nPosRetDst + nRets;
+		m_Stack.m_Pos = nPosRetDst + nRets;
 		Jmp(nRetAddr);
 	}
 

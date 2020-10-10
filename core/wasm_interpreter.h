@@ -22,10 +22,12 @@ namespace Wasm {
 	void Fail();
 	void Test(bool);
 
+	typedef uint32_t Word;
+
 	class Reader
 	{
-		template <bool bSigned>
-		uint64_t ReadInternal();
+		template <typename T, bool bSigned>
+		T ReadInternal();
 	public:
 
 		const uint8_t* m_p0;
@@ -38,6 +40,11 @@ namespace Wasm {
 
 		template <typename T>
 		T Read();
+
+		template <typename T>
+		void Read(T& x) {
+			x = Read<T>();
+		}
 	};
 
 
@@ -52,7 +59,7 @@ namespace Wasm {
 			const T* p;
 
 			void Read(Reader& inp) {
-				n = inp.Read<uint32_t>();
+				inp.Read(n);
 				ReadArr(inp);
 			}
 
@@ -85,13 +92,13 @@ namespace Wasm {
 			{
 				struct PerType {
 					uint8_t m_Type;
-					uint8_t m_Size;
-					uint32_t m_Pos;
+					uint8_t m_SizeWords;
+					uint32_t m_PosWords;
 				};
 
 				std::vector<PerType> m_v; // including args
 
-				uint32_t get_Size() const;
+				uint32_t get_SizeWords() const;
 				void Add(uint8_t nType);
 
 			} m_Locals;
@@ -144,26 +151,24 @@ namespace Wasm {
 	struct Processor
 	{
 		Blob m_Code;
+		Blob m_LinearMem;
+
+		struct Stack
+		{
+			Word* m_pPtr;
+			Word m_Size = 0;
+			Word m_Pos = 0;
+
+			Word& Pop1();
+			void Push1(const Word&);
+
+			template <typename T> T Pop();
+			template <typename T> void Push(const T&);
+
+		} m_Stack;
+
+
 		Reader m_Instruction;
-
-		uint32_t m_Sp;
-		uint32_t m_pStack[8192]; // stack in terms of 32-bit values, 32KiB
-		uint8_t m_pLinearMem[32768];
-
-		template <typename T> const T* Pop()
-		{
-			Test(m_Sp >= sizeof(T) / sizeof(uint32_t));
-			m_Sp -= sizeof(T) / sizeof(uint32_t);
-
-			return (T*)(m_pStack + m_Sp);
-		}
-
-		template <typename T> void Push(T x)
-		{
-			Test(m_Sp + sizeof(T) / sizeof(uint32_t) <= _countof(m_pStack));
-			*(T*)(m_pStack + m_Sp) = x;
-			m_Sp += sizeof(T) / sizeof(uint32_t);
-		}
 
 		void Jmp(uint32_t ip);
 
