@@ -165,8 +165,12 @@ namespace Wasm {
 	macro(0x20, local_get) \
 	macro(0x21, local_set) \
 	macro(0x22, local_tee) \
+	macro(0x28, i32_load) \
+	macro(0x29, i64_load) \
 	macro(0x2C, i32_load8_s) \
 	macro(0x2D, i32_load8_u) \
+	macro(0x36, i32_store) \
+	macro(0x37, i64_store) \
 	macro(0x3A, i32_store8) \
 	macro(0x10, call) \
 	macro(0x0C, br) \
@@ -175,8 +179,9 @@ namespace Wasm {
 	macro(0x42, i64_const) \
 
 #define WasmInstructions_Proprietary(macro) \
-	macro(0x07, ret) \
-	macro(0x08, call_ext) \
+	macro(0xf1, prolog) \
+	macro(0xf2, ret) \
+	macro(0xf3, call_ext) \
 
 #define WasmInstructions_NotPorted(macro) \
 	macro(0x01, nop) \
@@ -651,18 +656,32 @@ namespace Wasm {
 			Pop(Type::i32);
 			uint8_t nType = Pop();
 			Pop(nType); // must be the same
+			Push(nType); // result
 
 			WriteRes(nType);
 		}
 
-		void On_i32_load8() {
+		uint32_t ReadOffsAndPadding()
+		{
 			auto nPad = m_Code.Read<uint32_t>();
-			auto nOffs = m_Code.Read<uint32_t>();
-			nOffs;
 			nPad;
+			return m_Code.Read<uint32_t>();
+		}
 
+		void On_i32_load() {
+			ReadOffsAndPadding();
 			Pop(Type::i32);
 			Push(Type::i32);
+		}
+
+		void On_i64_load() {
+			ReadOffsAndPadding();
+			Pop(Type::i32);
+			Push(Type::i64);
+		}
+
+		void On_i32_load8() {
+			On_i32_load();
 		}
 
 		void On_i32_load8_u() {
@@ -672,13 +691,19 @@ namespace Wasm {
 			On_i32_load8();
 		}
 
-		void On_i32_store8() {
-			auto nPad = m_Code.Read<uint32_t>();
-			auto nOffs = m_Code.Read<uint32_t>();
-			nOffs;
-			nPad;
-
+		void On_i32_store() {
+			ReadOffsAndPadding();
 			Pop(Type::i32);
+			Pop(Type::i32);
+		}
+
+		void On_i32_store8() {
+			On_i32_store();
+		}
+
+		void On_i64_store() {
+			ReadOffsAndPadding();
+			Pop(Type::i64);
 			Pop(Type::i32);
 		}
 
@@ -718,7 +743,7 @@ namespace Wasm {
 		void On_i64_const() {
 			auto val = m_Code.Read<int64_t>();
 			val;
-			Push(Type::i32);
+			Push(Type::i64);
 		}
 
 		void On_call()
@@ -865,16 +890,28 @@ namespace Wasm {
 	void Compiler::Context::CompileFunc()
 	{
 		auto& func = m_This.m_Functions[m_iFunc];
-
 		m_Code = func.m_Expression;
-		BlockOpen(m_This.m_Types[func.m_TypeIdx]);
+
+		const auto& tp = m_This.m_Types[func.m_TypeIdx];
+		BlockOpen(tp);
+
+		typedef Instruction I;
+
+		const auto& v = func.m_Locals.m_v;
+		assert(tp.m_Args.n <= v.size());
+		if (tp.m_Args.n < v.size())
+		{
+			uint32_t nLocalVarsSize = func.m_Locals.get_SizeWords() - v[tp.m_Args.n].m_PosWords;
+
+			WriteRes(static_cast<uint8_t>(I::prolog));
+			WriteResU(nLocalVarsSize);
+		}
 
 		for (uint32_t nLine = 0; !m_Blocks.empty(); nLine++)
 		{
 			nLine; // for dbg
 			m_p0 = m_Code.m_p0;
 
-			typedef Instruction I;
 			I nInstruction = (I) m_Code.Read1();
 
 			switch (nInstruction)
@@ -1100,7 +1137,7 @@ namespace Wasm {
 			return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + nOffset;
 		}
 
-		uint8_t* On_Load(uint32_t nSize)
+		uint8_t* MemArg(uint32_t nSize)
 		{
 			auto nPad = m_Instruction.Read<Word>(); nPad;
 			auto nOffs = m_Instruction.Read<Word>();
@@ -1203,27 +1240,55 @@ namespace Wasm {
 		}
 	}
 
+	void ProcessorPlus::On_i32_load()
+	{
+		uint32_t n;
+		typedef uintBigFor<uint32_t>::Type Type;
+		reinterpret_cast<Type*>(MemArg(sizeof(Type)))->Export(n);
+		m_Stack.Push1(n);
+	}
+
+	void ProcessorPlus::On_i64_load()
+	{
+		uint64_t n;
+		typedef uintBigFor<uint64_t>::Type Type;
+		reinterpret_cast<Type*>(MemArg(sizeof(Type)))->Export(n);
+		m_Stack.Push(n);
+	}
+
 	void ProcessorPlus::On_i32_load8_u()
 	{
-		uint32_t val = *On_Load(1);
+		uint32_t val = *MemArg(1);
 		m_Stack.Push1(val);
 	}
 
 	void ProcessorPlus::On_i32_load8_s()
 	{
-		char ch = *On_Load(1);
+		char ch = *MemArg(1);
 		int32_t val = ch; // promoted w.r.t. sign
 		m_Stack.Push1(val);
+	}
+
+	void ProcessorPlus::On_i32_store()
+	{
+		Word val = m_Stack.Pop1();
+
+		typedef uintBigFor<uint32_t>::Type Type;
+		*reinterpret_cast<Type*>(MemArg(sizeof(Type))) = val;
+	}
+
+	void ProcessorPlus::On_i64_store()
+	{
+		Word val = m_Stack.Pop1();
+
+		typedef uintBigFor<uint64_t>::Type Type;
+		*reinterpret_cast<Type*>(MemArg(sizeof(Type))) = val;
 	}
 
 	void ProcessorPlus::On_i32_store8()
 	{
 		Word val = m_Stack.Pop1();
-		auto nPad = m_Instruction.Read<Word>(); nPad;
-		auto nOffs = m_Instruction.Read<Word>();
-		nOffs += m_Stack.Pop1();
-
-		*get_LinearAddr(nOffs, 1) = static_cast<uint8_t>(val);
+		*MemArg(1) = static_cast<uint8_t>(val);
 	}
 
 	void ProcessorPlus::On_br()
@@ -1260,6 +1325,13 @@ namespace Wasm {
 	void ProcessorPlus::On_i64_const()
 	{
 		m_Stack.Push<uint64_t>(m_Instruction.Read<int64_t>());
+	}
+
+	void ProcessorPlus::On_prolog()
+	{
+		auto nWords = m_Instruction.Read<uint32_t>();
+		while (nWords--)
+			m_Stack.Push1(0); // for more safety - zero-init locals. This way we don't need initial stack initialization 
 	}
 
 	void ProcessorPlus::On_ret()
