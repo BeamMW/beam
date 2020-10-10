@@ -152,6 +152,7 @@ namespace Wasm {
 	{
 		Blob m_Code;
 		Blob m_LinearMem;
+		Reader m_Instruction;
 
 		struct Stack
 		{
@@ -167,11 +168,9 @@ namespace Wasm {
 
 		} m_Stack;
 
-
-		Reader m_Instruction;
+		std::ostringstream* m_pDbg = nullptr;
 
 		void Jmp(uint32_t ip);
-
 		void RunOnce();
 
 		virtual void InvokeExt(uint32_t);

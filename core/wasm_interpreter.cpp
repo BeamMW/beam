@@ -1153,24 +1153,29 @@ namespace Wasm {
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
+				if (m_pDbg)
+					*m_pDbg << "ip=" << uintBigFrom(get_Ip()) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+
 			switch (nInstruction)
 			{
-#define THE_MACRO(id, name) case I::name: On_##name(); break;
+#define THE_CASE(name) case I::name: if (m_pDbg) (*m_pDbg) << #name << std::endl;
+
+#define THE_MACRO(id, name) THE_CASE(name) On_##name(); break;
 			WasmInstructions_CustomPorted(THE_MACRO)
 			WasmInstructions_Proprietary(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, id32, id64) \
-			case id32: On_##name<uint32_t, uint32_t>(); break; \
-			case id64: On_##name<uint32_t, uint64_t>(); break;
+			THE_CASE(i32_##name) On_##name<uint32_t, uint32_t>(); break; \
+			THE_CASE(i64_##name) On_##name<uint32_t, uint64_t>(); break;
 
 			WasmInstructions_unop_Polymorphic_32(THE_MACRO)
 			WasmInstructions_binop_Polymorphic_32(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, id32, id64) \
-			case id32: On_##name<uint32_t, uint32_t>(); break; \
-			case id64: On_##name<uint64_t, uint64_t>(); break;
+			THE_CASE(i32_##name) On_##name<uint32_t, uint32_t>(); break; \
+			THE_CASE(i64_##name) On_##name<uint64_t, uint64_t>(); break;
 
 			WasmInstructions_binop_Polymorphic_x(THE_MACRO)
 #undef THE_MACRO
@@ -1179,6 +1184,11 @@ namespace Wasm {
 				Fail();
 			}
 
+		}
+
+		Word get_Ip() const
+		{
+			return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*) m_Code.p);
 		}
 
 	};
@@ -1279,7 +1289,7 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i64_store()
 	{
-		Word val = m_Stack.Pop1();
+		auto val = m_Stack.Pop<uint64_t>();
 
 		typedef uintBigFor<uint64_t>::Type Type;
 		*reinterpret_cast<Type*>(MemArg(sizeof(Type))) = val;
@@ -1306,7 +1316,7 @@ namespace Wasm {
 	void ProcessorPlus::On_call()
 	{
 		Word nAddr = ReadAddr();
-		Word nRetAddr = static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*) m_Code.p);
+		Word nRetAddr = get_Ip();
 		m_Stack.Push1(nRetAddr);
 		Jmp(nAddr);
 	}
