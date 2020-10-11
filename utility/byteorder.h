@@ -15,6 +15,34 @@
 #pragma once
 #include "common.h"
 
+// compile-time endian-ness detection. Remove this when we switch to c++20, better use std::endian.
+//
+// This nasty macro is under MIT license (afaik)
+#if !defined(__LITTLE_ENDIAN__) && !defined(__BIG_ENDIAN__)
+#  if (defined(__BYTE_ORDER__)  && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || \
+     (defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN) || \
+     (defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN) || \
+     (defined(BYTE_ORDER) && BYTE_ORDER == BIG_ENDIAN) || \
+     (defined(__sun) && defined(__SVR4) && defined(_BIG_ENDIAN)) || \
+     defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) || \
+     defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__) || \
+     defined(_M_PPC)
+#        define __BIG_ENDIAN__
+#  elif (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || /* gcc */\
+     (defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN) /* linux header */ || \
+     (defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN) || \
+     (defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN) /* mingw header */ ||  \
+     (defined(__sun) && defined(__SVR4) && defined(_LITTLE_ENDIAN)) || /* solaris */ \
+     defined(__ARMEL__) || defined(__THUMBEL__) || defined(__AARCH64EL__) || \
+     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
+     defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || /* msvc for intel processors */ \
+     defined(_M_ARM) /* msvc code on arm executes in little endian mode */
+#        define __LITTLE_ENDIAN__
+#  elif
+#    error can not detect endian-ness
+#  endif
+#endif
+
 
 namespace beam
 {
@@ -53,35 +81,14 @@ namespace beam
 		template <typename T, bool bLE, bool bTo>
 		inline T Convert(T x)
 		{
-			// compile-time endian-ness detection. Remove this when we switch to c++20, better use std::endian.
-			//
-			// This nasty macro is under MIT license (afaik)
-#if !defined(__LITTLE_ENDIAN__) && !defined(__BIG_ENDIAN__)
-#  if (defined(__BYTE_ORDER__)  && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || \
-     (defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN) || \
-	 (defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN) || \
-	 (defined(BYTE_ORDER) && BYTE_ORDER == BIG_ENDIAN) || \
-     (defined(__sun) && defined(__SVR4) && defined(_BIG_ENDIAN)) || \
-     defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) || \
-     defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__) || \
-     defined(_M_PPC)
-			const bool bNativeLE = false;
-#  elif (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || /* gcc */\
-     (defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN) /* linux header */ || \
-	 (defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN) || \
-	 (defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN) /* mingw header */ ||  \
-     (defined(__sun) && defined(__SVR4) && defined(_LITTLE_ENDIAN)) || /* solaris */ \
-     defined(__ARMEL__) || defined(__THUMBEL__) || defined(__AARCH64EL__) || \
-     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
-     defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || /* msvc for intel processors */ \
-     defined(_M_ARM) /* msvc code on arm executes in little endian mode */
+#ifdef __LITTLE_ENDIAN__
 			const bool bNativeLE = true;
-#  elif
-#    error can not detect endian-ness
-#  endif
-#endif
+#else // __LITTLE_ENDIAN__
+			const bool bNativeLE = false;
+#endif // __LITTLE_ENDIAN__
+
 			// for big/little endian the to/from flag doesn't matter
-			return (bNativeLE == bLE) ? x : bswap(x);
+			return constexpr (bNativeLE == bLE) ? x : bswap(x);
 		}
 
 		template <typename T> inline T to_le(T x) { return Convert<T, true, true>(x); }
