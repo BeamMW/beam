@@ -14,6 +14,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "wasm_interpreter.h"
+#include "../utility/byteorder.h"
 #include <sstream>
 
 #define MY_TOKENIZE2(a, b) a##b
@@ -28,6 +29,34 @@ namespace Wasm {
 	void Test(bool b) {
 		if (!b)
 			Fail();
+	}
+
+	// wasm uses LE format
+	template <typename T>
+	T to_wasm(T x)
+	{
+		return ByteOrder::to_le(x);
+	}
+
+	template <typename T>
+	void to_wasm(uint8_t* p, T x)
+	{
+		x = to_wasm(x);
+		memcpy(p, &x, sizeof(x));
+	}
+
+	template <typename T>
+	T from_wasm(T x)
+	{
+		return ByteOrder::from_le(x);
+	}
+
+	template <typename T>
+	T from_wasm(const uint8_t* p)
+	{
+		T x;
+		memcpy(&x, p, sizeof(x)); // fix alignment
+		return from_wasm(x);
 	}
 
 	/////////////////////////////////////////////
@@ -650,8 +679,8 @@ namespace Wasm {
 			lbl.m_iItem = iLabel;
 			lbl.m_Pos = static_cast<uint32_t>(m_This.m_Result.size());
 
-			uintBigFor<uint32_t>::Type offs(Zero);
-			WriteRes(offs.m_pData, offs.nBytes);
+			Word n = to_wasm(iLabel);
+			WriteRes(reinterpret_cast<uint8_t*>(&n), sizeof(n));
 		}
 
 		void OnBranch()
@@ -998,8 +1027,7 @@ namespace Wasm {
 		{
 			auto& trg = m_Labels.m_Targets[i];
 
-			uintBigFor<uint32_t>::Type nPos = m_Labels.m_Items[trg.m_iItem];
-			memcpy(&m_Result.front() + trg.m_Pos, nPos.m_pData, nPos.nBytes);
+			to_wasm(&m_Result.front() + trg.m_Pos, m_Labels.m_Items[trg.m_iItem]);
 		}
 
 	}
@@ -1208,12 +1236,9 @@ namespace Wasm {
 		BINOP(rotr) { Test(b < (sizeof(a) * 8)); if (!b) return a; return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
 
 
-		uint32_t ReadAddr()
+		Word ReadAddr()
 		{
-			uint32_t x;
-			typedef uintBigFor<uint32_t>::Type AddrType;
-			((AddrType*) m_Instruction.Consume(sizeof(AddrType)))->Export(x);
-			return x;
+			return from_wasm<Word>(m_Instruction.Consume(sizeof(Word)));
 		}
 
 		void OnLocal(bool bSet, bool bGet)
@@ -1426,17 +1451,13 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i32_load()
 	{
-		uint32_t n;
-		typedef uintBigFor<uint32_t>::Type Type;
-		reinterpret_cast<Type*>(MemArg(sizeof(Type)))->Export(n);
+		auto n = from_wasm<uint32_t>(MemArg(sizeof(uint32_t)));
 		m_Stack.Push1(n);
 	}
 
 	void ProcessorPlus::On_i64_load()
 	{
-		uint64_t n;
-		typedef uintBigFor<uint64_t>::Type Type;
-		reinterpret_cast<Type*>(MemArg(sizeof(Type)))->Export(n);
+		auto n = from_wasm<uint64_t>(MemArg(sizeof(uint64_t)));
 		m_Stack.Push(n);
 	}
 
@@ -1456,17 +1477,13 @@ namespace Wasm {
 	void ProcessorPlus::On_i32_store()
 	{
 		Word val = m_Stack.Pop1();
-
-		typedef uintBigFor<uint32_t>::Type Type;
-		*reinterpret_cast<Type*>(MemArg(sizeof(Type))) = val;
+		to_wasm(MemArg(sizeof(val)), val);
 	}
 
 	void ProcessorPlus::On_i64_store()
 	{
 		auto val = m_Stack.Pop<uint64_t>();
-
-		typedef uintBigFor<uint64_t>::Type Type;
-		*reinterpret_cast<Type*>(MemArg(sizeof(Type))) = val;
+		to_wasm(MemArg(sizeof(val)), val);
 	}
 
 	void ProcessorPlus::On_i32_store8()
