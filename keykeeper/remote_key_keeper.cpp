@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "remote_key_keeper.h"
+#include "utility/byteorder.h"
 #include "utility/executor.h"
 
 extern "C" {
@@ -123,14 +124,12 @@ namespace beam::wallet
 	    struct Proto
 	    {
 		    template <typename T> static void h2n_u(T& x) {
-			    auto x_ = x;
-			    reinterpret_cast<typename uintBigFor<T>::Type&>(x) = x_;
+                x = ByteOrder::to_be(x);
 		    }
 
 		    template <typename T> static void n2h_u(T& x) {
-			    auto x_ = x;
-			    reinterpret_cast<typename uintBigFor<T>::Type&>(x_).Export(x);
-		    }
+                x = ByteOrder::from_be(x);
+            }
 
 		    static void h2n(uint16_t& x) { h2n_u(x); }
 		    static void n2h(uint16_t& x) { n2h_u(x); }
