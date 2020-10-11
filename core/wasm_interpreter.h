@@ -78,11 +78,19 @@ namespace Wasm {
 		struct PerImport {
 			Vec<char> m_sMod;
 			Vec<char> m_sName;
-			uint32_t m_TypeIdx;
 			uint32_t m_Binding = 0; // set by the env before compiling
 		};
 
-		std::vector<PerImport> m_Imports;
+		struct PerImportFunc :public PerImport {
+			uint32_t m_TypeIdx;
+		};
+		std::vector<PerImportFunc> m_ImportFuncs;
+
+		struct PerImportGlobal :public PerImport {
+			uint8_t m_Type;
+			uint8_t m_IsVariable;
+		};
+		std::vector<PerImportGlobal> m_ImportGlobals;
 
 		struct PerFunction
 		{
@@ -160,7 +168,7 @@ namespace Wasm {
 			Word m_Size = 0;
 			Word m_Pos = 0;
 
-			Word& Pop1();
+			Word Pop1();
 			void Push1(const Word&);
 
 			template <typename T> T Pop();
@@ -172,8 +180,11 @@ namespace Wasm {
 
 		void Jmp(uint32_t ip);
 		void RunOnce();
+		uint8_t* get_LinearAddr(uint32_t nOffset, uint32_t nSize);
 
 		virtual void InvokeExt(uint32_t);
+		virtual void OnGlobalVar(uint32_t, bool bGet);
+
 	};
 
 } // namespace Wasm

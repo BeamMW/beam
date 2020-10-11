@@ -165,6 +165,8 @@ namespace Wasm {
 	macro(0x20, local_get) \
 	macro(0x21, local_set) \
 	macro(0x22, local_tee) \
+	macro(0x23, global_get) \
+	macro(0x24, global_set) \
 	macro(0x28, i32_load) \
 	macro(0x29, i64_load) \
 	macro(0x2C, i32_load8_s) \
@@ -182,6 +184,8 @@ namespace Wasm {
 	macro(0xf1, prolog) \
 	macro(0xf2, ret) \
 	macro(0xf3, call_ext) \
+	macro(0xf8, global_get_imp) \
+	macro(0xf9, global_set_imp) \
 
 #define WasmInstructions_NotPorted(macro) \
 	macro(0x01, nop) \
@@ -316,18 +320,61 @@ namespace Wasm {
 	void CompilerPlus::OnSection_Import(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
-		m_Imports.resize(nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
 		{
-			auto& x = m_Imports[i];
-			x.m_sMod.Read(inp);
-			x.m_sName.Read(inp);
+			PerImport pi;
+			pi.m_sMod.Read(inp);
+			pi.m_sName.Read(inp);
 
-			Test(inp.Read1() == 0); // import function, other imports are not supported
+			uint8_t nKind = inp.Read1();
+			switch (nKind)
+			{
+			case 0: {
+				auto& x = m_ImportFuncs.emplace_back();
+				Cast::Down<PerImport>(x) = pi;
+				x.m_TypeIdx = inp.Read<uint32_t>();
+				Test(x.m_TypeIdx < m_Types.size());
+			}
+			break;
 
-			x.m_TypeIdx = inp.Read<uint32_t>();
-			Test(x.m_TypeIdx < m_Types.size());
+			case 1: {
+				// table. Ignore.
+				uint32_t lim;
+				lim = inp.Read<uint32_t>();
+				lim = inp.Read<uint32_t>();
+				lim;
+
+				uint8_t nElemType = inp.Read1();
+				nElemType;
+
+
+			} break;
+
+			case 2: {
+
+				// mem type. Ignore.
+				uint32_t lim;
+				lim = inp.Read<uint32_t>();
+				lim = inp.Read<uint32_t>();
+				lim;
+			}
+			break;
+
+			case 3: {
+				// global
+				auto& x = m_ImportGlobals.emplace_back();
+				Cast::Down<PerImport>(x) = pi;
+				x.m_Type = inp.Read1();
+				x.m_IsVariable = inp.Read1();
+			}
+			break;
+
+			default:
+				Fail();
+
+			}
+
 		}
 	}
 
@@ -376,7 +423,7 @@ namespace Wasm {
 
 			if (!x.m_Kind)
 			{
-				x.m_Idx -= static_cast<uint32_t>(m_Imports.size());
+				x.m_Idx -= static_cast<uint32_t>(m_ImportFuncs.size());
 				Test(x.m_Idx < m_Functions.size());
 			}
 		}
@@ -524,7 +571,7 @@ namespace Wasm {
 
 		void WriteRet()
 		{
-			WriteRes(static_cast<uint8_t>(Instruction::ret));
+			WriteRes(Instruction::ret);
 
 			// stack layout
 			// ...
@@ -746,18 +793,55 @@ namespace Wasm {
 			Push(Type::i64);
 		}
 
+		void OnGlobal(bool bGet)
+		{
+			auto iVar = m_Code.Read<uint32_t>();
+			bool bImported = (iVar < m_This.m_ImportGlobals.size());
+			if (bImported)
+			{
+				const auto& x = m_This.m_ImportGlobals[iVar];
+
+				if (bGet) {
+					Push(x.m_Type);
+					WriteRes(Instruction::global_get_imp);
+				}
+				else {
+					Pop(x.m_Type);
+					WriteRes(Instruction::global_set_imp);
+				}
+
+				WriteResU(x.m_Binding);
+			}
+			else
+			{
+				Fail(); // not supported atm
+			}
+
+			m_p0 = nullptr; // don't write
+		}
+
+		void On_global_get()
+		{
+			OnGlobal(true);
+		}
+
+		void On_global_set()
+		{
+			OnGlobal(false);
+		}
+
 		void On_call()
 		{
 			auto iFunc = m_Code.Read<uint32_t>();
 
-			bool bImported = (iFunc < m_This.m_Imports.size());
+			bool bImported = (iFunc < m_This.m_ImportFuncs.size());
 			if (!bImported)
 			{
-				iFunc -= static_cast<uint32_t>(m_This.m_Imports.size());
+				iFunc -= static_cast<uint32_t>(m_This.m_ImportFuncs.size());
 				Test(iFunc < m_This.m_Functions.size());
 			}
 
-			uint32_t iTypeIdx = bImported ? m_This.m_Imports[iFunc].m_TypeIdx : m_This.m_Functions[iFunc].m_TypeIdx;
+			uint32_t iTypeIdx = bImported ? m_This.m_ImportFuncs[iFunc].m_TypeIdx : m_This.m_Functions[iFunc].m_TypeIdx;
 			const auto& tp = m_This.m_Types[iTypeIdx];
 
 			for (uint32_t i = tp.m_Args.n; i--; )
@@ -770,12 +854,12 @@ namespace Wasm {
 
 			if (bImported)
 			{
-				WriteRes(static_cast<uint8_t>(Instruction::call_ext));
-				WriteResU(m_This.m_Imports[iFunc].m_Binding);
+				WriteRes(Instruction::call_ext);
+				WriteResU(m_This.m_ImportFuncs[iFunc].m_Binding);
 			}
 			else
 			{
-				WriteRes(static_cast<uint8_t>(Instruction::call));
+				WriteRes(Instruction::call);
 				PutLabelTrg(iFunc);
 			}
 		}
@@ -903,7 +987,7 @@ namespace Wasm {
 		{
 			uint32_t nLocalVarsSize = func.m_Locals.get_SizeWords() - v[tp.m_Args.n].m_PosWords;
 
-			WriteRes(static_cast<uint8_t>(I::prolog));
+			WriteRes(I::prolog);
 			WriteResU(nLocalVarsSize);
 		}
 
@@ -987,7 +1071,7 @@ namespace Wasm {
 
 	/////////////////////////////////////////////
 	// Processor
-	Word& Processor::Stack::Pop1()
+	Word Processor::Stack::Pop1()
 	{
 		Test(m_Pos);
 		return m_pPtr[--m_Pos];
@@ -1129,12 +1213,15 @@ namespace Wasm {
 				pDst[i] = pSrc[i];
 		}
 
-		uint8_t* get_LinearAddr(uint32_t nOffset, uint32_t nSize)
+		void OnGlobal(bool bGet)
 		{
-			nSize += nOffset;
-			Test(nSize >= nOffset); // no overflow
-			Test(nSize <= m_LinearMem.n);
-			return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + nOffset;
+			Fail();
+		}
+
+		void OnGlobalImp(bool bGet)
+		{
+			auto iVar = m_Instruction.Read<uint32_t>();
+			OnGlobalVar(iVar, bGet);
 		}
 
 		uint8_t* MemArg(uint32_t nSize)
@@ -1193,6 +1280,14 @@ namespace Wasm {
 
 	};
 
+	uint8_t* Processor::get_LinearAddr(uint32_t nOffset, uint32_t nSize)
+	{
+		nSize += nOffset;
+		Test(nSize >= nOffset); // no overflow
+		Test(nSize <= m_LinearMem.n);
+		return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + nOffset;
+	}
+
 	void Processor::RunOnce()
 	{
 		auto& p = Cast::Up<ProcessorPlus>(*this);
@@ -1203,6 +1298,11 @@ namespace Wasm {
 	void Processor::InvokeExt(uint32_t)
 	{
 		Fail(); // unresolved binding
+	}
+
+	void Processor::OnGlobalVar(uint32_t iVar, bool bGet)
+	{
+		Fail();
 	}
 
 	void Processor::Jmp(uint32_t ip)
@@ -1226,6 +1326,26 @@ namespace Wasm {
 	void ProcessorPlus::On_local_tee()
 	{
 		OnLocal(true, true);
+	}
+
+	void ProcessorPlus::On_global_get()
+	{
+		OnGlobal(true);
+	}
+
+	void ProcessorPlus::On_global_set()
+	{
+		OnGlobal(false);
+	}
+
+	void ProcessorPlus::On_global_get_imp()
+	{
+		OnGlobalImp(true);
+	}
+
+	void ProcessorPlus::On_global_set_imp()
+	{
+		OnGlobalImp(false);
 	}
 
 	void ProcessorPlus::On_drop()
