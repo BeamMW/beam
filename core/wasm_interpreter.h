@@ -186,10 +186,36 @@ namespace Wasm {
 			void set_AlasSp(Word);
 
 			Word Pop1();
-			void Push1(const Word&);
+			void Push1(Word);
 
-			template <typename T> T Pop();
-			template <typename T> void Push(const T&);
+			uint64_t Pop2();
+			void Push2(uint64_t);
+
+			template <typename T>
+			T Pop()
+			{
+				static_assert(std::numeric_limits<T>::is_integer);
+				if constexpr (sizeof(T) <= sizeof(Word))
+					return static_cast<T>(Pop1());
+				else
+				{
+					static_assert(sizeof(T) <= sizeof(uint64_t));
+					return static_cast<T>(Pop2());
+				}
+			}
+
+			template <typename T>
+			void Push(const T& x)
+			{
+				static_assert(std::numeric_limits<T>::is_integer);
+				if constexpr (sizeof(T) <= sizeof(Word))
+					Push1(static_cast<T>(x));
+				else
+				{
+					static_assert(sizeof(T) <= sizeof(uint64_t));
+					Push2(static_cast<T>(x));
+				}
+			}
 
 		} m_Stack;
 

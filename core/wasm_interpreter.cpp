@@ -1140,31 +1140,21 @@ namespace Wasm {
 		return m_pPtr[--m_Pos];
 	}
 
-	void Processor::Stack::Push1(const Word& x)
+	void Processor::Stack::Push1(Word x)
 	{
 		Test(m_Pos < m_BytesCurrent / sizeof(Word));
 		m_pPtr[m_Pos++] = x;
 	}
 
-	template <> Word Processor::Stack::Pop()
-	{
-		return Pop1();
-	}
-
-	template <> void Processor::Stack::Push<Word>(const Word& x)
-	{
-		Push1(x);
-	}
-
 	// for well-formed wasm program we don't need to care about multi-word types bits words order, since there should be no type mixing (i.e. push as uint64, pop as uint32).
 	// But the attacker may violate this rule, and cause different behavior on different machines. So we do the proper conversion
-	template <> uint64_t Processor::Stack::Pop()
+	uint64_t Processor::Stack::Pop2()
 	{
 		uint64_t ret = Pop1(); // loword
 		return ret | static_cast<uint64_t>(Pop1()) << 32; // hiword
 	}
 
-	template <> void Processor::Stack::Push(const uint64_t& x)
+	void Processor::Stack::Push2(uint64_t x)
 	{
 		Push1(static_cast<Word>(x >> 32)); // hiword
 		Push1(static_cast<Word>(x)); // loword
