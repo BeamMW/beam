@@ -119,7 +119,7 @@ void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64
 
 void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback)
 {
-    sendRequest("eth_sendRawTransaction", "\"" + rawTx + "\"", [callback](Error error, const json& result)
+    sendRequest("eth_sendRawTransaction", "\"" + AddHexPrefix(rawTx) + "\"", [callback](Error error, const json& result)
     {
         std::string txHash = "";
 
@@ -169,7 +169,7 @@ void EthereumBridge::send(
                 ethTx.m_nonce = txCount;
 
                 auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
-                std::string stTx = "0x" + libbitcoin::encode_base16(signedTx);
+                std::string stTx = libbitcoin::encode_base16(signedTx);
 
                 sendRawTransaction(stTx, callback);
 
@@ -188,7 +188,7 @@ void EthereumBridge::send(
 
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](Error error, const json& result)
+    sendRequest("eth_getTransactionReceipt", "\"" + AddHexPrefix(txHash) + "\"", [callback](Error error, const json& result)
     {
         std::string txInfo = "";
 
@@ -238,7 +238,7 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     std::string addr = ConvertEthAddressToStr(to);
-    sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](Error error, const json& result)
+    sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + AddHexPrefix(data) + "\"},\"latest\"", [callback](Error error, const json& result)
     {
         json tmp;
 

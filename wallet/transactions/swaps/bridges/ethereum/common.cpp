@@ -17,29 +17,37 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include "utility/hex.h"
 
+namespace
+{
+    const std::string kHexPrefix = "0x";
+
+    bool HasHexPrefix(const std::string& value)
+    {
+        return value.find(kHexPrefix) == 0;
+    }
+}
+
 namespace beam::ethereum
 {
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr)
 {
-    return "0x" + libbitcoin::encode_base16(addr);
+    return kHexPrefix + libbitcoin::encode_base16(addr);
 }
 
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr)
 {
     libbitcoin::short_hash address;
-    libbitcoin::decode_base16(address, std::string(addressStr.begin() + 2, addressStr.end()));
+    libbitcoin::decode_base16(address, RemoveHexPrefix(addressStr));
     return address;
 }
 
 ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex)
 {
-    // TODO roman.strilets process prefix 0x
     libbitcoin::data_chunk dc;
 
     if (hex)
     {
-        //libbitcoin::decode_base16(dc, number);
-        dc = beam::from_hex(number);
+        dc = beam::from_hex(RemoveHexPrefix(number));
     }
     else
     {
@@ -53,5 +61,25 @@ ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex)
     ECC::uintBig result = ECC::Zero;
     std::copy(dc.crbegin(), dc.crend(), std::rbegin(result.m_pData));
     return result;
+}
+
+std::string AddHexPrefix(const std::string& value)
+{
+    if (!HasHexPrefix(value))
+    {
+        return kHexPrefix + value;
+    }
+
+    return value;
+}
+
+std::string RemoveHexPrefix(const std::string& value)
+{
+    if (HasHexPrefix(value))
+    {
+        return std::string(value.begin() + 2, value.end());
+    }
+
+    return value;
 }
 } // namespace beam::ethereum

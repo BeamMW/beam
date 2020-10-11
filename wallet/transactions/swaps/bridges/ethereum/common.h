@@ -23,4 +23,6 @@ namespace beam::ethereum
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
 ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex = true);
+std::string AddHexPrefix(const std::string& value);
+std::string RemoveHexPrefix(const std::string& value);
 } // namespace beam::ethereum
