@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../../utility/byteorder.h"
 #include "../../utility/executor.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
@@ -217,6 +218,47 @@ void TestUintBig()
 			TestShifts(a, d, d, i); // inplace shift
 		}
 	}
+}
+
+template <typename T>
+void TestByteOrderT()
+{
+	uint8_t pBytesBE[sizeof(T)];
+
+	T val = 0;
+	for (uint8_t i = 0; i < sizeof(T); i++)
+	{
+		pBytesBE[i] = (i + 1) * 0x11;
+		val <<= 8;
+		val |= pBytesBE[i];
+	}
+
+	union U {
+		T val2;
+		uint8_t pBytes[sizeof(T)];
+	} u;
+	static_assert(sizeof(u) == sizeof(T));
+
+	u.val2 = beam::ByteOrder::to_be(val);
+	verify_test(beam::ByteOrder::from_be(u.val2) == val);
+
+	verify_test(!memcmp(pBytesBE, u.pBytes, sizeof(T)));
+
+	u.val2 = beam::ByteOrder::to_le(val);
+	verify_test(beam::ByteOrder::from_le(u.val2) == val);
+
+	for (unsigned int i = 0; i < sizeof(T); i++)
+	{
+		verify_test(pBytesBE[i] == u.pBytes[sizeof(T) - 1 - i]);
+	}
+}
+
+void TestByteOrder()
+{
+	TestByteOrderT<uint8_t>();
+	TestByteOrderT<uint16_t>();
+	TestByteOrderT<uint32_t>();
+	TestByteOrderT<uint64_t>();
 }
 
 void TestHash()
@@ -2182,6 +2224,7 @@ void TestAssetEmission()
 
 void TestAll()
 {
+	TestByteOrder();
 	TestUintBig();
 	TestHash();
 	TestScalars();
