@@ -77,11 +77,11 @@ namespace beam
      defined(_M_ARM) /* msvc code on arm executes in little endian mode */
 			const bool bNativeLE = true;
 #  elif
-#    error can't detect endian-ness
+#    error can not detect endian-ness
 #  endif
 #endif
 			// for big/little endian the to/from flag doesn't matter
-			return constexpr(bNativeLE == bLE) ? x : bswap(x);
+			return (bNativeLE == bLE) ? x : bswap(x);
 		}
 
 		template <typename T> inline T to_le(T x) { return Convert<T, true, true>(x); }
