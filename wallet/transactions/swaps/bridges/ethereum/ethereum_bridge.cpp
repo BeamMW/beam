@@ -47,7 +47,8 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
 void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> callback)
 {
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
-    sendRequest("eth_getBalance", "\"" + ethAddress + "\",\"latest\"", [callback](Error error, const json& result) {
+    sendRequest("eth_getBalance", "\"" + ethAddress + "\",\"latest\"", [callback](Error error, const json& result)
+    {
         ECC::uintBig balance = ECC::Zero;
 
         if (error.m_type == IBridge::None)
@@ -71,7 +72,8 @@ void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> 
 
 void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> callback)
 {
-    sendRequest("eth_blockNumber", "", [callback](Error error, const json& result) {
+    sendRequest("eth_blockNumber", "", [callback](Error error, const json& result)
+    {
         uint64_t blockNumber = 0;
 
         if (error.m_type == IBridge::None)
@@ -94,7 +96,8 @@ void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> 
 void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64_t)> callback)
 {
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
-    sendRequest("eth_getTransactionCount", "\"" + ethAddress + "\",\"latest\"", [callback](Error error, const json& result) {
+    sendRequest("eth_getTransactionCount", "\"" + ethAddress + "\",\"latest\"", [callback](Error error, const json& result)
+    {
         uint64_t txCount = 0;
 
         if (error.m_type == IBridge::None)
@@ -116,10 +119,24 @@ void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64
 
 void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback)
 {
-    sendRequest("eth_sendRawTransaction", "\"" + rawTx + "\"", [callback](Error error, const json& result) {
-        // TODO: remove after tests
-        LOG_DEBUG() << result.dump(4);
-        std::string txHash = result["result"].get<std::string>();
+    sendRequest("eth_sendRawTransaction", "\"" + rawTx + "\"", [callback](Error error, const json& result)
+    {
+        std::string txHash = "";
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                // TODO: remove after tests
+                LOG_DEBUG() << result.dump(4);
+                txHash = result["result"].get<std::string>();
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
 
         callback(error, txHash);
     });
@@ -143,19 +160,52 @@ void EthereumBridge::send(
 
     getTransactionCount([this, ethTx, callback](const Error& error, uint64_t txCount) mutable
     {
-        ethTx.m_nonce = txCount;
+        Error tmp(error);
 
-        auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
-        std::string stTx = "0x" + libbitcoin::encode_base16(signedTx);
+        if (tmp.m_type == IBridge::None)
+        {
+            try
+            {
+                ethTx.m_nonce = txCount;
 
-        sendRawTransaction(stTx, callback);
+                auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
+                std::string stTx = "0x" + libbitcoin::encode_base16(signedTx);
+
+                sendRawTransaction(stTx, callback);
+
+                return;
+            }
+            catch (const std::exception& ex)
+            {
+                tmp.m_type = IBridge::InvalidResultFormat;
+                tmp.m_message = ex.what();
+            }
+        }
+
+        callback(tmp, "");
     });
 }
 
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](Error error, const json& result) {
-        callback(error, result["result"]);
+    sendRequest("eth_getTransactionReceipt", "\"" + txHash + "\"", [callback](Error error, const json& result)
+    {
+        std::string txInfo = "";
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                txInfo = result["result"].get<std::string>();
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+
+        callback(error, txInfo);
     });
 }
 
@@ -163,19 +213,49 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
 {
     getTransactionReceipt(txHash, [callback](const Error& error, const nlohmann::json& result)
     {
-        // TODO: process this situation
-        assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
-        uint64_t txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
+        Error tmp(error);
+        uint64_t txBlockNumber = 0;
 
-        callback(error, txBlockNumber);
+        if (tmp.m_type == IBridge::None)
+        {
+            try
+            {
+                // TODO: process this situation
+                assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
+                txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
+            }
+            catch (const std::exception& ex)
+            {
+                tmp.m_type = IBridge::InvalidResultFormat;
+                tmp.m_message = ex.what();
+            }
+        }
+
+        callback(tmp, txBlockNumber);
     });
 }
 
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     std::string addr = ConvertEthAddressToStr(to);
-    sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](Error error, const json& result) {
-        callback(error, result["result"]);
+    sendRequest("eth_call", "{\"to\":\"" + addr + "\",\"data\":\"" + data + "\"},\"latest\"", [callback](Error error, const json& result)
+    {
+        json tmp;
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                tmp = result["result"];
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+
+        callback(error, tmp);
     });
 }
 
@@ -210,13 +290,12 @@ void EthereumBridge::sendRequest(
 
     if (!address.resolve(settings.m_address.c_str()))
     {
-
         LOG_ERROR() << "unable to resolve electrum address: " << settings.m_address;
 
         // TODO maybe to need async??
-        /*Error error{ IOError, "unable to resolve electrum address: " + electrumSettings.m_address };
+        Error error{ IOError, "unable to resolve ethereum provider address: " + settings.m_address };
         json result;
-        callback(error, result, 0);*/
+        callback(error, result);
         return;
     }
 
@@ -236,6 +315,8 @@ void EthereumBridge::sendRequest(
 
     request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
     {
+        IBridge::Error error{ ErrorType::None, "" };
+        json result;
         if (msg.what == HttpMsgReader::http_message)
         {
             size_t sz = 0;
@@ -248,37 +329,21 @@ void EthereumBridge::sendRequest(
 
                 try
                 {
-                    json reply = json::parse(strResponse);
-                    Error error{ ErrorType::None, "" };
-
-                    callback(error, reply);
-                    /*if (!reply["error"].empty())
-                    {
-                        error.m_type = IBridge::BitcoinError;
-                        error.m_message = reply["error"]["message"].get<std::string>();
-                    }
-                    else if (reply["result"].empty())
-                    {
-                        error.m_type = IBridge::EmptyResult;
-                        error.m_message = "JSON has no \"result\" value";
-                    }
-                    else
-                    {
-                        result = reply["result"];
-                    }*/
+                    result = json::parse(strResponse);
                 }
-                catch (const std::exception& /*ex*/)
+                catch (const std::exception& ex)
                 {
-                    /*error.m_type = IBridge::InvalidResultFormat;
-                    error.m_message = ex.what();*/
+                    error.m_type = IBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
                 }
             }
             else
             {
-                /*error.m_type = IBridge::ErrorType::InvalidResultFormat;
-                error.m_message = "Empty response.";*/
+                error.m_type = IBridge::ErrorType::InvalidResultFormat;
+                error.m_message = "Empty response.";
             }
         }
+        callback(error, result);
         return false;
     });
 
