@@ -248,6 +248,8 @@ namespace Wasm {
 		macro(6, Global) \
 		macro(7, Export) \
 		macro(10, Code) \
+		macro(11, Data) \
+		macro(12, DataCount) \
 
 #define THE_MACRO(id, name) void OnSection_##name(Reader&);
 		WasmParserSections(THE_MACRO)
@@ -275,7 +277,8 @@ namespace Wasm {
 		for (uint8_t nPrevSection = 0; inp.m_p0 < inp.m_p1; )
 		{
 			auto nSection = inp.Read1();
-			Test(!nPrevSection || !nSection || (nSection > nPrevSection));
+			bool bIgnoreOrder = !nSection || (12 == nSection);
+			Test(!nPrevSection || bIgnoreOrder || (nSection > nPrevSection));
 
 			auto nLen = inp.Read<uint32_t>();
 
@@ -291,7 +294,7 @@ namespace Wasm {
 
 			}
 
-			if (nSection)
+			if (!bIgnoreOrder)
 				nPrevSection = nSection;
 		}
 
@@ -463,7 +466,39 @@ namespace Wasm {
 		}
 	}
 
+	void CompilerPlus::OnSection_Data(Reader& inp)
+	{
+		uint32_t nCount = inp.Read<uint32_t>();
 
+		for (uint32_t i = 0; i < nCount; i++)
+		{
+			uint32_t nAddr = inp.Read<uint32_t>();
+
+			Test(Instruction::i32_const == inp.Read1());
+			uint32_t nOffset = inp.Read<int32_t>();
+			Test(Instruction::end_block == inp.Read1());
+			nAddr += nOffset;
+
+			Vec<uint8_t> data;
+			data.Read(inp);
+			data;
+
+			if (data.n)
+			{
+				size_t n = nAddr + data.n;
+				if (m_Data.size() < n)
+					m_Data.resize(n);
+
+				memcpy(&m_Data.front() + nAddr, data.p, data.n);
+			}
+		}
+	}
+
+	void CompilerPlus::OnSection_DataCount(Reader& inp)
+	{
+		uint32_t nCount = inp.Read<uint32_t>();
+		nCount;
+	}
 
 
 
@@ -1282,10 +1317,29 @@ namespace Wasm {
 
 	uint8_t* Processor::get_LinearAddr(uint32_t nOffset, uint32_t nSize)
 	{
+		Test(!(MemoryType::Mask & nSize));
+		const Blob* pMem = &m_Data;
+
+		switch (MemoryType::Mask & nOffset)
+		{
+		case MemoryType::Global:
+			pMem = &m_LinearMem;
+			break;
+
+		case MemoryType::Data:
+			break;
+
+		default:
+			Fail();
+		}
+
+		nOffset &= ~MemoryType::Mask;
+
+
 		nSize += nOffset;
-		Test(nSize >= nOffset); // no overflow
-		Test(nSize <= m_LinearMem.n);
-		return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + nOffset;
+		assert(nSize >= nOffset); // can't overflow, hi-order bits are zero in both
+		Test(nSize <= pMem->n);
+		return reinterpret_cast<uint8_t*>(Cast::NotConst(pMem->p)) + nOffset;
 	}
 
 	void Processor::RunOnce()

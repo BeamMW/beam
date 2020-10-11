@@ -145,7 +145,7 @@ namespace Wasm {
 		};
 
 		LabelSet m_Labels;
-
+		ByteBuffer m_Data;
 		ByteBuffer m_Result;
 
 		void Parse(const Reader&); // parses the wasm file info, sets labels for local functions. No compilation yet.
@@ -159,8 +159,15 @@ namespace Wasm {
 	struct Processor
 	{
 		Blob m_Code;
+		Blob m_Data;
 		Blob m_LinearMem;
 		Reader m_Instruction;
+
+		struct MemoryType {
+			static const Word Data   = 0;
+			static const Word Global = 1U << (sizeof(Word) * 8 - 2);
+			static const Word Mask   = 3U << (sizeof(Word) * 8 - 2);
+		};
 
 		struct Stack
 		{
