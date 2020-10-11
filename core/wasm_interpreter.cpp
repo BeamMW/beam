@@ -1142,7 +1142,7 @@ namespace Wasm {
 
 	void Processor::Stack::Push1(const Word& x)
 	{
-		Test(m_Pos < m_Size);
+		Test(m_Pos < m_BytesCurrent / sizeof(Word));
 		m_pPtr[m_Pos++] = x;
 	}
 
@@ -1169,6 +1169,21 @@ namespace Wasm {
 		Push1(static_cast<Word>(x >> 32)); // hiword
 		Push1(static_cast<Word>(x)); // loword
 	}
+
+	Word Processor::Stack::get_AlasSp() const
+	{
+		return MemoryType::Stack | m_BytesCurrent;
+	}
+
+	void Processor::Stack::set_AlasSp(Word x)
+	{
+		Test((MemoryType::Mask & x) == MemoryType::Stack);
+		m_BytesCurrent = (x & ~MemoryType::Mask);
+
+		Test(m_BytesCurrent <= m_BytesMax);
+		Test(m_Pos <= m_BytesCurrent / sizeof(Word));
+	}
+
 
 	struct ProcessorPlus
 		:public Processor
@@ -1259,7 +1274,7 @@ namespace Wasm {
 			{
 				std::swap(pDst, pSrc);
 				m_Stack.m_Pos += nWords;
-				Test(m_Stack.m_Pos <= m_Stack.m_Size);
+				Test(m_Stack.m_Pos <= m_Stack.m_BytesCurrent / sizeof(Word));
 			}
 			else
 			{
@@ -1343,15 +1358,22 @@ namespace Wasm {
 	uint8_t* Processor::get_LinearAddr(uint32_t nOffset, uint32_t nSize)
 	{
 		Test(!(MemoryType::Mask & nSize));
-		const Blob* pMem = &m_Data;
+		
+		Blob blob;
 
 		switch (MemoryType::Mask & nOffset)
 		{
 		case MemoryType::Global:
-			pMem = &m_LinearMem;
+			blob = m_LinearMem;
 			break;
 
 		case MemoryType::Data:
+			blob = m_Data;
+			break;
+
+		case MemoryType::Stack:
+			blob.p = m_Stack.m_pPtr;
+			blob.n = m_Stack.m_BytesMax;
 			break;
 
 		default:
@@ -1363,8 +1385,8 @@ namespace Wasm {
 
 		nSize += nOffset;
 		assert(nSize >= nOffset); // can't overflow, hi-order bits are zero in both
-		Test(nSize <= pMem->n);
-		return reinterpret_cast<uint8_t*>(Cast::NotConst(pMem->p)) + nOffset;
+		Test(nSize <= blob.n);
+		return reinterpret_cast<uint8_t*>(Cast::NotConst(blob.p)) + nOffset;
 	}
 
 	void Processor::RunOnce()
@@ -1381,7 +1403,19 @@ namespace Wasm {
 
 	void Processor::OnGlobalVar(uint32_t iVar, bool bGet)
 	{
-		Fail();
+		switch (static_cast<VariableType>(iVar))
+		{
+		case VariableType::StackPointer:
+			if (bGet)
+				m_Stack.Push1(m_Stack.get_AlasSp());
+			else
+				m_Stack.set_AlasSp(m_Stack.Pop1());
+			break;
+
+		default:
+			Fail();
+		}
+
 	}
 
 	void Processor::Jmp(uint32_t ip)

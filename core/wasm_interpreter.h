@@ -154,6 +154,18 @@ namespace Wasm {
 		void Build();
 	};
 
+	struct MemoryType {
+		static const Word Data   = 0;
+		static const Word Global = 1U << (sizeof(Word) * 8 - 2);
+		static const Word Stack  = 2U << (sizeof(Word) * 8 - 2);
+		static const Word Mask   = 3U << (sizeof(Word) * 8 - 2);
+	};
+
+	enum struct VariableType
+	{
+		StackPointer = 0,
+		count
+	};
 
 
 	struct Processor
@@ -163,17 +175,15 @@ namespace Wasm {
 		Blob m_LinearMem;
 		Reader m_Instruction;
 
-		struct MemoryType {
-			static const Word Data   = 0;
-			static const Word Global = 1U << (sizeof(Word) * 8 - 2);
-			static const Word Mask   = 3U << (sizeof(Word) * 8 - 2);
-		};
-
 		struct Stack
 		{
 			Word* m_pPtr;
-			Word m_Size = 0;
 			Word m_Pos = 0;
+			Word m_BytesMax = 0; // total stack size
+			Word m_BytesCurrent = 0; // operand stack remaining, before it collides with alias stack
+
+			Word get_AlasSp() const;
+			void set_AlasSp(Word);
 
 			Word Pop1();
 			void Push1(const Word&);
