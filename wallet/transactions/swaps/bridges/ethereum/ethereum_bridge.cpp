@@ -48,11 +48,13 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
 
 void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> callback)
 {
+    LOG_DEBUG() << "EthereumBridge::getBalance";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
-    std::string params = (boost::format(R"("%1","latest")") % ethAddress).str();
+    std::string params = (boost::format(R"("%1%","latest")") % ethAddress).str();
 
     sendRequest("eth_getBalance", params, [callback](Error error, const json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::getBalance in";
         ECC::uintBig balance = ECC::Zero;
 
         if (error.m_type == IBridge::None)
@@ -76,8 +78,10 @@ void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> 
 
 void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> callback)
 {
+    LOG_DEBUG() << "EthereumBridge::getBlockNumber";
     sendRequest("eth_blockNumber", "", [callback](Error error, const json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::getBlockNumber in";
         uint64_t blockNumber = 0;
 
         if (error.m_type == IBridge::None)
@@ -99,11 +103,13 @@ void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> 
 
 void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64_t)> callback)
 {
+    LOG_DEBUG() << "EthereumBridge::getTransactionCount";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
-    std::string params = (boost::format(R"("%1","latest")") % ethAddress).str();
+    std::string params = (boost::format(R"("%1%","latest")") % ethAddress).str();
 
     sendRequest("eth_getTransactionCount", params, [callback](Error error, const json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::getTransactionCount in";
         uint64_t txCount = 0;
 
         if (error.m_type == IBridge::None)
@@ -125,10 +131,12 @@ void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64
 
 void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback)
 {
-    std::string params = (boost::format(R"("%1")") % AddHexPrefix(rawTx)).str();
+    LOG_DEBUG() << "EthereumBridge::sendRawTransaction";
+    std::string params = (boost::format(R"("%1%")") % AddHexPrefix(rawTx)).str();
 
     sendRequest("eth_sendRawTransaction", params, [callback](Error error, const json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::sendRawTransaction in";
         std::string txHash = "";
 
         if (error.m_type == IBridge::None)
@@ -196,17 +204,19 @@ void EthereumBridge::send(
 
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    std::string params = (boost::format(R"("%1")") % AddHexPrefix(txHash)).str();
+    LOG_DEBUG() << "EthereumBridge::getTransactionReceipt";
+    std::string params = (boost::format(R"("%1%")") % AddHexPrefix(txHash)).str();
 
     sendRequest("eth_getTransactionReceipt", params, [callback](Error error, const json& result)
     {
-        std::string txInfo = "";
+        LOG_DEBUG() << "EthereumBridge::getTransactionReceipt in";
+        json txInfo;
 
         if (error.m_type == IBridge::None)
         {
             try
             {
-                txInfo = result["result"].get<std::string>();
+                txInfo = result["result"];
             }
             catch (const std::exception& ex)
             {
@@ -221,8 +231,10 @@ void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::funct
 
 void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback)
 {
+    LOG_DEBUG() << "EthereumBridge::getTxBlockNumber";
     getTransactionReceipt(txHash, [callback](const Error& error, const nlohmann::json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::getTxBlockNumber in";
         Error tmp(error);
         uint64_t txBlockNumber = 0;
 
@@ -247,11 +259,13 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
 
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
+    LOG_DEBUG() << "EthereumBridge::call";
     std::string addr = ConvertEthAddressToStr(to);
-    std::string params = (boost::format(R"({"to":"%1%","data":" %2%"},"latest")") % addr % AddHexPrefix(data)).str();
+    std::string params = (boost::format(R"({"to":"%1%","data":"%2%"},"latest")") % addr % AddHexPrefix(data)).str();
 
     sendRequest("eth_call", params, [callback](Error error, const json& result)
     {
+        LOG_DEBUG() << "EthereumBridge::call in";
         json tmp;
 
         if (error.m_type == IBridge::None)
@@ -300,6 +314,8 @@ void EthereumBridge::sendRequest(
     auto settings = m_settingsProvider.GetSettings();
     io::Address address;
 
+    LOG_DEBUG() << "sendRequest: " << content;
+
     if (!address.resolve(settings.m_address.c_str()))
     {
         LOG_ERROR() << "unable to resolve electrum address: " << settings.m_address;
@@ -341,7 +357,21 @@ void EthereumBridge::sendRequest(
 
                 try
                 {
-                    result = json::parse(strResponse);
+                    json reply = json::parse(strResponse);
+                    if (!reply["error"].empty())
+                    {
+                        error.m_type = ErrorType::EthError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                    else if (reply["result"].empty())
+                    {
+                        error.m_type = ErrorType::EmptyResult;
+                        error.m_message = "JSON has no \"result\" value";
+                    }
+                    else
+                    {
+                        result = reply;
+                    }
                 }
                 catch (const std::exception& ex)
                 {
@@ -351,7 +381,7 @@ void EthereumBridge::sendRequest(
             }
             else
             {
-                error.m_type = IBridge::ErrorType::InvalidResultFormat;
+                error.m_type = ErrorType::InvalidResultFormat;
                 error.m_message = "Empty response.";
             }
         }

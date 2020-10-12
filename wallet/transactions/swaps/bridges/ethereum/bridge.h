@@ -31,7 +31,9 @@ public:
     {
         None,
         InvalidResultFormat,
-        IOError
+        IOError,
+        EthError,
+        EmptyResult
     };
 
     struct Error
