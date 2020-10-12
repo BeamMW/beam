@@ -345,6 +345,11 @@ namespace Wasm {
 		}
 	}
 
+	void TestBinding(const Compiler::PerImport& x)
+	{
+		Test(x.m_Binding != static_cast<uint32_t>(-1));
+	}
+
 	void CompilerPlus::OnSection_Import(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
@@ -354,6 +359,7 @@ namespace Wasm {
 			PerImport pi;
 			pi.m_sMod.Read(inp);
 			pi.m_sName.Read(inp);
+			pi.m_Binding = static_cast<uint32_t>(-1);
 
 			uint8_t nKind = inp.Read1();
 			switch (nKind)
@@ -870,6 +876,7 @@ namespace Wasm {
 					WriteRes(Instruction::global_set_imp);
 				}
 
+				TestBinding(x);
 				WriteResU(x.m_Binding);
 			}
 			else
@@ -915,7 +922,10 @@ namespace Wasm {
 			if (bImported)
 			{
 				WriteRes(Instruction::call_ext);
-				WriteResU(m_This.m_ImportFuncs[iFunc].m_Binding);
+
+				const auto& f = m_This.m_ImportFuncs[iFunc];
+				TestBinding(f);
+				WriteResU(f.m_Binding);
 			}
 			else
 			{

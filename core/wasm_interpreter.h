@@ -86,7 +86,7 @@ namespace Wasm {
 		struct PerImport {
 			Vec<char> m_sMod;
 			Vec<char> m_sName;
-			uint32_t m_Binding = 0; // set by the env before compiling
+			uint32_t m_Binding; // set by the env before compiling
 		};
 
 		struct PerImportFunc :public PerImport {
