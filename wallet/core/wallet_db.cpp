@@ -2415,11 +2415,6 @@ namespace beam::wallet
 
             const auto& x = vShielded[iPosShielded];
 
-            // TODO check current anonimity set
-            const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(x.first.m_CoinID.m_User);
-            if (packedMessage->m_maxPrivacyMinAnonimitySet)
-                continue;
-
             nSel += x.first.m_CoinID.m_Value;
             vSelShielded.push_back(x.first);
         }
@@ -4869,6 +4864,18 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
+                const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
+                if (packedMessage->m_maxPrivacyMinAnonimitySet)
+                {
+                    ShieldedCoin::UnlinkStatus unlinkStatus;
+                    unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
+                    if (unlinkStatus.get_SpendPriority() < 1)
+                    {
+                        c.m_Status = ShieldedCoin::Status::Maturing;
+                        return;
+                    }
+                }
+
                 if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
                 {
                     c.m_Status = ShieldedCoin::Status::Maturing;

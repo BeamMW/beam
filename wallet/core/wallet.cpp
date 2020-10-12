@@ -1681,7 +1681,9 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(tip);
         storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
 
-        if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
+        if (coin.m_Status != ShieldedCoin::Status::Available &&
+            coin.m_Status != ShieldedCoin::Status::Maturing &&
+            coin.m_Status != ShieldedCoin::Status::Spent)
         {
             return;
         }
