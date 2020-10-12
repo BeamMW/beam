@@ -255,10 +255,16 @@ void TestByteOrderT()
 
 void TestByteOrder()
 {
-	TestByteOrderT<uint8_t>();
 	TestByteOrderT<uint16_t>();
 	TestByteOrderT<uint32_t>();
 	TestByteOrderT<uint64_t>();
+
+	// for uint8_t the byte ordering is irrelevant, there's nothing to reorder. Check that the value isn't distorted
+	uint8_t x = 0xAB;
+	verify_test(beam::ByteOrder::to_be(x) == x);
+	verify_test(beam::ByteOrder::from_be(x) == x);
+	verify_test(beam::ByteOrder::to_le(x) == x);
+	verify_test(beam::ByteOrder::from_le(x) == x);
 }
 
 void TestHash()
