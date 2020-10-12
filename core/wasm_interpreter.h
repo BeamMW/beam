@@ -24,6 +24,14 @@ namespace Wasm {
 
 	typedef uint32_t Word;
 
+	struct TypeCode
+	{
+		static const uint8_t i32 = 0x7F;
+		static const uint8_t i64 = 0x7E;
+		static const uint8_t f32 = 0x7D;
+		static const uint8_t f64 = 0x7C;
+	};
+
 	class Reader
 	{
 		template <typename T, bool bSigned>
@@ -221,9 +229,14 @@ namespace Wasm {
 
 		std::ostringstream* m_pDbg = nullptr;
 
+		Word get_Ip() const;
 		void Jmp(uint32_t ip);
+
 		void RunOnce();
 		uint8_t* get_LinearAddr(uint32_t nOffset, uint32_t nSize);
+
+		virtual void OnCall(Word nAddr);
+		virtual void OnRet(Word nRetAddr);
 
 		virtual void InvokeExt(uint32_t);
 		virtual void OnGlobalVar(uint32_t, bool bGet);

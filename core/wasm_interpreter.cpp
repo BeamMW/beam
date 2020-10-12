@@ -131,12 +131,8 @@ namespace Wasm {
 	// Common
 
 	struct Type
+		:public TypeCode
 	{
-		static const uint8_t i32 = 0x7F;
-		static const uint8_t i64 = 0x7E;
-		static const uint8_t f32 = 0x7D;
-		static const uint8_t f64 = 0x7C;
-
 		static const uint8_t s_Base = 0x7C; // for the 2-bit type encoding
 
 		static uint8_t Words(uint8_t t) {
@@ -1337,13 +1333,12 @@ namespace Wasm {
 			}
 
 		}
-
-		Word get_Ip() const
-		{
-			return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*) m_Code.p);
-		}
-
 	};
+
+	Word Processor::get_Ip() const
+	{
+		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
+	}
 
 	uint8_t* Processor::get_LinearAddr(uint32_t nOffset, uint32_t nSize)
 	{
@@ -1533,7 +1528,7 @@ namespace Wasm {
 		Word nAddr = ReadAddr();
 		Word nRetAddr = get_Ip();
 		m_Stack.Push1(nRetAddr);
-		Jmp(nAddr);
+		OnCall(nAddr);
 	}
 
 	void ProcessorPlus::On_call_ext()
@@ -1588,9 +1583,18 @@ namespace Wasm {
 
 
 		m_Stack.m_Pos = nPosRetDst + nRets;
-		Jmp(nRetAddr);
+		OnRet(nRetAddr);
 	}
 
+	void Processor::OnCall(Word nAddr)
+	{
+		Jmp(nAddr);
+	}
+
+	void Processor::OnRet(Word nRetAddr)
+	{
+		Jmp(nRetAddr);
+	}
 
 
 
