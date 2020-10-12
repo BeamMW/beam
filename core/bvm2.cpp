@@ -52,6 +52,7 @@ namespace bvm2 {
 		uint32_t m_NumMethods;
 
 		static const uint32_t s_MethodsMin = 2; // c'tor and d'tor
+		static const uint32_t s_MethodsMax = 1U << 28; // would be much much less of course, this is just to ensure no-overflow for offset calculation
 
 		uint32_t m_pMethod[s_MethodsMin]; // var size
 	};
@@ -67,8 +68,8 @@ namespace bvm2 {
 		Wasm::Test(args.n <= sizeof(m_pStack));
 		m_Stack.m_BytesCurrent = sizeof(m_pStack) - args.n;
 
-		memcpy(m_Stack.m_pPtr + m_Stack.m_BytesCurrent, args.p, args.n);
-		memset(m_pStack, nFill, m_Stack.m_BytesCurrent);
+		memcpy(reinterpret_cast<uint8_t*>(m_pStack) + m_Stack.m_BytesCurrent, args.p, args.n);
+		memset(reinterpret_cast<uint8_t*>(m_pStack), nFill, m_Stack.m_BytesCurrent);
 
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
@@ -97,13 +98,13 @@ namespace bvm2 {
 
 		Wasm::Test(ByteOrder::from_le(hdr.m_Version) == hdr.s_Version);
 		uint32_t nMethods = ByteOrder::from_le(hdr.m_NumMethods);
-		Wasm::Test((iMethod < nMethods) && (nMethods >= Header::s_MethodsMin) && (nMethods <= m_Code.n / sizeof(Wasm::Word)));
+		Wasm::Test((iMethod < nMethods) && (nMethods - Header::s_MethodsMin <= Header::s_MethodsMax - Header::s_MethodsMin));
 
-		uint32_t nOffset = sizeof(Header) + sizeof(Wasm::Word) * (nMethods - Header::s_MethodsMin);
-		Wasm::Test(nOffset <= m_Code.n);
+		uint32_t nHdrSize = sizeof(Header) + sizeof(Wasm::Word) * (nMethods - Header::s_MethodsMin);
+		Wasm::Test(nHdrSize <= m_Code.n);
 
-		m_Data.n = m_Code.n - nOffset;
-		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nOffset;
+		m_Data.n = m_Code.n - nHdrSize;
+		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
 		x.m_Data = m_Data;
 
 		m_Stack.Push1(pArgs);
@@ -246,12 +247,15 @@ namespace bvm2 {
 
 		c.Build();
 
+		pHdr = reinterpret_cast<Header*>(&c.m_Result.front());
 		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
 		{
 			uint32_t iMethod = it->first;
 			uint32_t iFunc = it->second;
 			pHdr->m_pMethod[iMethod] = ByteOrder::to_le(c.m_Labels.m_Items[iFunc]);
 		}
+
+		res = std::move(c.m_Result);
 	}
 
 
@@ -311,7 +315,7 @@ namespace bvm2 {
 	struct ProcessorPlus
 		:public Processor
 	{
-		void InvokeExt(uint32_t nBinding);
+		void InvokeExtPlus(uint32_t nBinding);
 
 #define PAR_DECL(type, name) ParamWrap<type>::Type name
 #define THE_MACRO(id, ret, name) \
@@ -352,7 +356,7 @@ namespace bvm2 {
 	};
 
 
-	void ProcessorPlus::InvokeExt(uint32_t nBinding)
+	void ProcessorPlus::InvokeExtPlus(uint32_t nBinding)
 	{
 		switch (nBinding)
 		{
@@ -385,7 +389,7 @@ namespace bvm2 {
 	void Processor::InvokeExt(uint32_t nBinding)
 	{
 		static_assert(sizeof(*this) == sizeof(ProcessorPlus));
-		Cast::Up<ProcessorPlus>(*this).InvokeExt(nBinding);
+		Cast::Up<ProcessorPlus>(*this).InvokeExtPlus(nBinding);
 	}
 
 	void Processor::ResolveBindings(Wasm::Compiler& c)
@@ -416,6 +420,23 @@ namespace bvm2 {
 
 				Wasm::Fail(); // name not found
 		}
+
+		for (uint32_t i = 0; i < c.m_ImportGlobals.size(); i++)
+		{
+			auto& x = c.m_ImportGlobals[i];
+
+			if (STR_MATCH(x.m_sMod, "env"))
+			{
+				if (STR_MATCH(x.m_sName, "__stack_pointer"))
+				{
+					x.m_Binding = static_cast<uint32_t>(Wasm::VariableType::StackPointer);
+				}
+			}
+
+			// ignore unrecognized variables, they may not be used
+		}
+
+
 	}
 
 

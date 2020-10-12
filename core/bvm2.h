@@ -127,8 +127,6 @@ namespace bvm2 {
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
-		std::ostringstream* m_pDbg = nullptr;
-
 		void InitStack(const Blob& args, uint8_t nFill = 0); // initial arguments
 		void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs);
 
