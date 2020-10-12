@@ -115,13 +115,6 @@ namespace bvm2 {
 		void get_AssetStrict(AssetVar&, Asset::ID);
 		void SetAssetKey(AssetVar&, Asset::ID);
 
-		void HandleAmount(Amount, Asset::ID, bool bLock);
-		void HandleAmountInner(Amount, Asset::ID, bool bLock);
-		void HandleAmountOuter(Amount, Asset::ID, bool bLock);
-
-		uint8_t HandleRef(Wasm::Word pContractID, bool bAdd);
-		bool HandleRefRaw(const VarKey&, bool bAdd);
-
 	private:
 		static void ResolveBindings(Wasm::Compiler&);
 		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);

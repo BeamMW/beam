@@ -324,6 +324,17 @@ namespace bvm2 {
 		static void ResolveBindings(Wasm::Compiler&);
 
 		template <typename TRes> struct Caller;
+
+		void HandleAmount(Amount, Asset::ID, bool bLock);
+		void HandleAmountInner(Amount, Asset::ID, bool bLock);
+		void HandleAmountOuter(Amount, Asset::ID, bool bLock);
+
+		uint8_t HandleRef(Wasm::Word pContractID, bool bAdd);
+		bool HandleRefRaw(const VarKey&, bool bAdd);
+
+		template <typename T> T* get_AddrAs(uint32_t nOffset) {
+			return reinterpret_cast<T*>(get_LinearAddr(nOffset, sizeof(T)));
+		}
 	};
 
 	template <typename TRes> struct ProcessorPlus::Caller {
@@ -469,6 +480,11 @@ namespace bvm2 {
 		SaveVar(vk, pVal_, nVal);
 	}
 
+	BVM_METHOD(CallFar)
+	{
+		CallFar(*get_AddrAs<ContractID>(pID), iMethod, pArgs);
+	}
+
 	BVM_METHOD(Halt)
 	{
 		Wasm::Fail();
@@ -599,13 +615,13 @@ namespace bvm2 {
 		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
 	}
 
-	void Processor::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorPlus::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
 	{
 		HandleAmountInner(amount, aid, bLock);
 		HandleAmountOuter(amount, aid, bLock);
 	}
 
-	void Processor::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorPlus::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
 	{
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
@@ -632,7 +648,7 @@ namespace bvm2 {
 		Save_T(vk, val0);
 	}
 
-	void Processor::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorPlus::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
 	{
 		if (m_pSigValidate)
 		{
@@ -646,7 +662,7 @@ namespace bvm2 {
 		}
 	}
 
-	bool Processor::HandleRefRaw(const VarKey& vk, bool bAdd)
+	bool ProcessorPlus::HandleRefRaw(const VarKey& vk, bool bAdd)
 	{
 		uintBig_t<4> refs; // more than enough
 		Load_T(vk, refs);
@@ -671,7 +687,7 @@ namespace bvm2 {
 		return ret;
 	}
 
-	uint8_t Processor::HandleRef(Wasm::Word pCID, bool bAdd)
+	uint8_t ProcessorPlus::HandleRef(Wasm::Word pCID, bool bAdd)
 	{
 		const auto& cid = *reinterpret_cast<ContractID*>(get_LinearAddr(pCID, sizeof(ContractID)));
 
