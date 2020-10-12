@@ -102,9 +102,6 @@ bool EthereumSide::ValidateLockTime()
 
 void EthereumSide::AddTxDetails(SetTxParameter& txParameters)
 {
-    // TODO: check
-    txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, ethereum::ConvertEthAddressToStr(m_ethBridge->generateEthAddress()));
-    // addd LOCK_TX txID ?
 }
 
 bool EthereumSide::ConfirmLockTx()
@@ -284,7 +281,7 @@ bool EthereumSide::SendRefund()
 
     // kRefundMethodHash + secretHash
     libbitcoin::data_chunk data;
-    data.reserve(4 + 32 + 32);
+    data.reserve(4 + 32);
     libbitcoin::decode_base16(data, std::string(std::begin(kRefundMethodHash) + 2, std::end(kRefundMethodHash)));
     data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
 
@@ -294,7 +291,7 @@ bool EthereumSide::SendRefund()
     {
         if (!weak.expired())
         {
-            OnSentWithdrawTx(SubTxIndex::BEAM_REFUND_TX, error, txHash);
+            OnSentWithdrawTx(SubTxIndex::REFUND_TX, error, txHash);
         }
     });
     m_isWithdrawTxSent = true;

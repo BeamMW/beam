@@ -1772,16 +1772,16 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
     ethereum::Settings aliceSettings;
-    aliceSettings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
-    aliceSettings.m_accountIndex = 0;
+    aliceSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    aliceSettings.m_accountIndex = 3;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
     aliceSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
 
     ethereum::Settings bobSettings;
-    bobSettings.m_secretWords = { "grass", "happy", "napkin", "skill", "hazard", "isolate", "slot", "barely", "stamp", "dismiss", "there", "found" };
-    bobSettings.m_accountIndex = 1;
+    bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    bobSettings.m_accountIndex = 4;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
@@ -1882,6 +1882,106 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
 }
 
+void TestSwapEthRefundTransaction()
+{
+    cout << "\nAtomic swap: testing ETH refund transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completeAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    Amount beamAmount = 300;
+    Amount beamFee = 101;
+    ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
+    ECC::uintBig gas = 200000u;
+    ECC::uintBig gasPrice = 3000000u;
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+
+    ethereum::Settings aliceSettings;
+    aliceSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    aliceSettings.m_accountIndex = 3;
+    aliceSettings.m_address = "127.0.0.1:7545";
+    aliceSettings.m_shouldConnect = true;
+    aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
+    aliceSettings.m_txMinConfirmations = 0; // speed-up test
+    aliceSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+
+    ethereum::Settings bobSettings;
+    bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    bobSettings.m_accountIndex = 4;
+    bobSettings.m_address = "127.0.0.1:7545";
+    bobSettings.m_shouldConnect = true;
+    bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
+    bobSettings.m_txMinConfirmations = 0;   // speed-up test
+    bobSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    InitEthereum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitEthereum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    auto receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
+    Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
+
+    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gas, gasPrice, false);
+
+    receiver->m_Wallet.StartTransaction(parameters);
+    TxID txID = sender->m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, gas, gasPrice));
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
+
+    io::AsyncEvent::Ptr eventToUpdate;
+    //uint64_t startBlocks = receiverBtcWallet.getBlockCount();
+
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &timer]()
+        {
+            if (sender)
+            {
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+                if (txState == wallet::AtomicSwapTransaction::State::HandlingContractTX)
+                {
+                    // delete sender to simulate refund on ETH side
+                    sender.reset();
+                }
+                eventToUpdate->post();
+            }
+            else
+            {
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            }
+        });
+
+    eventToUpdate->post();
+    mainReactor->run();
+
+    // validate receiver TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Refunded);
+    receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.size() == 0);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1930,7 +2030,8 @@ int main()
 
     TestIgnoringThirdPeer();
 
-    //TestEthSwapTransaction(true, fork1Height);
+    // TestEthSwapTransaction(true, fork1Height);
+    // TestSwapEthRefundTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
