@@ -305,6 +305,15 @@ namespace bvm2 {
 		}
 	};
 
+	template <typename T>
+	struct ParamWrap<T&>
+		:public ParamWrap<Wasm::Word>
+	{
+		Wasm::Processor& operator = (Wasm::Processor& p) {
+			return ParamWrap<Wasm::Word>::operator = (p);
+		}
+	};
+
 	template <>
 	struct ParamWrap<void>
 	{
@@ -555,7 +564,7 @@ namespace bvm2 {
 			Wasm::Fail();
 		}
 
-		CallFar(get_AddrAsR<ContractID>(pID), iMethod, pArgs);
+		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
 	}
 
 	BVM_METHOD(Halt)
@@ -565,7 +574,7 @@ namespace bvm2 {
 
 	BVM_METHOD(AddSig)
 	{
-		const auto& pk = get_AddrAsR<ECC::Point>(pKey);
+		const auto& pk = get_AddrAsR<ECC::Point>(pubKey);
 
 		if (m_pSigValidate)
 			AddSigInternal(pk);
@@ -583,12 +592,12 @@ namespace bvm2 {
 
 	BVM_METHOD(RefAdd)
 	{
-		return HandleRef(pID, true);
+		return HandleRef(cid, true);
 	}
 
 	BVM_METHOD(RefRelease)
 	{
-		return HandleRef(pID, false);
+		return HandleRef(cid, false);
 	}
 
 	BVM_METHOD(AssetCreate)

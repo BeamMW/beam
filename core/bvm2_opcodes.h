@@ -46,14 +46,14 @@
 	macro(uint32_t, nVal)
 
 #define BVMOp_CallFar(macro, sep) \
-	macro(const ContractID*, pID) sep \
+	macro(const ContractID&, cid) sep \
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs)
 
 #define BVMOp_Halt(macro, sep)
 
 #define BVMOp_AddSig(macro, sep) \
-	macro(const PubKey*, pKey)
+	macro(const PubKey&, pubKey)
 
 #define BVMOp_FundsLock(macro, sep) \
 	macro(AssetID, aid) sep \
@@ -64,10 +64,10 @@
 	macro(Amount, amount)
 
 #define BVMOp_RefAdd(macro, sep) \
-	macro(const ContractID*, pID)
+	macro(const ContractID&, cid)
 
 #define BVMOp_RefRelease(macro, sep) \
-	macro(const ContractID*, pID)
+	macro(const ContractID&, cid)
 
 #define BVMOp_AssetCreate(macro, sep) \
 	macro(const void*, pMeta) sep \

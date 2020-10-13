@@ -43,5 +43,5 @@ export void Method_3(const Vault::Request& r)
     r.m_Key.Save(total);
 
     Env::FundsUnlock(r.m_Key.m_Aid, r.m_Amount);
-    Env::AddSig(&r.m_Key.m_Account);
+    Env::AddSig(r.m_Key.m_Account);
 }
