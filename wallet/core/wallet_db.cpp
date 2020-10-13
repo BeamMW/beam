@@ -5473,11 +5473,8 @@ namespace beam::wallet
 
                 std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
+                Amount shieldedFee = GetShieldedFee(tx);
 
-                Amount shieldedFee = 0;
-                std::vector<IPrivateKeyKeeper2::ShieldedInput> shieldedInputs;
-                if (tx.GetParameter(TxParameterID::InputCoinsShielded, shieldedInputs) && shieldedInputs.size())
-                    shieldedFee = GetShieldedFee(shieldedInputs.size());
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
@@ -5485,7 +5482,7 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","                        // Transaction fee, BEAM
+                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","          // Transaction fee, BEAM
                    << statusInterpreter->getStatus() << ","                                         // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID

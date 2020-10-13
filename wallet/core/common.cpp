@@ -1370,16 +1370,23 @@ namespace beam::wallet
         }
     }
 
-    Amount GetShieldedFee(size_t shieldedCount)
+    Amount CalculateShieldedFeeByKernelsCount(size_t count)
     {
         Amount shieldedFee = 0;
-        if (shieldedCount)
+        if (count)
         {
             Transaction::FeeSettings fs;
-            shieldedFee = shieldedCount * (fs.m_ShieldedInput + fs.m_Kernel);
+            shieldedFee = count * (fs.m_ShieldedInput + fs.m_Kernel);
         }
 
         return shieldedFee;
+    }
+
+    Amount GetShieldedFee(const TxDescription& tx)
+    {
+        std::vector<TxKernel::Ptr> shieldedInputs;
+        tx.GetParameter(TxParameterID::InputsShielded, shieldedInputs);
+        return CalculateShieldedFeeByKernelsCount(shieldedInputs.size());
     }
 
 }  // namespace beam::wallet
