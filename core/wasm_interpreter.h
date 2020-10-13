@@ -202,28 +202,46 @@ namespace Wasm {
 			template <typename T>
 			T Pop()
 			{
+				T res;
 				static_assert(std::numeric_limits<T>::is_integer);
 				if constexpr (sizeof(T) <= sizeof(Word))
-					return static_cast<T>(Pop1());
+				{
+					res = static_cast<T>(Pop1());
+					Log(static_cast<Word>(res), false);
+				}
 				else
 				{
 					static_assert(sizeof(T) <= sizeof(uint64_t));
-					return static_cast<T>(Pop2());
+					res = static_cast<T>(Pop2());
+					Log(static_cast<uint64_t>(res), false);
 				}
+
+				return res;
+
 			}
 
 			template <typename T>
 			void Push(const T& x)
 			{
 				static_assert(std::numeric_limits<T>::is_integer);
+
 				if constexpr (sizeof(T) <= sizeof(Word))
-					Push1(static_cast<T>(x));
+				{
+					Log(static_cast<Word>(x), true);
+					Push1(static_cast<Word>(x));
+				}
 				else
 				{
 					static_assert(sizeof(T) <= sizeof(uint64_t));
+					Log(static_cast<uint64_t>(x), true);
 					Push2(static_cast<T>(x));
 				}
 			}
+
+			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Stack) // for logging
+
+		private:
+			template <typename T> void Log(T, bool bPush);
 
 		} m_Stack;
 

@@ -107,8 +107,8 @@ namespace bvm2 {
 		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
 		x.m_Data = m_Data;
 
-		m_Stack.Push1(pArgs);
-		m_Stack.Push1(nRetAddr);
+		m_Stack.Push(pArgs);
+		m_Stack.Push(nRetAddr);
 
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
 		Jmp(nAddr);
@@ -366,6 +366,8 @@ namespace bvm2 {
 
 #define THE_MACRO(id, ret, name) \
 		case id: { \
+			if (m_pDbg) \
+				*m_pDbg << "  " #name << std::endl; \
 			struct Args { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(ProcessorPlus& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \

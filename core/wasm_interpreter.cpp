@@ -1166,6 +1166,13 @@ namespace Wasm {
 		Push1(static_cast<Word>(x)); // loword
 	}
 
+	template <typename T>
+	void Processor::Stack::Log(T x, bool bPush)
+	{
+		if (get_ParentObj().m_pDbg)
+			*get_ParentObj().m_pDbg << (bPush ? "  <- " : "  -> ") << uintBigFrom(x) << std::endl;
+	}
+
 	Word Processor::Stack::get_AlasSp() const
 	{
 		return MemoryType::Stack | m_BytesCurrent;
@@ -1299,7 +1306,7 @@ namespace Wasm {
 		{
 			auto nPad = m_Instruction.Read<Word>(); nPad;
 			auto nOffs = m_Instruction.Read<Word>();
-			nOffs += m_Stack.Pop1();
+			nOffs += m_Stack.Pop<Word>();
 
 			return get_LinearAddr(nOffs, nSize);
 		}
@@ -1402,9 +1409,9 @@ namespace Wasm {
 		{
 		case VariableType::StackPointer:
 			if (bGet)
-				m_Stack.Push1(m_Stack.get_AlasSp());
+				m_Stack.Push(m_Stack.get_AlasSp());
 			else
-				m_Stack.set_AlasSp(m_Stack.Pop1());
+				m_Stack.set_AlasSp(m_Stack.Pop<Word>());
 			break;
 
 		default:
@@ -1466,7 +1473,7 @@ namespace Wasm {
 	void ProcessorPlus::On_select()
 	{
 		uint32_t nWords = Type::Words(m_Instruction.Read1());
-		auto nSel = m_Stack.Pop1();
+		auto nSel = m_Stack.Pop<Word>();
 
 		Test(m_Stack.m_Pos >= (nWords << 1)); // must be at least 2 such operands
 		m_Stack.m_Pos -= nWords;
@@ -1481,7 +1488,7 @@ namespace Wasm {
 	void ProcessorPlus::On_i32_load()
 	{
 		auto n = from_wasm<uint32_t>(MemArg(sizeof(uint32_t)));
-		m_Stack.Push1(n);
+		m_Stack.Push(n);
 	}
 
 	void ProcessorPlus::On_i64_load()
@@ -1493,19 +1500,19 @@ namespace Wasm {
 	void ProcessorPlus::On_i32_load8_u()
 	{
 		uint32_t val = *MemArg(1);
-		m_Stack.Push1(val);
+		m_Stack.Push(val);
 	}
 
 	void ProcessorPlus::On_i32_load8_s()
 	{
 		char ch = *MemArg(1);
 		int32_t val = ch; // promoted w.r.t. sign
-		m_Stack.Push1(val);
+		m_Stack.Push(val);
 	}
 
 	void ProcessorPlus::On_i32_store()
 	{
-		Word val = m_Stack.Pop1();
+		Word val = m_Stack.Pop<Word>();
 		to_wasm(MemArg(sizeof(val)), val);
 	}
 
@@ -1517,7 +1524,7 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i32_store8()
 	{
-		Word val = m_Stack.Pop1();
+		Word val = m_Stack.Pop<Word>();
 		*MemArg(1) = static_cast<uint8_t>(val);
 	}
 
@@ -1529,7 +1536,7 @@ namespace Wasm {
 	void ProcessorPlus::On_br_if()
 	{
 		Word addr = ReadAddr();
-		if (m_Stack.Pop1())
+		if (m_Stack.Pop<Word>())
 			Jmp(addr);
 	}
 
@@ -1537,7 +1544,7 @@ namespace Wasm {
 	{
 		Word nAddr = ReadAddr();
 		Word nRetAddr = get_Ip();
-		m_Stack.Push1(nRetAddr);
+		m_Stack.Push(nRetAddr);
 		OnCall(nAddr);
 	}
 
