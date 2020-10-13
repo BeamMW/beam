@@ -164,6 +164,53 @@ int test_multiple() {
     return REPORT(errors);
 }
 
+int test_chunked() {
+    int errors = 0;
+    bool corrupted = false;
+
+    HttpMsgReader reader(
+        HttpMsgReader::client,
+        1,
+        [&errors, &corrupted](uint64_t streamId, const HttpMsgReader::Message& m) -> bool {
+            if (m.what != HttpMsgReader::http_message) {
+                ++errors;
+                corrupted = true;
+                return false;
+            }
+            size_t bodySize = 0;
+            const void* body = m.msg->get_body(bodySize);
+            if (bodySize != 20 || !body) {
+                ++errors;
+                corrupted = true;
+            }
+
+            if (body) {
+                auto stBody = std::string(static_cast<const char*>(body), bodySize);
+
+                if (stBody != "testtest1test12test2") {
+                    ++errors;
+                    corrupted = true;
+                }
+            }
+            return true;
+        },
+        100,
+        100
+        );
+
+    const std::string st1 = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\ntransfer-encoding: chunked\r\n\r\n4\r\ntest\r\n";
+    const std::string st2 = "5\r\ntest1\r\n6\r\ntest12\r\n";
+    const std::string st3 = "5\r\ntest2\r\n0\r\n";
+
+    reader.new_data_from_stream(io::EC_OK, st1.data(), st1.size());
+    reader.new_data_from_stream(io::EC_OK, st2.data(), st2.size());
+    reader.new_data_from_stream(io::EC_OK, st3.data(), st3.size());
+
+    LOG_DEBUG() << __FUNCTION__ << TRACE(corrupted);
+
+    return REPORT(errors);
+}
+
 int compare(const HttpUrl& a, const HttpUrl& b) {
     int nErrors=0;
     if (a.dir != b.dir) ++nErrors;
@@ -243,6 +290,7 @@ int main() {
         retCode += test_bodyless_request();
         retCode += test_request_with_body();
         retCode += test_multiple();
+        retCode += test_chunked();
         retCode += test_query_strings();
     } catch (const exception& e) {
         LOG_ERROR() << e.what();
