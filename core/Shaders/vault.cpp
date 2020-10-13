@@ -21,9 +21,8 @@ export void Dtor(void*)
 {
 }
 
-export void Method_2(const Vault::Request& r)
+export void Method_2(const Vault::Deposit& r)
 {
-    // deposit
     Amount total = r.Load();
 
     Strict::Add(total, r.m_Amount);
@@ -33,9 +32,8 @@ export void Method_2(const Vault::Request& r)
     Env::FundsLock(r.m_Aid, r.m_Amount);
 }
 
-export void Method_3(const Vault::Request& r)
+export void Method_3(const Vault::Withdraw& r)
 {
-    // withdraw
     Amount total = r.Load();
 
     Strict::Sub(total, r.m_Amount);
