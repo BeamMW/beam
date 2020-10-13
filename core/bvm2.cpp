@@ -44,7 +44,7 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// Processor
 #pragma pack (push, 1)
-	struct Header
+	struct Processor::Header
 	{
 		static const uint32_t s_Version = 1;
 
@@ -77,6 +77,26 @@ namespace bvm2 {
 		ZeroObject(m_Instruction);
 	}
 
+	const Processor::Header& Processor::ParseMod()
+	{
+		m_Code = m_FarCalls.m_Stack.back().m_Body;
+
+		Wasm::Test(m_Code.n >= sizeof(Header));
+		const Header& hdr = *reinterpret_cast<const Header*>(m_Code.p);
+
+		Wasm::Test(ByteOrder::from_le(hdr.m_Version) == hdr.s_Version);
+		uint32_t nMethods = ByteOrder::from_le(hdr.m_NumMethods);
+		Wasm::Test((nMethods - Header::s_MethodsMin <= Header::s_MethodsMax - Header::s_MethodsMin));
+
+		uint32_t nHdrSize = sizeof(Header) + sizeof(Wasm::Word) * (nMethods - Header::s_MethodsMin);
+		Wasm::Test(nHdrSize <= m_Code.n);
+
+		m_Data.n = m_Code.n - nHdrSize;
+		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
+
+		return hdr;
+	}
+
 	void Processor::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
 		uint32_t nRetAddr = get_Ip();
@@ -91,21 +111,8 @@ namespace bvm2 {
 		SetVarKey(vk);
 		LoadVar(vk, x.m_Body);
 
-		m_Code = x.m_Body;
-
-		Wasm::Test(m_Code.n >= sizeof(Header));
-		const Header& hdr = *reinterpret_cast<const Header*>(m_Code.p);
-
-		Wasm::Test(ByteOrder::from_le(hdr.m_Version) == hdr.s_Version);
-		uint32_t nMethods = ByteOrder::from_le(hdr.m_NumMethods);
-		Wasm::Test((iMethod < nMethods) && (nMethods - Header::s_MethodsMin <= Header::s_MethodsMax - Header::s_MethodsMin));
-
-		uint32_t nHdrSize = sizeof(Header) + sizeof(Wasm::Word) * (nMethods - Header::s_MethodsMin);
-		Wasm::Test(nHdrSize <= m_Code.n);
-
-		m_Data.n = m_Code.n - nHdrSize;
-		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
-		x.m_Data = m_Data;
+		const Header& hdr = ParseMod();
+		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
 		m_Stack.Push(pArgs);
 		m_Stack.Push(nRetAddr);
@@ -131,8 +138,7 @@ namespace bvm2 {
 			if (m_FarCalls.m_Stack.empty())
 				return; // finished
 
-			m_Code = m_FarCalls.m_Stack.back().m_Body;
-			m_Data = m_FarCalls.m_Stack.back().m_Data;
+			ParseMod(); // restore code/data sections
 		}
 
 		Wasm::Processor::OnRet(nRetAddr);

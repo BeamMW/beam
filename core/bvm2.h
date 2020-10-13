@@ -69,13 +69,15 @@ namespace bvm2 {
 			{
 				ContractID m_Cid;
 				ByteBuffer m_Body;
-				Blob m_Data;
 				uint32_t m_LocalDepth;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
 
 		} m_FarCalls;
+
+		struct Header;
+		const Header& ParseMod();
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
