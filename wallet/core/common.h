@@ -303,6 +303,8 @@ namespace beam::wallet
     MACRO(TransactionRegistered,           90,  uint8_t) \
     MACRO(FailureReason,                   92,  TxFailureReason) \
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
+    /* MaxPrivacy */ \
+    MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
@@ -400,17 +402,21 @@ namespace beam::wallet
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
         {
-            static_assert(std::is_same<T, ByteBuffer>::value == false);
-            auto buffer = GetParameter(parameterID, subTxID);
-            if (buffer && !buffer->empty())
+            auto subTxIt = m_Parameters.find(subTxID);
+            if (subTxIt == m_Parameters.end())
             {
-                Deserializer d;
-                d.reset(buffer->data(), buffer->size());
-                T value;
-                d & value;
-                return value;
+                return {};
             }
-            return boost::optional<T>();
+            auto pit = subTxIt->second.find(parameterID);
+            if (pit == subTxIt->second.end())
+            {
+                return {};
+            }
+            boost::optional<T> res;
+            res.emplace();
+            const ByteBuffer& b = pit->second;
+            fromByteBuffer(b, *res);
+            return res;
         }
 
         template <typename T>
@@ -434,7 +440,6 @@ namespace beam::wallet
         template <typename T>
         TxParameters& SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
         {
-            static_assert(std::is_same<T, ByteBuffer>::value == false);
             return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 
@@ -457,10 +462,8 @@ namespace beam::wallet
         }
 
         PackedTxParameters Pack() const;
-
-        boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
-        TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
-
+        TxParameters& SetParameter(TxParameterID parameterID, ByteBuffer&& parameter, SubTxID subTxID = kDefaultSubTxID);
+   
     private:
         boost::optional<TxID> m_ID;
         std::map<SubTxID, std::map<TxParameterID, ByteBuffer>> m_Parameters;
@@ -573,43 +576,31 @@ namespace beam::wallet
         [[nodiscard]] std::string getReceiverIdentity() const;
         [[nodiscard]] std::string getIdentity(bool isSender) const;
 
+#define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
+        macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \
+        macro(TxParameterID::Amount,            Amount,          m_amount,          0) \
+        macro(TxParameterID::Fee,               Amount,          m_fee,             0) \
+        macro(TxParameterID::AssetID,           Asset::ID,       m_assetId,         Asset::s_InvalidID) \
+        macro(TxParameterID::AssetMetadata,     std::string,     m_assetMeta,       {}) \
+        macro(TxParameterID::MinHeight,         Height,          m_minHeight,       0) \
+        macro(TxParameterID::PeerID,            WalletID,        m_peerId,          Zero) \
+        macro(TxParameterID::MyID,              WalletID,        m_myId,            Zero) \
+        macro(TxParameterID::Message,           ByteBuffer,      m_message,         {}) \
+        macro(TxParameterID::CreateTime,        Timestamp,       m_createTime,      0) \
+        macro(TxParameterID::ModifyTime,        Timestamp,       m_modifyTime,      0) \
+        macro(TxParameterID::IsSender,          bool,            m_sender,          false) \
+        macro(TxParameterID::IsSelfTx,          bool,            m_selfTx,          false) \
+        macro(TxParameterID::Status,            TxStatus,        m_status,          TxStatus::Pending) \
+        macro(TxParameterID::KernelID,          Merkle::Hash,    m_kernelID,        Zero) \
+        macro(TxParameterID::FailureReason,     TxFailureReason, m_failureReason,   TxFailureReason::Unknown) \
+
     //private:
         TxID m_txId = {};
-        wallet::TxType m_txType = wallet::TxType::Simple;
-        Amount m_amount = 0;
-        Amount m_fee = 0;
-        Asset::ID m_assetId = Asset::s_InvalidID;
-        std::string m_assetMeta;
-        Height m_minHeight = 0;
-        WalletID m_peerId = Zero;
-        WalletID m_myId = Zero;
-        ByteBuffer m_message;
-        Timestamp m_createTime = 0;
-        Timestamp m_modifyTime = 0;
-        bool m_sender = false;
-        bool m_selfTx = false;
-        TxStatus m_status = TxStatus::Pending;
-        Merkle::Hash m_kernelID = Zero;
-        TxFailureReason m_failureReason = TxFailureReason::Unknown;
 
-        static constexpr std::array<TxParameterID,18> m_initialParameters = {
-            TxParameterID::TransactionType,
-            TxParameterID::Amount,
-            TxParameterID::Fee,
-            TxParameterID::MinHeight,
-            TxParameterID::PeerID,
-            TxParameterID::MyID,
-            TxParameterID::CreateTime,
-            TxParameterID::IsSender,
-            TxParameterID::Message,
-            TxParameterID::ModifyTime,
-            TxParameterID::Status,
-            TxParameterID::KernelID,
-            TxParameterID::FailureReason,
-            TxParameterID::IsSelfTx,
-            TxParameterID::AssetID,
-            TxParameterID::AssetMetadata
-        };
+#define MACRO(id, type, field, init) type field = init;
+        BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
+#undef MACRO
+
     };
 
     // messages
@@ -787,6 +778,11 @@ namespace beam::wallet
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
     ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);
     void AppendLibraryVersion(TxParameters& params);
+
+    using VersionFunc = std::function<void(const std::string&, const std::string&)>;
+    void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
+    void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
+    Amount GetShieldedFee(size_t shieldedCount);
 }    // beam::wallet
 
 namespace beam

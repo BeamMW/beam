@@ -29,6 +29,7 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
+#include <queue>
 
 #define NOSEP
 #define COMMA ", "
@@ -2323,12 +2324,9 @@ namespace beam::wallet
 
     TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
     {
-        if (auto txTypeO = txParams.GetParameter(TxParameterID::TransactionType); txTypeO)
+        if (auto txType = txParams.GetParameter<TxType>(TxParameterID::TransactionType); txType)
         {
-            TxType txType = TxType::Simple;
-            fromByteBuffer(*txTypeO, txType);
-
-            auto it = m_statusInterpreterCreators.find(txType);
+            auto it = m_statusInterpreterCreators.find(*txType);
             if (it != m_statusInterpreterCreators.end())
             {
                 auto creator = it->second;
@@ -2416,6 +2414,7 @@ namespace beam::wallet
                 nTrg += feeShielded;
 
             const auto& x = vShielded[iPosShielded];
+
             nSel += x.first.m_CoinID.m_Value;
             vSelShielded.push_back(x.first);
         }
@@ -3225,11 +3224,14 @@ namespace beam::wallet
                 stm.bind(4, typeBlob);
             }
 
+            const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
+            sqlite::Statement stm2(this, gtParamReq);
+
             while (stm.step())
             {
                 TxID txID;
                 stm.get(0, txID);
-                auto t = getTx(txID);
+                auto t = getTxImpl(txID, stm2);
                 if (t.is_initialized())
                 {
                     res.emplace_back(*t);
@@ -3246,10 +3248,20 @@ namespace beam::wallet
         // load only simple TX that supported by TxDescription
         const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(this, req);
+        return getTxImpl(txId, stm);
+    }
+
+    boost::optional<TxDescription> WalletDB::getTxImpl(const TxID& txId, sqlite::Statement& stm) const
+    {
+        stm.Reset();
         stm.bind(1, txId);
 
         TxDescription txDescription(txId);
-        std::set<TxParameterID> gottenParams;
+        struct Set : public std::priority_queue<TxParameterID, std::vector<TxParameterID>, std::greater<TxParameterID> >
+        {
+            container_type::const_iterator begin() const noexcept { return c.begin(); }
+            container_type::const_iterator end() const noexcept { return c.end(); }
+        } gottenParams;
 
         while (stm.step())
         {
@@ -3258,7 +3270,7 @@ namespace beam::wallet
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
             auto parameterID = static_cast<TxParameterID>(parameter.m_paramID);
 
-            txDescription.SetParameter(parameterID, parameter.m_value, static_cast<SubTxID>(parameter.m_subTxID));
+            txDescription.SetParameter(parameterID, std::move(parameter.m_value), static_cast<SubTxID>(parameter.m_subTxID));
 
             if (parameter.m_subTxID == kDefaultSubTxID)
             {
@@ -4852,6 +4864,18 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
+                const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
+                if (packedMessage->m_maxPrivacyMinAnonimitySet)
+                {
+                    ShieldedCoin::UnlinkStatus unlinkStatus;
+                    unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
+                    if (unlinkStatus.get_SpendPriority() < 1)
+                    {
+                        c.m_Status = ShieldedCoin::Status::Maturing;
+                        return;
+                    }
+                }
+
                 if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
                 {
                     c.m_Status = ShieldedCoin::Status::Maturing;
@@ -5428,6 +5452,12 @@ namespace beam::wallet
             auto maxPrivacyTx = db.getTxHistory(TxType::PushTransaction);
             transactions.reserve(transactions.size() + maxPrivacyTx.size());
             copy(maxPrivacyTx.begin(), maxPrivacyTx.end(), back_inserter(transactions));
+            sort(transactions.begin(), transactions.end(),
+                [](const TxDescription& a, const TxDescription& b)
+                {
+                    return a.m_createTime > b.m_createTime;   
+                }
+            );
             
             for (const auto& tx : transactions)
             {
@@ -5444,13 +5474,18 @@ namespace beam::wallet
                 std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
 
+                Amount shieldedFee = 0;
+                std::vector<IPrivateKeyKeeper2::ShieldedInput> shieldedInputs;
+                if (tx.GetParameter(TxParameterID::InputCoinsShielded, shieldedInputs) && shieldedInputs.size())
+                    shieldedFee = GetShieldedFee(shieldedInputs.size());
+
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
                    << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
+                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","                        // Transaction fee, BEAM
                    << statusInterpreter->getStatus() << ","                                         // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID

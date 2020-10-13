@@ -122,7 +122,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto amount = params->GetParameter<Amount>(TxParameterID::Amount);
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
-    auto libVersion = params->GetParameter(TxParameterID::LibraryVersion);
+    auto libVersion = params->GetParameter<std::string>(TxParameterID::LibraryVersion);
 
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
@@ -184,24 +184,22 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(libVersion) 
             {
-                std::string libVersionStr;
-                beam::wallet::fromByteBuffer(*libVersion, libVersionStr);
                 std::string myLibVersionStr = PROJECT_VERSION;
                 std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
-                    if (std::regex_match(libVersionStr, libVersionRegex) &&
-                         std::lexicographical_compare(
-                            myLibVersionStr.begin(),
-                            myLibVersionStr.end(),
-                            libVersionStr.begin(),
-                            libVersionStr.end(),
-                            std::less<char>{}))
-                    {   
-                        setStringField(env, TransactionParametersClass, jParameters, "version", libVersionStr);
-                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", true);
-                    }
-                    else {
-                        setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
-                    }
+                if (std::regex_match(*libVersion, libVersionRegex) &&
+                        std::lexicographical_compare(
+                        myLibVersionStr.begin(),
+                        myLibVersionStr.end(),
+                        libVersion->begin(),
+                        libVersion->end(),
+                        std::less<char>{}))
+                {   
+                    setStringField(env, TransactionParametersClass, jParameters, "version", *libVersion);
+                    setBooleanField(env, TransactionParametersClass, jParameters, "versionError", true);
+                }
+                else {
+                    setBooleanField(env, TransactionParametersClass, jParameters, "versionError", false);
+                }
             }
             else 
             {

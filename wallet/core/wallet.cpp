@@ -125,7 +125,7 @@ namespace beam::wallet
             }
 
             // update address comment if changed
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 auto messageStr = std::string(message->begin(), message->end());
                 if (messageStr != receiverAddr->m_label)
@@ -144,7 +144,7 @@ namespace beam::wallet
             WalletAddress address;
             address.m_walletID = *peerID;
             address.m_createTime = getTimestamp();
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
@@ -1616,7 +1616,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter(TxParameterID::PeerWalletIdentity); peerID)
+        if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)
@@ -1681,7 +1681,9 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(tip);
         storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
 
-        if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
+        if (coin.m_Status != ShieldedCoin::Status::Available &&
+            coin.m_Status != ShieldedCoin::Status::Maturing &&
+            coin.m_Status != ShieldedCoin::Status::Spent)
         {
             return;
         }
@@ -1708,6 +1710,9 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
+
+            if (message->m_maxPrivacyMinAnonimitySet)
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_maxPrivacyMinAnonimitySet);
 
             auto packed = params.Pack();
             for (const auto& p : packed)
