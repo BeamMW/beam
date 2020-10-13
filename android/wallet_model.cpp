@@ -361,6 +361,7 @@ void WalletModel::onStatus(const WalletStatus& status)
     setLongField(env, WalletStatusClass, walletStatus, "receiving", status.receiving);
     setLongField(env, WalletStatusClass, walletStatus, "sending", status.sending);
     setLongField(env, WalletStatusClass, walletStatus, "maturing", status.maturing);
+    setLongField(env, WalletStatusClass, walletStatus, "shielded", status.shielded);
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
