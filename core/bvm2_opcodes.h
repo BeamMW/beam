@@ -14,21 +14,21 @@
 
 #pragma once
 
-#define BVMOp_memcpy(macro, sep) \
+#define BVMOp_Memcpy(macro, sep) \
 	macro(void*, pDst) sep \
 	macro(const void*, pSrc) sep \
 	macro(uint32_t, size)
 
-#define BVMOp_memcmp(macro, sep) \
+#define BVMOp_Memcmp(macro, sep) \
 	macro(const void*, p1) sep \
 	macro(const void*, p2) sep \
 	macro(uint32_t, size)
 
-#define BVMOp_memis0(macro, sep) \
+#define BVMOp_Memis0(macro, sep) \
 	macro(const void*, p) sep \
 	macro(uint32_t, size)
 
-#define BVMOp_memset(macro, sep) \
+#define BVMOp_Memset(macro, sep) \
 	macro(const void*, pDst) sep \
 	macro(uint8_t, val) sep \
 	macro(uint32_t, size)
@@ -82,10 +82,10 @@
 	macro(AssetID, aid)
 
 #define BVMOpsAll(macro) \
-	macro(0x10, void*    , memcpy) \
-	macro(0x11, void*    , memset) \
-	macro(0x12, int32_t  , memcmp) \
-	macro(0x13, uint8_t  , memis0) \
+	macro(0x10, void*    , Memcpy) \
+	macro(0x11, void*    , Memset) \
+	macro(0x12, int32_t  , Memcmp) \
+	macro(0x13, uint8_t  , Memis0) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, void     , SaveVar) \
 	macro(0x23, void     , CallFar) \
