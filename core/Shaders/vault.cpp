@@ -24,24 +24,24 @@ export void Dtor(void*)
 export void Method_2(const Vault::Request& r)
 {
     // deposit
-    Amount total = r.m_Key.Load();
+    Amount total = r.Load();
 
     Strict::Add(total, r.m_Amount);
 
-    r.m_Key.Save(total);
+    r.Save(total);
 
-    Env::FundsLock(r.m_Key.m_Aid, r.m_Amount);
+    Env::FundsLock(r.m_Aid, r.m_Amount);
 }
 
 export void Method_3(const Vault::Request& r)
 {
     // withdraw
-    Amount total = r.m_Key.Load();
+    Amount total = r.Load();
 
     Strict::Sub(total, r.m_Amount);
 
-    r.m_Key.Save(total);
+    r.Save(total);
 
-    Env::FundsUnlock(r.m_Key.m_Aid, r.m_Amount);
-    Env::AddSig(r.m_Key.m_Account);
+    Env::FundsUnlock(r.m_Aid, r.m_Amount);
+    Env::AddSig(r.m_Account);
 }

@@ -17,8 +17,8 @@ namespace Vault
 
     // same param for deposit and withdraw methods
     struct Request
+        :public Key
     {
-        Key m_Key;
         Amount m_Amount;
     };
 
