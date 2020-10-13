@@ -94,9 +94,15 @@ namespace Wasm {
 		};
 		std::vector<PerImportFunc> m_ImportFuncs;
 
-		struct PerImportGlobal :public PerImport {
+		struct GlobalVar {
 			uint8_t m_Type;
 			uint8_t m_IsVariable;
+		};
+
+		struct PerImportGlobal
+			:public PerImport
+			,public GlobalVar
+		{
 		};
 		std::vector<PerImportGlobal> m_ImportGlobals;
 
@@ -124,13 +130,7 @@ namespace Wasm {
 
 		std::vector<PerFunction> m_Functions;
 
-		struct PerGlobal {
-			uint8_t m_Type;
-			uint8_t m_Mutable;
-			Reader m_InitExpression;
-		};
-
-		std::vector<PerGlobal> m_Globals;
+		std::vector<GlobalVar> m_Globals;
 
 		struct PerExport {
 			Vec<char> m_sName;

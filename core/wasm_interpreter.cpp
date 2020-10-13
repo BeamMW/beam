@@ -202,12 +202,12 @@ namespace Wasm {
 	macro(0x10, call) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
+	macro(0x0F, ret) \
 	macro(0x41, i32_const) \
 	macro(0x42, i64_const) \
 
 #define WasmInstructions_Proprietary(macro) \
 	macro(0xf1, prolog) \
-	macro(0xf2, ret) \
 	macro(0xf3, call_ext) \
 	macro(0xf8, global_get_imp) \
 	macro(0xf9, global_set_imp) \
@@ -437,9 +437,13 @@ namespace Wasm {
 			auto& x = m_Globals[i];
 
 			x.m_Type = inp.Read1();
-			x.m_Mutable = inp.Read1();
+			x.m_IsVariable = inp.Read1();
 
-			Fail(); // TODO: init expresssion
+			// initialization expression for the global variable. Ignore it, we don't really support globals, it's just needed for a non-imported stack pointer worakround.
+			Test(Instruction::i32_const == inp.Read1());
+			auto nInitialValue = inp.Read<int32_t>();
+			nInitialValue;
+			Test(Instruction::end_block == inp.Read1());
 		}
 	}
 
@@ -845,6 +849,13 @@ namespace Wasm {
 		void On_br_if() {
 			Pop(Type::i32); // conditional
 			OnBranch();
+		}
+
+		void On_ret()
+		{
+			Test(1 == m_Blocks.size()); // seems like this instruction isn't placed within a nested block. Fix this when it's broken
+			TestBlockCanClose();
+			WriteRet(); // end of function
 		}
 
 		void On_i32_const() {

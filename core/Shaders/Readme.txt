@@ -32,6 +32,10 @@ vault.h/cpp:
 
 	To compile a shader into WebAssembly use the following:
 
-clang -O3 --target=wasm32 -Wl,--export-dynamic,--no-entry,--shared -nostdlib --output vault.wasm vault.cpp
+clang -O3 --target=wasm32 -Wl,--export-dynamic,--no-entry,--allow-undefined -nostdlib --output {output_file}.wasm {source_files}
+
+	*NOTE*: earlier we used --shared instead of --allow-undefined, which should build a proper shared library.
+	But there is a bug in llvm atm, the build fails if static const arrays are used (strings, predefined data buffers, etc.)
+	
 
 	The result is a binary wasm file. The textual view (for debugging) is available here: https://webassembly.github.io/wabt/demo/wasm2wat/
