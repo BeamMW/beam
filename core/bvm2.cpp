@@ -173,7 +173,7 @@ namespace bvm2 {
 	void Processor::SetVarKeyInternal(VarKey& vk, Wasm::Word pKey, Wasm::Word nKey)
 	{
 		Wasm::Test(nKey <= Limits::VarKeySize);
-		uint8_t* pKey_ = get_LinearAddr(pKey, nKey);
+		const uint8_t* pKey_ = get_AddrR(pKey, nKey);
 		SetVarKey(vk, VarKey::Tag::Internal, Blob(pKey_, nKey));
 	}
 
@@ -342,8 +342,8 @@ namespace bvm2 {
 		uint8_t HandleRef(Wasm::Word pContractID, bool bAdd);
 		bool HandleRefRaw(const VarKey&, bool bAdd);
 
-		template <typename T> T* get_AddrAs(uint32_t nOffset) {
-			return reinterpret_cast<T*>(get_LinearAddr(nOffset, sizeof(T)));
+		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
+			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
 		}
 	};
 
@@ -483,8 +483,8 @@ namespace bvm2 {
 	{
 		// prefer to use memmove
 		memmove(
-			get_LinearAddr(pDst, size),
-			get_LinearAddr(pSrc, size),
+			get_AddrW(pDst, size),
+			get_AddrR(pSrc, size),
 			size);
 
 		return pDst;
@@ -492,21 +492,21 @@ namespace bvm2 {
 
 	BVM_METHOD(memset)
 	{
-		memset(get_LinearAddr(pDst, size), val, size);
+		memset(get_AddrW(pDst, size), val, size);
 		return pDst;
 	}
 
 	BVM_METHOD(memcmp)
 	{
 		return memcmp(
-			get_LinearAddr(p1, size),
-			get_LinearAddr(p2, size),
+			get_AddrR(p1, size),
+			get_AddrR(p2, size),
 			size);
 	}
 	BVM_METHOD(memis0)
 	{
 		bool bRes = memis0(
-			get_LinearAddr(p, size),
+			get_AddrR(p, size),
 			size);
 
 		return !!bRes;
@@ -517,7 +517,7 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyInternal(vk, pKey, nKey);
 
-		uint8_t* pVal_ = get_LinearAddr(pVal, nVal);
+		uint8_t* pVal_ = get_AddrW(pVal, nVal);
 		LoadVar(vk, pVal_, nVal);
 		return nVal;
 	}
@@ -528,14 +528,35 @@ namespace bvm2 {
 		SetVarKeyInternal(vk, pKey, nKey);
 
 		Wasm::Test(nVal <= Limits::VarSize);
-		uint8_t* pVal_ = get_LinearAddr(pVal, nVal);
+		uint8_t* pVal_ = get_AddrW(pVal, nVal);
 
 		SaveVar(vk, pVal_, nVal);
 	}
 
 	BVM_METHOD(CallFar)
 	{
-		CallFar(*get_AddrAs<ContractID>(pID), iMethod, pArgs);
+		// make sure the pArgs is not malicious.
+		// Attacker may try to cause the target shader to overwrite its future stack operands, or const data in its data section.
+		//
+		switch (Wasm::MemoryType::Mask & pArgs)
+		{
+		case Wasm::MemoryType::Global:
+			break; // this is allowed
+
+		case Wasm::MemoryType::Stack:
+			Wasm::Test(pArgs >= m_Stack.get_AlasSp());
+			break;
+
+		default:
+			// invalid, null, or current data section pointer. NOT allowed!
+			Wasm::Fail();
+		}
+
+		if (pArgs)
+		{
+		}
+
+		CallFar(get_AddrAsR<ContractID>(pID), iMethod, pArgs);
 	}
 
 	BVM_METHOD(Halt)
@@ -545,10 +566,10 @@ namespace bvm2 {
 
 	BVM_METHOD(AddSig)
 	{
-		uint8_t* pKey_ = get_LinearAddr(pKey, sizeof(ECC::Point));
+		const auto& pk = get_AddrAsR<ECC::Point>(pKey);
 
 		if (m_pSigValidate)
-			AddSigInternal(*reinterpret_cast<ECC::Point*>(pKey_));
+			AddSigInternal(pk);
 	}
 
 	BVM_METHOD(FundsLock)
@@ -576,7 +597,7 @@ namespace bvm2 {
 		Wasm::Test(nMeta && (nMeta <= Asset::Info::s_MetadataMaxSize));
 
 		Asset::Metadata md;
-		Blob(get_LinearAddr(pMeta, nMeta), nMeta).Export(md.m_Value);
+		Blob(get_AddrR(pMeta, nMeta), nMeta).Export(md.m_Value);
 		md.UpdateHash();
 
 		AssetVar av;
@@ -742,7 +763,7 @@ namespace bvm2 {
 
 	uint8_t ProcessorPlus::HandleRef(Wasm::Word pCID, bool bAdd)
 	{
-		const auto& cid = *reinterpret_cast<ContractID*>(get_LinearAddr(pCID, sizeof(ContractID)));
+		const auto& cid = get_AddrAsR<ContractID>(pCID);
 
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::Refs, cid);

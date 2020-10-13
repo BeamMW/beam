@@ -1313,16 +1313,22 @@ namespace Wasm {
 			OnGlobalVar(iVar, bGet);
 		}
 
-		uint8_t* MemArg(uint32_t nSize)
+		uint8_t* MemArgEx(uint32_t nSize, bool bW)
 		{
 			auto nPad = m_Instruction.Read<Word>(); nPad;
 			auto nOffs = m_Instruction.Read<Word>();
 			nOffs += m_Stack.Pop<Word>();
 
-			return get_LinearAddr(nOffs, nSize);
+			return get_AddrEx(nOffs, nSize, bW);
 		}
 
+		uint8_t* MemArgW(uint32_t nSize) {
+			return MemArgEx(nSize, true);
+		}
 
+		const uint8_t* MemArgR(uint32_t nSize) {
+			return MemArgEx(nSize, false);
+		}
 
 		void RunOncePlus()
 		{
@@ -1368,8 +1374,11 @@ namespace Wasm {
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
 	}
 
-	uint8_t* Processor::get_LinearAddr(uint32_t nOffset, uint32_t nSize)
+	uint8_t* Processor::get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW)
 	{
+		if (!nSize)
+			return nullptr;
+
 		Test(!(MemoryType::Mask & nSize));
 		
 		Blob blob;
@@ -1498,25 +1507,25 @@ namespace Wasm {
 
 	void ProcessorPlus::On_i32_load()
 	{
-		auto n = from_wasm<uint32_t>(MemArg(sizeof(uint32_t)));
+		auto n = from_wasm<uint32_t>(MemArgR(sizeof(uint32_t)));
 		m_Stack.Push(n);
 	}
 
 	void ProcessorPlus::On_i64_load()
 	{
-		auto n = from_wasm<uint64_t>(MemArg(sizeof(uint64_t)));
+		auto n = from_wasm<uint64_t>(MemArgR(sizeof(uint64_t)));
 		m_Stack.Push(n);
 	}
 
 	void ProcessorPlus::On_i32_load8_u()
 	{
-		uint32_t val = *MemArg(1);
+		uint32_t val = *MemArgR(1);
 		m_Stack.Push(val);
 	}
 
 	void ProcessorPlus::On_i32_load8_s()
 	{
-		char ch = *MemArg(1);
+		char ch = *MemArgR(1);
 		int32_t val = ch; // promoted w.r.t. sign
 		m_Stack.Push(val);
 	}
@@ -1524,19 +1533,19 @@ namespace Wasm {
 	void ProcessorPlus::On_i32_store()
 	{
 		Word val = m_Stack.Pop<Word>();
-		to_wasm(MemArg(sizeof(val)), val);
+		to_wasm(MemArgW(sizeof(val)), val);
 	}
 
 	void ProcessorPlus::On_i64_store()
 	{
 		auto val = m_Stack.Pop<uint64_t>();
-		to_wasm(MemArg(sizeof(val)), val);
+		to_wasm(MemArgW(sizeof(val)), val);
 	}
 
 	void ProcessorPlus::On_i32_store8()
 	{
 		Word val = m_Stack.Pop<Word>();
-		*MemArg(1) = static_cast<uint8_t>(val);
+		*MemArgW(1) = static_cast<uint8_t>(val);
 	}
 
 	void ProcessorPlus::On_br()

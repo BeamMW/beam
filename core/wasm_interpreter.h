@@ -251,7 +251,16 @@ namespace Wasm {
 		void Jmp(uint32_t ip);
 
 		void RunOnce();
-		uint8_t* get_LinearAddr(uint32_t nOffset, uint32_t nSize);
+
+		uint8_t* get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW);
+
+		uint8_t* get_AddrW(uint32_t nOffset, uint32_t nSize) {
+			return get_AddrEx(nOffset, nSize, true);
+		}
+
+		const uint8_t* get_AddrR(uint32_t nOffset, uint32_t nSize) {
+			return get_AddrEx(nOffset, nSize, false);
+		}
 
 		virtual void OnCall(Word nAddr);
 		virtual void OnRet(Word nRetAddr);
