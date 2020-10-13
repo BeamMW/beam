@@ -155,6 +155,7 @@ namespace Wasm {
 		LabelSet m_Labels;
 		ByteBuffer m_Data;
 		ByteBuffer m_Result;
+		Word m_Data0;
 
 		void Parse(const Reader&); // parses the wasm file info, sets labels for local functions. No compilation yet.
 		// Time to set the external bindings, create a header, etc.
@@ -180,6 +181,7 @@ namespace Wasm {
 	{
 		Blob m_Code;
 		Blob m_Data;
+		Word m_Data0;
 		Blob m_LinearMem;
 		Reader m_Instruction;
 

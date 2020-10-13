@@ -299,6 +299,8 @@ namespace Wasm {
 		static const uint8_t pVer[] = { 1, 0, 0, 0 };
 		Test(!memcmp(pVer, inp.Consume(sizeof(pVer)), sizeof(pVer)));
 
+		m_Data0 = 0;
+
 		for (uint8_t nPrevSection = 0; inp.m_p0 < inp.m_p1; )
 		{
 			auto nSection = inp.Read1();
@@ -516,10 +518,18 @@ namespace Wasm {
 
 			Vec<uint8_t> data;
 			data.Read(inp);
-			data;
+
+			if (i) {
+				// assume data blocks are sorted w.r.t. their virtual offset, and no overlap
+				Test(nAddr >= m_Data0 + m_Data.size());
+			}
+			else
+				m_Data0 = nAddr;
 
 			if (data.n)
 			{
+				nAddr -= m_Data0; // to rel
+
 				size_t n = nAddr + data.n;
 				if (m_Data.size() < n)
 					m_Data.resize(n);
@@ -1383,14 +1393,19 @@ namespace Wasm {
 		
 		Blob blob;
 
-		switch (MemoryType::Mask & nOffset)
+		Word nMemType = MemoryType::Mask & nOffset;
+		nOffset &= ~MemoryType::Mask;
+
+		switch (nMemType)
 		{
 		case MemoryType::Global:
 			blob = m_LinearMem;
 			break;
 
 		case MemoryType::Data:
+			Test(!bW);
 			blob = m_Data;
+			nOffset -= m_Data0; // data va start at specific offset
 			break;
 
 		case MemoryType::Stack:
@@ -1401,9 +1416,6 @@ namespace Wasm {
 		default:
 			Fail();
 		}
-
-		nOffset &= ~MemoryType::Mask;
-
 
 		nSize += nOffset;
 		assert(nSize >= nOffset); // can't overflow, hi-order bits are zero in both

@@ -50,6 +50,7 @@ namespace bvm2 {
 
 		uint32_t m_Version;
 		uint32_t m_NumMethods;
+		uint32_t m_Data0;
 
 		static const uint32_t s_MethodsMin = 2; // c'tor and d'tor
 		static const uint32_t s_MethodsMax = 1U << 28; // would be much much less of course, this is just to ensure no-overflow for offset calculation
@@ -93,6 +94,7 @@ namespace bvm2 {
 
 		m_Data.n = m_Code.n - nHdrSize;
 		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
+		m_Data0 = ByteOrder::from_le(hdr.m_Data0);
 
 		return hdr;
 	}
@@ -245,6 +247,7 @@ namespace bvm2 {
 
 		pHdr->m_Version = ByteOrder::to_le(Header::s_Version);
 		pHdr->m_NumMethods = ByteOrder::to_le(nNumMethods);
+		pHdr->m_Data0 = ByteOrder::to_le(c.m_Data0);
 
 		if (!c.m_Data.empty())
 			memcpy(&c.m_Result.front() + nSizeHdr, &c.m_Data.front(), c.m_Data.size());
@@ -550,10 +553,6 @@ namespace bvm2 {
 		default:
 			// invalid, null, or current data section pointer. NOT allowed!
 			Wasm::Fail();
-		}
-
-		if (pArgs)
-		{
 		}
 
 		CallFar(get_AddrAsR<ContractID>(pID), iMethod, pArgs);
