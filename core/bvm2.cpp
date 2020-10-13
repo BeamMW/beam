@@ -164,7 +164,7 @@ namespace bvm2 {
 		vk.Append(nTag, blob);
 	}
 
-	void Processor::SetVarKey(VarKey& vk, Wasm::Word pKey, Wasm::Word nKey)
+	void Processor::SetVarKeyInternal(VarKey& vk, Wasm::Word pKey, Wasm::Word nKey)
 	{
 		Wasm::Test(nKey <= Limits::VarKeySize);
 		uint8_t* pKey_ = get_LinearAddr(pKey, nKey);
@@ -509,7 +509,7 @@ namespace bvm2 {
 	BVM_METHOD(LoadVar)
 	{
 		VarKey vk;
-		SetVarKey(vk, pKey, nKey);
+		SetVarKeyInternal(vk, pKey, nKey);
 
 		uint8_t* pVal_ = get_LinearAddr(pVal, nVal);
 		LoadVar(vk, pVal_, nVal);
@@ -519,7 +519,7 @@ namespace bvm2 {
 	BVM_METHOD(SaveVar)
 	{
 		VarKey vk;
-		SetVarKey(vk, pKey, nKey);
+		SetVarKeyInternal(vk, pKey, nKey);
 
 		Wasm::Test(nVal <= Limits::VarSize);
 		uint8_t* pVal_ = get_LinearAddr(pVal, nVal);
@@ -671,7 +671,7 @@ namespace bvm2 {
 	void ProcessorPlus::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
 	{
 		VarKey vk;
-		SetVarKey(vk, VarKey::Tag::LockedAmount, aid);
+		SetVarKey(vk, VarKey::Tag::LockedAmount, uintBigFrom(aid));
 
 		AmountBig::Type val0;
 		Load_T(vk, val0);

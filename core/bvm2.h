@@ -60,7 +60,7 @@ namespace bvm2 {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
-		void SetVarKey(VarKey&, Wasm::Word pKey, Wasm::Word nKey);
+		void SetVarKeyInternal(VarKey&, Wasm::Word pKey, Wasm::Word nKey);
 
 		struct FarCalls
 		{
