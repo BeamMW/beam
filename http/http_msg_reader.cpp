@@ -381,23 +381,28 @@ public:
         return maxBytes;
     }
 
-    size_t feed_chunked_body(const uint8_t* p, size_t sz, bool& completed) {
+    size_t feed_chunked_body(const uint8_t* p, size_t sz, bool& completed, HttpMsgReader::What& error) {
+        error = HttpMsgReader::nothing;
+        completed = false;
+
         struct phr_chunked_decoder decoder = {};
 
-        _body.resize(sz);
-        memcpy(_body.data(), p, sz);
+        _body.resize(_bodyCursor + sz);
+        memcpy(_body.data() + _bodyCursor, p, sz);
 
         size_t rsize = sz;
-        ssize_t pret = phr_decode_chunked(&decoder, (char*)_body.data(), &rsize);
-        // TODO process error
-        if (pret == -1)
-        { 
+        ssize_t pret = phr_decode_chunked(&decoder, (char*)(_body.data() + _bodyCursor), &rsize);
+        
+        if (pret == -1) { 
             // TODO process error
+            error = HttpMsgReader::message_corrupted;
+            return sz;
+        } else if (pret >= 0) {
+            completed = true;
         }
 
-        _bodyCursor = rsize;
+        _bodyCursor += rsize;
         _body.resize(_bodyCursor);
-        completed = true;
 
         return sz;
     }
@@ -515,7 +520,8 @@ size_t HttpMsgReader::feed_body(const uint8_t* p, size_t sz) {
 
 size_t HttpMsgReader::feed_chunked_body(const uint8_t* p, size_t sz) {
     bool completed = false;
-    size_t consumed = _msg->feed_chunked_body(p, sz, completed);
+    What error = nothing;
+    size_t consumed = _msg->feed_chunked_body(p, sz, completed, error);
     if (completed) {
         _state = reading_header;
         bool proceed = _callback(_streamId, Message(_msg));
@@ -527,6 +533,10 @@ size_t HttpMsgReader::feed_chunked_body(const uint8_t* p, size_t sz) {
             // the object may be deleted here
             return 0;
         }
+    } else if (error != nothing) {
+        _callback(_streamId, Message(error));
+        // the object may be deleted here
+        return 0;
     }
     return consumed;
 }
