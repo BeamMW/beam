@@ -36,6 +36,7 @@ namespace Shaders {
 #pragma warning (disable : 4200)
 #include "../../core/Shaders/vault.h"
 #include "../../core/Shaders/oracle.h"
+#include "../../core/Shaders/MergeSort.h"
 #pragma warning (default : 4200)
 }
 
@@ -3338,6 +3339,41 @@ namespace beam
             }
         }
 
+		static void TestSort2()
+		{
+			ECC::PseudoRandomGenerator prg;
+
+			std::vector<uint64_t> buf, buf2;
+
+			for (uint32_t nCount = 0; nCount < 500; nCount++)
+			{
+				buf.resize(nCount + 2);
+				buf2.resize(nCount + 2);
+				uint64_t* p = &buf.front();
+
+				for (uint32_t n = 0; n < 10; n++)
+				{
+					p[0] = 1;
+					p[nCount + 1] = 2;
+					buf2[0] = 3;
+					buf2[nCount + 1] = 4;
+					prg.Generate(p + 1, sizeof(uint64_t) * nCount);
+
+					uint64_t* pRes = Shaders::MergeSort<uint64_t>::Do(p + 1, &buf2.front() + 1, nCount);
+
+					verify_test(1 == p[0]);
+					verify_test(2 == p[nCount + 1]);
+					verify_test(3 == buf2[0]);
+					verify_test(4 == buf2[nCount + 1]);
+
+					for (uint32_t i = 0; i + 1 < nCount; i++)
+						verify_test(pRes[i] <= pRes[i +  1]);
+
+				}
+
+			}
+		}
+
 	};
 
 
@@ -3429,6 +3465,7 @@ namespace beam
 	void TestContracts()
 	{
 		MyBvm2Processor::TestSort();
+		MyBvm2Processor::TestSort2();
 
 		TestContract2();
 		TestContract3();
