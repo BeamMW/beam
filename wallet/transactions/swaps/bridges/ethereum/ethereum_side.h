@@ -56,6 +56,7 @@ namespace beam::wallet
         bool ConfirmWithdrawTx(SubTxID subTxID);
         void GetWithdrawTxConfirmations(SubTxID subTxID);
 
+        ECC::uintBig GetSecret() const;
         ByteBuffer GetSecretHash() const;
 
         ECC::uintBig GetGas(SubTxID subTxID) const;

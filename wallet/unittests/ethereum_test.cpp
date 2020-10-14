@@ -325,11 +325,7 @@ void testSwapWithAggregateSignature()
 
     auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
     LOG_DEBUG() << "PUBLIC: " << rawPk;
-    auto tmp = beam::from_hex(std::string(rawPk.begin() + 2, rawPk.end()));
-    auto hash = ethash::keccak256(&tmp[0], tmp.size());
-    libbitcoin::short_hash addressFromSecret;
-    std::copy_n(&hash.bytes[12], 20, addressFromSecret.begin());
-
+    libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
     auto participant = bridgeBob.generateEthAddress();
     auto initiator = bridgeAlice.generateEthAddress();
     libbitcoin::data_chunk hashData;
@@ -337,7 +333,7 @@ void testSwapWithAggregateSignature()
     hashData.insert(hashData.end(), addressFromSecret.cbegin(), addressFromSecret.cend());
     hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
     hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
-    hash = ethash::keccak256(&hashData[0], hashData.size());
+    auto hash = ethash::keccak256(&hashData[0], hashData.size());
 
     libbitcoin::data_chunk result(std::begin(hash.bytes), std::end(hash.bytes));
 
@@ -360,15 +356,11 @@ void testSwapWithAggregateSignature()
     // LockMethodHash + refundTimeInBlocks + addressFromSecret + participant
     ECC::uintBig refundTimeInBlocks = 2u;
     libbitcoin::data_chunk lockData;
-    lockData.reserve(4 + 32 + 32 + 32);
+    lockData.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
     libbitcoin::decode_base16(lockData, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
-    lockData.insert(lockData.end(), std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData));
-    // address's size is 20, so fill 12 elements by 0x00
-    lockData.insert(lockData.end(), 12u, 0x00);
-    lockData.insert(lockData.end(), std::begin(addressFromSecret), std::end(addressFromSecret));
-    // address's size is 20, so fill 12 elements by 0x00
-    lockData.insert(lockData.end(), 12u, 0x00);
-    lockData.insert(lockData.end(), std::begin(participant), std::end(participant));
+    ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, lockData);
+    ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
+    ethereum::AddContractABIWordToBuffer(participant, lockData);
 
     ECC::uintBig gas = 200000u;
     ECC::uintBig gasPrice = 3000000u;
@@ -381,11 +373,9 @@ void testSwapWithAggregateSignature()
             // redeem
             // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
             libbitcoin::data_chunk redeemData;
-            redeemData.reserve(4 + 32 + 32 + 32 + 32);
+            redeemData.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
             libbitcoin::decode_base16(redeemData, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
-            // address's size is 20, so fill 12 elements by 0x00
-            redeemData.insert(redeemData.end(), 12u, 0x00);
-            redeemData.insert(redeemData.end(), std::begin(addressFromSecret), std::end(addressFromSecret));
+            ethereum::AddContractABIWordToBuffer(addressFromSecret, redeemData);
             redeemData.insert(redeemData.end(), std::begin(signature.signature), std::end(signature.signature));
             redeemData.insert(redeemData.end(), 31u, 0x00);
             redeemData.push_back(signature.recovery_id + 27u);

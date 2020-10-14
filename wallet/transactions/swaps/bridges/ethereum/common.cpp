@@ -15,6 +15,7 @@
 #include "common.h"
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <ethash/keccak.hpp>
 #include "utility/hex.h"
 
 namespace
@@ -38,6 +39,16 @@ libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr)
 {
     libbitcoin::short_hash address;
     libbitcoin::decode_base16(address, RemoveHexPrefix(addressStr));
+    return address;
+}
+
+libbitcoin::short_hash GetEthAddressFromPubkeyStr(const std::string& pubkeyStr)
+{
+    auto tmp = beam::from_hex(std::string(pubkeyStr.begin() + 2, pubkeyStr.end()));
+    auto hash = ethash::keccak256(&tmp[0], tmp.size());
+    libbitcoin::short_hash address;
+
+    std::copy_n(&hash.bytes[12], 20, address.begin());
     return address;
 }
 
@@ -82,4 +93,15 @@ std::string RemoveHexPrefix(const std::string& value)
 
     return value;
 }
+
+void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::data_chunk& dst)
+{
+    assert(src.size() <= kEthContractABIWordSize);
+    if (src.size() < kEthContractABIWordSize)
+    {
+        dst.insert(dst.end(), kEthContractABIWordSize - src.size(), 0x00);
+    }
+    dst.insert(dst.end(), src.begin(), src.end());
+}
+
 } // namespace beam::ethereum

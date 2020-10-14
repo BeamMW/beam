@@ -20,9 +20,15 @@
 
 namespace beam::ethereum
 {
+inline constexpr uint8_t kEthContractABIWordSize = 32;
+inline constexpr uint8_t kEthContractMethodHashSize = 4;
+
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
+libbitcoin::short_hash GetEthAddressFromPubkeyStr(const std::string& pubkeyStr);
 ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex = true);
 std::string AddHexPrefix(const std::string& value);
 std::string RemoveHexPrefix(const std::string& value);
+
+void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::data_chunk& dst);
 } // namespace beam::ethereum

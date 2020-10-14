@@ -16,6 +16,8 @@
 
 #include "ethereum_side.h"
 
+#include <ethash/keccak.hpp>
+
 #include "common.h"
 #include "utility/logger.h"
 
@@ -26,10 +28,28 @@ namespace
     // TODO: check
     constexpr uint32_t kExternalHeightMaxDifference = 10;
 
-    const std::string kLockMethodHash = "0xae052147";
-    const std::string kRefundMethodHash = "0x7249fbb6";
-    const std::string kRedeemMethodHash = "0xb31597ad";
-    const std::string kGetDetailsMethodHash = "0x6bfec360";
+    std::string GetRefundMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "7249fbb6" : "fa89401a";
+    }
+
+    std::string GetLockMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "ae052147" : "bc18cc34";
+    }
+
+    std::string GetRedeemMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "b31597ad" : "8772acd6";
+    }
+
+    std::string GetDetailsMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "6bfec360" : "7cf3285f";
+    }
+
+    // TODO: -> settings
+    constexpr bool kIsHashLockScheme = false;
 }
 
 namespace beam::wallet
@@ -102,6 +122,7 @@ bool EthereumSide::ValidateLockTime()
 
 void EthereumSide::AddTxDetails(SetTxParameter& txParameters)
 {
+    txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, ethereum::ConvertEthAddressToStr(m_ethBridge->generateEthAddress()));
 }
 
 bool EthereumSide::ConfirmLockTx()
@@ -114,10 +135,11 @@ bool EthereumSide::ConfirmLockTx()
     if (!m_SwapLockTxBlockNumber)
     {
         auto secretHash = GetSecretHash();
+        libbitcoin::data_chunk data;
+        ethereum::AddContractABIWordToBuffer(secretHash, data);
 
-        // else: "contract call" + getTransactionReceipt (mb only "contract call")
         m_ethBridge->call(GetContractAddress(),
-            kGetDetailsMethodHash + libbitcoin::encode_base16(secretHash),
+            GetDetailsMethodHash(kIsHashLockScheme) + libbitcoin::encode_base16(data),
             [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
         {
             if (weak.expired())
@@ -241,15 +263,13 @@ bool EthereumSide::SendLockTx()
     auto participant = ethereum::ConvertStrToEthAddress(participantStr);
     uintBig refundTimeInBlocks = GetLockTimeInBlocks();
 
-    // LockMethodHash + refundTimeInBlocks + hashedSecret + participant
+    // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
     libbitcoin::data_chunk data;
-    data.reserve(4 + 32 + 32 + 32);
-    libbitcoin::decode_base16(data, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
-    data.insert(data.end(), std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData));
-    data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
-    // address's size is 20, so fill 12 elements by 0x00
-    data.insert(data.end(), 12u, 0x00);
-    data.insert(data.end(), std::begin(participant), std::end(participant));
+    data.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
+    libbitcoin::decode_base16(data, GetLockMethodHash(kIsHashLockScheme));
+    ethereum::AddContractABIWordToBuffer({std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData)}, data);
+    ethereum::AddContractABIWordToBuffer(secretHash, data);
+    ethereum::AddContractABIWordToBuffer(participant, data);
 
     uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
     m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
@@ -279,14 +299,13 @@ bool EthereumSide::SendRefund()
 
     auto secretHash = GetSecretHash();
 
-    // kRefundMethodHash + secretHash
+    // kRefundMethodHash + secretHash/addressFromSecret
     libbitcoin::data_chunk data;
     data.reserve(4 + 32);
-    libbitcoin::decode_base16(data, std::string(std::begin(kRefundMethodHash) + 2, std::end(kRefundMethodHash)));
-    data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
+    libbitcoin::decode_base16(data, GetRefundMethodHash(kIsHashLockScheme));
+    ethereum::AddContractABIWordToBuffer(secretHash, data);
 
-    uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::REFUND_TX), GetGasPrice(SubTxIndex::REFUND_TX),
+    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(SubTxIndex::REFUND_TX), GetGasPrice(SubTxIndex::REFUND_TX),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -306,17 +325,49 @@ bool EthereumSide::SendRedeem()
         return true;
 
     auto secretHash = GetSecretHash();
-    auto secret = m_tx.GetMandatoryParameter<Hash::Value>(TxParameterID::PreImage, SubTxIndex::BEAM_REDEEM_TX);
+    auto secret = GetSecret();
 
-    // kRedeemMethodHash + secret + secretHash
     libbitcoin::data_chunk data;
-    data.reserve(4 + 32 + 32);
-    libbitcoin::decode_base16(data, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
-    data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
-    data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
+    if (kIsHashLockScheme)
+    {
+        // kRedeemMethodHash + secret + secretHash
+        data.reserve(4 + 32 + 32);
+        libbitcoin::decode_base16(data, GetRedeemMethodHash(kIsHashLockScheme));
+        data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
+        data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
+    }
+    else
+    {
+        auto initiatorStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
+        auto initiator = ethereum::ConvertStrToEthAddress(initiatorStr);
+        auto participant = m_ethBridge->generateEthAddress();
 
-    uintBig swapAmount = ECC::Zero;
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::REDEEM_TX), GetGasPrice(SubTxIndex::REDEEM_TX),
+        // keccak256: addressFromSecret + participant + initiator
+        libbitcoin::data_chunk hashData;
+        hashData.reserve(60);
+        hashData.insert(hashData.end(), secretHash.cbegin(), secretHash.cend());
+        hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
+        hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
+        auto hash = ethash::keccak256(&hashData[0], hashData.size());
+
+        libbitcoin::hash_digest hashDigest;
+        std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
+        libbitcoin::ec_secret secretEC;
+        std::move(std::begin(secret.m_pData), std::end(secret.m_pData), std::begin(secretEC));
+
+        libbitcoin::recoverable_signature signature;
+        libbitcoin::sign_recoverable(signature, secretEC, hashDigest);
+
+        // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
+        data.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(data, GetRedeemMethodHash(kIsHashLockScheme));
+        ethereum::AddContractABIWordToBuffer(secretHash, data);
+        data.insert(data.end(), std::begin(signature.signature), std::end(signature.signature));
+        data.insert(data.end(), 31u, 0x00);
+        data.push_back(signature.recovery_id + 27u);
+    }
+
+    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(SubTxIndex::REDEEM_TX), GetGasPrice(SubTxIndex::REDEEM_TX),
         [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
@@ -401,7 +452,14 @@ void EthereumSide::InitSecret()
 {
     NoLeak<uintBig> secret;
     GenRandom(secret.V);
-    m_tx.SetParameter(TxParameterID::PreImage, secret.V, false, BEAM_REDEEM_TX);
+    if (kIsHashLockScheme)
+    {
+        m_tx.SetParameter(TxParameterID::PreImage, secret.V, false, BEAM_REDEEM_TX);
+    }
+    else
+    {
+        m_tx.SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secret.V, false, BEAM_REDEEM_TX);
+    }
 }
 
 uint16_t EthereumSide::GetTxMinConfirmations() const
@@ -425,20 +483,60 @@ uint32_t EthereumSide::GetLockTxEstimatedTimeInBeamBlocks() const
     return 10;
 }
 
-ByteBuffer EthereumSide::GetSecretHash() const
+ECC::uintBig EthereumSide::GetSecret() const
 {
-    Hash::Value lockImage(Zero);
-
-    if (NoLeak<uintBig> secret; m_tx.GetParameter(TxParameterID::PreImage, secret.V, SubTxIndex::BEAM_REDEEM_TX))
+    if (kIsHashLockScheme)
     {
-        Hash::Processor() << secret.V >> lockImage;
+        return m_tx.GetMandatoryParameter<Hash::Value>(TxParameterID::PreImage, SubTxIndex::BEAM_REDEEM_TX);
     }
     else
     {
-        lockImage = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::PeerLockImage, SubTxIndex::BEAM_REDEEM_TX);
+        return m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapSecretPrivateKey, SubTxIndex::BEAM_REDEEM_TX);
     }
+}
 
-    return libbitcoin::to_chunk(lockImage.m_pData);
+ByteBuffer EthereumSide::GetSecretHash() const
+{
+    if (kIsHashLockScheme)
+    {
+        Hash::Value lockImage(Zero);
+
+        if (NoLeak<uintBig> secret; m_tx.GetParameter(TxParameterID::PreImage, secret.V, SubTxIndex::BEAM_REDEEM_TX))
+        {
+            Hash::Processor() << secret.V >> lockImage;
+        }
+        else
+        {
+            lockImage = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::PeerLockImage, SubTxIndex::BEAM_REDEEM_TX);
+        }
+
+        return libbitcoin::to_chunk(lockImage.m_pData);
+    }
+    else
+    {
+        libbitcoin::wallet::ec_public secretPublicKey;
+
+        if (m_isEthOwner)
+        {
+            NoLeak<uintBig> secretPrivateKey;
+            m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
+
+            libbitcoin::ec_secret secret;
+            std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
+            libbitcoin::wallet::ec_private privateKey(secret, libbitcoin::wallet::ec_private::mainnet, false);
+
+            secretPublicKey = privateKey.to_public();
+        }
+        else
+        {
+            Point publicKeyPoint = m_tx.GetMandatoryParameter<Point>(TxParameterID::AtomicSwapSecretPublicKey, SubTxIndex::BEAM_REDEEM_TX);
+            auto publicKeyRaw = SerializePubkey(ConvertPointToPubkey(publicKeyPoint));
+            secretPublicKey = libbitcoin::wallet::ec_public(publicKeyRaw);
+        }
+        libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(secretPublicKey.encoded());
+
+        return ByteBuffer(addressFromSecret.begin(), addressFromSecret.end());
+    }
 }
 
 ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const

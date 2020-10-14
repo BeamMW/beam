@@ -1777,7 +1777,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
-    aliceSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+    aliceSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
@@ -1785,7 +1785,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
-    bobSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+    bobSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
 
     /*TestSettings bobSettings;
     bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
@@ -1874,12 +1874,13 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
+    // TODO: check secret for "aggregate signature" scheme
     // check secret
-    uintBig senderSecret(Zero);
-    storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, senderSecret);
-    uintBig receiverSecret(Zero);
-    storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, receiverSecret);
-    WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
+    //uintBig senderSecret(Zero);
+    //storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, senderSecret);
+    //uintBig receiverSecret(Zero);
+    //storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, receiverSecret);
+    //WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
 }
 
 void TestSwapEthRefundTransaction()
@@ -1910,7 +1911,7 @@ void TestSwapEthRefundTransaction()
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
     aliceSettings.m_txMinConfirmations = 0; // speed-up test
-    aliceSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+    aliceSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
@@ -1919,7 +1920,7 @@ void TestSwapEthRefundTransaction()
     bobSettings.m_shouldConnect = true;
     bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
     bobSettings.m_txMinConfirmations = 0;   // speed-up test
-    bobSettings.m_contractAddress = "0xBcb29073ebFf87eFD2a9800BF51a89ad89b3070E";
+    bobSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
@@ -2030,8 +2031,8 @@ int main()
 
     TestIgnoringThirdPeer();
 
-    // TestEthSwapTransaction(true, fork1Height);
-    // TestSwapEthRefundTransaction();
+    //TestEthSwapTransaction(true, fork1Height);
+    //TestSwapEthRefundTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

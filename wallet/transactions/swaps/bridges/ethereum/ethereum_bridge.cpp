@@ -295,14 +295,7 @@ libbitcoin::short_hash EthereumBridge::generateEthAddress() const
     auto pk = libbitcoin::wallet::ec_public(point, false);
     auto rawPk = pk.encoded();
 
-    auto tmp = beam::from_hex(std::string(rawPk.begin() + 2, rawPk.end()));
-
-    auto hash = ethash::keccak256(&tmp[0], tmp.size());
-    libbitcoin::short_hash address;
-
-    std::copy_n(&hash.bytes[12], 20, address.begin());
-
-    return address;
+    return GetEthAddressFromPubkeyStr(rawPk);
 }
 
 void EthereumBridge::sendRequest(
