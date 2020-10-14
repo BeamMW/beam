@@ -1206,11 +1206,14 @@ namespace Wasm {
 	{
 		Test((MemoryType::Mask & x) == MemoryType::Stack);
 		m_BytesCurrent = (x & ~MemoryType::Mask);
+		TestSelf();
+	}
 
+	void Processor::Stack::TestSelf() const
+	{
 		Test(m_BytesCurrent <= m_BytesMax);
 		Test(m_Pos <= m_BytesCurrent / sizeof(Word));
 	}
-
 
 	struct ProcessorPlus
 		:public Processor

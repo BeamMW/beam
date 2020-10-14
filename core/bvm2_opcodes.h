@@ -33,6 +33,12 @@
 	macro(uint8_t, val) sep \
 	macro(uint32_t, size)
 
+#define BVMOp_StackAlloc(macro, sep) \
+	macro(uint32_t, size)
+
+#define BVMOp_StackFree(macro, sep) \
+	macro(uint32_t, size)
+
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -86,6 +92,8 @@
 	macro(0x11, void*    , Memset) \
 	macro(0x12, int32_t  , Memcmp) \
 	macro(0x13, uint8_t  , Memis0) \
+	macro(0x18, void*    , StackAlloc) \
+	macro(0x19, void     , StackFree) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, void     , SaveVar) \
 	macro(0x23, void     , CallFar) \

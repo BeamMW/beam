@@ -524,6 +524,22 @@ namespace bvm2 {
 		return !!bRes;
 	}
 
+	BVM_METHOD(StackAlloc)
+	{
+		Wasm::Test(size <= m_Stack.m_BytesCurrent);
+		m_Stack.m_BytesCurrent -= size;
+		m_Stack.TestSelf();
+
+		return m_Stack.get_AlasSp();
+	}
+
+	BVM_METHOD(StackFree)
+	{
+		m_Stack.m_BytesCurrent += size;
+		Wasm::Test(size <= m_Stack.m_BytesCurrent); // no overflow
+		m_Stack.TestSelf();
+	}
+
 	BVM_METHOD(LoadVar)
 	{
 		VarKey vk;

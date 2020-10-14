@@ -194,6 +194,7 @@ namespace Wasm {
 
 			Word get_AlasSp() const;
 			void set_AlasSp(Word);
+			void TestSelf() const;
 
 			Word Pop1();
 			void Push1(Word);
