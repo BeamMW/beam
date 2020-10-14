@@ -3277,12 +3277,12 @@ namespace beam
 
 			return nCycles;
 		}
-/*
+
         static const uint32_t s_ElemWidth = 5;
 
-        static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, bvm::Type::Size nSize)
+        static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, uint32_t nSize)
         {
-            for (bvm::Type::Size i = 0; i < nSize; i++)
+            for (uint32_t i = 0; i < nSize; i++)
                 pDst[i % s_ElemWidth] ^= pSrc[i];
         }
 
@@ -3303,7 +3303,7 @@ namespace beam
 
             for (ac.m_nCount = 1; ac.m_nCount < 500; ac.m_nCount++)
             {
-                ac.Realize();
+				ac.m_nSize = ac.m_nCount * ac.m_nElementWidth;
                 buf.resize(ac.m_nSize);
                 uint8_t* p = &buf.front();
 
@@ -3320,7 +3320,7 @@ namespace beam
 
                     uint8_t* pK = p + ac.m_nKeyPos;
 
-                    for (bvm::Type::Size i = 0; i + 1 < ac.m_nCount; i++)
+                    for (uint32_t i = 0; i + 1 < ac.m_nCount; i++)
                     {
                         uint8_t* pK0 = pK;
                         pK += ac.m_nElementWidth;
@@ -3330,7 +3330,7 @@ namespace beam
                 }
 
             }
-        }*/
+        }
 
 	};
 
@@ -3422,6 +3422,8 @@ namespace beam
 
 	void TestContracts()
 	{
+		MyBvm2Processor::TestSort();
+
 		TestContract2();
 		TestContract3();
 	}

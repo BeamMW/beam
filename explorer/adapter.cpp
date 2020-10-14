@@ -15,7 +15,7 @@
 #include "adapter.h"
 #include "node/node.h"
 #include "core/serialization_adapters.h"
-#include "core/bvm.h"
+#include "core/bvm2.h"
 #include "http/http_msg_creator.h"
 #include "http/http_json_serializer.h"
 #include "nlohmann/json.hpp"
@@ -237,7 +237,7 @@ private:
                 }
             }
 
-            void OnContract(const bvm::ContractID&, uint32_t iMethod, const TxKernelContractControl& krn)
+            void OnContract(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl& krn)
             {
                 m_os << "Contract.";
 
@@ -380,8 +380,8 @@ private:
 
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
-                    bvm::ContractID cid;
-                    bvm::get_Cid(cid, krn.m_Data, krn.m_Args);
+                    bvm2::ContractID cid;
+                    bvm2::get_Cid(cid, krn.m_Data, krn.m_Args);
 
                     m_Wr.Next();
                     m_Wr.OnContract(cid, 0, krn);
