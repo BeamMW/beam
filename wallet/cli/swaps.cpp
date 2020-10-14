@@ -40,6 +40,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 #include <regex>
 
 using namespace std;
@@ -52,6 +53,58 @@ namespace beam::wallet
 namespace
 {
 const char kElectrumSeparateSymbol = ' ';
+
+ECC::uintBig ReadEthSwapAmount(const po::variables_map& vm)
+{
+    if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
+    {
+        throw std::runtime_error("eth_swap_amount should be specified");
+    }
+
+    const auto strAmount = vm[cli::ETH_SWAP_AMOUNT].as<std::string>();
+
+    try
+    {
+        boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
+
+        preciseAmount *= 1'000'000'000'000'000'000u;
+
+        // maybe need to use boost::multiprecision::round
+        auto amount = preciseAmount.convert_to<boost::multiprecision::uint256_t>();
+
+        return ethereum::ConvertStrToUintBig(amount.convert_to<std::string>(), false);
+    }
+    catch (const std::runtime_error& /*err*/)
+    {
+        throw std::runtime_error((boost::format("the argument ('%1%') for option '--%2%' is invalid.") % strAmount % cli::ETH_SWAP_AMOUNT).str());
+    }
+}
+
+ECC::uintBig ReadGasPrice(const po::variables_map& vm)
+{
+    if (vm.count(cli::ETH_GAS_PRICE) == 0)
+    {
+        throw std::runtime_error("eth_gas_price should be specified");
+    }
+
+    const auto strAmount = vm[cli::ETH_GAS_PRICE].as<std::string>();
+
+    try
+    {
+        boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
+
+        preciseAmount *= 1'000'000'000u;
+
+        // maybe need to use boost::multiprecision::round
+        auto amount = preciseAmount.convert_to<boost::multiprecision::uint256_t>();
+
+        return ethereum::ConvertStrToUintBig(amount.convert_to<std::string>(), false);
+    }
+    catch (const std::runtime_error& /*err*/)
+    {
+        throw std::runtime_error((boost::format("the argument ('%1%') for option '--%2%' is invalid.") % strAmount % cli::ETH_SWAP_AMOUNT).str());
+    }
+}
 
 template<typename Settings>
 bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
@@ -642,11 +695,6 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
 
 boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
 {
-    if (vm.count(cli::SWAP_AMOUNT) == 0)
-    {
-        throw std::runtime_error(kErrorSwapAmountMissing);
-    }
-
     wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
     if (vm.count(cli::SWAP_COIN) > 0)
@@ -654,7 +702,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
     }
 
-    ECC::uintBig ethAmout = ECC::Zero;
+    ECC::uintBig ethAmount = ECC::Zero;
     ECC::uintBig gasLimit = ECC::Zero;
     ECC::uintBig gasPrice = ECC::Zero;
     Amount swapAmount = 0;
@@ -662,7 +710,12 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        if (vm.count(cli::ETH_GAS) == 0)
+        if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
+        {
+            throw std::runtime_error("eth_swap_amount should be specified");
+        }
+
+        if (vm.count(cli::ETH_GAS_LIMIT) == 0)
         {
             throw std::runtime_error("eth_gas should be specified");
         }
@@ -672,12 +725,17 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        ethAmout = ethereum::ConvertStrToUintBig(vm[cli::SWAP_AMOUNT].as<std::string>(), false);
-        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS].as<std::string>(), false);
-        gasPrice = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_PRICE].as<std::string>(), false);
+        ethAmount = ReadEthSwapAmount(vm);
+        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_LIMIT].as<std::string>(), false);
+        gasPrice = ReadGasPrice(vm);
     }
     else
     {
+        if (vm.count(cli::SWAP_AMOUNT) == 0)
+        {
+            throw std::runtime_error(kErrorSwapAmountMissing);
+        }
+
         swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
 
         if (vm.count(cli::SWAP_FEERATE) == 0)
@@ -744,7 +802,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             amount,
             fee,
             swapCoin,
-            ethAmout,
+            ethAmount,
             gasLimit,
             gasPrice,
             isBeamSide);
@@ -810,7 +868,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     if (*swapCoin == AtomicSwapCoin::Ethereum)
     {
-        if (vm.count(cli::ETH_GAS) == 0)
+        if (vm.count(cli::ETH_GAS_LIMIT) == 0)
         {
             throw std::runtime_error("eth_gas should be specified");
         }
@@ -820,8 +878,8 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS].as<std::string>(), false);
-        gasPrice = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_PRICE].as<std::string>(), false);
+        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_LIMIT].as<std::string>(), false);
+        gasPrice = ReadGasPrice(vm);
     }
     else
     {
