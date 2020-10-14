@@ -33,11 +33,15 @@ namespace Shaders {
 	typedef beam::Asset::ID AssetID;
 	typedef beam::Amount Amount;
 
-#pragma warning (disable : 4200)
+#ifdef _MSC_VER
+#	pragma warning (disable : 4200) // zero-sized array
+#endif // _MSC_VER
 #include "../../core/Shaders/vault.h"
 #include "../../core/Shaders/oracle.h"
 #include "../../core/Shaders/MergeSort.h"
-#pragma warning (default : 4200)
+#ifdef _MSC_VER
+#	pragma warning (default : 4200)
+#endif // _MSC_VER
 }
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -1628,20 +1632,12 @@ namespace beam
 	{
 		void Compile(ByteBuffer& res, const char* sz)
 		{
-			FILE* pFile = nullptr;
-			fopen_s(&pFile, sz, "rb");
-			if (pFile)
-			{
-				fseek(pFile, 0, SEEK_END);
-				uint32_t n = static_cast<uint32_t>(ftell(pFile));
+			std::FStream fs;
+			fs.Open(sz, true, true);
 
-				res.resize(n);
-				fseek(pFile, 0, SEEK_SET);
-				if (fread(&res.front(), 1, n, pFile) != n)
-					res.clear();
-
-				fclose(pFile);
-			}
+			res.resize(static_cast<size_t>(fs.get_Remaining()));
+			if (!res.empty())
+				fs.read(&res.front(), res.size());
 
 			bvm2::Processor::Compile(res, res);
 		}
