@@ -1190,8 +1190,8 @@ namespace Wasm {
 	template <typename T>
 	void Processor::Stack::Log(T x, bool bPush)
 	{
-		if (get_ParentObj().m_pDbg)
-			*get_ParentObj().m_pDbg << (bPush ? "  <- " : "  -> ") << uintBigFrom(x) << std::endl;
+		if (get_ParentObj().m_Dbg.m_Stack)
+			*get_ParentObj().m_Dbg.m_pOut << (bPush ? "  <- " : "  -> ") << uintBigFrom(x) << std::endl;
 	}
 
 	template void Processor::Stack::Log(uint32_t, bool);
@@ -1351,12 +1351,12 @@ namespace Wasm {
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
-				if (m_pDbg)
-					*m_pDbg << "ip=" << uintBigFrom(get_Ip()) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+				if (m_Dbg.m_Instructions)
+					*m_Dbg.m_pOut << "ip=" << uintBigFrom(get_Ip()) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
 
 			switch (nInstruction)
 			{
-#define THE_CASE(name) case I::name: if (m_pDbg) (*m_pDbg) << #name << std::endl;
+#define THE_CASE(name) case I::name: if (m_Dbg.m_Instructions) (*m_Dbg.m_pOut) << #name << std::endl;
 
 #define THE_MACRO(id, name) THE_CASE(name) On_##name(); break;
 			WasmInstructions_CustomPorted(THE_MACRO)

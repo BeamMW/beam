@@ -384,8 +384,8 @@ namespace bvm2 {
 
 #define THE_MACRO(id, ret, name) \
 		case id: { \
-			if (m_pDbg) \
-				*m_pDbg << "  " #name << std::endl; \
+			if (m_Dbg.m_ExtCall) \
+				*m_Dbg.m_pOut << "  " #name << std::endl; \
 			struct Args { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(ProcessorPlus& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \

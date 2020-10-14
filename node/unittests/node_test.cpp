@@ -3249,11 +3249,17 @@ namespace beam
 			return true;
 		}
 
+		MyBvm2Processor()
+		{
+			m_Dbg.m_Stack = true;
+			m_Dbg.m_Instructions = true;
+			m_Dbg.m_ExtCall = true;
+		}
 
 		uint32_t RunMany(const bvm2::ContractID& cid, uint32_t iMethod, const Blob& args)
 		{
 			std::ostringstream os;
-			m_pDbg = &os;
+			m_Dbg.m_pOut = &os;
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
@@ -3267,12 +3273,12 @@ namespace beam
 			for (; !IsDone(); nCycles++)
 			{
 				RunOnce();
+
 				std::cout << os.str();
 				os.str("");
 			}
 
 			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
-
 			std::cout << os.str();
 
 			return nCycles;

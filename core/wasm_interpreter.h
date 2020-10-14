@@ -248,7 +248,14 @@ namespace Wasm {
 
 		} m_Stack;
 
-		std::ostringstream* m_pDbg = nullptr;
+		struct Dbg
+		{
+			std::ostringstream* m_pOut = nullptr;
+			bool m_Stack = false;
+			bool m_Instructions = false;
+			bool m_ExtCall = false;
+		} m_Dbg;
+
 
 		Word get_Ip() const;
 		void Jmp(uint32_t ip);
