@@ -1415,6 +1415,7 @@ namespace Wasm {
 			break;
 
 		case MemoryType::Stack:
+			Test(nOffset >= m_Stack.m_BytesCurrent); // should be no access below current stack pointer
 			blob.p = m_Stack.m_pPtr;
 			blob.n = m_Stack.m_BytesMax;
 			break;
