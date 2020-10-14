@@ -1194,6 +1194,9 @@ namespace Wasm {
 			*get_ParentObj().m_pDbg << (bPush ? "  <- " : "  -> ") << uintBigFrom(x) << std::endl;
 	}
 
+	template void Processor::Stack::Log(uint32_t, bool);
+	template void Processor::Stack::Log(uint64_t, bool);
+
 	Word Processor::Stack::get_AlasSp() const
 	{
 		return MemoryType::Stack | m_BytesCurrent;
