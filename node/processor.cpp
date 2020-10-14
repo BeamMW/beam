@@ -15,7 +15,7 @@
 #include "processor.h"
 #include "../core/treasury.h"
 #include "../core/shielded.h"
-#include "../core/bvm.h"
+#include "../core/bvm2.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
@@ -2019,7 +2019,7 @@ struct NodeProcessor::BlockInterpretCtx
 	BlobPtrSet m_KrnIDs; // mirrors kernel ID DB table in temporary mode
 
 	struct BvmProcessor
-		:public bvm::Processor
+		:public bvm2::Processor
 	{
 		BlockInterpretCtx& m_Bic;
 		NodeProcessor& m_Proc;
@@ -2037,9 +2037,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override;
+		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
-		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override;
+		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
 
 		virtual void get_Hdr(Block::SystemState::Full& s) override;
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
@@ -2048,10 +2048,10 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool SaveVar(const Blob& key, const Blob& data);
 
-		bool EnsureNoVars(const bvm::ContractID&);
-		static bool IsOwnedVar(const bvm::ContractID&, const Blob& key);
+		bool EnsureNoVars(const bvm2::ContractID&);
+		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
-		bool Invoke(const bvm::ContractID&, bvm::Type::Size iMethod, const TxKernelContractControl&);
+		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
 		void UndoVars();
 	};
@@ -2665,8 +2665,8 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 {
 	if (bic.m_Fwd)
 	{
-		bvm::ContractID cid;
-		bvm::get_Cid(cid, krn.m_Data, krn.m_Args);
+		bvm2::ContractID cid;
+		bvm2::get_Cid(cid, krn.m_Data, krn.m_Args);
 
 		auto& e = bic.get_ContractVar(cid, m_DB);
 		if (!e.m_Data.empty())
@@ -2696,15 +2696,14 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 {
 	if (bic.m_Fwd)
 	{
-		bvm::Type::Size iMethod = static_cast<bvm::Type::Size>(krn.m_iMethod);
-		if (!iMethod || (krn.m_iMethod != iMethod))
-			return false; // overflow or c'tor call attempt
+		if (!krn.m_iMethod)
+			return false; // c'tor call attempt
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
-		if (!proc.Invoke(krn.m_Cid, iMethod, krn))
+		if (!proc.Invoke(krn.m_Cid, krn.m_iMethod, krn))
 			return false;
 
-		if (1 == iMethod)
+		if (1 == krn.m_iMethod)
 		{
 			// d'tor called. Make sure no variables are left except for the contract data
 			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
@@ -2725,7 +2724,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	return true;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::ContractID& cid)
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::ContractID& cid)
 {
 	// pass 1. Ensure no vars in DB
 	Blob key(cid);
@@ -2767,7 +2766,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm::Con
 	return true;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm::ContractID& cid, const Blob& key)
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::ContractID& cid, const Blob& key)
 {
 	return
 		(key.n >= cid.nBytes) &&
@@ -3828,12 +3827,12 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	}
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractID& cid, bvm::Type::Size iMethod, const TxKernelContractControl& krn)
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
 {
 	try
 	{
 		InitStack(krn.m_Args);
-		CallFar(cid, iMethod);
+		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
 		ECC::Hash::Processor hp;
 
@@ -3849,7 +3848,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm::ContractI
 		if (!m_Bic.m_AlreadyValidated)
 			CheckSigs(krn.m_Commitment, krn.m_Signature);
 	}
-	catch (const Exc&)
+	catch (const std::exception&)
 	{
 		UndoVars();
 		return false;
@@ -3873,13 +3872,13 @@ BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& ke
 	return *pE;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut)
 {
 	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB);
 
 	if (!e.m_Data.empty())
 	{
-		auto n0 = static_cast<bvm::Type::Size>(e.m_Data.size());
+		auto n0 = static_cast<uint32_t>(e.m_Data.size());
 		memcpy(pVal, &e.m_Data.front(), std::min(n0, nValInOut));
 		nValInOut = n0;
 	}
@@ -3892,7 +3891,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, B
 	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal)
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
 {
 	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
 }

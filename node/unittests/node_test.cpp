@@ -24,8 +24,20 @@
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../utility/blobmap.h"
+#include "../../utility/byteorder.h"
 #include "../../core/unittest/mini_blockchain.h"
-#include "../../core/bvm.h"
+#include "../../core/bvm2.h"
+
+namespace Shaders {
+	typedef ECC::Point PubKey;
+	typedef beam::Asset::ID AssetID;
+	typedef beam::Amount Amount;
+
+#pragma warning (disable : 4200)
+#include "../../core/Shaders/vault.h"
+#include "../../core/Shaders/oracle.h"
+#pragma warning (default : 4200)
+}
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -1611,851 +1623,28 @@ namespace beam
 		DeleteFile(g_sz3);
 	}
 
-
-	namespace bvm
+	namespace bvm2
 	{
 		void Compile(ByteBuffer& res, const char* sz)
 		{
-			Compiler c;
+			FILE* pFile = nullptr;
+			fopen_s(&pFile, sz, "rb");
+			if (pFile)
+			{
+				fseek(pFile, 0, SEEK_END);
+				uint32_t n = static_cast<uint32_t>(ftell(pFile));
 
-			c.m_Input.p = (uint8_t*) sz;
-			c.m_Input.n = static_cast<uint32_t>(strlen(sz));
+				res.resize(n);
+				fseek(pFile, 0, SEEK_SET);
+				if (fread(&res.front(), 1, n, pFile) != n)
+					res.clear();
 
-			c.Start();
+				fclose(pFile);
+			}
 
-			while (c.ParseOnce())
-				;
-
-			c.Finalyze();
-			res.swap(c.m_Result);
+			bvm2::Processor::Compile(res, res);
 		}
 
-		namespace Contract {
-
-			namespace Vault {
-
-#pragma pack (push, 1)
-
-				struct MoveFunds {
-					ECC::Point m_Pk;
-					uintBigFor<Asset::ID>::Type m_Aid;
-					uintBigFor<Amount>::Type m_Value;
-				};
-
-				struct Deposit :public MoveFunds {
-					static const Type::Size s_Method = 2;
-				};
-
-				struct Withdraw :public MoveFunds {
-					static const Type::Size s_Method = 3;
-				};
-
-#pragma pack (pop)
-
-
-				static const char g_szProg[] = "\
-.method_0                     # c'tor                 \n\
-.method_1                     # d'tor                 \n\
-    ret                                               \n\
-                                                      \n\
-.method_2                     # deposit               \n\
-{                                                     \n\
-    var u1 bWithdraw                                  \n\
-    mov1 bWithdraw, 0                                 \n\
-    jmp .move_funds                                   \n\
-}                                                     \n\
-                                                      \n\
-.method_3                     # withdraw              \n\
-{                                                     \n\
-    var u1 bWithdraw                                  \n\
-    mov1 bWithdraw, 1                                 \n\
-    jmp .move_funds                                   \n\
-}                                                     \n\
-                                                      \n\
-                                                      \n\
-struct UserKey {                                      \n\
-    u33 pk                                            \n\
-    u4 nAid                                           \n\
-}                                                     \n\
-                                                      \n\
-.move_funds                                           \n\
-                                                      \n\
-    arg u8 nChange                                    \n\
-    arg UserKey stUk                                  \n\
-                                                      \n\
-    var u1 bWithdraw          # already set           \n\
-    var u2 nSize                                      \n\
-    var u8 nTotal                                     \n\
-                                                      \n\
-    # load current value                              \n\
-                                                      \n\
-    mov8 nTotal, 0                                    \n\
-    load_var @stUk,stUk, @nTotal,nTotal, nSize        \n\
-                                                      \n\
-    {                                                 \n\
-    cmp1 bWithdraw, 0                                 \n\
-    jz .if_deposit                                    \n\
-                                                      \n\
-    # withdrawal                                      \n\
-    cmp8 nTotal, nChange                              \n\
-    jb .error                 # not enough funds      \n\
-    sub8 nTotal, nChange                              \n\
-                                                      \n\
-    add_sig stUk.pk                                   \n\
-    funds_unlock nChange, stUk.nAid                   \n\
-                                                      \n\
-    jmp .endif                                        \n\
-                                                      \n\
-.if_deposit                                           \n\
-    add8 nTotal, nChange                              \n\
-    jnz .error                # overflow flag         \n\
-                                                      \n\
-    funds_lock nChange, stUk.nAid                     \n\
-                                                      \n\
-.endif                                                \n\
-    }                                                 \n\
-                                                      \n\
-    # save result                                     \n\
-                                                      \n\
-    mov2 nSize, 0                                     \n\
-    cmp8 nTotal, 0                                    \n\
-    jz .save                                          \n\
-    mov2 nSize, @nTotal                               \n\
-                                                      \n\
-.save                                                 \n\
-    save_var @stUk,stUk, nSize,nTotal                 \n\
-                                                      \n\
-    ret                                               \n\
-                                                      \n\
-.error                                                \n\
-    fail                                              \n\
-                                                      \n\
-.zero                                                 \n\
-    const u8 0                                        \n\
-";
-			} // namespace Vault
-
-
-			namespace Oracle {
-
-
-#pragma pack (push, 1)
-
-				struct Ctor {
-					static const Type::Size s_Method = 0;
-					// array of pks
-					uintBigFor<Amount>::Type m_InitialValue;
-					Type::uintSize m_NumOracles;
-				};
-
-				struct Dtor {
-					static const Type::Size s_Method = 1;
-				};
-
-				struct Set {
-					static const Type::Size s_Method = 2;
-
-					uintBigFor<Amount>::Type m_NewValue;
-					Type::uintSize m_iOracle;
-				};
-
-				struct Get {
-					static const Type::Size s_Method = 3;
-					uintBigFor<Amount>::Type m_Value;
-				};
-
-#pragma pack (pop)
-
-		static const char g_szProg[] = "\
-struct OracleData {                                   \n\
-    u8 nValue                                         \n\
-    u33 pk                                            \n\
-}                                                     \n\
-                                                      \n\
-.method_0                     # c'tor                 \n\
-{                                                     \n\
-    arg u2 nNumOracles                                \n\
-    arg u8 nInitialValue                              \n\
-    #    pk[],     oracles pks (var size)             \n\
-                                                      \n\
-    var u2 iOracle                                    \n\
-    var u33 *pPtr                                     \n\
-    var OracleData stData                             \n\
-                                                      \n\
-    mov2 iOracle, nNumOracles                         \n\
-    cmp2 iOracle, 0                                   \n\
-    jz .error                 # no oracles!           \n\
-                                                      \n\
-    mov2 pPtr, &nInitialValue    # end of array       \n\
-    mov8 stData.nValue, nInitialValue                 \n\
-                                                      \n\
-    {                                                 \n\
-.loop                                                 \n\
-    sub2 iOracle, 1                                   \n\
-    sub2 pPtr, @stData.pk                             \n\
-                                                      \n\
-    mov @stData.pk, stData.pk, *pPtr                  \n\
-    add_sig stData.pk                                 \n\
-    save_var @iOracle,iOracle, @stData,stData         \n\
-                                                      \n\
-    cmp2 iOracle, 0                                   \n\
-    jnz .loop                                         \n\
-    }                                                 \n\
-                                                      \n\
-    save_var 1,0, @nInitialValue,nInitialValue  # current median  \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.method_1                     # d'tor                 \n\
-{                                                     \n\
-    # No arguments, just remove all the vars          \n\
-                                                      \n\
-    var u2 iOracle                                    \n\
-    var u2 nSize                                      \n\
-    var OracleData stData                             \n\
-                                                      \n\
-    mov2 iOracle, 0                                   \n\
-                                                      \n\
-    {                                                 \n\
-    jmp .loop_if                                      \n\
-.loop                                                 \n\
-    save_var @iOracle,iOracle, 0                      \n\
-    add_sig stData.pk                                 \n\
-    add2 iOracle, 1                                   \n\
-                                                      \n\
-.loop_if                                              \n\
-    load_var @iOracle,iOracle, @stData,stData, nSize  \n\
-    cmp2 nSize, @stData     # loaded?                 \n\
-    jz .loop                                          \n\
-    }                                                 \n\
-                                                      \n\
-    save_var 1,0, 0           # del median            \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.error                                                \n\
-    fail                                              \n\
-                                                      \n\
-.method_2                     # Set                   \n\
-{                                                     \n\
-    arg u2 iOracle                                    \n\
-    arg u8 nNewValue                                  \n\
-                                                      \n\
-    var u2 nSize                                      \n\
-    var OracleData stData                             \n\
-                                                      \n\
-    load_var @iOracle,iOracle, @stData,stData, nSize  \n\
-    cmp2 nSize, @stData                               \n\
-    jnz .error                                        \n\
-                                                      \n\
-    mov8 stData.nValue, nNewValue                     \n\
-    save_var @iOracle,iOracle, @stData,stData         \n\
-    add_sig stData.pk                                 \n\
-                                                      \n\
-    jmp .update_median                                \n\
-}                                                     \n\
-                                                      \n\
-.method_3                     # Get                   \n\
-{                                                     \n\
-    arg u8 nRetVal                                    \n\
-    var u2 nSize                                      \n\
-                                                      \n\
-    load_var 1,0, @nRetVal, nRetVal, nSize            \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.update_median                                        \n\
-{                                                     \n\
-    #    load all values                              \n\
-    var u2 iOracle                                    \n\
-    var u2 nSize                                      \n\
-                                                      \n\
-    var u8 *pEnd                                      \n\
-    var OracleData stData                             \n\
-    var u8 nVal0 # start of the array                 \n\
-                                                      \n\
-    mov2 iOracle, 0                                   \n\
-    mov2 pEnd, &nVal0                                 \n\
-                                                      \n\
-    {                                                 \n\
-    jmp .loop_if                                      \n\
-.loop                                                 \n\
-    add2 iOracle, 1                                   \n\
-    mov8 *pEnd, stData.nValue                         \n\
-    add2 pEnd, @nVal0                                 \n\
-                                                      \n\
-.loop_if                                              \n\
-    load_var @iOracle,iOracle, @stData, stData, nSize \n\
-    cmp2 nSize, @stData     # loaded?                 \n\
-    jz .loop                                          \n\
-    }                                                 \n\
-                                                      \n\
-    # loaded values: nVal0, nVal0+8, ...              \n\
-    # select the median                               \n\
-                                                      \n\
-    sort nVal0, iOracle, @nVal0, 0, @nVal0            \n\
-                                                      \n\
-    # pointer to median                               \n\
-    div2 nSize, @iOracle,iOracle, 1,2                 \n\
-    mul2 pEnd, @nSize, nSize, 1,@nVal0                \n\
-    add2 pEnd, &nVal0                                 \n\
-                                                      \n\
-    save_var 1,0, @nVal0,*pEnd                        \n\
-    ret                                               \n\
-}                                                     \n\
-";
-
-			} // namespace Oracle
-
-
-			namespace StableCoin {
-
-#pragma pack (push, 1)
-
-				struct Ctor {
-					static const Type::Size s_Method = 0;
-					// metadata
-					Type::uintSize m_Meta;
-					uintBigFor<Amount>::Type m_RiskFactor;
-					ECC::Hash::Value m_OracelID;
-				};
-
-				struct UpdatePosition {
-					static const Type::Size s_Method = 2;
-
-					uintBigFor<Amount>::Type m_AChange;
-					uintBigFor<Amount>::Type m_BChange;
-					uint8_t m_bAWithdraw;
-					uint8_t m_bBWithdraw;
-					ECC::Point m_Pk;
-				};
-
-#pragma pack (pop)
-
-
-
-				static const char g_szProg0[] = "\
-struct GlobalData {            \n\
-    u32 nOracleID              \n\
-    u8 nRiskFp                 \n\
-    u4 nAid                    \n\
-}                              \n\
-                               \n\
-.method_0             # c'tor  \n\
-{                              \n\
-    arg u32 nOracleID          \n\
-    arg u8 nRiskFp             \n\
-    arg u2 nMeta               \n\
-    #    u1[],     metadata    \n\
-                               \n\
-    var GlobalData stGD        \n\
-    var u1 *pPtr               \n\
-                               \n\
-    ref_add nOracleID          \n\
-    jz .error                  \n\
-                               \n\
-    mov2 pPtr, &nMeta          \n\
-    sub2 pPtr, nMeta           \n\
-                               \n\
-    asset_create stGD.nAid, nMeta, *pPtr              \n\
-    cmp4 stGD.nAid, 0          \n\
-    jz .error                  \n\
-                               \n\
-    # everything is ok         \n\
-    mov @nOracleID, stGD.nOracleID, nOracleID         \n\
-    mov8 stGD.nRiskFp, nRiskFp \n\
-                               \n\
-    save_var 1,0, @stGD, stGD  \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.method_1                     # d'tor                 \n\
-{                              \n\
-    var u2 nSize               \n\
-    var GlobalData stGD        \n\
-                               \n\
-    load_var 1,0, @stGD, stGD, nSize                  \n\
-    ref_release stGD.nOracleID \n\
-                               \n\
-    save_var 1,0, 0            \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.error                         \n\
-    fail                       \n\
-.zero                          \n\
-    const u8 0                 \n\
-                               \n\
-struct Bidding {               \n\
-    u33 pk                     \n\
-    u8 nValue                  \n\
-    u8 hLast                   \n\
-}                              \n\
-                               \n\
-struct Position {              \n\
-    u8 nAVal                   \n\
-    u8 nBVal                   \n\
-    Bidding bid                \n\
-}                              \n\
-                               \n\
-struct Worker {                \n\
-    GlobalData gd              \n\
-    u33 *pPk                   \n\
-    Position pos               \n\
-    u8 nRate                   \n\
-}                              \n\
-                               \n\
-.wrk_load                      \n\
-{                              \n\
-    arg Worker wrk             \n\
-    var u2 nSize               \n\
-                               \n\
-    # global                   \n\
-    load_var 1,0, @wrk.gd, wrk.gd, nSize              \n\
-                               \n\
-    # position                 \n\
-    load_var @wrk.*pPk,wrk.*pPk, @wrk.pos,wrk.pos, nSize  \n\
-    cmp2 nSize, @wrk.pos       \n\
-    jz .loaded                 \n\
-    xor @wrk.pos, wrk.pos, wrk.pos                    \n\
-    .loaded                    \n\
-                               \n\
-    # rate from oracle         \n\
-    {                          \n\
-        var u8 nRate    # retval                      \n\
-        call_far wrk.gd.nOracleID, 3, local_size      \n\
-        mov8 wrk.nRate, nRate  \n\
-    }                          \n\
-                               \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.wrk_test_position             \n\
-{                              \n\
-    arg Worker *pWrk           \n\
-                               \n\
-    # nBValue >= nAValue * nRate * nRiskFactor        \n\
-                               \n\
-    var u24 nALong      # = stPos.nAVal * rate * risk \n\
-                               \n\
-    {                          \n\
-        var u16 tmp            \n\
-        mul @tmp,tmp, @*pWrk.pos.nAVal,*pWrk.pos.nAVal, @*pWrk.nRate, *pWrk.nRate  \n\
-        mul @nALong, nALong, @tmp,tmp, @*pWrk.gd.nRiskFp,*pWrk.gd.nRiskFp          \n\
-    }                          \n\
-                               \n\
-    struct u24Ex {             \n\
-        u8 Hi                  \n\
-        u8 Mid                 \n\
-        u8 Lo                  \n\
-    }                          \n\
-                               \n\
-    var u24Ex nBLong    # = stPos.nBVal promoted      \n\
-    xor 24, nBLong, nBLong     \n\
-    mov8 nBLong.Mid, *pWrk.pos.nBVal                  \n\
-                               \n\
-    cmp @nALong, nALong, nBLong                       \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-struct UpdFundsCtx {           \n\
-    u4 nAid                    \n\
-    u8 *pTotal       # in/out  \n\
-    u8 nChange                 \n\
-    u1 bWithdraw               \n\
-}                              \n\
-                               \n\
-struct InOuts {                \n\
-    u8 nAChange                \n\
-    u8 nBChange                \n\
-    u1 bAWithdraw              \n\
-    u1 bBWithdraw              \n\
-}                              \n\
-                               \n\
-.update_pos                    \n\
-{                              \n\
-    arg InOuts *pIos           \n\
-    arg Worker *pWrk           \n\
-                               \n\
-    var UpdFundsCtx ctx        \n\
-                               \n\
-    mov1 ctx.bWithdraw, *pIos.bAWithdraw              \n\
-    mov8 ctx.nChange, *pIos.nAChange                  \n\
-    mov2 ctx.pTotal, &*pWrk.pos.nAVal                 \n\
-    mov4 ctx.nAid, *pWrk.gd.nAid                      \n\
-                                                      \n\
-    call .move_funds, local_size                      \n\
-                                                      \n\
-    mov1 ctx.bWithdraw, *pIos.bBWithdraw              \n\
-    mov8 ctx.nChange, *pIos.nBChange                  \n\
-    mov2 ctx.pTotal, &*pWrk.pos.nBVal                 \n\
-    xor4 ctx.nAid, ctx.nAid                           \n\
-                                                      \n\
-    call .move_funds, local_size                      \n\
-                               \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.save_pos                      \n\
-{                              \n\
-    arg Worker *pWrk           \n\
-                               \n\
-    var u2 nSize               \n\
-    mov2 nSize, 0              \n\
-                               \n\
-    var Position noPos         \n\
-    xor @noPos, noPos, noPos   \n\
-    cmp @noPos, noPos, *pWrk.pos                      \n\
-    jz .empty                  \n\
-    mov2 nSize, @*pWrk.pos     \n\
-    .empty                     \n\
-                               \n\
-    save_var @*pWrk.*pPk,*pWrk.*pPk, nSize,*pWrk.pos  \n\
-                               \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-struct VaultOp {               \n\
-    u33 pk                     \n\
-    u4 nAid                    \n\
-    u8 nAmount                 \n\
-}                              \n\
-                               \n\
-                               \n\
-.vault_cid                     \n\
-    const h32 9711ff1e7b37bda8044d405d6244b5a166732599788bc5ad944501f39b154154	\n\
-                               \n\
-.pos_cancel_bidding            \n\
-{                              \n\
-    arg Position *pPos         \n\
-                               \n\
-    cmp8 *pPos.bid.nValue, 0   \n\
-    jz .end                    \n\
-                               \n\
-    funds_unlock *pPos.bid.nValue, 0                  \n\
-                               \n\
-    {                          \n\
-        var u32 *pCid          \n\
-        mov2 pCid, .vault_cid  \n\
-                               \n\
-        var VaultOp vop        \n\
-        mov @vop.pk, vop.pk, *pPos.bid.pk     \n\
-        xor4 vop.nAid, vop.nAid               \n\
-        mov8 vop.nAmount, *pPos.bid.nValue    \n\
-                                              \n\
-        call_far *pCid, 2, local_size         \n\
-    }                                         \n\
-                                              \n\
-    xor @*pPos.bid, *pPos.bid, *pPos.bid      \n\
-                               \n\
-    .end                       \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-";
-
-	static const char g_szProg1[] = "\
-.method_2    # PositionUpdate  \n\
-{                              \n\
-    arg u33 pk                 \n\
-    arg InOuts ios             \n\
-                               \n\
-    var Worker wrk             \n\
-                               \n\
-    mov2 wrk.pPk, &pk          \n\
-    call .wrk_load, local_size \n\
-                               \n\
-    {                          \n\
-        var Worker *pArg1      \n\
-        mov2 pArg1, &wrk       \n\
-                               \n\
-        var InOuts *pIos       \n\
-        mov2 pIos, &ios        \n\
-                               \n\
-        call .update_pos, local_size                  \n\
-    }                                                 \n\
-                                                      \n\
-    {                                                 \n\
-        var Worker *pArg0                             \n\
-        mov2 pArg0, &wrk                              \n\
-        call .wrk_test_position, local_size           \n\
-        jg .error                                     \n\
-    }                                                 \n\
-                                                      \n\
-    {                                                 \n\
-        var Position *pPos                            \n\
-        mov2 pPos, &wrk.pos                           \n\
-        call .pos_cancel_bidding, local_size          \n\
-    }                                                 \n\
-                                                      \n\
-    {                                                 \n\
-        var Worker *pArg0                             \n\
-        mov2 pArg0, &wrk                              \n\
-        call .save_pos, local_size                    \n\
-    }                                                 \n\
-                               \n\
-    add_sig pk                 \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.move_funds                    \n\
-{                              \n\
-    arg UpdFundsCtx ctx        \n\
-    var u1 bDec                \n\
-                               \n\
-    cmp1 ctx.bWithdraw, 1      \n\
-    jg .error   # must be 0 or 1                      \n\
-                                                      \n\
-    mov1 bDec, ctx.bWithdraw                          \n\
-                                                      \n\
-    cmp1 ctx.bWithdraw, 0                             \n\
-    {                                                 \n\
-        jnz .endif                                    \n\
-        funds_lock ctx.nChange, ctx.nAid              \n\
-        .endif                                        \n\
-    }                                                 \n\
-                                                      \n\
-    cmp4 ctx.nAid, 0                                  \n\
-    {                                                 \n\
-        jz .endif                                     \n\
-        asset_emit ctx.nAid, ctx.nChange, ctx.bWithdraw         \n\
-        jz .error                                     \n\
-                                                      \n\
-        xor1 bDec, 1                                  \n\
-        .endif                                        \n\
-    }                                                 \n\
-                                                      \n\
-    cmp1 ctx.bWithdraw, 1                             \n\
-    {                                                 \n\
-        jnz .endif                                    \n\
-        funds_unlock ctx.nChange, ctx.nAid            \n\
-        .endif                                        \n\
-    }                                                 \n\
-                                                      \n\
-    cmp1 bDec, 1                                      \n\
-    {                                                 \n\
-        jnz .else                                     \n\
-                                                      \n\
-        cmp8 ctx.*pTotal, ctx.nChange                 \n\
-        jb .error                 # not enough funds  \n\
-        sub8 ctx.*pTotal, ctx.nChange                 \n\
-        ret                                           \n\
-                                                      \n\
-        .else                                         \n\
-                                                      \n\
-        add8 ctx.*pTotal, ctx.nChange                 \n\
-        jnz .error                # overflow flag     \n\
-        ret                                           \n\
-    }                                                 \n\
-}                                                     \n\
-                               \n\
-.pos_test_bid                  \n\
-{                              \n\
-    arg Worker *pWrk           \n\
-    arg u8 nAmount             \n\
-                               \n\
-    call .wrk_test_position, local_size           \n\
-    jbz .error  # the position is ok              \n\
-                                                  \n\
-    add8 *pWrk.pos.nBVal, nAmount # ignore overflow \n\
-    call .wrk_test_position, local_size           \n\
-    jg .error  # this bid is not enough           \n\
-                                                  \n\
-    sub8 *pWrk.pos.nBVal, nAmount                 \n\
-    ret                                           \n\
-}                              \n\
-                               \n\
-.method_3    # Place bid       \n\
-{                              \n\
-    arg u33 pkBidder           \n\
-    arg u33 pkTrg              \n\
-    arg u8 nAmount             \n\
-                               \n\
-    var Worker wrk             \n\
-                               \n\
-    mov2 wrk.pPk, &pkTrg       \n\
-    call .wrk_load, local_size \n\
-                               \n\
-    cmp8 wrk.pos.bid.nValue, nAmount    \n\
-    jgz .error       # not better       \n\
-                               \n\
-    {                                      \n\
-        var u8 nArg1                       \n\
-        var Worker *pArg0                  \n\
-        mov2 pArg0, &wrk                   \n\
-        mov8 nArg1, nAmount                \n\
-        call .pos_test_bid, local_size     \n\
-    }                                                 \n\
-                               \n\
-    {                                             \n\
-        var Position *pArg     \n\
-        mov2 pArg, &wrk.pos    \n\
-        call .pos_cancel_bidding, local_size      \n\
-    }                                             \n\
-                               \n\
-    mov @pkBidder, wrk.pos.bid.pk, pkBidder       \n\
-    mov8 wrk.pos.bid.nValue, nAmount              \n\
-    get_HdrH wrk.pos.bid.hLast \n\
-                               \n\
-    {                                                 \n\
-        var Worker *pArg0                             \n\
-        mov2 pArg0, &wrk                              \n\
-        call .save_pos, local_size                    \n\
-    }                                                 \n\
-                               \n\
-    funds_lock nAmount, 0      \n\
-    add_sig pkBidder           \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-.method_4    # Finish bid      \n\
-{                              \n\
-    arg u33 pkBidder           \n\
-    arg u33 pkTrg              \n\
-                               \n\
-    var Worker wrk             \n\
-                               \n\
-    mov2 wrk.pPk, &pkTrg       \n\
-    call .wrk_load, local_size \n\
-                               \n\
-    cmp @pkBidder, pkBidder, wrk.pos.bid.pk  \n\
-    jnz .error   # not the current winner    \n\
-                               \n\
-    cmp8 wrk.pos.bid.hLast, 0     \n\
-    jz .error    # no bidding  \n\
-                               \n\
-    var u8 hNow                \n\
-    get_HdrH hNow              \n\
-    sub8 hNow, wrk.pos.bid.hLast  \n\
-    cmp8 hNow, 1440            \n\
-    jb .error    # too early   \n\
-                               \n\
-    {                                      \n\
-        var u8 nArg1                       \n\
-        var Worker *pArg0                  \n\
-        mov2 pArg0, &wrk                   \n\
-        mov8 nArg1, wrk.pos.bid.nValue     \n\
-        call .pos_test_bid, local_size     \n\
-    }                          \n\
-                               \n\
-    # erase the position       \n\
-    save_var @pkTrg,pkTrg, 0   \n\
-                               \n\
-    # add the bid to position  \n\
-    add8 wrk.pos.nBVal, wrk.pos.bid.nValue      \n\
-    xor @wrk.pos.bid, wrk.pos.bid, wrk.pos.bid  \n\
-                               \n\
-    # save under new owner     \n\
-    # TODO: add if trg exists! \n\
-    save_var @pkBidder,pkBidder, @wrk.pos, wrk.pos \n\
-                               \n\
-    add_sig pkBidder           \n\
-    ret                        \n\
-}                              \n\
-                               \n\
-";
-			} // namespace StableCoin
-
-
-
-
-
-
-
-
-		} // namespace Contract
-
-
-
-
-
-
-
-
-
-		static const char g_szProg[] = "\
-.method_0                     # c'tor                 \n\
-{                                                     \n\
-                                                      \n\
-    arg u2 nNumOracles                                \n\
-    arg u2 nMeta                                      \n\
-    arg u8 nRate                                      \n\
-    #    pk[],     oracles pks (var size)             \n\
-    #    u1[],     metadata                           \n\
-                                                      \n\
-    var u2 iOracle                                    \n\
-    var u33 *pPtr                                     \n\
-    var u4 nAid                                       \n\
-                                                      \n\
-    mov2 iOracle, nNumOracles                         \n\
-    mov2 pPtr, &nRate         # ppPk, end of array    \n\
-.loop                                                 \n\
-    cmp2 iOracle, 0                                   \n\
-    jz .loop_end                                      \n\
-    sub2 iOracle, 1                                   \n\
-    sub2 pPtr, 33                                     \n\
-    add_sig *pPtr           # add_sig(*ppPk)          \n\
-    save_var @iOracle,iOracle, @*pPtr,*pPtr           \n\
-    jmp .loop                                         \n\
-.loop_end                                             \n\
-    save_var 1,0, @nRate,nRate                        \n\
-    funds_lock 100500, 0                              \n\
-    sub2 pPtr, nMeta      # metadata start            \n\
-    asset_create nAid, nMeta, *pPtr                   \n\
-    cmp4 nAid, 0                                      \n\
-    jz .error                                         \n\
-    save_var 1,1, @nAid,nAid                          \n\
-    asset_emit nAid, 225, 1                           \n\
-    asset_emit nAid, 225, 0                           \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.method_1                     # d'tor                 \n\
-{                                                     \n\
-    # No arguments, just remove all the vars          \n\
-    var u2 iOracle                                    \n\
-    var u2 nSize                                      \n\
-    var u4 nAid                                       \n\
-    var u33 pk                                        \n\
-                                                      \n\
-    save_var 1,0, 0           # del rate variable     \n\
-    mov2 iOracle, 0                                   \n\
-.loop                                                 \n\
-    load_var @iOracle,iOracle, @pk,pk, nSize          \n\
-    cmp2 nSize, @pk         # pk loaded ok?           \n\
-    jnz .loop_end                                     \n\
-    save_var @iOracle,iOracle, 0                      \n\
-    add_sig pk                                        \n\
-    add2 iOracle, 1                                   \n\
-    jmp .loop                                         \n\
-.loop_end                                             \n\
-    funds_unlock 100500, 0                            \n\
-    load_var 1,1, @nAid,nAid, nSize                   \n\
-    save_var 1,1, 0                                   \n\
-    asset_destroy nAid                                \n\
-    jz .error                                         \n\
-    ret                                               \n\
-}                                                     \n\
-                                                      \n\
-.error                                                \n\
-    fail                                              \n\
-                                                      \n\
-.method_2                     # SetRate               \n\
-{                                                     \n\
-    arg u2 iOracle                                    \n\
-    arg u8 nRate                                      \n\
-                                                      \n\
-    var u2 nSize                                      \n\
-    var u33 pk                                        \n\
-                                                      \n\
-    load_var @iOracle,iOracle, @pk,pk, nSize          \n\
-    cmp2 nSize, @pk                                   \n\
-    jnz .error                                        \n\
-    add_sig pk                                        \n\
-    save_var 1,0, 8,nRate                             \n\
-    ret                                               \n\
-}                                                     \n\
-";
 	}
 
 
@@ -2523,7 +1712,7 @@ struct VaultOp {               \n\
 				Height m_SentCtor = 0;
 				Height m_SentMethod = 0;
 				Height m_SentDtor = 0;
-				bvm::ContractID m_Cid;
+				bvm2::ContractID m_Cid;
 
 				ECC::Scalar::Native m_pSk[3];
 
@@ -3136,66 +2325,50 @@ struct VaultOp {               \n\
 					return false;
 
 				const Amount nFee = 120;
-				const Amount nLock = 100500 + Rules::get().CA.DepositForList;
-				if (val < nFee + nLock)
+				//const Amount nLock = 100500 + Rules::get().CA.DepositForList;
+				if (val < nFee/* + nLock*/)
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
-				val -= (nFee + nLock);
+				val -= (nFee/* + nLock*/);
 
 				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
 				pKrn->m_Fee = nFee;
 				pKrn->m_Height.m_Min = s.m_Height + 1;
 
-				bvm::Compile(pKrn->m_Data, bvm::g_szProg);
+				bvm2::Compile(pKrn->m_Data, "oracle.wasm");
 
-#pragma pack (push, 1)
+				pKrn->m_Args.resize(sizeof(Shaders::Oracle::Create) + sizeof(ECC::Point) * _countof(m_Contract.m_pSk));
+				auto& args = *reinterpret_cast<Shaders::Oracle::Create*>(&pKrn->m_Args.front());
 
-#define MY_META "abracadabra"
+				args.m_InitialValue = ByteOrder::to_le<Amount>(367000);
+				args.m_Providers = ByteOrder::to_le<uint32_t>(_countof(m_Contract.m_pSk));
 
-				struct Ctor {
-					uint8_t m_pMeta[_countof(MY_META) - 1];
-					ECC::Point m_pPk[_countof(m_Contract.m_pSk)];
-					uintBigFor<Amount>::Type m_Rate;
-					bvm::Type::uintSize m_Meta;
-					bvm::Type::uintSize m_Oracles;
-				};
-#pragma pack (pop)
+				ECC::Scalar::Native pSk[_countof(m_Contract.m_pSk) + 1];
 
-				pKrn->m_Args.resize(sizeof(Ctor));
-				Ctor& args = reinterpret_cast<Ctor&>(pKrn->m_Args.front());
-
-				ECC::Scalar::Native pSk[_countof(args.m_pPk) + 1];
-
-				args.m_Oracles = static_cast<bvm::Type::Size>(_countof(m_Contract.m_pSk));
-				args.m_Rate = 77216U;
-
-				args.m_Meta = static_cast<bvm::Type::Size>(_countof(args.m_pMeta));
-				memcpy(args.m_pMeta, MY_META, sizeof(args.m_pMeta));
-
-				for (size_t i = 0; i < _countof(args.m_pPk); i++)
+				for (uint32_t i = 0; i < _countof(m_Contract.m_pSk); i++)
 				{
 					auto& sk = m_Contract.m_pSk[i];
 					ECC::SetRandom(sk);
+					pSk[i] = sk;
 
 					ECC::Point::Native pt = ECC::Context::get().G * sk;
 					args.m_pPk[i] = pt;
-
-					pSk[_countof(args.m_pPk) - i - 1] = sk; // c'tor enumerates pks in reverse order
 				}
 
-				bvm::get_Cid(m_Contract.m_Cid, pKrn->m_Data, pKrn->m_Args);
+				bvm2::get_Cid(m_Contract.m_Cid, pKrn->m_Data, pKrn->m_Args);
 
-				ECC::Scalar::Native& sk = pSk[_countof(args.m_pPk)];
+				ECC::Scalar::Native& sk = pSk[_countof(pSk) - 1];
 				ECC::SetRandom(sk);
 
 				ECC::Point::Native ptFunds;
-				ECC::Tag::AddValue(ptFunds, nullptr, nLock);
+				//ECC::Tag::AddValue(ptFunds, nullptr, nLock);
 
 				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
+				//pKrn->Sign(pSk + _countof(pSk) - 1, 1, ptFunds);
 
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
@@ -3229,18 +2402,11 @@ struct VaultOp {               \n\
 				pKrn->m_Cid = m_Contract.m_Cid;
 				pKrn->m_iMethod = 2;
 
-#pragma pack (push, 1)
-				struct SetRate {
-					uintBigFor<Amount>::Type m_Rate;
-					bvm::Type::uintSize m_iOracle;
-				};
-#pragma pack (pop)
+				pKrn->m_Args.resize(sizeof(Shaders::Oracle::Set));
+				auto& args = reinterpret_cast<Shaders::Oracle::Set&>(pKrn->m_Args.front());
 
-				pKrn->m_Args.resize(sizeof(SetRate));
-				SetRate& args = reinterpret_cast<SetRate&>(pKrn->m_Args.front());
-
-				args.m_iOracle = (bvm::Type::Size) 2;
-				args.m_Rate = 277216U;
+				args.m_iProvider = ByteOrder::to_le<uint32_t>(2);
+				args.m_Value = ByteOrder::to_le<Amount>(277216);
 
 				ECC::Scalar::Native pSk[2];
 				pSk[0] = m_Contract.m_pSk[2];
@@ -3267,11 +2433,11 @@ struct VaultOp {               \n\
 					return false;
 
 				const Amount nFee = 120;
-				const Amount nUnlock = 100500 + Rules::get().CA.DepositForList;
-				if (val + nUnlock < nFee)
+				//const Amount nUnlock = 100500 + Rules::get().CA.DepositForList;
+				if (val/* + nUnlock*/ < nFee)
 					return false;
 
-				val += nUnlock;
+				//val += nUnlock;
 				val -= nFee;
 
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
@@ -3289,7 +2455,7 @@ struct VaultOp {               \n\
 				pKrn->m_Commitment = ECC::Context::get().G * sk;
 
 				ECC::Point::Native ptFunds;
-				ECC::Tag::AddValue(ptFunds, nullptr, nUnlock);
+				//ECC::Tag::AddValue(ptFunds, nullptr, nUnlock);
 				ptFunds = -ptFunds;
 
 				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
@@ -4010,17 +3176,17 @@ struct VaultOp {               \n\
 	}
 
 
-	struct MyBvmProcessor
-		:public bvm::Processor
+	struct MyBvm2Processor
+		:public bvm2::Processor
 	{
 		BlobMap::Set m_Vars;
 
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, bvm::Type::Size& nValInOut) override
+		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override
 		{
 			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
 			if (pE && !pE->m_Data.empty())
 			{
-				auto n0 = static_cast<bvm::Type::Size>(pE->m_Data.size());
+				auto n0 = static_cast<uint32_t>(pE->m_Data.size());
 				memcpy(pVal, &pE->m_Data.front(), std::min(n0, nValInOut));
 				nValInOut = n0;
 			}
@@ -4037,12 +3203,12 @@ struct VaultOp {               \n\
 				res.clear();
 		}
 
-		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, bvm::Type::Size nVal) override
+		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override
 		{
 			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
 		}
 
-		bool SaveVar(const Blob& key, const uint8_t* pVal, bvm::Type::Size nVal)
+		bool SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
 		{
 			auto* pE = m_Vars.Find(key);
 			bool bNew = !pE;
@@ -4063,9 +3229,9 @@ struct VaultOp {               \n\
 			return !bNew;
 		}
 
-		void SaveContract(const bvm::ContractID& cid, const ByteBuffer& b)
+		void SaveContract(const bvm2::ContractID& cid, const ByteBuffer& b)
 		{
-			SaveVar(cid, &b.front(), static_cast<bvm::Type::Size>(b.size()));
+			SaveVar(cid, &b.front(), static_cast<uint32_t>(b.size()));
 		}
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override
@@ -4084,7 +3250,7 @@ struct VaultOp {               \n\
 		}
 
 
-		uint32_t RunMany(const bvm::ContractID& cid, bvm::Type::Size iMethod, const bvm::Buf& args)
+		uint32_t RunMany(const bvm2::ContractID& cid, uint32_t iMethod, const Blob& args)
 		{
 			std::ostringstream os;
 			m_pDbg = &os;
@@ -4092,11 +3258,18 @@ struct VaultOp {               \n\
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
 			InitStack(args, 0xcd);
-			CallFar(cid, iMethod);
+
+			Wasm::Word pArgs = m_Stack.get_AlasSp();
+
+			CallFar(cid, iMethod, pArgs);
 
 			uint32_t nCycles = 0;
 			for (; !IsDone(); nCycles++)
+			{
 				RunOnce();
+				std::cout << os.str();
+				os.str("");
+			}
 
 			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
 
@@ -4104,89 +3277,120 @@ struct VaultOp {               \n\
 
 			return nCycles;
 		}
+/*
+        static const uint32_t s_ElemWidth = 5;
 
-		static const uint32_t s_ElemWidth = 5;
+        static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, bvm::Type::Size nSize)
+        {
+            for (bvm::Type::Size i = 0; i < nSize; i++)
+                pDst[i % s_ElemWidth] ^= pSrc[i];
+        }
 
-		static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, bvm::Type::Size nSize)
-		{
-			for (bvm::Type::Size i = 0; i < nSize; i++)
-				pDst[i % s_ElemWidth] ^= pSrc[i];
-		}
-
-		static void TestSort()
-		{
-			ECC::PseudoRandomGenerator prg;
+        static void TestSort()
+        {
+            ECC::PseudoRandomGenerator prg;
 
 
-			ArrayContext ac;
-			ac.m_nKeyPos = 1;
-			ac.m_nKeyWidth = 2;
-			ac.m_nElementWidth = s_ElemWidth;
+            ArrayContext ac;
+            ac.m_nKeyPos = 1;
+            ac.m_nKeyWidth = 2;
+            ac.m_nElementWidth = s_ElemWidth;
 
-			ByteBuffer buf;
+            ByteBuffer buf;
 
-			uint8_t pXor0[s_ElemWidth];
-			memset0(pXor0, s_ElemWidth);
+            uint8_t pXor0[s_ElemWidth];
+            memset0(pXor0, s_ElemWidth);
 
-			for (ac.m_nCount = 1; ac.m_nCount < 500; ac.m_nCount++)
-			{
-				ac.Realize();
-				buf.resize(ac.m_nSize);
-				uint8_t* p = &buf.front();
+            for (ac.m_nCount = 1; ac.m_nCount < 500; ac.m_nCount++)
+            {
+                ac.Realize();
+                buf.resize(ac.m_nSize);
+                uint8_t* p = &buf.front();
 
-				for (uint32_t n = 0; n < 10; n++)
-				{
-					prg.Generate(p, ac.m_nSize);
+                for (uint32_t n = 0; n < 10; n++)
+                {
+                    prg.Generate(p, ac.m_nSize);
 
-					CalcXors(pXor0, p, ac.m_nSize);
+                    CalcXors(pXor0, p, ac.m_nSize);
 
-					ac.MergeSort(p);
+                    ac.MergeSort(p);
 
-					CalcXors(pXor0, p, ac.m_nSize);
-					verify_test(memis0(pXor0, s_ElemWidth));
+                    CalcXors(pXor0, p, ac.m_nSize);
+                    verify_test(memis0(pXor0, s_ElemWidth));
 
-					uint8_t* pK = p + ac.m_nKeyPos;
+                    uint8_t* pK = p + ac.m_nKeyPos;
 
-					for (bvm::Type::Size i = 0; i + 1 < ac.m_nCount; i++)
-					{
-						uint8_t* pK0 = pK;
-						pK += ac.m_nElementWidth;
+                    for (bvm::Type::Size i = 0; i + 1 < ac.m_nCount; i++)
+                    {
+                        uint8_t* pK0 = pK;
+                        pK += ac.m_nElementWidth;
 
-						verify_test(memcmp(pK0, pK, ac.m_nKeyWidth) <= 0);
-					}
-				}
+                        verify_test(memcmp(pK0, pK, ac.m_nKeyWidth) <= 0);
+                    }
+                }
 
-			}
-		}
+            }
+        }*/
+
 	};
 
-	void TestContract1()
+
+	void TestContract2()
 	{
 		ByteBuffer data;
-		bvm::Compile(data, bvm::g_szProg);
+		bvm2::Compile(data, "vault.wasm");
 
-		MyBvmProcessor proc;
-		bvm::ContractID cid;
+		MyBvm2Processor proc;
+
+		bvm2::ContractID cid;
+
+		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
+		proc.SaveContract(cid, data);
+
+		Shaders::Vault::Request args;
+
+		ECC::Scalar::Native k;
+		ECC::SetRandom(k);
+		ECC::Point::Native pt = ECC::Context::get().G * k;
+
+		args.m_Account = pt;
+		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
+		args.m_Amount = ByteOrder::to_le<Amount>(45);
+
+		proc.RunMany(cid, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)));
+
+		args.m_Amount = ByteOrder::to_le<Amount>(43);
+		proc.RunMany(cid, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)));
+
+		args.m_Amount = ByteOrder::to_le<Amount>(2);
+		proc.RunMany(cid, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args))); // withdraw, pos terminated
+	}
+
+
+	void TestContract3()
+	{
+		ByteBuffer data;
+		bvm2::Compile(data, "oracle.wasm");
+
+		MyBvm2Processor proc;
+		bvm2::ContractID cid;
+
+		typedef Shaders::Oracle::ValueType ValueType;
+
+		constexpr uint32_t nOracles = 5;
 
 		{
 			// c'tor
+			ByteBuffer buf;
+			size_t nSizePks = sizeof(ECC::Point) * nOracles;
 
-#pragma pack (push, 1)
-			struct Args {
-				uint8_t m_pMeta[1];
-				ECC::Point m_pPk[3];
-				uintBigFor<Amount>::Type m_Rate;
-				bvm::Type::uintSize m_Meta;
-				bvm::Type::uintSize m_Oracles;
-			} args;
-#pragma pack (pop)
+			buf.resize(sizeof(Shaders::Oracle::Create) + nSizePks);
+			auto& args = *reinterpret_cast<Shaders::Oracle::Create*>(&buf.front());
 
-			args.m_Oracles = (bvm::Type::Size) 3U;
-			args.m_Rate = 77216U;
-			args.m_Meta = (bvm::Type::Size) 1U;
-			args.m_pMeta[0] = 'w';
+			args.m_InitialValue = ByteOrder::to_le<ValueType>(194);
+			args.m_Providers = ByteOrder::to_le(nOracles);
 
-			for (size_t i = 0; i < _countof(args.m_pPk); i++)
+			for (uint32_t i = 0; i < nOracles; i++)
 			{
 				ECC::Scalar::Native k;
 				ECC::SetRandom(k);
@@ -4195,190 +3399,31 @@ struct VaultOp {               \n\
 				args.m_pPk[i] = pt;
 			}
 
-			bvm::get_Cid(cid, data, Blob(&args, sizeof(args)));
-			proc.SaveContract(cid, data);
-
-			proc.RunMany(cid, 0, bvm::Buf(&args, sizeof(args)));
-		}
-
-		{
-			// method_2: set rate
-#pragma pack (push, 1)
-			struct Args {
-				uintBigFor<Amount>::Type m_Rate;
-				bvm::Type::uintSize m_iOracle;
-			} args;
-#pragma pack (pop)
-
-			args.m_Rate = 277216U;
-			args.m_iOracle = (bvm::Type::Size) 2;
-
-			proc.RunMany(cid, 2, bvm::Buf(&args, sizeof(args)));
-		}
-	}
-
-	void TestContract2()
-	{
-		ByteBuffer data;
-		bvm::Compile(data, bvm::Contract::Vault::g_szProg);
-
-		MyBvmProcessor proc;
-		bvm::ContractID cid;
-
-		bvm::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
-		proc.SaveContract(cid, data);
-
-		bvm::Contract::Vault::MoveFunds args;
-
-		ECC::Scalar::Native k;
-		ECC::SetRandom(k);
-		ECC::Point::Native pt = ECC::Context::get().G * k;
-
-		args.m_Pk = pt;
-		args.m_Aid = 3U;
-		args.m_Value = 45U;
-
-		proc.RunMany(cid, 2, bvm::Buf(&args, sizeof(args))); // deposit
-
-		args.m_Value = 43U;
-		proc.RunMany(cid, 3, bvm::Buf(&args, sizeof(args))); // withdraw
-
-		args.m_Value = 2U;
-		proc.RunMany(cid, 3, bvm::Buf(&args, sizeof(args))); // withdraw, pos terminated
-	}
-
-
-	void TestContract3()
-	{
-		ByteBuffer data;
-		bvm::Compile(data, bvm::Contract::Oracle::g_szProg);
-
-		MyBvmProcessor proc;
-		bvm::ContractID cid;
-
-		constexpr bvm::Type::Size nOracles = 5;
-
-		{
-			// c'tor
-			ByteBuffer buf;
-			size_t nSizePks = sizeof(ECC::Point) * nOracles;
-
-			buf.resize(sizeof(bvm::Contract::Oracle::Ctor) + nSizePks);
-
-			ECC::Point* pPk = reinterpret_cast<ECC::Point*>(&buf.front());
-			auto& args = *reinterpret_cast<bvm::Contract::Oracle::Ctor*>(&buf.front() + nSizePks);
-
-			args.m_InitialValue = 194U;
-			args.m_NumOracles = nOracles;
-
-			for (bvm::Type::Size i = 0; i < nOracles; i++)
-			{
-				ECC::Scalar::Native k;
-				ECC::SetRandom(k);
-
-				ECC::Point::Native pt = ECC::Context::get().G * k;
-				pPk[i] = pt;
-			}
-
-			bvm::get_Cid(cid, data, Blob(&args, sizeof(args)));
+			bvm2::get_Cid(cid, data, Blob(&args, sizeof(args)));
 			proc.SaveContract(cid, data);
 
 			proc.RunMany(cid, 0, buf);
 		}
 
 		// set rate, trigger median recalculation
-		for (bvm::Type::Size i = 0; i < nOracles; i++)
+		for (uint32_t i = 0; i < nOracles; i++)
 		{
-			bvm::Contract::Oracle::Set args;
-			args.m_iOracle = i;
-			ECC::GenRandom(args.m_NewValue);
+			Shaders::Oracle::Set args;
+			args.m_iProvider = ByteOrder::to_le<uint32_t>(i);
 
-			proc.RunMany(cid, bvm::Contract::Oracle::Set::s_Method, bvm::Buf(&args, sizeof(args)));
+			ECC::GenRandom(&args.m_Value, sizeof(args.m_Value));
+
+			proc.RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
 		}
 
 		// d'tor
-		proc.RunMany(cid, bvm::Contract::Oracle::Dtor::s_Method, bvm::Buf(nullptr, 0));
-	}
-
-	void TestContract4()
-	{
-		static const char szEmptyOracle[] = "\
-.method_3                     # Get                   \n\
-    arg u8 nRetVal                                    \n\
-    var u2 nSize                                      \n\
-                                                      \n\
-    mov8 nRetVal, 16106127360     # 3.75 << 32        \n\
-    mov2 nSize, 8                                     \n\
-                                                      \n\
-.method_0                     # c'tor                 \n\
-.method_1                     # d'tor                 \n\
-.method_2                     # Set                   \n\
-    ret                                               \n\
-";
-
-		ByteBuffer data;
-		bvm::Compile(data, szEmptyOracle);
-
-		bvm::ContractID cidOracle;
-		bvm::get_Cid(cidOracle, data, Blob(nullptr, 0));
-
-		MyBvmProcessor proc;
-		proc.SaveContract(cidOracle, data);
-
-		std::string sProg;
-		sProg += bvm::Contract::StableCoin::g_szProg0;
-		sProg += bvm::Contract::StableCoin::g_szProg1;
-
-		bvm::Compile(data, sProg.c_str());
-
-		bvm::ContractID cid;
-
-		{
-			std::string sMeta = "helo, world!";
-
-			// c'tor
-			ByteBuffer buf;
-			buf.resize(sizeof(bvm::Contract::StableCoin::Ctor) + sMeta.size());
-
-			memcpy(&buf.front(), sMeta.c_str(), sMeta.size());
-			auto& args = *reinterpret_cast<bvm::Contract::StableCoin::Ctor*>(&buf.front() + sMeta.size());
-
-			args.m_Meta = static_cast<bvm::Type::Size>(sMeta.size());
-			args.m_OracelID = cidOracle;
-			args.m_RiskFactor = 0x180000000ULL; // 1.5
-
-			bvm::get_Cid(cid, data, buf);
-			proc.SaveContract(cid, data);
-
-			proc.RunMany(cid, 0, buf);
-		}
-
-
-		{
-			// rate = 3.75
-			// risk = 1.5
-			// overall criteria beams >= stable_coins * 5.58
-			// beams/stable_coins >= 45/8
-
-			bvm::Contract::StableCoin::UpdatePosition args;
-			memset(&args.m_Pk, 0xab, sizeof(args.m_Pk));
-			args.m_bAWithdraw = 1;
-			args.m_bBWithdraw = 0;
-			args.m_AChange = 8ULL << 58;
-			args.m_BChange = 45ULL << 58;
-
-			proc.RunMany(cid, args.s_Method, bvm::Buf(&args, sizeof(args)));
-		}
+		proc.RunMany(cid, 1, Blob(nullptr, 0));
 	}
 
 	void TestContracts()
 	{
-		MyBvmProcessor::TestSort();
-
-		TestContract1();
 		TestContract2();
 		TestContract3();
-		TestContract4();
 	}
 
 }

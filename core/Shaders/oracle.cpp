@@ -27,6 +27,8 @@ export void Ctor(const Oracle::Create& r)
     for (uint32_t i = 0; i < r.m_Providers; i++)
     {
         pd.m_Pk = r.m_pPk[i];
+
+        Env::AddSig(pd.m_Pk);
         Env::SaveVar_T(i, pd);
     }
 }
@@ -36,7 +38,7 @@ export void Dtor(void*)
     uint8_t key = 0;
     Env::DelVar_T(key);
 
-    for (uint32_t i = 0; i ; i++)
+    for (uint32_t i = 0; ; i++)
     {
         ProviderData pd;
         if (!Env::LoadVar_T(i, pd))
