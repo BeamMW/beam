@@ -3282,6 +3282,11 @@ namespace beam
 			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
 			std::cout << os.str();
 
+			verify_test(pArgs == m_Stack.get_AlasSp()); // stack must be restored
+
+			// copy retval (for test only)
+			memcpy(Cast::NotConst(args.p), reinterpret_cast<uint8_t*>(m_Stack.m_pPtr) + m_Stack.m_BytesCurrent, args.n);
+
 			return nCycles;
 		}
 
@@ -3417,9 +3422,60 @@ namespace beam
 		MyBvm2Processor proc;
 		bvm2::ContractID cid;
 
+		proc.m_Dbg.m_Instructions = false;
+		proc.m_Dbg.m_Stack = false;
+
 		typedef Shaders::Oracle::ValueType ValueType;
 
-		constexpr uint32_t nOracles = 5;
+		constexpr uint32_t nOracles = 15;
+
+		struct ProvData
+		{
+			struct Entry {
+				uint32_t m_iProv2Pos;
+				uint32_t m_iProv;
+				ValueType m_Value;
+
+				bool operator < (const Entry& x) const {
+					return m_Value < x.m_Value;
+				}
+			};
+
+			Entry m_pData[nOracles];
+
+			ProvData()
+			{
+				for (uint32_t i = 0; i < nOracles; i++)
+				{
+					m_pData[i].m_iProv = i;
+					m_pData[i].m_iProv2Pos = i;
+				}
+			}
+
+			void Set(uint32_t i, ValueType val)
+			{
+				m_pData[m_pData[i].m_iProv2Pos].m_Value = val;
+			}
+
+			void Sort()
+			{
+				Entry pTmp[nOracles];
+				auto* pRes = Shaders::MergeSort<Entry>::Do(m_pData, pTmp, nOracles);
+				if (m_pData != pRes)
+					memcpy(m_pData, pTmp, sizeof(pTmp));
+
+				for (uint32_t i = 0; i < nOracles; i++)
+					m_pData[m_pData[i].m_iProv].m_iProv2Pos = i;
+			}
+
+			void TestMedian(ValueType val)
+			{
+				ValueType val1 = m_pData[nOracles / 2].m_Value;
+				verify_test(val == ByteOrder::to_le(val1));
+			}
+		};
+
+		ProvData pd;
 
 		{
 			// c'tor
@@ -3439,6 +3495,8 @@ namespace beam
 
 				ECC::Point::Native pt = ECC::Context::get().G * k;
 				args.m_pPk[i] = pt;
+
+				pd.Set(i, args.m_InitialValue);
 			}
 
 			bvm2::get_Cid(cid, data, Blob(&args, sizeof(args)));
@@ -3447,15 +3505,29 @@ namespace beam
 			proc.RunMany(cid, 0, buf);
 		}
 
+		Shaders::Oracle::Get argsResult;
+		argsResult.m_Value = 0;
+		proc.RunMany(cid, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
+		pd.TestMedian(argsResult.m_Value);
+
 		// set rate, trigger median recalculation
-		for (uint32_t i = 0; i < nOracles; i++)
+		for (uint32_t i = 0; i < nOracles * 10; i++)
 		{
+			uint32_t iOracle = i % nOracles;
+
 			Shaders::Oracle::Set args;
-			args.m_iProvider = ByteOrder::to_le<uint32_t>(i);
+			args.m_iProvider = ByteOrder::to_le<uint32_t>(iOracle);
 
 			ECC::GenRandom(&args.m_Value, sizeof(args.m_Value));
+			pd.Set(iOracle, ByteOrder::from_le(args.m_Value));
 
 			proc.RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
+
+			pd.Sort();
+
+			argsResult.m_Value = 0;
+			proc.RunMany(cid, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
+			pd.TestMedian(argsResult.m_Value);
 		}
 
 		// d'tor

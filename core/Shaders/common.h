@@ -83,6 +83,17 @@ namespace Env {
             Halt();
     }
 
+    template <typename T>
+    inline T* StackAlloc_T(uint32_t n) {
+        return (T*) StackAlloc(sizeof(T) * n);
+    }
+
+    template <typename T>
+    inline T* StackFree_T(uint32_t n) {
+        // not mandatory to call, but sometimes usefull before calling other heavy functions
+        return StackFree(sizeof(T) * n);
+    }
+
 } // namespace Env
 
 #define export __attribute__( ( visibility( "default" ) ) ) extern "C"
@@ -105,3 +116,36 @@ namespace Strict {
     }
 
 } // namespace Strict
+
+namespace Utils {
+
+    template <typename T>
+    inline T AverageUnsigned(T a, T b)
+    {
+        a += b;
+        bool bHasCarry = (a < b); // msb leaked out
+        a /= 2;
+
+        if (bHasCarry)
+            // halved carry turns into msb
+            a |= ((T)1) << (sizeof(T) * 8 - 1);
+
+        return a;
+    }
+
+} // namespace Utils
+
+namespace std {
+    
+    template <typename T>
+    T&& move(T& x) {
+        return (T&&) x;
+    }
+
+    template <typename T>
+    void swap(T& a, T& b) {
+        T tmp(move(a));
+        a = move(b);
+        b = move(tmp);
+    }
+}
