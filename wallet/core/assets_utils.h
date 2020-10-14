@@ -49,6 +49,7 @@ namespace beam::wallet {
         WalletAsset() = default;
         WalletAsset(const Asset::Full& full, Height refreshHeight);
         ~WalletAsset() = default;
+
         bool CanRollback(Height from) const;
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;

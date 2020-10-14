@@ -41,13 +41,20 @@ namespace beam::wallet
 {
     struct WalletStatus
     {
-        Amount available = 0;
-        Amount receiving = 0;
-        Amount receivingIncoming = 0;
-        Amount receivingChange = 0;
-        Amount sending = 0;
-        Amount maturing = 0;
-        Amount shielded = 0;
+        struct AssetStatus
+        {
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount receivingIncoming = 0;
+            Amount receivingChange = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            Amount shielded = 0;
+        };
+
+        bool HasStatus(Asset::ID assetId) const;
+        AssetStatus GetStatus(Asset::ID assetId) const; // If doesn't have status for the assetId returns an empty one
+        AssetStatus GetBeamStatus() const;
 
         struct
         {
@@ -57,6 +64,7 @@ namespace beam::wallet
         } update;
 
         Block::SystemState::ID stateID = {};
+        mutable std::map<Asset::ID, AssetStatus> all;
     };
 
     class WalletClient
@@ -140,6 +148,7 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
@@ -196,6 +205,7 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
+        void getAssetInfo(const Asset::ID) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;

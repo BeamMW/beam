@@ -258,11 +258,36 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getPublicAddress);
     }
+
+    void getAssetInfo(Asset::ID assetId) override
+    {
+        call_async(&IWalletModelAsync::getAssetInfo, assetId);
+    }
 };
 }
 
 namespace beam::wallet
 {
+    bool WalletStatus::HasStatus(Asset::ID assetId) const
+    {
+        return all.find(assetId) != all.end();
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetStatus(Asset::ID assetId) const
+    {
+        if(all.find(assetId) == all.end())
+        {
+            AssetStatus result;
+            return result;
+        }
+        return all[assetId];
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetBeamStatus() const
+    {
+        return GetStatus(Asset::s_BeamID);
+    }
+
     WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -1098,7 +1123,6 @@ namespace beam::wallet
     void WalletClient::exportTxHistoryToCsv()
     {
         auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
-
         onExportTxHistoryToCsv(data);   
     }
 
@@ -1159,27 +1183,6 @@ namespace beam::wallet
         return true;
     }
 
-    WalletStatus WalletClient::getStatus() const
-    {
-        WalletStatus status;
-        storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetBeamTotals();
-
-        status.available         = AmountBig::get_Lo(totals.Avail);
-        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
-        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
-        status.receiving         = AmountBig::get_Lo(totals.Incoming);
-        status.sending           = AmountBig::get_Lo(totals.Outgoing) + AmountBig::get_Lo(totals.OutgoingShielded);
-        status.maturing          = AmountBig::get_Lo(totals.Maturing);
-        status.shielded          = AmountBig::get_Lo(totals.AvailShielded);
-        status.update.lastTime   = m_walletDB->getLastUpdateTime();
-
-        ZeroObject(status.stateID);
-        m_walletDB->getSystemStateID(status.stateID);
-
-        return status;
-    }
-
     vector<Coin> WalletClient::getUtxos() const
     {
         vector<Coin> utxos;
@@ -1189,6 +1192,33 @@ namespace beam::wallet
                 return true;
             });
         return utxos;
+    }
+
+    WalletStatus WalletClient::getStatus() const
+    {
+        WalletStatus status;
+        storage::Totals allTotals(*m_walletDB);
+
+        for(const auto& totalsPair: allTotals.allTotals) {
+            const auto& info = totalsPair.second;
+            WalletStatus::AssetStatus assetStatus;
+
+            assetStatus.available         = AmountBig::get_Lo(info.Avail);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
+            assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
+            assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
+            assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
+            assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
+
+            status.all[totalsPair.first] = assetStatus;
+        }
+
+        ZeroObject(status.stateID);
+        m_walletDB->getSystemStateID(status.stateID);
+        status.update.lastTime = m_walletDB->getLastUpdateTime();
+
+        return status;
     }
 
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
@@ -1304,5 +1334,13 @@ namespace beam::wallet
     bool WalletClient::isConnected() const
     {
         return m_connectedNodesCount > 0;
+    }
+
+    void WalletClient::getAssetInfo(const Asset::ID assetId)
+    {
+        if(const auto oasset = m_walletDB->findAsset(assetId))
+        {
+            onAssetInfo(assetId, *oasset);
+        }
     }
 }

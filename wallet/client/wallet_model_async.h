@@ -80,6 +80,8 @@ namespace beam::wallet
         virtual void getExchangeRates() = 0;
         virtual void getPublicAddress() = 0;
 
+        virtual void getAssetInfo(Asset::ID) = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }
