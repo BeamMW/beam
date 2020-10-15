@@ -208,6 +208,30 @@ namespace Wasm {
 	macro(rotl  , 0x77, 0x89) \
 	macro(rotr  , 0x78, 0x8A) \
 
+#define WasmInstructions_Store(macro) \
+	macro(0x36, i32, store  , uint32_t) \
+	macro(0x37, i64, store  , uint64_t) \
+	macro(0x3A, i32, store8 , uint8_t) \
+	macro(0x3B, i32, store16, uint16_t) \
+	macro(0x3C, i64, store8 , uint8_t) \
+	macro(0x3D, i64, store16, uint16_t) \
+	macro(0x3E, i64, store32, uint32_t) \
+
+#define WasmInstructions_Load(macro) \
+	macro(0x28, i32, load    , uint32_t) \
+	macro(0x29, i64, load    , uint64_t) \
+	macro(0x2C, i32, load8_s , int8_t) \
+	macro(0x2D, i32, load8_u , uint8_t) \
+	macro(0x2E, i32, load16_s, int16_t) \
+	macro(0x2F, i32, load16_u, uint16_t) \
+	macro(0x30, i64, load8_s , int8_t) \
+	macro(0x31, i64, load8_u , uint8_t) \
+	macro(0x32, i64, load16_s, int16_t) \
+	macro(0x33, i64, load16_u, uint16_t) \
+	macro(0x34, i64, load32_s, int32_t) \
+	macro(0x35, i64, load32_u, uint32_t) \
+
+
 #define WasmInstructions_CustomPorted(macro) \
 	macro(0x1A, drop) \
 	macro(0x1B, select) \
@@ -216,13 +240,6 @@ namespace Wasm {
 	macro(0x22, local_tee) \
 	macro(0x23, global_get) \
 	macro(0x24, global_set) \
-	macro(0x28, i32_load) \
-	macro(0x29, i64_load) \
-	macro(0x2C, i32_load8_s) \
-	macro(0x2D, i32_load8_u) \
-	macro(0x36, i32_store) \
-	macro(0x37, i64_store) \
-	macro(0x3A, i32_store8) \
 	macro(0x10, call) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
@@ -242,15 +259,6 @@ namespace Wasm {
 	macro(0x03, loop) \
 	macro(0x0B, end_block) \
 
-#define WasmInstructions_AllInitial(macro) \
-	WasmInstructions_CustomPorted(macro) \
-	WasmInstructions_NotPorted(macro)/* \
-	WasmInstructions_unop_i32_i32(macro) \
-	WasmInstructions_unop_i32_i64(macro) \
-	WasmInstructions_binop_i32_i32(macro) \
-	WasmInstructions_binop_i32_i64(macro) \
-	WasmInstructions_binop_i64_i64(macro) \*/
-
 	enum Instruction
 	{
 #define THE_MACRO(id, name) name = id,
@@ -268,6 +276,10 @@ namespace Wasm {
 		WasmInstructions_binop_Polymorphic_x(THE_MACRO)
 #undef THE_MACRO
 
+#define THE_MACRO(id, type, name, tmem) type##_##name = id,
+		WasmInstructions_Store(THE_MACRO)
+		WasmInstructions_Load(THE_MACRO)
+#undef THE_MACRO
 	};
 
 	/////////////////////////////////////////////
@@ -819,45 +831,6 @@ namespace Wasm {
 			return m_Code.Read<uint32_t>();
 		}
 
-		void On_i32_load() {
-			ReadOffsAndPadding();
-			Pop(Type::i32);
-			Push(Type::i32);
-		}
-
-		void On_i64_load() {
-			ReadOffsAndPadding();
-			Pop(Type::i32);
-			Push(Type::i64);
-		}
-
-		void On_i32_load8() {
-			On_i32_load();
-		}
-
-		void On_i32_load8_u() {
-			On_i32_load8();
-		}
-		void On_i32_load8_s() {
-			On_i32_load8();
-		}
-
-		void On_i32_store() {
-			ReadOffsAndPadding();
-			Pop(Type::i32);
-			Pop(Type::i32);
-		}
-
-		void On_i32_store8() {
-			On_i32_store();
-		}
-
-		void On_i64_store() {
-			ReadOffsAndPadding();
-			Pop(Type::i64);
-			Pop(Type::i32);
-		}
-
 		void On_block() {
 			BlockOpen();
 		}
@@ -1123,6 +1096,25 @@ namespace Wasm {
 			WasmInstructions_NotPorted(THE_MACRO)
 #undef THE_MACRO
 
+#define THE_MACRO(id, type, name, tmem) \
+			case I::type##_##name: { \
+				ReadOffsAndPadding(); \
+				Pop(Type::i32); \
+				Push(Type::type); \
+			} break;
+
+			WasmInstructions_Load(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, type, name, tmem) \
+			case I::type##_##name: { \
+				ReadOffsAndPadding(); \
+				Pop(Type::type); \
+				Pop(Type::i32); \
+			} break;
+
+			WasmInstructions_Store(THE_MACRO)
+#undef THE_MACRO
 
 #define THE_MACRO_ID32(name, id32, id64) case id32:
 #define THE_MACRO_ID64(name, id32, id64) case id64:
@@ -1402,6 +1394,26 @@ namespace Wasm {
 			WasmInstructions_binop_Polymorphic_x(THE_MACRO)
 #undef THE_MACRO
 
+
+#define THE_MACRO(id, type, name, tmem) \
+			case I::type##_##name: { \
+				tmem val1 = from_wasm<Type::ToFlexible<tmem, false>::T>(MemArgR(sizeof(tmem))); \
+				auto valExt = Type::Extend<Type::Code2Type<Type::type>::T, tmem>(val1); \
+				m_Stack.Push(valExt); \
+			} break;
+
+			WasmInstructions_Load(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, type, name, tmem) \
+			case I::type##_##name: { \
+				auto val = m_Stack.Pop<Type::Code2Type<Type::type>::T>(); \
+				to_wasm(MemArgW(sizeof(tmem)), static_cast<tmem>(val)); \
+			} break;
+
+			WasmInstructions_Store(THE_MACRO)
+#undef THE_MACRO
+
 			default:
 				Fail();
 			}
@@ -1546,49 +1558,6 @@ namespace Wasm {
 			for (uint32_t i = 0; i < nWords; i++)
 				m_Stack.m_pPtr[m_Stack.m_Pos + i - nWords] = m_Stack.m_pPtr[m_Stack.m_Pos + i];
 		}
-	}
-
-	void ProcessorPlus::On_i32_load()
-	{
-		auto n = from_wasm<uint32_t>(MemArgR(sizeof(uint32_t)));
-		m_Stack.Push(n);
-	}
-
-	void ProcessorPlus::On_i64_load()
-	{
-		auto n = from_wasm<uint64_t>(MemArgR(sizeof(uint64_t)));
-		m_Stack.Push(n);
-	}
-
-	void ProcessorPlus::On_i32_load8_u()
-	{
-		uint32_t val = *MemArgR(1);
-		m_Stack.Push(val);
-	}
-
-	void ProcessorPlus::On_i32_load8_s()
-	{
-		char ch = *MemArgR(1);
-		int32_t val = ch; // promoted w.r.t. sign
-		m_Stack.Push(val);
-	}
-
-	void ProcessorPlus::On_i32_store()
-	{
-		Word val = m_Stack.Pop<Word>();
-		to_wasm(MemArgW(sizeof(val)), val);
-	}
-
-	void ProcessorPlus::On_i64_store()
-	{
-		auto val = m_Stack.Pop<uint64_t>();
-		to_wasm(MemArgW(sizeof(val)), val);
-	}
-
-	void ProcessorPlus::On_i32_store8()
-	{
-		Word val = m_Stack.Pop<Word>();
-		*MemArgW(1) = static_cast<uint8_t>(val);
 	}
 
 	void ProcessorPlus::On_br()
