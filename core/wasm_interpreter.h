@@ -237,7 +237,7 @@ namespace Wasm {
 				{
 					static_assert(sizeof(T) <= sizeof(uint64_t));
 					Log(static_cast<uint64_t>(x), true);
-					Push2(static_cast<T>(x));
+					Push2(x);
 				}
 			}
 
