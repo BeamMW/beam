@@ -541,7 +541,12 @@ ByteBuffer EthereumSide::GetSecretHash() const
 
 ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
 {
-    return m_tx.GetMandatoryParameter<ECC::uintBig>(TxParameterID::AtomicSwapGas, subTxID);
+    if (subTxID == SubTxIndex::LOCK_TX)
+    {
+        return m_settingsProvider.GetSettings().m_lockTxGasLimit;
+    }
+
+    return m_settingsProvider.GetSettings().m_withdrawTxGasLimit;
 }
 
 ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const

@@ -717,7 +717,6 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     }
 
     ECC::uintBig ethAmount = ECC::Zero;
-    ECC::uintBig gasLimit = ECC::Zero;
     ECC::uintBig gasPrice = ECC::Zero;
     Amount swapAmount = 0;
     Amount swapFeeRate = 0;
@@ -729,18 +728,12 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             throw std::runtime_error("eth_swap_amount should be specified");
         }
 
-        if (vm.count(cli::ETH_GAS_LIMIT) == 0)
-        {
-            throw std::runtime_error("eth_gas should be specified");
-        }
-
         if (vm.count(cli::ETH_GAS_PRICE) == 0)
         {
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
         ethAmount = ReadEthSwapAmount(vm);
-        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_LIMIT].as<std::string>(), false);
         gasPrice = ReadGasPrice(vm);
     }
     else
@@ -810,14 +803,13 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        FillSwapTxParams(&swapTxParameters,
+        FillEthSwapTxParams(&swapTxParameters,
             senderAddress.m_walletID,
             minHeight,
             amount,
             fee,
             swapCoin,
             ethAmount,
-            gasLimit,
             gasPrice,
             isBeamSide);
     }
@@ -876,23 +868,16 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         throw std::runtime_error("swap transaction token is invalid.");
     }
 
-    ECC::uintBig gasLimit = ECC::Zero;
     ECC::uintBig gasPrice = ECC::Zero;
     Amount swapFeeRate = 0;
 
     if (*swapCoin == AtomicSwapCoin::Ethereum)
     {
-        if (vm.count(cli::ETH_GAS_LIMIT) == 0)
-        {
-            throw std::runtime_error("eth_gas should be specified");
-        }
-
         if (vm.count(cli::ETH_GAS_PRICE) == 0)
         {
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        gasLimit = ethereum::ConvertStrToUintBig(vm[cli::ETH_GAS_LIMIT].as<std::string>(), false);
         gasPrice = ReadGasPrice(vm);
     }
     else
@@ -987,7 +972,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     if (*swapCoin == AtomicSwapCoin::Ethereum)
     {
-        FillSwapFee(&(*swapTxParameters), fee, gasLimit, gasPrice, *isBeamSide);
+        FillEthSwapFee(&(*swapTxParameters), fee, gasPrice, *isBeamSide);
     }
     else
     {

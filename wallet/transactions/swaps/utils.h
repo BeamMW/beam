@@ -28,10 +28,10 @@ TxParameters InitNewSwap(
     bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
     Height responseTime = kDefaultTxResponseTime);
 
-TxParameters InitNewSwap(
+TxParameters InitNewEthSwap(
     const WalletID& myID, Height minHeight, Amount amount,
     Amount fee, AtomicSwapCoin swapCoin, ECC::uintBig swapAmount,
-    ECC::uintBig gas, ECC::uintBig gasPrice,
+    ECC::uintBig gasPrice,
     bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
     Height responseTime = kDefaultTxResponseTime);
 

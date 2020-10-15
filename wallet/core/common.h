@@ -280,7 +280,6 @@ namespace beam::wallet
     MACRO(AtomicSwapEthAmount,             19,  ECC::uintBig) \
     MACRO(MyWalletIdentity,                20,  PeerID) \
     MACRO(PeerWalletIdentity,              21,  PeerID) \
-    MACRO(AtomicSwapGas,                   22,  ECC::uintBig) \
     MACRO(AtomicSwapGasPrice,              23,  ECC::uintBig) \
     MACRO(PeerResponseTime,                24,  Height) \
     MACRO(SubTxIndex,                      25,  SubTxID) \

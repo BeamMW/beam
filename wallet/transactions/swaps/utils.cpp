@@ -146,22 +146,21 @@ TxParameters InitNewSwap(
 }
 
 /// Swap Parameters 
-TxParameters InitNewSwap(
+TxParameters InitNewEthSwap(
     const WalletID& myID, Height minHeight, Amount amount,
     Amount fee, AtomicSwapCoin swapCoin, ECC::uintBig swapAmount,
-    ECC::uintBig gas, ECC::uintBig gasPrice,
+    ECC::uintBig gasPrice,
     bool isBeamSide/* = true*/, Height lifetime/*= kDefaultTxLifetime*/,
     Height responseTime/* = kDefaultTxResponseTime*/)
 {
     auto swapTxParameters = CreateSwapTransactionParameters();
-    FillSwapTxParams(&swapTxParameters,
+    FillEthSwapTxParams(&swapTxParameters,
                      myID,
                      minHeight,
                      amount,
                      fee,
                      swapCoin,
                      swapAmount,
-                     gas,
                      gasPrice,
                      isBeamSide);
     return swapTxParameters;

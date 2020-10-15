@@ -151,7 +151,6 @@ namespace beam
         extern const char* ACCOUNT_INDEX;
         extern const char* SHOULD_CONNECT;
         extern const char* ETH_CONTRACT_ADDRESS;
-        extern const char* ETH_GAS_LIMIT;
         extern const char* ETH_GAS_PRICE;
         extern const char* ETH_SWAP_AMOUNT;
         // values

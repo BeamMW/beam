@@ -250,7 +250,6 @@ namespace beam
         const char* ACCOUNT_INDEX = "account_index";
         const char* SHOULD_CONNECT = "should_connect";
         const char* ETH_CONTRACT_ADDRESS = "eth_contract_address";
-        const char* ETH_GAS_LIMIT = "eth_gas_limit";
         const char* ETH_GAS_PRICE = "eth_gas_price";
         const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
         // values
@@ -475,7 +474,6 @@ namespace beam
             (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "")
             (cli::SHOULD_CONNECT, po::value<bool>(), "")
             (cli::ETH_CONTRACT_ADDRESS, po::value<string>(), "")
-            (cli::ETH_GAS_LIMIT, po::value<string>(), "gas")
             (cli::ETH_GAS_PRICE, po::value<string>(), "gas price in the gwei")
             (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums");
 

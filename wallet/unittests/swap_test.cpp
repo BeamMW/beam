@@ -119,8 +119,8 @@ namespace
         return parameters;
     }
 
-    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee,
-        const ECC::uintBig& gas, const ECC::uintBig& gasPrice)
+    TxParameters AcceptEthSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee,
+        const ECC::uintBig& gasPrice)
     {
         TxParameters parameters = initialParameters;
 
@@ -133,15 +133,12 @@ namespace
         {
             // delete parameters from other side
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::LOCK_TX);
             parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::LOCK_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::REFUND_TX);
             parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REFUND_TX);
 
             // add our parameters
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::REDEEM_TX);
             parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REDEEM_TX);
         }
         else
@@ -149,14 +146,11 @@ namespace
             // delete parameters from other side
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
             parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGas, SubTxIndex::REDEEM_TX);
             parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REDEEM_TX);
 
             // add our parameters
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::LOCK_TX);
             parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::LOCK_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGas, gas, SubTxIndex::REFUND_TX);
             parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REFUND_TX);
         }
 
@@ -1764,7 +1758,6 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     Amount beamAmount = 300;
     Amount beamFee = 101;
     ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
-    ECC::uintBig gas = 200000u;
     ECC::uintBig gasPrice = 3000000u;
     //Amount feeRate = 256;
 
@@ -1825,9 +1818,9 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
         {
             auto currentHeight = cursor.m_Sid.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
-            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+            auto parameters = InitNewEthSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, 
-                gas, gasPrice, isBeamSide);
+                gasPrice, isBeamSide);
 
             if (useSecureIDs)
             {
@@ -1842,7 +1835,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
             }
 
             initiator->m_Wallet.StartTransaction(parameters);
-            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gas, gasPrice);
+            auto acceptParams = AcceptEthSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
             if (useSecureIDs)
             {
                 acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
@@ -1898,7 +1891,6 @@ void TestSwapEthRefundTransaction()
     Amount beamAmount = 300;
     Amount beamFee = 101;
     ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
-    ECC::uintBig gas = 200000u;
     ECC::uintBig gasPrice = 3000000u;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -1941,10 +1933,10 @@ void TestSwapEthRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gas, gasPrice, false);
+    auto parameters = InitNewEthSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
 
     receiver->m_Wallet.StartTransaction(parameters);
-    TxID txID = sender->m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, gas, gasPrice));
+    TxID txID = sender->m_Wallet.StartTransaction(AcceptEthSwapParameters(parameters, sender->m_WalletID, beamFee, gasPrice));
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(1000, true, [&node]() {node.AddBlock(); });

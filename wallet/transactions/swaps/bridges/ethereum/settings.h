@@ -29,6 +29,8 @@ struct Settings
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
     std::string m_contractAddress = "";
+    uint64_t m_lockTxGasLimit = 200'000;
+    uint64_t m_withdrawTxGasLimit = 200'000;
 
     bool IsInitialized() const;
     bool IsActivated() const;
