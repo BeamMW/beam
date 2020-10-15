@@ -109,24 +109,6 @@ namespace Wasm {
 		return ret;
 	}
 
-	template <>
-	uint32_t Reader::Read<uint32_t>()
-	{
-		return ReadInternal<uint32_t, false>();
-	}
-
-	template <>
-	int32_t Reader::Read<int32_t>()
-	{
-		return ReadInternal<uint32_t, true>();
-	}
-
-	template <>
-	int64_t Reader::Read<int64_t>()
-	{
-		return ReadInternal<uint64_t, true>();
-	}
-
 	/////////////////////////////////////////////
 	// Common
 
@@ -148,9 +130,51 @@ namespace Wasm {
 			}
 		}
 
-		static int32_t SignedFrom(uint32_t x) { return x; }
-		static int64_t SignedFrom(uint64_t x) { return x; }
+		template <uint8_t nType> struct Code2Type;
+		template <typename T, bool bSigned> struct ToFlexible;
+
+		template <typename TIn>
+		static typename ToFlexible<TIn, true>::T SignedFrom(TIn x) { return x; }
+
+		template <typename TOut, typename TIn>
+		static TOut Extend(TIn x)
+		{
+			// promote w.r.t. sign
+			static_assert(sizeof(TOut) >= sizeof(TIn));
+			return (ToFlexible<TOut, std::numeric_limits<TIn>::is_signed>::T) x;
+		}
 	};
+
+	template <> struct Type::Code2Type<Type::i32> { typedef uint32_t T; };
+	template <> struct Type::Code2Type<Type::i64> { typedef uint64_t T; };
+
+	template <> struct Type::ToFlexible<uint8_t, true> { typedef int8_t T; };
+	template <> struct Type::ToFlexible<int8_t, true> { typedef int8_t T; };
+	template <> struct Type::ToFlexible<uint8_t, false> { typedef uint8_t T; };
+	template <> struct Type::ToFlexible<int8_t, false> { typedef uint8_t T; };
+
+	template <> struct Type::ToFlexible<uint16_t, true> { typedef int16_t T; };
+	template <> struct Type::ToFlexible<int16_t, true> { typedef int16_t T; };
+	template <> struct Type::ToFlexible<uint16_t, false> { typedef uint16_t T; };
+	template <> struct Type::ToFlexible<int16_t, false> { typedef uint16_t T; };
+
+	template <> struct Type::ToFlexible<uint32_t, true> { typedef int32_t T; };
+	template <> struct Type::ToFlexible<int32_t, true> { typedef int32_t T; };
+	template <> struct Type::ToFlexible<uint32_t, false> { typedef uint32_t T; };
+	template <> struct Type::ToFlexible<int32_t, false> { typedef uint32_t T; };
+
+	template <> struct Type::ToFlexible<uint64_t, true> { typedef int64_t T; };
+	template <> struct Type::ToFlexible<int64_t, true> { typedef int64_t T; };
+	template <> struct Type::ToFlexible<uint64_t, false> { typedef uint64_t T; };
+	template <> struct Type::ToFlexible<int64_t, false> { typedef uint64_t T; };
+
+
+	template <typename T>
+	T Reader::Read()
+	{
+		return ReadInternal<typename Type::ToFlexible<T, false>::T, std::numeric_limits<T>::is_signed>();
+	}
+
 
 #define WasmInstructions_unop_Polymorphic_32(macro) \
 	macro(eqz   , 0x45, 0x50) \
