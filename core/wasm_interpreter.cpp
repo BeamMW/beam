@@ -141,7 +141,7 @@ namespace Wasm {
 		{
 			// promote w.r.t. sign
 			static_assert(sizeof(TOut) >= sizeof(TIn));
-			return (ToFlexible<TOut, std::numeric_limits<TIn>::is_signed>::T) x;
+			return (typename ToFlexible<TOut, std::numeric_limits<TIn>::is_signed>::T) x;
 		}
 	};
 
