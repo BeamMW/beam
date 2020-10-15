@@ -272,6 +272,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getPublicAddress);
     }
+
+    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override
+    {
+        call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
+    }
 };
 }
 
@@ -1210,6 +1215,15 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*m_walletDB->get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
         onPublicAddress(std::to_string(params));
+    }
+
+    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)
+    {
+        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
+        postFunctionToClientContext([this, res = std::move(vouchers), cb = std::move(callback)]() 
+        {
+            cb(std::move(res));
+        });
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

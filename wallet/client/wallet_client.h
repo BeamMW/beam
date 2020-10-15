@@ -209,6 +209,8 @@ namespace beam::wallet
         void getExchangeRates() override;
         void getPublicAddress() override;
 
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
