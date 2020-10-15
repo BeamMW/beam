@@ -240,6 +240,9 @@ namespace Wasm {
 	macro(0x22, local_tee) \
 	macro(0x23, global_get) \
 	macro(0x24, global_set) \
+	macro(0xA7, i32_wrap_i64) \
+	macro(0xAC, i64_extend_i32_s) \
+	macro(0xAD, i64_extend_i32_u) \
 	macro(0x10, call) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
@@ -829,6 +832,20 @@ namespace Wasm {
 			auto nPad = m_Code.Read<uint32_t>();
 			nPad;
 			return m_Code.Read<uint32_t>();
+		}
+
+		void On_i32_wrap_i64() {
+			Pop(Type::i64);
+			Push(Type::i32);
+		}
+
+		void On_i64_extend_i32_s() {
+			Pop(Type::i32);
+			Push(Type::i64);
+		}
+
+		void On_i64_extend_i32_u() {
+			On_i64_extend_i32_s();
 		}
 
 		void On_block() {
@@ -1558,6 +1575,22 @@ namespace Wasm {
 			for (uint32_t i = 0; i < nWords; i++)
 				m_Stack.m_pPtr[m_Stack.m_Pos + i - nWords] = m_Stack.m_pPtr[m_Stack.m_Pos + i];
 		}
+	}
+
+	void ProcessorPlus::On_i32_wrap_i64()
+	{
+		auto val = m_Stack.Pop<uint64_t>();
+		m_Stack.Push(static_cast<uint32_t>(val));
+	}
+
+	void ProcessorPlus::On_i64_extend_i32_s()
+	{
+		m_Stack.Push(Type::Extend<uint64_t>(m_Stack.Pop<int32_t>()));
+	}
+
+	void ProcessorPlus::On_i64_extend_i32_u()
+	{
+		m_Stack.Push(Type::Extend<uint64_t>(m_Stack.Pop<uint32_t>()));
 	}
 
 	void ProcessorPlus::On_br()
