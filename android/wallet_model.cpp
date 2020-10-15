@@ -451,11 +451,11 @@ void WalletModel::onNeedExtractShieldedCoins(bool val)
 {
     LOG_DEBUG() << "onNeedExtractShieldedCoins(" << val <<")";
 
-    JNIEnv* env = Android_JNI_getEnv();
+    // JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
+    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, val);
+    // env->CallStaticVoidMethod(WalletListenerClass, callback, val);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
