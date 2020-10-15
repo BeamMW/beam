@@ -1198,6 +1198,19 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             }
         }
 
+        if (existsJsonParam(params, "sort"))
+        {
+            if (existsJsonParam(params["sort"], "field") && params["sort"]["field"].is_string())
+            {
+                getUtxo.sort.field = params["sort"]["field"].get<std::string>();
+            }
+
+            if (existsJsonParam(params["sort"], "desc") && params["sort"]["desc"].is_boolean())
+            {
+                getUtxo.sort.desc = params["sort"]["desc"];
+            }
+        }
+
         getHandler().onMessage(id, getUtxo);
     }
 
