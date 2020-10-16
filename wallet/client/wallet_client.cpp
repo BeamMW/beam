@@ -1220,7 +1220,7 @@ namespace beam::wallet
     void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)
     {
         auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
-        postFunctionToClientContext([this, res = std::move(vouchers), cb = std::move(callback)]() 
+        postFunctionToClientContext([res = std::move(vouchers), cb = std::move(callback)]() 
         {
             cb(std::move(res));
         });
