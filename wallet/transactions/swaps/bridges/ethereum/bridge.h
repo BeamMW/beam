@@ -58,6 +58,7 @@ public:
         std::function<void(const Error&, std::string)> callback) = 0;
     virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) = 0;
+    virtual void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual libbitcoin::short_hash generateEthAddress() const = 0;
 };

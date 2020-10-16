@@ -257,6 +257,33 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
     });
 }
 
+void EthereumBridge::getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
+{
+    LOG_DEBUG() << "EthereumBridge::getTxByHash";
+    std::string params = (boost::format(R"("%1%")") % AddHexPrefix(txHash)).str();
+
+    sendRequest("eth_getTransactionByHash", params, [callback](Error error, const json& result)
+    {
+        LOG_DEBUG() << "EthereumBridge::getTxByHash in";
+        json txInfo;
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                txInfo = result["result"];
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+
+        callback(error, txInfo);
+    });
+}
+
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
     LOG_DEBUG() << "EthereumBridge::call";

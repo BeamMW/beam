@@ -63,6 +63,7 @@ namespace beam::wallet
         ECC::uintBig GetGasPrice(SubTxID subTxID) const;
 
         libbitcoin::short_hash GetContractAddress() const;
+        std::string GetContractAddressStr() const;
 
         void OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash);
 
@@ -72,6 +73,7 @@ namespace beam::wallet
         ethereum::ISettingsProvider& m_settingsProvider;
         bool m_isEthOwner;
         bool m_isWithdrawTxSent = false;
+        bool m_isLockTxSent = false;
         uint64_t m_blockCount = 0;
 
         uint64_t m_SwapLockTxConfirmations = 0;

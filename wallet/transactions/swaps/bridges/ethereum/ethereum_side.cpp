@@ -50,6 +50,27 @@ namespace
 
     // TODO: -> settings
     constexpr bool kIsHashLockScheme = false;
+
+    beam::ByteBuffer BuildLockTxData(const beam::wallet::BaseTransaction& tx, bool isEthOwner, const beam::ByteBuffer& secretHash)
+    {
+        using namespace beam::wallet;
+
+        auto participantStr = isEthOwner ?
+            tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey) :
+            tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
+        auto participant = ethereum::ConvertStrToEthAddress(participantStr);
+        uintBig refundTimeInBlocks = tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+
+        // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
+        beam::ByteBuffer out;
+        out.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(out, GetLockMethodHash(kIsHashLockScheme));
+        ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, out);
+        ethereum::AddContractABIWordToBuffer(secretHash, out);
+        ethereum::AddContractABIWordToBuffer(participant, out);
+
+        return out;
+    }
 }
 
 namespace beam::wallet
@@ -122,7 +143,10 @@ bool EthereumSide::ValidateLockTime()
 
 void EthereumSide::AddTxDetails(SetTxParameter& txParameters)
 {
+    auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
     txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, ethereum::ConvertEthAddressToStr(m_ethBridge->generateEthAddress()));
+    txParameters.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX);
+    txParameters.AddParameter(TxParameterID::AtomicSwapExternalTxID, txID);
 }
 
 bool EthereumSide::ConfirmLockTx()
@@ -132,15 +156,15 @@ bool EthereumSide::ConfirmLockTx()
         return true;
     }
 
+    // wait TxID from peer
+    std::string txHash;
+    if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, SubTxIndex::LOCK_TX))
+        return false;
+
     if (!m_SwapLockTxBlockNumber)
     {
-        auto secretHash = GetSecretHash();
-        libbitcoin::data_chunk data;
-        ethereum::AddContractABIWordToBuffer(secretHash, data);
-
-        m_ethBridge->call(GetContractAddress(),
-            GetDetailsMethodHash(kIsHashLockScheme) + libbitcoin::encode_base16(data),
-            [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const nlohmann::json& result)
+        // validate contract
+        m_ethBridge->getTxByHash(txHash, [this, weak = this->weak_from_this()] (const ethereum::IBridge::Error& error, const nlohmann::json& txInfo)
         {
             if (weak.expired())
             {
@@ -153,35 +177,65 @@ bool EthereumSide::ConfirmLockTx()
                 return;
             }
 
-            std::string resultStr = result.get<std::string>();
-
-            if (std::all_of(resultStr.begin() + 2, resultStr.end(), [](const char& c) { return c == '0';}))
+            try
             {
-                // lockTx isn't ready yet
-                return;
+                auto contractAddrStr = txInfo["to"].get<std::string>();
+                if (contractAddrStr != GetContractAddressStr())
+                {
+                    m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
+                    m_tx.UpdateAsync();
+                    return;
+                }
+
+                std::string strValue = ethereum::RemoveHexPrefix(txInfo["value"].get<std::string>());
+                auto amount = ethereum::ConvertStrToUintBig(strValue);
+                uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
+
+                if (amount != swapAmount)
+                {
+                    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
+                        << " Unexpected amount, expected: " << swapAmount.str() << ", got: " << amount.str();
+                    m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
+                    m_tx.UpdateAsync();
+                    return;
+                }
+
+                auto txInputStr = ethereum::RemoveHexPrefix(txInfo["input"].get<std::string>());
+                libbitcoin::data_chunk data = BuildLockTxData(m_tx, m_isEthOwner, GetSecretHash());
+                auto lockTxDataStr = libbitcoin::encode_base16(data);
+
+                if (txInputStr != lockTxDataStr)
+                {
+                    m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
+                    m_tx.UpdateAsync();
+                    return;
+                }
             }
-
-            uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
-            auto resultData = beam::from_hex(std::string(resultStr.begin() + 2, resultStr.end()));
-            ECC::uintBig amount = Zero;
-            std::move(resultData.begin() + 32, resultData.end(), std::begin(amount.m_pData));
-
-            if (amount != swapAmount)
+            catch (const std::exception& ex)
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
-                    << " Unexpected amount, expected: " << swapAmount.str() << ", got: " << amount.str();
-                m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
+                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to parse txInfo: " << ex.what();
+                m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return;
             }
 
-            libbitcoin::data_chunk data;
-            std::copy(resultData.begin(), resultData.begin() + 32, std::back_inserter(data));
-            std::string st = libbitcoin::encode_base16(data);
-            m_SwapLockTxBlockNumber = std::stoull(st, nullptr, 16);
-            m_tx.UpdateAsync();
         });
-        return false;
+
+        m_ethBridge->getTxBlockNumber(txHash, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            if (error.m_type != ethereum::IBridge::None)
+            {
+                m_tx.UpdateOnNextTip();
+                return;
+            }
+
+            m_SwapLockTxBlockNumber = txBlockNumber;
+        });
     }
 
     uint64_t currentBlockNumber = GetBlockCount();
@@ -258,36 +312,33 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
 
 bool EthereumSide::SendLockTx()
 {
-    auto secretHash = GetSecretHash();
-    auto participantStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
-    auto participant = ethereum::ConvertStrToEthAddress(participantStr);
-    uintBig refundTimeInBlocks = GetLockTimeInBlocks();
+    std::string txID;
+    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+        return true;
 
-    // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
-    libbitcoin::data_chunk data;
-    data.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
-    libbitcoin::decode_base16(data, GetLockMethodHash(kIsHashLockScheme));
-    ethereum::AddContractABIWordToBuffer({std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData)}, data);
-    ethereum::AddContractABIWordToBuffer(secretHash, data);
-    ethereum::AddContractABIWordToBuffer(participant, data);
-
-    uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
-    m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
-        [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+    if (!m_isLockTxSent)
     {
-        if (!weak.expired())
-        {
-            if (error.m_type != ethereum::IBridge::None)
-            {
-                // TODO: handle error
-                return;
-            }
+        libbitcoin::data_chunk data = BuildLockTxData(m_tx, m_isEthOwner, GetSecretHash());
+        uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
 
-            m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
-            m_tx.UpdateAsync();
-        }
-    });
-    return true;
+        m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
+            [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+        {
+            if (!weak.expired())
+            {
+                if (error.m_type != ethereum::IBridge::None)
+                {
+                    // TODO: handle error
+                    return;
+                }
+
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
+                m_tx.UpdateAsync();
+            }
+        });
+        m_isLockTxSent = true;
+    }
+    return false;
 }
 
 bool EthereumSide::SendRefund()
@@ -556,7 +607,12 @@ ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
 
 libbitcoin::short_hash EthereumSide::GetContractAddress() const
 {
-    return ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetContractAddress());
+    return ethereum::ConvertStrToEthAddress(GetContractAddressStr());
+}
+
+std::string EthereumSide::GetContractAddressStr() const
+{
+    return m_settingsProvider.GetSettings().GetContractAddress();
 }
 
 } // namespace beam::wallet

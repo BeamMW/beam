@@ -1765,20 +1765,20 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
     ethereum::Settings aliceSettings;
-    aliceSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     aliceSettings.m_accountIndex = 3;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
-    aliceSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
+    aliceSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
 
     ethereum::Settings bobSettings;
-    bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     bobSettings.m_accountIndex = 4;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
-    bobSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
+    bobSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
 
     /*TestSettings bobSettings;
     bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
@@ -1897,22 +1897,22 @@ void TestSwapEthRefundTransaction()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
     ethereum::Settings aliceSettings;
-    aliceSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     aliceSettings.m_accountIndex = 3;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
     aliceSettings.m_txMinConfirmations = 0; // speed-up test
-    aliceSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
+    aliceSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
 
     ethereum::Settings bobSettings;
-    bobSettings.m_secretWords = { "weather", "hen", "detail", "region", "misery", "click", "wealth", "butter", "immense", "hire", "pencil", "social" };
+    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     bobSettings.m_accountIndex = 4;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
     bobSettings.m_txMinConfirmations = 0;   // speed-up test
-    bobSettings.m_contractAddress = "0xAfF392dc83CC7263A619Bc0831D14c20C399a99D";
+    bobSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
@@ -2023,8 +2023,8 @@ int main()
 
     TestIgnoringThirdPeer();
 
-    //TestEthSwapTransaction(true, fork1Height);
-    //TestSwapEthRefundTransaction();
+    TestEthSwapTransaction(true, fork1Height);
+    TestSwapEthRefundTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
