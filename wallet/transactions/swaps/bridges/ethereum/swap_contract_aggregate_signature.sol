@@ -3,16 +3,11 @@ pragma solidity >=0.6.0 <0.8.0;
 
 contract AtomicSwap {
 
-    enum State { Empty, Locked, Withdrawed }
-
     struct Swap {
-        uint initBlockNumber;
         uint refundTimeInBlocks;
-        address hashedSecret;
         address initiator;
         address participant;
         uint256 value;
-        State state;
     }
 
     mapping(address => Swap) swaps;
@@ -20,35 +15,32 @@ contract AtomicSwap {
     // event for EVM logging
     // TODO
 
-    modifier isNotInitiated(address hashedSecret) {
-        require(swaps[hashedSecret].state == State.Empty);
+    modifier isNotInitiated(uint refundTimeInBlocks, address hashedSecret, address participant) {
+        require(swaps[hashedSecret].refundTimeInBlocks == 0, "swap for this hash is already initiated");
+        require(participant != address(0), "invalid participant address");
+        require(block.number < refundTimeInBlocks, "refundTimeInBlocks has already come");
         _;
     }
 
     modifier isRefundable(address hashedSecret) {
-        require(block.number > swaps[hashedSecret].initBlockNumber + swaps[hashedSecret].refundTimeInBlocks);
-        require(swaps[hashedSecret].state == State.Locked);
+        require(block.number >= swaps[hashedSecret].refundTimeInBlocks);
         require(msg.sender == swaps[hashedSecret].initiator);
         _;
     }
     
     modifier isRedeemable(address hashedSecret) {
-        require(swaps[hashedSecret].state == State.Locked, "invalid State");
         require(msg.sender == swaps[hashedSecret].participant, "invalid msg.sender");
-        require(block.number < swaps[hashedSecret].initBlockNumber + swaps[hashedSecret].refundTimeInBlocks, "too late");
+        require(block.number < swaps[hashedSecret].refundTimeInBlocks, "too late");
         _;
     }
     
     function initiate(uint refundTimeInBlocks, address hashedSecret, address participant) public
         payable 
-        isNotInitiated(hashedSecret)
+        isNotInitiated(refundTimeInBlocks, hashedSecret, participant)
     {
         swaps[hashedSecret].refundTimeInBlocks = refundTimeInBlocks;
-        swaps[hashedSecret].initBlockNumber = block.number;
-        swaps[hashedSecret].hashedSecret = hashedSecret;
         swaps[hashedSecret].participant = participant;
         swaps[hashedSecret].initiator = msg.sender;
-        swaps[hashedSecret].state = State.Locked;
         swaps[hashedSecret].value = msg.value;
     }
     
@@ -59,32 +51,34 @@ contract AtomicSwap {
             revert("invalid signature 'v' value");
         }
 
-        bytes32 hash = keccak256(abi.encodePacked(swaps[hashedSecret].hashedSecret, swaps[hashedSecret].participant, swaps[hashedSecret].initiator));
+        bytes32 hash = keccak256(abi.encodePacked(hashedSecret, swaps[hashedSecret].participant, swaps[hashedSecret].initiator));
 
         // If the signature is valid (and not malleable), return the signer address
         address signer = ecrecover(hash, v, r, s);
         require(signer != address(0), "invalid signature");
-        require(signer == swaps[hashedSecret].hashedSecret, "invalid address");
+        require(signer == hashedSecret, "invalid address");
+
+        Swap memory tmp = swaps[hashedSecret];
+        delete swaps[hashedSecret];
         
-        payable(swaps[hashedSecret].participant).transfer(swaps[hashedSecret].value);
-        swaps[hashedSecret].state = State.Withdrawed;
-        // TODO: event Redeemed(block.timestamp);
+       payable(tmp.participant).transfer(tmp.value);
     }
 
     function refund(address hashedSecret) public
         isRefundable(hashedSecret) 
     {
-        payable(swaps[hashedSecret].initiator).transfer(swaps[hashedSecret].value);
-        swaps[hashedSecret].state = State.Withdrawed;
-        // TODO: event Refunded(block.timestamp);
+        Swap memory tmp = swaps[hashedSecret];
+        delete swaps[hashedSecret];
+
+        payable(tmp.initiator).transfer(tmp.value);
     }
-    
-    function getSwapDetails(address hashedSecret) public view returns (uint initBlockNumber, uint256 value)
+
+    function getSwapDetails(address hashedSecret)
+    public view returns (uint refundTimeInBlocks, address initiator, address participant, uint256 value)
     {
-        if (swaps[hashedSecret].state == State.Locked) {
-            initBlockNumber = swaps[hashedSecret].initBlockNumber;
-            value = swaps[hashedSecret].value;
-        }
+        refundTimeInBlocks = swaps[hashedSecret].refundTimeInBlocks;
+        initiator = swaps[hashedSecret].initiator;
+        participant = swaps[hashedSecret].participant;
+        value = swaps[hashedSecret].value;
     }
-    
 }

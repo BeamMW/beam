@@ -3,16 +3,11 @@ pragma solidity >=0.6.0 <0.8.0;
 
 contract AtomicSwap {
 
-    enum State { Empty, Locked, Withdrawed }
-
     struct Swap {
-        uint initBlockNumber;
         uint refundTimeInBlocks;
-        bytes32 hashedSecret;
         address initiator;
         address participant;
         uint256 value;
-        State state;
     }
 
     mapping(bytes32 => Swap) swaps;
@@ -20,60 +15,60 @@ contract AtomicSwap {
     // event for EVM logging
     // TODO
 
-    modifier isNotInitiated(bytes32 hashedSecret) {
-        require(swaps[hashedSecret].state == State.Empty);
+    modifier isNotInitiated(uint refundTimeInBlocks, bytes32 hashedSecret, address participant) {
+        require(swaps[hashedSecret].refundTimeInBlocks == 0, "swap for this hash is already initiated");
+        require(participant != address(0), "invalid participant address");
+        require(block.number < refundTimeInBlocks, "refundTimeInBlocks has already come");
         _;
     }
 
     modifier isRefundable(bytes32 hashedSecret) {
-        require(block.number > swaps[hashedSecret].initBlockNumber + swaps[hashedSecret].refundTimeInBlocks);
-        require(swaps[hashedSecret].state == State.Locked);
+        require(block.number >= swaps[hashedSecret].refundTimeInBlocks);
         require(msg.sender == swaps[hashedSecret].initiator);
         _;
     }
     
     modifier isRedeemable(bytes32 hashedSecret, bytes32 secret) {
-        require(swaps[hashedSecret].state == State.Locked, "invalid State");
         require(msg.sender == swaps[hashedSecret].participant, "invalid msg.sender");
-        require(block.number < swaps[hashedSecret].initBlockNumber + swaps[hashedSecret].refundTimeInBlocks);
+        require(block.number < swaps[hashedSecret].refundTimeInBlocks, "too late");
         require(sha256(abi.encodePacked(secret)) == hashedSecret, "invalid secret");
         _;
     }
     
     function initiate(uint refundTimeInBlocks, bytes32 hashedSecret, address participant) public
         payable 
-        isNotInitiated(hashedSecret)
+        isNotInitiated(refundTimeInBlocks, hashedSecret, participant)
     {
         swaps[hashedSecret].refundTimeInBlocks = refundTimeInBlocks;
-        swaps[hashedSecret].initBlockNumber = block.number;
-        swaps[hashedSecret].hashedSecret = hashedSecret;
         swaps[hashedSecret].participant = participant;
         swaps[hashedSecret].initiator = msg.sender;
-        swaps[hashedSecret].state = State.Locked;
         swaps[hashedSecret].value = msg.value;
     }
     
     function redeem(bytes32 secret, bytes32 hashedSecret) public
         isRedeemable(hashedSecret, secret)
     {
-        payable(swaps[hashedSecret].participant).transfer(swaps[hashedSecret].value);
-        swaps[hashedSecret].state = State.Withdrawed;
-        // TODO: event Redeemed(block.timestamp);
+        Swap memory tmp = swaps[hashedSecret];
+        delete swaps[hashedSecret];
+
+        payable(tmp.participant).transfer(tmp.value);
     }
 
     function refund(bytes32 hashedSecret) public
         isRefundable(hashedSecret) 
     {
-        payable(swaps[hashedSecret].initiator).transfer(swaps[hashedSecret].value);
-        swaps[hashedSecret].state = State.Withdrawed;
-        // TODO: event Refunded(block.timestamp);
+        Swap memory tmp = swaps[hashedSecret];
+        delete swaps[hashedSecret];
+
+        payable(tmp.initiator).transfer(tmp.value);
     }
     
-    function getSwapDetails(bytes32 hashedSecret) public view returns (uint initBlockNumber, uint256 value)
+    function getSwapDetails(bytes32 hashedSecret)
+    public view returns (uint refundTimeInBlocks, address initiator, address participant, uint256 value)
     {
-        if (swaps[hashedSecret].state == State.Locked) {
-            initBlockNumber = swaps[hashedSecret].initBlockNumber;
-            value = swaps[hashedSecret].value;
-        }
+        refundTimeInBlocks = swaps[hashedSecret].refundTimeInBlocks;
+        initiator = swaps[hashedSecret].initiator;
+        participant = swaps[hashedSecret].participant;
+        value = swaps[hashedSecret].value;
     }
 }
