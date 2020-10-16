@@ -1010,11 +1010,8 @@ namespace beam::wallet
         try
         {
             auto addr = m_walletDB->getAddress(id);
-            size_t vouchersCount = 0;
-            if (addr)
-            {
-                vouchersCount = m_walletDB->getVoucherCount(id);
-            }
+            size_t vouchersCount = m_walletDB->getVoucherCount(id);
+
             postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() 
             {
                 cb(addr, vouchersCount);
