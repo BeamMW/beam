@@ -165,7 +165,8 @@ namespace
                 std::string spentTxIdB = b.m_spentTxId.is_initialized() ? TxIDToString(*b.m_spentTxId) : "";
                 return spentTxIdA < spentTxIdB;
             }},
-        {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}}
+        {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}},
+        {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
     };
 
 }  // namespace

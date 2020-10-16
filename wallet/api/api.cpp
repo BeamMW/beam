@@ -1205,9 +1205,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 getUtxo.sort.field = params["sort"]["field"].get<std::string>();
             }
 
-            if (existsJsonParam(params["sort"], "desc") && params["sort"]["desc"].is_boolean())
+            if (existsJsonParam(params["sort"], "direction") && params["sort"]["direction"].is_string())
             {
-                getUtxo.sort.desc = params["sort"]["desc"];
+                auto direction = params["sort"]["direction"].get<std::string>();
+                if (direction != "desc" && direction != "asc")
+                {
+                    throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Invalid 'direction' parameter. Use 'desc' or 'asc'.", id};
+                }
+                getUtxo.sort.desc = direction == "desc";
             }
         }
 
