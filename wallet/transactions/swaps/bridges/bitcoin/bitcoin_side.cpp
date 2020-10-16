@@ -111,6 +111,8 @@ namespace
         std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
         return localSecret;
     }
+
+    const char kBridgeNotConnectedError[] = "Bridge internal error: bridge not connected.";
 }
 
 namespace beam::wallet
@@ -330,6 +332,11 @@ namespace beam::wallet
         return true;
     }
 
+    uint32_t BitcoinSide::GetWithdrawTxAverageSize() const
+    {
+        return bitcoin::kBTCWithdrawTxAverageSize;
+    }
+
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
         Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
@@ -371,6 +378,11 @@ namespace beam::wallet
         // load or generate withdraw address
         if (std::string swapWithdrawAddress; !m_tx.GetParameter(TxParameterID::AtomicSwapWithdrawAddress, swapWithdrawAddress))
         {
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return false;
+            }
             // is need to setup type 'legacy'?
             m_bitcoinBridge->getRawChangeAddress([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& address)
             {
@@ -442,6 +454,12 @@ namespace beam::wallet
                 }
             };
 
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return false;
+            }
+
             m_bitcoinBridge->sendRawTransaction(rawTransaction, callback);
             return (proto::TxStatus::Ok == nRegistered);
         }
@@ -488,6 +506,12 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return SwapTxState::CreatingTx;
+            }
+
             m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
             {
                 if (!weak.expired())
@@ -506,6 +530,12 @@ namespace beam::wallet
                 m_tx.SetState(SwapTxState::Initial, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return SwapTxState::Initial;
+            }
+
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return SwapTxState::CreatingTx;
             }
 
             m_bitcoinBridge->signRawTransaction(*m_SwapLockRawTx, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete)
@@ -532,7 +562,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
+            Amount fee = static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * GetFeeRate(subTxID)) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();
@@ -551,6 +581,13 @@ namespace beam::wallet
                     OnCreateWithdrawTransaction(subTxID, error, hexTx);
                 }
             };
+
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return swapTxState;
+            }
+
             m_bitcoinBridge->createRawTransaction(withdrawAddress, swapLockTxID, swapAmount, outputIndex, locktime, callback);
             return swapTxState;
         }
@@ -581,6 +618,12 @@ namespace beam::wallet
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
+        
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexScript, Amount amount, uint32_t confirmations)
         {
             if (!weak.expired())
@@ -594,6 +637,12 @@ namespace beam::wallet
     {
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::REFUND_TX);
         uint32_t outputIndex = 0;
+
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
 
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& /*error*/, const std::string& /*hexScript*/, Amount /*amount*/, uint32_t confirmations)
         {
@@ -615,6 +664,12 @@ namespace beam::wallet
     {
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::REDEEM_TX);
         uint32_t outputIndex = 0;
+
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
 
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& /*error*/, const std::string& /*hexScript*/, Amount /*amount*/, uint32_t confirmations)
         {
@@ -648,6 +703,12 @@ namespace beam::wallet
 
     uint64_t BitcoinSide::GetBlockCount(bool notify)
     {
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return m_blockCount;
+        }
+
         m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this(), notify](const bitcoin::IBridge::Error& error, uint64_t blockCount)
         {
             if (!weak.expired())

@@ -24,8 +24,14 @@ using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
+    
 namespace
 {
+    std::string txIDToString(const TxID& txId)
+    {
+        return to_hex(txId.data(), txId.size());
+    }   
+
     jobject fillNotificationInfo(JNIEnv* env, const Notification& notification)
     {
         jobject jNotificationInfo = env->AllocObject(NotificationClass);
@@ -80,6 +86,73 @@ namespace
         setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", txDescription.m_txType == wallet::TxType::PushTransaction);
 
         return tx;
+    }
+
+    jobjectArray convertShieldedToJObject(JNIEnv* env, const std::vector<beam::wallet::ShieldedCoin>& utxosVec)
+    {
+        jobjectArray utxos = 0;
+
+        if (!utxosVec.empty())
+        {
+            utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
+
+            for (size_t i = 0; i < utxosVec.size(); ++i)
+            {
+                
+            const auto& coin = utxosVec[i];
+            
+            jobject utxo = env->AllocObject(UtxoClass);
+            
+            std::string idString = std::to_string(coin.m_spentHeight);
+
+            setLongField(env, UtxoClass, utxo, "id", coin.m_spentHeight);
+            setStringField(env, UtxoClass, utxo, "stringId", idString);
+            setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
+
+            switch (coin.m_Status)
+            {
+                case ShieldedCoin::Available:
+                    setIntField(env, UtxoClass, utxo, "status", 1);
+                    break;
+                case ShieldedCoin::Maturing:
+                    setIntField(env, UtxoClass, utxo, "status", 2);
+                    break;
+                case ShieldedCoin::Unavailable:
+                    setIntField(env, UtxoClass, utxo, "status", 0);
+                    break;
+                case ShieldedCoin::Outgoing:
+                    setIntField(env, UtxoClass, utxo, "status", 3);
+                    break;
+                case ShieldedCoin::Incoming:
+                    setIntField(env, UtxoClass, utxo, "status", 4);
+                    break;
+                case ShieldedCoin::Spent:
+                    setIntField(env, UtxoClass, utxo, "status", 6);
+                    break;
+                default:
+                    break;
+            }
+            
+
+            setLongField(env, UtxoClass, utxo, "maturity", coin.m_confirmHeight);
+            setIntField(env, UtxoClass, utxo, "keyType", -1);
+            setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
+            
+            const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+            TxID txID;
+            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+            auto trId = txIDToString(txID);
+
+            setStringField(env, UtxoClass, utxo, "createTxId", trId);
+
+            
+            env->SetObjectArrayElement(utxos, static_cast<jsize>(i), utxo);
+            
+            env->DeleteLocalRef(utxo);
+            }
+        }
+
+        return utxos;
     }
 
     jobjectArray convertCoinsToJObject(JNIEnv* env, const std::vector<Coin>& utxosVec)
@@ -288,6 +361,7 @@ void WalletModel::onStatus(const WalletStatus& status)
     setLongField(env, WalletStatusClass, walletStatus, "receiving", status.receiving);
     setLongField(env, WalletStatusClass, walletStatus, "sending", status.sending);
     setLongField(env, WalletStatusClass, walletStatus, "maturing", status.maturing);
+    setLongField(env, WalletStatusClass, walletStatus, "shielded", status.shielded);
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
@@ -377,11 +451,11 @@ void WalletModel::onNeedExtractShieldedCoins(bool val)
 {
     LOG_DEBUG() << "onNeedExtractShieldedCoins(" << val <<")";
 
-    JNIEnv* env = Android_JNI_getEnv();
+    // JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
+    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, val);
+    // env->CallStaticVoidMethod(WalletListenerClass, callback, val);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
@@ -466,11 +540,18 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";
 
+    if(isNodeConnected) 
+    {
+        auto trusted = this->isConnectionTrusted();
+
+        LOG_DEBUG() << "isConnectionTrustedCheck()" << trusted;
+    }
+
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectedStatusChanged", "(Z)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);    
 }
 
 void WalletModel::onWalletError(ErrorType error)
@@ -650,9 +731,18 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& wid, const boost::o
     env->CallStaticVoidMethod(WalletListenerClass, callback, convertdata);
 }
 
-void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>& items) 
+void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) 
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jobjectArray utxos = convertShieldedToJObject(env, items);
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllShieldedUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
+    env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
+
+    env->DeleteLocalRef(utxos);
 }
 
 void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
@@ -661,7 +751,14 @@ void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
     doFunction(func);
 }
 
+void WalletModel::callMyFunction()
+{
+    myFunction();
+}
+
 void WalletModel::doFunction(const std::function<void()>& func)
 {
-    func();
+    func();  
 }
+
+

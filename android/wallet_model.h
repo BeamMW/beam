@@ -26,7 +26,8 @@ public:
     WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
-    beam::wallet::WalletAddress generateToken(beam::wallet::IWalletDB::Ptr walletDB);
+    void callMyFunction();
+    std::function<void()> myFunction;
 
 private:
     void doFunction(const std::function<void()>& func);
@@ -63,5 +64,5 @@ private:
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
-    void onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>& items) override;
+    void onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) override;
 };
