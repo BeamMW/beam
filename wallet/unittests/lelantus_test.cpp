@@ -314,6 +314,178 @@ void TestSimpleTx()
         }));
 }
 
+void TestMaxPrivacyTx()
+{
+    cout << "\nTest maxPrivacy lelantus tx via public address\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 1;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+
+    receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+
+    // generate ticket from public address
+    Scalar::Native sk;
+    sk.GenRandomNnz();
+    PeerID pid;  // fake peedID
+    pid.FromSk(sk);
+
+    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
+
+    ByteBuffer buf = toByteBuffer(gen);
+
+    ShieldedTxo::PublicGen gen2;
+    WALLET_CHECK(fromByteBuffer(buf, gen2));
+
+    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
+
+    TxID txID = {};
+    Node node;
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        {
+            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                .SetParameter(TxParameterID::Amount, 18000000)
+                .SetParameter(TxParameterID::Fee, 12000000)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
+                .SetParameter(TxParameterID::PeerWalletIdentity, pid)
+                .SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
+
+            txID = sender.m_Wallet.StartTransaction(parameters);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
+        {
+            mainReactor->stop();
+        }
+    });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    {
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+    }
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[0].m_txId == txID);
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
+        WALLET_CHECK(shieldedCoins[0] .m_Status == ShieldedCoin::Status::Maturing);
+    }
+}
+
+void TestPublicAddressTx()
+{
+    cout << "\nTest simple lelantus tx via public address\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 1;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+
+    receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+
+    // generate ticket from public address
+    Scalar::Native sk;
+    sk.GenRandomNnz();
+    PeerID pid;  // fake peedID
+    pid.FromSk(sk);
+
+    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
+
+    ByteBuffer buf = toByteBuffer(gen);
+
+    ShieldedTxo::PublicGen gen2;
+    WALLET_CHECK(fromByteBuffer(buf, gen2));
+
+    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
+
+    TxID txID = {};
+    Node node;
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        {
+            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                .SetParameter(TxParameterID::Amount, 18000000)
+                .SetParameter(TxParameterID::Fee, 12000000)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
+                .SetParameter(TxParameterID::PeerWalletIdentity, pid);
+
+            txID = sender.m_Wallet.StartTransaction(parameters);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
+        {
+            mainReactor->stop();
+        }
+    });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    {
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+    }
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[0].m_txId == txID);
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
+    }
+}
+
 void TestDirectAnonymousPayment()
 {
     cout << "\nTest direct anonimous payment with lelantus\n";
@@ -417,6 +589,20 @@ void TestDirectAnonymousPayment()
         WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
         WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
         WALLET_CHECK(txHistory[2].m_txType == TxType::PushTransaction && txHistory[2].m_status == TxStatus::Completed);
+    }
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& tx)
+        {
+            return (tx.m_txType == TxType::PushTransaction) && tx.m_status == TxStatus::Completed;
+        }));
+        for (const auto& tx : txHistory)
+        {
+            if (tx.m_txType == TxType::PushTransaction)
+            {
+                WALLET_CHECK(tx.m_amount == 18000000);
+            }
+        }
     }
     
     {
@@ -1145,6 +1331,8 @@ int main()
     //TestCancelUnlinkTx();
 
     TestSimpleTx();
+    TestMaxPrivacyTx();
+    TestPublicAddressTx();
     TestDirectAnonymousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });

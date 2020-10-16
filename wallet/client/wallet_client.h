@@ -148,6 +148,7 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
+        virtual void onPublicAddress(const std::string& publicAddr) {};
 
     private:
 
@@ -180,10 +181,12 @@ namespace beam::wallet
         void getCoinsByTx(const TxID& txId) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void generateNewAddress() override;
+        void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void activateAddress(const WalletID& id) override;
         void getAddress(const WalletID& id) override;
+        void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
@@ -204,6 +207,9 @@ namespace beam::wallet
         void deleteNotification(const ECC::uintBig& id) override;
 
         void getExchangeRates() override;
+        void getPublicAddress() override;
+
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

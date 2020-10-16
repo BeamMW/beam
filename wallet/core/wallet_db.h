@@ -735,6 +735,7 @@ namespace beam::wallet
         void onFlushTimer();
         void onPrepareToModify();
         void MigrateCoins();
+        boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -1001,9 +1002,10 @@ namespace beam::wallet
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
+
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
-
     }  // namespace storage
 }  // namespace beam::wallet

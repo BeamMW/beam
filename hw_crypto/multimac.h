@@ -68,8 +68,7 @@ void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context*);
 typedef struct
 {
 	BeamCrypto_MultiMac_Fast m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H + 1];
-	BeamCrypto_MultiMac_Secure m_GenG;
-	BeamCrypto_MultiMac_Secure m_GenJ;
+	BeamCrypto_MultiMac_Secure m_pGenGJ[2];
 
 } BeamCrypto_Context;
 

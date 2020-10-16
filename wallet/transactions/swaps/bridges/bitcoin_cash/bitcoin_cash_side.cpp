@@ -17,11 +17,27 @@
 
 #include "bitcoin/bitcoin.hpp"
 
+namespace
+{
+    constexpr uint32_t kBCHWithdrawTxAverageSize = 360;
+}
+
 namespace beam::wallet
 {
     BitcoinCashSide::BitcoinCashSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin_cash::ISettingsProvider& settingsProvider, bool isBeamSide)
         : BitcoinSide(tx, bitcoinBridge, settingsProvider, isBeamSide)
     {
+    }
+
+    bool BitcoinCashSide::CheckAmount(Amount amount, Amount feeRate)
+    {
+        Amount fee = static_cast<Amount>(std::round(double(kBCHWithdrawTxAverageSize * feeRate) / 1000));
+        return amount > bitcoin::kDustThreshold && amount > fee;
+    }
+
+    Amount BitcoinCashSide::CalcTotalFee(Amount feeRate)
+    {
+        return static_cast<Amount>(std::round(double(kBCHWithdrawTxAverageSize * feeRate) / 1000));
     }
 
     uint8_t BitcoinCashSide::GetSighashAlgorithm() const
@@ -32,5 +48,15 @@ namespace beam::wallet
     bool BitcoinCashSide::NeedSignValue() const
     {
         return true;
+    }
+
+    bool BitcoinCashSide::IsSegwitSupported() const
+    {
+        return false;
+    }
+
+    uint32_t BitcoinCashSide::GetWithdrawTxAverageSize() const
+    {
+        return kBCHWithdrawTxAverageSize;
     }
 }

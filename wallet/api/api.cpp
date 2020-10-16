@@ -1198,6 +1198,24 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             }
         }
 
+        if (existsJsonParam(params, "sort"))
+        {
+            if (existsJsonParam(params["sort"], "field") && params["sort"]["field"].is_string())
+            {
+                getUtxo.sort.field = params["sort"]["field"].get<std::string>();
+            }
+
+            if (existsJsonParam(params["sort"], "direction") && params["sort"]["direction"].is_string())
+            {
+                auto direction = params["sort"]["direction"].get<std::string>();
+                if (direction != "desc" && direction != "asc")
+                {
+                    throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Invalid 'direction' parameter. Use 'desc' or 'asc'.", id};
+                }
+                getUtxo.sort.desc = direction == "desc";
+            }
+        }
+
         getHandler().onMessage(id, getUtxo);
     }
 

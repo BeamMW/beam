@@ -669,6 +669,7 @@ int main () {
 
     rules.CA.Enabled          = true;
     rules.CA.LockPeriod       = 20;
+    rules.CA.DepositForList   = rules.Coin * 1000;
     rules.MaxRollback         = 20;
     rules.FakePoW             = true;
     rules.pForks[1].m_Height  = 5;

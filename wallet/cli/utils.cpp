@@ -111,7 +111,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     {
         return false;
     }
-    if (auto peerID = params.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); peerID && std::to_string(*peerID) != addressOrToken)
+    if (auto peerID = params.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); !peerID || std::to_string(*peerID) != addressOrToken)
     {
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
     }
@@ -132,7 +132,10 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
         {
             return false;
         }
-        receiverWalletID = *params.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        {
+            receiverWalletID = *peerID;
+        }
     }
 
     if (!ReadAmount(vm, amount))
