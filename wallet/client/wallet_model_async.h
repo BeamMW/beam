@@ -27,7 +27,7 @@ namespace beam::wallet
     struct IWalletModelAsync
     {
         using Ptr = std::shared_ptr<IWalletModelAsync>;
-        template<typename ...Args> using AsyncCallback = std::function<void(typename Args...)>;
+        template<typename ...Args> using AsyncCallback = std::function<void(Args...)>;
         virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void startTransaction(TxParameters&& parameters) = 0;
