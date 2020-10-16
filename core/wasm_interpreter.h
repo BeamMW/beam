@@ -192,6 +192,10 @@ namespace Wasm {
 			Word m_BytesMax = 0; // total stack size
 			Word m_BytesCurrent = 0; // operand stack remaining, before it collides with alias stack
 
+			static const Word s_Alignment = 8;
+			static Word AlignUp(Word);
+			static void TestAlignmentPower(uint32_t);
+
 			Word get_AlasSp() const;
 			void set_AlasSp(Word);
 			void TestSelf() const;

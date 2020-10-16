@@ -67,10 +67,10 @@ namespace bvm2 {
 		m_Stack.m_Pos = 0;
 
 		Wasm::Test(args.n <= sizeof(m_pStack));
-		m_Stack.m_BytesCurrent = sizeof(m_pStack) - args.n;
+		m_Stack.m_BytesCurrent = sizeof(m_pStack) - m_Stack.AlignUp(args.n);
 
+		memset(m_pStack, nFill, sizeof(m_pStack));
 		memcpy(reinterpret_cast<uint8_t*>(m_pStack) + m_Stack.m_BytesCurrent, args.p, args.n);
-		memset(reinterpret_cast<uint8_t*>(m_pStack), nFill, m_Stack.m_BytesCurrent);
 
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
@@ -527,7 +527,7 @@ namespace bvm2 {
 	BVM_METHOD(StackAlloc)
 	{
 		Wasm::Test(size <= m_Stack.m_BytesCurrent);
-		m_Stack.m_BytesCurrent -= size;
+		m_Stack.m_BytesCurrent -= m_Stack.AlignUp(size);
 		m_Stack.TestSelf();
 
 		return m_Stack.get_AlasSp();
@@ -535,7 +535,7 @@ namespace bvm2 {
 
 	BVM_METHOD(StackFree)
 	{
-		m_Stack.m_BytesCurrent += size;
+		m_Stack.m_BytesCurrent += m_Stack.AlignUp(size);
 		Wasm::Test(size <= m_Stack.m_BytesCurrent); // no overflow
 		m_Stack.TestSelf();
 	}

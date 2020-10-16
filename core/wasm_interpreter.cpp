@@ -829,8 +829,8 @@ namespace Wasm {
 
 		uint32_t ReadOffsAndPadding()
 		{
-			auto nPad = m_Code.Read<uint32_t>();
-			nPad;
+			auto nAlign = m_Code.Read<uint32_t>();
+			Processor::Stack::TestAlignmentPower(nAlign);
 			return m_Code.Read<uint32_t>();
 		}
 
@@ -1232,6 +1232,7 @@ namespace Wasm {
 
 	Word Processor::Stack::get_AlasSp() const
 	{
+		assert(AlignUp(m_BytesCurrent) == m_BytesCurrent);
 		return MemoryType::Stack | m_BytesCurrent;
 	}
 
@@ -1246,6 +1247,18 @@ namespace Wasm {
 	{
 		Test(m_BytesCurrent <= m_BytesMax);
 		Test(m_Pos <= m_BytesCurrent / sizeof(Word));
+		assert(AlignUp(m_BytesCurrent) == m_BytesCurrent);
+	}
+
+	Word Processor::Stack::AlignUp(Word n)
+	{
+		return (n + s_Alignment-1) & ~(s_Alignment-1);
+	}
+
+	void Processor::Stack::TestAlignmentPower(uint32_t n)
+	{
+		static_assert(s_Alignment == (1 << 3));
+		Test(n <= 3);
 	}
 
 	struct ProcessorPlus
@@ -1364,7 +1377,9 @@ namespace Wasm {
 
 		uint8_t* MemArgEx(uint32_t nSize, bool bW)
 		{
-			auto nPad = m_Instruction.Read<Word>(); nPad;
+			auto nAlign = m_Instruction.Read<Word>();
+			Stack::TestAlignmentPower(nAlign);
+
 			auto nOffs = m_Instruction.Read<Word>();
 			nOffs += m_Stack.Pop<Word>();
 
@@ -1413,7 +1428,7 @@ namespace Wasm {
 
 
 #define THE_MACRO(id, type, name, tmem) \
-			case I::type##_##name: { \
+			THE_CASE(type##_##name) { \
 				tmem val1 = from_wasm<Type::ToFlexible<tmem, false>::T>(MemArgR(sizeof(tmem))); \
 				auto valExt = Type::Extend<Type::Code2Type<Type::type>::T, tmem>(val1); \
 				m_Stack.Push(valExt); \
@@ -1423,7 +1438,7 @@ namespace Wasm {
 #undef THE_MACRO
 
 #define THE_MACRO(id, type, name, tmem) \
-			case I::type##_##name: { \
+			THE_CASE(type##_##name) { \
 				auto val = m_Stack.Pop<Type::Code2Type<Type::type>::T>(); \
 				to_wasm(MemArgW(sizeof(tmem)), static_cast<tmem>(val)); \
 			} break;
@@ -1503,7 +1518,11 @@ namespace Wasm {
 			if (bGet)
 				m_Stack.Push(m_Stack.get_AlasSp());
 			else
-				m_Stack.set_AlasSp(m_Stack.Pop<Word>());
+			{
+				Word val = m_Stack.Pop<Word>();
+				Test(m_Stack.AlignUp(val) == val);
+				m_Stack.set_AlasSp(val);
+			}
 			break;
 
 		default:
