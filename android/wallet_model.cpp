@@ -442,9 +442,9 @@ void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectio
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(J)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(JJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.change);
 }
 
 void WalletModel::onNeedExtractShieldedCoins(bool val)
