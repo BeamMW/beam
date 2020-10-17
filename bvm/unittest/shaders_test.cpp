@@ -32,6 +32,7 @@ namespace Shaders {
 #endif // _MSC_VER
 #include "../Shaders/vault.h"
 #include "../Shaders/oracle.h"
+#include "../Shaders/dummy.h"
 #include "../Shaders/MergeSort.h"
 #ifdef _MSC_VER
 #	pragma warning (default : 4200)
@@ -307,7 +308,7 @@ namespace beam
 	};
 
 
-	void TestContract2()
+	void TestContract1()
 	{
 		ByteBuffer data;
 		bvm2::Compile(data, "vault.wasm");
@@ -338,6 +339,38 @@ namespace beam
 		proc.RunMany(cid, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args))); // withdraw, pos terminated
 	}
 
+	void TestContract2()
+	{
+		ByteBuffer data;
+		bvm2::Compile(data, "vault.wasm");
+
+		MyBvm2Processor proc;
+
+		bvm2::ContractID cid;
+
+		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
+		proc.SaveContract(cid, data);
+
+
+		bvm2::Compile(data, "dummy.wasm");
+		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
+		proc.SaveContract(cid, data);
+
+		proc.RunMany(cid, 0, Blob(nullptr, 0)); // c'tor
+
+		Shaders::Dummy::MathTest1 args;
+		args.m_Value = 0x1452310AB046C124;
+		args.m_Rate = 0x0000010100000000;
+		args.m_Factor = 0x0000000000F00000;
+		args.m_Try = 0x1452310AB046C100;
+
+		args.m_IsOk = 0;
+
+		proc.RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
+
+
+		proc.RunMany(cid, 1, Blob(nullptr, 0)); // d'tor
+	}
 
 	void TestContract3()
 	{
@@ -468,6 +501,7 @@ int main()
 		beam::MyBvm2Processor::TestSort();
 		beam::MyBvm2Processor::TestSort2();
 
+		beam::TestContract1();
 		beam::TestContract2();
 		beam::TestContract3();
 	}

@@ -1,5 +1,7 @@
 #include "common.h"
+#include "dummy.h"
 #include "vault.h"
+#include "Math.h"
 
 // Demonstration of the inter-shader interaction.
 
@@ -24,4 +26,20 @@ export void Method_2(void*)
     Env::Memset(&r, 0, sizeof(r));
     r.m_Amount = 318;
     Env::CallFar(g_cidVault, r.s_iMethod, &r);
+}
+
+export void Method_3(Dummy::MathTest1& r)
+{
+    auto res =
+        MultiPrecision::From(r.m_Value) *
+        MultiPrecision::From(r.m_Rate) *
+        MultiPrecision::From(r.m_Factor);
+
+    //    Env::Trace("res", &res);
+
+    auto trg = MultiPrecision::FromEx<2>(r.m_Try);
+
+    //	Env::Trace("trg", &trg);
+
+    r.m_IsOk = (trg <= res);
 }
