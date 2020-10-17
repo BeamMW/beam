@@ -55,7 +55,8 @@ public:
 
 protected:
     virtual void OnStatus(Status status) = 0;
-    virtual void OnBalance(const ECC::uintBig& balance) = 0;
+    // balance in gwei
+    virtual void OnBalance(Amount balance) = 0;
     virtual void OnEstimatedGasPrice(Amount feeRate) = 0;
     virtual void OnCanModifySettingsChanged(bool canModify) = 0;
     virtual void OnChangedSettings() = 0;

@@ -18,6 +18,7 @@
 #include "utility/bridge.h"
 
 #include "ethereum_bridge.h"
+#include "common.h"
 
 namespace beam::ethereum
 {
@@ -101,7 +102,12 @@ void Client::GetBalance()
         SetConnectionError(error.m_type);
         SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-        OnBalance(balance);
+        std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
+        boost::multiprecision::uint256_t tmp(hex);
+
+        tmp /= 1'000'000'000u;
+
+        OnBalance(tmp.convert_to<Amount>());
     });
 }
 

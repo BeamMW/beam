@@ -109,7 +109,6 @@ ECC::uintBig ReadGasPrice(const po::variables_map& vm)
 std::string PrintEth(const ECC::uintBig& value)
 {
     std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(value.m_pData, ECC::uintBig::nBytes));
-
     boost::multiprecision::uint256_t tmp(hex);
     boost::multiprecision::cpp_dec_float_50 preciseAmount(tmp);
 
