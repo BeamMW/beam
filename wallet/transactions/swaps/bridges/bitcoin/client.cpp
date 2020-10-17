@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "client.h"
 
 #include "bitcoin_core_017.h"
@@ -243,5 +242,4 @@ namespace beam::bitcoin
             OnConnectionError(m_connectionError);
         }
     }
-
 } // namespace beam::bitcoin
