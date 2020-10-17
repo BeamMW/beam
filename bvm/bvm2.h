@@ -15,6 +15,7 @@
 #pragma once
 #include "wasm_interpreter.h"
 #include "../utility/containers.h"
+#include "../core/block_crypt.h"
 
 namespace beam {
 namespace bvm2 {

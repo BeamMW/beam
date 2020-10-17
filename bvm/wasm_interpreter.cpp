@@ -15,6 +15,7 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "wasm_interpreter.h"
 #include "../utility/byteorder.h"
+#include "../core/uintBig.h"
 #include <sstream>
 
 #define MY_TOKENIZE2(a, b) a##b

@@ -15,7 +15,7 @@
 #include "processor.h"
 #include "../core/treasury.h"
 #include "../core/shielded.h"
-#include "../core/bvm2.h"
+#include "../bvm/bvm2.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/serialize.h"
 #include "../utility/logger.h"

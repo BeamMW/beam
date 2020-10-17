@@ -15,7 +15,7 @@
 #include "adapter.h"
 #include "node/node.h"
 #include "core/serialization_adapters.h"
-#include "core/bvm2.h"
+#include "bvm/bvm2.h"
 #include "http/http_msg_creator.h"
 #include "http/http_json_serializer.h"
 #include "nlohmann/json.hpp"

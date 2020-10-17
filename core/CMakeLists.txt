@@ -22,8 +22,6 @@ set(CORE_SRC
     fly_client.cpp
     treasury.cpp
     shielded.cpp
-    bvm2.cpp
-    wasm_interpreter.cpp
 # ~etc
 )
 

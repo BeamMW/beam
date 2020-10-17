@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #pragma once
-#include "block_crypt.h"
+#include "../utility/common.h"
 #include "../utility/containers.h"
 
 namespace beam {

@@ -18,6 +18,7 @@ add_library(node STATIC ${NODE_SRC})
 target_link_libraries(node
     PUBLIC
         core
+        bvm
     PRIVATE
         sqlite
 )
