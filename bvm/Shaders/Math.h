@@ -20,6 +20,7 @@ namespace MultiPrecision
 {
 	typedef uint32_t Word;
 	typedef uint64_t DWord;
+	typedef int64_t DWordSigned;
 
 	static const uint32_t nWordBits = sizeof(Word) * 8;
 
@@ -84,6 +85,12 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
+		void operator -= (const UInt<wa>& a)
+		{
+			SetSub(*this, a);
+		}
+
+		template <uint32_t wa>
 		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator + (const UInt<wa>& a)
 		{
 			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
@@ -91,6 +98,14 @@ namespace MultiPrecision
 				ret.SetAdd(*this, a);
 			else
 				ret.SetAdd(a, *this);
+			return ret;
+		}
+
+		template <uint32_t wa>
+		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const UInt<wa>& a)
+		{
+			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
+			ret.SetSub(*this, a);
 			return ret;
 		}
 
@@ -131,6 +146,18 @@ namespace MultiPrecision
 			DWord carry = Base::SetAdd(a, b);
 			carry += a.template get_Val<nWords>();
 			carry += b.template get_Val<nWords>();
+
+			m_Val = (Word)carry;
+			return carry >> nWordBits;
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		DWordSigned SetSub(const UInt<wa>& a, const UInt<wb>& b)
+		{
+			// *this = a + b
+			DWordSigned carry = Base::SetAdd(a, b);
+			carry += a.template get_Val<nWords>();
+			carry -= b.template get_Val<nWords>();
 
 			m_Val = (Word)carry;
 			return carry >> nWordBits;
@@ -212,6 +239,12 @@ namespace MultiPrecision
 
 		template <uint32_t wa, uint32_t wb>
 		DWord SetAdd(const UInt<wa>&, const UInt<wb>&)
+		{
+			return 0;
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		DWordSigned SetSub(const UInt<wa>&, const UInt<wb>&)
 		{
 			return 0;
 		}
