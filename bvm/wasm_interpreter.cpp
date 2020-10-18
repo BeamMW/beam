@@ -670,10 +670,15 @@ namespace Wasm {
 			m_p0 = nullptr; // don't write
 		}
 
+		void TestBlockCanClose(const Block& b)
+		{
+			Test(m_Operands.size() == b.m_OperandsAtExit);
+			TestOperands(b.m_Type.m_Rets);
+		}
+
 		void TestBlockCanClose()
 		{
-			Test(m_Operands.size() == get_B().m_OperandsAtExit);
-			TestOperands(get_B().m_Type.m_Rets);
+			TestBlockCanClose(get_B());
 		}
 
 		void UpdTopBlockLabel()
@@ -878,8 +883,7 @@ namespace Wasm {
 
 		void On_ret()
 		{
-			Test(1 == m_Blocks.size()); // seems like this instruction isn't placed within a nested block. Fix this when it's broken
-			TestBlockCanClose();
+			TestBlockCanClose(m_Blocks.front()); // if the return is from a nested block - assume the necessary unwind has already been done
 			WriteRet(); // end of function
 		}
 
