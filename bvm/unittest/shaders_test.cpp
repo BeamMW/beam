@@ -25,8 +25,9 @@
 namespace Shaders {
 	typedef ECC::Point PubKey;
 	typedef beam::Asset::ID AssetID;
-	typedef beam::Amount Amount;
-	typedef beam::bvm2::ContractID ContractID;
+	using beam::Amount;
+	using beam::Height;
+	using beam::bvm2::ContractID;
 
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200) // zero-sized array

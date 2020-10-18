@@ -2041,7 +2041,9 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
 
-		virtual void get_Hdr(Block::SystemState::Full& s) override;
+		virtual Height get_Height() override;
+		virtual bool get_HdrAt(Block::SystemState::Full&) override;
+
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
@@ -3940,9 +3942,27 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	return bExisted;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Hdr(Block::SystemState::Full& s)
+Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
 {
-	s = m_Proc.m_Cursor.m_Full;
+	return m_Proc.m_Cursor.m_Full.m_Height;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemState::Full& s)
+{
+	if (s.m_Height > m_Proc.m_Cursor.m_Full.m_Height)
+		return false;
+
+	if (s.m_Height == m_Proc.m_Cursor.m_Full.m_Height)
+		s = m_Proc.m_Cursor.m_Full;
+	else
+	{
+		if (s.m_Height < Rules::HeightGenesis)
+			return false;
+
+		m_Proc.get_DB().get_State(m_Proc.FindActiveAtStrict(s.m_Height), s);
+	}
+
+	return true;
 }
 
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner)

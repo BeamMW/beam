@@ -88,7 +88,9 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
 
-		virtual void get_Hdr(Block::SystemState::Full& s) { ZeroObject(s); }
+		virtual Height get_Height() { return 0; }
+		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
+
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }

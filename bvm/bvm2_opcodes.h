@@ -87,6 +87,8 @@
 #define BVMOp_AssetDestroy(macro, sep) \
 	macro(AssetID, aid)
 
+#define BVMOp_get_Height(macro, sep)
+
 #define BVMOpsAll(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -106,4 +108,5 @@
 	macro(0x38, AssetID  , AssetCreate) \
 	macro(0x39, uint8_t  , AssetEmit) \
 	macro(0x3A, uint8_t  , AssetDestroy) \
+	macro(0x40, Height   , get_Height) \
 

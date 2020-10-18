@@ -690,6 +690,11 @@ namespace bvm2 {
 		return !!b;
 	}
 
+	BVM_METHOD(get_Height)
+	{
+		return get_Height();
+	}
+
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
