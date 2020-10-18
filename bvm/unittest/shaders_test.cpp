@@ -125,6 +125,28 @@ namespace bvm2 {
 	{
 		BlobMap::Set m_Vars;
 
+		struct Action
+			:public boost::intrusive::list_base_hook<>
+		{
+			virtual ~Action() = default;
+			virtual void Undo(MyProcessor&) = 0;
+
+			typedef intrusive::list_autoclear<Action> List;
+		};
+
+		Action::List m_lstUndo;
+
+		void UndoChanges(size_t nTrg = 0)
+		{
+			while (m_lstUndo.size() > nTrg)
+			{
+				auto& x = m_lstUndo.back();
+				x.Undo(*this);
+				m_lstUndo.Delete(x);
+			}
+		}
+
+
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override
 		{
 			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
@@ -152,10 +174,38 @@ namespace bvm2 {
 			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
 		}
 
+		struct Action_Var
+			:public Action
+		{
+			ByteBuffer m_Key;
+			ByteBuffer m_Value;
+
+			virtual void Undo(MyProcessor& p) override
+			{
+				p.SaveVar2(m_Key, m_Value.empty() ? nullptr : &m_Value.front(), static_cast<uint32_t>(m_Value.size()), nullptr);
+			}
+		};
+
 		bool SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
+		{
+			auto pUndo = std::make_unique<Action_Var>();
+			bool bRet = SaveVar2(key, pVal, nVal, pUndo.get());
+
+			m_lstUndo.push_back(*pUndo.release());
+			return bRet;
+		}
+
+		bool SaveVar2(const Blob& key, const uint8_t* pVal, uint32_t nVal, Action_Var* pAction)
 		{
 			auto* pE = m_Vars.Find(key);
 			bool bNew = !pE;
+
+			if (pAction)
+			{
+				key.Export(pAction->m_Key);
+				if (pE)
+					pAction->m_Value.swap(pE->m_Data);
+			}
 
 			if (nVal)
 			{
@@ -173,18 +223,133 @@ namespace bvm2 {
 			return !bNew;
 		}
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override
+		struct AssetData {
+			Amount m_Amount;
+			PeerID m_Pid;
+		};
+		typedef std::map<Asset::ID, AssetData> AssetMap;
+		AssetMap m_Assets;
+
+		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid) override
 		{
-			return 100;
+			Asset::ID aid = AssetCreate2(md, pid);
+			if (aid)
+			{
+				struct MyAction
+					:public Action
+				{
+					Asset::ID m_Aid;
+
+					virtual void Undo(MyProcessor& p) override {
+						auto it = p.m_Assets.find(m_Aid);
+						verify_test(p.m_Assets.end() != it);
+						p.m_Assets.erase(it);
+					}
+				};
+
+				auto pUndo = std::make_unique<MyAction>();
+				pUndo->m_Aid = aid;
+				m_lstUndo.push_back(*pUndo.release());
+			}
+
+			return aid;
 		}
 
-		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override
+		Asset::ID AssetCreate2(const Asset::Metadata&, const PeerID& pid)
 		{
+			Asset::ID ret = 1;
+			while (m_Assets.find(ret) != m_Assets.end())
+				ret++;
+
+			auto& val = m_Assets[ret];
+			val.m_Amount = 0;
+			val.m_Pid = pid;
+			
+			return ret;
+		}
+
+		virtual bool AssetEmit(Asset::ID aid, const PeerID& pid, AmountSigned val) override
+		{
+			bool bRet = AssetEmit2(aid, pid, val);
+			if (bRet)
+			{
+				struct MyAction
+					:public Action
+				{
+					Asset::ID m_Aid;
+					AmountSigned m_Val;
+
+					virtual void Undo(MyProcessor& p) override {
+						auto it = p.m_Assets.find(m_Aid);
+						verify_test(p.m_Assets.end() != it);
+						it->second.m_Amount -= m_Val;;
+					}
+				};
+
+				auto pUndo = std::make_unique<MyAction>();
+				pUndo->m_Aid = aid;
+				pUndo->m_Val = val;
+				m_lstUndo.push_back(*pUndo.release());
+			}
+
+			return bRet;
+		}
+
+		bool AssetEmit2(Asset::ID aid, const PeerID& pid, AmountSigned val)
+		{
+			auto it = m_Assets.find(aid);
+			if (m_Assets.end() == it)
+				return false;
+
+			auto& x = it->second;
+			if (x.m_Pid != pid)
+				return false;
+
+			x.m_Amount += val; // don't care about overflow
 			return true;
 		}
 
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) override
+		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid) override
 		{
+			bool bRet = AssetDestroy2(aid, pid);
+			if (bRet)
+			{
+				struct MyAction
+					:public Action
+				{
+					Asset::ID m_Aid;
+					PeerID m_Pid;
+
+					virtual void Undo(MyProcessor& p) override {
+						auto& x = p.m_Assets[m_Aid];
+						x.m_Amount = 0;
+						x.m_Pid = m_Pid;
+					}
+				};
+
+				auto pUndo = std::make_unique<MyAction>();
+				pUndo->m_Aid = aid;
+				pUndo->m_Pid = pid;
+				m_lstUndo.push_back(*pUndo.release());
+			}
+
+			return bRet;
+		}
+
+		bool AssetDestroy2(Asset::ID aid, const PeerID& pid)
+		{
+			auto it = m_Assets.find(aid);
+			if (m_Assets.end() == it)
+				return false;
+
+			auto& x = it->second;
+			if (x.m_Pid != pid)
+				return false;
+
+			if (x.m_Amount)
+				return false;
+
+			m_Assets.erase(it);
 			return true;
 		}
 
@@ -227,6 +392,26 @@ namespace bvm2 {
 
 			return nCycles;
 		}
+
+		uint32_t RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args)
+		{
+			uint32_t ret = 0;
+			size_t nChanges = m_lstUndo.size();
+			try
+			{
+				ret = RunMany(cid, iMethod, args);
+			}
+			catch (const std::exception&) {
+				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+				UndoChanges(nChanges);
+				m_FarCalls.m_Stack.Clear();
+
+				ret = 0;
+			}
+
+			return ret;
+		}
+
 
 		struct Code
 		{
@@ -290,6 +475,8 @@ namespace bvm2 {
 	{
 		ContractCreate(m_cidVault, m_Code.m_Vault, Blob(nullptr, 0));
 
+		m_lstUndo.Clear();
+
 		Shaders::Vault::Request args;
 
 		ECC::Scalar::Native k;
@@ -300,13 +487,22 @@ namespace bvm2 {
 		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
 		args.m_Amount = ByteOrder::to_le<Amount>(45);
 
-		RunMany(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)));
+		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args))));
 
+		args.m_Amount = ByteOrder::to_le<Amount>(46);
+		verify_test(!RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // too much withdrawn
+
+		args.m_Aid = 0;
 		args.m_Amount = ByteOrder::to_le<Amount>(43);
-		RunMany(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)));
+		verify_test(!RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // wrong asset
+
+		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
+		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // ok
 
 		args.m_Amount = ByteOrder::to_le<Amount>(2);
-		RunMany(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args))); // withdraw, pos terminated
+		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // ok, pos terminated
+
+		UndoChanges(); // up to (but not including) contract creation
 	}
 
 	void MyProcessor::TestDummy()
