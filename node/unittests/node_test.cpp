@@ -2336,8 +2336,10 @@ namespace beam
 
 				bvm2::Compile(pKrn->m_Data, "oracle.wasm");
 
-				pKrn->m_Args.resize(sizeof(Shaders::Oracle::Create) + sizeof(ECC::Point) * _countof(m_Contract.m_pSk));
-				auto& args = *reinterpret_cast<Shaders::Oracle::Create*>(&pKrn->m_Args.front());
+				typedef Shaders::Oracle::Create<_countof(m_Contract.m_pSk)> Ctor;
+
+				pKrn->m_Args.resize(sizeof(Ctor));
+				auto& args = *reinterpret_cast<Ctor*>(&pKrn->m_Args.front());
 
 				args.m_InitialValue = ByteOrder::to_le<Amount>(367000);
 				args.m_Providers = ByteOrder::to_le<uint32_t>(_countof(m_Contract.m_pSk));
