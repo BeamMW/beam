@@ -21,7 +21,7 @@ struct Status
 #pragma pack (pop)
 
 
-export void Ctor(const Oracle::Create& r)
+export void Ctor(const Oracle::Create<0>& r)
 {
     Env::Halt_if(!r.m_Providers);
 

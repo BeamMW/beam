@@ -523,11 +523,11 @@ namespace bvm2 {
 		ContractDestroy(cid, Blob(nullptr, 0));
 	}
 
-	template <typename T, uint32_t nSizeExtra> struct Inflated
-	{
-		alignas (16) uint8_t m_pBuf[sizeof(T) + nSizeExtra];
-		T& get() { return *reinterpret_cast<T*>(m_pBuf); }
-	};
+	//template <typename T, uint32_t nSizeExtra> struct Inflated
+	//{
+	//	alignas (16) uint8_t m_pBuf[sizeof(T) + nSizeExtra];
+	//	T& get() { return *reinterpret_cast<T*>(m_pBuf); }
+	//};
 
 	void MyProcessor::TestOracle()
 	{
@@ -589,8 +589,7 @@ namespace bvm2 {
 
 		{
 			// c'tor
-			Inflated<Shaders::Oracle::Create, sizeof(ECC::Point)* nOracles> buf;
-			auto& args = buf.get();
+			Shaders::Oracle::Create<nOracles> args;
 
 			args.m_InitialValue = ByteOrder::to_le<ValueType>(194);
 			args.m_Providers = ByteOrder::to_le(nOracles);
@@ -606,7 +605,7 @@ namespace bvm2 {
 				pd.Set(i, args.m_InitialValue);
 			}
 
-			ContractCreate(m_cidOracle, m_Code.m_Oracle, Blob(&buf, sizeof(buf)));
+			ContractCreate(m_cidOracle, m_Code.m_Oracle, Blob(&args, sizeof(args)));
 		}
 
 		Shaders::Oracle::Get argsResult;

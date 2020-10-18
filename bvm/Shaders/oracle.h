@@ -6,13 +6,14 @@ namespace Oracle
 
     typedef uint64_t ValueType;
 
+    template <uint32_t nProvs>
     struct Create
     {
         static const uint32_t s_iMethod = 0; // Ctor
 
         uint32_t m_Providers;
         ValueType m_InitialValue;
-        PubKey m_pPk[0]; // variable size
+        PubKey m_pPk[nProvs]; // variable size
     };
 
     struct Set
