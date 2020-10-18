@@ -83,28 +83,44 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 
 #define fail_test(msg) TestFailed(msg, __LINE__)
 
-namespace beam
-{
+namespace beam {
+namespace bvm2 {
 
-	namespace bvm2
+	void TestMergeSort()
 	{
-		void Compile(ByteBuffer& res, const char* sz)
+		std::vector<uint64_t> buf, buf2;
+
+		for (uint32_t nCount = 0; nCount < 500; nCount++)
 		{
-			std::FStream fs;
-			fs.Open(sz, true, true);
+			buf.resize(nCount + 2);
+			buf2.resize(nCount + 2);
+			uint64_t* p = &buf.front();
 
-			res.resize(static_cast<size_t>(fs.get_Remaining()));
-			if (!res.empty())
-				fs.read(&res.front(), res.size());
+			for (uint32_t n = 0; n < 10; n++)
+			{
+				p[0] = 1;
+				p[nCount + 1] = 2;
+				buf2[0] = 3;
+				buf2[nCount + 1] = 4;
+				ECC::GenRandom(p + 1, sizeof(uint64_t) * nCount);
 
-			bvm2::Processor::Compile(res, res);
+				uint64_t* pRes = Shaders::MergeSort<uint64_t>::Do(p + 1, &buf2.front() + 1, nCount);
+
+				verify_test(1 == p[0]);
+				verify_test(2 == p[nCount + 1]);
+				verify_test(3 == buf2[0]);
+				verify_test(4 == buf2[nCount + 1]);
+
+				for (uint32_t i = 0; i + 1 < nCount; i++)
+					verify_test(pRes[i] <= pRes[i + 1]);
+
+			}
+
 		}
-
 	}
 
-
-	struct MyBvm2Processor
-		:public bvm2::Processor
+	struct MyProcessor
+		:public Processor
 	{
 		BlobMap::Set m_Vars;
 
@@ -156,11 +172,6 @@ namespace beam
 			return !bNew;
 		}
 
-		void SaveContract(const bvm2::ContractID& cid, const ByteBuffer& b)
-		{
-			SaveVar(cid, &b.front(), static_cast<uint32_t>(b.size()));
-		}
-
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override
 		{
 			return 100;
@@ -176,14 +187,14 @@ namespace beam
 			return true;
 		}
 
-		MyBvm2Processor()
+		MyProcessor()
 		{
 			m_Dbg.m_Stack = true;
 			m_Dbg.m_Instructions = true;
 			m_Dbg.m_ExtCall = true;
 		}
 
-		uint32_t RunMany(const bvm2::ContractID& cid, uint32_t iMethod, const Blob& args)
+		uint32_t RunMany(const ContractID& cid, uint32_t iMethod, const Blob& args)
 		{
 			std::ostringstream os;
 			m_Dbg.m_pOut = &os;
@@ -216,109 +227,67 @@ namespace beam
 			return nCycles;
 		}
 
-        static const uint32_t s_ElemWidth = 5;
-
-        static void CalcXors(uint8_t* pDst, const uint8_t* pSrc, uint32_t nSize)
-        {
-            for (uint32_t i = 0; i < nSize; i++)
-                pDst[i % s_ElemWidth] ^= pSrc[i];
-        }
-
-        static void TestSort()
-        {
-            ECC::PseudoRandomGenerator prg;
-
-
-            ArrayContext ac;
-            ac.m_nKeyPos = 1;
-            ac.m_nKeyWidth = 2;
-            ac.m_nElementWidth = s_ElemWidth;
-
-            ByteBuffer buf;
-
-            uint8_t pXor0[s_ElemWidth];
-            memset0(pXor0, s_ElemWidth);
-
-            for (ac.m_nCount = 1; ac.m_nCount < 500; ac.m_nCount++)
-            {
-				ac.m_nSize = ac.m_nCount * ac.m_nElementWidth;
-                buf.resize(ac.m_nSize);
-                uint8_t* p = &buf.front();
-
-                for (uint32_t n = 0; n < 10; n++)
-                {
-                    prg.Generate(p, ac.m_nSize);
-
-                    CalcXors(pXor0, p, ac.m_nSize);
-
-                    ac.MergeSort(p);
-
-                    CalcXors(pXor0, p, ac.m_nSize);
-                    verify_test(memis0(pXor0, s_ElemWidth));
-
-                    uint8_t* pK = p + ac.m_nKeyPos;
-
-                    for (uint32_t i = 0; i + 1 < ac.m_nCount; i++)
-                    {
-                        uint8_t* pK0 = pK;
-                        pK += ac.m_nElementWidth;
-
-                        verify_test(memcmp(pK0, pK, ac.m_nKeyWidth) <= 0);
-                    }
-                }
-
-            }
-        }
-
-		static void TestSort2()
+		struct Code
 		{
-			ECC::PseudoRandomGenerator prg;
+			ByteBuffer m_Vault;
+			ByteBuffer m_Oracle;
+			ByteBuffer m_Dummy;
 
-			std::vector<uint64_t> buf, buf2;
+		} m_Code;
 
-			for (uint32_t nCount = 0; nCount < 500; nCount++)
-			{
-				buf.resize(nCount + 2);
-				buf2.resize(nCount + 2);
-				uint64_t* p = &buf.front();
+		ContractID m_cidVault;
+		ContractID m_cidOracle;
 
-				for (uint32_t n = 0; n < 10; n++)
-				{
-					p[0] = 1;
-					p[nCount + 1] = 2;
-					buf2[0] = 3;
-					buf2[nCount + 1] = 4;
-					prg.Generate(p + 1, sizeof(uint64_t) * nCount);
+		void AddCode(ByteBuffer& res, const char* sz)
+		{
+			std::FStream fs;
+			fs.Open(sz, true, true);
 
-					uint64_t* pRes = Shaders::MergeSort<uint64_t>::Do(p + 1, &buf2.front() + 1, nCount);
+			res.resize(static_cast<size_t>(fs.get_Remaining()));
+			if (!res.empty())
+				fs.read(&res.front(), res.size());
 
-					verify_test(1 == p[0]);
-					verify_test(2 == p[nCount + 1]);
-					verify_test(3 == buf2[0]);
-					verify_test(4 == buf2[nCount + 1]);
-
-					for (uint32_t i = 0; i + 1 < nCount; i++)
-						verify_test(pRes[i] <= pRes[i +  1]);
-
-				}
-
-			}
+			Processor::Compile(res, res);
 		}
 
+		void ContractCreate(ContractID&, const Blob& code, const Blob& args);
+		void ContractDestroy(const ContractID&, const Blob& args);
+
+		void TestVault();
+		void TestDummy();
+		void TestOracle();
+
+		void TestAll();
 	};
 
-
-	void TestContract1()
+	void MyProcessor::TestAll()
 	{
-		ByteBuffer data;
-		bvm2::Compile(data, "vault.wasm");
+		AddCode(m_Code.m_Vault, "vault.wasm");
+		AddCode(m_Code.m_Dummy, "dummy.wasm");
+		AddCode(m_Code.m_Oracle, "oracle.wasm");
 
-		MyBvm2Processor proc;
+		TestVault();
+		TestDummy();
+		TestOracle();
+	}
 
-		bvm2::ContractID cid;
+	void MyProcessor::ContractCreate(ContractID& cid, const Blob& code, const Blob& args)
+	{
+		get_Cid(cid, code, args); // c'tor is empty
+		SaveVar(cid, reinterpret_cast<const uint8_t*>(code.p), code.n);
 
-		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
-		proc.SaveContract(cid, data);
+		RunMany(cid, 0, args);
+	}
+
+	void MyProcessor::ContractDestroy(const ContractID& cid, const Blob& args)
+	{
+		RunMany(cid, 1, args);
+		SaveVar(cid, nullptr, 0);
+	}
+
+	void MyProcessor::TestVault()
+	{
+		ContractCreate(m_cidVault, m_Code.m_Vault, Blob(nullptr, 0));
 
 		Shaders::Vault::Request args;
 
@@ -330,33 +299,19 @@ namespace beam
 		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
 		args.m_Amount = ByteOrder::to_le<Amount>(45);
 
-		proc.RunMany(cid, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)));
+		RunMany(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)));
 
 		args.m_Amount = ByteOrder::to_le<Amount>(43);
-		proc.RunMany(cid, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)));
+		RunMany(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)));
 
 		args.m_Amount = ByteOrder::to_le<Amount>(2);
-		proc.RunMany(cid, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args))); // withdraw, pos terminated
+		RunMany(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args))); // withdraw, pos terminated
 	}
 
-	void TestContract2()
+	void MyProcessor::TestDummy()
 	{
-		ByteBuffer data;
-		bvm2::Compile(data, "vault.wasm");
-
-		MyBvm2Processor proc;
-
-		bvm2::ContractID cid;
-
-		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
-		proc.SaveContract(cid, data);
-
-
-		bvm2::Compile(data, "dummy.wasm");
-		bvm2::get_Cid(cid, data, Blob(nullptr, 0)); // c'tor is empty
-		proc.SaveContract(cid, data);
-
-		proc.RunMany(cid, 0, Blob(nullptr, 0)); // c'tor
+		ContractID cid;
+		ContractCreate(cid, m_Code.m_Dummy, Blob(nullptr, 0));
 
 		Shaders::Dummy::MathTest1 args;
 		args.m_Value = 0x1452310AB046C124;
@@ -366,22 +321,16 @@ namespace beam
 
 		args.m_IsOk = 0;
 
-		proc.RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
+		RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
 
-
-		proc.RunMany(cid, 1, Blob(nullptr, 0)); // d'tor
+		ContractDestroy(cid, Blob(nullptr, 0));
 	}
 
-	void TestContract3()
+	void MyProcessor::TestOracle()
 	{
-		ByteBuffer data;
-		bvm2::Compile(data, "oracle.wasm");
-
-		MyBvm2Processor proc;
-		bvm2::ContractID cid;
-
-		proc.m_Dbg.m_Instructions = false;
-		proc.m_Dbg.m_Stack = false;
+		Dbg dbg = m_Dbg;
+		m_Dbg.m_Instructions = false;
+		m_Dbg.m_Stack = false;
 
 		typedef Shaders::Oracle::ValueType ValueType;
 
@@ -457,15 +406,12 @@ namespace beam
 				pd.Set(i, args.m_InitialValue);
 			}
 
-			bvm2::get_Cid(cid, data, Blob(&args, sizeof(args)));
-			proc.SaveContract(cid, data);
-
-			proc.RunMany(cid, 0, buf);
+			ContractCreate(m_cidOracle, m_Code.m_Oracle, buf);
 		}
 
 		Shaders::Oracle::Get argsResult;
 		argsResult.m_Value = 0;
-		proc.RunMany(cid, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
+		RunMany(m_cidOracle, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
 		pd.TestMedian(argsResult.m_Value);
 
 		// set rate, trigger median recalculation
@@ -479,31 +425,36 @@ namespace beam
 			ECC::GenRandom(&args.m_Value, sizeof(args.m_Value));
 			pd.Set(iOracle, ByteOrder::from_le(args.m_Value));
 
-			proc.RunMany(cid, args.s_iMethod, Blob(&args, sizeof(args)));
+			RunMany(m_cidOracle, args.s_iMethod, Blob(&args, sizeof(args)));
 
 			pd.Sort();
 
 			argsResult.m_Value = 0;
-			proc.RunMany(cid, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
+			RunMany(m_cidOracle, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult)));
 			pd.TestMedian(argsResult.m_Value);
 		}
 
-		// d'tor
-		proc.RunMany(cid, 1, Blob(nullptr, 0));
+		ContractDestroy(m_cidOracle, Blob(nullptr, 0));
+
+		m_Dbg = dbg;
 	}
 
-}
+} // namespace bvm2
+} // namespace beam
 
 int main()
 {
 	try
 	{
-		beam::MyBvm2Processor::TestSort();
-		beam::MyBvm2Processor::TestSort2();
+		ECC::PseudoRandomGenerator prg;
+		ECC::PseudoRandomGenerator::Scope scope(&prg);
 
-		beam::TestContract1();
-		beam::TestContract2();
-		beam::TestContract3();
+		using namespace beam::bvm2;
+
+		TestMergeSort();
+
+		MyProcessor proc;
+		proc.TestAll();
 	}
 	catch (const std::exception & ex)
 	{
