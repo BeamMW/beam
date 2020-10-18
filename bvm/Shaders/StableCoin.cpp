@@ -8,10 +8,11 @@ using StableCoin::Balance;
 
 #pragma pack (push, 1)
 
+// Global contract state var
 struct State
 {
-	ContractID m_RateOracle;
-	AssetID m_Aid;
+	ContractID m_RateOracle; // The source of rate info
+	AssetID m_Aid; // the asset we've created to represent the coin
 	uint64_t m_CollateralizationRatio;
 	Height m_BiddingDuration;
 
@@ -41,15 +42,15 @@ struct Position
 	struct Bid
 		:public Balance
 	{
-		Balance m_Best;
-		Height m_Height;
-		PubKey m_Pk;
+		Balance m_Best; // Set to 0 if no bidding
+		Height m_Height; // of the most recently updated bid
+		PubKey m_Pk; // the bidder
 	} m_Bid;
 
 	void Load(const PubKey&);
 	void Save(const PubKey&) const;
 
-	void ChangeBy(const Balance& change, const Balance::Direction&);
+	void ChangeBy(const Balance& change, const Balance::Direction&); // update balance
 	static void ChangeBy_(Balance& trg, const Balance& change, const Balance::Direction&);
 
 	void ReleaseBidStrict(const Worker&);
@@ -63,18 +64,18 @@ static const ContractID g_cidVault = {
 
 export void Ctor(const StableCoin::Ctor<0>& arg)
 {
-	Env::Halt_if(!Env::RefAdd(arg.m_RateOracle));
-	Env::Halt_if(!Env::RefAdd(g_cidVault));
+	Env::Halt_if(!Env::RefAdd(arg.m_RateOracle)); // Lock oracle contract
+	Env::Halt_if(!Env::RefAdd(g_cidVault)); // Lock vault contract
 
 	State s;
-	s.m_Aid = Env::AssetCreate(arg.m_pMetaData, arg.m_nMetaData);
+	s.m_Aid = Env::AssetCreate(arg.m_pMetaData, arg.m_nMetaData); // Create the asset to represent the coin
 	Env::Halt_if(!s.m_Aid);
 
-	s.m_RateOracle = arg.m_RateOracle;
+	s.m_RateOracle = arg.m_RateOracle; // Save params to global state
 	s.m_CollateralizationRatio = arg.m_CollateralizationRatio;
 	s.m_BiddingDuration = arg.m_BiddingDuration;
 
-	uint8_t key = 0;
+	uint8_t key = 0; // key of the global state
 	Env::SaveVar_T(key, s);
 }
 
@@ -84,10 +85,11 @@ export void Dtor(void*)
 	uint8_t key = 0;
 	Env::LoadVar_T(key, s);
 
+	// Unlock the contracts we depend on
 	Env::RefRelease(g_cidVault);
 	Env::RefRelease(s.m_RateOracle);
 
-	Env::Halt_if(!Env::AssetDestroy(s.m_Aid));
+	Env::Halt_if(!Env::AssetDestroy(s.m_Aid)); // Destroy the coin asset. Will fail unless entirely burned
 	Env::DelVar_T(key);
 }
 
@@ -96,13 +98,13 @@ void UpdatePosInternal(Worker& wrk, const StableCoin::UpdatePosition& arg)
 	Position pos;
 	pos.Load(arg.m_Pk);
 
-	pos.ChangeBy(arg.m_Change, arg.m_Direction);
-	Env::Halt_if(!wrk.IsStable(pos.m_Balance));
+	pos.ChangeBy(arg.m_Change, arg.m_Direction); // Update pos by the specified amounts
+	Env::Halt_if(!wrk.IsStable(pos.m_Balance)); // Is it stable?
 
-	if (pos.m_Bid.m_Height)
-		pos.ReleaseBidStrict(wrk);
+	if (pos.m_Bid.m_Height) // is there bidding underway?
+		pos.ReleaseBidStrict(wrk); // cancel it
 
-	Env::AddSig(arg.m_Pk);
+	Env::AddSig(arg.m_Pk); // The owner must sign this tx
 	pos.Save(arg.m_Pk);
 }
 
@@ -113,7 +115,7 @@ export void Method_2(const StableCoin::UpdatePosition& arg)
 
 	UpdatePosInternal(wrk, arg);
 
-	wrk.m_State.MoveFunds(arg.m_Change, arg.m_Direction);
+	wrk.m_State.MoveFunds(arg.m_Change, arg.m_Direction); // move funds in/out the tx
 }
 
 export void Method_3(const StableCoin::PlaceBid& arg)
@@ -130,7 +132,7 @@ export void Method_3(const StableCoin::PlaceBid& arg)
 	d.m_BeamAdd = 1;
 	d.m_AssetAdd = 1;
 
-	Balance futureBalance = pos.m_Balance;
+	Balance futureBalance = pos.m_Balance; // the balance after it receives the bidder funds
 	Position::ChangeBy_(futureBalance, arg.m_Bid, d);
 
 	if (pos.m_Bid.m_Height)
@@ -225,7 +227,7 @@ bool Worker::IsStable(const Balance& x, MultiPrecision::UInt<4>* pReserve /* = n
 		return false;
 
 	if (pReserve)
-		lpReserve->SetSub(valCollateral, valDebt);
+		pReserve->SetSub(valCollateral, valDebt);
 	return true;
 }
 
