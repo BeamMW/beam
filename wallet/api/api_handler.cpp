@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "api_handler.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
@@ -24,11 +25,12 @@
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
+using namespace std::placeholders;
 
 namespace
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     using namespace beam::wallet;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
     const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
     const char kBeamAmountToLowError[] = "\'beam_amount\' must be greater than \"beam_fee\".";
@@ -143,6 +145,29 @@ namespace
     }
 
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    std::map<std::string, std::function<bool(const Coin& a, const Coin& b)>> utxoSortMap = 
+    {
+        {"id", [] (const Coin& a, const Coin& b) { return a.toStringID() < b.toStringID();} },
+        {"asset_id", [] (const Coin& a, const Coin& b) { return a.m_ID.m_AssetID < b.m_ID.m_AssetID;}},
+        {"amount", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Value < b.m_ID.m_Value;}},
+        {"type", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Type < b.m_ID.m_Type;}},
+        {"maturity", [] (const Coin& a, const Coin& b) { return a.get_Maturity() < b.get_Maturity();}},
+        {"createTxId", [] (const Coin& a, const Coin& b)
+            {
+                std::string createTxIdA = a.m_createTxId.is_initialized() ? TxIDToString(*a.m_createTxId) : "";
+                std::string createTxIdB = b.m_createTxId.is_initialized() ? TxIDToString(*b.m_createTxId) : "";
+                return createTxIdA < createTxIdB;
+            }},
+        {"spentTxId", [] (const Coin& a, const Coin& b)
+            {
+                std::string spentTxIdA = a.m_spentTxId.is_initialized() ? TxIDToString(*a.m_spentTxId) : "";
+                std::string spentTxIdB = b.m_spentTxId.is_initialized() ? TxIDToString(*b.m_spentTxId) : "";
+                return spentTxIdA < spentTxIdB;
+            }},
+        {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}},
+        {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
+    };
 
 }  // namespace
 
@@ -798,6 +823,23 @@ namespace beam::wallet
             response.utxos.push_back(c);
             return true;
         });
+
+        if (data.sort.field != "default")
+        {
+            if (const auto& it = utxoSortMap.find(data.sort.field); it != utxoSortMap.end())
+            {
+                std::sort(response.utxos.begin(), response.utxos.end(),
+                        data.sort.desc ? std::bind(it->second, _2, _1) : it->second);
+            }
+            else
+            {
+                return doError(id, ApiError::InvalidParamsJsonRpc, "Can't sort by \"" + data.sort.field + "\" field");
+            }
+        }
+        else if (data.sort.desc)
+        {
+            std::reverse(response.utxos.begin(), response.utxos.end());
+        }
 
         doPagination(data.skip, data.count, response.utxos);
         doResponse(id, response);

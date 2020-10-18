@@ -24,13 +24,15 @@ namespace beam::wallet
     public:
         BitcoinCashSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin_cash::ISettingsProvider& settingsProvider, bool isBeamSide);
 
-        /*static bool CheckAmount(Amount amount, Amount feeRate);
-        static Amount CalcTotalFee(Amount feeRate);*/
+        static bool CheckAmount(Amount amount, Amount feeRate);
+        static Amount CalcTotalFee(Amount feeRate);
 
     protected:
 
         /*uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;*/
         uint8_t GetSighashAlgorithm() const override;
         bool NeedSignValue() const override;
+        bool IsSegwitSupported() const override;
+        uint32_t GetWithdrawTxAverageSize() const override;
     };
 }

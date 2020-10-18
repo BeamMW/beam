@@ -20,7 +20,7 @@
 
 namespace beam::dogecoin
 {
-    constexpr uint64_t kDustThreshold = 1000000;
+    constexpr uint64_t kDustThreshold = 100'000'000u;
     extern const char kMainnetGenesisBlockHash[];
     extern const char kTestnetGenesisBlockHash[];
     extern const char kRegtestGenesisBlockHash[];
