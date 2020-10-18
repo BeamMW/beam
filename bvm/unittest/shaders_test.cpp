@@ -698,15 +698,15 @@ namespace bvm2 {
 		verify_test(ContractCreate(cidSc, m_Code.m_StableCoin, Blob(&argSc, sizeof(argSc))));
 
 		Shaders::StableCoin::UpdatePosition argUpd;
-		argUpd.m_Beam = ByteOrder::to_le<Amount>(1000);
-		argUpd.m_BeamAdd = 1;
-		argUpd.m_Asset = ByteOrder::to_le<Amount>(241);
-		argUpd.m_AssetAdd = 0;
+		argUpd.m_Change.m_Beam = ByteOrder::to_le<Amount>(1000);
+		argUpd.m_Change.m_Asset = ByteOrder::to_le<Amount>(241);
+		argUpd.m_Direction.m_BeamAdd = 1;
+		argUpd.m_Direction.m_AssetAdd = 0;
 		ZeroObject(argUpd.m_Pk);
 
 		verify_test(!RunGuarded(cidSc, argUpd.s_iMethod, Blob(&argUpd, sizeof(argUpd)))); // will fail, not enough collateral
 
-		argUpd.m_Asset = ByteOrder::to_le<Amount>(239);
+		argUpd.m_Change.m_Asset = ByteOrder::to_le<Amount>(239);
 		verify_test(RunGuarded(cidSc, argUpd.s_iMethod, Blob(&argUpd, sizeof(argUpd)))); // should work
 
 		verify_test(!ContractDestroy(cidSc, Blob(nullptr, 0))); // asset was not fully burned

@@ -124,6 +124,18 @@ namespace MultiPrecision
 		template <typename T> bool operator == (const T& x) const { return cmp(x) == 0; }
 		template <typename T> bool operator != (const T& x) const { return cmp(x) != 0; }
 
+		template <uint32_t wa, uint32_t wb>
+		DWord SetAdd(const UInt<wa>& a, const UInt<wb>& b)
+		{
+			// *this = a + b
+			DWord carry = Base::SetAdd(a, b);
+			carry += a.template get_Val<nWords>();
+			carry += b.template get_Val<nWords>();
+
+			m_Val = (Word)carry;
+			return carry >> nWordBits;
+		}
+
 	protected:
 		template <uint32_t wx>
 		friend struct UInt;
@@ -141,18 +153,6 @@ namespace MultiPrecision
 			val = Base::template set_Ord<nShiftWords>(val);
 			m_Val = (Word)val;
 			return val >> nWordBits;
-		}
-
-		template <uint32_t wa, uint32_t wb>
-		DWord SetAdd(const UInt<wa>& a, const UInt<wb>& b)
-		{
-			// *this = a + b
-			DWord carry = Base::SetAdd(a, b);
-			carry += a.template get_Val<nWords>();
-			carry += b.template get_Val<nWords>();
-
-			m_Val = (Word)carry;
-			return carry >> nWordBits;
 		}
 
 		template <uint32_t wDst>

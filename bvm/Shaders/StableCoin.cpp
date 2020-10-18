@@ -3,6 +3,8 @@
 #include "oracle.h"
 #include "Math.h"
 
+using StableCoin::Balance;
+
 #pragma pack (push, 1)
 
 struct State
@@ -10,18 +12,35 @@ struct State
 	ContractID m_RateOracle;
 	AssetID m_Aid;
 	uint64_t m_CollateralizationRatio;
+
+	// consume/release funds to/from tx, emit/burn the stable coin accordingly
+	void MoveFunds(const Balance& change, const Balance::Direction&) const;
+};
+
+struct Worker
+{
+	State m_State;
+	Oracle::Get m_CurrentRate;
+
+	void Load()
+	{
+		uint8_t key = 0;
+		Env::LoadVar_T(key, m_State);
+		Env::CallFar(m_State.m_RateOracle, m_CurrentRate.s_iMethod, &m_CurrentRate);
+	}
+
+	bool IsStable(const Balance&) const;
 };
 
 struct Position
 {
-	Amount m_Beam;
-	Amount m_Asset;
+	Balance m_Balance;
 
 	void Load(const PubKey&);
 	void Save(const PubKey&) const;
 
-	bool IsOk(uint64_t rate, const State& s) const;
-	void Update(const StableCoin::FundsIO&, const State& s);
+	void ChangeBy(const Balance& change, const Balance::Direction&);
+	static void ChangeBy_(Balance& trg, const Balance& change, const Balance::Direction&);
 };
 
 #pragma pack (pop)
@@ -56,26 +75,25 @@ export void Dtor(void*)
 
 export void Method_2(const StableCoin::UpdatePosition& arg)
 {
-	State s;
-	uint8_t key = 0;
-	Env::LoadVar_T(key, s);
+	Worker wrk;
+	wrk.Load();
 
 	Position pos;
 	pos.Load(arg.m_Pk);
 
-	Oracle::Get data;
-	Env::CallFar(s.m_RateOracle, data.s_iMethod, &data);
+	pos.ChangeBy(arg.m_Change, arg.m_Direction);
+	Env::Halt_if(!wrk.IsStable(pos.m_Balance));
 
-	pos.Update(arg, s);
-	Env::Halt_if(!pos.IsOk(data.m_Value, s));
-
+	Env::AddSig(arg.m_Pk);
 	pos.Save(arg.m_Pk);
+
+	wrk.m_State.MoveFunds(arg.m_Change, arg.m_Direction);
 }
 
 void Position::Load(const PubKey& pk)
 {
 	if (!Env::LoadVar_T(pk, *this))
-		Env::Memset(this, 0, sizeof(*this));
+		Utils::ZeroObject(*this);
 }
 
 void Position::Save(const PubKey& pk) const
@@ -86,42 +104,53 @@ void Position::Save(const PubKey& pk) const
 		Env::SaveVar_T(pk, *this);
 }
 
-bool Position::IsOk(uint64_t rate, const State& s) const
+bool Worker::IsStable(const Balance& x) const
 {
 	// m_Beam * rate >= m_Asset * collRatio
-	return
-		(
-			MultiPrecision::From(m_Beam) *
-			MultiPrecision::From(rate)
-		) >= (
-			MultiPrecision::From(m_Asset) *
-			MultiPrecision::From(s.m_CollateralizationRatio)
-		);
+	auto valCollateral =
+		MultiPrecision::From(x.m_Beam) *
+		MultiPrecision::From(m_CurrentRate.m_Value);
+
+	auto valDebt =
+		MultiPrecision::From(x.m_Asset) *
+		MultiPrecision::From(m_State.m_CollateralizationRatio);
+
+	return (valCollateral >= valDebt);
 }
 
-void Position::Update(const StableCoin::FundsIO& arg, const State& s)
+void State::MoveFunds(const Balance& change, const Balance::Direction& d) const
 {
-	if (arg.m_BeamAdd)
-	{
-		Env::FundsLock(0, arg.m_Beam);
-		Strict::Add(m_Beam, arg.m_Beam);
-	}
+	if (d.m_BeamAdd)
+		Env::FundsLock(0, change.m_Beam);
 	else
-	{
-		Strict::Sub(m_Beam, arg.m_Beam);
-		Env::FundsUnlock(0, arg.m_Beam);
-	}
+		Env::FundsUnlock(0, change.m_Beam);
 
-	if (arg.m_AssetAdd)
+	if (d.m_AssetAdd)
 	{
-		Env::FundsLock(s.m_Aid, arg.m_Asset);
-		Strict::Sub(m_Asset, arg.m_Asset);
-		Env::Halt_if(!Env::AssetEmit(s.m_Aid, arg.m_Asset, 0));
+		Env::FundsLock(m_Aid, change.m_Asset);
+		Env::Halt_if(!Env::AssetEmit(m_Aid, change.m_Asset, 0));
 	}
 	else
 	{
-		Env::Halt_if(!Env::AssetEmit(s.m_Aid, arg.m_Asset, 1));
-		Strict::Add(m_Asset, arg.m_Asset);
-		Env::FundsUnlock(s.m_Aid, arg.m_Asset);
+		Env::Halt_if(!Env::AssetEmit(m_Aid, change.m_Asset, 1));
+		Env::FundsUnlock(m_Aid, change.m_Asset);
 	}
+}
+
+void Position::ChangeBy(const Balance& change, const Balance::Direction& d)
+{
+	ChangeBy_(m_Balance, change, d);
+}
+
+void Position::ChangeBy_(Balance& trg, const Balance& change, const Balance::Direction& d)
+{
+	if (d.m_BeamAdd)
+		Strict::Add(trg.m_Beam, change.m_Beam);
+	else
+		Strict::Sub(trg.m_Beam, change.m_Beam);
+
+	if (d.m_AssetAdd)
+		Strict::Sub(trg.m_Asset, change.m_Asset);
+	else
+		Strict::Add(trg.m_Asset, change.m_Asset);
 }

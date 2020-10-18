@@ -15,19 +15,24 @@ namespace StableCoin
         uint8_t m_pMetaData[nMeta]; // variable size
     };
 
-    struct FundsIO
+    struct Balance
     {
         Amount m_Beam;
         Amount m_Asset;
-        uint8_t m_BeamAdd;
-        uint8_t m_AssetAdd;
+
+        struct Direction {
+            uint8_t m_BeamAdd;
+            uint8_t m_AssetAdd;
+        };
     };
 
     struct UpdatePosition
-        :public FundsIO
     {
         static const uint32_t s_iMethod = 2;
+
         PubKey m_Pk;
+        Balance m_Change;
+        Balance::Direction m_Direction;
     };
 
 #pragma pack (pop)

@@ -134,6 +134,11 @@ namespace Utils {
         return a;
     }
 
+    template <typename T>
+    inline void ZeroObject(T& x) {
+        Env::Memset(&x, 0, sizeof(x));
+    }
+
 } // namespace Utils
 
 namespace std {
