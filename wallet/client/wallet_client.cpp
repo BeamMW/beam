@@ -1241,6 +1241,7 @@ namespace beam::wallet
         status.receiving         = AmountBig::get_Lo(totals.Incoming);
         status.sending           = AmountBig::get_Lo(totals.Outgoing) + AmountBig::get_Lo(totals.OutgoingShielded);
         status.maturing          = AmountBig::get_Lo(totals.Maturing);
+        status.maturingMP        = AmountBig::get_Lo(totals.MaturingShielded);
         status.shielded          = AmountBig::get_Lo(totals.AvailShielded);
         status.update.lastTime   = m_walletDB->getLastUpdateTime();
 

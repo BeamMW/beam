@@ -47,6 +47,7 @@ namespace beam::wallet
         Amount receivingChange = 0;
         Amount sending = 0;
         Amount maturing = 0;
+        Amount maturingMP = 0;
         Amount shielded = 0;
 
         struct
