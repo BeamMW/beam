@@ -262,6 +262,9 @@ bool IsSwapAmountValid(
         return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Dash:
         return DashSide::CheckAmount(swapAmount, swapFeeRate);
+    case AtomicSwapCoin::Ethereum:
+        // TODO roman.strilets
+        return true;
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }

@@ -15,6 +15,7 @@
 #pragma once
 #include "bridge.h"
 #include "settings_provider.h"
+#include "bridge_holder.h"
 
 namespace beam::ethereum
 {
@@ -46,7 +47,7 @@ public:
         Unknown
     };
 
-    Client(std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor);
+    Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor);
 
     IClientAsync::Ptr GetAsync();
 
@@ -83,7 +84,7 @@ private:
     io::Reactor& m_reactor;
     IClientAsync::Ptr m_async;
     std::unique_ptr<SettingsProvider> m_settingsProvider;
-    IBridge::Ptr m_bridge;
+    IBridgeHolder::Ptr m_bridgeHolder;
 
     mutable std::mutex m_mutex;
     using Lock = std::unique_lock<std::mutex>;

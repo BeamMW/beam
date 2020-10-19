@@ -47,12 +47,13 @@ struct EthereumClientBridge : public Bridge<IClientAsync>
     }
 };
 
-Client::Client(std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
+Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
     : m_status(settingsProvider->GetSettings().IsActivated() ? Status::Connecting :
         settingsProvider->GetSettings().IsInitialized() ? Status::Initialized : Status::Uninitialized)
     , m_reactor(reactor)
     , m_async{ std::make_shared<EthereumClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
     , m_settingsProvider{ std::move(settingsProvider) }
+    , m_bridgeHolder(bridgeHolder)
 {
 }
 
@@ -189,13 +190,7 @@ void Client::SetStatus(const Status& status)
 
 IBridge::Ptr Client::GetBridge()
 {
-    //return m_bridgeHolder->Get(m_reactor, *this);
-    if (!m_bridge)
-    {
-        m_bridge = std::make_shared<EthereumBridge>(m_reactor, *this);
-    }
-
-    return m_bridge;
+    return m_bridgeHolder->Get(m_reactor, *this);
 }
 
 bool Client::CanModify() const
