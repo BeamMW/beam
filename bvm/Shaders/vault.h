@@ -13,6 +13,12 @@ namespace Vault
         // methods are for internal use
         Amount Load() const;
         void Save(Amount) const;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Aid);
+        }
     };
 
     // same param for deposit and withdraw methods
@@ -20,6 +26,13 @@ namespace Vault
         :public Key
     {
         Amount m_Amount;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            Key::Convert<bToShader>();
+            ConvertOrd<bToShader>(m_Amount);
+        }
     };
 
     struct Deposit :public Request {

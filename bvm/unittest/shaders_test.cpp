@@ -29,16 +29,29 @@ namespace Shaders {
 	using beam::Height;
 	using beam::bvm2::ContractID;
 
+	template<bool bToShader, typename T>
+	void ConvertOrd(T& x)
+	{
+		if constexpr (bToShader)
+			x = beam::ByteOrder::to_le(x);
+		else
+			x = beam::ByteOrder::from_le(x);
+	}
+
+#define HOST_BUILD
+
 #ifdef _MSC_VER
-#	pragma warning (disable : 4200) // zero-sized array
+#	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
+
 #include "../Shaders/vault.h"
 #include "../Shaders/oracle.h"
 #include "../Shaders/dummy.h"
 #include "../Shaders/StableCoin.h"
 #include "../Shaders/MergeSort.h"
+
 #ifdef _MSC_VER
-#	pragma warning (default : 4200)
+#	pragma warning (default : 4200 4702)
 #endif // _MSC_VER
 }
 
@@ -395,13 +408,26 @@ namespace bvm2 {
 			return nCycles;
 		}
 
-		uint32_t RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args)
+		uint32_t RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args, const Blob* pCode)
 		{
 			uint32_t ret = 0;
 			size_t nChanges = m_lstUndo.size();
+
+			if (!iMethod)
+			{
+				// c'tor
+				assert(pCode);
+				get_Cid(Cast::NotConst(cid), *pCode, args); // c'tor is empty
+				SaveVar(cid, reinterpret_cast<const uint8_t*>(pCode->p), pCode->n);
+			}
+
 			try
 			{
 				ret = RunMany(cid, iMethod, args);
+
+				if (1 == iMethod) // d'tor
+					SaveVar(cid, nullptr, 0);
+
 			}
 			catch (const std::exception&) {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
@@ -414,6 +440,43 @@ namespace bvm2 {
 			return ret;
 		}
 
+		template <typename T>
+		struct Converter
+			:public Blob
+		{
+			Converter(T& arg)
+			{
+				arg.Convert<true>();
+				p = &arg;
+				n = static_cast<uint32_t>(sizeof(arg));
+			}
+
+			~Converter()
+			{
+				T& arg = Cast::NotConst(*reinterpret_cast<const T*>(p));
+				arg.Convert<false>();
+			}
+		};
+
+		template <typename TArg>
+		uint32_t RunGuarded_T(const ContractID& cid, uint32_t iMethod, TArg& args)
+		{
+			Converter<TArg> cvt(args);
+			return RunGuarded(cid, iMethod, cvt, nullptr);
+		}
+
+		template <typename T>
+		uint32_t ContractCreate_T(ContractID& cid, const Blob& code, T& args) {
+			Converter<T> cvt(args);
+			return RunGuarded(cid, 0, cvt, &code);
+		}
+
+		template <typename T>
+		uint32_t ContractDestroy_T(const ContractID& cid, T& args)
+		{
+			Converter<T> cvt(args);
+			return RunGuarded(cid, 1, cvt, nullptr);
+		}
 
 		struct Code
 		{
@@ -439,9 +502,6 @@ namespace bvm2 {
 			Processor::Compile(res, res);
 		}
 
-		uint32_t ContractCreate(ContractID&, const Blob& code, const Blob& args);
-		uint32_t ContractDestroy(const ContractID&, const Blob& args);
-
 		void TestVault();
 		void TestDummy();
 		void TestOracle();
@@ -449,6 +509,18 @@ namespace bvm2 {
 
 		void TestAll();
 	};
+
+	template <>
+	struct MyProcessor::Converter<beam::Zero_>
+		:public Blob
+	{
+		Converter(beam::Zero_&)
+		{
+			p = nullptr;
+			n = 0;
+		}
+	};
+
 
 	void MyProcessor::TestAll()
 	{
@@ -463,32 +535,10 @@ namespace bvm2 {
 		TestStableCoin();
 	}
 
-	uint32_t MyProcessor::ContractCreate(ContractID& cid, const Blob& code, const Blob& args)
-	{
-		size_t nChanges = m_lstUndo.size();
-
-		get_Cid(cid, code, args); // c'tor is empty
-		SaveVar(cid, reinterpret_cast<const uint8_t*>(code.p), code.n);
-
-		uint32_t ret = RunGuarded(cid, 0, args);
-		if (!ret)
-			UndoChanges(nChanges);
-
-		return ret;
-	}
-
-	uint32_t MyProcessor::ContractDestroy(const ContractID& cid, const Blob& args)
-	{
-		uint32_t ret = RunGuarded(cid, 1, args);
-		if (ret)
-			SaveVar(cid, nullptr, 0);
-
-		return ret;
-	}
-
 	void MyProcessor::TestVault()
 	{
-		verify_test(ContractCreate(m_cidVault, m_Code.m_Vault, Blob(nullptr, 0)));
+		Zero_ zero;
+		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
 
 		m_lstUndo.Clear();
 
@@ -499,28 +549,28 @@ namespace bvm2 {
 		ECC::Point::Native pt = ECC::Context::get().G * k;
 
 		args.m_Account = pt;
-		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
-		args.m_Amount = ByteOrder::to_le<Amount>(45);
+		args.m_Aid = 3;
+		args.m_Amount = 45;
 
-		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args))));
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
 
-		args.m_Amount = ByteOrder::to_le<Amount>(46);
-		verify_test(!RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // too much withdrawn
+		args.m_Amount = 46;
+		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // too much withdrawn
 
 		args.m_Aid = 0;
-		args.m_Amount = ByteOrder::to_le<Amount>(43);
-		verify_test(!RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // wrong asset
+		args.m_Amount = 43;
+		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // wrong asset
 
-		args.m_Aid = ByteOrder::to_le<Asset::ID>(3);
-		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // ok
+		args.m_Aid = 3;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // ok
 
-		args.m_Amount = ByteOrder::to_le<Amount>(2);
-		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, Blob(&args, sizeof(args)))); // ok, pos terminated
+		args.m_Amount = 2;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // ok, pos terminated
 
-		args.m_Amount = ByteOrder::to_le<Amount>(0xdead2badcadebabeULL);
+		args.m_Amount = 0xdead2badcadebabeULL;
 
-		verify_test(RunGuarded(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)))); // huge amount, should work
-		verify_test(!RunGuarded(m_cidVault, Shaders::Vault::Deposit::s_iMethod, Blob(&args, sizeof(args)))); // would overflow
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args)); // huge amount, should work
+		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args)); // would overflow
 
 		UndoChanges(); // up to (but not including) contract creation
 	}
@@ -528,7 +578,8 @@ namespace bvm2 {
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
-		verify_test(ContractCreate(cid, m_Code.m_Dummy, Blob(nullptr, 0)));
+		Zero_ zero;
+		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
 
 		Shaders::Dummy::MathTest1 args;
 		args.m_Value = 0x1452310AB046C124;
@@ -538,9 +589,9 @@ namespace bvm2 {
 
 		args.m_IsOk = 0;
 
-		verify_test(RunGuarded(cid, args.s_iMethod, Blob(&args, sizeof(args))));
+		verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 
-		verify_test(ContractDestroy(cid, Blob(nullptr, 0)));
+		verify_test(ContractDestroy_T(cid, zero));
 	}
 
 	//template <typename T, uint32_t nSizeExtra> struct Inflated
@@ -601,7 +652,7 @@ namespace bvm2 {
 			void TestMedian(ValueType val)
 			{
 				ValueType val1 = m_pData[nOracles / 2].m_Value;
-				verify_test(val == ByteOrder::to_le(val1));
+				verify_test(val == val1);
 			}
 		};
 
@@ -611,7 +662,7 @@ namespace bvm2 {
 			// c'tor
 			Shaders::Oracle::Create<nOracles> args;
 
-			args.m_InitialValue = ByteOrder::to_le<ValueType>(194);
+			args.m_InitialValue = 194;
 
 			for (uint32_t i = 0; i < nOracles; i++)
 			{
@@ -625,15 +676,15 @@ namespace bvm2 {
 			}
 
 			args.m_Providers = 0;
-			verify_test(!ContractCreate(m_cidOracle, m_Code.m_Oracle, Blob(&args, sizeof(args)))); // zero providers not allowed
+			verify_test(!ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args)); // zero providers not allowed
 
-			args.m_Providers = ByteOrder::to_le(nOracles);
-			verify_test(ContractCreate(m_cidOracle, m_Code.m_Oracle, Blob(&args, sizeof(args))));
+			args.m_Providers = nOracles;
+			verify_test(ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args));
 		}
 
 		Shaders::Oracle::Get argsResult;
 		argsResult.m_Value = 0;
-		verify_test(RunGuarded(m_cidOracle, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult))));
+		verify_test(RunGuarded_T(m_cidOracle, argsResult.s_iMethod, argsResult));
 		pd.TestMedian(argsResult.m_Value);
 
 		// set rate, trigger median recalculation
@@ -642,21 +693,22 @@ namespace bvm2 {
 			uint32_t iOracle = i % nOracles;
 
 			Shaders::Oracle::Set args;
-			args.m_iProvider = ByteOrder::to_le<uint32_t>(iOracle);
+			args.m_iProvider = iOracle;
 
 			ECC::GenRandom(&args.m_Value, sizeof(args.m_Value));
-			pd.Set(iOracle, ByteOrder::from_le(args.m_Value));
+			pd.Set(iOracle, args.m_Value);
 
-			verify_test(RunGuarded(m_cidOracle, args.s_iMethod, Blob(&args, sizeof(args))));
+			verify_test(RunGuarded_T(m_cidOracle, args.s_iMethod, args));
 
 			pd.Sort();
 
 			argsResult.m_Value = 0;
-			verify_test(RunGuarded(m_cidOracle, argsResult.s_iMethod, Blob(&argsResult, sizeof(argsResult))));
+			verify_test(RunGuarded_T(m_cidOracle, argsResult.s_iMethod, argsResult));
 			pd.TestMedian(argsResult.m_Value);
 		}
 
-		verify_test(ContractDestroy(m_cidOracle, Blob(nullptr, 0)));
+		Zero_ zero;
+		verify_test(ContractDestroy_T(m_cidOracle, zero));
 
 		m_Dbg = dbg;
 	}
@@ -684,34 +736,35 @@ namespace bvm2 {
 		{
 			Shaders::Oracle::Create<1> args;
 
-			args.m_InitialValue = ByteOrder::to_le<uint64_t>(RateFromPercents(36)); // current ratio: 1 beam == 0.36 stablecoin
-			args.m_Providers = ByteOrder::to_le(1U);
+			args.m_InitialValue = RateFromPercents(36); // current ratio: 1 beam == 0.36 stablecoin
+			args.m_Providers = 1;
 			ZeroObject(args.m_pPk[0]);
-			verify_test(ContractCreate(argSc.m_RateOracle, m_Code.m_Oracle, Blob(&args, sizeof(args))));
+			verify_test(ContractCreate_T(argSc.m_RateOracle, m_Code.m_Oracle, args));
 		}
 
 		argSc.m_nMetaData = sizeof(szMyMeta) - 1;
 		memcpy(argSc.m_pMetaData, szMyMeta, argSc.m_nMetaData);
-		argSc.m_CollateralizationRatio = ByteOrder::to_le<uint64_t>(RateFromPercents(150));
+		argSc.m_CollateralizationRatio = RateFromPercents(150);
 
 		ContractID cidSc;
-		verify_test(ContractCreate(cidSc, m_Code.m_StableCoin, Blob(&argSc, sizeof(argSc))));
+		verify_test(ContractCreate_T(cidSc, m_Code.m_StableCoin, argSc));
 
 		Shaders::StableCoin::UpdatePosition argUpd;
-		argUpd.m_Change.m_Beam = ByteOrder::to_le<Amount>(1000);
-		argUpd.m_Change.m_Asset = ByteOrder::to_le<Amount>(241);
+		argUpd.m_Change.m_Beam = 1000;
+		argUpd.m_Change.m_Asset = 241;
 		argUpd.m_Direction.m_BeamAdd = 1;
 		argUpd.m_Direction.m_AssetAdd = 0;
 		ZeroObject(argUpd.m_Pk);
 
-		verify_test(!RunGuarded(cidSc, argUpd.s_iMethod, Blob(&argUpd, sizeof(argUpd)))); // will fail, not enough collateral
+		verify_test(!RunGuarded_T(cidSc, argUpd.s_iMethod, argUpd)); // will fail, not enough collateral
 
-		argUpd.m_Change.m_Asset = ByteOrder::to_le<Amount>(239);
-		verify_test(RunGuarded(cidSc, argUpd.s_iMethod, Blob(&argUpd, sizeof(argUpd)))); // should work
+		argUpd.m_Change.m_Asset = 239;
+		verify_test(RunGuarded_T(cidSc, argUpd.s_iMethod, argUpd)); // should work
 
-		verify_test(!ContractDestroy(cidSc, Blob(nullptr, 0))); // asset was not fully burned
+		Zero_ zero;
+		verify_test(!ContractDestroy_T(cidSc, zero)); // asset was not fully burned
 
-		verify_test(ContractDestroy(argSc.m_RateOracle, Blob(nullptr, 0)));
+		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
 	}
 
 

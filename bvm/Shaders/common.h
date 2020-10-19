@@ -14,7 +14,9 @@
 
 #pragma once
 
-// Common ord types (clang seems to miss them)
+#ifndef HOST_BUILD
+
+// Common ord types
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
@@ -40,6 +42,11 @@ struct Opaque {
 
 typedef Opaque<33> PubKey;
 typedef Opaque<32> ContractID;
+
+template <bool bToShader, typename T>
+inline void ConvertOrd(T&) {}
+
+#endif // HOST_BUILD
 
 // environment functions
 #include "../bvm2_opcodes.h"

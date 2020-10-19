@@ -14,6 +14,15 @@ namespace Dummy
         uint64_t m_Try;
         uint8_t m_IsOk; // m_Try <(?)= m_Value * m_Rate * m_Factor / 2^64
 
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Value);
+            ConvertOrd<bToShader>(m_Rate);
+            ConvertOrd<bToShader>(m_Factor);
+            ConvertOrd<bToShader>(m_Try);
+            ConvertOrd<bToShader>(m_IsOk);
+        }
     };
 
 #pragma pack (pop)
