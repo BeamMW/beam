@@ -229,7 +229,19 @@ namespace beam::wallet
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
+
     private:
+        // Asset info can be requested multiple times for the same ID
+        // We collect all such events and process them in bulk at
+        // the end of the libuv cycle ignoring duplicate reuqests
+        void processAInfo();
+        std::set<Asset::ID> m_ainfoRequests;
+        struct DelayedAssetInfo
+            :public io::IdleEvt
+        {
+            virtual void OnSchedule() override;
+            IMPLEMENT_GET_PARENT_OBJ(WalletClient, m_ainfoDelayed)
+        } m_ainfoDelayed;
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;

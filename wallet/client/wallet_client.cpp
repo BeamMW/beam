@@ -478,6 +478,7 @@ namespace beam::wallet
                 nodeNetwork.reset();
 
                 m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
+                m_ainfoDelayed.cancel();
             }
             catch (const runtime_error& ex)
             {
@@ -1338,9 +1339,30 @@ namespace beam::wallet
 
     void WalletClient::getAssetInfo(const Asset::ID assetId)
     {
-        if(const auto oasset = m_walletDB->findAsset(assetId))
+        m_ainfoRequests.insert(assetId);
+        m_ainfoDelayed.start();
+    }
+
+    void WalletClient::DelayedAssetInfo::OnSchedule()
+    {
+        get_ParentObj().processAInfo();
+    }
+
+    void WalletClient::processAInfo ()
+    {
+        if (m_ainfoRequests.empty()) {
+            return;
+        }
+
+        auto reqs = m_ainfoRequests;
+        m_ainfoRequests.clear();
+
+        for(auto assetId: reqs)
         {
-            onAssetInfo(assetId, *oasset);
+            if(const auto oasset = m_walletDB->findAsset(assetId))
+            {
+                onAssetInfo(assetId, *oasset);
+            }
         }
     }
 }
