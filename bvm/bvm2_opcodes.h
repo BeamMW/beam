@@ -29,7 +29,7 @@
 	macro(uint32_t, size)
 
 #define BVMOp_Memset(macro, sep) \
-	macro(const void*, pDst) sep \
+	macro(void*, pDst) sep \
 	macro(uint8_t, val) sep \
 	macro(uint32_t, size)
 

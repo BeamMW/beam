@@ -556,7 +556,7 @@ namespace bvm2 {
 		SetVarKeyInternal(vk, pKey, nKey);
 
 		Wasm::Test(nVal <= Limits::VarSize);
-		uint8_t* pVal_ = get_AddrW(pVal, nVal);
+		const uint8_t* pVal_ = get_AddrR(pVal, nVal);
 
 		SaveVar(vk, pVal_, nVal);
 	}
