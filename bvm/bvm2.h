@@ -107,6 +107,11 @@ namespace bvm2 {
 		bool Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
+
+		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
+			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
+		}
+
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
@@ -145,6 +150,7 @@ namespace bvm2 {
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
+		void InitStack(uint8_t nFill = 0);
 		void InitStack(const Blob& args, uint8_t nFill = 0); // initial arguments
 		void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs);
 

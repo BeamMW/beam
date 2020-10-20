@@ -59,23 +59,27 @@ namespace bvm2 {
 	};
 #pragma pack (pop)
 
-
-	void Processor::InitStack(const Blob& args, uint8_t nFill /* = 0 */)
+	void Processor::InitStack(uint8_t nFill /* = 0 */)
 	{
 		m_Stack.m_pPtr = m_pStack;
 		m_Stack.m_BytesMax = sizeof(m_pStack);
+		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
 		m_Stack.m_Pos = 0;
 
-		Wasm::Test(args.n <= sizeof(m_pStack));
-		m_Stack.m_BytesCurrent = sizeof(m_pStack) - m_Stack.AlignUp(args.n);
-
 		memset(m_pStack, nFill, sizeof(m_pStack));
-		memcpy(reinterpret_cast<uint8_t*>(m_pStack) + m_Stack.m_BytesCurrent, args.p, args.n);
 
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
 		ZeroObject(m_Instruction);
+	}
+
+	void Processor::InitStack(const Blob& args, uint8_t nFill /* = 0 */)
+	{
+		InitStack(nFill);
+
+		m_Stack.AliasAlloc(sizeof(args));
+		memcpy(m_Stack.get_AliasPtr(), args.p, args.n);
 	}
 
 	const Processor::Header& Processor::ParseMod()
@@ -353,10 +357,6 @@ namespace bvm2 {
 
 		uint8_t HandleRef(Wasm::Word pContractID, bool bAdd);
 		bool HandleRefRaw(const VarKey&, bool bAdd);
-
-		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
-			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
-		}
 	};
 
 	template <typename TRes> struct ProcessorPlus::Caller {

@@ -1248,6 +1248,27 @@ namespace Wasm {
 		TestSelf();
 	}
 
+	void Processor::Stack::AliasAlloc(Word nSize)
+	{
+		nSize = AlignUp(nSize);
+		Test(nSize <= m_BytesCurrent);
+		m_BytesCurrent -= nSize;
+		TestSelf();
+	}
+
+	void Processor::Stack::AliasFree(Word nSize)
+	{
+		nSize = AlignUp(nSize);
+		m_BytesCurrent += nSize;
+		Test(nSize <= m_BytesCurrent); // no overflow
+		TestSelf();
+	}
+
+	uint8_t* Processor::Stack::get_AliasPtr() const
+	{
+		return reinterpret_cast<uint8_t*>(m_pPtr) + m_BytesCurrent;
+	}
+
 	void Processor::Stack::TestSelf() const
 	{
 		Test(m_BytesCurrent <= m_BytesMax);

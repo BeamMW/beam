@@ -198,6 +198,12 @@ namespace Wasm {
 
 			Word get_AlasSp() const;
 			void set_AlasSp(Word);
+
+			void AliasAlloc(Word nSize);
+			void AliasFree(Word nSize);
+			uint8_t* get_AliasPtr() const;
+
+
 			void TestSelf() const;
 
 			Word Pop1();
