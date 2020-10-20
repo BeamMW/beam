@@ -34,6 +34,8 @@ namespace Shaders {
 #include "../Shaders/dummy.h"
 #include "../Shaders/StableCoin.h"
 
+#define export
+
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"
 #include "../Shaders/MergeSort.h"
@@ -573,7 +575,8 @@ namespace bvm2 {
 
 			~TempFrame()
 			{
-				m_This.m_FarCalls.m_Stack.pop_back();
+				// don't call pop_back, in case of exc following interpreter frames won't be popped
+				m_This.m_FarCalls.m_Stack.erase(intrusive::list<FarCalls::Frame>::s_iterator_to(m_Frame));
 			}
 		};
 
@@ -581,7 +584,7 @@ namespace bvm2 {
 		{
 			if (cid == m_cidVault)
 			{
-				TempFrame f(*this, cid);
+				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
 				//case 0: Shaders::Vault::Ctor(nullptr); return;
@@ -593,7 +596,7 @@ namespace bvm2 {
 
 			if (cid == m_cidOracle)
 			{
-				TempFrame f(*this, cid);
+				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
 				//case 0: Shaders::Oracle::Ctor(CastArg<Shaders::Oracle::Create<0> >(pArgs)); return;
@@ -605,10 +608,10 @@ namespace bvm2 {
 
 			if (cid == m_cidStableCoin)
 			{
-				TempFrame f(*this, cid);
+				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
-				//case 0: Shaders::StableCoin::Create(CastArg<Shaders::StableCoin::Create<0> >(pArgs)); return;
+				//case 0: Shaders::StableCoin::Ctor(CastArg<Shaders::StableCoin::Create<0> >(pArgs)); return;
 				//case 1: Shaders::StableCoin::Dtor(nullptr); return;
 				//case 2: Shaders::StableCoin::Method_2(CastArg<Shaders::StableCoin::UpdatePosition>(pArgs)); return;
 				//case 3: Shaders::StableCoin::Method_3(CastArg<Shaders::StableCoin::PlaceBid>(pArgs)); return;
