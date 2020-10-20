@@ -84,6 +84,16 @@ namespace Shaders {
 
 	} // namespace Env
 
+	namespace Vault {
+#include "../Shaders/vault.cpp"
+	}
+	namespace Oracle {
+#include "../Shaders/oracle.cpp"
+	}
+	namespace StableCoin {
+#include "../Shaders/StableCoin.cpp"
+	}
+
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
 #endif // _MSC_VER
@@ -558,6 +568,73 @@ namespace bvm2 {
 				fs.read(&res.front(), res.size());
 
 			Processor::Compile(res, res);
+		}
+
+		template <typename T>
+		T& CastArg(Wasm::Word nArg)
+		{
+			return Cast::NotConst(get_AddrAsR<T>(nArg));
+		}
+
+		struct TempFrame
+		{
+			MyProcessor& m_This;
+			FarCalls::Frame m_Frame;
+
+			TempFrame(MyProcessor& x, const ContractID& cid)
+				:m_This(x)
+			{
+				m_Frame.m_Cid = cid;
+				m_Frame.m_LocalDepth = 0;
+				m_This.m_FarCalls.m_Stack.push_back(m_Frame);
+			}
+
+			~TempFrame()
+			{
+				m_This.m_FarCalls.m_Stack.pop_back();
+			}
+		};
+
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs) override
+		{
+			if (cid == m_cidVault)
+			{
+				TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Vault::Ctor(nullptr); return;
+				//case 1: Shaders::Vault::Dtor(nullptr); return;
+				//case 2: Shaders::Vault::Method_2(CastArg<Shaders::Vault::Deposit>(pArgs)); return;
+				//case 3: Shaders::Vault::Method_3(CastArg<Shaders::Vault::Withdraw>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidOracle)
+			{
+				TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Oracle::Ctor(CastArg<Shaders::Oracle::Create<0> >(pArgs)); return;
+				//case 1: Shaders::Oracle::Dtor(nullptr); return;
+				//case 2: Shaders::Oracle::Method_2(CastArg<Shaders::Oracle::Set>(pArgs)); return;
+				//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidStableCoin)
+			{
+				TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::StableCoin::Ctor(CastArg<Shaders::StableCoin::Ctor<0> >(pArgs)); return;
+				//case 1: Shaders::StableCoin::Dtor(nullptr); return;
+				//case 2: Shaders::StableCoin::Method_2(CastArg<Shaders::StableCoin::UpdatePosition>(pArgs)); return;
+				//case 3: Shaders::StableCoin::Method_3(CastArg<Shaders::StableCoin::PlaceBid>(pArgs)); return;
+				//case 4: Shaders::StableCoin::Method_4(CastArg<Shaders::StableCoin::Grab>(pArgs)); return;
+				//}
+			}
+
+			Processor::CallFar(cid, iMethod, pArgs);
 		}
 
 		void TestVault();
