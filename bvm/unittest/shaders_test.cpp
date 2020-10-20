@@ -375,42 +375,55 @@ namespace bvm2 {
 			m_Dbg.m_ExtCall = true;
 		}
 
-		uint32_t RunMany(const ContractID& cid, uint32_t iMethod, const Blob& args)
+		uint32_t m_Cycles;
+
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs)
+		{
+			m_Stack.AliasAlloc(nArgs);
+			memcpy(m_Stack.get_AliasPtr(), pArgs, nArgs);
+
+			size_t nFrames = m_FarCalls.m_Stack.size();
+
+			Wasm::Word nSp = m_Stack.get_AlasSp();
+			CallFar(cid, iMethod, nSp);
+
+			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)
+			{
+				RunOnce();
+
+				if (m_Dbg.m_pOut)
+				{
+					std::cout << m_Dbg.m_pOut->str();
+					m_Dbg.m_pOut->str("");
+				}
+			}
+
+			verify_test(nSp == m_Stack.get_AlasSp()); // stack must be restored
+
+			memcpy(pArgs, m_Stack.get_AliasPtr(), nArgs);
+			m_Stack.AliasFree(nArgs);
+		}
+
+		void RunMany(const ContractID& cid, uint32_t iMethod, const Blob& args)
 		{
 			std::ostringstream os;
 			m_Dbg.m_pOut = &os;
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
-			InitStack(args, 0xcd);
+			InitStack(0xcd);
 
-			Wasm::Word pArgs = m_Stack.get_AlasSp();
+			m_Cycles = 0;
 
-			CallFar(cid, iMethod, pArgs);
+			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n);
 
-			uint32_t nCycles = 0;
-			for (; !IsDone(); nCycles++)
-			{
-				RunOnce();
-
-				std::cout << os.str();
-				os.str("");
-			}
-
-			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
+			os << "Done in " << m_Cycles << " cycles" << std::endl << std::endl;
 			std::cout << os.str();
-
-			verify_test(pArgs == m_Stack.get_AlasSp()); // stack must be restored
-
-			// copy retval (for test only)
-			memcpy(Cast::NotConst(args.p), reinterpret_cast<uint8_t*>(m_Stack.m_pPtr) + m_Stack.m_BytesCurrent, args.n);
-
-			return nCycles;
 		}
 
-		uint32_t RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args, const Blob* pCode)
+		bool RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args, const Blob* pCode)
 		{
-			uint32_t ret = 0;
+			bool ret = true;
 			size_t nChanges = m_lstUndo.size();
 
 			if (!iMethod)
@@ -423,7 +436,7 @@ namespace bvm2 {
 
 			try
 			{
-				ret = RunMany(cid, iMethod, args);
+				RunMany(cid, iMethod, args);
 
 				if (1 == iMethod) // d'tor
 					SaveVar(cid, nullptr, 0);
@@ -434,7 +447,7 @@ namespace bvm2 {
 				UndoChanges(nChanges);
 				m_FarCalls.m_Stack.Clear();
 
-				ret = 0;
+				ret = false;
 			}
 
 			return ret;
@@ -459,20 +472,20 @@ namespace bvm2 {
 		};
 
 		template <typename TArg>
-		uint32_t RunGuarded_T(const ContractID& cid, uint32_t iMethod, TArg& args)
+		bool RunGuarded_T(const ContractID& cid, uint32_t iMethod, TArg& args)
 		{
 			Converter<TArg> cvt(args);
 			return RunGuarded(cid, iMethod, cvt, nullptr);
 		}
 
 		template <typename T>
-		uint32_t ContractCreate_T(ContractID& cid, const Blob& code, T& args) {
+		bool ContractCreate_T(ContractID& cid, const Blob& code, T& args) {
 			Converter<T> cvt(args);
 			return RunGuarded(cid, 0, cvt, &code);
 		}
 
 		template <typename T>
-		uint32_t ContractDestroy_T(const ContractID& cid, T& args)
+		bool ContractDestroy_T(const ContractID& cid, T& args)
 		{
 			Converter<T> cvt(args);
 			return RunGuarded(cid, 1, cvt, nullptr);
