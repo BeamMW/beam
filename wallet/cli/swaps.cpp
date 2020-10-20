@@ -54,7 +54,7 @@ namespace
 {
 const char kElectrumSeparateSymbol = ' ';
 
-ECC::uintBig ReadEthSwapAmount(const po::variables_map& vm)
+Amount ReadEthSwapAmount(const po::variables_map& vm)
 {
     if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
     {
@@ -67,12 +67,10 @@ ECC::uintBig ReadEthSwapAmount(const po::variables_map& vm)
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
 
-        preciseAmount *= 1'000'000'000'000'000'000u;
+        preciseAmount *= 1'000'000'000u;
 
         // maybe need to use boost::multiprecision::round
-        auto amount = preciseAmount.convert_to<boost::multiprecision::uint256_t>();
-
-        return ethereum::ConvertStrToUintBig(amount.convert_to<std::string>(), false);
+        return preciseAmount.convert_to<Amount>();
     }
     catch (const std::runtime_error& /*err*/)
     {
@@ -80,7 +78,7 @@ ECC::uintBig ReadEthSwapAmount(const po::variables_map& vm)
     }
 }
 
-ECC::uintBig ReadGasPrice(const po::variables_map& vm)
+Amount ReadGasPrice(const po::variables_map& vm)
 {
     if (vm.count(cli::ETH_GAS_PRICE) == 0)
     {
@@ -98,7 +96,7 @@ ECC::uintBig ReadGasPrice(const po::variables_map& vm)
         // maybe need to use boost::multiprecision::round
         auto amount = preciseAmount.convert_to<boost::multiprecision::uint256_t>();
 
-        return ethereum::ConvertStrToUintBig(amount.convert_to<std::string>(), false);
+        return amount.convert_to<Amount>();
     }
     catch (const std::runtime_error& /*err*/)
     {
@@ -106,13 +104,11 @@ ECC::uintBig ReadGasPrice(const po::variables_map& vm)
     }
 }
 
-std::string PrintEth(const ECC::uintBig& value)
+std::string PrintEth(beam::Amount value)
 {
-    std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(value.m_pData, ECC::uintBig::nBytes));
-    boost::multiprecision::uint256_t tmp(hex);
-    boost::multiprecision::cpp_dec_float_50 preciseAmount(tmp);
+    boost::multiprecision::cpp_dec_float_50 preciseAmount(value);
 
-    preciseAmount /= 1'000'000'000'000u;
+    preciseAmount /= 1'000u;
     preciseAmount = boost::multiprecision::round(preciseAmount);
     preciseAmount /= 1'000'000;
 
@@ -715,8 +711,6 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
     }
 
-    ECC::uintBig ethAmount = ECC::Zero;
-    ECC::uintBig gasPrice = ECC::Zero;
     Amount swapAmount = 0;
     Amount swapFeeRate = 0;
 
@@ -732,8 +726,8 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        ethAmount = ReadEthSwapAmount(vm);
-        gasPrice = ReadGasPrice(vm);
+        swapAmount = ReadEthSwapAmount(vm);
+        swapFeeRate = ReadGasPrice(vm);
     }
     else
     {
@@ -800,30 +794,15 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
 
-    if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
-    {
-        FillEthSwapTxParams(&swapTxParameters,
-            senderAddress.m_walletID,
-            minHeight,
-            amount,
-            fee,
-            swapCoin,
-            ethAmount,
-            gasPrice,
-            isBeamSide);
-    }
-    else
-    {
-        FillSwapTxParams(&swapTxParameters,
-            senderAddress.m_walletID,
-            minHeight,
-            amount,
-            fee,
-            swapCoin,
-            swapAmount,
-            swapFeeRate,
-            isBeamSide);
-    }
+    FillSwapTxParams(&swapTxParameters,
+        senderAddress.m_walletID,
+        minHeight,
+        amount,
+        fee,
+        swapCoin,
+        swapAmount,
+        swapFeeRate,
+        isBeamSide);
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -854,20 +833,18 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     auto swapCoin = swapTxParameters->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
     auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
     auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-    auto ethAmount = swapTxParameters->GetParameter<ECC::uintBig>(TxParameterID::AtomicSwapEthAmount);
     auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
     auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
     auto createTime = swapTxParameters->GetParameter<Height>(TxParameterID::CreateTime);
     auto minHeight = swapTxParameters->GetParameter<Height>(TxParameterID::MinHeight);
 
-    bool isValidToken = isBeamSide && swapCoin && beamAmount && (swapAmount || ethAmount) && peerID && peerResponseTime && createTime && minHeight;
+    bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime && createTime && minHeight;
 
     if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
     {
         throw std::runtime_error("swap transaction token is invalid.");
     }
 
-    ECC::uintBig gasPrice = ECC::Zero;
     Amount swapFeeRate = 0;
 
     if (*swapCoin == AtomicSwapCoin::Ethereum)
@@ -877,7 +854,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        gasPrice = ReadGasPrice(vm);
+        swapFeeRate = ReadGasPrice(vm);
     }
     else
     {
@@ -918,7 +895,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam side:    " << *isBeamSide << "\n"
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
-        << " Swap amount:  " << (*swapCoin == AtomicSwapCoin::Ethereum ? PrintEth(*ethAmount): std::to_string(*swapAmount)) << "\n"
+        << " Swap amount:  " << (*swapCoin == AtomicSwapCoin::Ethereum ? PrintEth(*swapAmount): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
 
     // get accepting
@@ -948,14 +925,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-    if (*swapCoin == AtomicSwapCoin::Ethereum)
-    {
-        FillEthSwapFee(&(*swapTxParameters), fee, gasPrice, *isBeamSide);
-    }
-    else
-    {
-        FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
-    }
+    FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
     return wallet.StartTransaction(*swapTxParameters);
 }

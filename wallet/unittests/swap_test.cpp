@@ -119,48 +119,6 @@ namespace
         return parameters;
     }
 
-    TxParameters AcceptEthSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee,
-        const ECC::uintBig& gasPrice)
-    {
-        TxParameters parameters = initialParameters;
-
-        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
-        parameters.SetParameter(TxParameterID::MyID, myID);
-
-        bool isBeamSide = !*parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-
-        if (isBeamSide)
-        {
-            // delete parameters from other side
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::LOCK_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REFUND_TX);
-
-            // add our parameters
-            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
-            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REDEEM_TX);
-        }
-        else
-        {
-            // delete parameters from other side
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
-            parameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
-            parameters.DeleteParameter(TxParameterID::AtomicSwapGasPrice, SubTxIndex::REDEEM_TX);
-
-            // add our parameters
-            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::LOCK_TX);
-            parameters.SetParameter(TxParameterID::AtomicSwapGasPrice, gasPrice, SubTxIndex::REFUND_TX);
-        }
-
-        parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-        parameters.SetParameter(TxParameterID::IsInitiator, true);
-
-        return parameters;
-    }
-
     class TestSettings : public bitcoin::Settings
     {
     public:
@@ -1757,28 +1715,28 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
 
     Amount beamAmount = 300;
     Amount beamFee = 101;
-    ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
-    ECC::uintBig gasPrice = 3000000u;
+    Amount swapAmount = 2'000'000'000u;
+    Amount gasPrice = 3000000u;
     //Amount feeRate = 256;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
     ethereum::Settings aliceSettings;
-    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
-    aliceSettings.m_accountIndex = 3;
+    aliceSettings.m_secretWords = { "urge", "shift", "robust", "wife", "chaos", "depend", "wide", "sentence", "excite", "write", "repair", "panel" };
+    aliceSettings.m_accountIndex = 0;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
-    aliceSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
+    aliceSettings.m_contractAddress = "0x7BAace39fFf9364bf6c85f840f7d841Ec0F9D091";
 
     ethereum::Settings bobSettings;
-    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
-    bobSettings.m_accountIndex = 4;
+    bobSettings.m_secretWords = { "urge", "shift", "robust", "wife", "chaos", "depend", "wide", "sentence", "excite", "write", "repair", "panel" };
+    bobSettings.m_accountIndex = 1;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
-    bobSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
+    bobSettings.m_contractAddress = "0x7BAace39fFf9364bf6c85f840f7d841Ec0F9D091";
 
     /*TestSettings bobSettings;
     bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
@@ -1818,7 +1776,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
         {
             auto currentHeight = cursor.m_Sid.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
-            auto parameters = InitNewEthSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, 
                 gasPrice, isBeamSide);
 
@@ -1835,7 +1793,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
             }
 
             initiator->m_Wallet.StartTransaction(parameters);
-            auto acceptParams = AcceptEthSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
             if (useSecureIDs)
             {
                 acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
@@ -1890,29 +1848,29 @@ void TestSwapEthRefundTransaction()
 
     Amount beamAmount = 300;
     Amount beamFee = 101;
-    ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
-    ECC::uintBig gasPrice = 3000000u;
+    Amount swapAmount = 2'000'000'000u;
+    Amount gasPrice = 3000000u;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
     ethereum::Settings aliceSettings;
-    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    aliceSettings.m_secretWords = { "urge", "shift", "robust", "wife", "chaos", "depend", "wide", "sentence", "excite", "write", "repair", "panel" };
     aliceSettings.m_accountIndex = 3;
     aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
     aliceSettings.m_txMinConfirmations = 0; // speed-up test
-    aliceSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
+    aliceSettings.m_contractAddress = "0x7BAace39fFf9364bf6c85f840f7d841Ec0F9D091";
 
     ethereum::Settings bobSettings;
-    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    bobSettings.m_secretWords = { "urge", "shift", "robust", "wife", "chaos", "depend", "wide", "sentence", "excite", "write", "repair", "panel" };
     bobSettings.m_accountIndex = 4;
     bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
     bobSettings.m_txMinConfirmations = 0;   // speed-up test
-    bobSettings.m_contractAddress = "0x81f58775ef55867c1b8685c0b1090e7cd2298da8";
+    bobSettings.m_contractAddress = "0x7BAace39fFf9364bf6c85f840f7d841Ec0F9D091";
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
@@ -1933,10 +1891,10 @@ void TestSwapEthRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewEthSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
+    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
 
     receiver->m_Wallet.StartTransaction(parameters);
-    TxID txID = sender->m_Wallet.StartTransaction(AcceptEthSwapParameters(parameters, sender->m_WalletID, beamFee, gasPrice));
+    TxID txID = sender->m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, gasPrice));
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(1000, true, [&node]() {node.AddBlock(); });
@@ -2023,8 +1981,8 @@ int main()
 
     TestIgnoringThirdPeer();
 
-    TestEthSwapTransaction(true, fork1Height);
-    TestSwapEthRefundTransaction();
+    /*TestEthSwapTransaction(true, fork1Height);
+    TestSwapEthRefundTransaction();*/
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

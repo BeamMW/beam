@@ -145,27 +145,6 @@ TxParameters InitNewSwap(
     return swapTxParameters;
 }
 
-/// Swap Parameters 
-TxParameters InitNewEthSwap(
-    const WalletID& myID, Height minHeight, Amount amount,
-    Amount fee, AtomicSwapCoin swapCoin, ECC::uintBig swapAmount,
-    ECC::uintBig gasPrice,
-    bool isBeamSide/* = true*/, Height lifetime/*= kDefaultTxLifetime*/,
-    Height responseTime/* = kDefaultTxResponseTime*/)
-{
-    auto swapTxParameters = CreateSwapTransactionParameters();
-    FillEthSwapTxParams(&swapTxParameters,
-                     myID,
-                     minHeight,
-                     amount,
-                     fee,
-                     swapCoin,
-                     swapAmount,
-                     gasPrice,
-                     isBeamSide);
-    return swapTxParameters;
-}
-
 void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
 {
     auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);

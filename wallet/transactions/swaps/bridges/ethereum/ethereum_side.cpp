@@ -189,8 +189,10 @@ bool EthereumSide::ConfirmLockTx()
 
                 std::string strValue = ethereum::RemoveHexPrefix(txInfo["value"].get<std::string>());
                 auto amount = ethereum::ConvertStrToUintBig(strValue);
-                uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
+                uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
 
+                // TODO roman.strilets
+                swapAmount = swapAmount * ECC::uintBig(1'000'000'000u);
                 if (amount != swapAmount)
                 {
                     LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
@@ -319,7 +321,10 @@ bool EthereumSide::SendLockTx()
     if (!m_isLockTxSent)
     {
         libbitcoin::data_chunk data = BuildLockTxData(m_tx, m_isEthOwner, GetSecretHash());
-        uintBig swapAmount = m_tx.GetMandatoryParameter<uintBig>(TxParameterID::AtomicSwapEthAmount);
+        uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+
+        // TODO roman.strilets
+        swapAmount = swapAmount * ECC::uintBig(1'000'000'000u);
 
         m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
             [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
@@ -602,7 +607,7 @@ ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
 
 ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
 {
-    return m_tx.GetMandatoryParameter<ECC::uintBig>(TxParameterID::AtomicSwapGasPrice, subTxID);
+    return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);
 }
 
 libbitcoin::short_hash EthereumSide::GetContractAddress() const

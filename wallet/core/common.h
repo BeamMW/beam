@@ -277,10 +277,8 @@ namespace beam::wallet
     MACRO(PeerProtoVersion,                16,  uint32_t) \
     MACRO(MaxHeight,                       17,  Height) \
     MACRO(AssetID,                         18,  Asset::ID) \
-    MACRO(AtomicSwapEthAmount,             19,  ECC::uintBig) \
     MACRO(MyWalletIdentity,                20,  PeerID) \
     MACRO(PeerWalletIdentity,              21,  PeerID) \
-    MACRO(AtomicSwapGasPrice,              23,  ECC::uintBig) \
     MACRO(PeerResponseTime,                24,  Height) \
     MACRO(SubTxIndex,                      25,  SubTxID) \
     MACRO(PeerPublicSharedBlindingFactor,  26,  ECC::Point) \
