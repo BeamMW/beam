@@ -491,7 +491,7 @@ namespace bvm2 {
 #define BVM_METHOD_PAR_DECL(type, name) ParamWrap<type>::Type name
 #define BVM_METHOD(name) ProcessorPlus::RetType_##name ProcessorPlus::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
 
-	BVM_METHOD(Memcpy)
+	BVM_METHOD(memcpy)
 	{
 		// prefer to use memmove
 		memmove(
@@ -502,20 +502,20 @@ namespace bvm2 {
 		return pDst;
 	}
 
-	BVM_METHOD(Memset)
+	BVM_METHOD(memset)
 	{
 		memset(get_AddrW(pDst, size), val, size);
 		return pDst;
 	}
 
-	BVM_METHOD(Memcmp)
+	BVM_METHOD(memcmp)
 	{
 		return memcmp(
 			get_AddrR(p1, size),
 			get_AddrR(p2, size),
 			size);
 	}
-	BVM_METHOD(Memis0)
+	BVM_METHOD(memis0)
 	{
 		bool bRes = memis0(
 			get_AddrR(p, size),

@@ -23,9 +23,9 @@ export void Dtor(void*)
 export void Method_2(void*)
 {
     Vault::Deposit r;
-    Env::Memset(&r, 0, sizeof(r));
+    Utils::ZeroObject(r);
     r.m_Amount = 318;
-    Env::CallFar(g_cidVault, r.s_iMethod, &r);
+    Env::CallFar_T(g_cidVault, r);
 }
 
 export void Method_3(Dummy::MathTest1& r)

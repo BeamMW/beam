@@ -67,6 +67,11 @@ namespace Env {
 #undef PAR_DECL
     } // extern "C"
 
+    inline void* memset0(void* p, uint32_t n)
+    {
+        return memset(p, 0, n);
+    }
+
     template <typename TKey, typename TVal>
     inline bool LoadVar_T(const TKey& key, TVal& val)
     {
@@ -102,48 +107,23 @@ namespace Env {
         return StackFree(sizeof(T) * n);
     }
 
+#ifndef HOST_BUILD
+    template <typename T>
+    void CallFar_T(const ContractID& cid, T& args)
+    {
+        CallFar(cid, args.s_iMethod, &args);
+    }
+#endif // HOST_BUILD
+
 } // namespace Env
 
 #define export __attribute__( ( visibility( "default" ) ) ) extern "C"
 
-// the following is useful for Amount manipulation, while ensuring no overflow
-namespace Strict {
-
-    template <typename T>
-    inline void Add(T& a, const T& b)
-    {
-        a += b;
-        Env::Halt_if(a < b); // overflow
-    }
-
-    template <typename T>
-    inline void Sub(T& a, const T& b)
-    {
-        Env::Halt_if(a < b); // not enough
-        a -= b;
-    }
-
-} // namespace Strict
-
 namespace Utils {
 
     template <typename T>
-    inline T AverageUnsigned(T a, T b)
-    {
-        a += b;
-        bool bHasCarry = (a < b); // msb leaked out
-        a /= 2;
-
-        if (bHasCarry)
-            // halved carry turns into msb
-            a |= ((T)1) << (sizeof(T) * 8 - 1);
-
-        return a;
-    }
-
-    template <typename T>
     inline void ZeroObject(T& x) {
-        Env::Memset(&x, 0, sizeof(x));
+        Env::memset0(&x, sizeof(x));
     }
 
 } // namespace Utils

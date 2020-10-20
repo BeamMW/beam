@@ -2,6 +2,7 @@
 // Simple 'vault' shader
 #include "common.h"
 #include "vault.h"
+#include "Math.h"
 
 Amount Vault::Key::Load() const
 {

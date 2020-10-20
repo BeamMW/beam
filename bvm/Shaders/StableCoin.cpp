@@ -29,7 +29,7 @@ struct Worker
 	{
 		uint8_t key = 0;
 		Env::LoadVar_T(key, m_State);
-		Env::CallFar(m_State.m_RateOracle, m_CurrentRate.s_iMethod, &m_CurrentRate);
+		Env::CallFar_T(m_State.m_RateOracle, m_CurrentRate);
 	}
 
 	bool IsStable(const Balance&, MultiPrecision::UInt<4>* pReserve = nullptr) const;
@@ -206,7 +206,7 @@ void Position::Load(const PubKey& pk)
 
 void Position::Save(const PubKey& pk) const
 {
-	if (Env::Memis0(this, sizeof(*this)))
+	if (Env::memis0(this, sizeof(*this)))
 		Env::DelVar_T(pk);
 	else
 		Env::SaveVar_T(pk, *this);
@@ -285,14 +285,14 @@ void Position::ReleaseBidStrict(const Worker& wrk)
 	{
 		arg.m_Aid = wrk.m_State.m_Aid;
 		arg.m_Amount = m_Bid.m_Asset;
-		Env::CallFar(g_cidVault, arg.s_iMethod, &arg);
+		Env::CallFar_T(g_cidVault, arg);
 	}
 
 	if (m_Bid.m_Beam)
 	{
 		arg.m_Aid = 0;
 		arg.m_Amount = m_Bid.m_Beam;
-		Env::CallFar(g_cidVault, arg.s_iMethod, &arg);
+		Env::CallFar_T(g_cidVault, arg);
 	}
 
 	Utils::ZeroObject(m_Bid);

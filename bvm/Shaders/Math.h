@@ -288,3 +288,40 @@ namespace MultiPrecision
 	}
 
 } // namespace MultiPrecision
+
+// the following is useful for Amount manipulation, while ensuring no overflow
+namespace Strict {
+
+	template <typename T>
+	inline void Add(T& a, const T& b)
+	{
+		a += b;
+		Env::Halt_if(a < b); // overflow
+	}
+
+	template <typename T>
+	inline void Sub(T& a, const T& b)
+	{
+		Env::Halt_if(a < b); // not enough
+		a -= b;
+	}
+
+} // namespace Strict
+
+namespace Utils {
+
+	template <typename T>
+	inline T AverageUnsigned(T a, T b)
+	{
+		a += b;
+		bool bHasCarry = (a < b); // msb leaked out
+		a /= 2;
+
+		if (bHasCarry)
+			// halved carry turns into msb
+			a |= ((T)1) << (sizeof(T) * 8 - 1);
+
+		return a;
+	}
+
+} // namespace Utils
