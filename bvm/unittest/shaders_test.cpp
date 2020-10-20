@@ -421,8 +421,10 @@ namespace bvm2 {
 			Wasm::Word nSp = m_Stack.get_AlasSp();
 			CallFar(cid, iMethod, nSp);
 
+			bool bWasm = false;
 			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)
 			{
+				bWasm = true;
 				RunOnce();
 
 				if (m_Dbg.m_pOut)
@@ -432,7 +434,14 @@ namespace bvm2 {
 				}
 			}
 
-			verify_test(nSp == m_Stack.get_AlasSp()); // stack must be restored
+			if (bWasm) {
+				verify_test(nSp == m_Stack.get_AlasSp()); // stack must be restored
+			}
+			else {
+				// in 'host' mode the stack will not be restored automatically, if ther was a call to StackAlloc
+				verify_test(nSp >= m_Stack.get_AlasSp());
+				m_Stack.set_AlasSp(nSp);
+			}
 
 			memcpy(pArgs, m_Stack.get_AliasPtr(), nArgs);
 			m_Stack.AliasFree(nArgs);
@@ -537,6 +546,7 @@ namespace bvm2 {
 
 		ContractID m_cidVault;
 		ContractID m_cidOracle;
+		ContractID m_cidStableCoin;
 
 		void AddCode(ByteBuffer& res, const char* sz)
 		{
@@ -779,23 +789,22 @@ namespace bvm2 {
 	{
 		static const char szMyMeta[] = "cool metadata for my stable coin";
 
-		Shaders::StableCoin::Ctor<sizeof(szMyMeta)-1> argSc;
-
 		{
 			Shaders::Oracle::Create<1> args;
 
 			args.m_InitialValue = RateFromPercents(36); // current ratio: 1 beam == 0.36 stablecoin
 			args.m_Providers = 1;
 			ZeroObject(args.m_pPk[0]);
-			verify_test(ContractCreate_T(argSc.m_RateOracle, m_Code.m_Oracle, args));
+			verify_test(ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args));
 		}
 
+		Shaders::StableCoin::Ctor<sizeof(szMyMeta) - 1> argSc;
+		argSc.m_RateOracle = m_cidOracle;
 		argSc.m_nMetaData = sizeof(szMyMeta) - 1;
 		memcpy(argSc.m_pMetaData, szMyMeta, argSc.m_nMetaData);
 		argSc.m_CollateralizationRatio = RateFromPercents(150);
 
-		ContractID cidSc;
-		verify_test(ContractCreate_T(cidSc, m_Code.m_StableCoin, argSc));
+		verify_test(ContractCreate_T(m_cidStableCoin, m_Code.m_StableCoin, argSc));
 
 		Shaders::StableCoin::UpdatePosition argUpd;
 		argUpd.m_Change.m_Beam = 1000;
@@ -804,13 +813,13 @@ namespace bvm2 {
 		argUpd.m_Direction.m_AssetAdd = 0;
 		ZeroObject(argUpd.m_Pk);
 
-		verify_test(!RunGuarded_T(cidSc, argUpd.s_iMethod, argUpd)); // will fail, not enough collateral
+		verify_test(!RunGuarded_T(m_cidStableCoin, argUpd.s_iMethod, argUpd)); // will fail, not enough collateral
 
 		argUpd.m_Change.m_Asset = 239;
-		verify_test(RunGuarded_T(cidSc, argUpd.s_iMethod, argUpd)); // should work
+		verify_test(RunGuarded_T(m_cidStableCoin, argUpd.s_iMethod, argUpd)); // should work
 
 		Zero_ zero;
-		verify_test(!ContractDestroy_T(cidSc, zero)); // asset was not fully burned
+		verify_test(!ContractDestroy_T(m_cidStableCoin, zero)); // asset was not fully burned
 
 		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
 	}
