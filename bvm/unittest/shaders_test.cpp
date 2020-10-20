@@ -513,7 +513,7 @@ namespace bvm2 {
 		{
 			Converter(T& arg)
 			{
-				arg.Convert<true>();
+				arg.template Convert<true>();
 				p = &arg;
 				n = static_cast<uint32_t>(sizeof(arg));
 			}
@@ -521,7 +521,7 @@ namespace bvm2 {
 			~Converter()
 			{
 				T& arg = Cast::NotConst(*reinterpret_cast<const T*>(p));
-				arg.Convert<false>();
+				arg.template Convert<false>();
 			}
 		};
 
