@@ -67,11 +67,6 @@ namespace Env {
 #undef PAR_DECL
     } // extern "C"
 
-    inline void* memset0(void* p, uint32_t n)
-    {
-        return memset(p, 0, n);
-    }
-
     template <typename TKey, typename TVal>
     inline bool LoadVar_T(const TKey& key, TVal& val)
     {
@@ -123,7 +118,7 @@ namespace Utils {
 
     template <typename T>
     inline void ZeroObject(T& x) {
-        Env::memset0(&x, sizeof(x));
+        Env::Memset(&x, 0, sizeof(x));
     }
 
 } // namespace Utils

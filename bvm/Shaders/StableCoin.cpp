@@ -206,7 +206,7 @@ void Position::Load(const PubKey& pk)
 
 void Position::Save(const PubKey& pk) const
 {
-	if (Env::memis0(this, sizeof(*this)))
+	if (Env::Memis0(this, sizeof(*this)))
 		Env::DelVar_T(pk);
 	else
 		Env::SaveVar_T(pk, *this);
