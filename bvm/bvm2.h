@@ -61,7 +61,7 @@ namespace bvm2 {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
-		void SetVarKeyInternal(VarKey&, Wasm::Word pKey, Wasm::Word nKey);
+		void SetVarKeyInternal(VarKey&, const void* pKey, Wasm::Word nKey);
 
 		struct FarCalls
 		{
@@ -152,7 +152,7 @@ namespace bvm2 {
 
 		void InitStack(uint8_t nFill = 0);
 		void InitStack(const Blob& args, uint8_t nFill = 0); // initial arguments
-		void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs);
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
 
 		static void Compile(ByteBuffer&, const Blob&);
 	};

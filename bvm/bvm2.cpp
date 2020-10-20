@@ -13,8 +13,7 @@
 // limitations under the License.
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
-#include "bvm2.h"
-#include "bvm2_opcodes.h"
+#include "bvm2_impl.h"
 #include "../utility/byteorder.h"
 #include <sstream>
 
@@ -176,11 +175,10 @@ namespace bvm2 {
 		vk.Append(nTag, blob);
 	}
 
-	void Processor::SetVarKeyInternal(VarKey& vk, Wasm::Word pKey, Wasm::Word nKey)
+	void Processor::SetVarKeyInternal(VarKey& vk, const void* pKey, Wasm::Word nKey)
 	{
 		Wasm::Test(nKey <= Limits::VarKeySize);
-		const uint8_t* pKey_ = get_AddrR(pKey, nKey);
-		SetVarKey(vk, VarKey::Tag::Internal, Blob(pKey_, nKey));
+		SetVarKey(vk, VarKey::Tag::Internal, Blob(pKey, nKey));
 	}
 
 	/////////////////////////////////////////////
@@ -335,13 +333,14 @@ namespace bvm2 {
 	typedef Asset::ID AssetID;
 
 	struct ProcessorPlus
-		:public Processor
+		:public ProcessorPlusEnv
 	{
 		void InvokeExtPlus(uint32_t nBinding);
 
 #define PAR_DECL(type, name) ParamWrap<type>::Type name
 #define THE_MACRO(id, ret, name) \
 		typedef ParamWrap<ret>::Type RetType_##name; \
+		typedef ret RetTypeHost_##name; \
 		RetType_##name OnMethod_##name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
 		BVMOpsAll(THE_MACRO)
 #undef THE_MACRO
@@ -355,7 +354,7 @@ namespace bvm2 {
 		void HandleAmountInner(Amount, Asset::ID, bool bLock);
 		void HandleAmountOuter(Amount, Asset::ID, bool bLock);
 
-		uint8_t HandleRef(Wasm::Word pContractID, bool bAdd);
+		uint8_t HandleRef(const ContractID&, bool bAdd);
 		bool HandleRefRaw(const VarKey&, bool bAdd);
 	};
 
@@ -489,76 +488,95 @@ namespace bvm2 {
 	// Methods
 
 #define BVM_METHOD_PAR_DECL(type, name) ParamWrap<type>::Type name
+#define BVM_METHOD_PAR_DECL_HOST(type, name) type name
+#define BVM_METHOD_PAR_PASS(type, name) name
 #define BVM_METHOD(name) ProcessorPlus::RetType_##name ProcessorPlus::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
+#define BVM_METHOD_HOST(name) ProcessorPlus::RetTypeHost_##name ProcessorPlusEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
+
+#define BVM_METHOD_AUTO_INVOKE(name) Cast::Up<ProcessorPlus>(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS, MACRO_COMMA));
+#define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
 	BVM_METHOD(Memcpy)
 	{
-		// prefer to use memmove
-		memmove(
-			get_AddrW(pDst, size),
-			get_AddrR(pSrc, size),
-			size);
-
+		OnHost_Memcpy(get_AddrW(pDst, size), get_AddrR(pSrc, size), size);
 		return pDst;
+	}
+	BVM_METHOD_HOST(Memcpy)
+	{
+		// prefer to use memmove
+		return memmove(pDst, pSrc, size);
 	}
 
 	BVM_METHOD(Memset)
 	{
-		memset(get_AddrW(pDst, size), val, size);
+		OnHost_Memset(get_AddrW(pDst, size), val, size);
 		return pDst;
+	}
+	BVM_METHOD_HOST(Memset)
+	{
+		return memset(pDst, val, size);
 	}
 
 	BVM_METHOD(Memcmp)
 	{
-		return memcmp(
-			get_AddrR(p1, size),
-			get_AddrR(p2, size),
-			size);
+		return OnHost_Memcmp(get_AddrR(p1, size), get_AddrR(p2, size), size);
 	}
+	BVM_METHOD_HOST(Memcmp)
+	{
+		return static_cast<int32_t>(memcmp(p1, p2, size));
+	}
+
 	BVM_METHOD(Memis0)
 	{
-		bool bRes = memis0(
-			get_AddrR(p, size),
-			size);
-
+		return OnHost_Memis0(get_AddrR(p, size), size);
+	}
+	BVM_METHOD_HOST(Memis0)
+	{
+		bool bRes = memis0(p, size);
 		return !!bRes;
 	}
 
 	BVM_METHOD(StackAlloc)
 	{
-		Wasm::Test(size <= m_Stack.m_BytesCurrent);
-		m_Stack.m_BytesCurrent -= m_Stack.AlignUp(size);
-		m_Stack.TestSelf();
-
+		m_Stack.AliasAlloc(size);
 		return m_Stack.get_AlasSp();
+	}
+	BVM_METHOD_HOST(StackAlloc)
+	{
+		m_Stack.AliasAlloc(size);
+		return m_Stack.get_AliasPtr();
 	}
 
 	BVM_METHOD(StackFree)
 	{
-		m_Stack.m_BytesCurrent += m_Stack.AlignUp(size);
-		Wasm::Test(size <= m_Stack.m_BytesCurrent); // no overflow
-		m_Stack.TestSelf();
+		m_Stack.AliasFree(size);
 	}
+	BVM_METHOD_HOST_AUTO(StackFree)
 
 	BVM_METHOD(LoadVar)
+	{
+		return OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+	}
+	BVM_METHOD_HOST(LoadVar)
 	{
 		VarKey vk;
 		SetVarKeyInternal(vk, pKey, nKey);
 
-		uint8_t* pVal_ = get_AddrW(pVal, nVal);
-		LoadVar(vk, pVal_, nVal);
+		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
 		return nVal;
 	}
 
 	BVM_METHOD(SaveVar)
 	{
+		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
+	}
+	BVM_METHOD_HOST(SaveVar)
+	{
 		VarKey vk;
 		SetVarKeyInternal(vk, pKey, nKey);
 
 		Wasm::Test(nVal <= Limits::VarSize);
-		const uint8_t* pVal_ = get_AddrR(pVal, nVal);
-
-		SaveVar(vk, pVal_, nVal);
+		SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
 	BVM_METHOD(CallFar)
@@ -582,46 +600,67 @@ namespace bvm2 {
 
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
 	}
+	BVM_METHOD_HOST(CallFar)
+	{
+		Wasm::Fail(); // not supported in this form. Proper host code would invoke CallFar_T
+	}
 
 	BVM_METHOD(Halt)
 	{
 		Wasm::Fail();
 	}
+	BVM_METHOD_HOST_AUTO(Halt)
 
 	BVM_METHOD(AddSig)
 	{
-		const auto& pk = get_AddrAsR<ECC::Point>(pubKey);
-
+		return OnHost_AddSig(get_AddrAsR<ECC::Point>(pubKey));
+	}
+	BVM_METHOD_HOST(AddSig)
+	{
 		if (m_pSigValidate)
-			AddSigInternal(pk);
+			AddSigInternal(pubKey);
 	}
 
 	BVM_METHOD(FundsLock)
 	{
 		HandleAmount(amount, aid, true);
 	}
+	BVM_METHOD_HOST_AUTO(FundsLock)
 
 	BVM_METHOD(FundsUnlock)
 	{
 		HandleAmount(amount, aid, false);
 	}
+	BVM_METHOD_HOST_AUTO(FundsUnlock)
 
 	BVM_METHOD(RefAdd)
 	{
-		return HandleRef(cid, true);
+		return OnHost_RefAdd(get_AddrAsR<ContractID>(cid));
+	}
+	BVM_METHOD_HOST(RefAdd)
+	{
+		return Cast::Up<ProcessorPlus>(*this).HandleRef(cid, true);
 	}
 
 	BVM_METHOD(RefRelease)
 	{
-		return HandleRef(cid, false);
+		return OnHost_RefRelease(get_AddrAsR<ContractID>(cid));
+	}
+	BVM_METHOD_HOST(RefRelease)
+	{
+		return Cast::Up<ProcessorPlus>(*this).HandleRef(cid, false);
 	}
 
 	BVM_METHOD(AssetCreate)
 	{
+		return OnHost_AssetCreate(get_AddrR(pMeta, nMeta), nMeta);
+	}
+	BVM_METHOD_HOST(AssetCreate)
+	{
 		Wasm::Test(nMeta && (nMeta <= Asset::Info::s_MetadataMaxSize));
 
 		Asset::Metadata md;
-		Blob(get_AddrR(pMeta, nMeta), nMeta).Export(md.m_Value);
+		Blob(pMeta, nMeta).Export(md.m_Value);
 		md.UpdateHash();
 
 		AssetVar av;
@@ -630,7 +669,7 @@ namespace bvm2 {
 		Asset::ID ret = AssetCreate(md, av.m_Owner);
 		if (ret)
 		{
-			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
+			Cast::Up<ProcessorPlus>(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
 
 			SetAssetKey(av, ret);
 			SaveVar(av.m_vk, av.m_Owner.m_pData, av.m_Owner.nBytes);
@@ -674,6 +713,7 @@ namespace bvm2 {
 
 		return !!b;
 	}
+	BVM_METHOD_HOST_AUTO(AssetEmit)
 
 	BVM_METHOD(AssetDestroy)
 	{
@@ -689,11 +729,13 @@ namespace bvm2 {
 
 		return !!b;
 	}
+	BVM_METHOD_HOST_AUTO(AssetDestroy)
 
 	BVM_METHOD(get_Height)
 	{
 		return get_Height();
 	}
+	BVM_METHOD_HOST_AUTO(get_Height)
 
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
@@ -793,10 +835,8 @@ namespace bvm2 {
 		return ret;
 	}
 
-	uint8_t ProcessorPlus::HandleRef(Wasm::Word pCID, bool bAdd)
+	uint8_t ProcessorPlus::HandleRef(const ContractID& cid, bool bAdd)
 	{
-		const auto& cid = get_AddrAsR<ContractID>(pCID);
-
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::Refs, cid);
 

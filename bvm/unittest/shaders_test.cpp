@@ -19,6 +19,7 @@
 #include "../../utility/byteorder.h"
 #include "../../utility/blobmap.h"
 #include "../bvm2.h"
+#include "../bvm2_impl.h"
 
 #include <sstream>
 
@@ -48,7 +49,40 @@ namespace Shaders {
 #include "../Shaders/oracle.h"
 #include "../Shaders/dummy.h"
 #include "../Shaders/StableCoin.h"
+
+#include "../Shaders/common.h"
+#include "../Shaders/Math.h"
 #include "../Shaders/MergeSort.h"
+#undef export
+#define export
+
+	namespace Env {
+
+		beam::bvm2::Processor* g_pEnv = nullptr;
+
+#define PAR_DECL(type, name) type name
+#define PAR_PASS(type, name) name
+#define MACRO_COMMA ,
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+
+		BVMOpsAll(THE_MACRO)
+
+#undef THE_MACRO
+#undef MACRO_COMMA
+#undef PAR_PASS
+#undef PAR_DECL
+
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs);
+
+		template <typename T>
+		void CallFar_T(const ContractID& cid, T& args)
+		{
+			args.Convert<true>();
+			CallFarN(cid, args.s_iMethod, &args, sizeof(args));
+			args.Convert<false>();
+		}
+
+	} // namespace Env
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -413,6 +447,7 @@ namespace bvm2 {
 
 			InitStack(0xcd);
 
+			Shaders::Env::g_pEnv = this;
 			m_Cycles = 0;
 
 			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n);
@@ -783,6 +818,11 @@ namespace bvm2 {
 
 } // namespace bvm2
 } // namespace beam
+
+void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs)
+{
+	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs);
+}
 
 int main()
 {
