@@ -77,9 +77,9 @@ namespace Shaders {
 		template <typename T>
 		void CallFar_T(const ContractID& cid, T& args)
 		{
-			args.Convert<true>();
+			args.template Convert<true>();
 			CallFarN(cid, args.s_iMethod, &args, sizeof(args));
-			args.Convert<false>();
+			args.template Convert<false>();
 		}
 
 	} // namespace Env
