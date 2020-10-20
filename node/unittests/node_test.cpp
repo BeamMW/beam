@@ -24,14 +24,11 @@
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../utility/blobmap.h"
-#include "../../utility/byteorder.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
+#include "../../bvm/Shaders/CommonHost.h"
 
 namespace Shaders {
-	typedef ECC::Point PubKey;
-	typedef beam::Asset::ID AssetID;
-	typedef beam::Amount Amount;
 
 #ifdef _MSC_VER
 #    pragma warning (disable : 4200) // zero-sized array
@@ -2341,8 +2338,8 @@ namespace beam
 				pKrn->m_Args.resize(sizeof(Ctor));
 				auto& args = *reinterpret_cast<Ctor*>(&pKrn->m_Args.front());
 
-				args.m_InitialValue = ByteOrder::to_le<Amount>(367000);
-				args.m_Providers = ByteOrder::to_le<uint32_t>(_countof(m_Contract.m_pSk));
+				args.m_InitialValue = 367000;
+				args.m_Providers = _countof(m_Contract.m_pSk);
 
 				ECC::Scalar::Native pSk[_countof(m_Contract.m_pSk) + 1];
 
@@ -2402,8 +2399,9 @@ namespace beam
 				pKrn->m_Args.resize(sizeof(Shaders::Oracle::Set));
 				auto& args = reinterpret_cast<Shaders::Oracle::Set&>(pKrn->m_Args.front());
 
-				args.m_iProvider = ByteOrder::to_le<uint32_t>(2);
-				args.m_Value = ByteOrder::to_le<Amount>(277216);
+				args.m_iProvider = 2;
+				args.m_Value = 277216;
+				args.Convert<true>();
 
 				ECC::Scalar::Native pSk[2];
 				pSk[0] = m_Contract.m_pSk[2];

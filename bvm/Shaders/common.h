@@ -46,6 +46,8 @@ typedef Opaque<32> ContractID;
 template <bool bToShader, typename T>
 inline void ConvertOrd(T&) {}
 
+#   define export __attribute__( ( visibility( "default" ) ) ) extern "C"
+
 #endif // HOST_BUILD
 
 // environment functions
@@ -111,8 +113,6 @@ namespace Env {
 #endif // HOST_BUILD
 
 } // namespace Env
-
-#define export __attribute__( ( visibility( "default" ) ) ) extern "C"
 
 namespace Utils {
 

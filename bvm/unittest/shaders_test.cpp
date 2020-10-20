@@ -16,30 +16,14 @@
 
 #include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
-#include "../../utility/byteorder.h"
 #include "../../utility/blobmap.h"
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
+#include "../Shaders/CommonHost.h"
 
 #include <sstream>
 
 namespace Shaders {
-	typedef ECC::Point PubKey;
-	typedef beam::Asset::ID AssetID;
-	using beam::Amount;
-	using beam::Height;
-	using beam::bvm2::ContractID;
-
-	template<bool bToShader, typename T>
-	void ConvertOrd(T& x)
-	{
-		if constexpr (bToShader)
-			x = beam::ByteOrder::to_le(x);
-		else
-			x = beam::ByteOrder::from_le(x);
-	}
-
-#define HOST_BUILD
 
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
@@ -53,8 +37,6 @@ namespace Shaders {
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"
 #include "../Shaders/MergeSort.h"
-#undef export
-#define export
 
 	namespace Env {
 
