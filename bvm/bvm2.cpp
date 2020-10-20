@@ -77,7 +77,7 @@ namespace bvm2 {
 	{
 		InitStack(nFill);
 
-		m_Stack.AliasAlloc(sizeof(args));
+		m_Stack.AliasAlloc(args.n);
 		memcpy(m_Stack.get_AliasPtr(), args.p, args.n);
 	}
 
