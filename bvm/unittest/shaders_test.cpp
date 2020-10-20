@@ -626,7 +626,7 @@ namespace bvm2 {
 				TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
-				//case 0: Shaders::StableCoin::Ctor(CastArg<Shaders::StableCoin::Ctor<0> >(pArgs)); return;
+				//case 0: Shaders::StableCoin::Create(CastArg<Shaders::StableCoin::Create<0> >(pArgs)); return;
 				//case 1: Shaders::StableCoin::Dtor(nullptr); return;
 				//case 2: Shaders::StableCoin::Method_2(CastArg<Shaders::StableCoin::UpdatePosition>(pArgs)); return;
 				//case 3: Shaders::StableCoin::Method_3(CastArg<Shaders::StableCoin::PlaceBid>(pArgs)); return;
@@ -875,7 +875,7 @@ namespace bvm2 {
 			verify_test(ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args));
 		}
 
-		Shaders::StableCoin::Ctor<sizeof(szMyMeta) - 1> argSc;
+		Shaders::StableCoin::Create<sizeof(szMyMeta) - 1> argSc;
 		argSc.m_RateOracle = m_cidOracle;
 		argSc.m_nMetaData = sizeof(szMyMeta) - 1;
 		memcpy(argSc.m_pMetaData, szMyMeta, argSc.m_nMetaData);

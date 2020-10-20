@@ -5,7 +5,7 @@ namespace StableCoin
 #pragma pack (push, 1)
 
     template <uint32_t nMeta>
-    struct Ctor
+    struct Create
     {
         static const uint32_t s_iMethod = 0;
 
