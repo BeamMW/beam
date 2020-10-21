@@ -197,7 +197,7 @@ namespace bvm2 {
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 
-		virtual uint8_t LoadAllVars(ILoadVarCallback&) {}
+		virtual uint8_t LoadAllVars(ILoadVarCallback&) { return 0; }
 
 	public:
 
