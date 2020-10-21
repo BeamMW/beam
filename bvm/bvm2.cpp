@@ -78,6 +78,11 @@ namespace bvm2 {
 		InitBase(m_pStack, sizeof(m_pStack), nFill);
 	}
 
+	void ProcessorManager::InitStack(uint8_t nFill /* = 0 */)
+	{
+		InitBase(m_pStack, sizeof(m_pStack), nFill);
+	}
+
 	const Processor::Header& Processor::ParseMod()
 	{
 		Wasm::Test(m_Code.n >= sizeof(Header));
@@ -143,6 +148,18 @@ namespace bvm2 {
 			ParseMod(); // restore code/data sections
 		}
 
+		Processor::OnRet(nRetAddr);
+	}
+
+	void ProcessorManager::OnCall(Wasm::Word nAddr)
+	{
+		m_LocalDepth++;
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorManager::OnRet(Wasm::Word nRetAddr)
+	{
+		m_LocalDepth--;
 		Processor::OnRet(nRetAddr);
 	}
 
@@ -377,6 +394,20 @@ namespace bvm2 {
 		BVMOpsAll_Contract(THE_MACRO)
 	};
 
+	struct ProcessorPlus_Manager
+		:public ProcessorPlusEnv_Manager
+	{
+		typedef ProcessorPlus_Manager TProcessor;
+		static TProcessor& From(ProcessorManager& p)
+		{
+			static_assert(sizeof(TProcessor) == sizeof(p));
+			return Cast::Up<TProcessor>(p);
+		}
+
+		void InvokeExtPlus(uint32_t nBinding);
+		BVMOpsAll_Manager(THE_MACRO)
+	};
+
 #undef THE_MACRO
 #undef PAR_DECL
 
@@ -416,6 +447,16 @@ namespace bvm2 {
 		}
 	}
 
+	void ProcessorPlus_Manager::InvokeExtPlus(uint32_t nBinding)
+	{
+		switch (nBinding)
+		{
+		BVMOpsAll_Manager(THE_MACRO)
+		default:
+			ProcessorPlus::From(*this).InvokeExtPlus(nBinding);
+		}
+	}
+
 #undef THE_MACRO
 #undef PAR_PASS
 #undef PAR_DECL
@@ -429,6 +470,11 @@ namespace bvm2 {
 	void ProcessorContract::InvokeExt(uint32_t nBinding)
 	{
 		ProcessorPlus_Contract::From(*this).InvokeExtPlus(nBinding);
+	}
+
+	void ProcessorManager::InvokeExt(uint32_t nBinding)
+	{
+		ProcessorPlus_Manager::From(*this).InvokeExtPlus(nBinding);
 	}
 
 	void TestStackPtr(const Wasm::Compiler::GlobalVar& x)
@@ -462,6 +508,11 @@ namespace bvm2 {
 		if (Kind::Contract == kind)
 		{
 			BVMOpsAll_Contract(THE_MACRO)
+		}
+
+		if (Kind::Manager == kind)
+		{
+			BVMOpsAll_Manager(THE_MACRO)
 		}
 
 
@@ -524,6 +575,10 @@ namespace bvm2 {
 
 #define THE_MACRO(id, ret, name) typedef ProcessorPlus_Contract name##_Type; typedef ProcessorPlusEnv_Contract name##_TypeEnv;
 		BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) typedef ProcessorPlus_Manager name##_Type; typedef ProcessorPlusEnv_Manager name##_TypeEnv;
+		BVMOpsAll_Manager(THE_MACRO)
 #undef THE_MACRO
 	}
 
@@ -776,6 +831,51 @@ namespace bvm2 {
 		return get_Height();
 	}
 	BVM_METHOD_HOST_AUTO(get_Height)
+
+	BVM_METHOD(LoadVarEx)
+	{
+		return OnHost_LoadVarEx(nTag, get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+	}
+	BVM_METHOD_HOST(LoadVarEx)
+	{
+		Wasm::Test(m_pCid);
+		Wasm::Test(nKey <= Limits::VarKeySize);
+
+		VarKey vk;
+		vk.Set(*m_pCid);
+		vk.Append(nTag, Blob(pKey, nKey));
+
+		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
+		return nVal;
+	}
+
+	BVM_METHOD(LoadAllVars)
+	{
+		struct Marshaller
+			:public ILoadVarCallback
+		{
+			ProcessorManager& m_This;
+			Wasm::Word m_Addr;
+
+			Marshaller(ProcessorManager& x) :m_This(x) {}
+
+			uint8_t OnVar(const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal) override
+			{
+				// TODO
+				return 0;
+			}
+
+		} m(*this);
+		m.m_Addr = pCallback;
+
+		return LoadAllVars(m);
+	}
+
+	BVM_METHOD_HOST(LoadAllVars)
+	{
+		Wasm::Test(pCallback);
+		return LoadAllVars(*pCallback);
+	}
 
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD

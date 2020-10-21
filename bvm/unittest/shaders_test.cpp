@@ -42,6 +42,8 @@ namespace Shaders {
 
 	namespace Env {
 
+		using beam::bvm2::ILoadVarCallback;
+
 		beam::bvm2::Processor* g_pEnv = nullptr;
 
 #define PAR_DECL(type, name) type name
@@ -54,6 +56,10 @@ namespace Shaders {
 
 #define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
 		BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Manager>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+		BVMOpsAll_Manager(THE_MACRO)
 #undef THE_MACRO
 
 #undef MACRO_COMMA

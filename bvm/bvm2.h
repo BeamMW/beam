@@ -20,6 +20,8 @@
 namespace beam {
 namespace bvm2 {
 
+#include "bvm2_Callbacks.h"
+
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
@@ -178,6 +180,33 @@ namespace bvm2 {
 		Amount m_Charge = 0;
 
 		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
+	};
+
+
+	class ProcessorManager
+		:public Processor
+	{
+	protected:
+		Wasm::Word m_pStack[0x100000 / sizeof(Wasm::Word)];
+
+		uint32_t m_LocalDepth = 0;
+
+		virtual void InvokeExt(uint32_t) override;
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
+
+		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
+
+		virtual uint8_t LoadAllVars(ILoadVarCallback&) {}
+
+	public:
+
+		const ContractID* m_pCid = nullptr; // current contract
+
+		Kind get_Kind() override { return Kind::Manager; }
+
+		void InitStack(uint8_t nFill = 0);
+		bool IsDone() const { return !m_LocalDepth; }
 	};
 
 

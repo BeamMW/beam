@@ -51,6 +51,7 @@ inline void ConvertOrd(T&) {}
 #endif // HOST_BUILD
 
 // environment functions
+#include "../bvm2_Callbacks.h"
 #include "../bvm2_opcodes.h"
 
 namespace Env {

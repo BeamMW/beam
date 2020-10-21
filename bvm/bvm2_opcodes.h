@@ -89,6 +89,16 @@
 
 #define BVMOp_get_Height(macro, sep)
 
+#define BVMOp_LoadVarEx(macro, sep) \
+	macro(uint8_t, nTag) sep \
+	macro(const void*, pKey) sep \
+	macro(uint32_t, nKey) sep \
+	macro(void*, pVal) sep \
+	macro(uint32_t, nVal)
+
+#define BVMOp_LoadAllVars(macro, sep) \
+	macro(ILoadVarCallback*, pCallback)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -111,6 +121,10 @@
 	macro(0x38, AssetID  , AssetCreate) \
 	macro(0x39, uint8_t  , AssetEmit) \
 	macro(0x3A, uint8_t  , AssetDestroy) \
+
+#define BVMOpsAll_Manager(macro) \
+	macro(0x25, uint32_t , LoadVarEx) \
+	macro(0x26, uint8_t  , LoadAllVars) \
 
 #define BVMOpsAll(macro) \
 	BVMOpsAll_Common(macro) \
