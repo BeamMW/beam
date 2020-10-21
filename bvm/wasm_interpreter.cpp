@@ -1269,6 +1269,12 @@ namespace Wasm {
 		return reinterpret_cast<uint8_t*>(m_pPtr) + m_BytesCurrent;
 	}
 
+	void Processor::Stack::PushAlias(const Blob& b)
+	{
+		AliasAlloc(b.n);
+		memcpy(get_AliasPtr(), b.p, b.n);
+	}
+
 	void Processor::Stack::TestSelf() const
 	{
 		Test(m_BytesCurrent <= m_BytesMax);

@@ -3833,7 +3833,8 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 {
 	try
 	{
-		InitStack(krn.m_Args);
+		InitStack();
+		m_Stack.PushAlias(krn.m_Args);
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
 		ECC::Hash::Processor hp;

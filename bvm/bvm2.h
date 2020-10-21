@@ -138,7 +138,6 @@ namespace bvm2 {
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
 		void InitStack(uint8_t nFill = 0);
-		void InitStack(const Blob& args, uint8_t nFill = 0); // initial arguments
 		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
 
 		static void Compile(ByteBuffer&, const Blob&);

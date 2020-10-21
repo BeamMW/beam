@@ -202,6 +202,7 @@ namespace Wasm {
 			void AliasAlloc(Word nSize);
 			void AliasFree(Word nSize);
 			uint8_t* get_AliasPtr() const;
+			void PushAlias(const Blob&);
 
 
 			void TestSelf() const;

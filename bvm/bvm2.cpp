@@ -73,14 +73,6 @@ namespace bvm2 {
 		ZeroObject(m_Instruction);
 	}
 
-	void Processor::InitStack(const Blob& args, uint8_t nFill /* = 0 */)
-	{
-		InitStack(nFill);
-
-		m_Stack.AliasAlloc(args.n);
-		memcpy(m_Stack.get_AliasPtr(), args.p, args.n);
-	}
-
 	const Processor::Header& Processor::ParseMod()
 	{
 		m_Code = m_FarCalls.m_Stack.back().m_Body;
