@@ -327,7 +327,7 @@ namespace bvm2 {
 	template <typename TRes> struct Caller {
 		template <typename TArgs, typename TProcessor>
 		static void Call(TProcessor& me, const TArgs& args) {
-			me.m_Stack.Push<TRes>(args.Call(me));
+			me.m_Stack.template Push<TRes>(args.Call(me));
 		}
 	};
 	template <> struct Caller<void> {
