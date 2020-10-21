@@ -242,7 +242,7 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
         {
             try
             {
-                // TODO: process this situation
+                // TODO roman.strilets : process this situation!!!!!!
                 assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
                 txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
             }
