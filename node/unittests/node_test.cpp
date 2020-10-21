@@ -1634,7 +1634,7 @@ namespace beam
 			if (!res.empty())
 				fs.read(&res.front(), res.size());
 
-			bvm2::Processor::Compile(res, res);
+			bvm2::Processor::Compile(res, res, bvm2::Processor::Kind::Contract);
 		}
 
 	}

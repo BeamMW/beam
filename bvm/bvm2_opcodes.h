@@ -89,17 +89,20 @@
 
 #define BVMOp_get_Height(macro, sep)
 
-#define BVMOpsAll(macro) \
+#define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
 	macro(0x12, int32_t  , Memcmp) \
 	macro(0x13, uint8_t  , Memis0) \
 	macro(0x18, void*    , StackAlloc) \
 	macro(0x19, void     , StackFree) \
+	macro(0x28, void     , Halt) \
+	macro(0x40, Height   , get_Height) \
+
+#define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, void     , SaveVar) \
 	macro(0x23, void     , CallFar) \
-	macro(0x28, void     , Halt) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \
@@ -108,5 +111,7 @@
 	macro(0x38, AssetID  , AssetCreate) \
 	macro(0x39, uint8_t  , AssetEmit) \
 	macro(0x3A, uint8_t  , AssetDestroy) \
-	macro(0x40, Height   , get_Height) \
 
+#define BVMOpsAll(macro) \
+	BVMOpsAll_Common(macro) \
+	BVMOpsAll_Contract(macro)

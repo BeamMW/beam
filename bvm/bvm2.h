@@ -34,13 +34,14 @@ namespace bvm2 {
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 
+	class ProcessorContract;
 
 	class Processor
 		:public Wasm::Processor
 	{
-		Wasm::Word m_pStack[Limits::StackSize / sizeof(Wasm::Word)];
-
 	protected:
+
+		void Reset();
 
 		struct VarKey
 		{
@@ -58,6 +59,48 @@ namespace bvm2 {
 			void Set(const ContractID&);
 			void Append(uint8_t nTag, const Blob&);
 		};
+
+
+		virtual void InvokeExt(uint32_t) override;
+
+		virtual Height get_Height() { return 0; }
+
+		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
+			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
+		}
+
+		struct Header;
+		const Header& ParseMod();
+
+	public:
+
+		enum struct Kind {
+			Contract,
+			Manager,
+
+			count
+		};
+
+		virtual Kind get_Kind() = 0;
+
+		static void Compile(ByteBuffer&, const Blob&, Kind);
+
+	private:
+		static void ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind);
+		static void ResolveBindings(Wasm::Compiler&, Kind);
+		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+	};
+
+	struct ProcessorPlus;
+	struct ProcessorPlusEnv;
+
+	class ProcessorContract
+		:public Processor
+	{
+		friend struct ProcessorPlus;
+		friend struct ProcessorPlusEnv;
+	protected:
+		Wasm::Word m_pStack[Limits::StackSize / sizeof(Wasm::Word)];
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
@@ -77,24 +120,6 @@ namespace bvm2 {
 
 		} m_FarCalls;
 
-		struct Header;
-		const Header& ParseMod();
-
-		virtual void InvokeExt(uint32_t) override;
-		virtual void OnCall(Wasm::Word nAddr) override;
-		virtual void OnRet(Wasm::Word nRetAddr) override;
-
-		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
-		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
-		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
-
-		virtual Height get_Height() { return 0; }
-		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
-
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
-		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
-
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		bool SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
 
@@ -108,14 +133,26 @@ namespace bvm2 {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
 
-		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
-			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
-		}
 
-		std::vector<ECC::Point::Native> m_vPks;
-		ECC::Point::Native& AddSigInternal(const ECC::Point&);
+		virtual void InvokeExt(uint32_t) override;
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
 
-		ECC::Point::Native m_FundsIO;
+		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
+		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
+		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
+		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
+
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
+		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
+		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
+
+		void HandleAmount(Amount, Asset::ID, bool bLock);
+		void HandleAmountInner(Amount, Asset::ID, bool bLock);
+		void HandleAmountOuter(Amount, Asset::ID, bool bLock);
+
+		uint8_t HandleRef(const ContractID&, bool bAdd);
+		bool HandleRefRaw(const VarKey&, bool bAdd);
 
 		struct AssetVar {
 			VarKey m_vk;
@@ -125,22 +162,24 @@ namespace bvm2 {
 		void get_AssetStrict(AssetVar&, Asset::ID);
 		void SetAssetKey(AssetVar&, Asset::ID);
 
-	private:
-		static void ResolveBindings(Wasm::Compiler&);
-		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+		std::vector<ECC::Point::Native> m_vPks;
+		ECC::Point::Native& AddSigInternal(const ECC::Point&);
+
+		ECC::Point::Native m_FundsIO;
 
 	public:
 
-		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
-		Amount m_Charge = 0;
+		Kind get_Kind() override { return Kind::Contract; }
+
+		void InitStack(uint8_t nFill = 0);
 
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
-		void InitStack(uint8_t nFill = 0);
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
+		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
+		Amount m_Charge = 0;
 
-		static void Compile(ByteBuffer&, const Blob&);
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 

@@ -19,22 +19,33 @@
 namespace beam {
 namespace bvm2 {
 
+#define MACRO_COMMA ,
+#define PAR_DECL(type, name) type name
+#define THE_MACRO(id, ret, name) \
+		ret OnHost_##name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
+
 	struct ProcessorPlusEnv
 		:public Processor
 	{
 		typedef ECC::Point PubKey;
 		typedef Asset::ID AssetID;
 
-#define MACRO_COMMA ,
-#define PAR_DECL(type, name) type name
-#define THE_MACRO(id, ret, name) \
-		ret OnHost_##name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
-		BVMOpsAll(THE_MACRO)
+		BVMOpsAll_Common(THE_MACRO)
+	};
+
+	struct ProcessorPlusEnv_Contract
+		:public ProcessorContract
+	{
+		typedef ECC::Point PubKey;
+		typedef Asset::ID AssetID;
+
+		BVMOpsAll_Contract(THE_MACRO)
+	};
+
+
 #undef THE_MACRO
 #undef PAR_DECL
 #undef MACRO_COMMA
-	};
-
 
 } // namespace bvm2
 } // namespace beam

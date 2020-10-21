@@ -58,25 +58,29 @@ namespace bvm2 {
 	};
 #pragma pack (pop)
 
-	void Processor::InitStack(uint8_t nFill /* = 0 */)
+	void Processor::Reset()
 	{
-		m_Stack.m_pPtr = m_pStack;
-		m_Stack.m_BytesMax = sizeof(m_pStack);
-		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
-		m_Stack.m_Pos = 0;
-
-		memset(m_pStack, nFill, sizeof(m_pStack));
-
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
 		ZeroObject(m_Instruction);
+
+		m_Stack.m_Pos = 0;
+	}
+
+	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
+	{
+		Reset();
+
+		m_Stack.m_pPtr = m_pStack;
+		m_Stack.m_BytesMax = sizeof(m_pStack);
+		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
+
+		memset(m_pStack, nFill, sizeof(m_pStack));
 	}
 
 	const Processor::Header& Processor::ParseMod()
 	{
-		m_Code = m_FarCalls.m_Stack.back().m_Body;
-
 		Wasm::Test(m_Code.n >= sizeof(Header));
 		const Header& hdr = *reinterpret_cast<const Header*>(m_Code.p);
 
@@ -94,7 +98,7 @@ namespace bvm2 {
 		return hdr;
 	}
 
-	void Processor::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
+	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
 		uint32_t nRetAddr = get_Ip();
 
@@ -108,6 +112,7 @@ namespace bvm2 {
 		SetVarKey(vk);
 		LoadVar(vk, x.m_Body);
 
+		m_Code = x.m_Body;
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
@@ -118,13 +123,13 @@ namespace bvm2 {
 		Jmp(nAddr);
 	}
 
-	void Processor::OnCall(Wasm::Word nAddr)
+	void ProcessorContract::OnCall(Wasm::Word nAddr)
 	{
 		m_FarCalls.m_Stack.back().m_LocalDepth++;
-		Wasm::Processor::OnCall(nAddr);
+		Processor::OnCall(nAddr);
 	}
 
-	void Processor::OnRet(Wasm::Word nRetAddr)
+	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
 		auto& nDepth = m_FarCalls.m_Stack.back().m_LocalDepth;
 		if (nDepth)
@@ -135,10 +140,11 @@ namespace bvm2 {
 			if (m_FarCalls.m_Stack.empty())
 				return; // finished
 
+			m_Code = m_FarCalls.m_Stack.back().m_Body;
 			ParseMod(); // restore code/data sections
 		}
 
-		Wasm::Processor::OnRet(nRetAddr);
+		Processor::OnRet(nRetAddr);
 	}
 
 	void Processor::VarKey::Set(const ContractID& cid)
@@ -156,18 +162,18 @@ namespace bvm2 {
 		m_Size += blob.n;
 	}
 
-	void Processor::SetVarKey(VarKey& vk)
+	void ProcessorContract::SetVarKey(VarKey& vk)
 	{
 		vk.Set(m_FarCalls.m_Stack.back().m_Cid);
 	}
 
-	void Processor::SetVarKey(VarKey& vk, uint8_t nTag, const Blob& blob)
+	void ProcessorContract::SetVarKey(VarKey& vk, uint8_t nTag, const Blob& blob)
 	{
 		SetVarKey(vk);
 		vk.Append(nTag, blob);
 	}
 
-	void Processor::SetVarKeyInternal(VarKey& vk, const void* pKey, Wasm::Word nKey)
+	void ProcessorContract::SetVarKeyInternal(VarKey& vk, const void* pKey, Wasm::Word nKey)
 	{
 		Wasm::Test(nKey <= Limits::VarKeySize);
 		SetVarKey(vk, VarKey::Tag::Internal, Blob(pKey, nKey));
@@ -201,7 +207,7 @@ namespace bvm2 {
 		return atoi(szTxt);
 	}
 
-	void Processor::Compile(ByteBuffer& res, const Blob& src)
+	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
 	{
 		Wasm::Reader inp;
 		inp.m_p0 = reinterpret_cast<const uint8_t*>(src.p);
@@ -210,7 +216,7 @@ namespace bvm2 {
 		Wasm::Compiler c;
 		c.Parse(inp);
 
-		ResolveBindings(c);
+		ResolveBindings(c, kind);
 
 		typedef std::map<uint32_t, uint32_t> MethodMap; // method num -> func idx
 		MethodMap hdrMap;
@@ -318,8 +324,27 @@ namespace bvm2 {
 		}
 	};
 
+	template <typename TRes> struct Caller {
+		template <typename TArgs, typename TProcessor>
+		static void Call(TProcessor& me, const TArgs& args) {
+			me.m_Stack.Push<TRes>(args.Call(me));
+		}
+	};
+	template <> struct Caller<void> {
+		template <typename TArgs, typename TProcessor>
+		static void Call(TProcessor& me, const TArgs& args) {
+			args.Call(me);
+		}
+	};
+
+
 #define MACRO_NOP
 #define MACRO_COMMA ,
+#define PAR_DECL(type, name) ParamWrap<type>::Type name
+#define THE_MACRO(id, ret, name) \
+		typedef ParamWrap<ret>::Type RetType_##name; \
+		typedef ret RetTypeHost_##name; \
+		RetType_##name OnMethod_##name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
 
 	typedef ECC::Point PubKey;
 	typedef Asset::ID AssetID;
@@ -327,48 +352,35 @@ namespace bvm2 {
 	struct ProcessorPlus
 		:public ProcessorPlusEnv
 	{
+		typedef ProcessorPlus TProcessor;
+		static TProcessor& From(Processor& p)
+		{
+			static_assert(sizeof(TProcessor) == sizeof(p));
+			return Cast::Up<TProcessor>(p);
+		}
+
 		void InvokeExtPlus(uint32_t nBinding);
 
-#define PAR_DECL(type, name) ParamWrap<type>::Type name
-#define THE_MACRO(id, ret, name) \
-		typedef ParamWrap<ret>::Type RetType_##name; \
-		typedef ret RetTypeHost_##name; \
-		RetType_##name OnMethod_##name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
-		BVMOpsAll(THE_MACRO)
+		BVMOpsAll_Common(THE_MACRO)
+	};
+
+	struct ProcessorPlus_Contract
+		:public ProcessorPlusEnv_Contract
+	{
+		typedef ProcessorPlus_Contract TProcessor;
+		static TProcessor& From(ProcessorContract& p)
+		{
+			static_assert(sizeof(TProcessor) == sizeof(p));
+			return Cast::Up<TProcessor>(p);
+		}
+
+		void InvokeExtPlus(uint32_t nBinding);
+		BVMOpsAll_Contract(THE_MACRO)
+	};
+
 #undef THE_MACRO
 #undef PAR_DECL
 
-		static void ResolveBindings(Wasm::Compiler&);
-
-		template <typename TRes> struct Caller;
-
-		void HandleAmount(Amount, Asset::ID, bool bLock);
-		void HandleAmountInner(Amount, Asset::ID, bool bLock);
-		void HandleAmountOuter(Amount, Asset::ID, bool bLock);
-
-		uint8_t HandleRef(const ContractID&, bool bAdd);
-		bool HandleRefRaw(const VarKey&, bool bAdd);
-	};
-
-	template <typename TRes> struct ProcessorPlus::Caller {
-		template <typename TArgs>
-		static void Call(ProcessorPlus& me, const TArgs& args) {
-			me.m_Stack.Push<TRes>(args.Call(me));
-		}
-	};
-
-	template <> struct ProcessorPlus::Caller<void> {
-		template <typename TArgs>
-		static void Call(ProcessorPlus& me, const TArgs& args) {
-			args.Call(me);
-		}
-	};
-
-
-	void ProcessorPlus::InvokeExtPlus(uint32_t nBinding)
-	{
-		switch (nBinding)
-		{
 #define PAR_PASS(type, name) m_##name.V
 #define PAR_DECL(type, name) ParamWrap<type> m_##name;
 #define PAR_ASSIGN(type, name) args.m_##name =
@@ -379,28 +391,45 @@ namespace bvm2 {
 				*m_Dbg.m_pOut << "  " #name << std::endl; \
 			struct Args { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
-				RetType_##name Call(ProcessorPlus& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
+				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
 			} args; \
 			BVMOp_##name(PAR_ASSIGN, MACRO_NOP) *this; \
 			Caller<RetType_##name>::Call(*this, args); \
 		} break;
 
-		BVMOpsAll(THE_MACRO)
+	void ProcessorPlus::InvokeExtPlus(uint32_t nBinding)
+	{
+		switch (nBinding)
+		{
+		BVMOpsAll_Common(THE_MACRO)
+		default:
+			Wasm::Processor::InvokeExt(nBinding);
+		}
+	}
+
+	void ProcessorPlus_Contract::InvokeExtPlus(uint32_t nBinding)
+	{
+		switch (nBinding)
+		{
+		BVMOpsAll_Contract(THE_MACRO)
+		default:
+			ProcessorPlus::From(*this).InvokeExtPlus(nBinding);
+		}
+	}
 
 #undef THE_MACRO
 #undef PAR_PASS
 #undef PAR_DECL
 #undef PAR_ASSIGN
 
-		default:
-			Wasm::Processor::InvokeExt(nBinding);
-		}
-	}
-
 	void Processor::InvokeExt(uint32_t nBinding)
 	{
-		static_assert(sizeof(*this) == sizeof(ProcessorPlus));
-		Cast::Up<ProcessorPlus>(*this).InvokeExtPlus(nBinding);
+		ProcessorPlus::From(*this).InvokeExtPlus(nBinding);
+	}
+
+	void ProcessorContract::InvokeExt(uint32_t nBinding)
+	{
+		ProcessorPlus_Contract::From(*this).InvokeExtPlus(nBinding);
 	}
 
 	void TestStackPtr(const Wasm::Compiler::GlobalVar& x)
@@ -408,34 +437,45 @@ namespace bvm2 {
 		Wasm::Test(x.m_IsVariable && (Wasm::TypeCode::i32 == x.m_Type));
 	}
 
-	void Processor::ResolveBindings(Wasm::Compiler& c)
+	void Processor::ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind kind)
 	{
-		for (uint32_t i = 0; i < c.m_ImportFuncs.size(); i++)
-		{
-			auto& x = c.m_ImportFuncs[i];
+		auto& x = c.m_ImportFuncs[iFunction];
 
-			if (!STR_MATCH(x.m_sMod, "env"))
-				Wasm::Fail(); // imports from other modules are not supported
+		if (!STR_MATCH(x.m_sMod, "env"))
+			Wasm::Fail(); // imports from other modules are not supported
 
-			const auto& tp = c.m_Types[x.m_TypeIdx];
+		const auto& tp = c.m_Types[x.m_TypeIdx];
 
 #define PAR_TYPECODE(type, name) ParamWrap<type>::s_Code,
-
 #define THE_MACRO(id, ret, name) \
-			if (STR_MATCH(x.m_sName, #name)) { \
-				x.m_Binding = id; \
-				/* verify signature */ \
-				const uint8_t pSig[] = { BVMOp_##name(PAR_TYPECODE, MACRO_NOP) 0 }; \
-				Wasm::Test(tp.m_Args.n == _countof(pSig) - 1); \
-				Wasm::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
-				ParamWrap<ret>::TestRetType(tp.m_Rets); \
-			} else
-			
-			BVMOpsAll(THE_MACRO)
-#undef THE_MACRO
-
-				Wasm::Fail(); // name not found
+		if (STR_MATCH(x.m_sName, #name)) { \
+			x.m_Binding = id; \
+			/* verify signature */ \
+			const uint8_t pSig[] = { BVMOp_##name(PAR_TYPECODE, MACRO_NOP) 0 }; \
+			Wasm::Test(tp.m_Args.n == _countof(pSig) - 1); \
+			Wasm::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
+			ParamWrap<ret>::TestRetType(tp.m_Rets); \
+			return; \
 		}
+
+		BVMOpsAll_Common(THE_MACRO)
+
+		if (Kind::Contract == kind)
+		{
+			BVMOpsAll_Contract(THE_MACRO)
+		}
+
+
+#undef THE_MACRO
+#undef PAR_TYPECODE
+
+		Wasm::Fail(); // not found
+	}
+
+	void Processor::ResolveBindings(Wasm::Compiler& c, Kind kind)
+	{
+		for (uint32_t i = 0; i < c.m_ImportFuncs.size(); i++)
+			ResolveBinding(c, i, kind);
 
 		bool bStackPtrImported = false;
 		for (uint32_t i = 0; i < c.m_ImportGlobals.size(); i++)
@@ -478,14 +518,23 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Methods
+	namespace ProcessorFromMethod {
+#define THE_MACRO(id, ret, name) typedef ProcessorPlus name##_Type; typedef ProcessorPlusEnv name##_TypeEnv;
+		BVMOpsAll_Common(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) typedef ProcessorPlus_Contract name##_Type; typedef ProcessorPlusEnv_Contract name##_TypeEnv;
+		BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+	}
 
 #define BVM_METHOD_PAR_DECL(type, name) ParamWrap<type>::Type name
 #define BVM_METHOD_PAR_DECL_HOST(type, name) type name
 #define BVM_METHOD_PAR_PASS(type, name) name
-#define BVM_METHOD(name) ProcessorPlus::RetType_##name ProcessorPlus::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
-#define BVM_METHOD_HOST(name) ProcessorPlus::RetTypeHost_##name ProcessorPlusEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
+#define BVM_METHOD(name) ProcessorFromMethod::name##_Type::RetType_##name ProcessorFromMethod::name##_Type::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
+#define BVM_METHOD_HOST(name) ProcessorFromMethod::name##_Type::RetTypeHost_##name ProcessorFromMethod::name##_TypeEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
 
-#define BVM_METHOD_AUTO_INVOKE(name) Cast::Up<ProcessorPlus>(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS, MACRO_COMMA));
+#define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS, MACRO_COMMA));
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
 	BVM_METHOD(Memcpy)
@@ -631,7 +680,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(RefAdd)
 	{
-		return Cast::Up<ProcessorPlus>(*this).HandleRef(cid, true);
+		return ProcessorPlus_Contract::From(*this).HandleRef(cid, true);
 	}
 
 	BVM_METHOD(RefRelease)
@@ -640,7 +689,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(RefRelease)
 	{
-		return Cast::Up<ProcessorPlus>(*this).HandleRef(cid, false);
+		return ProcessorPlus_Contract::From(*this).HandleRef(cid, false);
 	}
 
 	BVM_METHOD(AssetCreate)
@@ -661,7 +710,7 @@ namespace bvm2 {
 		Asset::ID ret = AssetCreate(md, av.m_Owner);
 		if (ret)
 		{
-			Cast::Up<ProcessorPlus>(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
+			ProcessorPlus_Contract::From(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
 
 			SetAssetKey(av, ret);
 			SaveVar(av.m_vk, av.m_Owner.m_pData, av.m_Owner.nBytes);
@@ -670,13 +719,13 @@ namespace bvm2 {
 		return ret;
 	}
 
-	void Processor::SetAssetKey(AssetVar& av, Asset::ID aid)
+	void ProcessorContract::SetAssetKey(AssetVar& av, Asset::ID aid)
 	{
 		SetVarKey(av.m_vk);
 		av.m_vk.Append(VarKey::Tag::OwnedAsset, uintBigFrom(aid));
 	}
 
-	void Processor::get_AssetStrict(AssetVar& av, Asset::ID aid)
+	void ProcessorContract::get_AssetStrict(AssetVar& av, Asset::ID aid)
 	{
 		SetAssetKey(av, aid);
 
@@ -738,7 +787,7 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// Other funcs
 
-	bool Processor::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
+	bool ProcessorContract::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
 	{
 		uint32_t n0 = n;
 		LoadVar(vk, pVal, n);
@@ -750,18 +799,18 @@ namespace bvm2 {
 		return false;
 	}
 
-	bool Processor::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
+	bool ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
 		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
 	}
 
-	void ProcessorPlus::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
 	{
 		HandleAmountInner(amount, aid, bLock);
 		HandleAmountOuter(amount, aid, bLock);
 	}
 
-	void ProcessorPlus::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorContract::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
 	{
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, uintBigFrom(aid));
@@ -788,7 +837,7 @@ namespace bvm2 {
 		Save_T(vk, val0);
 	}
 
-	void ProcessorPlus::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
+	void ProcessorContract::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
 	{
 		if (m_pSigValidate)
 		{
@@ -802,7 +851,7 @@ namespace bvm2 {
 		}
 	}
 
-	bool ProcessorPlus::HandleRefRaw(const VarKey& vk, bool bAdd)
+	bool ProcessorContract::HandleRefRaw(const VarKey& vk, bool bAdd)
 	{
 		uintBig_t<4> refs; // more than enough
 		Load_T(vk, refs);
@@ -827,7 +876,7 @@ namespace bvm2 {
 		return ret;
 	}
 
-	uint8_t ProcessorPlus::HandleRef(const ContractID& cid, bool bAdd)
+	uint8_t ProcessorContract::HandleRef(const ContractID& cid, bool bAdd)
 	{
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::Refs, cid);
@@ -860,7 +909,7 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Signature
-	ECC::Point::Native& Processor::AddSigInternal(const ECC::Point& pk)
+	ECC::Point::Native& ProcessorContract::AddSigInternal(const ECC::Point& pk)
 	{
 		(*m_pSigValidate) << pk;
 
@@ -869,7 +918,7 @@ namespace bvm2 {
 		return ret;
 	}
 
-	void Processor::CheckSigs(const ECC::Point& pt, const ECC::Signature& sig)
+	void ProcessorContract::CheckSigs(const ECC::Point& pt, const ECC::Signature& sig)
 	{
 		if (!m_pSigValidate)
 			return;

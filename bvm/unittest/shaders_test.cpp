@@ -47,11 +47,15 @@ namespace Shaders {
 #define PAR_DECL(type, name) type name
 #define PAR_PASS(type, name) name
 #define MACRO_COMMA ,
+
 #define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-
-		BVMOpsAll(THE_MACRO)
-
+		BVMOpsAll_Common(THE_MACRO)
 #undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+		BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+
 #undef MACRO_COMMA
 #undef PAR_PASS
 #undef PAR_DECL
@@ -164,7 +168,7 @@ namespace bvm2 {
 	}
 
 	struct MyProcessor
-		:public Processor
+		:public ProcessorContract
 	{
 		BlobMap::Set m_Vars;
 
@@ -551,7 +555,7 @@ namespace bvm2 {
 			if (!res.empty())
 				fs.read(&res.front(), res.size());
 
-			Processor::Compile(res, res);
+			Processor::Compile(res, res, Kind::Contract);
 		}
 
 		template <typename T>
@@ -619,7 +623,7 @@ namespace bvm2 {
 				//}
 			}
 
-			Processor::CallFar(cid, iMethod, pArgs);
+			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
 		void TestVault();

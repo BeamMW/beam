@@ -2019,7 +2019,7 @@ struct NodeProcessor::BlockInterpretCtx
 	BlobPtrSet m_KrnIDs; // mirrors kernel ID DB table in temporary mode
 
 	struct BvmProcessor
-		:public bvm2::Processor
+		:public bvm2::ProcessorContract
 	{
 		BlockInterpretCtx& m_Bic;
 		NodeProcessor& m_Proc;
