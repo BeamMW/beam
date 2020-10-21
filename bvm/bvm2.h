@@ -125,19 +125,6 @@ namespace bvm2 {
 		void get_AssetStrict(AssetVar&, Asset::ID);
 		void SetAssetKey(AssetVar&, Asset::ID);
 
-		// Copied from earlier bvm version
-		struct ArrayContext
-		{
-			uint32_t m_nCount;
-			uint32_t m_nElementWidth;
-			uint32_t m_nKeyPos;
-			uint32_t m_nKeyWidth;
-			uint32_t m_nSize;
-
-			void MergeSort(uint8_t* p) const;
-			void MergeOnce(uint8_t* pDst, const uint8_t* pSrc, uint32_t p0, uint32_t n0, uint32_t p1, uint32_t n1) const;
-		};
-
 	private:
 		static void ResolveBindings(Wasm::Compiler&);
 		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
