@@ -58,25 +58,24 @@ namespace bvm2 {
 	};
 #pragma pack (pop)
 
-	void Processor::Reset()
+	void Processor::InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill)
 	{
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
 		ZeroObject(m_Instruction);
 
+		m_Stack.m_pPtr = pStack;
+		m_Stack.m_BytesMax = nStackBytes;
+		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
 		m_Stack.m_Pos = 0;
+
+		memset(pStack, nFill, nStackBytes);
 	}
 
 	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
 	{
-		Reset();
-
-		m_Stack.m_pPtr = m_pStack;
-		m_Stack.m_BytesMax = sizeof(m_pStack);
-		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
-
-		memset(m_pStack, nFill, sizeof(m_pStack));
+		InitBase(m_pStack, sizeof(m_pStack), nFill);
 	}
 
 	const Processor::Header& Processor::ParseMod()

@@ -41,7 +41,7 @@ namespace bvm2 {
 	{
 	protected:
 
-		void Reset();
+		void InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill);
 
 		struct VarKey
 		{
@@ -97,8 +97,6 @@ namespace bvm2 {
 	class ProcessorContract
 		:public Processor
 	{
-		friend struct ProcessorPlus;
-		friend struct ProcessorPlusEnv;
 	protected:
 		Wasm::Word m_pStack[Limits::StackSize / sizeof(Wasm::Word)];
 
