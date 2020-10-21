@@ -27,5 +27,6 @@ namespace beam::bitcoin_cash
 
     protected:
         std::string getCoinName() const override;
+        std::string getAddressType() const override;
     };
 } // namespace beam::bitcoin_cash
