@@ -83,6 +83,8 @@ namespace Wasm {
 
 		std::vector<PerType> m_Types;
 
+		std::vector<uint32_t> m_IndirectFuncs;
+
 		struct PerImport {
 			Vec<char> m_sMod;
 			Vec<char> m_sName;
@@ -156,6 +158,7 @@ namespace Wasm {
 		ByteBuffer m_Data;
 		ByteBuffer m_Result;
 		Word m_Data0;
+		Word m_Table0;
 
 		void Parse(const Reader&); // parses the wasm file info, sets labels for local functions. No compilation yet.
 		// Time to set the external bindings, create a header, etc.
@@ -181,6 +184,7 @@ namespace Wasm {
 	{
 		Blob m_Code;
 		Blob m_Data;
+		Word m_Table0;
 		Word m_Data0;
 		Blob m_LinearMem;
 		Reader m_Instruction;
@@ -271,15 +275,18 @@ namespace Wasm {
 		Word get_Ip() const;
 		void Jmp(uint32_t ip);
 
+		Word ReadTable(Word iItem) const;
+		Word ReadVFunc(Word pObject, Word iFunc) const;
+
 		void RunOnce();
 
-		uint8_t* get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW);
+		uint8_t* get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW) const;
 
-		uint8_t* get_AddrW(uint32_t nOffset, uint32_t nSize) {
+		uint8_t* get_AddrW(uint32_t nOffset, uint32_t nSize) const {
 			return get_AddrEx(nOffset, nSize, true);
 		}
 
-		const uint8_t* get_AddrR(uint32_t nOffset, uint32_t nSize) {
+		const uint8_t* get_AddrR(uint32_t nOffset, uint32_t nSize) const {
 			return get_AddrEx(nOffset, nSize, false);
 		}
 

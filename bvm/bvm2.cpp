@@ -45,11 +45,12 @@ namespace bvm2 {
 #pragma pack (push, 1)
 	struct Processor::Header
 	{
-		static const uint32_t s_Version = 1;
+		static const uint32_t s_Version = 2;
 
 		uint32_t m_Version;
 		uint32_t m_NumMethods;
 		uint32_t m_Data0;
+		uint32_t m_Table0;
 
 		static const uint32_t s_MethodsMin = 2; // c'tor and d'tor
 		static const uint32_t s_MethodsMax = 1U << 28; // would be much much less of course, this is just to ensure no-overflow for offset calculation
@@ -98,6 +99,9 @@ namespace bvm2 {
 		m_Data.n = m_Code.n - nHdrSize;
 		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
 		m_Data0 = ByteOrder::from_le(hdr.m_Data0);
+
+		m_Table0 = ByteOrder::from_le(hdr.m_Table0);
+		Wasm::Test(m_Table0 <= m_Code.n);
 
 		return hdr;
 	}
@@ -273,6 +277,8 @@ namespace bvm2 {
 		c.Build();
 
 		pHdr = reinterpret_cast<Header*>(&c.m_Result.front());
+		pHdr->m_Table0 = ByteOrder::to_le(c.m_Table0);
+
 		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
 		{
 			uint32_t iMethod = it->first;

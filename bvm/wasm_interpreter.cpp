@@ -245,6 +245,7 @@ namespace Wasm {
 	macro(0xAC, i64_extend_i32_s) \
 	macro(0xAD, i64_extend_i32_u) \
 	macro(0x10, call) \
+	macro(0x11, call_indirect) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
 	macro(0x0F, ret) \
@@ -310,8 +311,10 @@ namespace Wasm {
 		macro(1, Type) \
 		macro(2, Import) \
 		macro(3, Funcs) \
+		macro(4, Table) \
 		macro(6, Global) \
 		macro(7, Export) \
+		macro(9, Element) \
 		macro(10, Code) \
 		macro(11, Data) \
 		macro(12, DataCount) \
@@ -321,6 +324,15 @@ namespace Wasm {
 #undef THE_MACRO
 
 		void ParsePlus(Reader);
+
+		int32_t ReadI32Initializer(Reader& inp)
+		{
+			// initialization expression for the global variable. Ignore it, we don't really support globals, it's just needed for a non-imported stack pointer worakround.
+			Test(Instruction::i32_const == inp.Read1());
+			auto val = inp.Read<int32_t>();
+			Test(Instruction::end_block == inp.Read1());
+			return val;
+		}
 	};
 
 	void Compiler::Parse(const Reader& inp)
@@ -469,6 +481,27 @@ namespace Wasm {
 		}
 	}
 
+	void CompilerPlus::OnSection_Table(Reader& inp)
+	{
+		auto nCount = inp.Read<uint32_t>();
+
+		for (uint32_t i = 0; i < nCount; i++)
+		{
+			auto tblType = inp.Read<uint32_t>(); 
+			Test(0x70 == tblType); // must by anyfunc
+
+			auto nFlags = inp.Read<uint32_t>();
+			auto nLimitMin = inp.Read<uint32_t>();
+			nLimitMin;
+			auto nLimitMax = nLimitMin;
+
+			if (1 & nFlags)
+				nLimitMax = inp.Read<uint32_t>(); // max
+
+			nLimitMax;
+		}
+	}
+
 	void CompilerPlus::OnSection_Global(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
@@ -482,10 +515,7 @@ namespace Wasm {
 			x.m_IsVariable = inp.Read1();
 
 			// initialization expression for the global variable. Ignore it, we don't really support globals, it's just needed for a non-imported stack pointer worakround.
-			Test(Instruction::i32_const == inp.Read1());
-			auto nInitialValue = inp.Read<int32_t>();
-			nInitialValue;
-			Test(Instruction::end_block == inp.Read1());
+			ReadI32Initializer(inp);
 		}
 	}
 
@@ -505,6 +535,32 @@ namespace Wasm {
 			{
 				x.m_Idx -= static_cast<uint32_t>(m_ImportFuncs.size());
 				Test(x.m_Idx < m_Functions.size());
+			}
+		}
+	}
+
+	void CompilerPlus::OnSection_Element(Reader& inp)
+	{
+		auto nCount = inp.Read<uint32_t>();
+		Test(1 == nCount);
+
+		for (uint32_t i = 0; i < nCount; i++)
+		{
+			auto iTable = inp.Read<uint32_t>();
+			Test(0 == iTable);
+			uint32_t nOffset = ReadI32Initializer(inp);
+			Test(1 == nOffset); // seems irrelevant
+
+			auto nFuncs = inp.Read<uint32_t>();
+			m_IndirectFuncs.resize(nFuncs);
+
+			for (uint32_t iFunc = 0; iFunc < nFuncs; iFunc++)
+			{
+				auto val = inp.Read<uint32_t>();
+				val -= static_cast<uint32_t>(m_ImportFuncs.size());
+				Test(val < m_Functions.size());
+
+				m_IndirectFuncs[iFunc] = val;
 			}
 		}
 	}
@@ -551,9 +607,7 @@ namespace Wasm {
 		{
 			uint32_t nAddr = inp.Read<uint32_t>();
 
-			Test(Instruction::i32_const == inp.Read1());
-			uint32_t nOffset = inp.Read<int32_t>();
-			Test(Instruction::end_block == inp.Read1());
+			uint32_t nOffset = ReadI32Initializer(inp);
 			nAddr += nOffset;
 
 			Vec<uint8_t> data;
@@ -937,6 +991,17 @@ namespace Wasm {
 			OnGlobal(false);
 		}
 
+		void OnCallType(uint32_t iTypeIdx)
+		{
+			const auto& tp = m_This.m_Types[iTypeIdx];
+
+			for (uint32_t i = tp.m_Args.n; i--; )
+				Pop(tp.m_Args.p[i]);
+
+			for (uint32_t i = 0; i < tp.m_Rets.n; i++)
+				Push(tp.m_Rets.p[i]);
+		}
+
 		void On_call()
 		{
 			auto iFunc = m_Code.Read<uint32_t>();
@@ -949,13 +1014,7 @@ namespace Wasm {
 			}
 
 			uint32_t iTypeIdx = bImported ? m_This.m_ImportFuncs[iFunc].m_TypeIdx : m_This.m_Functions[iFunc].m_TypeIdx;
-			const auto& tp = m_This.m_Types[iTypeIdx];
-
-			for (uint32_t i = tp.m_Args.n; i--; )
-				Pop(tp.m_Args.p[i]);
-
-			for (uint32_t i = 0; i < tp.m_Rets.n; i++)
-				Push(tp.m_Rets.p[i]);
+			OnCallType(iTypeIdx);
 
 			m_p0 = nullptr; // don't write
 
@@ -972,6 +1031,22 @@ namespace Wasm {
 				WriteRes(Instruction::call);
 				PutLabelTrg(iFunc);
 			}
+		}
+
+		void On_call_indirect()
+		{
+			auto iType = m_Code.Read<uint32_t>();
+			Test(iType < m_This.m_Types.size());
+
+			auto iTable = m_Code.Read<uint32_t>();
+			Test(!iTable);
+
+			Pop(Type::i32); // func index
+			OnCallType(iType);
+
+			m_p0 = nullptr; // don't write
+
+			WriteRes(Instruction::call_indirect);
 		}
 
 		void CompileFunc();
@@ -1069,15 +1144,21 @@ namespace Wasm {
 			ctx.CompileFunc();
 		}
 
+		m_Table0 = static_cast<uint32_t>(m_Result.size());
+
+		for (uint32_t i = 0; i < m_IndirectFuncs.size(); i++)
+		{
+			m_Result.resize(m_Result.size() + sizeof(Word));
+			to_wasm(&m_Result.back() - (sizeof(Word) - 1), m_Labels.m_Items[m_IndirectFuncs[i]]);
+		}
+
 		for (uint32_t i = 0; i < m_Labels.m_Targets.size(); i++)
 		{
 			auto& trg = m_Labels.m_Targets[i];
 
 			to_wasm(&m_Result.front() + trg.m_Pos, m_Labels.m_Items[trg.m_iItem]);
 		}
-
 	}
-
 
 
 	void Compiler::Context::CompileFunc()
@@ -1490,7 +1571,7 @@ namespace Wasm {
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
 	}
 
-	uint8_t* Processor::get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW)
+	uint8_t* Processor::get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW) const
 	{
 		if (!nSize)
 			return nullptr;
@@ -1669,6 +1750,31 @@ namespace Wasm {
 		InvokeExt(m_Instruction.Read<uint32_t>());
 	}
 
+	Word Processor::ReadTable(Word iItem) const
+	{
+		iItem--; // it's 1-based
+		assert(m_Table0 <= m_Code.n); // must be checked during setup
+		Test(iItem < (m_Code.n - m_Table0) / sizeof(Word));
+		return from_wasm<Word>(static_cast<const uint8_t*>(m_Code.p) + m_Table0 + sizeof(Word) * iItem);
+	}
+
+	Word Processor::ReadVFunc(Word pObject, Word iFunc) const
+	{
+		Word pVTable = from_wasm<Word>(get_AddrR(pObject, sizeof(Word)));
+		Word iFuncIdx = from_wasm<Word>(get_AddrR(pVTable + sizeof(Word) * iFunc, sizeof(Word)));
+
+		return ReadTable(iFuncIdx);
+	}
+
+	void ProcessorPlus::On_call_indirect()
+	{
+		Word iFunc = m_Stack.Pop<Word>();
+		Word nAddr = ReadTable(iFunc);
+
+		Word nRetAddr = get_Ip();
+		m_Stack.Push(nRetAddr);
+		OnCall(nAddr);
+	}
 
 	void ProcessorPlus::On_i32_const()
 	{
