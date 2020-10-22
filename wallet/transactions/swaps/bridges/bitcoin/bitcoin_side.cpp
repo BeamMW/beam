@@ -344,8 +344,8 @@ namespace beam::wallet
 
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > bitcoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
     Amount BitcoinSide::CalcTotalFee(Amount feeRate)

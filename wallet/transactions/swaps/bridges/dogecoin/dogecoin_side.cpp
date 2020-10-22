@@ -31,8 +31,8 @@ namespace beam::wallet
 
     bool DogecoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(kDogecoinWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > dogecoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= dogecoin::kDustThreshold;
     }
 
     Amount DogecoinSide::CalcTotalFee(Amount feeRate)
