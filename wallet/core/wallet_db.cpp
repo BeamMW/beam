@@ -94,13 +94,14 @@
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
-    each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(walletID,       walletID,       BLOB, obj) sep \
     each(label,          label,          TEXT NOT NULL, obj) sep \
     each(category,       category,       TEXT, obj) sep \
     each(createTime,     createTime,     INTEGER, obj) sep \
     each(duration,       duration,       INTEGER, obj) sep \
     each(OwnID,          OwnID,          INTEGER NOT NULL, obj) sep \
-    each(Identity,       Identity,       BLOB, obj) 
+    each(Identity,       Identity,       BLOB, obj) sep \
+    each(Address,        Address,        TEXT NOT NULL PRIMARY KEY, obj) 
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
@@ -895,7 +896,8 @@ namespace beam::wallet
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 24;
+        const int DbVersion   = 25;
+        const int DbVersion24 = 24;
         const int DbVersion23 = 23;
         const int DbVersion22 = 22;
         const int DbVersion21 = 21;
@@ -1100,10 +1102,11 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
     
-        void CreateAddressesTable(sqlite3* db)
+        void CreateAddressesTable(sqlite3* db, const std::string& tableName)
         {
-            const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
-            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            const std::string req = "CREATE TABLE " + tableName + " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;"
+                              "CREATE INDEX " + tableName + "WalletIDIndex ON " + tableName + "(WalletID);";
+            int ret = sqlite3_exec(db, req.c_str(), nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
 
@@ -1136,9 +1139,7 @@ namespace beam::wallet
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
 
-            const char* req2 = "CREATE TABLE " LASER_ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
-            ret = sqlite3_exec(db, req2, nullptr, nullptr, nullptr);
-            throwIfError(ret, db);
+            CreateAddressesTable(db, LASER_ADDRESSES_NAME);
 
             LOG_INFO() << "Create laser tables";
         }
@@ -1256,6 +1257,58 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void MigrateAddressesFrom24(WalletDB* walletDB, sqlite3* db, const std::string& tableName)
+        {
+
+            // move old data to temp table
+            if (!IsTableCreated(walletDB, (tableName + "_del").c_str()))
+            {
+                const std::string req = "ALTER TABLE " + tableName + " RENAME TO " + tableName + "_del;";
+                int ret = sqlite3_exec(db, req.c_str(), NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
+
+            // create new table
+            CreateAddressesTable(db, tableName);
+
+            bool isLaser = tableName == LASER_ADDRESSES_NAME;
+            // migration
+            {
+                sqlite::Statement stm((const WalletDB*)walletDB, ("SELECT * FROM " + tableName + "_del;").c_str());
+
+                while (stm.step())
+                {
+                    WalletAddress addr;
+                    stm.get(0, addr.m_walletID);
+                    stm.get(1, addr.m_label);
+                    stm.get(2, addr.m_category);
+                    stm.get(3, addr.m_createTime);
+                    stm.get(4, addr.m_duration);
+                    stm.get(5, addr.m_OwnID);
+                    stm.get(6, addr.m_Identity);
+
+                    if (addr.m_walletID != Zero)
+                    {
+                        addr.m_Address = std::to_string(addr.m_walletID);
+                        walletDB->saveAddress(addr, isLaser);
+                    }
+                }
+            }
+
+            // remove tmp table
+            {
+                const std::string req = "DROP TABLE " + tableName + "_del;";
+                int ret = sqlite3_exec(db, req.c_str(), NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
+        }
+
+        void MigrateAddressesFrom24(WalletDB* walletDB, sqlite3* db)
+        {
+            MigrateAddressesFrom24(walletDB, db, ADDRESSES_NAME);
+            MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1360,7 +1413,7 @@ namespace beam::wallet
         CreateWalletMessageTable(db);
         CreatePrivateVariablesTable(privateDb);
         CreateVariablesTable(db);
-        CreateAddressesTable(db);
+        CreateAddressesTable(db, ADDRESSES_NAME);
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
@@ -1658,6 +1711,8 @@ namespace beam::wallet
             int version = 0;
             storage::getVar(*walletDB, Version, version);
 
+            // start new transaction
+            walletDB->onPrepareToModify();
             // migration
             try
             {
@@ -1843,6 +1898,11 @@ namespace beam::wallet
                     {
                         AddVouchersFlagsColumn(db);
                     }
+
+                case DbVersion24:
+                    LOG_INFO() << "Converting DB from format 24...";
+                    MigrateAddressesFrom24(walletDB.get(), walletDB->_db);
+
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -3465,10 +3525,6 @@ namespace beam::wallet
     boost::optional<WalletAddress> WalletDB::getAddress(
         const WalletID& id, bool isLaser) const
     {
-        if (auto it = m_AddressesCache.find(id); it != m_AddressesCache.end())
-        {
-            return it->second;
-        }
         const std::string addrTableName =
             isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
         auto req = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
@@ -3481,13 +3537,30 @@ namespace beam::wallet
             WalletAddress address = {};
             loadAddress(this, stm, address);
 
-            insertAddressToCache(id, address);
             return address;
         }
-        if (!isLaser)
+
+        return boost::optional<WalletAddress>();
+    }
+
+    boost::optional<WalletAddress> WalletDB::getAddress(
+        const std::string& addressStr, bool isLaser) const
+    {
+        const std::string addrTableName =
+            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        auto req = "SELECT * FROM " + addrTableName + " WHERE Address=?1;";
+        sqlite::Statement stm(this, req.c_str());
+
+        stm.bind(1, addressStr);
+
+        if (stm.step())
         {
-            insertAddressToCache(id, boost::optional<WalletAddress>());
+            WalletAddress address = {};
+            loadAddress(this, stm, address);
+
+            return address;
         }
+
         return boost::optional<WalletAddress>();
     }
 
@@ -3515,17 +3588,23 @@ namespace beam::wallet
         const std::string addrTableName =
             isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
         ChangeAction action = ChangeAction::Added;
+        std::string addressStr = address.m_Address;
+        if (addressStr.empty())
         {
-            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+            assert(address.m_walletID != Zero);
+            addressStr = std::to_string(address.m_walletID);
+        }
+        {
+            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
             sqlite::Statement stm2(this, selectReq.c_str());
-            stm2.bind(1, address.m_walletID);
+            stm2.bind(1, addressStr);
 
             if (stm2.step())
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
+                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE address=?1;";
                 sqlite::Statement stm(this, updateReq.c_str());
 
-                stm.bind(1, address.m_walletID);
+                stm.bind(1, addressStr);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
                 stm.bind(4, address.m_duration);
@@ -3536,17 +3615,18 @@ namespace beam::wallet
             }
             else
             {
+                WalletAddress copyAddress = address;
+                copyAddress.m_Address = addressStr;
                 auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
                 sqlite::Statement stm(this, insertReq.c_str());
                 int colIdx = 0;
-                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, copyAddress);
                 stm.step();
             }
         }
 
         if (!isLaser)
         {
-            insertAddressToCache(address.m_walletID, address);
             notifyAddressChanged(action, { address });
         }
     }
@@ -3568,21 +3648,31 @@ namespace beam::wallet
 
             if (!isLaser)
             {
-            deleteAddressFromCache(id);
-
-            notifyAddressChanged(ChangeAction::Removed, {*address});
+                notifyAddressChanged(ChangeAction::Removed, {*address});
+            }
         }
     }
-    }
 
-    void WalletDB::insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const
+    void WalletDB::deleteAddress(const std::string& addr, bool isLaser)
     {
-        m_AddressesCache[id] = address;
-    }
+        auto address = getAddress(addr, isLaser);
+        if (address)
+        {
+            const std::string addrTableName =
+                isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
 
-    void WalletDB::deleteAddressFromCache(const WalletID& id)
-    {
-        m_AddressesCache.erase(id);
+            auto req = "DELETE FROM " + addrTableName + " WHERE Address=?1;";
+            sqlite::Statement stm(this, req.c_str());
+
+            stm.bind(1, addr);
+
+            stm.step();
+
+            if (!isLaser)
+            {
+                notifyAddressChanged(ChangeAction::Removed, { *address });
+            }
+        }
     }
 
     void WalletDB::saveAsset(const Asset::Full &info, Height refreshHeight)
@@ -4230,8 +4320,9 @@ namespace beam::wallet
         {
             assert(m_FlushTimer);
             m_FlushTimer->cancel();
-            onFlushTimer();
         }
+
+        onFlushTimer();
     }
 
     void WalletDB::rollbackDB()
@@ -4241,11 +4332,11 @@ namespace beam::wallet
             assert(m_FlushTimer);
             m_FlushTimer->cancel();
             m_IsFlushPending = false;
-            if (m_DbTransaction)
-            {
-                m_DbTransaction->rollback();
-                m_DbTransaction.reset();
-            }
+        }
+        if (m_DbTransaction)
+        {
+            m_DbTransaction->rollback();
+            m_DbTransaction.reset();
         }
     }
 
@@ -5545,7 +5636,7 @@ namespace beam::wallet
         : m_walletID(Zero)
         , m_createTime(0)
         , m_duration(AddressExpiration24h)
-        , m_OwnID(false)
+        , m_OwnID(0)
         , m_Identity(Zero)
     {}
 

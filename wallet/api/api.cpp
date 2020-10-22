@@ -19,6 +19,7 @@
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
+#include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -375,20 +376,6 @@ static void FillAddressData(const JsonRpcId& id, const json& params, AddressData
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
     throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
-}
-
-std::string swapOfferStatusToString(const SwapOfferStatus& status)
-{
-    switch(status)
-    {
-    case SwapOfferStatus::Canceled : return "cancelled";
-    case SwapOfferStatus::Completed : return "completed";
-    case SwapOfferStatus::Expired : return "expired";
-    case SwapOfferStatus::Failed : return "failed";
-    case SwapOfferStatus::InProgress : return "in progress";
-    case SwapOfferStatus::Pending : return "pending";
-    default : return "unknown";
-    }
 }
 
 json OfferToJson(const SwapOffer& offer,

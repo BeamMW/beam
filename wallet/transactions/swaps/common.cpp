@@ -96,6 +96,21 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     }
     }
 }
+
+std::string swapOfferStatusToString(const SwapOfferStatus& status)
+{
+    switch(status)
+    {
+    case SwapOfferStatus::Canceled : return "cancelled";
+    case SwapOfferStatus::Completed : return "completed";
+    case SwapOfferStatus::Expired : return "expired";
+    case SwapOfferStatus::Failed : return "failed";
+    case SwapOfferStatus::InProgress : return "in progress";
+    case SwapOfferStatus::Pending : return "pending";
+    default : return "unknown";
+    }
+}
+
 }  // namespace beam::wallet
 
 namespace std
