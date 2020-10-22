@@ -5545,7 +5545,7 @@ namespace beam::wallet
         : m_walletID(Zero)
         , m_createTime(0)
         , m_duration(AddressExpiration24h)
-        , m_OwnID(false)
+        , m_OwnID(0)
         , m_Identity(Zero)
     {}
 
