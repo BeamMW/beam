@@ -669,6 +669,7 @@ namespace bvm2 {
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
+		verify_test(m_cidVault == Shaders::Vault::s_ID);
 
 		m_lstUndo.Clear();
 
