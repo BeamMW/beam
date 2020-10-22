@@ -123,9 +123,8 @@
 	macro(0x3A, uint8_t  , AssetDestroy) \
 
 #define BVMOpsAll_Manager(macro) \
-	macro(0x25, uint32_t , LoadVarEx) \
-	macro(0x26, uint8_t  , LoadAllVars) \
+	macro(0x50, uint32_t , LoadVarEx) \
+	macro(0x51, uint8_t  , LoadAllVars) \
+	//macro(0x51, void     , LoadVarsRestart) \
+	//macro(0x52, void     , LoadVarsNext) \
 
-#define BVMOpsAll(macro) \
-	BVMOpsAll_Common(macro) \
-	BVMOpsAll_Contract(macro)

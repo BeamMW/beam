@@ -861,20 +861,69 @@ namespace bvm2 {
 			:public ILoadVarCallback
 		{
 			ProcessorManager& m_This;
-			Wasm::Word m_Addr;
+			Wasm::Word m_Object;
+			Wasm::Word m_Method;
 
 			Marshaller(ProcessorManager& x) :m_This(x) {}
 
-			uint8_t OnVar(const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal) override
+			uint8_t OnVar(uint8_t nTag, const uint8_t* pKey, uint32_t nKey, const uint8_t* pVal, uint32_t nVal) override
 			{
-				// TODO
-				return 0;
+				Wasm::Word nAliasSp0 = m_This.m_Stack.m_BytesCurrent;
+
+				m_This.m_Stack.PushAlias(Blob(pKey, nKey));
+				Wasm::Word pKey_ = m_This.m_Stack.get_AlasSp();
+
+				m_This.m_Stack.PushAlias(Blob(pVal, nVal));
+				Wasm::Word pVal_ = m_This.m_Stack.get_AlasSp();
+
+				Wasm::Word nAliasSp1 = m_This.m_Stack.m_BytesCurrent;
+				Wasm::Word nOperandSp = m_This.m_Stack.m_Pos;
+
+				m_This.m_Stack.Push(m_Object); // 'this' pointer
+				m_This.m_Stack.Push(nTag);
+				m_This.m_Stack.Push(pKey_);
+				m_This.m_Stack.Push(nKey);
+				m_This.m_Stack.Push(pVal_);
+				m_This.m_Stack.Push(nVal);
+
+				m_This.Run(m_Method);
+
+				auto ret = m_This.m_Stack.Pop<Wasm::Word>();
+
+				Wasm::Test(nAliasSp1 == m_This.m_Stack.m_BytesCurrent); // alias stack must be restored
+				Wasm::Test(nOperandSp == m_This.m_Stack.m_Pos); // operand stack must be restored
+
+				m_This.m_Stack.m_BytesCurrent = nAliasSp0;
+
+
+				return !!ret;
 			}
 
 		} m(*this);
-		m.m_Addr = pCallback;
+
+		m.m_Object = pCallback;
+		m.m_Method = ReadVFunc(pCallback, 0);
 
 		return LoadAllVars(m);
+	}
+
+	void ProcessorManager::Run(Wasm::Word addr)
+	{
+		Run(addr, get_Ip());
+	}
+
+	void ProcessorManager::Run(Wasm::Word addr, Wasm::Word retAddr)
+	{
+		m_Stack.Push(retAddr);
+		Jmp(addr);
+
+		uint32_t nDepth = m_LocalDepth++;
+		do
+		{
+			RunOnce(); // TODO: dbg out, control num of cycles
+		} while (nDepth != m_LocalDepth);
+
+		Wasm::Test(get_Ip() == retAddr);
 	}
 
 	BVM_METHOD_HOST(LoadAllVars)
@@ -1038,6 +1087,16 @@ namespace bvm2 {
 		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
 
 		Wasm::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
+	}
+
+	/////////////////////////////////////////////
+	// Manager
+	void ProcessorManager::RunMethod(uint32_t iMethod)
+	{
+		const Header& hdr = ParseMod();
+		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
+		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
+		Run(nAddr, 0);
 	}
 
 } // namespace bvm2

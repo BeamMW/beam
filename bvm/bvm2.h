@@ -187,7 +187,7 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
-		Wasm::Word m_pStack[0x100000 / sizeof(Wasm::Word)];
+		Wasm::Word m_pStack[0x10000 / sizeof(Wasm::Word)];
 
 		uint32_t m_LocalDepth = 0;
 
@@ -206,7 +206,9 @@ namespace bvm2 {
 		Kind get_Kind() override { return Kind::Manager; }
 
 		void InitStack(uint8_t nFill = 0);
-		bool IsDone() const { return !m_LocalDepth; }
+		void Run(Wasm::Word addr);
+		void Run(Wasm::Word addr, Wasm::Word retAddr);
+		void RunMethod(uint32_t iMethod);
 	};
 
 

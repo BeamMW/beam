@@ -25,6 +25,8 @@
 
 namespace Shaders {
 
+	using beam::bvm2::ILoadVarCallback;
+
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
@@ -42,7 +44,6 @@ namespace Shaders {
 
 	namespace Env {
 
-		using beam::bvm2::ILoadVarCallback;
 
 		beam::bvm2::Processor* g_pEnv = nullptr;
 
@@ -552,7 +553,7 @@ namespace bvm2 {
 		ContractID m_cidOracle;
 		ContractID m_cidStableCoin;
 
-		void AddCode(ByteBuffer& res, const char* sz)
+		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
 			std::FStream fs;
 			fs.Open(sz, true, true);
@@ -561,7 +562,12 @@ namespace bvm2 {
 			if (!res.empty())
 				fs.read(&res.front(), res.size());
 
-			Processor::Compile(res, res, Kind::Contract);
+			Processor::Compile(res, res, kind);
+		}
+
+		void AddCode(ByteBuffer& res, const char* sz)
+		{
+			AddCodeEx(res, sz, Kind::Contract);
 		}
 
 		template <typename T>

@@ -15,5 +15,5 @@
 #pragma once
 
 struct ILoadVarCallback {
-	virtual uint8_t OnVar(const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal) = 0;
+	virtual uint8_t OnVar(uint8_t nTag, const uint8_t* pKey, uint32_t nKey, const uint8_t* pVal, uint32_t nVal) = 0;
 };

@@ -63,7 +63,9 @@ namespace Env {
 #define THE_MACRO(id, ret, name) \
         ret name(BVMOp_##name(PAR_DECL, COMMA));
 
-        BVMOpsAll(THE_MACRO)
+        BVMOpsAll_Common(THE_MACRO)
+        BVMOpsAll_Contract(THE_MACRO)
+        BVMOpsAll_Manager(THE_MACRO)
 
 #undef THE_MACRO
 #undef COMMA
