@@ -30,5 +30,6 @@ namespace beam::wallet
 
         uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
         bool IsSegwitSupported() const override;
+        uint32_t GetWithdrawTxAverageSize() const override;
     };
 }
