@@ -39,6 +39,12 @@ struct IAdapter {
     virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) = 0;
 
     virtual bool get_peers(io::SerializedMsg& out) = 0;
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    virtual bool get_swap_offers(io::SerializedMsg& out) = 0;
+
+    virtual bool get_swap_totals(io::SerializedMsg& out) = 0;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 };
 
 IAdapter::Ptr create_adapter(Node& node);
