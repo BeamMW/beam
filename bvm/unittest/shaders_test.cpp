@@ -904,6 +904,33 @@ namespace bvm2 {
 	}
 
 
+
+	struct MyManager
+		:public ProcessorManager
+	{
+		BlobMap::Set& m_Vars;
+
+		MyManager(BlobMap::Set& vars) :m_Vars(vars) {}
+
+		void TestHeap()
+		{
+			uint32_t p1, p2, p3;
+			verify_test(m_Heap.Alloc(p1, 160));
+			verify_test(m_Heap.Alloc(p2, 300));
+			verify_test(m_Heap.Alloc(p3, 28));
+
+			m_Heap.Free(p2);
+			verify_test(m_Heap.Alloc(p2, 260));
+			m_Heap.Free(p2);
+			verify_test(m_Heap.Alloc(p2, 360));
+
+			m_Heap.Free(p1);
+			m_Heap.Free(p3);
+			m_Heap.Free(p2);
+		}
+	};
+
+
 } // namespace bvm2
 } // namespace beam
 
@@ -925,6 +952,10 @@ int main()
 
 		MyProcessor proc;
 		proc.TestAll();
+
+		MyManager man(proc.m_Vars);
+		man.InitMem();
+		man.TestHeap();
 	}
 	catch (const std::exception & ex)
 	{

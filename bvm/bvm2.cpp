@@ -79,9 +79,18 @@ namespace bvm2 {
 		InitBase(m_pStack, sizeof(m_pStack), nFill);
 	}
 
-	void ProcessorManager::InitStack(uint8_t nFill /* = 0 */)
+	void ProcessorManager::InitMem()
 	{
-		InitBase(m_pStack, sizeof(m_pStack), nFill);
+		const uint32_t nStackBytes = 0x20000; // 128K
+		const uint32_t nHeapBytes = 0x200000; // 2MB.
+
+		m_vStack.resize(nStackBytes / sizeof(Wasm::Word));
+		InitBase(&m_vStack.front(), nStackBytes, 0);
+
+		m_vHeap.resize(nHeapBytes);
+		m_LinearMem.p = &m_vHeap.front();
+		m_LinearMem.n = nHeapBytes;
+		m_Heap.Init(nHeapBytes);
 	}
 
 	const Processor::Header& Processor::ParseMod()
@@ -653,6 +662,152 @@ namespace bvm2 {
 		m_Stack.AliasFree(size);
 	}
 	BVM_METHOD_HOST_AUTO(StackFree)
+
+	BVM_METHOD(Heap_Alloc)
+	{
+		size = Stack::AlignUp(size); // use the same alignment for heap too
+
+		uint32_t val;
+		if (!m_Heap.Alloc(val, size))
+			return 0;
+
+		return Wasm::MemoryType::Global | val;
+	}
+	BVM_METHOD_HOST(Heap_Alloc)
+	{
+		uint32_t val;
+		if (!m_Heap.Alloc(val, size))
+			return nullptr;
+
+		return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + val;
+	}
+
+	BVM_METHOD(Heap_Free)
+	{
+		m_Heap.Free(pPtr ^ Wasm::MemoryType::Global);
+	}
+	BVM_METHOD_HOST(Heap_Free)
+	{
+		auto val =
+			reinterpret_cast<const uint8_t*>(pPtr) -
+			reinterpret_cast<const uint8_t*>(m_LinearMem.p);
+
+		m_Heap.Free(static_cast<uint32_t>(val));
+	}
+
+	void Processor::Heap::Init(uint32_t nRange)
+	{
+		Clear();
+
+		auto* p = new Heap::Entry;
+		p->m_Pos.m_Key = 0;
+		p->m_Size.m_Key = nRange;
+		Insert(*p, true);
+	}
+
+	bool Processor::Heap::Alloc(uint32_t& retVal, uint32_t size)
+	{
+		auto it = m_mapSize.lower_bound(size, Entry::Size::Comparator());
+		if (m_mapSize.end() == it)
+			return false;
+
+		auto& e = it->get_ParentObj();
+		assert(e.m_Size.m_Key >= size);
+		retVal = e.m_Pos.m_Key;
+
+		if (e.m_Size.m_Key == size)
+		{
+			Remove(e, true);
+			Insert(e, false);
+		}
+		else
+		{
+			// partition
+			auto* p = new Heap::Entry;
+			p->m_Pos.m_Key = e.m_Pos.m_Key;
+			p->m_Size.m_Key = size;
+			Insert(*p, false);
+
+			e.m_Pos.m_Key += size; // no need to remove and re-insert, order should not change
+			UpdateSizeFree(e, e.m_Size.m_Key - size);
+		}
+
+		return true;
+	}
+
+	void Processor::Heap::Free(uint32_t ptr)
+	{
+		auto it = m_mapAllocated.find(ptr, Entry::Pos::Comparator());
+		Wasm::Test(m_mapAllocated.end() != it);
+
+		auto& e = it->get_ParentObj();
+		Remove(e, false);
+		Insert(e, true);
+
+		TryMerge(e);
+
+		it = MapPos::s_iterator_to(e.m_Pos);
+		if (m_mapFree.begin() != it)
+		{
+			--it;
+			TryMerge(it->get_ParentObj());
+		}
+	}
+
+	void Processor::Heap::UpdateSizeFree(Entry& e, uint32_t newVal)
+	{
+		m_mapSize.erase(MapSize::s_iterator_to(e.m_Size));
+		e.m_Size.m_Key = newVal;
+		m_mapSize.insert(e.m_Size);
+	}
+
+	void Processor::Heap::TryMerge(Entry& e)
+	{
+		auto it = m_mapFree.find(e.m_Pos.m_Key + e.m_Size.m_Key, Entry::Pos::Comparator());
+		if (m_mapFree.end() != it)
+		{
+			auto& e2 = it->get_ParentObj();
+			UpdateSizeFree(e, e.m_Size.m_Key + e2.m_Size.m_Key);
+			Delete(e2, true);
+		}
+	}
+
+	void Processor::Heap::Insert(Entry& e, bool bFree)
+	{
+		if (bFree)
+		{
+			m_mapFree.insert(e.m_Pos);
+			m_mapSize.insert(e.m_Size);
+		}
+		else
+			m_mapAllocated.insert(e.m_Pos);
+	}
+
+	void Processor::Heap::Remove(Entry& e, bool bFree)
+	{
+		if (bFree)
+		{
+			m_mapFree.erase(MapPos::s_iterator_to(e.m_Pos));
+			m_mapSize.erase(MapSize::s_iterator_to(e.m_Size));
+		}
+		else
+			m_mapAllocated.erase(MapPos::s_iterator_to(e.m_Pos));
+	}
+
+	void Processor::Heap::Delete(Entry& e, bool bFree)
+	{
+		Remove(e, bFree);
+		delete &e;
+	}
+
+	void Processor::Heap::Clear()
+	{
+		while (!m_mapFree.empty())
+			Delete(m_mapFree.begin()->get_ParentObj(), true);
+
+		while (!m_mapAllocated.empty())
+			Delete(m_mapAllocated.begin()->get_ParentObj(), false);
+	}
 
 	BVM_METHOD(LoadVar)
 	{

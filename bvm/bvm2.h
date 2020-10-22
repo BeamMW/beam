@@ -45,6 +45,47 @@ namespace bvm2 {
 
 		void InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill);
 
+		class Heap
+		{
+			struct Entry
+			{
+				struct Size
+					:public intrusive::set_base_hook<uint32_t>
+				{
+					IMPLEMENT_GET_PARENT_OBJ(Entry, m_Size)
+				} m_Size;
+
+				struct Pos
+					:public intrusive::set_base_hook<uint32_t>
+				{
+					IMPLEMENT_GET_PARENT_OBJ(Entry, m_Pos)
+				} m_Pos;
+			};
+
+			typedef intrusive::multiset<Entry::Size> MapSize;
+			typedef intrusive::multiset<Entry::Pos> MapPos;
+
+			MapSize m_mapSize;
+			MapPos m_mapFree;
+			MapPos m_mapAllocated;
+
+			void Insert(Entry&, bool bFree);
+			void Remove(Entry&, bool bFree);
+			void Delete(Entry&, bool bFree);
+			void UpdateSizeFree(Entry&, uint32_t newVal);
+			void TryMerge(Entry&);
+
+		public:
+
+			~Heap() { Clear(); }
+
+			void Init(uint32_t nRange);
+			bool Alloc(uint32_t&, uint32_t size);
+			void Free(uint32_t);
+			void Clear();
+
+		} m_Heap;
+
 		struct VarKey
 		{
 			struct Tag
@@ -187,7 +228,9 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
-		Wasm::Word m_pStack[0x10000 / sizeof(Wasm::Word)];
+
+		std::vector<Wasm::Word> m_vStack; // too large to have it as a member (this obj may be allocated on stack)
+		std::vector<uint8_t> m_vHeap;
 
 		uint32_t m_LocalDepth = 0;
 
@@ -205,7 +248,7 @@ namespace bvm2 {
 
 		Kind get_Kind() override { return Kind::Manager; }
 
-		void InitStack(uint8_t nFill = 0);
+		void InitMem();
 		void Run(Wasm::Word addr);
 		void Run(Wasm::Word addr, Wasm::Word retAddr);
 		void RunMethod(uint32_t iMethod);
