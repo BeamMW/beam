@@ -603,6 +603,43 @@ void TestDirectAnonymousPayment()
                 WALLET_CHECK(tx.m_amount == 18000000);
             }
         }
+
+        {
+            TxID txID = *txHistory[0].GetTxID();
+            TxKernel::Ptr k;
+            ShieldedTxo::Voucher voucher;
+            Amount amount = 0;
+            Asset::ID assetID = Asset::s_InvalidID;;
+            PeerID peerIdentity = Zero;
+            PeerID myIdentity = Zero;
+            bool success = true;
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Kernel, k);
+            WALLET_CHECK(k->get_Subtype() == TxKernel::Subtype::Std);
+
+            auto& kernel = k->m_vNested[0]->CastTo_ShieldedOutput();
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Voucher, voucher);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::PeerWalletIdentity, peerIdentity);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::MyWalletIdentity, myIdentity);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Amount, amount);
+            storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::AssetID, assetID);
+            if (success)
+            {
+                ShieldedTxo::Voucher voucher2;
+                voucher2.m_SharedSecret = voucher.m_SharedSecret;
+                voucher2.m_Signature = voucher.m_Signature;
+                voucher2.m_Ticket = kernel.m_Txo.m_Ticket;
+
+                WALLET_CHECK(voucher2.IsValid(peerIdentity));
+
+                ECC::Oracle oracle;
+                oracle << kernel.m_Msg;
+                ShieldedTxo::Data::OutputParams outputParams;
+                WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, oracle));
+                WALLET_CHECK(outputParams.m_Value == amount);
+                WALLET_CHECK(outputParams.m_AssetID == assetID);
+                WALLET_CHECK(outputParams.m_User.m_Sender == myIdentity);
+            }
+        }
     }
     
     {
@@ -1329,7 +1366,6 @@ int main()
 
     //TestUnlinkTx();
     //TestCancelUnlinkTx();
-
     TestSimpleTx();
     TestMaxPrivacyTx();
     TestPublicAddressTx();
