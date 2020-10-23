@@ -152,3 +152,5 @@
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
 	macro(0x58, void     , DerivePk) \
+
+#define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE
