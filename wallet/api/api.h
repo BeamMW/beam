@@ -424,6 +424,13 @@ namespace beam::wallet
             boost::optional<Asset::ID> assetId;
         } filter;
 
+        struct 
+        {
+            std::string field = "default";
+            bool desc = false;
+        } sort;
+        
+
         struct Response
         {
             std::vector<Coin> utxos;

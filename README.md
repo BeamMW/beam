@@ -6,14 +6,9 @@
 
 BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
 
-### ANNOUNCEMENTS
-
-Beam is going to perform its second planned hard fork on block 777,777 (approx. 28th of June 2020)
-
-PLEASE MAKE SURE TO UPDATE YOUR NODES AND WALLETS before that date.
 
 [Download latest version](http://beam.mw/downloads)
-**Eager Electron 5.0**
+**Eager Electron 5.1.9898
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM

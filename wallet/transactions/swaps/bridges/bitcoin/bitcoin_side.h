@@ -51,6 +51,10 @@ namespace beam::wallet
         virtual uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;
         virtual uint8_t GetAddressVersion() const;
         virtual bool IsSegwitSupported() const;
+        virtual uint8_t GetSighashAlgorithm() const;
+        virtual bool NeedSignValue() const;
+        virtual uint32_t GetWithdrawTxAverageSize() const;
+        virtual Amount GetFee(Amount feeRate) const;
 
         Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;

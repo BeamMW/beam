@@ -25,53 +25,57 @@
 
 namespace beam
 {
-class INodeClientObserver
-{
-public:
-    virtual void onNodeCreated() = 0;
-    virtual void onNodeDestroyed() = 0;
-    virtual void onInitProgressUpdated(uint64_t done, uint64_t total) = 0;
-    virtual void onSyncProgressUpdated(int done, int total) = 0;
-    virtual void onStartedNode() = 0;
-    virtual void onStoppedNode() = 0;
-    virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
-    virtual void onSyncError(Node::IObserver::Error error) = 0;
+    class INodeClientObserver
+    {
+    public:
+        virtual void onNodeCreated() = 0;
+        virtual void onNodeDestroyed() = 0;
+        virtual void onInitProgressUpdated(uint64_t done, uint64_t total) = 0;
+        virtual void onSyncProgressUpdated(int done, int total) = 0;
+        virtual void onStartedNode() = 0;
+        virtual void onStoppedNode() = 0;
+        virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
+        virtual void onSyncError(Node::IObserver::Error error) = 0;
 
-    virtual uint16_t getLocalNodePort() = 0;
-    virtual std::string getLocalNodeStorage() = 0;
-    virtual std::string getTempDir() = 0;
-    virtual std::vector<std::string> getLocalNodePeers() = 0;
+        virtual uint16_t getLocalNodePort() const = 0;
+        virtual std::string getLocalNodeStorage() const = 0;
+        virtual std::string getTempDir() const = 0;
+        virtual std::vector<std::string> getLocalNodePeers() const = 0;
+        virtual bool getPeersPersistent() const = 0;
 
-    virtual void onNodeThreadFinished() = 0;
-};
+        virtual void onNodeThreadFinished() = 0;
+    };
 
-class NodeClient
-{
-public:
-    NodeClient(INodeClientObserver* observer);
-    ~NodeClient();
+    class NodeClient
+    {
+    public:
+        NodeClient(INodeClientObserver* observer);
+        ~NodeClient();
 
-    void setKdf(beam::Key::IKdf::Ptr);
-    void setOwnerKey(beam::Key::IPKdf::Ptr);
-    void startNode();
-    void stopNode();
+        void setKdf(beam::Key::IKdf::Ptr);
+        void setOwnerKey(beam::Key::IPKdf::Ptr);
+        void startNode();
+        void stopNode();
 
-    void start();
+        void start();
 
-    bool isNodeRunning() const;
+        bool isNodeRunning() const;
 
-private:
-    void runLocalNode();
+    private:
+        void runLocalNode();
+        void setRecreateTimer();
 
-private:
-    INodeClientObserver* m_observer;
-    std::shared_ptr<std::thread> m_thread;
-    std::weak_ptr<beam::io::Reactor> m_reactor;
-    std::atomic<bool> m_shouldStartNode;
-    std::atomic<bool> m_shouldTerminateModel;
-    std::atomic<bool> m_isRunning;
-    std::condition_variable m_waiting;
-    beam::Key::IKdf::Ptr m_pKdf;
-    beam::Key::IPKdf::Ptr m_ownerKey;
-};
+    private:
+        INodeClientObserver* m_observer;
+        std::shared_ptr<std::thread> m_thread;
+        std::weak_ptr<beam::io::Reactor> m_reactor;
+        std::mutex m_startMutex;
+        bool m_shouldStartNode;
+        std::atomic<bool> m_shouldTerminateModel;
+        std::atomic<bool> m_isRunning;
+        std::condition_variable m_waiting;
+        Key::IKdf::Ptr m_pKdf;
+        Key::IPKdf::Ptr m_ownerKey;
+        io::Timer::Ptr m_timer;
+    };
 }

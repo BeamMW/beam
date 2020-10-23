@@ -15,6 +15,18 @@ set(SWAP_SRC
     bridges/bitcoin/electrum.cpp
     bridges/bitcoin/settings.cpp
     bridges/bitcoin/settings_provider.cpp
+    bridges/bitcoin_cash/common.cpp
+    bridges/bitcoin_cash/bitcoin_cash_core.cpp
+    bridges/bitcoin_cash/bitcoin_cash_side.cpp
+    bridges/bitcoin_sv/common.cpp
+    bridges/bitcoin_sv/bitcoin_sv_core.cpp
+    #bridges/bitcoin_sv/bitcoin_sv_side.cpp
+    bridges/dogecoin/common.cpp
+    bridges/dogecoin/dogecoin_core_014.cpp
+    bridges/dogecoin/dogecoin_side.cpp
+    bridges/dash/common.cpp
+    bridges/dash/dash_core_014.cpp
+    bridges/dash/dash_side.cpp
     bridges/litecoin/common.cpp
     bridges/litecoin/litecoin_core_016.cpp
     bridges/litecoin/litecoin_core_017.cpp

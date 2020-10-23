@@ -111,6 +111,8 @@ namespace
         std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
         return localSecret;
     }
+
+    const char kBridgeNotConnectedError[] = "Bridge internal error: bridge not connected.";
 }
 
 namespace beam::wallet
@@ -330,10 +332,20 @@ namespace beam::wallet
         return true;
     }
 
+    uint32_t BitcoinSide::GetWithdrawTxAverageSize() const
+    {
+        return bitcoin::kBTCWithdrawTxAverageSize;
+    }
+
+    Amount BitcoinSide::GetFee(Amount feeRate) const
+    {
+        return static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * feeRate) / 1000));
+    }
+
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > bitcoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
     Amount BitcoinSide::CalcTotalFee(Amount feeRate)
@@ -344,6 +356,16 @@ namespace beam::wallet
     uint8_t BitcoinSide::GetAddressVersion() const
     {
         return m_settingsProvider.GetSettings().GetAddressVersion();
+    }
+
+    uint8_t BitcoinSide::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all;
+    }
+
+    bool BitcoinSide::NeedSignValue() const
+    {
+        return false;
     }
 
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
@@ -371,6 +393,11 @@ namespace beam::wallet
         // load or generate withdraw address
         if (std::string swapWithdrawAddress; !m_tx.GetParameter(TxParameterID::AtomicSwapWithdrawAddress, swapWithdrawAddress))
         {
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return false;
+            }
             // is need to setup type 'legacy'?
             m_bitcoinBridge->getRawChangeAddress([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& address)
             {
@@ -442,6 +469,12 @@ namespace beam::wallet
                 }
             };
 
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return false;
+            }
+
             m_bitcoinBridge->sendRawTransaction(rawTransaction, callback);
             return (proto::TxStatus::Ok == nRegistered);
         }
@@ -488,6 +521,12 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return SwapTxState::CreatingTx;
+            }
+
             m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
             {
                 if (!weak.expired())
@@ -506,6 +545,12 @@ namespace beam::wallet
                 m_tx.SetState(SwapTxState::Initial, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return SwapTxState::Initial;
+            }
+
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return SwapTxState::CreatingTx;
             }
 
             m_bitcoinBridge->signRawTransaction(*m_SwapLockRawTx, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete)
@@ -532,7 +577,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
+            Amount fee = GetFee(GetFeeRate(subTxID));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();
@@ -551,6 +596,13 @@ namespace beam::wallet
                     OnCreateWithdrawTransaction(subTxID, error, hexTx);
                 }
             };
+
+            if (!m_bitcoinBridge)
+            {
+                LOG_ERROR() << kBridgeNotConnectedError;
+                return swapTxState;
+            }
+
             m_bitcoinBridge->createRawTransaction(withdrawAddress, swapLockTxID, swapAmount, outputIndex, locktime, callback);
             return swapTxState;
         }
@@ -581,6 +633,12 @@ namespace beam::wallet
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
+        
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexScript, Amount amount, uint32_t confirmations)
         {
             if (!weak.expired())
@@ -594,6 +652,12 @@ namespace beam::wallet
     {
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::REFUND_TX);
         uint32_t outputIndex = 0;
+
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
 
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& /*error*/, const std::string& /*hexScript*/, Amount /*amount*/, uint32_t confirmations)
         {
@@ -615,6 +679,12 @@ namespace beam::wallet
     {
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::REDEEM_TX);
         uint32_t outputIndex = 0;
+
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return;
+        }
 
         m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& /*error*/, const std::string& /*hexScript*/, Amount /*amount*/, uint32_t confirmations)
         {
@@ -648,6 +718,12 @@ namespace beam::wallet
 
     uint64_t BitcoinSide::GetBlockCount(bool notify)
     {
+        if (!m_bitcoinBridge)
+        {
+            LOG_ERROR() << kBridgeNotConnectedError;
+            return m_blockCount;
+        }
+
         m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this(), notify](const bitcoin::IBridge::Error& error, uint64_t blockCount)
         {
             if (!weak.expired())
@@ -830,7 +906,7 @@ namespace beam::wallet
         auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
         libbitcoin::endorsement sig;
         libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
-            libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+            GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, input_amount);
 
         // Create input witness script
         libbitcoin::data_stack witnessStack;
@@ -852,7 +928,7 @@ namespace beam::wallet
 
             libbitcoin::endorsement secretSig;
             libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
-                libbitcoin::machine::sighash_algorithm::all, libbitcoin::machine::script_version::zero, input_amount);
+                GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, input_amount);
 
             // 0 <their sig> <secret sig> 1
             witnessStack.push_back(emptyChunk);
@@ -882,8 +958,17 @@ namespace beam::wallet
         uint32_t input_index = 0;
         auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
         libbitcoin::endorsement sig;
-        libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index,
-            libbitcoin::machine::sighash_algorithm::all);
+        if (NeedSignValue())
+        {
+            uint64_t total = m_tx.GetMandatoryParameter<Amount>(beam::wallet::TxParameterID::AtomicSwapAmount);
+            libbitcoin::chain::script::create_endorsement(
+                sig, localSecret, contractScript, withdrawTX, input_index, GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, total);
+        }
+        else
+        {
+            libbitcoin::chain::script::create_endorsement(
+                sig, localSecret, contractScript, withdrawTX, input_index, GetSighashAlgorithm());
+        }
 
         // Create input script
         libbitcoin::machine::operation::list sig_script;
@@ -903,8 +988,17 @@ namespace beam::wallet
             std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
 
             libbitcoin::endorsement secretSig;
-            libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index,
-                libbitcoin::machine::sighash_algorithm::all);
+            if (NeedSignValue())
+            {
+                uint64_t total = m_tx.GetMandatoryParameter<Amount>(beam::wallet::TxParameterID::AtomicSwapAmount);
+                libbitcoin::chain::script::create_endorsement(
+                    secretSig, secret, contractScript, withdrawTX, input_index, GetSighashAlgorithm(), libbitcoin::machine::script_version::zero, total);
+            }
+            else
+            {
+                libbitcoin::chain::script::create_endorsement(
+                    secretSig, secret, contractScript, withdrawTX, input_index, GetSighashAlgorithm());
+            }
 
             // 0 <their sig> <secret sig> 1
             sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));

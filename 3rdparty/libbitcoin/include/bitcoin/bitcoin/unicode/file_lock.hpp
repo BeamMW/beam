@@ -156,7 +156,7 @@ extern "C" __declspec(dllimport) void * __stdcall CreateFileW(const wchar_t *, u
 inline void* CreateFileUTF8(const std::string& name, unsigned long access, unsigned long mode,
     struct boost::interprocess::winapi::interprocess_security_attributes *psec, unsigned long creation, unsigned long attributes, void *ptemplate)
 {
-    return CreateFileW(bc::to_utf16(name).c_str(), access, mode, psec, creation, attributes, ptemplate);
+    return libbitcoin::interprocess::CreateFileW(bc::to_utf16(name).c_str(), access, mode, psec, creation, attributes, ptemplate);
 }
 
 // ADAPTED FROM boost/interprocess/winapi/win32_api.hpp UNDER SAME LICENSE AS ABOVE.

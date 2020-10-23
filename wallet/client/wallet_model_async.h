@@ -27,12 +27,12 @@ namespace beam::wallet
     struct IWalletModelAsync
     {
         using Ptr = std::shared_ptr<IWalletModelAsync>;
-
+        template<typename ...Args> using AsyncCallback = std::function<void(Args...)>;
         virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
-        virtual void calcChange(Amount amount) = 0;
+        virtual void calcChange(Amount amount, Amount fee, Asset::ID assetId) = 0;
         virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
@@ -43,6 +43,7 @@ namespace beam::wallet
         virtual void getCoinsByTx(const TxID& txId) = 0;
         virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
         virtual void generateNewAddress() = 0;
+        virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
@@ -50,9 +51,12 @@ namespace beam::wallet
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
         virtual void deleteAddress(const WalletID& id) = 0;
+        virtual void deleteAddress(const std::string& addr) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void activateAddress(const WalletID& id) = 0;
         virtual void getAddress(const WalletID& id) = 0;
+        virtual void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+        virtual void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
 
         virtual void setNodeAddress(const std::string& addr) = 0;
@@ -78,6 +82,11 @@ namespace beam::wallet
         virtual void deleteNotification(const ECC::uintBig& id) = 0;
 
         virtual void getExchangeRates() = 0;
+        virtual void getPublicAddress() = 0;
+
+        virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) = 0;
+
+        virtual void getAssetInfo(Asset::ID) = 0;
 
         virtual ~IWalletModelAsync() {}
     };

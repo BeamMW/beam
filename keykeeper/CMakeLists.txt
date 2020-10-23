@@ -13,6 +13,7 @@ add_library(keykeeper STATIC)
 target_sources(keykeeper
     PRIVATE
         local_private_key_keeper.cpp
+        remote_key_keeper.cpp
 )
 
 if(EMSCRIPTEN)

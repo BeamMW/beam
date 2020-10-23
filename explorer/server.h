@@ -53,6 +53,10 @@ private:
     bool send_block(const HttpConnection::Ptr& conn);
     bool send_blocks(const HttpConnection::Ptr& conn);
     bool send_peers(const HttpConnection::Ptr& conn);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    bool send_swap_offers(const HttpConnection::Ptr& conn);
+    bool send_swap_totals(const HttpConnection::Ptr& conn);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     bool send(const HttpConnection::Ptr& conn, int code, const char* message);
 
     HttpMsgCreator _msgCreator;

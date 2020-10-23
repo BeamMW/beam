@@ -16,16 +16,17 @@
 
 #include "wallet/core/common.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
 class IAtomicSwapProvider
 {
 public:
-    virtual Amount getBalance(AtomicSwapCoin swapCoin) const = 0;
+    virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
     virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
-    virtual bool isConnected(AtomicSwapCoin swapCoin) const = 0;
+    virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
 };
 }  // namespace beam::wallet

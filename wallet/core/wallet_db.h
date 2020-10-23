@@ -107,6 +107,7 @@ namespace beam::wallet
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
         PeerID    m_Identity;   // derived from master. Different from m_walletID
+        std::string m_Address;  // base58 address representation
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
@@ -485,9 +486,12 @@ namespace beam::wallet
         // Address management
         virtual boost::optional<WalletAddress> getAddress(
                 const WalletID&, bool isLaser = false) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(
+            const std::string&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
+        virtual void deleteAddress(const std::string&, bool isLaser = false) = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -636,7 +640,10 @@ namespace beam::wallet
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         boost::optional<WalletAddress> getAddress(
             const WalletID&, bool isLaser = false) const override;
+        boost::optional<WalletAddress> getAddress(
+            const std::string&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
+        void deleteAddress(const std::string&, bool isLaser = false) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -727,14 +734,13 @@ namespace beam::wallet
         void insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         bool hasTransaction(const TxID& txID) const;
-        void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
-        void deleteAddressFromCache(const WalletID& id);
         void flushDB();
         void rollbackDB();
         void onModified();
         void onFlushTimer();
         void onPrepareToModify();
         void MigrateCoins();
+        boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -764,7 +770,6 @@ namespace beam::wallet
         } m_History;
         
         mutable ParameterCache m_TxParametersCache;
-        mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
 
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
@@ -1001,9 +1006,10 @@ namespace beam::wallet
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
+        void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
+
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
-
     }  // namespace storage
 }  // namespace beam::wallet

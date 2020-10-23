@@ -99,10 +99,9 @@ namespace beam
 			IsValid(pk);
 	}
 
-	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, Amount fee, Key::IKdf& kdf) const
+	void ShieldedTxo::ID::get_SkOutPreimage(ECC::Hash::Value& hv, Amount fee) const
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.
-		ECC::Hash::Value hv;
 		ECC::Hash::Processor()
 			<< "sh.skout"
 			<< m_Value
@@ -112,7 +111,12 @@ namespace beam
 			<< m_Key.m_IsCreatedByViewer
 			<< m_Key.m_nIdx
 			>> hv;
+	}
 
+	void ShieldedTxo::ID::get_SkOut(ECC::Scalar::Native& out, Amount fee, Key::IKdf& kdf) const
+	{
+		ECC::Hash::Value hv;
+		get_SkOutPreimage(hv, fee);
 		kdf.DeriveKey(out, hv);
 	}
 
@@ -295,7 +299,7 @@ namespace beam
 
 	void ShieldedTxo::Data::TicketParams::Restore(const Viewer& v)
 	{
-		set_FromkG(*v.m_pGen, v.m_pGen.get(), *v.m_pSer);
+		set_FromkG(*v.m_pGen, m_IsCreatedByViewer ? v.m_pGen.get() : nullptr, *v.m_pSer);
 
 		ECC::Point ptSerialPub;
 		set_SharedSecretFromKs(ptSerialPub, *v.m_pGen);
@@ -485,6 +489,29 @@ namespace beam
 		cid.m_Key.m_kSerG = m_Ticket.m_pK[0];
 	}
 
+	void ShieldedTxo::Data::Params::Set(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id)
+	{
+		ShieldedTxo::Viewer viewer;
+		viewer.FromOwner(ownerKey, id.m_Key.m_nIdx);
+
+		m_Ticket.m_IsCreatedByViewer = id.m_Key.m_IsCreatedByViewer;
+		m_Ticket.m_pK[0] = id.m_Key.m_kSerG;
+		m_Ticket.Restore(viewer);
+
+		m_Output.m_Value = id.m_Value;
+		m_Output.m_AssetID = id.m_AssetID;
+		m_Output.m_User = id.m_User;
+		m_Output.Restore_kG(m_Ticket.m_SharedSecret);
+	}
+
+	ShieldedTxo::Data::Params::Plus::Plus(const Params& pars)
+	{
+		m_skFull = pars.m_Output.m_k + pars.m_Ticket.m_pK[0]; // full blinding factor
+
+		if (pars.m_Output.m_AssetID)
+			Asset::Base(pars.m_Output.m_AssetID).get_Generator(m_hGen);
+	}
+
 	/////////////
 	// Generators
 	void ShieldedTxo::Viewer::FromOwner(Key::IPKdf& key, Key::Index nIdx/* = 0 */)
@@ -524,6 +551,18 @@ namespace beam
 	{
 		m_pSer = v.m_pSer;
 		m_pGen = v.m_pGen;
+	}
+
+	uint32_t ShieldedTxo::PublicGen::ExportP(void* p) const
+	{
+		if (!m_pSer || !m_pGen)
+			return 0;
+
+		uint32_t offset = m_pGen->ExportP(p);
+		if (p)
+			p = static_cast<uint8_t*>(p) + offset;
+
+		return offset + m_pSer->ExportP(p);
 	}
 
 } // namespace beam

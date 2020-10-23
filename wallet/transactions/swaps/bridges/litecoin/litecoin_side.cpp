@@ -30,8 +30,8 @@ namespace beam::wallet
 
     bool LitecoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(kLitecoinWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > litecoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= litecoin::kDustThreshold;
     }
 
     Amount LitecoinSide::CalcTotalFee(Amount feeRate)
