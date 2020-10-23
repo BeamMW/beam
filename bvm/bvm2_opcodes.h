@@ -102,9 +102,6 @@
 	macro(void*, pVal) sep \
 	macro(uint32_t, nVal)
 
-//#define BVMOp_LoadAllVars(macro, sep) \
-//	macro(ILoadVarCallback*, pCallback)
-
 #define BVMOp_VarsEnum(macro, sep) \
 	macro(uint8_t, nTag0) sep \
 	macro(const void*, pKey0) sep \
