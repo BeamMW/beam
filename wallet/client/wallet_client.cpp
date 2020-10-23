@@ -1323,7 +1323,6 @@ namespace beam::wallet
         WalletStatus status;
         storage::Totals allTotals(*m_walletDB);
 
-        status.maturingMP        = AmountBig::get_Lo(totals.MaturingShielded);
         for(const auto& totalsPair: allTotals.allTotals) {
             const auto& info = totalsPair.second;
             WalletStatus::AssetStatus assetStatus;
@@ -1334,6 +1333,7 @@ namespace beam::wallet
             assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
             assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
             assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
+            assetStatus.maturingMP        = AmountBig::get_Lo(info.MaturingShielded);
             assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
 
             status.all[totalsPair.first] = assetStatus;
