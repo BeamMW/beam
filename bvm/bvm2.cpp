@@ -1149,6 +1149,28 @@ namespace bvm2 {
 		return 1;
 	}
 
+	BVM_METHOD(DerivePk)
+	{
+		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
+	}
+	BVM_METHOD_HOST(DerivePk)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(pID, nID));
+		DerivePk(pubKey, hv);
+	}
+
+	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
+	{
+		Wasm::Test(m_pCid);
+
+		ECC::Hash::Processor()
+			<< "bvm.m.key"
+			<< *m_pCid
+			<< b
+			>> hv;
+	}
+
 	void ProcessorManager::FreeAuxAllocGuarded()
 	{
 		// may raise exc, call this only from within interpretator methods

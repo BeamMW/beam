@@ -117,6 +117,11 @@
 	macro(const void**, ppVal) sep \
 	macro(uint32_t*, pnVal)
 
+#define BVMOp_DerivePk(macro, sep) \
+	macro(PubKey&, pubKey) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -145,4 +150,5 @@
 #define BVMOpsAll_Manager(macro) \
 	macro(0x50, uint32_t , LoadVarEx) \
 	macro(0x51, void     , VarsEnum) \
-	macro(0x52, uint8_t  , VarsMoveNext)
+	macro(0x52, uint8_t  , VarsMoveNext) \
+	macro(0x58, void     , DerivePk) \

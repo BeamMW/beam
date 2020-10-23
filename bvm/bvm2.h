@@ -111,6 +111,9 @@ namespace bvm2 {
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
 			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
 		}
+		template <typename T> T& get_AddrAsW(uint32_t nOffset) {
+			return *reinterpret_cast<T*>(get_AddrW(nOffset, sizeof(T)));
+		}
 
 		struct Header;
 		const Header& ParseMod();
@@ -244,14 +247,16 @@ namespace bvm2 {
 
 		void FreeAuxAllocGuarded();
 
+		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
-
 		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
+		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 
 	public:
 
