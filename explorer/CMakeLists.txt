@@ -11,7 +11,7 @@ set(EXPLORER_SRC
 
 add_library(explorer STATIC ${EXPLORER_SRC})
 
-target_link_libraries(explorer node http)
+target_link_libraries(explorer node http wallet_client)
 
 add_executable(${TARGET_NAME} explorer_node.cpp)
 target_link_libraries(${TARGET_NAME} explorer Boost::boost cli)

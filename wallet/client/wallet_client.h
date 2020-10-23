@@ -49,6 +49,7 @@ namespace beam::wallet
             Amount receivingChange = 0;
             Amount sending = 0;
             Amount maturing = 0;
+            Amount maturingMP = 0;
             Amount shielded = 0;
         };
 
@@ -190,10 +191,14 @@ namespace beam::wallet
         void getCoinsByTx(const TxID& txId) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void generateNewAddress() override;
+        void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
         void deleteAddress(const WalletID& id) override;
+        void deleteAddress(const std::string& addr) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void activateAddress(const WalletID& id) override;
         void getAddress(const WalletID& id) override;
+        void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
@@ -216,6 +221,8 @@ namespace beam::wallet
 
         void getExchangeRates() override;
         void getPublicAddress() override;
+
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

@@ -31,7 +31,14 @@ static const unsigned SERVER_RESTART_INTERVAL = 1000;
 static const unsigned ACL_REFRESH_INTERVAL = 5555;
 
 enum Dirs {
-    DIR_STATUS, DIR_BLOCK, DIR_BLOCKS, DIR_PEERS
+      DIR_STATUS
+    , DIR_BLOCK
+    , DIR_BLOCKS
+    , DIR_PEERS
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    , DIR_SWAP_OFFERS
+    , DIR_SWAPS_STATUS
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     // etc
 };
 
@@ -112,7 +119,14 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
     const std::string& path = msg.msg->get_path();
 
     static const std::map<std::string_view, int> dirs {
-        { "status", DIR_STATUS }, { "block", DIR_BLOCK }, { "blocks", DIR_BLOCKS }, { "peers", DIR_PEERS}
+          { "status", DIR_STATUS }
+        , { "block", DIR_BLOCK }
+        , { "blocks", DIR_BLOCKS }
+        , { "peers", DIR_PEERS }
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        , { "swap_offers", DIR_SWAP_OFFERS }
+        , { "swap_totals", DIR_SWAPS_STATUS }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     };
 
     const HttpConnection::Ptr& conn = it->second;
@@ -132,6 +146,12 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
                 break;
             case DIR_PEERS:
                 func = &Server::send_peers;
+                break;
+            case DIR_SWAP_OFFERS:
+                func = &Server::send_swap_offers;
+                break;
+            case DIR_SWAPS_STATUS:
+                func = &Server::send_swap_totals;
                 break;
             default:
                 break;
@@ -214,6 +234,22 @@ bool Server::send_peers(const HttpConnection::Ptr& conn) {
     }
     return send(conn, 200, "OK");
 }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+bool Server::send_swap_offers(const HttpConnection::Ptr& conn) {
+    if (!_backend.get_swap_offers(_body)) {
+        return send(conn, 500, "Internal error #4");
+    }
+    return send(conn, 200, "OK");
+}
+
+bool Server::send_swap_totals(const HttpConnection::Ptr& conn) {
+    if (!_backend.get_swap_totals(_body)) {
+        return send(conn, 500, "Internal error #4");
+    }
+    return send(conn, 200, "OK");
+}
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message) {
     assert(conn);

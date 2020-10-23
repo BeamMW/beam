@@ -25,10 +25,12 @@ namespace beam::wallet
         DashSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, dash::ISettingsProvider& settingsProvider, bool isBeamSide);
 
         static bool CheckAmount(Amount amount, Amount feeRate);
+        static Amount CalcTotalFee(Amount feeRate);
 
     protected:
 
         uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
         bool IsSegwitSupported() const override;
+        uint32_t GetWithdrawTxAverageSize() const override;
     };
 }

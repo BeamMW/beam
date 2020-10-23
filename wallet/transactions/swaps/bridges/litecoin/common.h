@@ -20,7 +20,7 @@
 
 namespace beam::litecoin
 {
-    constexpr uint64_t kDustThreshold = bitcoin::kDustThreshold;
+    constexpr uint64_t kDustThreshold = 5460;
     extern const char kMainnetGenesisBlockHash[];
     extern const char kTestnetGenesisBlockHash[];
     extern const char kRegtestGenesisBlockHash[];

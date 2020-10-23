@@ -19,6 +19,7 @@
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
+#include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -375,20 +376,6 @@ static void FillAddressData(const JsonRpcId& id, const json& params, AddressData
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
     throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
-}
-
-std::string swapOfferStatusToString(const SwapOfferStatus& status)
-{
-    switch(status)
-    {
-    case SwapOfferStatus::Canceled : return "cancelled";
-    case SwapOfferStatus::Completed : return "completed";
-    case SwapOfferStatus::Expired : return "expired";
-    case SwapOfferStatus::Failed : return "failed";
-    case SwapOfferStatus::InProgress : return "in progress";
-    case SwapOfferStatus::Pending : return "pending";
-    default : return "unknown";
-    }
 }
 
 json OfferToJson(const SwapOffer& offer,
@@ -1195,6 +1182,24 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             else
             {
                 throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id};
+            }
+        }
+
+        if (existsJsonParam(params, "sort"))
+        {
+            if (existsJsonParam(params["sort"], "field") && params["sort"]["field"].is_string())
+            {
+                getUtxo.sort.field = params["sort"]["field"].get<std::string>();
+            }
+
+            if (existsJsonParam(params["sort"], "direction") && params["sort"]["direction"].is_string())
+            {
+                auto direction = params["sort"]["direction"].get<std::string>();
+                if (direction != "desc" && direction != "asc")
+                {
+                    throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Invalid 'direction' parameter. Use 'desc' or 'asc'.", id};
+                }
+                getUtxo.sort.desc = direction == "desc";
             }
         }
 

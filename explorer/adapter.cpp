@@ -21,12 +21,29 @@
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/core/common.h"
+#include "wallet/core/common_utils.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/client/extensions/offers_board/offers_protocol_handler.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/core/wallet_network.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
 namespace beam { namespace explorer {
 
 namespace {
 
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 static const size_t CACHE_DEPTH = 100000;
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+const unsigned int FAKE_SEED = 10283UL;
+const char WALLET_DB_PATH[] = "explorer-wallet.db";
+const char WALLET_DB_PASS[] = "fake_db_pass";
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
     return to_hex(buf, hash.m_pData, hash.nBytes);
@@ -107,6 +124,37 @@ public:
         _hook = &node.m_Cfg.m_Observer;
         _nextHook = *_hook;
         *_hook = this;
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+         if (!wallet::WalletDB::isInitialized(WALLET_DB_PATH))
+         {
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = FAKE_SEED;
+            _walletDB = wallet::WalletDB::init(WALLET_DB_PATH, SecString(WALLET_DB_PASS), seed, false);
+         }
+         else
+         {
+             _walletDB = wallet::WalletDB::open(WALLET_DB_PATH, SecString(WALLET_DB_PASS));
+         }
+         
+        _wallet = std::make_shared<wallet::Wallet>(_walletDB);
+
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
+
+        nnet->m_Cfg.m_vNodes.push_back(node.m_Cfg.m_Listen);
+        nnet->Connect();
+
+        auto wnet = std::make_shared<wallet::WalletNetworkViaBbs>(*_wallet, nnet, _walletDB);
+
+        _wallet->AddMessageEndpoint(wnet);
+        _wallet->SetNodeEndpoint(nnet);
+
+        _broadcastRouter = std::make_shared<BroadcastRouter>(*nnet, *wnet);
+        _offerBoardProtocolHandler =
+            std::make_shared<wallet::OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
+        _offersBulletinBoard = std::make_shared<wallet::SwapOffersBoard>(
+            *_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
     virtual ~Adapter() {
@@ -548,6 +596,23 @@ private:
         return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
     }
 
+    bool json2Msg(const json& obj, io::SerializedMsg& out) {
+        LOG_DEBUG() << obj;
+
+        _sm.clear();
+        io::SharedBuffer body;
+        if (serialize_json_msg(_sm, _packer, obj)) {
+            body = io::normalize(_sm, false);
+        } else {
+            return false;
+        }
+        _sm.clear();
+
+        out.push_back(body);
+
+        return true;
+    }
+
     bool get_block(io::SerializedMsg& out, uint64_t height) override {
         uint64_t row=0;
         return get_block_impl(out, height, row, 0);
@@ -621,6 +686,91 @@ private:
         return true;
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    bool get_swap_offers(io::SerializedMsg& out) override
+    {
+        auto offers = _offersBulletinBoard->getOffersList();
+
+        json result = json::array();
+        for(auto& offer : offers)
+        {
+            result.push_back( json {
+                {"status", offer.m_status},
+                {"status_string", swapOfferStatusToString(offer.m_status)},
+                {"txId", wallet::TxIDToString(offer.m_txId)},
+                {"beam_amount", std::to_string(wallet::PrintableAmount(offer.amountBeam(), true))},
+                {"swap_amount", std::to_string(wallet::PrintableAmount(offer.amountSwapCoin(), true))},
+                {"swap_currency", std::to_string(offer.swapCoinType())},
+                {"time_created", format_timestamp(wallet::kTimeStampFormat3x3, offer.timeCreated() * 1000, false)},
+                {"min_height", offer.minHeight()},
+                {"height_expired", offer.minHeight() + offer.peerResponseHeight()},
+            });
+        }
+
+        return json2Msg(result, out);
+    }
+
+    bool get_swap_totals(io::SerializedMsg& out) override
+    {
+        auto offers = _offersBulletinBoard->getOffersList();
+
+        Amount beamAmount = 0,
+               bitcoinAmount = 0,
+               litecoinAmount = 0,
+               qtumAmount = 0,
+               bitcoinCashAmount = 0,
+               bitcoinSVAmount = 0,
+               dogecoinAmount = 0,
+               dashAmount = 0;
+
+        for(auto& offer : offers)
+        {
+            beamAmount += offer.amountBeam();
+            switch (offer.swapCoinType())
+            {
+                case wallet::AtomicSwapCoin::Bitcoin :
+                    bitcoinAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Litecoin :
+                    litecoinAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Qtum :
+                    qtumAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Bitcoin_Cash :
+                    bitcoinCashAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Bitcoin_SV :
+                    bitcoinSVAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Dogecoin :
+                    dogecoinAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Dash :
+                    dashAmount += offer.amountSwapCoin();
+                    break;
+                default :
+                    LOG_ERROR() << "Unknown swap coin type";
+                    return false;
+            }
+        }
+
+        json obj = json{
+            { "total_swaps", offers.size()},
+            { "beams_offered", std::to_string(wallet::PrintableAmount(beamAmount, true)) },
+            { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
+            { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
+            { "qtum_offered", std::to_string(wallet::PrintableAmount(qtumAmount, true))},
+            { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
+            { "bitcoin_sv_offered", std::to_string(wallet::PrintableAmount(bitcoinSVAmount, true))},
+            { "dogecoin_offered", std::to_string(wallet::PrintableAmount(dogecoinAmount, true))},
+            { "dash_offered", std::to_string(wallet::PrintableAmount(dashAmount, true))}
+        };
+
+        return json2Msg(obj, out);
+    }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
     HttpMsgCreator _packer;
 
     // node db interface
@@ -643,6 +793,14 @@ private:
     ResponseCache _cache;
 
     io::SerializedMsg _sm;
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    wallet::IWalletDB::Ptr _walletDB;
+    wallet::Wallet::Ptr _wallet;
+    std::shared_ptr<wallet::BroadcastRouter> _broadcastRouter;
+    std::shared_ptr<wallet::OfferBoardProtocolHandler> _offerBoardProtocolHandler;
+    wallet::SwapOffersBoard::Ptr _offersBulletinBoard;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 };
 
 IAdapter::Ptr create_adapter(Node& node) {

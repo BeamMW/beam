@@ -184,8 +184,8 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
 
 Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
 {
-    Amount shieldedFee = GetShieldedFee(builder.m_Coins.m_InputShielded.size());
-    return !!shieldedFee ? shieldedFee + builder.m_Fee : builder.m_Fee;
+    Amount shieldedFee = CalculateShieldedFeeByKernelsCount(builder.m_Coins.m_InputShielded.size());
+    return shieldedFee + builder.m_Fee;
 }
 
 }  // namespace beam::wallet
