@@ -232,7 +232,17 @@ namespace bvm2 {
 		std::vector<Wasm::Word> m_vStack; // too large to have it as a member (this obj may be allocated on stack)
 		std::vector<uint8_t> m_vHeap;
 
-		uint32_t m_LocalDepth = 0;
+		uint32_t m_LocalDepth;
+
+		// aux mem we've allocated on heap
+		struct AuxAlloc {
+			Wasm::Word m_pPtr;
+			uint32_t m_Size;
+		} m_AuxAlloc;
+
+		bool m_EnumVars;
+
+		void FreeAuxAllocGuarded();
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
@@ -240,7 +250,8 @@ namespace bvm2 {
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 
-		virtual uint8_t LoadAllVars(ILoadVarCallback&) { return 0; }
+		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) {}
+		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
 
 	public:
 

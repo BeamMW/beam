@@ -710,6 +710,28 @@ namespace bvm2 {
 		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args)); // would overflow
 
 		UndoChanges(); // up to (but not including) contract creation
+
+		// create several accounts with different assets
+		args.m_Amount = 400000;
+		args.m_Aid = 0;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+
+		args.m_Amount = 300000;
+		args.m_Aid = 2;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+
+		pt = pt * ECC::Two;
+		args.m_Account = pt;
+
+		args.m_Amount = 700000;
+		args.m_Aid = 0;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+
+		args.m_Amount = 500000;
+		args.m_Aid = 6;
+		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+
+		m_lstUndo.Clear();
 	}
 
 	void MyProcessor::TestDummy()
@@ -911,6 +933,42 @@ namespace bvm2 {
 		BlobMap::Set& m_Vars;
 
 		MyManager(BlobMap::Set& vars) :m_Vars(vars) {}
+
+		struct VarEnumCtx
+		{
+			VarKey m_vkMax;
+			BlobMap::Set::iterator m_it;
+		};
+
+		std::unique_ptr<VarEnumCtx> m_pVarEnum;
+
+		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) override
+		{
+			if (!m_pVarEnum)
+				m_pVarEnum = std::make_unique<VarEnumCtx>();
+
+			m_pVarEnum->m_it = m_Vars.lower_bound(Blob(vkMin.m_p, vkMin.m_Size), BlobMap::Set::Comparator());
+			m_pVarEnum->m_vkMax = vkMax;
+		}
+
+		virtual bool VarsMoveNext(Blob& key, Blob& val) override
+		{
+			assert(m_pVarEnum);
+			auto& ctx = *m_pVarEnum;
+			const auto& x = *ctx.m_it;
+
+			key = x.ToBlob();
+			if (key > Blob(ctx.m_vkMax.m_p, ctx.m_vkMax.m_Size))
+			{
+				m_pVarEnum.reset();
+				return false;
+			}
+
+			val = x.m_Data;
+
+			ctx.m_it++;
+			return true;
+		}
 
 		void TestHeap()
 		{

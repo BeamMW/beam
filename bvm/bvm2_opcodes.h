@@ -102,8 +102,23 @@
 	macro(void*, pVal) sep \
 	macro(uint32_t, nVal)
 
-#define BVMOp_LoadAllVars(macro, sep) \
-	macro(ILoadVarCallback*, pCallback)
+//#define BVMOp_LoadAllVars(macro, sep) \
+//	macro(ILoadVarCallback*, pCallback)
+
+#define BVMOp_VarsEnum(macro, sep) \
+	macro(uint8_t, nTag0) sep \
+	macro(const void*, pKey0) sep \
+	macro(uint32_t, nKey0) sep \
+	macro(uint8_t, nTag1) sep \
+	macro(const void*, pKey1) sep \
+	macro(uint32_t, nKey1)
+
+#define BVMOp_VarsMoveNext(macro, sep) \
+	macro(uint8_t*, pnTag) sep \
+	macro(const void**, ppKey) sep \
+	macro(uint32_t*, pnKey) sep \
+	macro(const void**, ppVal) sep \
+	macro(uint32_t*, pnVal)
 
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
@@ -132,4 +147,5 @@
 
 #define BVMOpsAll_Manager(macro) \
 	macro(0x50, uint32_t , LoadVarEx) \
-	macro(0x51, uint8_t  , LoadAllVars)
+	macro(0x51, void     , VarsEnum) \
+	macro(0x52, uint8_t  , VarsMoveNext)

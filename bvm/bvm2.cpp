@@ -90,6 +90,10 @@ namespace bvm2 {
 		m_LinearMem.p = &m_vHeap.front();
 		m_LinearMem.n = nHeapBytes;
 		m_Heap.Init(nHeapBytes);
+
+		ZeroObject(m_AuxAlloc);
+		m_EnumVars = false;
+		m_LocalDepth = 0;
 	}
 
 	const Processor::Header& Processor::ParseMod()
@@ -1009,56 +1013,150 @@ namespace bvm2 {
 		return nVal;
 	}
 
-	BVM_METHOD(LoadAllVars)
+	//BVM_METHOD(LoadAllVars)
+	//{
+	//	struct Marshaller
+	//		:public ILoadVarCallback
+	//	{
+	//		ProcessorManager& m_This;
+	//		Wasm::Word m_Object;
+	//		Wasm::Word m_Method;
+	//
+	//		Marshaller(ProcessorManager& x) :m_This(x) {}
+	//
+	//		uint8_t OnVar(uint8_t nTag, const uint8_t* pKey, uint32_t nKey, const uint8_t* pVal, uint32_t nVal) override
+	//		{
+	//			Wasm::Word nAliasSp0 = m_This.m_Stack.m_BytesCurrent;
+	//
+	//			m_This.m_Stack.PushAlias(Blob(pKey, nKey));
+	//			Wasm::Word pKey_ = m_This.m_Stack.get_AlasSp();
+	//
+	//			m_This.m_Stack.PushAlias(Blob(pVal, nVal));
+	//			Wasm::Word pVal_ = m_This.m_Stack.get_AlasSp();
+	//
+	//			Wasm::Word nAliasSp1 = m_This.m_Stack.m_BytesCurrent;
+	//			Wasm::Word nOperandSp = m_This.m_Stack.m_Pos;
+	//
+	//			m_This.m_Stack.Push(m_Object); // 'this' pointer
+	//			m_This.m_Stack.Push(nTag);
+	//			m_This.m_Stack.Push(pKey_);
+	//			m_This.m_Stack.Push(nKey);
+	//			m_This.m_Stack.Push(pVal_);
+	//			m_This.m_Stack.Push(nVal);
+	//
+	//			m_This.Run(m_Method);
+	//
+	//			auto ret = m_This.m_Stack.Pop<Wasm::Word>();
+	//
+	//			Wasm::Test(nAliasSp1 == m_This.m_Stack.m_BytesCurrent); // alias stack must be restored
+	//			Wasm::Test(nOperandSp == m_This.m_Stack.m_Pos); // operand stack must be restored
+	//
+	//			m_This.m_Stack.m_BytesCurrent = nAliasSp0;
+	//
+	//
+	//			return !!ret;
+	//		}
+	//
+	//	} m(*this);
+	//
+	//	m.m_Object = pCallback;
+	//	m.m_Method = ReadVFunc(pCallback, 0);
+	//
+	//	return LoadAllVars(m);
+	//}
+	//
+	//BVM_METHOD_HOST(LoadAllVars)
+	//{
+	//	Wasm::Test(pCallback);
+	//	return LoadAllVars(*pCallback);
+	//}
+
+	BVM_METHOD(VarsEnum)
 	{
-		struct Marshaller
-			:public ILoadVarCallback
+		OnHost_VarsEnum(nTag0, get_AddrR(pKey0, nKey0), nKey0, nTag1, get_AddrR(pKey1, nKey1), nKey1);
+	}
+	BVM_METHOD_HOST(VarsEnum)
+	{
+		Wasm::Test(m_pCid);
+		FreeAuxAllocGuarded();
+
+		VarKey vk0, vk1;
+		vk0.Set(*m_pCid);
+		vk0.Append(nTag0, Blob(pKey0, nKey0));
+		vk1.Set(*m_pCid);
+		vk1.Append(nTag1, Blob(pKey1, nKey1));
+
+		VarsEnum(vk0, vk1);
+
+		m_EnumVars = true;
+	}
+
+	BVM_METHOD(VarsMoveNext)
+	{
+		auto pnTag_ = get_AddrW(pnTag, 1);
+		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
+		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
+		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
+		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
+
+		const void *pKey, *pVal;
+		uint32_t nKey, nVal;
+
+		if (!OnHost_VarsMoveNext(pnTag_, &pKey, &nKey, &pVal, &nVal))
+			return 0;
+
+		uint32_t nSizeTotal = nKey + nVal;
+
+		if (m_AuxAlloc.m_Size < nSizeTotal)
 		{
-			ProcessorManager& m_This;
-			Wasm::Word m_Object;
-			Wasm::Word m_Method;
+			FreeAuxAllocGuarded();
+			m_AuxAlloc.m_pPtr = ProcessorPlus::From(*this).OnMethod_Heap_Alloc(nSizeTotal);
+			m_AuxAlloc.m_Size = nSizeTotal;
+		}
+		uint8_t* pDst = get_AddrW(m_AuxAlloc.m_pPtr, nSizeTotal);
 
-			Marshaller(ProcessorManager& x) :m_This(x) {}
+		Wasm::to_wasm(pnKey_, nKey);
+		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
+		memcpy(pDst, pKey, nKey);
 
-			uint8_t OnVar(uint8_t nTag, const uint8_t* pKey, uint32_t nKey, const uint8_t* pVal, uint32_t nVal) override
-			{
-				Wasm::Word nAliasSp0 = m_This.m_Stack.m_BytesCurrent;
+		Wasm::to_wasm(pnVal_, nVal);
+		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
+		memcpy(pDst + nKey, pVal, nVal);
 
-				m_This.m_Stack.PushAlias(Blob(pKey, nKey));
-				Wasm::Word pKey_ = m_This.m_Stack.get_AlasSp();
+		return 1;
+	}
+	BVM_METHOD_HOST(VarsMoveNext)
+	{
+		Wasm::Test(m_EnumVars); // illegal to call this method before VarsEnum
 
-				m_This.m_Stack.PushAlias(Blob(pVal, nVal));
-				Wasm::Word pVal_ = m_This.m_Stack.get_AlasSp();
+		Blob key, data;
+		if (!VarsMoveNext(key, data))
+		{
+			FreeAuxAllocGuarded();
+			m_EnumVars = false;
+			return 0;
+		}
 
-				Wasm::Word nAliasSp1 = m_This.m_Stack.m_BytesCurrent;
-				Wasm::Word nOperandSp = m_This.m_Stack.m_Pos;
+		Wasm::Test(key.n > ContractID::nBytes); // assert should be enough, but this is for extra safety
+		auto pKey = reinterpret_cast<const uint8_t*>(key.p);
 
-				m_This.m_Stack.Push(m_Object); // 'this' pointer
-				m_This.m_Stack.Push(nTag);
-				m_This.m_Stack.Push(pKey_);
-				m_This.m_Stack.Push(nKey);
-				m_This.m_Stack.Push(pVal_);
-				m_This.m_Stack.Push(nVal);
+		*pnTag = pKey[ContractID::nBytes];
+		*ppKey = pKey + ContractID::nBytes + 1;
+		*pnKey = key.n - (ContractID::nBytes + 1);
+		*ppVal = data.p;
+		*pnVal = data.n;
 
-				m_This.Run(m_Method);
+		return 1;
+	}
 
-				auto ret = m_This.m_Stack.Pop<Wasm::Word>();
-
-				Wasm::Test(nAliasSp1 == m_This.m_Stack.m_BytesCurrent); // alias stack must be restored
-				Wasm::Test(nOperandSp == m_This.m_Stack.m_Pos); // operand stack must be restored
-
-				m_This.m_Stack.m_BytesCurrent = nAliasSp0;
-
-
-				return !!ret;
-			}
-
-		} m(*this);
-
-		m.m_Object = pCallback;
-		m.m_Method = ReadVFunc(pCallback, 0);
-
-		return LoadAllVars(m);
+	void ProcessorManager::FreeAuxAllocGuarded()
+	{
+		// may raise exc, call this only from within interpretator methods
+		if (m_AuxAlloc.m_pPtr)
+		{
+			ProcessorPlus::From(*this).OnMethod_Heap_Free(m_AuxAlloc.m_pPtr);
+			ZeroObject(m_AuxAlloc);
+		}
 	}
 
 	void ProcessorManager::Run(Wasm::Word addr)
@@ -1078,12 +1176,6 @@ namespace bvm2 {
 		} while (nDepth != m_LocalDepth);
 
 		Wasm::Test(get_Ip() == retAddr);
-	}
-
-	BVM_METHOD_HOST(LoadAllVars)
-	{
-		Wasm::Test(pCallback);
-		return LoadAllVars(*pCallback);
 	}
 
 #undef BVM_METHOD_BinaryVar
