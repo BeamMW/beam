@@ -14,7 +14,6 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "wasm_interpreter.h"
-#include "../utility/byteorder.h"
 #include "../core/uintBig.h"
 #include <sstream>
 
@@ -30,34 +29,6 @@ namespace Wasm {
 	void Test(bool b) {
 		if (!b)
 			Fail();
-	}
-
-	// wasm uses LE format
-	template <typename T>
-	T to_wasm(T x)
-	{
-		return ByteOrder::to_le(x);
-	}
-
-	template <typename T>
-	void to_wasm(uint8_t* p, T x)
-	{
-		x = to_wasm(x);
-		memcpy(p, &x, sizeof(x));
-	}
-
-	template <typename T>
-	T from_wasm(T x)
-	{
-		return ByteOrder::from_le(x);
-	}
-
-	template <typename T>
-	T from_wasm(const uint8_t* p)
-	{
-		T x;
-		memcpy(&x, p, sizeof(x)); // fix alignment
-		return from_wasm(x);
 	}
 
 	/////////////////////////////////////////////

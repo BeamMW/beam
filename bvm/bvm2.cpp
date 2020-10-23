@@ -14,7 +14,6 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm2_impl.h"
-#include "../utility/byteorder.h"
 #include <sstream>
 
 namespace beam {
