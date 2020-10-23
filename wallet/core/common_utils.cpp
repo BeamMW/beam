@@ -70,14 +70,44 @@ std::string TxIDToString(const TxID& txId)
     return to_hex(txId.data(), txId.size());
 }
 
-Amount CalcChange(const IWalletDB::Ptr& walletDB, Amount amount)
+Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId)
 {
-    auto coins = walletDB->selectCoins(amount, Zero);
-    Amount sum = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c) {
-        return sum + c.m_ID.m_Value;
-    });
+    Change result;
+    result.assetId = assetId;
 
-    return sum <= amount ? 0 : sum - amount;
+    const bool isBeamTx = assetId == Asset::s_BeamID;
+    if (isBeamTx)
+    {
+        amountAsset += beamFee;
+    }
+
+    if (amountAsset)
+    {
+        auto coins = walletDB->selectCoins(amountAsset, assetId);
+        const auto assetAvailable = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c)
+        {
+            return sum + c.m_ID.m_Value;
+        });
+
+        result.changeAsset = assetAvailable <= amountAsset ? 0 : assetAvailable - amountAsset;
+        if (isBeamTx)
+        {
+            result.changeBeam = result.changeAsset;
+        }
+    }
+
+    if (!isBeamTx && beamFee)
+    {
+        auto coins = walletDB->selectCoins(amountAsset, assetId);
+        const auto beamAvailable = accumulate(coins.begin(), coins.end(), (Amount)0, [assetId] (Amount sum, const Coin& c)
+        {
+            return sum + c.m_ID.m_Value;
+        });
+
+        result.changeBeam = beamAvailable <= beamFee ? 0 : beamAvailable - beamFee;
+    }
+
+    return result;
 }
 
 Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded)

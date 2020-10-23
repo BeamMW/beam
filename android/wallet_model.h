@@ -35,7 +35,7 @@ private:
     void onStatus(const beam::wallet::WalletStatus& status) override;
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
-    void onChangeCalculated(beam::Amount change) override;
+    void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) override;
     void onShieldedCoinsSelectionCalculated(const beam::wallet::ShieldedCoinsSelectionInfo& selectionRes) override;
     void onNeedExtractShieldedCoins(bool val) override;
     void onAllUtxoChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>& utxos) override;

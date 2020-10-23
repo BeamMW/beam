@@ -70,9 +70,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::syncWithNode);
     }
 
-    void calcChange(Amount amount) override
+    void calcChange(Amount amount, Amount fee, Asset::ID assetId) override
     {
-        call_async(&IWalletModelAsync::calcChange, amount);
+        call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
     void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded /* = false */) override
@@ -356,10 +356,10 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
-                              bool isSecondCurrencyEnabled,
+                              bool withExchangeRates,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
             {
@@ -451,8 +451,7 @@ namespace beam::wallet
 
                 // Other content providers using broadcast messages
                 auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
-                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
-                    *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
+                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, withExchangeRates);
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
@@ -772,9 +771,10 @@ namespace beam::wallet
     }
     }
 
-    void WalletClient::calcChange(Amount amount)
+    void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        onChangeCalculated(CalcChange(m_walletDB, amount));
+        const auto change = CalcChange(m_walletDB, amount, fee, assetId);
+        onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
     }
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, bool isShielded /* = false */)

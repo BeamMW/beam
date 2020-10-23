@@ -32,7 +32,7 @@ namespace beam::wallet
         virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee = 0) = 0;
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
-        virtual void calcChange(Amount amount) = 0;
+        virtual void calcChange(Amount amount, Amount fee, Asset::ID assetId) = 0;
         virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;

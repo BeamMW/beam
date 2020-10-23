@@ -83,7 +83,7 @@ namespace beam::wallet
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
-                    bool isSecondCurrencyEnabled = false,
+                    bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
@@ -123,7 +123,7 @@ namespace beam::wallet
         virtual void onStatus(const WalletStatus& status) {}
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
-        virtual void onChangeCalculated(Amount change) {}
+        virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
         virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
         virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
@@ -173,7 +173,7 @@ namespace beam::wallet
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
-        void calcChange(Amount amount) override;
+        void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
         void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
