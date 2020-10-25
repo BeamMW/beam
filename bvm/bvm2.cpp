@@ -1043,22 +1043,22 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(get_Height)
 
-	BVM_METHOD(LoadVarEx)
-	{
-		return OnHost_LoadVarEx(nTag, get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
-	}
-	BVM_METHOD_HOST(LoadVarEx)
-	{
-		Wasm::Test(m_pCid);
-		Wasm::Test(nKey <= Limits::VarKeySize);
+	//BVM_METHOD(LoadVarEx)
+	//{
+	//	return OnHost_LoadVarEx(nTag, get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+	//}
+	//BVM_METHOD_HOST(LoadVarEx)
+	//{
+	//	Wasm::Test(m_pCid);
+	//	Wasm::Test(nKey <= Limits::VarKeySize);
 
-		VarKey vk;
-		vk.Set(*m_pCid);
-		vk.Append(nTag, Blob(pKey, nKey));
+	//	VarKey vk;
+	//	vk.Set(*m_pCid);
+	//	vk.Append(nTag, Blob(pKey, nKey));
 
-		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
-		return nVal;
-	}
+	//	LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
+	//	return nVal;
+	//}
 
 	//BVM_METHOD(LoadAllVars)
 	//{

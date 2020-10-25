@@ -102,13 +102,6 @@
 
 #define BVMOp_get_Height(macro, sep)
 
-#define BVMOp_LoadVarEx(macro, sep) \
-	macro(uint8_t, nTag) sep \
-	macro(const void*, pKey) sep \
-	macro(uint32_t, nKey) sep \
-	macro(void*, pVal) sep \
-	macro(uint32_t, nVal)
-
 #define BVMOp_VarsEnum(macro, sep) \
 	macro(uint8_t, nTag0) sep \
 	macro(const void*, pKey0) sep \
@@ -211,7 +204,6 @@
 	macro(0x3A, uint8_t  , AssetDestroy) \
 
 #define BVMOpsAll_Manager(macro) \
-	macro(0x50, uint32_t , LoadVarEx) \
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
 	macro(0x58, void     , DerivePk) \

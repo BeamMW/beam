@@ -304,7 +304,6 @@ namespace bvm2 {
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 
-		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
