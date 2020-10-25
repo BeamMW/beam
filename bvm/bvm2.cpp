@@ -1291,6 +1291,86 @@ namespace bvm2 {
 		m_NeedComma = true;
 	}
 
+	BVM_METHOD(DocGetText)
+	{
+		return OnHost_DocGetText(RealizeStr(szID), reinterpret_cast<char*>(get_AddrW(szRes, nLen)), nLen);
+	}
+	BVM_METHOD_HOST(DocGetText)
+	{
+		if (!nLen)
+			return 0;
+
+		auto pVal = FindArg(szID);
+		if (!pVal)
+		{
+			szRes[0] = 0;
+			return 0;
+		}
+
+		uint32_t n = static_cast<uint32_t>(pVal->size()) + 1;
+		std::setmin(nLen, n);
+		
+		memcpy(szRes, pVal->c_str(), nLen - 1);
+		szRes[nLen - 1] = 0;
+		return n;
+	}
+
+	BVM_METHOD(DocGetBlob)
+	{
+		return OnHost_DocGetText(RealizeStr(szID), reinterpret_cast<char*>(get_AddrW(pOut, nLen)), nLen);
+	}
+	BVM_METHOD_HOST(DocGetBlob)
+	{
+		if (!nLen)
+			return 0;
+
+		auto pVal = FindArg(szID);
+		if (!pVal)
+			return 0;
+
+		return uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), pVal->c_str(), static_cast<uint32_t>(pVal->size()));
+	}
+
+	BVM_METHOD(DocGetNum32)
+	{
+		uint32_t val = 0;
+		auto nRet = OnHost_DocGetNum32(RealizeStr(szID), &val);
+		Wasm::to_wasm(get_AddrW(pOut, sizeof(val)), val);
+		return nRet;
+	}
+	BVM_METHOD_HOST(DocGetNum32)
+	{
+		auto pVal = FindArg(szID);
+		if (!pVal)
+			return 0;
+
+		*pOut = atoi(pVal->c_str());
+		return sizeof(*pOut); // ignore errors
+	}
+
+	BVM_METHOD(DocGetNum64)
+	{
+		uint64_t val = 0;
+		auto nRet = OnHost_DocGetNum64(RealizeStr(szID), &val);
+		Wasm::to_wasm(get_AddrW(pOut, sizeof(val)), val);
+		return nRet;
+	}
+	BVM_METHOD_HOST(DocGetNum64)
+	{
+		auto pVal = FindArg(szID);
+		if (!pVal)
+			return 0;
+
+		*pOut = atoll(pVal->c_str());
+		return sizeof(*pOut); // ignore errors
+	}
+
+	const std::string* ProcessorManager::FindArg(const char* szID)
+	{
+		auto it = m_Args.find(szID);
+		return (m_Args.end() == it) ? nullptr : &it->second;
+	}
+
 	void ProcessorManager::DocID(const char* sz)
 	{
 		DocOnNext();

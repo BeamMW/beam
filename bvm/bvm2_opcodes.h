@@ -156,6 +156,24 @@
 
 #define BVMOp_DocCloseArray(macro, sep)
 
+#define BVMOp_DocGetText(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(char*, szRes) sep \
+	macro(uint32_t, nLen)
+
+#define BVMOp_DocGetNum32(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(uint32_t*, pOut)
+
+#define BVMOp_DocGetNum64(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(uint64_t*, pOut)
+
+#define BVMOp_DocGetBlob(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(void*, pOut) sep \
+	macro(uint32_t, nLen)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -196,5 +214,9 @@
 	macro(0x65, void     , DocAddArray) \
 	macro(0x66, void     , DocCloseArray) \
 	macro(0x67, void     , DocAddBlob) \
+	macro(0x69, uint32_t , DocGetText) \
+	macro(0x6A, uint8_t  , DocGetNum32) \
+	macro(0x6B, uint8_t  , DocGetNum64) \
+	macro(0x6C, uint32_t , DocGetBlob) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

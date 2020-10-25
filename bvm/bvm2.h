@@ -254,6 +254,7 @@ namespace bvm2 {
 		void DocEncodedText(const char*);
 		void DocQuotedText(const char*);
 		void DocID(const char*);
+		const std::string* FindArg(const char*);
 
 		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 
@@ -270,6 +271,8 @@ namespace bvm2 {
 
 		std::ostream& m_Out;
 		bool m_NeedComma = false;
+
+		std::map<std::string, std::string> m_Args;
 
 		ProcessorManager(std::ostream& out) :m_Out(out) {}
 
