@@ -932,7 +932,9 @@ namespace bvm2 {
 	{
 		BlobMap::Set& m_Vars;
 
-		MyManager(BlobMap::Set& vars) :m_Vars(vars) {}
+		MyManager(BlobMap::Set& vars, std::ostringstream& out)
+			:ProcessorManager(out)
+			,m_Vars(vars) {}
 
 		struct VarEnumCtx
 		{
@@ -1011,7 +1013,9 @@ int main()
 		MyProcessor proc;
 		proc.TestAll();
 
-		MyManager man(proc.m_Vars);
+		std::ostringstream os;
+
+		MyManager man(proc.m_Vars, os);
 		man.InitMem();
 		man.TestHeap();
 	}

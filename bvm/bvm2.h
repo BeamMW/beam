@@ -250,6 +250,11 @@ namespace bvm2 {
 
 		void FreeAuxAllocGuarded();
 
+		void DocOnNext();
+		void DocEncodedText(const char*);
+		void DocQuotedText(const char*);
+		void DocID(const char*);
+
 		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 
 		virtual void InvokeExt(uint32_t) override;
@@ -262,6 +267,11 @@ namespace bvm2 {
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 
 	public:
+
+		std::ostream& m_Out;
+		bool m_NeedComma = false;
+
+		ProcessorManager(std::ostream& out) :m_Out(out) {}
 
 		const ContractID* m_pCid = nullptr; // current contract
 

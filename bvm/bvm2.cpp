@@ -1228,6 +1228,115 @@ namespace bvm2 {
 		}
 	}
 
+	BVM_METHOD_VIA_HOST(DocAddGroup)
+	BVM_METHOD_HOST(DocAddGroup)
+	{
+		DocID(szID);
+		m_Out << '{';
+		m_NeedComma = false;
+	}
+
+	BVM_METHOD_VIA_HOST(DocCloseGroup)
+	BVM_METHOD_HOST(DocCloseGroup)
+	{
+		m_Out << '}';
+		m_NeedComma = true;
+	}
+
+	BVM_METHOD_VIA_HOST(DocAddText)
+	BVM_METHOD_HOST(DocAddText)
+	{
+		DocID(szID);
+		DocQuotedText(val);
+	}
+
+	BVM_METHOD_VIA_HOST(DocAddNum32)
+	BVM_METHOD_HOST(DocAddNum32)
+	{
+		DocID(szID);
+		m_Out << val;
+	}
+
+	BVM_METHOD_VIA_HOST(DocAddNum64)
+	BVM_METHOD_HOST(DocAddNum64)
+	{
+		DocID(szID);
+		m_Out << val;
+	}
+
+	BVM_METHOD(DocAddBlob)
+	{
+		return OnHost_DocAddBlob(RealizeStr(szID), get_AddrR(pBlob, nBlob), nBlob);
+	}
+	BVM_METHOD_HOST(DocAddBlob)
+	{
+		DocID(szID);
+		m_Out << '"';
+		uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(pBlob), nBlob, m_Out);
+		m_Out << '"';
+	}
+
+	BVM_METHOD_VIA_HOST(DocAddArray)
+	BVM_METHOD_HOST(DocAddArray)
+	{
+		DocID(szID);
+		m_Out << '[';
+		m_NeedComma = false;
+	}
+
+	BVM_METHOD_VIA_HOST(DocCloseArray)
+	BVM_METHOD_HOST(DocCloseArray)
+	{
+		m_Out << ']';
+		m_NeedComma = true;
+	}
+
+	void ProcessorManager::DocID(const char* sz)
+	{
+		DocOnNext();
+		DocQuotedText(sz);
+		m_Out << ": ";
+	}
+
+	void ProcessorManager::DocQuotedText(const char* sz)
+	{
+		m_Out << '"';
+		DocEncodedText(sz);
+		m_Out << '"';
+	}
+
+	void ProcessorManager::DocEncodedText(const char* sz)
+	{
+		while (true)
+		{
+			char ch = *sz++;
+			switch (ch)
+			{
+			case 0:
+				return;
+
+			case '\b': m_Out << "\\b"; break;
+			case '\f': m_Out << "\\f"; break;
+			case '\n': m_Out << "\\n"; break;
+			case '\r': m_Out << "\\r"; break;
+			case '\t': m_Out << "\\t"; break;
+			case '"': m_Out << "\\\""; break;
+			case '\\': m_Out << "\\\\"; break;
+
+			default:
+				m_Out << ch;
+			}
+		}
+	}
+
+	void ProcessorManager::DocOnNext()
+	{
+		if (m_NeedComma)
+			m_Out << ',';
+		else
+			m_NeedComma = true;
+	}
+
 	void ProcessorManager::Call(Wasm::Word addr)
 	{
 		Call(addr, get_Ip());

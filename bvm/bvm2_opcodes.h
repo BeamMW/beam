@@ -129,6 +129,33 @@
 	macro(const void*, pID) sep \
 	macro(uint32_t, nID)
 
+#define BVMOp_DocAddGroup(macro, sep) \
+	macro(const char*, szID)
+
+#define BVMOp_DocCloseGroup(macro, sep)
+
+#define BVMOp_DocAddNum32(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(uint32_t, val)
+
+#define BVMOp_DocAddNum64(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(uint64_t, val)
+
+#define BVMOp_DocAddBlob(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(const void*, pBlob) sep \
+	macro(uint32_t, nBlob)
+
+#define BVMOp_DocAddText(macro, sep) \
+	macro(const char*, szID) sep \
+	macro(const char*, val)
+
+#define BVMOp_DocAddArray(macro, sep) \
+	macro(const char*, szID)
+
+#define BVMOp_DocCloseArray(macro, sep)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -161,5 +188,13 @@
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
 	macro(0x58, void     , DerivePk) \
+	macro(0x60, void     , DocAddGroup) \
+	macro(0x61, void     , DocCloseGroup) \
+	macro(0x62, void     , DocAddText) \
+	macro(0x63, void     , DocAddNum32) \
+	macro(0x64, void     , DocAddNum64) \
+	macro(0x65, void     , DocAddArray) \
+	macro(0x66, void     , DocCloseArray) \
+	macro(0x67, void     , DocAddBlob) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE
