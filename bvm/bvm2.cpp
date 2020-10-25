@@ -1428,12 +1428,6 @@ namespace bvm2 {
 		OnCall(addr);
 	}
 
-	template <typename T>
-	uint32_t SizeOfArr(uint32_t nCount)
-	{
-		uint32_t 
-	}
-
 	BVM_METHOD(GenerateKernel)
 	{
 #pragma pack (push, 1)
