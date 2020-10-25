@@ -3675,6 +3675,44 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
+{
+    NodeDB::WalkerContractData wlk;
+    m_This.m_Processor.get_DB().ContractDataEnum(wlk, msg.m_KeyMin, msg.m_KeyMax);
+
+    proto::ContractVars msgOut;
+    Serializer ser;
+
+    while (true)
+    {
+        if (!wlk.MoveNext())
+            break;
+
+        if (msg.m_bSkipMin)
+        {
+            msg.m_bSkipMin = false;
+            if (wlk.m_Key == msg.m_KeyMin)
+                continue; // skip
+        }
+
+        ser
+            & wlk.m_Key.n
+            & wlk.m_Val.n;
+
+        ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
+        ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+
+        if (IsChocking(ser.buffer().second))
+        {
+            msgOut.m_bMore = true;
+            break;
+        }
+    }
+
+    ser.swap_buf(msgOut.m_Result);
+    Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)

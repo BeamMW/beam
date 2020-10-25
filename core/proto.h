@@ -240,6 +240,15 @@ namespace proto {
     macro(Asset::ID, AssetsMax) \
     macro(Asset::ID, AssetsActive) \
 
+#define BeamNodeMsg_ContractVarsEnum(macro) \
+    macro(ByteBuffer, KeyMin) \
+    macro(ByteBuffer, KeyMax) \
+    macro(bool, bSkipMin)
+
+#define BeamNodeMsg_ContractVars(macro) \
+    macro(ByteBuffer, Result) \
+    macro(bool, bMore)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x00, Login0) \
@@ -274,8 +283,6 @@ namespace proto {
     macro(0x1c, ProofUtxo) \
     macro(0x1d, GetProofChainWork) \
     macro(0x1e, ProofChainWork) \
-    /* macro(0x20, MacroblockGet) Deprecated */ \
-    /* macro(0x21, Macroblock) Deprecated */ \
     macro(0x22, GetCommonState) \
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
@@ -290,9 +297,10 @@ namespace proto {
     macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
     macro(0x2b, ShieldedList) \
+    macro(0x1f, ContractVarsEnum) \
+    macro(0x2d, ContractVars) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
-    /* macro(0x2d, EventsLegacy) Deprecated */ \
     macro(0x34, Events) \
     macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
@@ -302,12 +310,9 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    /* macro(0x38, BbsMsgV0) Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    /* macro(0x3c, BbsPickChannelV0) Deprecated */ \
-    /* macro(0x3d, BbsPickChannelResV0) Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
     macro(0x45, GetStateSummary) \
@@ -334,9 +339,10 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
+            // 7 - Contract vars
 
             static const uint32_t Minimum = 4;
-            static const uint32_t Maximum = 6;
+            static const uint32_t Maximum = 7;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
