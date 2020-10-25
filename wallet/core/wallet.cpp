@@ -1065,6 +1065,11 @@ namespace beam::wallet
         m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
     }
 
+    void Wallet::OnRequestComplete(MyRequestContractVars&)
+    {
+    }
+
+
     void Wallet::RequestEvents()
     {
         if (!m_OwnedNodesOnline)
