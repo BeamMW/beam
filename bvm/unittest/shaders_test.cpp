@@ -1050,6 +1050,7 @@ int main()
 		ECC::PseudoRandomGenerator prg;
 		ECC::PseudoRandomGenerator::Scope scope(&prg);
 
+		using namespace beam;
 		using namespace beam::bvm2;
 
 		TestMergeSort();
@@ -1062,6 +1063,23 @@ int main()
 		MyManager man(proc.m_Vars, os);
 		man.InitMem();
 		man.TestHeap();
+		man.m_pCid = &proc.m_cidVault;
+
+		ByteBuffer buf;
+		MyProcessor::AddCodeEx(buf, "vaultManager.wasm", Processor::Kind::Manager);
+		man.m_Code = buf;
+
+		man.RunGuarded(0); // get scheme
+		std::cout << os.str();;
+		os.str("");
+
+		man.m_Args["role"] = "all_accounts";
+		man.m_Args["action"] = "view";
+
+		man.RunGuarded(1);
+		std::cout << os.str();;
+		os.str("");
+
 	}
 	catch (const std::exception & ex)
 	{
