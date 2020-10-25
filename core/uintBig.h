@@ -37,7 +37,8 @@ namespace beam
 
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
-		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&); // truncates if too long
+		static void _PrintFull(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
 		static uint32_t _Scan(uint8_t* pDst, const char*, uint32_t nTxtLen);
