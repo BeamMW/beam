@@ -26,7 +26,6 @@
 #include "../../utility/blobmap.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
-#include "../../bvm/Shaders/CommonHost.h"
 
 namespace Shaders {
 

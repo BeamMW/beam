@@ -27,27 +27,18 @@ namespace bvm2 {
 	struct ProcessorPlusEnv
 		:public Processor
 	{
-		typedef ECC::Point PubKey;
-		typedef Asset::ID AssetID;
-
 		BVMOpsAll_Common(THE_MACRO)
 	};
 
 	struct ProcessorPlusEnv_Contract
 		:public ProcessorContract
 	{
-		typedef ECC::Point PubKey;
-		typedef Asset::ID AssetID;
-
 		BVMOpsAll_Contract(THE_MACRO)
 	};
 
 	struct ProcessorPlusEnv_Manager
 		:public ProcessorManager
 	{
-		typedef ECC::Point PubKey;
-		typedef Asset::ID AssetID;
-
 		BVMOpsAll_Manager(THE_MACRO)
 	};
 

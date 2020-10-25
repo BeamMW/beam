@@ -17,10 +17,36 @@
 #include "../utility/containers.h"
 #include "../core/block_crypt.h"
 
+namespace Shaders {
+
+    typedef ECC::Point PubKey;
+    typedef beam::Asset::ID AssetID;
+    typedef ECC::uintBig ContractID;
+    using beam::Amount;
+    using beam::Height;
+
+    template<bool bToShader, typename T>
+    inline void ConvertOrd(T& x)
+    {
+        if constexpr (bToShader)
+            x = beam::ByteOrder::to_le(x);
+        else
+            x = beam::ByteOrder::from_le(x);
+    }
+
+#include "bvm2_shared.h"
+}
+
 namespace beam {
 namespace bvm2 {
 
-#include "bvm2_Callbacks.h"
+	using Shaders::PubKey;
+	using Shaders::AssetID;
+	using Shaders::ContractID;
+	using Shaders::Amount;
+	using Shaders::Height;
+	using Shaders::FundsChange;
+	using Shaders::SigRequest;
 
 	struct Limits
 	{
@@ -31,7 +57,6 @@ namespace bvm2 {
 		static const uint32_t StackSize = 0x10000; // 64K
 	};
 
-	typedef ECC::uintBig ContractID;
 	// Contract unique identifier 
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);

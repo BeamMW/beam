@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//#include "../node.h"
+#define HOST_BUILD
 
 #include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/blobmap.h"
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
-#include "../Shaders/CommonHost.h"
 
 #include <sstream>
 
 namespace Shaders {
-
-	using beam::bvm2::ILoadVarCallback;
 
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
