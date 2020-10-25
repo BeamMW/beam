@@ -2796,4 +2796,22 @@ void NodeDB::ContractDataDel(const Blob& key)
 	TestChanged1Row();
 }
 
+void NodeDB::ContractDataEnum(WalkerContractData& wlk, const Blob& keyMin, const Blob& keyMax)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractDataEnum, "SELECT " TblContracts_Key "," TblContracts_Value " FROM " TblContracts " WHERE " TblContracts_Key ">=? AND " TblContracts_Key "<=? ORDER BY " TblContracts_Key);
+	wlk.m_Rs.put(0, keyMin);
+	wlk.m_Rs.put(1, keyMax);
+}
+
+bool NodeDB::WalkerContractData::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_Key);
+	m_Rs.get(1, m_Val);
+	return true;
+}
+
+
 } // namespace beam

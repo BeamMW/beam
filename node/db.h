@@ -185,6 +185,7 @@ public:
 			ContractDataInsert,
 			ContractDataUpdate,
 			ContractDataDel,
+			ContractDataEnum,
 
 			Dbg0,
 			Dbg1,
@@ -629,6 +630,16 @@ public:
 	void ContractDataInsert(const Blob& key, const Blob&);
 	void ContractDataUpdate(const Blob& key, const Blob&);
 	void ContractDataDel(const Blob& key);
+
+	struct WalkerContractData
+	{
+		Recordset m_Rs;
+		Blob m_Key;
+		Blob m_Val;
+		bool MoveNext();
+	};
+
+	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
 
 private:
 
