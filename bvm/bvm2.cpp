@@ -1487,6 +1487,67 @@ namespace bvm2 {
 #undef THE_MACRO_IsConst_r
 
 	/////////////////////////////////////////////
+	// FundsChangeMap
+	void FundsChangeMap::Set(ECC::Scalar::Native& k, Amount val, bool bLock)
+	{
+		k = val;
+		if (bLock)
+			k = -k;
+	}
+
+	void FundsChangeMap::Process(Amount val, Asset::ID aid, bool bLock)
+	{
+		if (!val)
+			return;
+
+		auto it = m_Map.find(aid);
+		if (m_Map.end() == it)
+			Set(m_Map[aid], val, bLock);
+		else
+		{
+			auto& k = it->second;
+			ECC::Scalar::Native dk;
+			Set(dk, val, bLock);
+
+			k += dk;
+			if (k == Zero)
+				m_Map.erase(it);
+		}
+	}
+
+	void FundsChangeMap::ToCommitment(ECC::Point::Native& res) const
+	{
+		if (m_Map.empty())
+			res = Zero;
+		else
+		{
+			// TODO: optimize for small values, and specifically for Aid=0
+			ECC::MultiMac_Dyn mm;
+			mm.Prepare(static_cast<uint32_t>(m_Map.size()), 1);
+
+			for (auto it = m_Map.begin(); m_Map.end() != it; it++)
+			{
+				if (it->first)
+				{
+					CoinID::Generator gen(it->first);
+
+					mm.m_pCasual[mm.m_Casual].Init(gen.m_hGen);
+					mm.m_pKCasual[mm.m_Casual] = it->second;
+					mm.m_Casual++;
+				}
+				else
+				{
+					mm.m_ppPrepared[mm.m_Prepared] = &ECC::Context::get().m_Ipp.H_;
+					mm.m_pKPrep[mm.m_Prepared] = it->second;
+					mm.m_Prepared++;
+				}
+			}
+
+			mm.Calculate(res);
+		}
+	}
+
+	/////////////////////////////////////////////
 	// Other funcs
 
 	bool ProcessorContract::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
@@ -1542,15 +1603,7 @@ namespace bvm2 {
 	void ProcessorContract::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
 	{
 		if (m_pSigValidate)
-		{
-			ECC::Point::Native pt;
-			CoinID::Generator(aid).AddValue(pt, amount);
-
-			if (bLock)
-				pt = -pt;
-
-			m_FundsIO += pt;
-		}
+			m_FundsIO.Process(amount, aid, bLock);
 	}
 
 	bool ProcessorContract::HandleRefRaw(const VarKey& vk, bool bAdd)
@@ -1626,7 +1679,10 @@ namespace bvm2 {
 			return;
 
 		auto& comm = AddSigInternal(pt);
-		comm += m_FundsIO;
+
+		ECC::Point::Native ptFunds;
+		m_FundsIO.ToCommitment(ptFunds);
+		comm += ptFunds;
 
 		ECC::Hash::Value hv;
 		(*m_pSigValidate) >> hv;
