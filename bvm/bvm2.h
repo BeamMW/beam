@@ -58,7 +58,10 @@ namespace bvm2 {
 	};
 
 	// Contract unique identifier 
+	void get_ShaderID(ECC::Hash::Value&, const Blob& data);
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
+	void get_Cid(ContractID&, ECC::Hash::Value&, const Blob& args);
+
 	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 
 	class ProcessorContract;

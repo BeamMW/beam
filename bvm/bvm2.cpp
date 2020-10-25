@@ -19,15 +19,30 @@
 namespace beam {
 namespace bvm2 {
 
-	void get_Cid(ContractID& cid, const Blob& data, const Blob& args)
+	void get_ShaderID(ECC::Hash::Value& sid, const Blob& data)
+	{
+		ECC::Hash::Processor()
+			<< "bvm.shader.id"
+			<< data.n
+			<< data
+			>> sid;
+	}
+
+	void get_Cid(ContractID& cid, ECC::Hash::Value& sid, const Blob& args)
 	{
 		ECC::Hash::Processor()
 			<< "bvm.cid"
-			<< data.n
+			<< sid
 			<< args.n
-			<< data
 			<< args
 			>> cid;
+	}
+
+	void get_Cid(ContractID& cid, const Blob& data, const Blob& args)
+	{
+		ECC::Hash::Value sid;
+		get_ShaderID(sid, data);
+		get_Cid(cid, sid, args);
 	}
 
 	void get_AssetOwner(PeerID& pidOwner, const ContractID& cid, const Asset::Metadata& md)
