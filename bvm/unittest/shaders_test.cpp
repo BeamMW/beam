@@ -988,6 +988,50 @@ namespace bvm2 {
 			m_Heap.Free(p3);
 			m_Heap.Free(p2);
 		}
+
+		uint32_t m_Cycles;
+
+		void RunMany(uint32_t iMethod)
+		{
+			std::ostringstream os;
+			m_Dbg.m_pOut = &os;
+
+			os << "BVM Method: " << iMethod << std::endl;
+
+			Shaders::Env::g_pEnv = this;
+
+			m_Cycles = 0;
+			uint32_t nDepth = m_LocalDepth;
+
+			for (CallMethod(iMethod); m_LocalDepth != nDepth; )
+			{
+				RunOnce();
+
+				if (m_Dbg.m_pOut)
+				{
+					std::cout << m_Dbg.m_pOut->str();
+					m_Dbg.m_pOut->str("");
+				}
+			}
+
+
+			os << "Done in " << m_Cycles << " cycles" << std::endl << std::endl;
+			std::cout << os.str();
+		}
+
+		bool RunGuarded(uint32_t iMethod)
+		{
+			bool ret = true;
+			try
+			{
+				RunMany(iMethod);
+			}
+			catch (const std::exception&) {
+				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+				ret = false;
+			}
+			return ret;
+		}
 	};
 
 
