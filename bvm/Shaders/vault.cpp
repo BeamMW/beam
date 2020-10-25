@@ -12,7 +12,10 @@ Amount Vault::Key::Load() const
 
 void Vault::Key::Save(Amount amount) const
 {
-    Env::SaveVar_T(*this, amount);
+    if (amount)
+        Env::SaveVar_T(*this, amount);
+    else
+        Env::DelVar_T(*this);
 }
 
 export void Ctor(void*)
