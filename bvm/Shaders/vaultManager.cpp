@@ -26,38 +26,31 @@ struct DocNamedGroup
 export void Method_0()
 {
     // scheme
-//    {   DocGroup gr("roles");
-        {   DocNamedGroup gr0("create", "Create new");
-            {
+    {   DocGroup gr("roles");
+        {   DocNamedGroup gr0("manager", "Manager");
+            {   DocNamedGroup gr1("create", "Create new");
+            }
+            {   DocNamedGroup gr1("destroy", "Destroy");
             }
         }
         {   DocNamedGroup gr0("my_account", "My account");
-            {
-//                {   DocGroup("actions");
-                    {   DocNamedGroup gr1("view", "View");
-                    }
-                    {   DocNamedGroup gr1("deposit", "Deposit");
-                        Env::DocAddText("amount", "Amount");
-                        Env::DocAddText("asset", "AssetID");
-                    }
-                    {   DocNamedGroup gr1("withdraw", "Withdraw");
-                        Env::DocAddText("amount", "Amount");
-                        Env::DocAddText("asset", "AssetID");
-                    }
-  //              }
-
+            {   DocNamedGroup gr1("view", "View");
+            }
+            {   DocNamedGroup gr1("deposit", "Deposit");
+                Env::DocAddText("amount", "Amount");
+                Env::DocAddText("asset", "AssetID");
+            }
+            {   DocNamedGroup gr1("withdraw", "Withdraw");
+                Env::DocAddText("amount", "Amount");
+                Env::DocAddText("asset", "AssetID");
             }
         }
         {   DocNamedGroup gr0("all_accounts", "All accounts");
-            {
-//                {   DocGroup("actions");
-                    {   DocNamedGroup gr1("view", "View");
-                        Env::DocAddText("account", "PubKey");
-                    }
-//                }
+            {   DocNamedGroup gr1("view", "View");
+                Env::DocAddText("account", "PubKey");
             }
         }
-//    }
+    }
 }
 
 #ifndef assert
@@ -101,10 +94,50 @@ void DumpAccount(const PubKey& pubKey)
     Env::VarsEnum(0, &k0, sizeof(k0), 0, &k1, sizeof(k1));
 }
 
+void On_Manager(const char* szAction)
+{
+    if (!Env::Strcmp(szAction, "create")) {
+        Env::GenerateKernel(0, nullptr, 0, nullptr, 0, nullptr, 0);
+        return;
+    }
+
+    if (!Env::Strcmp(szAction, "destroy")) {
+        Env::GenerateKernel(1, nullptr, 0, nullptr, 0, nullptr, 0);
+        return;
+    }
+}
+
+static const char g_szKeyID[] = "my";
+
 void DeriveMyPk(PubKey& pubKey)
 {
-    static const char szKeyID[] = "my";
-    Env::DerivePk(pubKey, szKeyID, sizeof(szKeyID));
+    Env::DerivePk(pubKey, g_szKeyID, sizeof(g_szKeyID));
+}
+
+void On_MyAccount_MoveFunds(uint32_t iMethod, uint8_t nConsume)
+{
+    Vault::Request arg;
+
+    Env::DocGetNum("amount", arg.m_Amount);
+    if (!arg.m_Amount)
+    {
+        Env::DocAddText("error", "amount should be nnz");
+        return;
+    }
+
+    Env::DocGetNum("assert", arg.m_Aid);
+    DeriveMyPk(arg.m_Account);
+
+    FundsChange fc;
+    fc.m_Amount = arg.m_Amount;
+    fc.m_Aid = arg.m_Aid;
+    fc.m_Consume = nConsume;
+
+    SigRequest sig;
+    sig.m_pID = g_szKeyID;
+    sig.m_nID = sizeof(g_szKeyID);
+
+    Env::GenerateKernel(iMethod, &arg, sizeof(arg), &fc, 1, &sig, !nConsume);
 }
 
 void On_MyAccount(const char* szAction)
@@ -117,13 +150,15 @@ void On_MyAccount(const char* szAction)
         return;
     }
 
-    if (!Env::Strcmp(szAction, "deposit")) {
-
+    if (!Env::Strcmp(szAction, "deposit"))
+    {
+        On_MyAccount_MoveFunds(Vault::Deposit::s_iMethod, 1);
         return;
     }
 
-    if (!Env::Strcmp(szAction, "withdraw")) {
-
+    if (!Env::Strcmp(szAction, "withdraw"))
+    {
+        On_MyAccount_MoveFunds(Vault::Withdraw::s_iMethod, 0);
         return;
     }
 
@@ -157,6 +192,12 @@ export void Method_1()
     }
 
     Env::DocGetText("action", szAction, sizeof(szAction));
+
+    if (!Env::Strcmp(szRole, "manager")) {
+        On_Manager(szAction);
+        return;
+    }
+
 
     if (!Env::Strcmp(szRole, "my_account")) {
         On_MyAccount(szAction);
