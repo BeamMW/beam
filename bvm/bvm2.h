@@ -140,6 +140,12 @@ namespace bvm2 {
 			return *reinterpret_cast<T*>(get_AddrW(nOffset, sizeof(T)));
 		}
 
+		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+			uint32_t nSize = sizeof(T) * nCount;
+			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
+			return reinterpret_cast<const T*>(get_AddrR(nOffset, nSize));
+		}
+
 		struct Header;
 		const Header& ParseMod();
 
@@ -291,6 +297,7 @@ namespace bvm2 {
 		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
+		virtual void GenerateKernel(uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) {}
 
 	public:
 

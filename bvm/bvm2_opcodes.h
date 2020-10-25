@@ -174,6 +174,15 @@
 	macro(void*, pOut) sep \
 	macro(uint32_t, nLen)
 
+#define BVMOp_GenerateKernel(macro, sep) \
+	macro(uint32_t, iMethod) sep \
+	macro(const void*, pArg) sep \
+	macro(uint32_t, nArg) sep \
+	macro(const FundsChange*, pFunds) sep \
+	macro(uint32_t, nFunds) sep \
+	macro(const SigRequest*, pSig) sep \
+	macro(uint32_t, nSig)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -218,5 +227,6 @@
 	macro(0x6A, uint8_t  , DocGetNum32) \
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
+	macro(0x70, void     , GenerateKernel)
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

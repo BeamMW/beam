@@ -17,3 +17,29 @@
 struct ILoadVarCallback {
 	virtual uint8_t OnVar(uint8_t nTag, const uint8_t* pKey, uint32_t nKey, const uint8_t* pVal, uint32_t nVal) = 0;
 };
+
+#pragma pack (push, 1)
+
+struct FundsChange
+{
+	Amount m_Amount;
+	AssetID m_Aid;
+	uint8_t m_Consume;
+
+	template <bool bToShader>
+	void Convert()
+	{
+		ConvertOrd<bToShader>(m_Amount);
+		ConvertOrd<bToShader>(m_Aid);
+		ConvertOrd<bToShader>(m_Consume);
+	}
+};
+
+struct SigRequest
+{
+	const void* m_pID;
+	uint32_t m_nID;
+};
+
+#pragma pack (pop)
+

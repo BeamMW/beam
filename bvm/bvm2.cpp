@@ -1428,6 +1428,58 @@ namespace bvm2 {
 		OnCall(addr);
 	}
 
+	template <typename T>
+	uint32_t SizeOfArr(uint32_t nCount)
+	{
+		uint32_t 
+	}
+
+	BVM_METHOD(GenerateKernel)
+	{
+#pragma pack (push, 1)
+		struct SigRequest {
+			Wasm::Word m_pID;
+			Wasm::Word m_nID;
+		};
+#pragma pack (pop)
+
+		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+
+		std::vector<ECC::Hash::Value> vPreimages;
+		vPreimages.reserve(nSig);
+
+		for (uint32_t i = 0; i < nSig; i++)
+		{
+			const auto& x_ = pSig_[i];
+			SigRequest x;
+			x.m_pID = Wasm::from_wasm(x_.m_pID);
+			x.m_nID = Wasm::from_wasm(x_.m_nID);
+			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
+		}
+
+		FundsChange* pFunds_ = Cast::NotConst(get_ArrayAddrAsR<FundsChange>(pFunds, nFunds));
+		for (uint32_t i = 0; i < nFunds; i++)
+			pFunds_[i].Convert<true>();
+
+		GenerateKernel(iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
+
+		for (uint32_t i = 0; i < nFunds; i++)
+			pFunds_[i].Convert<false>();
+	}
+	BVM_METHOD_HOST(GenerateKernel)
+	{
+		std::vector<ECC::Hash::Value> vPreimages;
+		vPreimages.reserve(nSig);
+
+		for (uint32_t i = 0; i < nSig; i++)
+		{
+			const auto& x = pSig[i];
+			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
+		}
+
+		GenerateKernel(iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
+	}
+
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl
