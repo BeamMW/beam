@@ -311,12 +311,10 @@ namespace bvm2 {
 
 	public:
 
-		std::ostream& m_Out;
+		std::ostream* m_pOut;
 		bool m_NeedComma = false;
 
 		std::map<std::string, std::string> m_Args;
-
-		ProcessorManager(std::ostream& out) :m_Out(out) {}
 
 		const ContractID* m_pCid = nullptr; // current contract
 

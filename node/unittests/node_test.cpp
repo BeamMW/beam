@@ -2298,11 +2298,12 @@ namespace beam
 				:public bvm2::ProcessorManager
 			{
 				MyClient& m_This;
+				std::ostringstream m_Out;
 
-				MyManager(MyClient& me, std::ostream& os)
-					:bvm2::ProcessorManager(os)
-					,m_This(me)
+				MyManager(MyClient& me)
+					:m_This(me)
 				{
+					m_pOut = &m_Out;
 				}
 
 				std::unique_ptr<TxKernelContractControl> m_pKrn;
@@ -2434,8 +2435,7 @@ namespace beam
 				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
 					return false;
 
-				std::ostringstream os;
-				MyManager proc(*this, os);
+				MyManager proc(*this);
 				proc.m_pCid = &m_Contract.m_Cid;
 				proc.Init();
 

@@ -928,10 +928,13 @@ namespace bvm2 {
 		:public ProcessorManager
 	{
 		BlobMap::Set& m_Vars;
+		std::ostringstream m_Out;
 
-		MyManager(BlobMap::Set& vars, std::ostringstream& out)
-			:ProcessorManager(out)
-			,m_Vars(vars) {}
+		MyManager(BlobMap::Set& vars)
+			:m_Vars(vars)
+		{
+			m_pOut = &m_Out;
+		}
 
 		struct VarEnumCtx
 		{
@@ -1055,9 +1058,7 @@ int main()
 		MyProcessor proc;
 		proc.TestAll();
 
-		std::ostringstream os;
-
-		MyManager man(proc.m_Vars, os);
+		MyManager man(proc.m_Vars);
 		man.InitMem();
 		man.TestHeap();
 		man.m_pCid = &proc.m_cidVault;
@@ -1067,15 +1068,15 @@ int main()
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
-		std::cout << os.str();;
-		os.str("");
+		std::cout << man.m_Out.str();
+		man.m_Out.str("");
 
 		man.m_Args["role"] = "all_accounts";
 		man.m_Args["action"] = "view";
 
 		man.RunGuarded(1);
-		std::cout << os.str();;
-		os.str("");
+		std::cout << man.m_Out.str();
+		man.m_Out.str("");
 
 	}
 	catch (const std::exception & ex)

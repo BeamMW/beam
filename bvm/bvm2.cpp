@@ -1232,14 +1232,14 @@ namespace bvm2 {
 	BVM_METHOD_HOST(DocAddGroup)
 	{
 		DocID(szID);
-		m_Out << '{';
+		*m_pOut << '{';
 		m_NeedComma = false;
 	}
 
 	BVM_METHOD_VIA_HOST(DocCloseGroup)
 	BVM_METHOD_HOST(DocCloseGroup)
 	{
-		m_Out << '}';
+		*m_pOut << '}';
 		m_NeedComma = true;
 	}
 
@@ -1254,14 +1254,14 @@ namespace bvm2 {
 	BVM_METHOD_HOST(DocAddNum32)
 	{
 		DocID(szID);
-		m_Out << val;
+		*m_pOut << val;
 	}
 
 	BVM_METHOD_VIA_HOST(DocAddNum64)
 	BVM_METHOD_HOST(DocAddNum64)
 	{
 		DocID(szID);
-		m_Out << val;
+		*m_pOut << val;
 	}
 
 	BVM_METHOD(DocAddBlob)
@@ -1271,23 +1271,23 @@ namespace bvm2 {
 	BVM_METHOD_HOST(DocAddBlob)
 	{
 		DocID(szID);
-		m_Out << '"';
-		uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(pBlob), nBlob, m_Out);
-		m_Out << '"';
+		*m_pOut << '"';
+		uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(pBlob), nBlob, *m_pOut);
+		*m_pOut << '"';
 	}
 
 	BVM_METHOD_VIA_HOST(DocAddArray)
 	BVM_METHOD_HOST(DocAddArray)
 	{
 		DocID(szID);
-		m_Out << '[';
+		*m_pOut << '[';
 		m_NeedComma = false;
 	}
 
 	BVM_METHOD_VIA_HOST(DocCloseArray)
 	BVM_METHOD_HOST(DocCloseArray)
 	{
-		m_Out << ']';
+		*m_pOut << ']';
 		m_NeedComma = true;
 	}
 
@@ -1375,14 +1375,14 @@ namespace bvm2 {
 	{
 		DocOnNext();
 		DocQuotedText(sz);
-		m_Out << ": ";
+		*m_pOut << ": ";
 	}
 
 	void ProcessorManager::DocQuotedText(const char* sz)
 	{
-		m_Out << '"';
+		*m_pOut << '"';
 		DocEncodedText(sz);
-		m_Out << '"';
+		*m_pOut << '"';
 	}
 
 	void ProcessorManager::DocEncodedText(const char* sz)
@@ -1395,16 +1395,16 @@ namespace bvm2 {
 			case 0:
 				return;
 
-			case '\b': m_Out << "\\b"; break;
-			case '\f': m_Out << "\\f"; break;
-			case '\n': m_Out << "\\n"; break;
-			case '\r': m_Out << "\\r"; break;
-			case '\t': m_Out << "\\t"; break;
-			case '"': m_Out << "\\\""; break;
-			case '\\': m_Out << "\\\\"; break;
+			case '\b': *m_pOut << "\\b"; break;
+			case '\f': *m_pOut << "\\f"; break;
+			case '\n': *m_pOut << "\\n"; break;
+			case '\r': *m_pOut << "\\r"; break;
+			case '\t': *m_pOut << "\\t"; break;
+			case '"': *m_pOut << "\\\""; break;
+			case '\\': *m_pOut << "\\\\"; break;
 
 			default:
-				m_Out << ch;
+				*m_pOut << ch;
 			}
 		}
 	}
@@ -1412,7 +1412,7 @@ namespace bvm2 {
 	void ProcessorManager::DocOnNext()
 	{
 		if (m_NeedComma)
-			m_Out << ',';
+			*m_pOut << ',';
 		else
 			m_NeedComma = true;
 	}
