@@ -27,17 +27,6 @@
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
 
-namespace Shaders {
-
-#ifdef _MSC_VER
-#    pragma warning (disable : 4200) // zero-sized array
-#endif // _MSC_VER
-#include "../../bvm/Shaders/oracle.h"
-#ifdef _MSC_VER
-#    pragma warning (default : 4200)
-#endif // _MSC_VER
-}
-
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -1624,7 +1613,7 @@ namespace beam
 
 	namespace bvm2
 	{
-		void Compile(ByteBuffer& res, const char* sz)
+		void Compile(ByteBuffer& res, const char* sz, Processor::Kind kind)
 		{
 			std::FStream fs;
 			fs.Open(sz, true, true);
@@ -1633,7 +1622,7 @@ namespace beam
 			if (!res.empty())
 				fs.read(&res.front(), res.size());
 
-			bvm2::Processor::Compile(res, res, bvm2::Processor::Kind::Contract);
+			bvm2::Processor::Compile(res, res, kind);
 		}
 
 	}
@@ -1700,12 +1689,9 @@ namespace beam
 
 			struct
 			{
-				Height m_SentCtor = 0;
-				Height m_SentMethod = 0;
-				Height m_SentDtor = 0;
+				Height m_pStage[4]; // ctor, deposit, withdraw, dtor
+				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
-
-				ECC::Scalar::Native m_pSk[3];
 
 			} m_Contract;
 
@@ -2199,9 +2185,7 @@ namespace beam
 
 					MaybeCreateAsset(msgTx, val);
 					MaybeEmitAsset(msgTx, val);
-					MaybeCreateContract(msgTx, val);
 					MaybeInvokeContract(msgTx, val);
-					MaybeDeleteContract(msgTx, val);
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
@@ -2310,155 +2294,197 @@ namespace beam
 				return true;
 			}
 
-			bool MaybeCreateContract(proto::NewTransaction& msg, Amount& val)
+			struct MyManager
+				:public bvm2::ProcessorManager
 			{
-				if (m_Contract.m_SentCtor)
-					return false;
+				MyClient& m_This;
 
-				const Amount nFee = 120;
-				//const Amount nLock = 100500 + Rules::get().CA.DepositForList;
-				if (val < nFee/* + nLock*/)
+				MyManager(MyClient& me, std::ostream& os)
+					:bvm2::ProcessorManager(os)
+					,m_This(me)
+				{
+				}
+
+				std::unique_ptr<TxKernelContractControl> m_pKrn;
+				ECC::Scalar::Native m_skKrn;
+
+				ByteBuffer m_Data;
+				Amount m_Fee;
+
+				typedef std::map<Asset::ID, Amount> FundsMap;
+				FundsMap m_Rcv, m_Spend;
+
+				NodeDB::Recordset m_Rs;
+
+				static void HandleAmount(Asset::ID aid, Amount val, FundsMap& m0, FundsMap& m1)
+				{
+					if (!val)
+						return;
+
+					FundsMap::iterator it = m0.find(aid);
+					if (m0.end() == it)
+					{
+						it = m1.find(aid);
+						if (m1.end() != it)
+						{
+							if (it->second > val)
+							{
+								it->second -= val;
+								return;
+							}
+
+							val -= it->second;
+							m1.erase(it);
+
+							if (!val)
+								return;
+						}
+
+						m0[aid] = val;
+					}
+					else
+						it->second += val;
+				}
+
+				void Init()
+				{
+					bvm2::Compile(m_Data, "vaultManager.wasm", bvm2::Processor::Kind::Manager);
+					InitMem();
+					m_Code = m_Data;
+				}
+
+				void Exec(uint32_t iMethod)
+				{
+					uint32_t nDepth = m_LocalDepth;
+					for (CallMethod(iMethod); m_LocalDepth != nDepth; )
+						RunOnce();
+				}
+
+
+				void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override
+				{
+					ECC::Point::Native pt;
+					m_This.m_Wallet.m_pKdf->DerivePKeyG(pt, hv);
+					pubKey = pt;
+				}
+
+				void GenerateKernel(uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override
+				{
+					if (iMethod)
+					{
+						m_pKrn = std::make_unique<TxKernelContractInvoke>();
+						auto& krn = Cast::Up<TxKernelContractInvoke>(*m_pKrn);
+						krn.m_Cid = m_This.m_Contract.m_Cid;
+						krn.m_iMethod = iMethod;
+					}
+					else
+					{
+						m_pKrn = std::make_unique<TxKernelContractCreate>();
+						auto& krn = Cast::Up<TxKernelContractCreate>(*m_pKrn);
+						bvm2::Compile(krn.m_Data, "vault.wasm", bvm2::Processor::Kind::Contract);
+
+						bvm2::get_Cid(m_This.m_Contract.m_Cid, krn.m_Data, args);
+					}
+
+					args.Export(m_pKrn->m_Args);
+
+					m_pKrn->m_Fee = m_Fee;
+					m_pKrn->m_Height.m_Min = m_This.m_vStates.back().m_Height + 1;
+
+					std::vector<ECC::Scalar::Native> vSk;
+					vSk.resize(nSig + 1);
+
+					for (uint32_t i = 0; i < nSig; i++)
+						m_This.m_Wallet.m_pKdf->DeriveKey(vSk[i], pSig[i]);
+
+					ECC::SetRandom(vSk.back());
+					m_skKrn = vSk.back();
+
+					bvm2::FundsChangeMap fcm;
+					for (uint32_t i = 0; i < nFunds; i++)
+					{
+						const auto& x = pFunds[i];
+						fcm.Process(x.m_Amount, x.m_Aid, !!x.m_Consume);
+
+						if (x.m_Consume)
+							HandleAmount(x.m_Aid, x.m_Amount, m_Spend, m_Rcv);
+						else
+							HandleAmount(x.m_Aid, x.m_Amount, m_Rcv, m_Spend);
+					}
+
+					HandleAmount(0, m_Fee, m_Spend, m_Rcv);
+
+					ECC::Point::Native ptFunds;
+					fcm.ToCommitment(ptFunds);
+					ptFunds = -ptFunds;
+
+					m_pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+				}
+			};
+
+			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
-				val -= (nFee/* + nLock*/);
+				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
+					return false;
 
-				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
-				pKrn->m_Fee = nFee;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
+				std::ostringstream os;
+				MyManager proc(*this, os);
+				proc.m_pCid = &m_Contract.m_Cid;
+				proc.Init();
 
-				bvm2::Compile(pKrn->m_Data, "oracle.wasm");
+				proc.m_Args.clear();
 
-				typedef Shaders::Oracle::Create<_countof(m_Contract.m_pSk)> Ctor;
-
-				pKrn->m_Args.resize(sizeof(Ctor));
-				auto& args = *reinterpret_cast<Ctor*>(&pKrn->m_Args.front());
-
-				args.m_InitialValue = 367000;
-				args.m_Providers = _countof(m_Contract.m_pSk);
-
-				ECC::Scalar::Native pSk[_countof(m_Contract.m_pSk) + 1];
-
-				for (uint32_t i = 0; i < _countof(m_Contract.m_pSk); i++)
+				switch (m_Contract.m_Done)
 				{
-					auto& sk = m_Contract.m_pSk[i];
-					ECC::SetRandom(sk);
-					pSk[i] = sk;
+				case 0: // ctor
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "create";
+					break;
 
-					ECC::Point::Native pt = ECC::Context::get().G * sk;
-					args.m_pPk[i] = pt;
+				case 1: // deposit
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "deposit";
+					proc.m_Args["amount"] = "700000";
+					break;
+
+				case 2: // withdraw
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "withdraw";
+					proc.m_Args["amount"] = "700000";
+					break;
+
+				case 3: // dtor
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "destroy";
+					break;
 				}
 
-				bvm2::get_Cid(m_Contract.m_Cid, pKrn->m_Data, pKrn->m_Args);
+				proc.m_Fee = 120;
+				proc.Exec(1);
 
-				ECC::Scalar::Native& sk = pSk[_countof(pSk) - 1];
-				ECC::SetRandom(sk);
+				if (!proc.m_pKrn)
+					return false; //?!
 
-				ECC::Point::Native ptFunds;
-				//ECC::Tag::AddValue(ptFunds, nullptr, nLock);
+				if (val + proc.m_Rcv[0] < proc.m_Spend[0])
+					return false; // not enough funds
 
-				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
-				//pKrn->Sign(pSk + _countof(pSk) - 1, 1, ptFunds);
+				val += proc.m_Rcv[0];
+				val -= proc.m_Spend[0];
 
 
-				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+				msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skKrn, true);
 
-				m_Contract.m_SentCtor = s.m_Height + 1;
-				printf("Creating contract...\n");
+				m_Contract.m_pStage[m_Contract.m_Done++] = s.m_Height;
 
-				return true;
-			}
-
-			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
-			{
-				if (!m_Contract.m_SentCtor || m_Contract.m_SentMethod)
-					return false;
-
-				const Block::SystemState::Full& s = m_vStates.back();
-				if (s.m_Height + 1 - m_Contract.m_SentCtor < 4)
-					return false;
-
-				const Amount nFee = 120;
-				if (val < nFee)
-					return false;
-
-				val -= nFee;
-
-				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
-				pKrn->m_Fee = nFee;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
-
-				pKrn->m_Cid = m_Contract.m_Cid;
-				pKrn->m_iMethod = 2;
-
-				pKrn->m_Args.resize(sizeof(Shaders::Oracle::Set));
-				auto& args = reinterpret_cast<Shaders::Oracle::Set&>(pKrn->m_Args.front());
-
-				args.m_iProvider = 2;
-				args.m_Value = 277216;
-				args.Convert<true>();
-
-				ECC::Scalar::Native pSk[2];
-				pSk[0] = m_Contract.m_pSk[2];
-				ECC::SetRandom(pSk[1]);
-
-				pKrn->Sign(pSk, 2, Zero);
-
-				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msg.m_Transaction, pSk[1], true);
-
-				m_Contract.m_SentMethod = s.m_Height + 1;
-				printf("Invoking contract...\n");
-
-				return true;
-			}
-
-			bool MaybeDeleteContract(proto::NewTransaction& msg, Amount& val)
-			{
-				if (!m_Contract.m_SentMethod || m_Contract.m_SentDtor)
-					return false;
-
-				const Block::SystemState::Full& s = m_vStates.back();
-				if (s.m_Height + 1 - m_Contract.m_SentMethod < 4)
-					return false;
-
-				const Amount nFee = 120;
-				//const Amount nUnlock = 100500 + Rules::get().CA.DepositForList;
-				if (val/* + nUnlock*/ < nFee)
-					return false;
-
-				//val += nUnlock;
-				val -= nFee;
-
-				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
-				pKrn->m_Fee = nFee;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
-
-				pKrn->m_Cid = m_Contract.m_Cid;
-				pKrn->m_iMethod = 1;
-
-				ECC::Scalar::Native pSk[_countof(m_Contract.m_pSk) + 1];
-				memcpy(pSk, m_Contract.m_pSk, sizeof(m_Contract.m_pSk));
-
-				auto& sk = pSk[_countof(m_Contract.m_pSk)];
-				ECC::SetRandom(sk);
-				pKrn->m_Commitment = ECC::Context::get().G * sk;
-
-				ECC::Point::Native ptFunds;
-				//ECC::Tag::AddValue(ptFunds, nullptr, nUnlock);
-				ptFunds = -ptFunds;
-
-				pKrn->Sign(pSk, static_cast<uint32_t>(_countof(pSk)), ptFunds);
-
-				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
-
-				m_Contract.m_SentDtor = s.m_Height + 1;
-				printf("Deleting contract...\n");
+				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
 				return true;
 			}
