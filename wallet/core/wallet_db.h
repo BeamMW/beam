@@ -998,6 +998,62 @@ namespace beam::wallet
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
 
+        struct ShieldedPaymentInfo
+        {
+            PeerID          m_Sender;
+            PeerID          m_Receiver;
+
+            // outer std kernel
+            Amount          m_Fee = 0;
+            HeightRange     m_Height;
+            ECC::Point      m_Commitment;
+            ECC::Signature  m_Signature;
+
+            // internal non std kernel
+            Merkle::Hash            m_NestedMsg;
+            // ShieldedTxo
+            ECC::Point              m_TxoCommitment;
+            ShieldedTxo::Ticket     m_TxoTicket;
+            Amount                  m_Amount;
+            Asset::ID               m_AssetID = Asset::s_InvalidID;
+
+            // voucher
+            ECC::Hash::Value        m_VoucherSharedSecret;
+            ECC::Signature          m_VoucherSignature;
+
+            ECC::uintBig            m_pMessage[2] = { Zero, Zero };
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Sender
+                    & m_Receiver
+
+                    & m_Fee
+                    & m_Height;
+                    & m_Commitment;
+                    & m_Signature;
+
+                    & m_NestedMsg
+                    & m_TxoCommitment
+                    & m_TxoTicket
+                    & m_Amount
+                    & m_AssetID
+                    
+                    & m_VoucherSharedSecret
+                    & m_VoucherSignature
+
+                    & m_pMessage;
+            }
+
+            Merkle::Hash            m_KernelID = Zero;
+
+            bool IsValid() const;
+
+            void RestoreKernelID();
+        };
+
         std::string ExportDataToJson(const IWalletDB& db);
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 

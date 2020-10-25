@@ -5385,6 +5385,55 @@ namespace beam::wallet
             return pi;
         }
 
+        bool ShieldedPaymentInfo::IsValid() const
+        {
+            ShieldedTxo::Voucher voucher;
+            voucher.m_SharedSecret = m_VoucherSharedSecret;
+            voucher.m_Signature = m_VoucherSignature;
+            voucher.m_Ticket = m_TxoTicket;
+
+            if (!voucher.IsValid(m_Receiver))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        void ShieldedPaymentInfo::RestoreKernelID()
+        {
+            // restore kernels
+            TxKernelStd kernel;
+            kernel.m_Fee = m_Fee;
+            kernel.m_Height = m_Height;
+            kernel.m_CanEmbed = false;
+            kernel.m_Commitment = m_Commitment;
+
+            auto nestedKernel = std::make_unique<TxKernelShieldedOutput>();
+            nestedKernel->m_Msg = m_NestedMsg;
+            nestedKernel->m_Txo.m_Commitment = m_TxoCommitment;
+            nestedKernel->m_Txo.m_Ticket = m_TxoTicket;
+
+
+            ECC::Oracle oracle;
+            oracle << m_NestedMsg;
+            ShieldedTxo::Data::OutputParams outputParams;
+            outputParams.m_Value = m_Amount;
+            outputParams.m_AssetID = m_AssetID;
+            outputParams.m_User.m_Sender = m_Sender;
+            outputParams.m_User.m_pMessage[0] = m_pMessage[0];
+            outputParams.m_User.m_pMessage[1] = m_pMessage[1];
+            outputParams.Restore_kG(m_VoucherSharedSecret);
+            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle);
+            nestedKernel->m_CanEmbed = true;
+            nestedKernel->UpdateMsg();
+            nestedKernel->MsgToID();
+            kernel.m_vNested.push_back(std::move(nestedKernel));
+
+            kernel.UpdateID();
+            m_KernelID = kernel.m_Internal.m_ID;
+        }
+
         std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
         {
             PaymentInfo pi;
@@ -5464,12 +5513,12 @@ namespace beam::wallet
                 storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
                 storage::getTxParameter(walletDB, txID, TxParameterID::MyAddressID, nAddrOwnID);
 
-                // There might be old transactions without asset id
-                if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
-                {
-                    pi.m_AssetID = Asset::s_InvalidID;
-                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
-                }
+            // There might be old transactions without asset id
+            if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
+            {
+                pi.m_AssetID = Asset::s_InvalidID;
+                LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+            }
 
             if (bSuccess)
             {
