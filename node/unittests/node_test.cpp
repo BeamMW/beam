@@ -1689,7 +1689,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[4]; // ctor, deposit, withdraw, dtor
+				Height m_pStage[6]; // ctor, deposit, print, withdraw, print, dtor
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 
@@ -2315,7 +2315,90 @@ namespace beam
 				typedef std::map<Asset::ID, Amount> FundsMap;
 				FundsMap m_Rcv, m_Spend;
 
-				NodeDB::Recordset m_Rs;
+				// params readout
+				struct VarsRead
+				{
+					ByteBuffer m_kMax;
+					bool m_Pending = false;
+					bool m_More = false;
+					ByteBuffer m_Data;
+					size_t m_Consumed;
+
+				} m_VarsRead;
+
+				void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) override
+				{
+					m_VarsRead.m_Data.clear();
+
+					proto::ContractVarsEnum msg;
+					Blob(vkMin.m_p, vkMin.m_Size).Export(msg.m_KeyMin);
+					Blob(vkMax.m_p, vkMax.m_Size).Export(msg.m_KeyMax);
+					m_This.Send(msg);
+
+					msg.m_KeyMax.swap(m_VarsRead.m_kMax);
+					m_VarsRead.m_Pending = true;
+					m_VarsRead.m_More = false;
+				}
+
+				bool VarsMoveNext(Blob& key, Blob& val) override
+				{
+					auto& v = m_VarsRead; // alias
+					assert(!v.m_Pending);
+
+					if (v.m_Consumed == v.m_Data.size())
+						return false;
+
+					auto* pBuf = &v.m_Data.front();
+
+					Deserializer der;
+					der.reset(pBuf + v.m_Consumed, v.m_Data.size() - v.m_Consumed);
+
+					der
+						& key.n
+						& val.n;
+
+					v.m_Consumed = v.m_Data.size() - der.bytes_left();
+
+					// TODO: check!
+					key.p = pBuf + v.m_Consumed;
+					v.m_Consumed += key.n;
+					
+					val.p = pBuf + v.m_Consumed;
+					v.m_Consumed += val.n;
+
+					if ((v.m_Consumed == v.m_Data.size()) && v.m_More)
+					{
+						// ask for more
+						proto::ContractVarsEnum msg;
+						key.Export(msg.m_KeyMin);
+						msg.m_KeyMax.swap(v.m_kMax);
+						msg.m_bSkipMin = true;
+						m_This.Send(msg);
+
+						msg.m_KeyMax.swap(v.m_kMax);
+
+						v.m_Pending = true;
+						v.m_More = false;
+					}
+
+					return true;
+				}
+
+				void OnVarsRes(proto::ContractVars&& msg)
+				{
+					auto& v = m_VarsRead; // alias
+					if (!v.m_Pending)
+						return;
+
+					v.m_Pending = false;
+					v.m_Data.swap(msg.m_Result);
+					v.m_Consumed = 0;
+
+					if (v.m_Data.empty())
+						v.m_More = false;
+					else
+						v.m_More = msg.m_bMore;
+				}
 
 				static void HandleAmount(Asset::ID aid, Amount val, FundsMap& m0, FundsMap& m1)
 				{
@@ -2354,13 +2437,17 @@ namespace beam
 					m_Code = m_Data;
 				}
 
-				void Exec(uint32_t iMethod)
+				bool RunSync()
 				{
-					uint32_t nDepth = m_LocalDepth;
-					for (CallMethod(iMethod); m_LocalDepth != nDepth; )
-						RunOnce();
-				}
+					while (m_LocalDepth)
+					{
+						if (m_VarsRead.m_Pending)
+							return false;
 
+						RunOnce();
+					}
+					return true;
+				}
 
 				void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override
 				{
@@ -2423,6 +2510,8 @@ namespace beam
 				}
 			};
 
+			std::unique_ptr<MyManager> m_pMan;
+
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
 				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
@@ -2432,14 +2521,16 @@ namespace beam
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
+				if (m_pMan)
+					return false; // pending
+
 				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
 					return false;
 
-				MyManager proc(*this);
+				auto pMan = std::make_unique<MyManager>(*this);
+				MyManager& proc = *pMan;
 				proc.m_pCid = &m_Contract.m_Cid;
 				proc.Init();
-
-				proc.m_Args.clear();
 
 				switch (m_Contract.m_Done)
 				{
@@ -2454,20 +2545,32 @@ namespace beam
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 2: // withdraw
+				case 3: // withdraw
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "withdraw";
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 3: // dtor
+				case 5: // dtor
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "destroy";
 					break;
+
+				default: // print
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "view";
+
 				}
 
+				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
+
 				proc.m_Fee = 120;
-				proc.Exec(1);
+				proc.CallMethod(1);
+				if (!proc.RunSync())
+				{
+					m_pMan = std::move(pMan);
+					return false;
+				}
 
 				if (!proc.m_pKrn)
 					return false; //?!
@@ -2482,11 +2585,27 @@ namespace beam
 				msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skKrn, true);
 
-				m_Contract.m_pStage[m_Contract.m_Done++] = s.m_Height;
+				m_Contract.m_Done++;
 
 				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
 				return true;
+			}
+
+			virtual void OnMsg(proto::ContractVars&& msg) override
+			{
+				if (!m_pMan)
+					return;
+
+				m_pMan->OnVarsRes(std::move(msg));
+
+				if (m_pMan->RunSync())
+				{
+					printf("My vault: %s\n", m_pMan->m_Out.str().c_str());
+					m_pMan.reset();
+
+					m_Contract.m_Done++;
+				}
 			}
 
 			void MaybeAskEvents()
@@ -3202,7 +3321,7 @@ void TestAll()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
