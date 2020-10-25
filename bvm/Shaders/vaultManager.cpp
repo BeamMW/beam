@@ -92,6 +92,7 @@ void DumpAccount(const PubKey& pubKey)
     k1.m_Aid = static_cast<AssetID>(-1);
 
     Env::VarsEnum(0, &k0, sizeof(k0), 0, &k1, sizeof(k1));
+    EnumAndDump();
 }
 
 void On_Manager(const char* szAction)
