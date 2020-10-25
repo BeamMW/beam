@@ -84,8 +84,8 @@ void EnumAndDump()
 
         Env::DocAddGroup("elem");
         Env::DocAddBlob("Account", &key.m_Account, sizeof(key.m_Account));
-        Env::DocAddNum32("AssetID", key.m_Aid);
-        Env::DocAddNum64("Amount", amount);
+        Env::DocAddNum("AssetID", key.m_Aid);
+        Env::DocAddNum("Amount", amount);
         Env::DocCloseGroup();
     }
 }

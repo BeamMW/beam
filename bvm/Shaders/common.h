@@ -115,6 +115,21 @@ namespace Env {
     }
 #endif // HOST_BUILD
 
+    inline void DocAddNum(const char* szID, uint32_t val) {
+        DocAddNum32(szID, val);
+    }
+    inline void DocAddNum(const char* szID, uint64_t val) {
+        DocAddNum64(szID, val);
+    }
+    inline bool DocGetNum(const char* szID, uint32_t& val) {
+        val = 0;
+        return DocGetNum32(szID, &val) == sizeof(val);
+    }
+    inline bool DocGetNum(const char* szID, uint64_t& val) {
+        val = 0;
+        return DocGetNum64(szID, &val) == sizeof(val);
+    }
+
 } // namespace Env
 
 namespace Utils {
