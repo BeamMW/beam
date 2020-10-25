@@ -268,9 +268,9 @@ namespace bvm2 {
 		Kind get_Kind() override { return Kind::Manager; }
 
 		void InitMem();
-		void Run(Wasm::Word addr);
-		void Run(Wasm::Word addr, Wasm::Word retAddr);
-		void RunMethod(uint32_t iMethod);
+		void Call(Wasm::Word addr);
+		void Call(Wasm::Word addr, Wasm::Word retAddr);
+		void CallMethod(uint32_t iMethod);
 	};
 
 

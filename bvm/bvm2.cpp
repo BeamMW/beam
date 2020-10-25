@@ -1228,23 +1228,15 @@ namespace bvm2 {
 		}
 	}
 
-	void ProcessorManager::Run(Wasm::Word addr)
+	void ProcessorManager::Call(Wasm::Word addr)
 	{
-		Run(addr, get_Ip());
+		Call(addr, get_Ip());
 	}
 
-	void ProcessorManager::Run(Wasm::Word addr, Wasm::Word retAddr)
+	void ProcessorManager::Call(Wasm::Word addr, Wasm::Word retAddr)
 	{
 		m_Stack.Push(retAddr);
-		Jmp(addr);
-
-		uint32_t nDepth = m_LocalDepth++;
-		do
-		{
-			RunOnce(); // TODO: dbg out, control num of cycles
-		} while (nDepth != m_LocalDepth);
-
-		Wasm::Test(get_Ip() == retAddr);
+		OnCall(addr);
 	}
 
 #undef BVM_METHOD_BinaryVar
@@ -1406,12 +1398,12 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Manager
-	void ProcessorManager::RunMethod(uint32_t iMethod)
+	void ProcessorManager::CallMethod(uint32_t iMethod)
 	{
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
-		Run(nAddr, 0);
+		Call(nAddr, 0);
 	}
 
 } // namespace bvm2
