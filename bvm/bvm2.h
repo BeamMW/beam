@@ -118,6 +118,9 @@ namespace bvm2 {
 		struct Header;
 		const Header& ParseMod();
 
+		const char* RealizeStr(Wasm::Word, uint32_t& nLenOut) const;
+		const char* RealizeStr(Wasm::Word) const;
+
 	public:
 
 		enum struct Kind {

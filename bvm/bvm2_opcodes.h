@@ -33,6 +33,13 @@
 	macro(uint8_t, val) sep \
 	macro(uint32_t, size)
 
+#define BVMOp_Strlen(macro, sep) \
+	macro(const char*, sz)
+
+#define BVMOp_Strcmp(macro, sep) \
+	macro(const char*, sz1) sep \
+	macro(const char*, sz2)
+
 #define BVMOp_StackAlloc(macro, sep) \
 	macro(uint32_t, size)
 
@@ -127,6 +134,8 @@
 	macro(0x11, void*    , Memset) \
 	macro(0x12, int32_t  , Memcmp) \
 	macro(0x13, uint8_t  , Memis0) \
+	macro(0x14, uint32_t , Strlen) \
+	macro(0x15, int32_t  , Strcmp) \
 	macro(0x18, void*    , StackAlloc) \
 	macro(0x19, void     , StackFree) \
 	macro(0x1A, void*    , Heap_Alloc) \

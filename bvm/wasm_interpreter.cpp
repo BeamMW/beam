@@ -1542,13 +1542,8 @@ namespace Wasm {
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
 	}
 
-	uint8_t* Processor::get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW) const
+	uint8_t* Processor::get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const
 	{
-		if (!nSize)
-			return nullptr;
-
-		Test(!(MemoryType::Mask & nSize));
-		
 		Blob blob;
 
 		Word nMemType = MemoryType::Mask & nOffset;
@@ -1576,10 +1571,21 @@ namespace Wasm {
 			Fail();
 		}
 
-		nSize += nOffset;
-		assert(nSize >= nOffset); // can't overflow, hi-order bits are zero in both
-		Test(nSize <= blob.n);
+		Test(nOffset <= blob.n);
+		nSizeOut = blob.n - nOffset;
 		return reinterpret_cast<uint8_t*>(Cast::NotConst(blob.p)) + nOffset;
+	}
+
+	uint8_t* Processor::get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW) const
+	{
+		if (!nSize)
+			return nullptr;
+
+		uint32_t nSizeOut;
+		auto pRet = get_AddrExVar(nOffset, nSizeOut, bW);
+		Test(nSize <= nSizeOut);
+
+		return pRet;
 	}
 
 	void Processor::RunOnce()

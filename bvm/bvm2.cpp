@@ -393,10 +393,19 @@ namespace bvm2 {
 			return Cast::Up<TProcessor>(p);
 		}
 
+		template <typename TOut, typename TIn>
+		TOut ToHost(TIn x) { return x; }
+
 		void InvokeExtPlus(uint32_t nBinding);
 
 		BVMOpsAll_Common(THE_MACRO)
 	};
+
+	template<>
+	const char* ProcessorPlus::ToHost<const char*, Wasm::Word>(Wasm::Word sz)
+	{
+		return RealizeStr(sz);
+	}
 
 	struct ProcessorPlus_Contract
 		:public ProcessorPlusEnv_Contract
@@ -603,11 +612,14 @@ namespace bvm2 {
 #define BVM_METHOD_PAR_DECL(type, name) ParamWrap<type>::Type name
 #define BVM_METHOD_PAR_DECL_HOST(type, name) type name
 #define BVM_METHOD_PAR_PASS(type, name) name
+#define BVM_METHOD_PAR_PASS_TO_HOST(type, name) ProcessorPlus::From(*this).ToHost<type>(name)
 #define BVM_METHOD(name) ProcessorFromMethod::name##_Type::RetType_##name ProcessorFromMethod::name##_Type::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
 #define BVM_METHOD_HOST(name) ProcessorFromMethod::name##_Type::RetTypeHost_##name ProcessorFromMethod::name##_TypeEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
 
 #define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS, MACRO_COMMA));
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
+
+#define BVM_METHOD_VIA_HOST(name) BVM_METHOD(name) { return OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_HOST, MACRO_COMMA)); }
 
 	BVM_METHOD(Memcpy)
 	{
@@ -647,6 +659,41 @@ namespace bvm2 {
 	{
 		bool bRes = memis0(p, size);
 		return !!bRes;
+	}
+
+	const char* Processor::RealizeStr(Wasm::Word sz, uint32_t& nLenOut) const
+	{
+		uint32_t n;
+		auto sz_ = reinterpret_cast<const char*>(get_AddrExVar(sz, n, false));
+
+		auto* p = reinterpret_cast<const char*>(memchr(sz_, 0, n));
+		Wasm::Test(p);
+		nLenOut = static_cast<uint32_t>(p - sz_);
+
+		return sz_;
+	}
+
+	const char* Processor::RealizeStr(Wasm::Word sz) const
+	{
+		uint32_t nLenOut;
+		return RealizeStr(sz, nLenOut);
+	}
+
+	BVM_METHOD(Strlen)
+	{
+		uint32_t n;
+		RealizeStr(sz, n);
+		return n;
+	}
+	BVM_METHOD_HOST(Strlen)
+	{
+		return static_cast<uint32_t>(strlen(sz));
+	}
+
+	BVM_METHOD_VIA_HOST(Strcmp)
+	BVM_METHOD_HOST(Strcmp)
+	{
+		return static_cast<int32_t>(strcmp(sz1, sz2));
 	}
 
 	BVM_METHOD(StackAlloc)

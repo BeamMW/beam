@@ -310,6 +310,7 @@ namespace Wasm {
 		void RunOnce();
 
 		uint8_t* get_AddrEx(uint32_t nOffset, uint32_t nSize, bool bW) const;
+		uint8_t* get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const;
 
 		uint8_t* get_AddrW(uint32_t nOffset, uint32_t nSize) const {
 			return get_AddrEx(nOffset, nSize, true);
