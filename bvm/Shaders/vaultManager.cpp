@@ -123,14 +123,15 @@ void On_ManagerView()
 
 #pragma pack (push, 1)
     struct Key {
-        ShaderID m_Sid;
+        KeyPrefix m_Prefix;
         ContractID m_Cid;
     };
 #pragma pack (pop)
 
     Key k0, k1;
-    k0.m_Sid = Vault::s_SID;
-    k1.m_Sid = Vault::s_SID;
+    k0.m_Prefix.m_Cid = Vault::s_SID;
+    k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
+    k1.m_Prefix = k0.m_Prefix;
 
     Env::Memset(&k0.m_Cid, 0, sizeof(k0.m_Cid));
     Env::Memset(&k1.m_Cid, 0xff, sizeof(k1.m_Cid));

@@ -4122,26 +4122,20 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
 {
-#pragma pack (push, 1)
+	static_assert(sizeof(bvm2::ShaderID) == sizeof(bvm2::ContractID));
 
-	struct Key {
-		bvm2::ShaderID m_Sid;
-		bvm2::ContractID m_Cid;
-	};
-
-#pragma pack (pop)
-
-	Key key;
-	key.m_Sid = sid;
-	key.m_Cid = cid;
+	VarKey vk;
+	vk.Set(sid);
+	vk.Append(VarKey::Tag::ShaderID, cid);
+	Blob blob(vk.m_p, vk.m_Size);
 
 	if (bSet)
 	{
 		uint8_t dummy = 0;
-		SaveVar(Blob(&key, sizeof(key)), Blob(&dummy, 1));
+		SaveVar(blob, Blob(&dummy, 1));
 	}
 	else
-		SaveVar(Blob(&key, sizeof(key)), Blob(nullptr, 0));
+		SaveVar(blob, Blob(nullptr, 0));
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
