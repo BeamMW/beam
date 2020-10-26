@@ -26,6 +26,7 @@
 #include "../../utility/blobmap.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
+#include "../../bvm/ManagerStd.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -2295,223 +2296,88 @@ namespace beam
 			}
 
 			struct MyManager
-				:public bvm2::ProcessorManager
+				:public bvm2::ManagerStd
 			{
 				MyClient& m_This;
-				std::ostringstream m_Out;
+
+				bool m_Done = false;
+				bool m_Err = false;
 
 				MyManager(MyClient& me)
 					:m_This(me)
 				{
-					m_pOut = &m_Out;
-				}
-
-				std::unique_ptr<TxKernelContractControl> m_pKrn;
-				ECC::Scalar::Native m_skKrn;
-
-				ByteBuffer m_Data;
-				Amount m_Fee;
-
-				typedef std::map<Asset::ID, Amount> FundsMap;
-				FundsMap m_Rcv, m_Spend;
-
-				// params readout
-				struct VarsRead
-				{
-					ByteBuffer m_kMax;
-					bool m_Pending = false;
-					bool m_More = false;
-					ByteBuffer m_Data;
-					size_t m_Consumed;
-
-				} m_VarsRead;
-
-				void VarsEnum(const Blob& kMin, const Blob& kMax) override
-				{
-					m_VarsRead.m_Data.clear();
-
-					proto::ContractVarsEnum msg;
-					kMin.Export(msg.m_KeyMin);
-					kMax.Export(msg.m_KeyMax);
-					m_This.Send(msg);
-
-					msg.m_KeyMax.swap(m_VarsRead.m_kMax);
-					m_VarsRead.m_Pending = true;
-					m_VarsRead.m_More = false;
-				}
-
-				bool VarsMoveNext(Blob& key, Blob& val) override
-				{
-					auto& v = m_VarsRead; // alias
-					assert(!v.m_Pending);
-
-					if (v.m_Consumed == v.m_Data.size())
-						return false;
-
-					auto* pBuf = &v.m_Data.front();
-
-					Deserializer der;
-					der.reset(pBuf + v.m_Consumed, v.m_Data.size() - v.m_Consumed);
-
-					der
-						& key.n
-						& val.n;
-
-					v.m_Consumed = v.m_Data.size() - der.bytes_left();
-
-					// TODO: check!
-					key.p = pBuf + v.m_Consumed;
-					v.m_Consumed += key.n;
-					
-					val.p = pBuf + v.m_Consumed;
-					v.m_Consumed += val.n;
-
-					if ((v.m_Consumed == v.m_Data.size()) && v.m_More)
-					{
-						// ask for more
-						proto::ContractVarsEnum msg;
-						key.Export(msg.m_KeyMin);
-						msg.m_KeyMax.swap(v.m_kMax);
-						msg.m_bSkipMin = true;
-						m_This.Send(msg);
-
-						msg.m_KeyMax.swap(v.m_kMax);
-
-						v.m_Pending = true;
-						v.m_More = false;
-					}
-
-					return true;
-				}
-
-				void OnVarsRes(proto::ContractVars&& msg)
-				{
-					auto& v = m_VarsRead; // alias
-					if (!v.m_Pending)
-						return;
-
-					v.m_Pending = false;
-					v.m_Data.swap(msg.m_Result);
-					v.m_Consumed = 0;
-
-					if (v.m_Data.empty())
-						v.m_More = false;
-					else
-						v.m_More = msg.m_bMore;
-				}
-
-				static void HandleAmount(Asset::ID aid, Amount val, FundsMap& m0, FundsMap& m1)
-				{
-					if (!val)
-						return;
-
-					FundsMap::iterator it = m0.find(aid);
-					if (m0.end() == it)
-					{
-						it = m1.find(aid);
-						if (m1.end() != it)
-						{
-							if (it->second > val)
-							{
-								it->second -= val;
-								return;
-							}
-
-							val -= it->second;
-							m1.erase(it);
-
-							if (!val)
-								return;
-						}
-
-						m0[aid] = val;
-					}
-					else
-						it->second += val;
-				}
-
-				void Init()
-				{
-					bvm2::Compile(m_Data, "vaultManager.wasm", bvm2::Processor::Kind::Manager);
-					InitMem();
-					m_Code = m_Data;
-				}
-
-				bool RunSync()
-				{
-					while (m_LocalDepth)
-					{
-						if (m_VarsRead.m_Pending)
-							return false;
-
-						RunOnce();
-					}
-					return true;
-				}
-
-				void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override
-				{
-					ECC::Point::Native pt;
-					m_This.m_Wallet.m_pKdf->DerivePKeyG(pt, hv);
-					pubKey = pt;
 				}
 
 				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override
 				{
-					if (iMethod)
+					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig);
+
+					if (!iMethod)
 					{
-						assert(pCid);
-						m_pKrn = std::make_unique<TxKernelContractInvoke>();
-						auto& krn = Cast::Up<TxKernelContractInvoke>(*m_pKrn);
-						krn.m_Cid = *pCid;
-						krn.m_iMethod = iMethod;
+						assert(!m_vKernels.empty());
+						const auto& krn = Cast::Up<TxKernelContractCreate>(*m_vKernels.back());
+
+						bvm2::get_Cid(m_This.m_Contract.m_Cid, krn.m_Data, krn.m_Args);
 					}
-					else
+				}
+
+				void OnDone(const std::exception* pExc) override
+				{
+					m_Done = true;
+					m_Err = !!pExc;
+
+					m_This.m_Contract.m_Done++;
+
+					if (m_This.m_pMan)
 					{
-						m_pKrn = std::make_unique<TxKernelContractCreate>();
-						auto& krn = Cast::Up<TxKernelContractCreate>(*m_pKrn);
-						bvm2::Compile(krn.m_Data, "vault.wasm", bvm2::Processor::Kind::Contract);
+						if (!m_Err)
+							printf("manager shader: %s\n", m_Out.str().c_str());
 
-						bvm2::get_Cid(m_This.m_Contract.m_Cid, krn.m_Data, args);
+						//m_This.m_pMan.reset();
 					}
-
-					args.Export(m_pKrn->m_Args);
-
-					m_pKrn->m_Fee = m_Fee;
-					m_pKrn->m_Height.m_Min = m_This.m_vStates.back().m_Height + 1;
-
-					std::vector<ECC::Scalar::Native> vSk;
-					vSk.resize(nSig + 1);
-
-					for (uint32_t i = 0; i < nSig; i++)
-						m_This.m_Wallet.m_pKdf->DeriveKey(vSk[i], pSig[i]);
-
-					ECC::SetRandom(vSk.back());
-					m_skKrn = vSk.back();
-
-					bvm2::FundsChangeMap fcm;
-					for (uint32_t i = 0; i < nFunds; i++)
-					{
-						const auto& x = pFunds[i];
-						fcm.Process(x.m_Amount, x.m_Aid, !!x.m_Consume);
-
-						if (x.m_Consume)
-							HandleAmount(x.m_Aid, x.m_Amount, m_Spend, m_Rcv);
-						else
-							HandleAmount(x.m_Aid, x.m_Amount, m_Rcv, m_Spend);
-					}
-
-					HandleAmount(0, m_Fee, m_Spend, m_Rcv);
-
-					ECC::Point::Native ptFunds;
-					fcm.ToCommitment(ptFunds);
-					ptFunds = -ptFunds;
-
-					m_pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
 				}
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
+
+			struct MyNetwork
+				:public proto::FlyClient::INetwork
+			{
+				MyClient& m_This;
+				MyNetwork(MyClient& me) :m_This(me) {}
+
+				virtual void Connect() override {}
+				virtual void Disconnect() override {}
+				virtual void BbsSubscribe(BbsChannel, Timestamp, proto::FlyClient::IBbsReceiver*) override {}
+
+				proto::FlyClient::Request::Ptr m_pReq;
+
+				virtual void PostRequestInternal(proto::FlyClient::Request& r) override
+				{
+					assert(proto::FlyClient::Request::Type::ContractVars == r.get_Type());
+					m_pReq = &r;
+
+					auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(r);
+
+					m_This.Send(x.m_Msg);
+				}
+
+				void OnMsg(proto::ContractVars&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
+						x.m_Res = std::move(msg);
+
+						auto pHandler = m_pReq->m_pTrg;
+						m_pReq->m_pTrg = nullptr;
+
+						pHandler->OnComplete(x);
+					}
+				}
+			};
+
+			std::shared_ptr<MyNetwork> m_pMyNetwork;
 
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
@@ -2523,14 +2389,31 @@ namespace beam
 					return false;
 
 				if (m_pMan)
-					return false; // pending
+				{
+					if (!m_pMan->m_Done)
+						return false; // pending
+
+					m_pMan.reset();
+				}
 
 				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
 					return false;
 
 				auto pMan = std::make_unique<MyManager>(*this);
 				MyManager& proc = *pMan;
-				proc.Init();
+
+				proc.m_Height.m_Min = s.m_Height + 1;
+				proc.m_Fee = 120;
+				proc.m_pKdf = m_Wallet.m_pKdf;
+				proc.m_pPKdf = proc.m_pKdf;
+
+				bvm2::Compile(proc.m_BodyManager, "vaultManager.wasm", bvm2::Processor::Kind::Manager);
+				bvm2::Compile(proc.m_BodyContract, "vault.wasm", bvm2::Processor::Kind::Contract);
+
+				if (!m_pMyNetwork)
+					m_pMyNetwork = std::make_shared<MyNetwork>(*this);
+
+				proc.m_pNetwork = m_pMyNetwork;
 
 				if (m_Contract.m_Done)
 					proc.set_ArgBlob("cid", m_Contract.m_Cid);
@@ -2572,9 +2455,9 @@ namespace beam
 
 				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
 
-				proc.m_Fee = 120;
-				proc.CallMethod(1);
-				if (!proc.RunSync())
+				proc.StartRun(1);
+
+				if (!proc.m_Done)
 				{
 					printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
 
@@ -2582,20 +2465,20 @@ namespace beam
 					return false;
 				}
 
-				m_Contract.m_Done++;
-
-				if (!proc.m_pKrn)
+				if (proc.m_vKernels.empty())
 					return false; //?!
 
-				if (val + proc.m_Rcv[0] < proc.m_Spend[0])
+				AmountSigned valSum = val;
+				valSum -= proc.m_Spend[0];
+				if (valSum < 0)
 					return false; // not enough funds
 
-				val += proc.m_Rcv[0];
-				val -= proc.m_Spend[0];
+				val = valSum;
 
+				for (uint32_t i = 0; i < proc.m_vKernels.size(); i++)
+					msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_vKernels[i]));
 
-				msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_pKrn));
-				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skKrn, true);
+				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skOffset, false);
 
 				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
@@ -2604,18 +2487,8 @@ namespace beam
 
 			virtual void OnMsg(proto::ContractVars&& msg) override
 			{
-				if (!m_pMan)
-					return;
-
-				m_pMan->OnVarsRes(std::move(msg));
-
-				if (m_pMan->RunSync())
-				{
-					printf("manager shader: %s\n", m_pMan->m_Out.str().c_str());
-					m_pMan.reset();
-
-					m_Contract.m_Done++;
-				}
+				if (m_pMyNetwork)
+					m_pMyNetwork->OnMsg(std::move(msg));
 			}
 
 			void MaybeAskEvents()
