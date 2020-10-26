@@ -7,12 +7,12 @@
 
 export void Ctor(void*)
 {
-    uint8_t ok = Env::RefAdd(Vault::s_ID);
+    uint8_t ok = Env::RefAdd(Vault::s_CID);
     Env::Halt_if(!ok); // if the target shader doesn't exist the VM still gives a chance to run, but we don't need it.
 }
 export void Dtor(void*)
 {
-    Env::RefRelease(Vault::s_ID);
+    Env::RefRelease(Vault::s_CID);
 }
 
 export void Method_2(void*)
@@ -20,7 +20,7 @@ export void Method_2(void*)
     Vault::Deposit r;
     Utils::ZeroObject(r);
     r.m_Amount = 318;
-    Env::CallFar_T(Vault::s_ID, r);
+    Env::CallFar_T(Vault::s_CID, r);
 }
 
 export void Method_3(Dummy::MathTest1& r)

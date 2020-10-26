@@ -61,7 +61,7 @@ struct Position
 export void Ctor(const StableCoin::Create<0>& arg)
 {
 	Env::Halt_if(!Env::RefAdd(arg.m_RateOracle)); // Lock oracle contract
-	Env::Halt_if(!Env::RefAdd(Vault::s_ID)); // Lock vault contract
+	Env::Halt_if(!Env::RefAdd(Vault::s_CID)); // Lock vault contract
 
 	State s;
 	s.m_Aid = Env::AssetCreate(arg.m_pMetaData, arg.m_nMetaData); // Create the asset to represent the coin
@@ -82,7 +82,7 @@ export void Dtor(void*)
 	Env::LoadVar_T(key, s);
 
 	// Unlock the contracts we depend on
-	Env::RefRelease(Vault::s_ID);
+	Env::RefRelease(Vault::s_CID);
 	Env::RefRelease(s.m_RateOracle);
 
 	Env::Halt_if(!Env::AssetDestroy(s.m_Aid)); // Destroy the coin asset. Will fail unless entirely burned
@@ -281,14 +281,14 @@ void Position::ReleaseBidStrict(const Worker& wrk)
 	{
 		arg.m_Aid = wrk.m_State.m_Aid;
 		arg.m_Amount = m_Bid.m_Asset;
-		Env::CallFar_T(Vault::s_ID, arg);
+		Env::CallFar_T(Vault::s_CID, arg);
 	}
 
 	if (m_Bid.m_Beam)
 	{
 		arg.m_Aid = 0;
 		arg.m_Amount = m_Bid.m_Beam;
-		Env::CallFar_T(Vault::s_ID, arg);
+		Env::CallFar_T(Vault::s_CID, arg);
 	}
 
 	Utils::ZeroObject(m_Bid);

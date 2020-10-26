@@ -42,6 +42,7 @@ struct Opaque {
 
 typedef Opaque<33> PubKey;
 typedef Opaque<32> ContractID;
+typedef Opaque<32> ShaderID;
 
 template <bool bToShader, typename T>
 inline void ConvertOrd(T&) {}

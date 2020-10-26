@@ -672,7 +672,11 @@ namespace bvm2 {
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
-		verify_test(m_cidVault == Shaders::Vault::s_ID);
+		verify_test(m_cidVault == Shaders::Vault::s_CID);
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Vault);
+		verify_test(sid == Shaders::Vault::s_SID);
 
 		m_lstUndo.Clear();
 
