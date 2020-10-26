@@ -734,7 +734,7 @@ namespace Wasm {
 
 			uint32_t nWordsLocal = m_This.m_Functions[m_iFunc].m_Locals.get_SizeWords(); // sizeof(args) + sizeof(locals)
 
-			const auto& tp = get_B().m_Type;
+			const auto& tp = m_Blocks.front().m_Type;
 			uint32_t nWordsArgs = WordsOfVars(tp.m_Args);
 
 			WriteResU(WordsOfVars(tp.m_Rets)); // sizeof(retval)
