@@ -22,6 +22,7 @@ namespace Shaders {
     typedef ECC::Point PubKey;
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
+	typedef ECC::uintBig ShaderID;
     using beam::Amount;
     using beam::Height;
 
@@ -43,6 +44,7 @@ namespace bvm2 {
 	using Shaders::PubKey;
 	using Shaders::AssetID;
 	using Shaders::ContractID;
+	using Shaders::ShaderID;
 	using Shaders::Amount;
 	using Shaders::Height;
 	using Shaders::FundsChange;
@@ -58,9 +60,9 @@ namespace bvm2 {
 	};
 
 	// Contract unique identifier 
-	void get_ShaderID(ECC::Hash::Value&, const Blob& data);
+	void get_ShaderID(ShaderID&, const Blob& data);
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
-	void get_Cid(ContractID&, ECC::Hash::Value&, const Blob& args);
+	void get_CidViaSid(ContractID&, const ShaderID&, const Blob& args);
 
 	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 

@@ -2048,14 +2048,14 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
 
-		bool SaveVar(const Blob& key, const Blob& data);
-
 		bool EnsureNoVars(const bvm2::ContractID&);
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
+		bool SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
+		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 	};
 
 	BlobMap::Set m_ContractVars;
@@ -2667,8 +2667,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 {
 	if (bic.m_Fwd)
 	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, krn.m_Data);
 		bvm2::ContractID cid;
-		bvm2::get_Cid(cid, krn.m_Data, krn.m_Args);
+		bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
 		auto& e = bic.get_ContractVar(cid, m_DB);
 		if (!e.m_Data.empty())
@@ -2676,6 +2678,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.SaveVar(cid, krn.m_Data);
+		proc.ToggleSidEntry(sid, cid, true);
 
 		if (!proc.Invoke(cid, 0, krn))
 			return false;
@@ -2708,6 +2711,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (1 == krn.m_iMethod)
 		{
 			// d'tor called. Make sure no variables are left except for the contract data
+			bvm2::ShaderID sid;
+			bvm2::get_ShaderID(sid, bic.get_ContractVar(krn.m_Cid, proc.m_Proc.m_DB).m_Data);
+			proc.ToggleSidEntry(sid, krn.m_Cid, false);
+
 			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
@@ -4111,6 +4118,30 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			}
 		}
 	}
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
+{
+#pragma pack (push, 1)
+
+	struct Key {
+		bvm2::ShaderID m_Sid;
+		bvm2::ContractID m_Cid;
+	};
+
+#pragma pack (pop)
+
+	Key key;
+	key.m_Sid = sid;
+	key.m_Cid = cid;
+
+	if (bSet)
+	{
+		uint8_t dummy = 0;
+		SaveVar(Blob(&key, sizeof(key)), Blob(&dummy, 1));
+	}
+	else
+		SaveVar(Blob(&key, sizeof(key)), Blob(nullptr, 0));
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
