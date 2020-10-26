@@ -1689,7 +1689,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[6]; // ctor, deposit, print, withdraw, print, dtor
+				Height m_pStage[7]; // ctor, list, deposit, print, withdraw, print, dtor
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 
@@ -2326,13 +2326,13 @@ namespace beam
 
 				} m_VarsRead;
 
-				void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) override
+				void VarsEnum(const Blob& kMin, const Blob& kMax) override
 				{
 					m_VarsRead.m_Data.clear();
 
 					proto::ContractVarsEnum msg;
-					Blob(vkMin.m_p, vkMin.m_Size).Export(msg.m_KeyMin);
-					Blob(vkMax.m_p, vkMax.m_Size).Export(msg.m_KeyMax);
+					kMin.Export(msg.m_KeyMin);
+					kMax.Export(msg.m_KeyMax);
 					m_This.Send(msg);
 
 					msg.m_KeyMax.swap(m_VarsRead.m_kMax);
@@ -2456,13 +2456,14 @@ namespace beam
 					pubKey = pt;
 				}
 
-				void GenerateKernel(uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override
+				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override
 				{
 					if (iMethod)
 					{
+						assert(pCid);
 						m_pKrn = std::make_unique<TxKernelContractInvoke>();
 						auto& krn = Cast::Up<TxKernelContractInvoke>(*m_pKrn);
-						krn.m_Cid = m_This.m_Contract.m_Cid;
+						krn.m_Cid = *pCid;
 						krn.m_iMethod = iMethod;
 					}
 					else
@@ -2529,8 +2530,10 @@ namespace beam
 
 				auto pMan = std::make_unique<MyManager>(*this);
 				MyManager& proc = *pMan;
-				proc.m_pCid = &m_Contract.m_Cid;
 				proc.Init();
+
+				if (m_Contract.m_Done)
+					proc.set_ArgBlob("cid", m_Contract.m_Cid);
 
 				switch (m_Contract.m_Done)
 				{
@@ -2539,19 +2542,24 @@ namespace beam
 					proc.m_Args["action"] = "create";
 					break;
 
-				case 1: // deposit
+				case 1: // list
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "view";
+					break;
+
+				case 2: // deposit
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "deposit";
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 3: // withdraw
+				case 4: // withdraw
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "withdraw";
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 5: // dtor
+				case 6: // dtor
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "destroy";
 					break;
@@ -2568,9 +2576,13 @@ namespace beam
 				proc.CallMethod(1);
 				if (!proc.RunSync())
 				{
+					printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
+
 					m_pMan = std::move(pMan);
 					return false;
 				}
+
+				m_Contract.m_Done++;
 
 				if (!proc.m_pKrn)
 					return false; //?!
@@ -2584,8 +2596,6 @@ namespace beam
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skKrn, true);
-
-				m_Contract.m_Done++;
 
 				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
@@ -2601,7 +2611,7 @@ namespace beam
 
 				if (m_pMan->RunSync())
 				{
-					printf("My vault: %s\n", m_pMan->m_Out.str().c_str());
+					printf("manager shader: %s\n", m_pMan->m_Out.str().c_str());
 					m_pMan.reset();
 
 					m_Contract.m_Done++;

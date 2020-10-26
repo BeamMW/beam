@@ -309,10 +309,10 @@ namespace bvm2 {
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 
-		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) {}
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
-		virtual void GenerateKernel(uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) {}
+		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) {}
 
 	public:
 
@@ -320,8 +320,6 @@ namespace bvm2 {
 		bool m_NeedComma = false;
 
 		std::map<std::string, std::string> m_Args;
-
-		const ContractID* m_pCid = nullptr; // current contract
 		void set_ArgBlob(const char* sz, const Blob&);
 
 		Kind get_Kind() override { return Kind::Manager; }

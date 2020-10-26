@@ -103,15 +103,12 @@
 #define BVMOp_get_Height(macro, sep)
 
 #define BVMOp_VarsEnum(macro, sep) \
-	macro(uint8_t, nTag0) sep \
 	macro(const void*, pKey0) sep \
 	macro(uint32_t, nKey0) sep \
-	macro(uint8_t, nTag1) sep \
 	macro(const void*, pKey1) sep \
 	macro(uint32_t, nKey1)
 
 #define BVMOp_VarsMoveNext(macro, sep) \
-	macro(uint8_t*, pnTag) sep \
 	macro(const void**, ppKey) sep \
 	macro(uint32_t*, pnKey) sep \
 	macro(const void**, ppVal) sep \
@@ -168,6 +165,7 @@
 	macro(uint32_t, nLen)
 
 #define BVMOp_GenerateKernel(macro, sep) \
+	macro(const ContractID*, pCid) sep \
 	macro(uint32_t, iMethod) sep \
 	macro(const void*, pArg) sep \
 	macro(uint32_t, nArg) sep \

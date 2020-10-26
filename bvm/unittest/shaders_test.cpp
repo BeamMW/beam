@@ -942,19 +942,19 @@ namespace bvm2 {
 
 		struct VarEnumCtx
 		{
-			VarKey m_vkMax;
+			ByteBuffer m_kMax;
 			BlobMap::Set::iterator m_it;
 		};
 
 		std::unique_ptr<VarEnumCtx> m_pVarEnum;
 
-		virtual void VarsEnum(const VarKey& vkMin, const VarKey& vkMax) override
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) override
 		{
 			if (!m_pVarEnum)
 				m_pVarEnum = std::make_unique<VarEnumCtx>();
 
-			m_pVarEnum->m_it = m_Vars.lower_bound(Blob(vkMin.m_p, vkMin.m_Size), BlobMap::Set::Comparator());
-			m_pVarEnum->m_vkMax = vkMax;
+			m_pVarEnum->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
+			kMax.Export(m_pVarEnum->m_kMax);
 		}
 
 		virtual bool VarsMoveNext(Blob& key, Blob& val) override
@@ -964,7 +964,7 @@ namespace bvm2 {
 			const auto& x = *ctx.m_it;
 
 			key = x.ToBlob();
-			if (key > Blob(ctx.m_vkMax.m_p, ctx.m_vkMax.m_Size))
+			if (key > ctx.m_kMax)
 			{
 				m_pVarEnum.reset();
 				return false;
@@ -1065,7 +1065,6 @@ int main()
 		MyManager man(proc.m_Vars);
 		man.InitMem();
 		man.TestHeap();
-		man.m_pCid = &proc.m_cidVault;
 
 		ByteBuffer buf;
 		MyProcessor::AddCodeEx(buf, "vaultManager.wasm", Processor::Kind::Manager);
@@ -1077,6 +1076,7 @@ int main()
 
 		man.m_Args["role"] = "all_accounts";
 		man.m_Args["action"] = "view";
+		man.set_ArgBlob("cid", Shaders::Vault::s_CID);
 
 		man.RunGuarded(1);
 		std::cout << man.m_Out.str();

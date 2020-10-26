@@ -1135,27 +1135,17 @@ namespace bvm2 {
 
 	BVM_METHOD(VarsEnum)
 	{
-		OnHost_VarsEnum(nTag0, get_AddrR(pKey0, nKey0), nKey0, nTag1, get_AddrR(pKey1, nKey1), nKey1);
+		OnHost_VarsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1);
 	}
 	BVM_METHOD_HOST(VarsEnum)
 	{
-		Wasm::Test(m_pCid);
 		FreeAuxAllocGuarded();
-
-		VarKey vk0, vk1;
-		vk0.Set(*m_pCid);
-		vk0.Append(nTag0, Blob(pKey0, nKey0));
-		vk1.Set(*m_pCid);
-		vk1.Append(nTag1, Blob(pKey1, nKey1));
-
-		VarsEnum(vk0, vk1);
-
+		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1));
 		m_EnumVars = true;
 	}
 
 	BVM_METHOD(VarsMoveNext)
 	{
-		auto pnTag_ = get_AddrW(pnTag, 1);
 		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
 		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
 		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
@@ -1164,7 +1154,7 @@ namespace bvm2 {
 		const void *pKey, *pVal;
 		uint32_t nKey, nVal;
 
-		if (!OnHost_VarsMoveNext(pnTag_, &pKey, &nKey, &pVal, &nVal))
+		if (!OnHost_VarsMoveNext(&pKey, &nKey, &pVal, &nVal))
 			return 0;
 
 		uint32_t nSizeTotal = nKey + nVal;
@@ -1199,12 +1189,8 @@ namespace bvm2 {
 			return 0;
 		}
 
-		Wasm::Test(key.n > ContractID::nBytes); // assert should be enough, but this is for extra safety
-		auto pKey = reinterpret_cast<const uint8_t*>(key.p);
-
-		*pnTag = pKey[ContractID::nBytes];
-		*ppKey = pKey + ContractID::nBytes + 1;
-		*pnKey = key.n - (ContractID::nBytes + 1);
+		*ppKey = key.p;
+		*pnKey = key.n;
 		*ppVal = data.p;
 		*pnVal = data.n;
 
@@ -1224,11 +1210,8 @@ namespace bvm2 {
 
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
 	{
-		Wasm::Test(m_pCid);
-
 		ECC::Hash::Processor()
 			<< "bvm.m.key"
-			<< *m_pCid
 			<< b
 			>> hv;
 	}
@@ -1477,7 +1460,9 @@ namespace bvm2 {
 		for (uint32_t i = 0; i < nFunds; i++)
 			pFunds_[i].Convert<true>();
 
-		GenerateKernel(iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
+		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
+
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
 
 		for (uint32_t i = 0; i < nFunds; i++)
 			pFunds_[i].Convert<false>();
@@ -1493,7 +1478,7 @@ namespace bvm2 {
 			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
 		}
 
-		GenerateKernel(iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig);
 	}
 
 #undef BVM_METHOD_BinaryVar
