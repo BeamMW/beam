@@ -1332,7 +1332,7 @@ namespace bvm2 {
 
 	BVM_METHOD(DocGetBlob)
 	{
-		return OnHost_DocGetText(RealizeStr(szID), reinterpret_cast<char*>(get_AddrW(pOut, nLen)), nLen);
+		return OnHost_DocGetBlob(RealizeStr(szID), reinterpret_cast<char*>(get_AddrW(pOut, nLen)), nLen);
 	}
 	BVM_METHOD_HOST(DocGetBlob)
 	{
@@ -1343,7 +1343,14 @@ namespace bvm2 {
 		if (!pVal)
 			return 0;
 
-		return uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), pVal->c_str(), static_cast<uint32_t>(pVal->size()));
+		uint32_t nSrcLen = static_cast<uint32_t>(pVal->size());
+		uint32_t nMax = nLen * 2;
+		uint32_t nRes = uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), pVal->c_str(), std::min(nSrcLen, nMax));
+
+		// if src len is bigger than the requested size - return the src size
+		// if parsed less than requested - return size parsed.
+		// The requested size is returned only if it equals to the src size, and was successfully parsed
+		return ((nRes == nMax) ? nSrcLen : nRes) / 2;
 	}
 
 	BVM_METHOD(DocGetNum32)
@@ -1710,6 +1717,14 @@ namespace bvm2 {
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
 		Call(nAddr, 0);
+	}
+
+	void ProcessorManager::set_ArgBlob(const char* sz, const Blob& b)
+	{
+		auto& trg = m_Args[sz];
+		trg.resize(b.n * 2);
+		if (b.n)
+			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p), b.n, &trg.front());
 	}
 
 } // namespace bvm2

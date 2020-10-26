@@ -322,6 +322,7 @@ namespace bvm2 {
 		std::map<std::string, std::string> m_Args;
 
 		const ContractID* m_pCid = nullptr; // current contract
+		void set_ArgBlob(const char* sz, const Blob&);
 
 		Kind get_Kind() override { return Kind::Manager; }
 
