@@ -5400,6 +5400,35 @@ namespace beam::wallet
             return true;
         }
 
+        std::string ShieldedPaymentInfo::to_string() const
+        {
+            std::ostringstream s;
+            s
+                << "Sender:   " << std::to_string(m_Sender) << std::endl
+                << "Receiver: " << std::to_string(m_Receiver) << std::endl
+                << "Amount:   " << PrintableAmount(m_Amount, false, m_AssetID ? kAmountASSET : "", m_AssetID ? kAmountAGROTH : "") << std::endl
+                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
+
+            return s.str();
+        }
+
+        ShieldedPaymentInfo ShieldedPaymentInfo::FromByteBuffer(const ByteBuffer& data)
+        {
+            ShieldedPaymentInfo pi;
+            if (!data.empty())
+            {
+                Deserializer der;
+                der.reset(data);
+                der& pi;
+                if (der.bytes_left() > 0)
+                {
+                    throw std::runtime_error("Invalid data buffer");
+                }
+                pi.RestoreKernelID();
+            }
+            return pi;
+        }
+
         void ShieldedPaymentInfo::RestoreKernelID()
         {
             // restore kernels
@@ -5410,13 +5439,12 @@ namespace beam::wallet
             kernel.m_Commitment = m_Commitment;
 
             auto nestedKernel = std::make_unique<TxKernelShieldedOutput>();
-            nestedKernel->m_Msg = m_NestedMsg;
-            nestedKernel->m_Txo.m_Commitment = m_TxoCommitment;
+            nestedKernel->m_CanEmbed = true;
             nestedKernel->m_Txo.m_Ticket = m_TxoTicket;
-
+            nestedKernel->UpdateMsg();
 
             ECC::Oracle oracle;
-            oracle << m_NestedMsg;
+            oracle << nestedKernel->m_Msg;
             ShieldedTxo::Data::OutputParams outputParams;
             outputParams.m_Value = m_Amount;
             outputParams.m_AssetID = m_AssetID;
@@ -5425,8 +5453,7 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
             outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle);
-            nestedKernel->m_CanEmbed = true;
-            nestedKernel->UpdateMsg();
+
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
 
@@ -5491,66 +5518,161 @@ namespace beam::wallet
             return "";
         }
 
+        namespace
+        {
+            ByteBuffer ExportSimplePaymentProof(const IWalletDB& walletDB, const TxID& txID)
+            {
+                PaymentInfo pi;
+                uint64_t nAddrOwnID;
+
+                bool bSuccess =
+                    (
+                        (
+                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                            storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender.m_Pk)
+                            ) ||
+                        (
+                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
+                            storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
+                            )
+                        )
+                    &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::MyAddressID, nAddrOwnID);
+
+                // There might be old transactions without asset id
+                if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
+                {
+                    pi.m_AssetID = Asset::s_InvalidID;
+                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+                }
+
+                if (bSuccess)
+                {
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+                    LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
+
+                    Serializer ser;
+                    ser& pi;
+
+                    auto res = ser.buffer();
+                    return ByteBuffer(res.first, res.first + res.second);
+                }
+                else
+                {
+                    LOG_WARNING() << "No payment confirmation for the specified transaction.";
+                }
+
+                return ByteBuffer();
+            }
+
+            ByteBuffer ExportShieldedPaymentProof(const IWalletDB& walletDB, const TxID& txID)
+            {
+                ShieldedPaymentInfo pi;
+                TxKernel::Ptr rootKernel;
+                ShieldedTxo::Voucher voucher;
+                bool bSuccess =
+                    storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::Voucher, voucher) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::Kernel, rootKernel) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
+                    rootKernel->get_Subtype() == TxKernel::Subtype::Std &&
+                    rootKernel->m_vNested.size() == 1 &&
+                    rootKernel->m_vNested[0]->get_Subtype() == TxKernel::Subtype::ShieldedOutput;
+
+                storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID);
+
+                if (bSuccess)
+                {
+                    auto& stdKernel = rootKernel->CastTo_Std();
+
+                    pi.m_Commitment = stdKernel.m_Commitment;
+                    pi.m_Fee = stdKernel.m_Fee;
+                    pi.m_Height = stdKernel.m_Height;
+                    pi.m_Signature = stdKernel.m_Signature;
+
+                    auto& nestedKernel = rootKernel->m_vNested[0]->CastTo_ShieldedOutput();
+                    pi.m_TxoTicket = nestedKernel.m_Txo.m_Ticket;
+
+                    pi.m_VoucherSharedSecret = voucher.m_SharedSecret;
+                    pi.m_VoucherSignature = voucher.m_Signature;
+                    {
+                        ECC::Oracle oracle;
+                        oracle << nestedKernel.m_Msg;
+                        ShieldedTxo::Data::OutputParams outputParams;
+                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, oracle);
+                        pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
+                        pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
+                    }
+                    pi.RestoreKernelID();
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+
+                    Serializer ser;
+                    ser& pi;
+
+                    auto res = ser.buffer();
+                    return ByteBuffer(res.first, res.first + res.second);
+                }
+                else
+                {
+                    LOG_WARNING() << "No payment confirmation for the specified transaction.";
+                }
+
+                return ByteBuffer();
+            }
+
+            template<typename T>
+            bool VerifyPaymentProofImpl(const ByteBuffer& data)
+            {
+                try
+                {
+                    T pi = T::FromByteBuffer(data);
+
+                    if (!pi.IsValid())
+                    {
+                        return false;
+                    }
+
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
+
+                    return true;
+                }
+                catch (...)
+                {
+
+                }
+                return false;
+            }
+        }
+
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
         {
-            PaymentInfo pi;
-            uint64_t nAddrOwnID;
-
-            bool bSuccess = 
-                (
-                    (
-                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
-                        storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender.m_Pk)
-                    ) ||
-                    (
-                        storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
-                        storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
-                    )
-                )
-                &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
-                storage::getTxParameter(walletDB, txID, TxParameterID::MyAddressID, nAddrOwnID);
-
-            // There might be old transactions without asset id
-            if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
+            TxType txType = TxType::Simple;
+            if (!storage::getTxParameter(walletDB, txID, TxParameterID::TransactionType, txType))
             {
-                pi.m_AssetID = Asset::s_InvalidID;
-                LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+                LOG_ERROR() << "There is no transaction with given ID.";
+                return {};
             }
-
-            if (bSuccess)
+            switch (txType)
             {
-                LOG_INFO() << "Payment tx details:\n" << pi.to_string();
-                LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
-
-                Serializer ser;
-                ser & pi;
-
-                auto res = ser.buffer();
-                return ByteBuffer(res.first, res.first + res.second);
+            case TxType::Simple:
+                return ExportSimplePaymentProof(walletDB, txID);
+            case TxType::PushTransaction:
+                return ExportShieldedPaymentProof(walletDB, txID);
+            default:
+                LOG_WARNING() << "Cannot provide payment proof for this transaction type: " << (int)txType;
             }
-            else
-            {
-                LOG_WARNING() << "No payment confirmation for the specified transaction.";
-            }
-
+            
             return ByteBuffer();
         }
 
         bool VerifyPaymentProof(const ByteBuffer& data)
         {
-            PaymentInfo pi = PaymentInfo::FromByteBuffer(data);
-            
-            if (!pi.IsValid())
-            {
-                return false;
-            }
-
-            LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
-
-            return true;
+            return VerifyPaymentProofImpl<PaymentInfo>(data)
+                || VerifyPaymentProofImpl<ShieldedPaymentInfo>(data);
         }
 
         std::string getIdentity(const TxParameters& txParams, bool isSender)

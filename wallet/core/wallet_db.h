@@ -1010,9 +1010,7 @@ namespace beam::wallet
             ECC::Signature  m_Signature;
 
             // internal non std kernel
-            Merkle::Hash            m_NestedMsg;
             // ShieldedTxo
-            ECC::Point              m_TxoCommitment;
             ShieldedTxo::Ticket     m_TxoTicket;
             Amount                  m_Amount;
             Asset::ID               m_AssetID = Asset::s_InvalidID;
@@ -1031,12 +1029,11 @@ namespace beam::wallet
                     & m_Receiver
 
                     & m_Fee
-                    & m_Height;
-                    & m_Commitment;
-                    & m_Signature;
+                    & m_Height.m_Min
+                    & m_Height.m_Max
+                    & m_Commitment
+                    & m_Signature
 
-                    & m_NestedMsg
-                    & m_TxoCommitment
                     & m_TxoTicket
                     & m_Amount
                     & m_AssetID
@@ -1050,7 +1047,8 @@ namespace beam::wallet
             Merkle::Hash            m_KernelID = Zero;
 
             bool IsValid() const;
-
+            std::string to_string() const;
+            static ShieldedPaymentInfo FromByteBuffer(const ByteBuffer& data);
             void RestoreKernelID();
         };
 

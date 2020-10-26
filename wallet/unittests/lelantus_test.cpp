@@ -605,9 +605,13 @@ void TestDirectAnonymousPayment()
         }
 
         {
-            
-
             TxID txID = *txHistory[0].GetTxID();
+            ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
+
+            WALLET_CHECK(storage::VerifyPaymentProof(b));
+
+            auto pi2 = storage::ShieldedPaymentInfo::FromByteBuffer(b);
+
             TxKernel::Ptr k;
             ShieldedTxo::Voucher voucher;
             Amount amount = 0;
@@ -625,40 +629,9 @@ void TestDirectAnonymousPayment()
             success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Amount, amount);
             storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::AssetID, assetID);
 
-            storage::ShieldedPaymentInfo pi;
-            {
-                auto& stdKernel = k->CastTo_Std();
+            WALLET_CHECK(pi2.m_KernelID == k->m_Internal.m_ID);
 
-                pi.m_Commitment = stdKernel.m_Commitment;
-                pi.m_Fee = stdKernel.m_Fee;
-                pi.m_Height = stdKernel.m_Height;
-                pi.m_Signature = stdKernel.m_Signature;
-
-                pi.m_NestedMsg = kernel.m_Msg;
-                pi.m_TxoCommitment = kernel.m_Txo.m_Commitment;
-                pi.m_TxoTicket = kernel.m_Txo.m_Ticket;
-                pi.m_Amount = amount;
-                pi.m_AssetID = assetID;
-
-                pi.m_Sender = myIdentity;
-                pi.m_Receiver = peerIdentity;
-
-                pi.m_VoucherSharedSecret = voucher.m_SharedSecret;
-                pi.m_VoucherSignature = voucher.m_Signature;
-                {
-                    ECC::Oracle oracle;
-                    oracle << kernel.m_Msg;
-                    ShieldedTxo::Data::OutputParams outputParams;
-                    WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, oracle));
-                    pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
-                    pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
-                }
-                pi.RestoreKernelID();
-                WALLET_CHECK(pi.IsValid());
-                WALLET_CHECK(pi.m_KernelID == k->m_Internal.m_ID);
-            }
-
-            if (success)
+            WALLET_CHECK(success);
             {
                 ShieldedTxo::Voucher voucher2;
                 voucher2.m_SharedSecret = voucher.m_SharedSecret;
