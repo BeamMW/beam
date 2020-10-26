@@ -5452,7 +5452,7 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle);
+            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle, m_HideAssetAlways);
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
@@ -5607,6 +5607,7 @@ namespace beam::wallet
                         pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
                         pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
                     }
+                    pi.m_HideAssetAlways = ((pi.m_AssetID == Asset::s_InvalidID) && nestedKernel.m_Txo.m_pAsset);
                     pi.RestoreKernelID();
                     LOG_INFO() << "Payment tx details:\n" << pi.to_string();
 
