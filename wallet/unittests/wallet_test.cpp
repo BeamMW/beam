@@ -31,6 +31,7 @@
 #include "wallet/core/private_key_keeper.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "utility/hex.h"
+#include "bvm/ManagerStd.h"
 
 #include "test_helpers.h"
 
@@ -2066,6 +2067,45 @@ namespace
             WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
         }
     }
+
+    void TestContractInvoke()
+    {
+        cout << "\nTesting contract tx...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        auto f = [mainReactor](auto) {
+            mainReactor->stop();
+        };
+        TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
+
+        TestNode node;
+
+        std::vector<bvm2::ContractInvokeData> vData;
+        bvm2::ContractInvokeData& cdata = vData.emplace_back();
+
+        cdata.m_Cid = 746U;
+        cdata.m_iMethod = 6;
+        cdata.m_Args.resize(15, 1);
+        cdata.m_Spend[0] = -300200;
+        cdata.m_Spend[2] = -500;
+        cdata.m_vSig.emplace_back() = 233U;
+        cdata.m_vSig.emplace_back() = 2330U;
+
+        auto txId  = sender.m_Wallet.StartTransaction(
+            CreateTransactionParameters(TxType::Contract)
+            .SetParameter(TxParameterID::ContractDataPacked, vData)
+            .SetParameter(TxParameterID::Fee, Amount(25)));
+
+        mainReactor->run();
+
+        // check Tx
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::Contract);
+        WALLET_CHECK(txHistory.size() == 1);
+        WALLET_CHECK(txHistory[0].m_txId == txId);
+        WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
+    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -2928,10 +2968,13 @@ int main()
 
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
+    Rules::get().pForks[3].m_Height = 20;
     Rules::get().UpdateChecksum();
 
     TestSendingShielded();
     TestCalculateShieldedCoinsSelection();
+
+    TestContractInvoke();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
