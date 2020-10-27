@@ -11,6 +11,7 @@ target_sources(wallet
         base_transaction.cpp
         base_tx_builder.cpp
         simple_transaction.cpp
+        contract_transaction.cpp
         strings_resources.cpp
         wallet_network.cpp
         node_network.cpp

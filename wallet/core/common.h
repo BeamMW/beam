@@ -41,6 +41,7 @@ namespace beam::wallet
         VoucherRequest,
         VoucherResponse,
         UnlinkFunds,
+        Contract,
         ALL
     };
 
@@ -344,6 +345,8 @@ namespace beam::wallet
         AssetInfoFull = 137,
 
         Offset = 140,
+
+        ContractDataPacked = 141,
 
         UserConfirmationToken = 143,
 
