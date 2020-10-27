@@ -2861,6 +2861,9 @@ int main()
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
 
+    ECC::PseudoRandomGenerator prg;
+    prg.m_hv = 125U;
+
 
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
