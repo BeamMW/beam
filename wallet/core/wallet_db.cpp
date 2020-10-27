@@ -2049,10 +2049,7 @@ namespace beam::wallet
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
             TxParameterID::TransactionType,
-            TxParameterID::Amount,
-            TxParameterID::MyID,
-            TxParameterID::CreateTime,
-            TxParameterID::IsSender }
+            TxParameterID::CreateTime}
     {
 
     }
@@ -5258,9 +5255,6 @@ namespace beam::wallet
 
                 array<TxParameterID, 5> mandatoryTxParams = { 
                         TxParameterID::TransactionType,
-                        TxParameterID::IsSender,
-                        TxParameterID::Amount,
-                        TxParameterID::MyID,
                         TxParameterID::CreateTime
                 };
 
