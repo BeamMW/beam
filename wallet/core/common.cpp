@@ -1382,11 +1382,20 @@ namespace beam::wallet
         return shieldedFee;
     }
 
+    uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>& v)
+    {
+        uint32_t ret = 0;
+        for (auto i = 0; i < v.size(); i++)
+            if (TxKernel::Subtype::ShieldedInput == v[i]->get_Subtype())
+                ret++;
+        return ret;
+    }
+
     Amount GetShieldedFee(const TxDescription& tx)
     {
-        std::vector<TxKernel::Ptr> shieldedInputs;
-        tx.GetParameter(TxParameterID::InputsShielded, shieldedInputs);
-        return CalculateShieldedFeeByKernelsCount(shieldedInputs.size());
+        std::vector<TxKernel::Ptr> v;
+        tx.GetParameter(TxParameterID::ExtraKernels, v);
+        return CalculateShieldedFeeByKernelsCount(GetShieldedInputsNum(v));
     }
 
 }  // namespace beam::wallet

@@ -301,19 +301,20 @@ namespace beam::wallet
         GetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
 
         m_pTransaction = std::make_shared<Transaction>();
+        auto& trans = *m_pTransaction; // alias
 
-        GetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
-        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
-        GetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
+        GetParameter(TxParameterID::Inputs, trans.m_vInputs);
+        GetParameter(TxParameterID::ExtraKernels, trans.m_vKernels);
+        GetParameter(TxParameterID::Outputs, trans.m_vOutputs);
 
-        if (!GetParameter(TxParameterID::Offset, m_pTransaction->m_Offset))
-            m_pTransaction->m_Offset = Zero;
+        if (!GetParameter(TxParameterID::Offset, trans.m_Offset))
+            trans.m_Offset = Zero;
 
         GetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
         GetParameter(TxParameterID::Fee, m_Fee);
 
-        bool bEmpty = m_pTransaction->m_vInputs.empty() && m_pTransaction->m_vOutputs.empty() && m_pTransaction->m_vKernels.empty();
-        m_GeneratingInOuts = bEmpty ? Stage::None : Stage::Done;
+        bool bNoInOuts = trans.m_vInputs.empty() && trans.m_vOutputs.empty() && !wallet::GetShieldedInputsNum(trans.m_vKernels);
+        m_GeneratingInOuts = bNoInOuts ? Stage::None : Stage::Done;
 
         GetParameter(TxParameterID::MutualTxState, m_Status);
 
@@ -324,7 +325,7 @@ namespace beam::wallet
             AddKernel(std::move(pKrn));
 
             if (Status::FullTx == m_Status)
-                m_pTransaction->NormalizeE(); // everything else must have already been normalized
+                trans.NormalizeE(); // everything else must have already been normalized
         }
     }
 
@@ -581,7 +582,7 @@ namespace beam::wallet
             wr.m_p0 = &v.front();
 
 
-        SetParameter(TxParameterID::InputsShielded, wr);
+        SetParameter(TxParameterID::ExtraKernels, wr);
 
     }
 

@@ -363,7 +363,7 @@ namespace beam::wallet
         SharedCommitment = 174,
 
         Inputs = 180,
-        InputsShielded = 181,
+        ExtraKernels = 181,
         InputCoins = 183,
         OutputCoins = 184,
         InputCoinsShielded = 185,
@@ -784,6 +784,7 @@ namespace beam::wallet
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
     Amount GetShieldedFee(const TxDescription& tx);
+    uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
 }    // beam::wallet
 
 namespace beam

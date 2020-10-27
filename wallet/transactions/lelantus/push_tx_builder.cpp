@@ -157,7 +157,7 @@ namespace beam::wallet::lelantus
             return;
 
         m_pTransaction->m_vKernels.clear();
-        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
+        GetParameter(TxParameterID::ExtraKernels, m_pTransaction->m_vKernels);
 
         m_pKrn = nullptr;
         m_Signing = Stage::None;
