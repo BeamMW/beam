@@ -53,7 +53,7 @@ namespace beam::wallet
                 return m_Input.empty() && m_Output.empty() && m_InputShielded.empty();
             }
 
-            void AddOffset(ECC::Scalar::Native&, Key::IKdf::Ptr& pMasterKdf) const;
+            void AddOffset(ECC::Scalar::Native&, const Key::IKdf::Ptr& pMasterKdf) const;
 
         } m_Coins;
 

@@ -109,7 +109,7 @@ namespace beam::wallet
 
     ///////////////////////////////////////
     // BaseTxBuilder::Coins
-    void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, Key::IKdf::Ptr& pMasterKdf) const
+    void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, const Key::IKdf::Ptr& pMasterKdf) const
     {
         ECC::Scalar::Native sk;
         for (const CoinID& cid : m_Input)
