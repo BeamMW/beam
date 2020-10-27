@@ -1385,7 +1385,7 @@ namespace beam::wallet
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>& v)
     {
         uint32_t ret = 0;
-        for (auto i = 0; i < v.size(); i++)
+        for (uint32_t i = 0; i < v.size(); i++)
             if (TxKernel::Subtype::ShieldedInput == v[i]->get_Subtype())
                 ret++;
         return ret;

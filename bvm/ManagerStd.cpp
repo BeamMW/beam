@@ -233,7 +233,7 @@ namespace bvm2 {
 		std::vector<ECC::Scalar::Native> vSk;
 		vSk.resize(m_vSig.size() + 1);
 
-		for (auto i = 0; i < m_vSig.size(); i++)
+		for (uint32_t i = 0; i < m_vSig.size(); i++)
 		{
 			const auto& hvSig = m_vSig[i];
 			kdf.DeriveKey(vSk[i], hvSig);
