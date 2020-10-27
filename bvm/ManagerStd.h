@@ -38,6 +38,12 @@ namespace bvm2 {
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
+			ar
+				& m_iMethod
+				& m_Args
+				& m_vSig
+				& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_Spend);
+
 			if (m_iMethod)
 				ar & m_Cid;
 			else
@@ -45,11 +51,6 @@ namespace bvm2 {
 				m_Cid = Zero;
 				ar & m_Data;
 			}
-
-			ar
-				& m_iMethod
-				& m_Args
-				& m_vSig;
 		}
 
 		void Generate(Transaction&, Key::IKdf&, Amount fee, const HeightRange& hr) const;
