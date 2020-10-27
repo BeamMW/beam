@@ -21,6 +21,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
+#include "contract_transaction.h"
 #include "strings_resources.h"
 #include "assets_utils.h"
 
@@ -170,6 +171,7 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
+        RegisterTransactionType(TxType::Contract, make_unique<ContractTransaction::Creator>(m_WalletDB));
     }
 
     Wallet::~Wallet()
