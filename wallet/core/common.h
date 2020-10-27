@@ -379,6 +379,8 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
+
+        AddressType = 211,
     
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
@@ -526,6 +528,16 @@ namespace beam::wallet
         [[nodiscard]] std::string getStatus() const override;
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
+    };
+
+    enum struct TxAddressType : uint8_t
+    {
+        Unknown,
+        Regular,
+        AtomicSwap,
+        Offline,
+        MaxPrivacy,
+        PublicOffline
     };
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -784,6 +796,8 @@ namespace beam::wallet
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
     Amount GetShieldedFee(const TxDescription& tx);
+
+    TxAddressType GetAddressType(const TxDescription& tx);
 }    // beam::wallet
 
 namespace beam

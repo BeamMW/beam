@@ -1687,12 +1687,25 @@ namespace beam::wallet
         {
             return;
         }
+
         const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
         TxID txID;
         std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+
+        TxAddressType addressType = TxAddressType::Offline;
+        if (message->m_maxPrivacyMinAnonimitySet)
+        {
+            addressType = TxAddressType::MaxPrivacy;
+        }
+        else if (!coin.m_CoinID.m_Key.m_IsCreatedByViewer)
+        {
+            addressType = TxAddressType::PublicOffline;
+        }
+
         auto tx = m_WalletDB->getTx(txID);
         if (tx)
         {
+            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::AddressType, addressType, true);
             return;
         }
         else
@@ -1712,7 +1725,10 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
             if (message->m_maxPrivacyMinAnonimitySet)
+            {
                 params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_maxPrivacyMinAnonimitySet);
+            }
+            params.SetParameter(TxParameterID::AddressType, addressType);
 
             auto packed = params.Pack();
             for (const auto& p : packed)
