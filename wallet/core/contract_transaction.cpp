@@ -97,7 +97,7 @@ namespace beam::wallet
             BaseTxBuilder::Balance bb(builder);
             bb.AddPreselected();
 
-            for (auto i = 0; i < vData.size(); i++)
+            for (uint32_t i = 0; i < vData.size(); i++)
             {
                 const auto& cdata = vData[i];
                 for (auto it = cdata.m_Spend.begin(); cdata.m_Spend.end() != it; it++)
@@ -109,7 +109,7 @@ namespace beam::wallet
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
 
-            for (auto i = 0; i < vData.size(); i++)
+            for (uint32_t i = 0; i < vData.size(); i++)
             {
                 const auto& cdata = vData[i];
                 cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Fee, builder.m_Height);

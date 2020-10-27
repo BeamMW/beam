@@ -2469,7 +2469,7 @@ namespace beam
 
 				bvm2::FundsMap fm;
 
-				for (auto i = 0; i < proc.m_vInvokeData.size(); i++)
+				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
 				{
 					fm += proc.m_vInvokeData[i].m_Spend;
 					fm.AddSpend(0, feePerKrn);
@@ -2479,7 +2479,7 @@ namespace beam
 				if (valSpend > static_cast<AmountSigned>(val))
 					return false; // not enough funds
 
-				for (auto i = 0; i < proc.m_vInvokeData.size(); i++)
+				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
 				{
 					HeightRange hr;
 					hr.m_Min = s.m_Height + 1;
