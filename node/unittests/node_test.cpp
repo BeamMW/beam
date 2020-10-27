@@ -2314,10 +2314,10 @@ namespace beam
 
 					if (!iMethod)
 					{
-						assert(!m_vKernels.empty());
-						const auto& krn = Cast::Up<TxKernelContractCreate>(*m_vKernels.back());
+						assert(!m_vInvokeData.empty());
+						const auto& item = m_vInvokeData.back();
 
-						bvm2::get_Cid(m_This.m_Contract.m_Cid, krn.m_Data, krn.m_Args);
+						bvm2::get_Cid(m_This.m_Contract.m_Cid, item.m_Data, item.m_Args);
 					}
 				}
 
@@ -2402,10 +2402,7 @@ namespace beam
 				auto pMan = std::make_unique<MyManager>(*this);
 				MyManager& proc = *pMan;
 
-				proc.m_Height.m_Min = s.m_Height + 1;
-				proc.m_Fee = 120;
-				proc.m_pKdf = m_Wallet.m_pKdf;
-				proc.m_pPKdf = proc.m_pKdf;
+				proc.m_pPKdf = m_Wallet.m_pKdf;
 
 				bvm2::Compile(proc.m_BodyManager, "vaultManager.wasm", bvm2::Processor::Kind::Manager);
 				bvm2::Compile(proc.m_BodyContract, "vault.wasm", bvm2::Processor::Kind::Contract);
@@ -2465,20 +2462,33 @@ namespace beam
 					return false;
 				}
 
-				if (proc.m_vKernels.empty())
+				if (proc.m_vInvokeData.empty())
 					return false; //?!
 
-				AmountSigned valSum = val;
-				valSum -= proc.m_Spend[0];
-				if (valSum < 0)
+				const Amount feePerKrn = 120;
+
+				bvm2::FundsMap fm;
+
+				for (auto i = 0; i < proc.m_vInvokeData.size(); i++)
+				{
+					fm += proc.m_vInvokeData[i].m_Spend;
+					fm.AddSpend(0, feePerKrn);
+				}
+
+				AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
+				if (valSpend > static_cast<AmountSigned>(val))
 					return false; // not enough funds
 
-				val = valSum;
+				for (auto i = 0; i < proc.m_vInvokeData.size(); i++)
+				{
+					HeightRange hr;
+					hr.m_Min = s.m_Height + 1;
 
-				for (uint32_t i = 0; i < proc.m_vKernels.size(); i++)
-					msg.m_Transaction->m_vKernels.push_back(std::move(proc.m_vKernels[i]));
+					const auto& x = proc.m_vInvokeData[i];
+					x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, feePerKrn, hr);
+				}
 
-				m_Wallet.UpdateOffset(*msg.m_Transaction, proc.m_skOffset, false);
+				val -= valSpend;
 
 				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 

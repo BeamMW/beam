@@ -46,22 +46,6 @@ namespace bvm2 {
 	//	get_ParentObj().OnUnfreezed();
 	//}
 
-	void ManagerStd::AddSpend(Asset::ID aid, AmountSigned val)
-	{
-		if (!val)
-			return;
-
-		FundsMap::iterator it = m_Spend.find(aid);
-		if (m_Spend.end() == it)
-			m_Spend[aid] = val;
-		else
-		{
-			it->second += val;
-			if (!it->second)
-				m_Spend.erase(it);
-		}
-	}
-
 	void ManagerStd::VarsRead::Abort()
 	{
 		if (m_pRequest) {
@@ -182,98 +166,134 @@ namespace bvm2 {
 		pubKey = pt;
 	}
 
-	void ManagerStd::GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig)
+	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig)
 	{
-		Wasm::Test(m_pKdf != nullptr);
-
-		std::unique_ptr<TxKernelContractControl> pKrn;
+		ContractInvokeData& v = m_vInvokeData.emplace_back();
 
 		if (iMethod)
 		{
 			assert(pCid);
+			v.m_Cid = *pCid;
+		}
+		else
+		{
+			v.m_Cid = Zero;
+			v.m_Data = m_BodyContract;
+		}
+
+		v.m_iMethod = iMethod;
+		args.Export(v.m_Args);
+		v.m_vSig.assign(pSig, pSig + nSig);
+
+		for (uint32_t i = 0; i < nFunds; i++)
+		{
+			const auto& x = pFunds[i];
+			AmountSigned val = x.m_Amount;
+			if (!x.m_Consume)
+				val = -val;
+
+			v.m_Spend.AddSpend(x.m_Aid, val);
+		}
+	}
+
+	void ContractInvokeData::Generate(Transaction& tx, Key::IKdf& kdf, Amount fee, const HeightRange& hr) const
+	{
+		std::unique_ptr<TxKernelContractControl> pKrn;
+
+		if (m_iMethod)
+		{
 			pKrn = std::make_unique<TxKernelContractInvoke>();
 			auto& krn = Cast::Up<TxKernelContractInvoke>(*pKrn);
-			krn.m_Cid = *pCid;
-			krn.m_iMethod = iMethod;
+			krn.m_Cid = m_Cid;
+			krn.m_iMethod = m_iMethod;
 		}
 		else
 		{
 			pKrn = std::make_unique<TxKernelContractCreate>();
 			auto& krn = Cast::Up<TxKernelContractCreate>(*pKrn);
-			krn.m_Data = m_BodyContract;
+			krn.m_Data = m_Data;
 		}
 
-		args.Export(pKrn->m_Args);
-
-		pKrn->m_Fee = m_Fee;
-		pKrn->m_Height = m_Height;
+		pKrn->m_Args = m_Args;
+		pKrn->m_Fee = fee;
+		pKrn->m_Height = hr;
 		pKrn->m_Commitment = Zero;
 		pKrn->UpdateMsg();
 
+		// seed everything to derive the blinding factor, add external random as well
+		ECC::Hash::Value hv;
+		ECC::GenRandom(hv);
 		ECC::Hash::Processor hp;
 		hp
+			<< hv
 			<< pKrn->m_Msg
-			<< nFunds
-			<< nSig;
+			<< m_Spend.size()
+			<< m_vSig.size();
 
 		std::vector<ECC::Scalar::Native> vSk;
-		vSk.resize(nSig + 1);
+		vSk.resize(m_vSig.size() + 1);
 
-		for (uint32_t i = 0; i < nSig; i++)
+		for (auto i = 0; i < m_vSig.size(); i++)
 		{
-			m_pKdf->DeriveKey(vSk[i], pSig[i]);
-			hp << pSig[i];
+			const auto& hvSig = m_vSig[i];
+			kdf.DeriveKey(vSk[i], hvSig);
+			hp << hvSig;
 		}
 
-		bvm2::FundsChangeMap fcm;
-		for (uint32_t i = 0; i < nFunds; i++)
+		FundsChangeMap fcm;
+		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
 		{
-			const auto& x = pFunds[i];
-			fcm.Process(x.m_Amount, x.m_Aid, !!x.m_Consume);
+			const auto& aid = it->first;
+			const auto& val = it->second;
+			bool bSpend = (val >= 0);
 
-			AmountSigned val = x.m_Amount;
-			if (!x.m_Consume)
-				val = -val;
-			AddSpend(x.m_Aid, val);
-
+			fcm.Process(bSpend ? val : -val, aid, !bSpend);
 			hp
-				<< x.m_Aid
-				<< x.m_Amount
-				<< x.m_Consume;
+				<< aid
+				<< static_cast<Amount>(val);
 		}
-
-		AddSpend(0, m_Fee);
 
 		ECC::Point::Native ptFunds;
 		fcm.ToCommitment(ptFunds);
-		ptFunds = -ptFunds;
 
 		ECC::Scalar::Native& skKrn = vSk.back();
 
-		ECC::Hash::Value hv;
 		hp >> hv;
-		m_pKdf->DeriveKey(skKrn, hv);
+		kdf.DeriveKey(skKrn, hv);
 
 		pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
 
-		m_vKernels.push_back(std::move(pKrn));
-		m_skOffset += -skKrn;
+		tx.m_vKernels.push_back(std::move(pKrn));
+
+		ECC::Scalar::Native kOffs(tx.m_Offset);
+		kOffs += -skKrn;
+		tx.m_Offset = kOffs;
 	}
 
+	void FundsMap::AddSpend(Asset::ID aid, AmountSigned val)
+	{
+		// don't care about overflow.
+		// In case of the overflow the spendmap would be incorrect, and the wallet would fail to build a balanced tx.
+		// No threat of illegal inflation or unauthorized funds spend.
+		if (!val)
+			return;
 
+		FundsMap::iterator it = find(aid);
+		if (end() == it)
+			(*this)[aid] = val;
+		else
+		{
+			it->second += val;
+			if (!it->second)
+				erase(it);
+		}
+	}
 
-
-
-
-
-
-
-
-
-
-
-
-
+	void FundsMap::operator += (const FundsMap& x)
+	{
+		for (auto it = x.begin(); x.end() != it; it++)
+			AddSpend(it->first, it->second);
+	}
 
 
 

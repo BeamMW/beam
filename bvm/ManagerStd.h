@@ -19,9 +19,45 @@
 namespace beam {
 namespace bvm2 {
 
+	struct FundsMap
+		:public std::map<Asset::ID, AmountSigned>
+	{
+		void AddSpend(Asset::ID aid, AmountSigned val);
+		void operator += (const FundsMap&);
+	};
+
+	struct ContractInvokeData
+	{
+		ECC::uintBig m_Cid;
+		uint32_t m_iMethod;
+		ByteBuffer m_Data;
+		ByteBuffer m_Args;
+		std::vector<ECC::Hash::Value> m_vSig;
+		FundsMap m_Spend; // ins - outs
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			if (m_iMethod)
+				ar & m_Cid;
+			else
+			{
+				m_Cid = Zero;
+				ar & m_Data;
+			}
+
+			ar
+				& m_iMethod
+				& m_Args
+				& m_vSig;
+		}
+
+		void Generate(Transaction&, Key::IKdf&, Amount fee, const HeightRange& hr) const;
+	};
+
 
 	class ManagerStd
-		:public bvm2::ProcessorManager
+		:public ProcessorManager
 	{
 		uint32_t m_Freeze = 0; // incremented when we're awaiting something
 		void Unfreeze();
@@ -58,15 +94,13 @@ namespace bvm2 {
 			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_VarsRead)
 		} m_VarsRead;
 
-		void AddSpend(Asset::ID aid, AmountSigned val);
-
 		void RunSync();
 
 	protected:
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
-		void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override;
+		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 
@@ -76,28 +110,17 @@ namespace bvm2 {
 
 		// Params
 		proto::FlyClient::INetwork::Ptr m_pNetwork; // required for 'view' operations
-		Key::IPKdf::Ptr m_pPKdf;
-		Key::IKdf::Ptr m_pKdf; // required to invoke contracts
+		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 
-		ByteBuffer m_BodyManager;
+		ByteBuffer m_BodyManager; // always required
 		ByteBuffer m_BodyContract; // required if creating a new contract
-
-		Amount m_Fee = 0; // per krn
-		HeightRange m_Height;
 
 		// results
 		std::ostringstream m_Out;
-		std::vector<TxKernel::Ptr> m_vKernels;
-		ECC::Scalar::Native m_skOffset;
-
-		typedef std::map<Asset::ID, AmountSigned> FundsMap;
-		FundsMap m_Spend; // ins - outs
+		std::vector<ContractInvokeData> m_vInvokeData;
 
 		void StartRun(uint32_t iMethod);
 	};
-
-
-
 
 
 } // namespace bvm2
