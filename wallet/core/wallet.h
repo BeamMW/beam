@@ -127,7 +127,8 @@ namespace beam::wallet
         virtual ~Wallet();
         void CleanupNetwork();
 
-        void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
+        void SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint);
+        proto::FlyClient::INetwork::Ptr GetNodeEndpoint();
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         // Rescans the blockchain from scratch
@@ -345,7 +346,7 @@ namespace beam::wallet
 
         IWalletDB::Ptr m_WalletDB; 
         
-        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        proto::FlyClient::INetwork::Ptr m_NodeEndpoint;
         std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         struct VoucherManager

@@ -232,9 +232,14 @@ namespace beam::wallet
         return m_WalletDB->get_History();
     }
 
-    void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
+    void Wallet::SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint)
     {
         m_NodeEndpoint = std::move(nodeEndpoint);
+    }
+
+    proto::FlyClient::INetwork::Ptr  Wallet::GetNodeEndpoint()
+    {
+        return m_NodeEndpoint;
     }
 
     void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
