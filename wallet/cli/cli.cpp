@@ -74,6 +74,8 @@
 #include <regex>
 #include <core/block_crypt.h>
 
+#include "bvm/ManagerStd.h"
+
 using namespace std;
 using namespace beam;
 using namespace beam::wallet;
@@ -2165,6 +2167,107 @@ namespace
             });
     }
 
+
+
+
+    int ShaderInvoke(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+
+			    struct MyManager
+				    :public bvm2::ManagerStd
+			    {
+				    bool m_Done = false;
+				    bool m_Err = false;
+                    bool m_Async = false;
+
+				    void OnDone(const std::exception* pExc) override
+				    {
+					    m_Done = true;
+					    m_Err = !!pExc;
+
+                        if (pExc)
+                            std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                        else
+                            std::cout << "Shader output: " << m_Out.str() << std::endl;
+
+                        if (m_Async)
+                            io::Reactor::get_Current().stop();
+				    }
+
+                    static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+                    {
+                        std::FStream fs;
+                        fs.Open(sz, true, true);
+
+                        res.resize(static_cast<size_t>(fs.get_Remaining()));
+                        if (!res.empty())
+                            fs.read(&res.front(), res.size());
+
+                        bvm2::Processor::Compile(res, res, kind);
+                    }
+                };
+
+                MyManager man;
+                man.m_pPKdf = walletDB->get_OwnerKdf();
+                man.m_pNetwork = wallet->GetNodeEndpoint();
+
+                auto sVal = vm[cli::SHADER_BYTECODE_MANAGER].as<string>();
+                if (sVal.empty())
+                    throw std::runtime_error("shader file not specified");
+
+                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager);
+
+                sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
+                if (!sVal.empty())
+                    MyManager::Compile(man.m_BodyContract, sVal.c_str(), MyManager::Kind::Contract);
+
+                sVal = vm[cli::SHADER_ARGS].as<string>();
+
+                std::cout << "Executing shader..." << std::endl;
+
+                if (sVal.empty())
+                    man.StartRun(0); // scheme
+                else
+                {
+                    // TODO: pass params
+                    man.StartRun(1);
+                }
+
+                if (!man.m_Done)
+                {
+                    man.m_Async = true;
+                    io::Reactor::get_Current().run();
+
+                    if (!man.m_Done)
+                    {
+                        // abort, propagate it
+                        io::Reactor::get_Current().stop();
+                        return -1;
+                    }
+                }
+
+                if (man.m_Err || man.m_vInvokeData.empty())
+                    return 1;
+
+                std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+
+                auto txId = wallet->StartTransaction(
+                    CreateTransactionParameters(TxType::Contract)
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::Fee, Amount(25)));
+
+                return 0;
+            });
+    }
+
+
+
+
+
+
+
     int Listen(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
@@ -2520,6 +2623,7 @@ int main_impl(int argc, char* argv[])
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
         {cli::SEND,               Send,                             "send BEAM"},
+        {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
         {cli::TREASURY,           HandleTreasury,                   "process treasury"},
         {cli::INFO,               ShowWalletInfo,                   "print information about wallet balance and transactions"},

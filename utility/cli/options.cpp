@@ -320,6 +320,12 @@ namespace beam
         const char* MAX_PRIVACY_ONLINE  = "max_privacy_online";
         const char* MAX_PRIVACY_OFFLINE = "max_privacy_offline";
         const char* PUBLIC_OFFLINE      = "public_offline";
+
+        // shaders
+        const char* SHADER_INVOKE       = "shader";
+        const char* SHADER_ARGS         = "shader_args";
+        const char* SHADER_BYTECODE_MANAGER  = "shader_manager_file";
+        const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
     }
 
 
@@ -424,6 +430,9 @@ namespace beam
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
+            (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
+            (cli::SHADER_BYTECODE_MANAGER, po::value<string>()->default_value(""), "Path to the shader file")
+            (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction")
             (cli::MAX_PRIVACY_ONLINE, po::bool_switch()->default_value(false), "generate online max privacy transaction")
             (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments")

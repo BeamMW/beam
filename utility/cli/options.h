@@ -221,6 +221,12 @@ namespace beam
         extern const char* MAX_PRIVACY_ONLINE;
         extern const char* MAX_PRIVACY_OFFLINE;
         extern const char* PUBLIC_OFFLINE;
+
+        // shaders
+        extern const char* SHADER_INVOKE;
+        extern const char* SHADER_ARGS;
+        extern const char* SHADER_BYTECODE_MANAGER;
+        extern const char* SHADER_BYTECODE_CONTRACT;
     }
 
     enum OptionsFlag : int
