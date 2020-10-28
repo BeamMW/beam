@@ -62,14 +62,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::syncWithNode);
     }
 
-    void calcChange(Amount amount) override
+    void calcChange(Amount amount, Amount fee, Asset::ID assetId) override
     {
-        call_async(&IWalletModelAsync::calcChange, amount);
+        call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
-    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded /* = false */) override
+    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
     {
-        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, isShielded);
+        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, assetId, isShielded);
     }
 
     void getWalletStatus() override
@@ -770,14 +770,15 @@ namespace beam::wallet
     }
     }
 
-    void WalletClient::calcChange(Amount amount)
+    void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        onChangeCalculated(CalcChange(m_walletDB, amount));
+        const auto change = CalcChange(m_walletDB, amount, fee, assetId);
+        onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
     }
 
-    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, bool isShielded /* = false */)
+    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, isShielded);
+        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
         onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
         onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
     }
@@ -1273,21 +1274,27 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetBeamTotals();
+        storage::Totals allTotals(*m_walletDB);
 
-        status.available         = AmountBig::get_Lo(totals.Avail);
-        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
-        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
-        status.receiving         = AmountBig::get_Lo(totals.Incoming);
-        status.sending           = AmountBig::get_Lo(totals.Outgoing) + AmountBig::get_Lo(totals.OutgoingShielded);
-        status.maturing          = AmountBig::get_Lo(totals.Maturing);
-        status.maturingMP        = AmountBig::get_Lo(totals.MaturingShielded);
-        status.shielded          = AmountBig::get_Lo(totals.AvailShielded);
-        status.update.lastTime   = m_walletDB->getLastUpdateTime();
+        for(const auto& totalsPair: allTotals.allTotals) {
+            const auto& info = totalsPair.second;
+            WalletStatus::AssetStatus assetStatus;
+
+            assetStatus.available         = AmountBig::get_Lo(info.Avail);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
+            assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
+            assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
+            assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
+            assetStatus.maturingMP        = AmountBig::get_Lo(info.MaturingShielded);
+            assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
+
+            status.all[totalsPair.first] = assetStatus;
+        }
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
+        status.update.lastTime = m_walletDB->getLastUpdateTime();
 
         return status;
     }

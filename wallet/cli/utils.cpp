@@ -157,7 +157,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
     return true;
 }
 
-bool CheckFeeForShieldedInputs(Amount amount, Amount fee, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
+bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
 {
     Transaction::FeeSettings fs;
     Amount shieldedOutputsFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
@@ -166,8 +166,16 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, const IWalletDB::Ptr& 
         walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isPushTx);
     feeForShieldedInputs = coinSelectionRes.shieldedInputsFee;
 
-    if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
+    bool isBeam = assetId == Asset::s_BeamID;
+    if (isBeam && (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - coinSelectionRes.changeBeam) < amount)
     {
+        LOG_ERROR() << kErrorNotEnoughtCoins;
+        return false;
+    }
+
+    if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
+    {
+        // TODO: enough beam & asset
         LOG_ERROR() << kErrorNotEnoughtCoins;
         return false;
     }

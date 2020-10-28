@@ -592,7 +592,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     }
 
     Amount feeForShieldedInputs = 0;
-    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, walletDB, false, feeForShieldedInputs))
+    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
         throw std::runtime_error("Fee to low");
 
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
