@@ -28,7 +28,7 @@ namespace beam::wallet
 
     struct Change {
         //
-        // if assetId is BEAM changeAsset == changeBeam
+        // if assetId is BEAM then changeAsset == changeBeam
         //
         Amount    changeBeam  = 0;
         Amount    changeAsset = 0;
@@ -41,15 +41,18 @@ namespace beam::wallet
     struct ShieldedCoinsSelectionInfo
     {
         Amount requestedSum = 0;
-        Amount selectedSum = 0;
+        Amount selectedSumBeam = 0;
+        Amount selectedSumAsset = 0; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
         Amount requestedFee = 0;
         Amount selectedFee = 0;
         Amount minimalFee = 0;
         Amount shieldedInputsFee = 0;
         Amount shieldedOutputsFee = 0;
-        Amount change = 0;
+        Amount changeBeam = 0;
+        Amount changeAsset = 0; // if assetId is BEAM then changeAsset == changeBeam
+        Asset::ID assetID = Asset::s_BeamID;
     };
-    ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx = false);
+    ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
 
     class BaseTxBuilder;
     Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);

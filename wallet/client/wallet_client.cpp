@@ -75,9 +75,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
-    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded /* = false */) override
+    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
     {
-        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, isShielded);
+        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, assetId, isShielded);
     }
 
     void getWalletStatus() override
@@ -811,9 +811,9 @@ namespace beam::wallet
         onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
     }
 
-    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, bool isShielded /* = false */)
+    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, isShielded);
+        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
         onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
         onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
     }

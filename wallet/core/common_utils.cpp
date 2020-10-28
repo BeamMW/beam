@@ -123,60 +123,118 @@ Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<Sh
     return sum;
 }
 
-ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(
-    const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, bool isPushTx /* = false */)
+ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx)
 {
-    std::vector<Coin> vSelStd;
-    std::vector<ShieldedCoin> vSelShielded;
+    std::vector<Coin> beamCoins, nonbeamCoins;
+    std::vector<ShieldedCoin> beamShielded, nonbeamShielded;
 
     Transaction::FeeSettings fs;
     TxStats ts;
     if(isPushTx)
+    {
         ++ts.m_OutputsShielded;
+    }
 
+    const bool isBeam = assetId == Asset::s_BeamID;
     Amount shieldedOutputsFee = ts.m_OutputsShielded * (fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput);
 
-    walletDB->selectCoins2(
-        requestedSum + requestedFee + shieldedOutputsFee, Zero, vSelStd, vSelShielded, Rules::get().Shielded.MaxIns, true);
-    Amount sum  = AccumulateCoinsSum(vSelStd, vSelShielded);
+    if (isBeam)
+    {
+         walletDB->selectCoins2(requestedSum + requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
+    }
+    else
+    {
+        walletDB->selectCoins2(requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
+        walletDB->selectCoins2(requestedSum, assetId, nonbeamCoins, nonbeamShielded, Rules::get().Shielded.MaxIns, true);
+    }
 
-    ts.m_Outputs = sum > requestedSum + requestedFee + shieldedOutputsFee ? 2 : 1;
-    ts.m_InputsShielded = vSelShielded.size();
+    Amount reqBeam = isBeam ? requestedSum : 0;
+    Amount sumBeam = AccumulateCoinsSum(beamCoins, beamShielded);
+    Amount reqNonBeam = isBeam ? 0 : requestedSum;
+    Amount sumNonBeam = AccumulateCoinsSum(nonbeamCoins, nonbeamShielded);
+
+    ts.m_Outputs  = sumBeam > (reqBeam + requestedFee + shieldedOutputsFee) ? 2 : 1 + sumNonBeam > reqNonBeam ? 1 : 0;
+    ts.m_InputsShielded = beamShielded.size() + nonbeamShielded.size();
     ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
 
     Amount minFee = fs.Calculate(ts);
     Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
-
     Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
 
     if (!shieldedInputsFee)
     {
         selectedFee = minFee;
         if (selectedFee - shieldedOutputsFee < kMinFeeInGroth)
+        {
             selectedFee = shieldedOutputsFee + kMinFeeInGroth;
-        auto change = sum - requestedSum - selectedFee;
-        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
+        }
+
+        // if asset is beam then changeAsset == changeBeam by convention
+        auto changeBeam  = sumBeam - reqBeam - selectedFee;
+        auto changeAsset = isBeam ? changeBeam : sumNonBeam - reqNonBeam;
+
+        return {
+            requestedSum,
+            sumBeam,
+            isBeam ? sumBeam : sumNonBeam,
+            requestedFee,
+            selectedFee,
+            std::max(selectedFee, minFee),
+            shieldedInputsFee,
+            shieldedOutputsFee,
+            changeBeam,
+            changeAsset,
+            assetId
+        };
     }
     else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, isPushTx);
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, assetId, isPushTx);
         res.requestedFee = requestedFee;
         return res;
     }
 
-    if (sum < requestedSum + selectedFee)
+    if (sumBeam < reqBeam + selectedFee || sumNonBeam < reqNonBeam)
     {
-        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, 0};
+        auto changeBeam = sumBeam < reqBeam + selectedFee ? 0 : sumBeam - reqBeam + selectedFee;
+        auto changeAsset = isBeam ? changeBeam : (sumNonBeam < reqNonBeam ? 0 : sumNonBeam - reqNonBeam);
+        return {
+            requestedSum,
+            sumBeam,
+            isBeam ? sumBeam : sumNonBeam,
+            requestedFee,
+            selectedFee,
+            std::max(selectedFee, minFee),
+            shieldedInputsFee,
+            shieldedOutputsFee,
+            changeBeam,
+            changeAsset,
+            assetId
+        };
     }
 
     if (selectedFee >= minFee)
     {
-        auto change = sum - requestedSum - selectedFee;
-        return {requestedSum, sum, requestedFee, selectedFee, std::max(selectedFee, minFee), shieldedInputsFee, shieldedOutputsFee, change};
+        auto changeBeam = sumBeam - reqBeam - selectedFee;
+        auto changeAsset = isBeam ? changeBeam : sumNonBeam - reqNonBeam;
+
+        return {
+            requestedSum,
+            sumBeam,
+            isBeam ? sumBeam : sumNonBeam,
+            requestedFee,
+            selectedFee,
+            std::max(selectedFee, minFee),
+            shieldedInputsFee,
+            shieldedOutputsFee,
+            changeBeam,
+            changeAsset,
+            assetId
+        };
     }
     else
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee - shieldedOutputsFee, isPushTx);
+        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee - shieldedOutputsFee, assetId, isPushTx);
         res.requestedFee = requestedFee;
         return res;
     }
