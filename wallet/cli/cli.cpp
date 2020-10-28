@@ -2253,7 +2253,7 @@ namespace
                     CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
                     .SetParameter(TxParameterID::Fee, Amount(25)));
-
+                txId;
                 return 0;
             });
     }
