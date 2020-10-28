@@ -242,13 +242,8 @@ namespace beam::wallet
         // We collect all such events and process them in bulk at
         // the end of the libuv cycle ignoring duplicate reuqests
         void processAInfo();
-        std::set<Asset::ID> m_ainfoRequests;
-        struct DelayedAssetInfo
-            :public io::IdleEvt
-        {
-            virtual void OnSchedule() override;
-            IMPLEMENT_GET_PARENT_OBJ(WalletClient, m_ainfoDelayed)
-        } m_ainfoDelayed;
+        std::set<Asset::ID>  m_ainfoRequests;
+        beam::io::Timer::Ptr m_ainfoDelayed;
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;

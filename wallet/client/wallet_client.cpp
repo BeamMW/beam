@@ -332,6 +332,7 @@ namespace beam::wallet
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
+        m_ainfoDelayed = io::Timer::create(*m_reactor);
     }
 
     WalletClient::~WalletClient()
@@ -509,7 +510,7 @@ namespace beam::wallet
                 nodeNetwork.reset();
 
                 m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
-                m_ainfoDelayed.cancel();
+                m_ainfoDelayed->cancel();
             }
             catch (const runtime_error& ex)
             {
@@ -602,6 +603,7 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
+        LOG_INFO () << "!!!!! ON_COINS_CHANGED";
         m_CoinChangesCollector.CollectItems(action, items);
         m_DeferredBalanceUpdate.start();
     }
@@ -1464,12 +1466,9 @@ namespace beam::wallet
     void WalletClient::getAssetInfo(const Asset::ID assetId)
     {
         m_ainfoRequests.insert(assetId);
-        m_ainfoDelayed.start();
-    }
-
-    void WalletClient::DelayedAssetInfo::OnSchedule()
-    {
-        get_ParentObj().processAInfo();
+        m_ainfoDelayed->start(0, false, [this] () {
+            processAInfo();
+        });
     }
 
     void WalletClient::processAInfo ()
