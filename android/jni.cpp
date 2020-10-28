@@ -651,7 +651,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobje
 {
     LOG_DEBUG() << "calcChange(" << amount << ")";
 
-    walletModel->getAsync()->calcChange(Amount(amount));
+    walletModel->getAsync()->calcChange(Amount(amount), beam::Asset::s_BeamID);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,

@@ -357,11 +357,12 @@ void WalletModel::onStatus(const WalletStatus& status)
 
     jobject walletStatus = env->AllocObject(WalletStatusClass);
 
-    setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
-    setLongField(env, WalletStatusClass, walletStatus, "receiving", status.receiving);
-    setLongField(env, WalletStatusClass, walletStatus, "sending", status.sending);
-    setLongField(env, WalletStatusClass, walletStatus, "maturing", status.maturing);
-    setLongField(env, WalletStatusClass, walletStatus, "shielded", status.shielded);
+    const auto& beamStatus = status.GetStatus(beam::Asset::s_BeamID);
+    setLongField(env, WalletStatusClass, walletStatus, "available", beamStatus.available);
+    setLongField(env, WalletStatusClass, walletStatus, "receiving", beamStatus.receiving);
+    setLongField(env, WalletStatusClass, walletStatus, "sending",   beamStatus.sending);
+    setLongField(env, WalletStatusClass, walletStatus, "maturing",  beamStatus.maturing);
+    setLongField(env, WalletStatusClass, walletStatus, "shielded",  beamStatus.shielded);
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
