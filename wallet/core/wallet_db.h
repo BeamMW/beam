@@ -1104,4 +1104,10 @@ namespace beam::wallet
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
     }  // namespace storage
+
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers);
+    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
+    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+
+
 }  // namespace beam::wallet

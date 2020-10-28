@@ -305,6 +305,8 @@ namespace beam::wallet
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \
     MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
+    /* allows to restore receiver address from */ \
+    MACRO(PeerOwnID,                       101, uint64_t) \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \

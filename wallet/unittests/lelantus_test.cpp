@@ -527,7 +527,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -539,7 +540,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -550,7 +552,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -606,6 +609,9 @@ void TestDirectAnonymousPayment()
 
         {
             TxID txID = *txHistory[0].GetTxID();
+
+            WALLET_CHECK(txHistory[0].m_myId == receiver.m_WalletID);
+            WALLET_CHECK(txHistory[0].getReceiverIdentity() == std::to_string(receiver.m_SecureWalletID));
             ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
 
             WALLET_CHECK(storage::VerifyPaymentProof(b));
@@ -1375,9 +1381,9 @@ int main()
 
     //TestUnlinkTx();
     //TestCancelUnlinkTx();
-    //TestSimpleTx();
-    //TestMaxPrivacyTx();
-    //TestPublicAddressTx();
+    TestSimpleTx();
+    TestMaxPrivacyTx();
+    TestPublicAddressTx();
     TestDirectAnonymousPayment();
     TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
     TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });

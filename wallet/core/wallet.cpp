@@ -1693,7 +1693,7 @@ namespace beam::wallet
         std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
 
         TxAddressType addressType = TxAddressType::Offline;
-        if (message->m_maxPrivacyMinAnonimitySet)
+        if (message->m_MaxPrivacyMinAnonimitySet)
         {
             addressType = TxAddressType::MaxPrivacy;
         }
@@ -1710,23 +1710,32 @@ namespace beam::wallet
         }
         else
         {
-            WalletAddress tempAddress;
-            m_WalletDB->createAddress(tempAddress);
+            WalletAddress receiverAddress;
+            if (message->m_ReceiverOwnID)
+            {
+                m_WalletDB->get_SbbsWalletID(receiverAddress.m_walletID, message->m_ReceiverOwnID);
+                m_WalletDB->get_Identity(receiverAddress.m_Identity, message->m_ReceiverOwnID);
+            }
+            else
+            {
+                // fake address
+                m_WalletDB->createAddress(receiverAddress);
+            }
 
             auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
+                .SetParameter(TxParameterID::MyID, receiverAddress.m_walletID)
                 .SetParameter(TxParameterID::PeerID, WalletID())
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                 .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
-                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
+                .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
-            if (message->m_maxPrivacyMinAnonimitySet)
+            if (message->m_MaxPrivacyMinAnonimitySet)
             {
-                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_maxPrivacyMinAnonimitySet);
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonimitySet);
             }
             params.SetParameter(TxParameterID::AddressType, addressType);
 

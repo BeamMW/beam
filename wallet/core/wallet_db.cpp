@@ -4956,7 +4956,7 @@ namespace beam::wallet
             if (c.m_confirmHeight != MaxHeight)
             {
                 const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
-                if (packedMessage->m_maxPrivacyMinAnonimitySet)
+                if (packedMessage->m_MaxPrivacyMinAnonimitySet)
                 {
                     ShieldedCoin::UnlinkStatus unlinkStatus;
                     unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
@@ -6007,4 +6007,64 @@ namespace beam::wallet
         std::sort(v.begin(), v.end(), mcmp);
     }
 
+
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
+    {
+        TxParameters offlineParameters;
+        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        // add voucher parameter
+        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
+        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
+        if (amount > 0)
+        {
+            offlineParameters.SetParameter(TxParameterID::Amount, amount);
+        }
+        return std::to_string(offlineParameters);
+    }
+
+    namespace
+    {
+        TxParameters GenerateCommonAddressPart(Amount amount, const std::string& clientVersion)
+        {
+            TxParameters params;
+            if (amount > 0)
+            {
+                params.SetParameter(TxParameterID::Amount, amount);
+            }
+
+            if (!clientVersion.empty())
+            {
+                params.SetParameter(TxParameterID::ClientVersion, clientVersion);
+            }
+
+            AppendLibraryVersion(params);
+            return params;
+        }
+    }
+
+    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion)
+    {
+        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+
+        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanent);
+        params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        params.DeleteParameter(TxParameterID::Voucher);
+        return std::to_string(params);
+    }
+
+    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
+    {
+        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
+        params.SetParameter(TxParameterID::Voucher, voucher);
+        return std::to_string(params);
+    }
 }
