@@ -426,15 +426,15 @@ void WalletModel::onSyncProgressUpdated(int done, int total)
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
 
-void WalletModel::onChangeCalculated(Amount change)
+void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId)
 {
-    LOG_DEBUG() << "onChangeCalculated(" << change << ")";
+    LOG_DEBUG() << "onChangeCalculated(" << changeBeam << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onChangeCalculated", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, change);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, changeBeam);
 }
 
 void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
