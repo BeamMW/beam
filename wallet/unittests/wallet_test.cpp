@@ -1995,6 +1995,7 @@ namespace
         WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
         WALLET_CHECK(selectionRes.changeBeam != 0);
+
         cout << "\nShielded coins selection tested\n";
     }
 
