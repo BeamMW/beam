@@ -1712,5 +1712,36 @@ namespace bvm2 {
 			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p), b.n, &trg.front());
 	}
 
+	uint32_t ProcessorManager::AddArgs(char* szCommaSeparatedPairs)
+	{
+		uint32_t ret = 0;
+		for (size_t nLen = strlen(szCommaSeparatedPairs); nLen; )
+		{
+			char* szMid = (char*) memchr(szCommaSeparatedPairs, ',', nLen);
+
+			size_t nLen1;
+			if (szMid)
+			{
+				nLen1 = (szMid - szCommaSeparatedPairs) + 1;
+				*szMid = 0;
+			}
+			else
+				nLen1 = nLen;
+
+			szMid = (char*) memchr(szCommaSeparatedPairs, '=', nLen1);
+			if (szMid)
+			{
+				*szMid = 0;
+				m_Args[szCommaSeparatedPairs] = szMid + 1;
+				ret++;
+			}
+
+			szCommaSeparatedPairs += nLen1;
+			nLen -= nLen1;
+		}
+
+		return ret;
+	}
+
 } // namespace bvm2
 } // namespace beam

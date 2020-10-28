@@ -2172,7 +2172,7 @@ namespace
 
     int ShaderInvoke(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
 
 			    struct MyManager
@@ -2223,17 +2223,13 @@ namespace
                 if (!sVal.empty())
                     MyManager::Compile(man.m_BodyContract, sVal.c_str(), MyManager::Kind::Contract);
 
-                sVal = vm[cli::SHADER_ARGS].as<string>();
-
+                sVal = vm[cli::SHADER_ARGS].as<string>(); // should be comma-separated list of name=val pairs
+                if (!sVal.empty())
+                    man.AddArgs(&sVal.front());
+               
                 std::cout << "Executing shader..." << std::endl;
 
-                if (sVal.empty())
-                    man.StartRun(0); // scheme
-                else
-                {
-                    // TODO: pass params
-                    man.StartRun(1);
-                }
+                man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
 
                 if (!man.m_Done)
                 {
