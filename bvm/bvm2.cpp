@@ -455,10 +455,19 @@ namespace bvm2 {
 #undef THE_MACRO
 #undef PAR_DECL
 
+	template <typename T>
+	typename uintBigFor<T>::Type LogFrom(T x) {
+		return typename uintBigFor<T>::Type(x);
+	}
+
+	uint32_t LogFrom(uint8_t x) {
+		return x;
+	}
+
 #define PAR_PASS(type, name) m_##name.V
 #define PAR_DECL(type, name) ParamWrap<type> m_##name;
 #define PAR_ASSIGN(type, name) args.m_##name =
-#define PAR_DUMP(type, name) << "," #name "=" << uintBigFrom(m_##name.V)
+#define PAR_DUMP(type, name) << "," #name "=" << LogFrom(m_##name.V)
 
 #define THE_MACRO(id, ret, name) \
 		case id: { \
