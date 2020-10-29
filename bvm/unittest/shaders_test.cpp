@@ -427,6 +427,8 @@ namespace bvm2 {
 			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)
 			{
 				bWasm = true;
+
+				DischargeUnits(Limits::Cost::Cycle);
 				RunOnce();
 
 				if (m_Dbg.m_pOut)
@@ -458,12 +460,15 @@ namespace bvm2 {
 
 			InitStack(0xcd);
 
+			m_Charge = Limits::Charge(); // default
+			uint32_t nUnitsMax = m_Charge.m_Units;
+
 			Shaders::Env::g_pEnv = this;
 			m_Cycles = 0;
 
 			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n);
 
-			os << "Done in " << m_Cycles << " cycles" << std::endl << std::endl;
+			os << "Done in " << m_Cycles << " cycles, Discharge=" << (nUnitsMax - m_Charge.m_Units) << std::endl << std::endl;
 			std::cout << os.str();
 		}
 

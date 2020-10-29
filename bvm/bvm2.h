@@ -58,6 +58,33 @@ namespace bvm2 {
 
 		static const uint32_t StackSize = 0x10000; // 64K
 		static const uint32_t HeapSize = 0x10000; // 64K
+
+		struct Cost
+		{
+			static const Amount UnitPrice = 100; // groth
+
+			static const uint32_t Cycle = 5;
+			static const uint32_t MemOpPerByte = 1;
+			static const uint32_t HeapOp = 150; // in addition to per-byte price
+			static const uint32_t LoadVar = 1000;
+			static const uint32_t LoadVarPerByte = 2;
+			static const uint32_t SaveVar = 3000;
+			static const uint32_t SaveVarPerByte = 5;
+			static const uint32_t CallFar = 5000;
+			static const uint32_t AddSig = 5000;
+			static const uint32_t AssetEmit = 10000;
+		};
+
+		struct Charge
+		{
+			static void Fail();
+			static void Test(bool);
+
+			uint32_t m_Units = 5000000; // max, regardless to the fee. Equivalent of ~1mln cycles
+			uint32_t m_CallFar = 32;
+			uint32_t m_AddSig = 1024;
+			uint32_t m_AssetOps = 128;
+		};
 	};
 
 	// Contract unique identifier 
@@ -166,8 +193,11 @@ namespace bvm2 {
 		struct Header;
 		const Header& ParseMod();
 
-		const char* RealizeStr(Wasm::Word, uint32_t& nLenOut) const;
-		const char* RealizeStr(Wasm::Word) const;
+		const char* RealizeStr(Wasm::Word, uint32_t& nLenOut);
+		const char* RealizeStr(Wasm::Word);
+
+		void DischargeMemOp(uint32_t size);
+		virtual void DischargeUnits(uint32_t size) {}
 
 	public:
 
@@ -244,6 +274,7 @@ namespace bvm2 {
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit();
+		virtual void DischargeUnits(uint32_t size) override;
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
@@ -274,6 +305,8 @@ namespace bvm2 {
 
 		FundsChangeMap m_FundsIO;
 
+		static void DischargeVar(uint32_t& trg, uint32_t val);
+
 	public:
 
 		Kind get_Kind() override { return Kind::Contract; }
@@ -284,7 +317,8 @@ namespace bvm2 {
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
-		Amount m_Charge = 0;
+
+		Limits::Charge m_Charge;
 
 		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
 	};

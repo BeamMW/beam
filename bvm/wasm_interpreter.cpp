@@ -51,11 +51,17 @@ namespace Wasm {
 
 	void Fail()
 	{
+		Fail("Error");
+	}
+
+	void Fail(const char* sz)
+	{
 		std::ostringstream os;
-		os << "Error: ";
+		os << sz << ": ";
 		Checkpoint::DumpAll(os);
 		throw std::runtime_error(os.str());
 	}
+
 	void Test(bool b) {
 		if (!b)
 			Fail();

@@ -131,6 +131,9 @@ namespace bvm2 {
 
 	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
+		DischargeUnits(Limits::Cost::CallFar);
+		DischargeVar(m_Charge.m_CallFar, 1);
+
 		uint32_t nRetAddr = get_Ip();
 
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
@@ -253,6 +256,34 @@ namespace bvm2 {
 		szTxt[nLen] = 0;
 
 		return atoi(szTxt);
+	}
+
+	void Processor::DischargeMemOp(uint32_t size)
+	{
+		// don't care about overflow. Assume avail max mem size multiplied by cost won't overflow
+		DischargeUnits(size * Limits::Cost::MemOpPerByte);
+	}
+
+	void ProcessorContract::DischargeVar(uint32_t& trg, uint32_t val)
+	{
+		Limits::Charge::Test(trg >= val);
+		trg -= val;
+	}
+
+	void ProcessorContract::DischargeUnits(uint32_t n)
+	{
+		DischargeVar(m_Charge.m_Units, n);
+	}
+
+	void Limits::Charge::Fail()
+	{
+		Wasm::Fail("no Charge");
+	}
+
+	void Limits::Charge::Test(bool b)
+	{
+		if (!b)
+			Fail();
 	}
 
 	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
@@ -659,6 +690,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Memcpy)
 	{
+		DischargeMemOp(size);
 		// prefer to use memmove
 		return memmove(pDst, pSrc, size);
 	}
@@ -670,6 +702,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Memset)
 	{
+		DischargeMemOp(size);
 		return memset(pDst, val, size);
 	}
 
@@ -679,6 +712,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Memcmp)
 	{
+		DischargeMemOp(size);
 		return static_cast<int32_t>(memcmp(p1, p2, size));
 	}
 
@@ -688,11 +722,12 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Memis0)
 	{
+		DischargeMemOp(size);
 		bool bRes = memis0(p, size);
 		return !!bRes;
 	}
 
-	const char* Processor::RealizeStr(Wasm::Word sz, uint32_t& nLenOut) const
+	const char* Processor::RealizeStr(Wasm::Word sz, uint32_t& nLenOut)
 	{
 		Wasm::CheckpointTxt cp("string/realize");
 
@@ -703,10 +738,12 @@ namespace bvm2 {
 		Wasm::Test(p);
 		nLenOut = static_cast<uint32_t>(p - sz_);
 
+		DischargeMemOp(nLenOut + 1);
+
 		return sz_;
 	}
 
-	const char* Processor::RealizeStr(Wasm::Word sz) const
+	const char* Processor::RealizeStr(Wasm::Word sz)
 	{
 		uint32_t nLenOut;
 		return RealizeStr(sz, nLenOut);
@@ -748,6 +785,9 @@ namespace bvm2 {
 
 	bool Processor::HeapAllocEx(uint32_t& res, uint32_t size)
 	{
+		DischargeUnits(Limits::Cost::HeapOp);
+		DischargeMemOp(size);
+
 		if (m_Heap.Alloc(res, size))
 			return true;
 
@@ -777,6 +817,7 @@ namespace bvm2 {
 
 	void Processor::HeapFreeEx(uint32_t res)
 	{
+		DischargeUnits(Limits::Cost::HeapOp);
 		m_Heap.Free(res);
 	}
 
@@ -954,7 +995,14 @@ namespace bvm2 {
 
 	BVM_METHOD(LoadVar)
 	{
-		return OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+
+		DischargeUnits(
+			Limits::Cost::LoadVar +
+			Limits::Cost::LoadVarPerByte * (nKey + std::min(nVal, ret))
+		);
+
+		return ret;
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
@@ -967,6 +1015,11 @@ namespace bvm2 {
 
 	BVM_METHOD(SaveVar)
 	{
+		DischargeUnits(
+			Limits::Cost::SaveVar +
+			Limits::Cost::SaveVarPerByte * (nKey + nVal)
+		);
+
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
 	BVM_METHOD_HOST(SaveVar)
@@ -1012,6 +1065,9 @@ namespace bvm2 {
 
 	BVM_METHOD(AddSig)
 	{
+		DischargeUnits(Limits::Cost::AddSig);
+		DischargeVar(m_Charge.m_AddSig, 1);
+
 		return OnHost_AddSig(get_AddrAsR<ECC::Point>(pubKey));
 	}
 	BVM_METHOD_HOST(AddSig)
@@ -1034,6 +1090,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefAdd)
 	{
+		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
 		return OnHost_RefAdd(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefAdd)
@@ -1043,6 +1100,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefRelease)
 	{
+		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
 		return OnHost_RefRelease(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefRelease)
@@ -1052,6 +1110,7 @@ namespace bvm2 {
 
 	BVM_METHOD(AssetCreate)
 	{
+		DischargeVar(m_Charge.m_AssetOps, 1);
 		return OnHost_AssetCreate(get_AddrR(pMeta, nMeta), nMeta);
 	}
 	BVM_METHOD_HOST(AssetCreate)
@@ -1094,6 +1153,9 @@ namespace bvm2 {
 
 	BVM_METHOD(AssetEmit)
 	{
+		DischargeUnits(Limits::Cost::AssetEmit);
+		DischargeVar(m_Charge.m_AssetOps, 1);
+
 		AssetVar av;
 		get_AssetStrict(av, aid);
 
@@ -1116,6 +1178,8 @@ namespace bvm2 {
 
 	BVM_METHOD(AssetDestroy)
 	{
+		DischargeVar(m_Charge.m_AssetOps, 1);
+
 		AssetVar av;
 		get_AssetStrict(av, aid);
 

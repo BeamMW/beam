@@ -40,6 +40,7 @@ namespace Wasm {
 	};
 
 	void Fail();
+	void Fail(const char*);
 	void Test(bool);
 
 	typedef uint32_t Word;
