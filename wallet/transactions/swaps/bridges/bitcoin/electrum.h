@@ -99,6 +99,9 @@ namespace beam::bitcoin
 
         bool isNodeAddressCheckedAndVerified(const std::string& address) const;
 
+        virtual uint8_t GetSighashAlgorithm() const;
+        virtual bool NeedSignValue() const;
+
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
