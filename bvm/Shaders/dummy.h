@@ -25,6 +25,20 @@ namespace Dummy
         }
     };
 
+    struct DivTest1
+    {
+        static const uint32_t s_iMethod = 4;
+        uint64_t m_Nom;
+        uint64_t m_Denom;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Nom);
+            ConvertOrd<bToShader>(m_Denom);
+        }
+    };
+
 #pragma pack (pop)
 
 }

@@ -38,3 +38,8 @@ export void Method_3(Dummy::MathTest1& r)
 
     r.m_IsOk = (trg <= res);
 }
+
+export void Method_4(Dummy::DivTest1& r)
+{
+    r.m_Denom = r.m_Nom / r.m_Denom;
+}

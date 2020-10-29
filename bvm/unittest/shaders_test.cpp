@@ -743,24 +743,32 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
 
-		Shaders::Dummy::MathTest1 args;
-		args.m_Value = 0x1452310AB046C124;
-		args.m_Rate = 0x0000010100000000;
-		args.m_Factor = 0x0000000000F00000;
-		args.m_Try = 0x1452310AB046C100;
+		{
+			Shaders::Dummy::MathTest1 args;
+			args.m_Value = 0x1452310AB046C124;
+			args.m_Rate = 0x0000010100000000;
+			args.m_Factor = 0x0000000000F00000;
+			args.m_Try = 0x1452310AB046C100;
 
-		args.m_IsOk = 0;
+			args.m_IsOk = 0;
 
-		verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Dummy::DivTest1 args;
+			args.m_Nom = 0;
+			args.m_Denom = 12;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			// division by 0 should be caought
+			args.m_Nom = 13;
+			args.m_Denom = 0;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}
-
-	//template <typename T, uint32_t nSizeExtra> struct Inflated
-	//{
-	//	alignas (16) uint8_t m_pBuf[sizeof(T) + nSizeExtra];
-	//	T& get() { return *reinterpret_cast<T*>(m_pBuf); }
-	//};
 
 	void MyProcessor::TestOracle()
 	{
@@ -995,8 +1003,6 @@ namespace bvm2 {
 			m_Heap.Free(p2);
 		}
 
-		uint32_t m_Cycles;
-
 		void RunMany(uint32_t iMethod)
 		{
 			std::ostringstream os;
@@ -1006,10 +1012,10 @@ namespace bvm2 {
 
 			Shaders::Env::g_pEnv = this;
 
-			m_Cycles = 0;
+			uint32_t nCycles = 0;
 			uint32_t nDepth = m_LocalDepth;
 
-			for (CallMethod(iMethod); m_LocalDepth != nDepth; )
+			for (CallMethod(iMethod); m_LocalDepth != nDepth; nCycles++)
 			{
 				RunOnce();
 
@@ -1021,7 +1027,7 @@ namespace bvm2 {
 			}
 
 
-			os << "Done in " << m_Cycles << " cycles" << std::endl << std::endl;
+			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
 			std::cout << os.str();
 		}
 
