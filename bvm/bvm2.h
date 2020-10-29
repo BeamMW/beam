@@ -57,6 +57,7 @@ namespace bvm2 {
 		static const uint32_t VarSize = 0x2000; // 8K
 
 		static const uint32_t StackSize = 0x10000; // 64K
+		static const uint32_t HeapSize = 0x10000; // 64K
 	};
 
 	// Contract unique identifier 
@@ -104,17 +105,25 @@ namespace bvm2 {
 			void Delete(Entry&, bool bFree);
 			void UpdateSizeFree(Entry&, uint32_t newVal);
 			void TryMerge(Entry&);
+			Entry* Create(uint32_t nPos, uint32_t nSize, bool bFree);
 
 		public:
 
 			~Heap() { Clear(); }
 
-			void Init(uint32_t nRange);
 			bool Alloc(uint32_t&, uint32_t size);
 			void Free(uint32_t);
 			void Clear();
+			void OnGrow(uint32_t nOld, uint32_t nNew);
+
+			uint32_t get_UnusedAtEnd(uint32_t nEnd) const;
 
 		} m_Heap;
+
+		std::vector<uint8_t> m_vHeap;
+
+		bool HeapAllocEx(uint32_t&, uint32_t size);
+		void HeapFreeEx(uint32_t);
 
 		struct VarKey
 		{
@@ -138,6 +147,7 @@ namespace bvm2 {
 
 		virtual void InvokeExt(uint32_t) override;
 
+		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
@@ -233,6 +243,7 @@ namespace bvm2 {
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
+		virtual uint32_t get_HeapLimit();
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
@@ -285,7 +296,6 @@ namespace bvm2 {
 	protected:
 
 		std::vector<Wasm::Word> m_vStack; // too large to have it as a member (this obj may be allocated on stack)
-		std::vector<uint8_t> m_vHeap;
 
 		uint32_t m_LocalDepth;
 
@@ -310,6 +320,7 @@ namespace bvm2 {
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
+		virtual uint32_t get_HeapLimit();
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }

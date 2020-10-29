@@ -86,6 +86,8 @@ namespace bvm2 {
 		m_Stack.m_Pos = 0;
 
 		memset(pStack, nFill, nStackBytes);
+
+		m_vHeap.clear();
 	}
 
 	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
@@ -96,15 +98,9 @@ namespace bvm2 {
 	void ProcessorManager::InitMem()
 	{
 		const uint32_t nStackBytes = 0x20000; // 128K
-		const uint32_t nHeapBytes = 0x200000; // 2MB.
 
 		m_vStack.resize(nStackBytes / sizeof(Wasm::Word));
 		InitBase(&m_vStack.front(), nStackBytes, 0);
-
-		m_vHeap.resize(nHeapBytes);
-		m_LinearMem.p = &m_vHeap.front();
-		m_LinearMem.n = nHeapBytes;
-		m_Heap.Init(nHeapBytes);
 
 		ZeroObject(m_AuxAlloc);
 		m_EnumVars = false;
@@ -192,6 +188,11 @@ namespace bvm2 {
 	{
 		m_LocalDepth--;
 		Processor::OnRet(nRetAddr);
+	}
+
+	uint32_t ProcessorContract::get_HeapLimit()
+	{
+		return Limits::HeapSize;
 	}
 
 	void Processor::VarKey::Set(const ContractID& cid)
@@ -745,12 +746,46 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(StackFree)
 
+	bool Processor::HeapAllocEx(uint32_t& res, uint32_t size)
+	{
+		if (m_Heap.Alloc(res, size))
+			return true;
+
+		uint32_t nSizeOld = m_LinearMem.n;
+		uint32_t nReserve = m_Heap.get_UnusedAtEnd(nSizeOld);
+		assert(nReserve < size);
+		uint32_t nSizeNew = nSizeOld + size - nReserve;
+
+		uint32_t nHeapMax = get_HeapLimit();
+		if (nHeapMax < nSizeNew)
+			return 0;
+
+		// grow
+		std::setmax(nSizeNew, 0x1000U); // 4K 
+		std::setmax(nSizeNew, static_cast<uint32_t>(m_vHeap.size()) * 2);
+		std::setmin(nSizeNew, nHeapMax);
+
+		m_vHeap.resize(nSizeNew, 0); // zero-init new mem
+
+
+		m_LinearMem.p = &m_vHeap.front();
+		m_LinearMem.n = nSizeNew;
+		m_Heap.OnGrow(nSizeOld, nSizeNew);
+
+		return m_Heap.Alloc(res, size);
+	}
+
+	void Processor::HeapFreeEx(uint32_t res)
+	{
+		m_Heap.Free(res);
+	}
+
 	BVM_METHOD(Heap_Alloc)
 	{
 		size = Stack::AlignUp(size); // use the same alignment for heap too
 
 		uint32_t val;
-		if (!m_Heap.Alloc(val, size))
+		if (!HeapAllocEx(val, size))
 			return 0;
 
 		return Wasm::MemoryType::Global | val;
@@ -758,7 +793,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Heap_Alloc)
 	{
 		uint32_t val;
-		if (!m_Heap.Alloc(val, size))
+		if (HeapAllocEx(val, size))
 			return nullptr;
 
 		return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + val;
@@ -766,7 +801,7 @@ namespace bvm2 {
 
 	BVM_METHOD(Heap_Free)
 	{
-		m_Heap.Free(pPtr ^ Wasm::MemoryType::Global);
+		HeapFreeEx(pPtr ^ Wasm::MemoryType::Global);
 	}
 	BVM_METHOD_HOST(Heap_Free)
 	{
@@ -774,17 +809,7 @@ namespace bvm2 {
 			reinterpret_cast<const uint8_t*>(pPtr) -
 			reinterpret_cast<const uint8_t*>(m_LinearMem.p);
 
-		m_Heap.Free(static_cast<uint32_t>(val));
-	}
-
-	void Processor::Heap::Init(uint32_t nRange)
-	{
-		Clear();
-
-		auto* p = new Heap::Entry;
-		p->m_Pos.m_Key = 0;
-		p->m_Size.m_Key = nRange;
-		Insert(*p, true);
+		HeapFreeEx(static_cast<uint32_t>(val));
 	}
 
 	bool Processor::Heap::Alloc(uint32_t& retVal, uint32_t size)
@@ -805,16 +830,22 @@ namespace bvm2 {
 		else
 		{
 			// partition
-			auto* p = new Heap::Entry;
-			p->m_Pos.m_Key = e.m_Pos.m_Key;
-			p->m_Size.m_Key = size;
-			Insert(*p, false);
+			Create(e.m_Pos.m_Key, size, false);
 
 			e.m_Pos.m_Key += size; // no need to remove and re-insert, order should not change
 			UpdateSizeFree(e, e.m_Size.m_Key - size);
 		}
 
 		return true;
+	}
+
+	Processor::Heap::Entry* Processor::Heap::Create(uint32_t nPos, uint32_t nSize, bool bFree)
+	{
+		auto* p = new Heap::Entry;
+		p->m_Pos.m_Key = nPos;
+		p->m_Size.m_Key = nSize;
+		Insert(*p, bFree);
+		return p;
 	}
 
 	void Processor::Heap::Free(uint32_t ptr)
@@ -889,6 +920,36 @@ namespace bvm2 {
 
 		while (!m_mapAllocated.empty())
 			Delete(m_mapAllocated.begin()->get_ParentObj(), false);
+	}
+
+	uint32_t Processor::Heap::get_UnusedAtEnd(uint32_t nEnd) const
+	{
+		if (!m_mapFree.empty())
+		{
+			auto& e = m_mapFree.rbegin()->get_ParentObj();
+			if (e.m_Pos.m_Key + e.m_Size.m_Key == nEnd)
+				return e.m_Size.m_Key;
+		}
+		return 0;
+	}
+
+	void Processor::Heap::OnGrow(uint32_t nOld, uint32_t nNew)
+	{
+		assert(nOld < nNew);
+
+		if (!m_mapFree.empty())
+		{
+			auto& e = m_mapFree.rbegin()->get_ParentObj();
+			assert(e.m_Pos.m_Key + e.m_Size.m_Key <= nOld);
+
+			if (e.m_Pos.m_Key + e.m_Size.m_Key == nOld)
+			{
+				UpdateSizeFree(e, nNew - e.m_Pos.m_Key);
+				return;
+			}
+		}
+
+		Create(nOld, nNew - nOld, true);
 	}
 
 	BVM_METHOD(LoadVar)
@@ -1727,6 +1788,11 @@ namespace bvm2 {
 		trg.resize(b.n * 2);
 		if (b.n)
 			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p), b.n, &trg.front());
+	}
+
+	uint32_t ProcessorManager::get_HeapLimit()
+	{
+		return 0x800000; // 8MB
 	}
 
 	uint32_t ProcessorManager::AddArgs(char* szCommaSeparatedPairs)

@@ -989,18 +989,21 @@ namespace bvm2 {
 		void TestHeap()
 		{
 			uint32_t p1, p2, p3;
-			verify_test(m_Heap.Alloc(p1, 160));
-			verify_test(m_Heap.Alloc(p2, 300));
-			verify_test(m_Heap.Alloc(p3, 28));
+			verify_test(HeapAllocEx(p1, 160));
+			verify_test(HeapAllocEx(p2, 300));
+			verify_test(HeapAllocEx(p3, 28));
 
-			m_Heap.Free(p2);
-			verify_test(m_Heap.Alloc(p2, 260));
-			m_Heap.Free(p2);
-			verify_test(m_Heap.Alloc(p2, 360));
+			HeapFreeEx(p2);
+			verify_test(HeapAllocEx(p2, 260));
+			HeapFreeEx(p2);
+			verify_test(HeapAllocEx(p2, 360));
 
-			m_Heap.Free(p1);
-			m_Heap.Free(p3);
-			m_Heap.Free(p2);
+			HeapFreeEx(p1);
+			HeapFreeEx(p3);
+			HeapFreeEx(p2);
+
+			verify_test(HeapAllocEx(p1, 37443));
+			HeapFreeEx(p1);
 		}
 
 		void RunMany(uint32_t iMethod)
