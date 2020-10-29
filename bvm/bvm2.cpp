@@ -1229,7 +1229,7 @@ namespace bvm2 {
 		{
 			m_Hp << Blob(p, n);
 		}
-		virtual uint32_t Read(uint8_t* p, uint32_t n)
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
 		{
 			ECC::Hash::Value hv;
 			ECC::Hash::Processor(m_Hp) >> hv;
