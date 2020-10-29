@@ -103,7 +103,7 @@ namespace beam::wallet
                 for (auto it = cdata.m_Spend.begin(); cdata.m_Spend.end() != it; it++)
                     bb.m_Map[it->first].m_Value -= it->second;
 
-                bb.m_Map[0].m_Value -= builder.m_Fee;
+                bb.m_Map[0].m_Value -= cdata.m_Fee;
             }
 
             bb.CompleteBalance(); // will select coins as needed
@@ -112,7 +112,7 @@ namespace beam::wallet
             for (uint32_t i = 0; i < vData.size(); i++)
             {
                 const auto& cdata = vData[i];
-                cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Fee, builder.m_Height);
+                cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height);
             }
 
             builder.AddCoinOffsets(pKdf);

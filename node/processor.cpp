@@ -3841,7 +3841,16 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	try
 	{
 		InitStack();
+
+		Amount fee = krn.m_Fee;
+		fee /= bvm2::Limits::Cost::UnitPrice;
+		uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
+
+		std::setmin(m_Charge.m_Units, nUnits);
+
 		m_Stack.PushAlias(krn.m_Args);
+		DischargeMemOp(static_cast<uint32_t>(krn.m_Args.size()));
+
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
 		ECC::Hash::Processor hp;
@@ -3853,7 +3862,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		while (!IsDone())
+		{
+			DischargeUnits(bvm2::Limits::Cost::Cycle);
 			RunOnce();
+		}
 
 		if (!m_Bic.m_AlreadyValidated)
 			CheckSigs(krn.m_Commitment, krn.m_Signature);

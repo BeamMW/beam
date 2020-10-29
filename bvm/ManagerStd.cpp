@@ -166,7 +166,7 @@ namespace bvm2 {
 		pubKey = pt;
 	}
 
-	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig)
+	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee)
 	{
 		ContractInvokeData& v = m_vInvokeData.emplace_back();
 
@@ -184,6 +184,7 @@ namespace bvm2 {
 		v.m_iMethod = iMethod;
 		args.Export(v.m_Args);
 		v.m_vSig.assign(pSig, pSig + nSig);
+		v.m_Fee = nFee;
 
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
@@ -196,7 +197,7 @@ namespace bvm2 {
 		}
 	}
 
-	void ContractInvokeData::Generate(Transaction& tx, Key::IKdf& kdf, Amount fee, const HeightRange& hr) const
+	void ContractInvokeData::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr) const
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 
@@ -215,7 +216,7 @@ namespace bvm2 {
 		}
 
 		pKrn->m_Args = m_Args;
-		pKrn->m_Fee = fee;
+		pKrn->m_Fee = m_Fee;
 		pKrn->m_Height = hr;
 		pKrn->m_Commitment = Zero;
 		pKrn->UpdateMsg();

@@ -33,7 +33,8 @@ namespace bvm2 {
 		ByteBuffer m_Data;
 		ByteBuffer m_Args;
 		std::vector<ECC::Hash::Value> m_vSig;
-		FundsMap m_Spend; // ins - outs
+		Amount m_Fee;
+		FundsMap m_Spend; // ins - outs, not including fee
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -42,6 +43,7 @@ namespace bvm2 {
 				& m_iMethod
 				& m_Args
 				& m_vSig
+				& m_Fee
 				& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_Spend);
 
 			if (m_iMethod)
@@ -53,7 +55,7 @@ namespace bvm2 {
 			}
 		}
 
-		void Generate(Transaction&, Key::IKdf&, Amount fee, const HeightRange& hr) const;
+		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr) const;
 	};
 
 
@@ -101,7 +103,7 @@ namespace bvm2 {
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
-		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override;
+		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 

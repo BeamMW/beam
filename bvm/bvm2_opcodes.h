@@ -172,7 +172,8 @@
 	macro(const FundsChange*, pFunds) sep \
 	macro(uint32_t, nFunds) sep \
 	macro(const SigRequest*, pSig) sep \
-	macro(uint32_t, nSig)
+	macro(uint32_t, nSig) sep \
+	macro(Amount, nFee)
 
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \

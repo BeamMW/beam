@@ -2308,9 +2308,9 @@ namespace beam
 				{
 				}
 
-				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig) override
+				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee) override
 				{
-					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig);
+					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, nFee);
 
 					if (!iMethod)
 					{
@@ -2465,14 +2465,13 @@ namespace beam
 				if (proc.m_vInvokeData.empty())
 					return false; //?!
 
-				const Amount feePerKrn = 120;
-
 				bvm2::FundsMap fm;
 
 				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
 				{
-					fm += proc.m_vInvokeData[i].m_Spend;
-					fm.AddSpend(0, feePerKrn);
+					const auto& cdata = proc.m_vInvokeData[i];
+					fm += cdata.m_Spend;
+					fm.AddSpend(0, cdata.m_Fee);
 				}
 
 				AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
@@ -2485,7 +2484,7 @@ namespace beam
 					hr.m_Min = s.m_Height + 1;
 
 					const auto& x = proc.m_vInvokeData[i];
-					x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, feePerKrn, hr);
+					x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr);
 				}
 
 				val -= valSpend;
