@@ -2476,7 +2476,10 @@ namespace beam
 
 				AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
 				if (valSpend > static_cast<AmountSigned>(val))
+				{
+					m_Contract.m_Done--;
 					return false; // not enough funds
+				}
 
 				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
 				{
