@@ -305,6 +305,8 @@ namespace beam::wallet
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \
     MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
+    /* allows to restore receiver address from */ \
+    MACRO(PeerOwnID,                       101, uint64_t) \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
@@ -379,6 +381,8 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
+
+        AddressType = 211,
     
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
@@ -526,6 +530,16 @@ namespace beam::wallet
         [[nodiscard]] std::string getStatus() const override;
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
+    };
+
+    enum struct TxAddressType : uint8_t
+    {
+        Unknown,
+        Regular,
+        AtomicSwap,
+        Offline,
+        MaxPrivacy,
+        PublicOffline
     };
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -784,6 +798,8 @@ namespace beam::wallet
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
     Amount GetShieldedFee(const TxDescription& tx);
+
+    TxAddressType GetAddressType(const TxDescription& tx);
 }    // beam::wallet
 
 namespace beam
