@@ -114,7 +114,7 @@ extern "C" {
     Amount bAmount = Amount(amount);
     Amount bFee = Amount(fee);
 
-    walletModel->getAsync()->calcShieldedCoinSelectionInfo(bAmount, bFee, isShielded);
+    walletModel->getAsync()->calcShieldedCoinSelectionInfo(bAmount, bFee, beam::Asset::s_BeamID, isShielded);
  }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
@@ -651,7 +651,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobje
 {
     LOG_DEBUG() << "calcChange(" << amount << ")";
 
-    walletModel->getAsync()->calcChange(Amount(amount));
+    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::s_BeamID);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,

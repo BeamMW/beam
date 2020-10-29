@@ -30,7 +30,7 @@ namespace beam::bitcoin_cash
         {
             constexpr double kBlocksPerHour = 6;
             constexpr uint32_t kDefaultLockTimeInBlocks = 12 * 6;  // 12h
-            constexpr Amount kMinFeeRate = 90000;
+            constexpr Amount kMinFeeRate = 1000;
 
             SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
             SetMinFeeRate(kMinFeeRate);

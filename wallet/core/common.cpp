@@ -733,8 +733,8 @@ namespace beam::wallet
         }
     }
 
-    /// Return empty string if second currency exchange rate is not presented
-    std::string TxDescription::getAmountInSecondCurrency(ExchangeRate::Currency secondCurrency) const
+    /// Return empty string if exchange rate is not available
+    std::string TxDescription::getAmount(ExchangeRate::Currency target) const
     {
         auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
@@ -743,7 +743,7 @@ namespace beam::wallet
             for (const auto r : rates)
             {
                 if (r.m_currency == ExchangeRate::Currency::Beam &&
-                    r.m_unit == secondCurrency &&
+                    r.m_unit == target &&
                     r.m_rate != 0)
                 {
                     cpp_dec_float_50 dec_first(m_amount);
@@ -753,7 +753,7 @@ namespace beam::wallet
                     cpp_dec_float_50 product = dec_first * dec_second;
 
                     std::ostringstream oss;
-                    uint32_t precision = secondCurrency == ExchangeRate::Currency::Usd
+                    uint32_t precision = target == ExchangeRate::Currency::Usd
                                             ? 2
                                             : std::lround(std::log10(Rules::Coin));
                     oss.precision(precision);

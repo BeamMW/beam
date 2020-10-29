@@ -2087,7 +2087,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 io::Address receiverAddr;
-                Asset::ID assetId = Asset::s_InvalidID;
+                Asset::ID assetId = Asset::s_BeamID;
                 Amount amount = 0;
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
@@ -2097,13 +2097,14 @@ namespace
                     return -1;
                 }
 
-                if (assetId != Asset::s_InvalidID)
+                if (assetId != Asset::s_BeamID)
                 {
                     CheckAssetsAllowed(vm);
                 }
 
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
+
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
                 bool isShielded = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
@@ -2113,11 +2114,16 @@ namespace
 
                 Transaction::FeeSettings fs;
                 Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isShielded);
 
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
+                bool isBeam = assetId == Asset::s_BeamID;
+                if (isBeam && (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - coinSelectionRes.changeBeam) < amount)
+                {
+                    LOG_ERROR() << kErrorNotEnoughtCoins;
+                    return -1;
+                }
 
-                if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
+                if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
                 {
                     LOG_ERROR() << kErrorNotEnoughtCoins;
                     return -1;

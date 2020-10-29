@@ -41,14 +41,21 @@ namespace beam::wallet
 {
     struct WalletStatus
     {
-        Amount available = 0;
-        Amount receiving = 0;
-        Amount receivingIncoming = 0;
-        Amount receivingChange = 0;
-        Amount sending = 0;
-        Amount maturing = 0;
-        Amount maturingMP = 0;
-        Amount shielded = 0;
+        struct AssetStatus
+        {
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount receivingIncoming = 0;
+            Amount receivingChange = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            Amount maturingMP = 0;
+            Amount shielded = 0;
+        };
+
+        bool HasStatus(Asset::ID assetId) const;
+        AssetStatus GetStatus(Asset::ID assetId) const; // If doesn't have status for the assetId returns an empty one
+        AssetStatus GetBeamStatus() const;
 
         struct
         {
@@ -58,6 +65,7 @@ namespace beam::wallet
         } update;
 
         Block::SystemState::ID stateID = {};
+        mutable std::map<Asset::ID, AssetStatus> all;
     };
 
     class WalletClient
@@ -76,7 +84,7 @@ namespace beam::wallet
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
-                    bool isSecondCurrencyEnabled = false,
+                    bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
@@ -116,7 +124,7 @@ namespace beam::wallet
         virtual void onStatus(const WalletStatus& status) {}
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
-        virtual void onChangeCalculated(Amount change) {}
+        virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
         virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
         virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
@@ -141,6 +149,7 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
@@ -165,8 +174,8 @@ namespace beam::wallet
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
-        void calcChange(Amount amount) override;
-        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) override;
+        void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
+        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
@@ -201,6 +210,7 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
+        void getAssetInfo(const Asset::ID) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
@@ -226,7 +236,14 @@ namespace beam::wallet
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
+
     private:
+        // Asset info can be requested multiple times for the same ID
+        // We collect all such events and process them in bulk at
+        // the end of the libuv cycle ignoring duplicate reuqests
+        void processAInfo();
+        std::set<Asset::ID>  m_ainfoRequests;
+        beam::io::Timer::Ptr m_ainfoDelayed;
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;

@@ -20,7 +20,7 @@
 
 namespace beam::dash
 {
-    constexpr uint64_t kDustThreshold = 3000;
+    constexpr uint64_t kDustThreshold = 546;
     extern const char kMainnetGenesisBlockHash[];
     extern const char kTestnetGenesisBlockHash[];
     extern const char kRegtestGenesisBlockHash[];

@@ -70,14 +70,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::syncWithNode);
     }
 
-    void calcChange(Amount amount) override
+    void calcChange(Amount amount, Amount fee, Asset::ID assetId) override
     {
-        call_async(&IWalletModelAsync::calcChange, amount);
+        call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
-    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded /* = false */) override
+    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
     {
-        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, isShielded);
+        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, assetId, isShielded);
     }
 
     void getWalletStatus() override
@@ -290,11 +290,36 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
     }
+
+    void getAssetInfo(Asset::ID assetId) override
+    {
+        call_async(&IWalletModelAsync::getAssetInfo, assetId);
+    }
 };
 }
 
 namespace beam::wallet
 {
+    bool WalletStatus::HasStatus(Asset::ID assetId) const
+    {
+        return all.find(assetId) != all.end();
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetStatus(Asset::ID assetId) const
+    {
+        if(all.find(assetId) == all.end())
+        {
+            AssetStatus result;
+            return result;
+        }
+        return all[assetId];
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetBeamStatus() const
+    {
+        return GetStatus(Asset::s_BeamID);
+    }
+
     WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -307,6 +332,7 @@ namespace beam::wallet
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
+        m_ainfoDelayed = io::Timer::create(*m_reactor);
     }
 
     WalletClient::~WalletClient()
@@ -363,10 +389,10 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
-                              bool isSecondCurrencyEnabled,
+                              bool withExchangeRates,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this, isSecondCurrencyEnabled, txCreators, activeNotifications]()
+        m_thread = std::make_shared<std::thread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
             {
@@ -458,8 +484,7 @@ namespace beam::wallet
 
                 // Other content providers using broadcast messages
                 auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
-                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(
-                    *broadcastRouter, *broadcastValidator, *m_walletDB, isSecondCurrencyEnabled);
+                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, withExchangeRates);
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
@@ -485,6 +510,7 @@ namespace beam::wallet
                 nodeNetwork.reset();
 
                 m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
+                m_ainfoDelayed->cancel();
             }
             catch (const runtime_error& ex)
             {
@@ -577,6 +603,7 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
+        LOG_INFO () << "!!!!! ON_COINS_CHANGED";
         m_CoinChangesCollector.CollectItems(action, items);
         m_DeferredBalanceUpdate.start();
     }
@@ -778,14 +805,15 @@ namespace beam::wallet
     }
     }
 
-    void WalletClient::calcChange(Amount amount)
+    void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        onChangeCalculated(CalcChange(m_walletDB, amount));
+        const auto change = CalcChange(m_walletDB, amount, fee, assetId);
+        onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
     }
 
-    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, bool isShielded /* = false */)
+    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, isShielded);
+        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
         onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
         onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
     }
@@ -1212,7 +1240,6 @@ namespace beam::wallet
     void WalletClient::exportTxHistoryToCsv()
     {
         auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
-
         onExportTxHistoryToCsv(data);   
     }
 
@@ -1282,28 +1309,6 @@ namespace beam::wallet
         return true;
     }
 
-    WalletStatus WalletClient::getStatus() const
-    {
-        WalletStatus status;
-        storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetBeamTotals();
-
-        status.available         = AmountBig::get_Lo(totals.Avail);
-        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
-        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
-        status.receiving         = AmountBig::get_Lo(totals.Incoming);
-        status.sending           = AmountBig::get_Lo(totals.Outgoing) + AmountBig::get_Lo(totals.OutgoingShielded);
-        status.maturing          = AmountBig::get_Lo(totals.Maturing);
-        status.maturingMP        = AmountBig::get_Lo(totals.MaturingShielded);
-        status.shielded          = AmountBig::get_Lo(totals.AvailShielded);
-        status.update.lastTime   = m_walletDB->getLastUpdateTime();
-
-        ZeroObject(status.stateID);
-        m_walletDB->getSystemStateID(status.stateID);
-
-        return status;
-    }
-
     vector<Coin> WalletClient::getUtxos() const
     {
         vector<Coin> utxos;
@@ -1313,6 +1318,34 @@ namespace beam::wallet
                 return true;
             });
         return utxos;
+    }
+
+    WalletStatus WalletClient::getStatus() const
+    {
+        WalletStatus status;
+        storage::Totals allTotals(*m_walletDB);
+
+        for(const auto& totalsPair: allTotals.allTotals) {
+            const auto& info = totalsPair.second;
+            WalletStatus::AssetStatus assetStatus;
+
+            assetStatus.available         = AmountBig::get_Lo(info.Avail);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
+            assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
+            assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
+            assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
+            assetStatus.maturingMP        = AmountBig::get_Lo(info.MaturingShielded);
+            assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
+
+            status.all[totalsPair.first] = assetStatus;
+        }
+
+        ZeroObject(status.stateID);
+        m_walletDB->getSystemStateID(status.stateID);
+        status.update.lastTime = m_walletDB->getLastUpdateTime();
+
+        return status;
     }
 
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
@@ -1428,5 +1461,31 @@ namespace beam::wallet
     bool WalletClient::isConnected() const
     {
         return m_connectedNodesCount > 0;
+    }
+
+    void WalletClient::getAssetInfo(const Asset::ID assetId)
+    {
+        m_ainfoRequests.insert(assetId);
+        m_ainfoDelayed->start(0, false, [this] () {
+            processAInfo();
+        });
+    }
+
+    void WalletClient::processAInfo ()
+    {
+        if (m_ainfoRequests.empty()) {
+            return;
+        }
+
+        auto reqs = m_ainfoRequests;
+        m_ainfoRequests.clear();
+
+        for(auto assetId: reqs)
+        {
+            if(const auto oasset = m_walletDB->findAsset(assetId))
+            {
+                onAssetInfo(assetId, *oasset);
+            }
+        }
     }
 }

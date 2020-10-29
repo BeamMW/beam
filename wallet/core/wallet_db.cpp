@@ -5556,8 +5556,8 @@ namespace beam::wallet
                     beam::to_hex(strProof.data(), proof.data(), proof.size());
                 }
 
-                std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
-                std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
+                std::string amountInUsd = tx.getAmount(ExchangeRate::Currency::Usd);
+                std::string amountInBtc = tx.getAmount(ExchangeRate::Currency::Bitcoin);
                 Amount shieldedFee = GetShieldedFee(tx);
 
 

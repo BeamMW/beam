@@ -357,11 +357,12 @@ void WalletModel::onStatus(const WalletStatus& status)
 
     jobject walletStatus = env->AllocObject(WalletStatusClass);
 
-    setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
-    setLongField(env, WalletStatusClass, walletStatus, "receiving", status.receiving);
-    setLongField(env, WalletStatusClass, walletStatus, "sending", status.sending);
-    setLongField(env, WalletStatusClass, walletStatus, "maturing", status.maturing);
-    setLongField(env, WalletStatusClass, walletStatus, "shielded", status.shielded);
+    const auto& beamStatus = status.GetStatus(beam::Asset::s_BeamID);
+    setLongField(env, WalletStatusClass, walletStatus, "available", beamStatus.available);
+    setLongField(env, WalletStatusClass, walletStatus, "receiving", beamStatus.receiving);
+    setLongField(env, WalletStatusClass, walletStatus, "sending",   beamStatus.sending);
+    setLongField(env, WalletStatusClass, walletStatus, "maturing",  beamStatus.maturing);
+    setLongField(env, WalletStatusClass, walletStatus, "shielded",  beamStatus.shielded);
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
@@ -425,15 +426,15 @@ void WalletModel::onSyncProgressUpdated(int done, int total)
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
 
-void WalletModel::onChangeCalculated(Amount change)
+void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId)
 {
-    LOG_DEBUG() << "onChangeCalculated(" << change << ")";
+    LOG_DEBUG() << "onChangeCalculated(" << changeBeam << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onChangeCalculated", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, change);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, changeBeam);
 }
 
 void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)

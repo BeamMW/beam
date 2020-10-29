@@ -21,14 +21,13 @@ namespace beam::wallet
 {
     using namespace beam;
 
-    constexpr std::string_view beamCurrencyStr =    "beam";
-    constexpr std::string_view btcCurrencyStr =     "btc";
-    constexpr std::string_view ltcCurrencyStr =     "ltc";
-    constexpr std::string_view qtumCurrencyStr =    "qtum";
-    constexpr std::string_view usdCurrencyStr =     "usd";
-    constexpr std::string_view unknownCurrencyStr = "unknown";
-
-    constexpr std::string_view noSecondCurrencyStr = "off";
+    constexpr std::string_view beamCurrencyStr     = "beam";
+    constexpr std::string_view btcCurrencyStr      = "btc";
+    constexpr std::string_view ltcCurrencyStr      = "ltc";
+    constexpr std::string_view qtumCurrencyStr     = "qtum";
+    constexpr std::string_view usdCurrencyStr      = "usd";
+    constexpr std::string_view unknownCurrencyStr  = "unknown";
+    constexpr std::string_view exchangeRateOffStr  = "off";
 
     struct ExchangeRate
     {

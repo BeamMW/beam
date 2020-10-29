@@ -31,13 +31,14 @@ namespace beam::wallet
 
     bool DogecoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(kDogecoinWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > dogecoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= dogecoin::kDustThreshold;
     }
 
     Amount DogecoinSide::CalcTotalFee(Amount feeRate)
     {
-        return static_cast<Amount>(std::round(double(kDogecoinWithdrawTxAverageSize * feeRate) / 1000));
+        Amount factor = kDogecoinWithdrawTxAverageSize / 1000 + (kDogecoinWithdrawTxAverageSize % 1000 ? 1 : 0);
+        return factor * feeRate;
     }
 
     uint32_t DogecoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
@@ -53,5 +54,10 @@ namespace beam::wallet
     uint32_t DogecoinSide::GetWithdrawTxAverageSize() const
     {
         return kDogecoinWithdrawTxAverageSize;
+    }
+
+    Amount DogecoinSide::GetFee(Amount feeRate) const
+    {
+        return CalcTotalFee(feeRate);
     }
 }
