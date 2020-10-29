@@ -998,6 +998,98 @@ namespace beam::wallet
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
 
+        struct ShieldedPaymentInfo
+        {
+            PeerID          m_Sender;
+            PeerID          m_Receiver;
+
+            // outer std kernel
+            Amount          m_Fee = 0;
+            HeightRange     m_Height;
+            ECC::Point      m_Commitment;
+            ECC::Signature  m_Signature;
+
+            // internal non std kernel
+            // ShieldedTxo
+            ShieldedTxo::Ticket     m_TxoTicket;
+            Amount                  m_Amount;
+            Asset::ID               m_AssetID = Asset::s_InvalidID;
+            bool                    m_HideAssetAlways = false;
+
+            // voucher
+            ECC::Hash::Value        m_VoucherSharedSecret;
+            ECC::Signature          m_VoucherSignature;
+
+            ECC::uintBig            m_pMessage[2] = { Zero, Zero };
+
+            struct ContentFlags
+            {
+                static constexpr uint8_t CommitmentY                = 1 << 0;
+                static constexpr uint8_t SignatureNoncePubY         = 1 << 1;
+                static constexpr uint8_t TicketSerialPubY           = 1 << 2;
+                static constexpr uint8_t TicketSignatureNoncePubY   = 1 << 3;
+                static constexpr uint8_t VoucherSignatureNoncePubY  = 1 << 4;
+                static constexpr uint8_t HideAssetAlways            = 1 << 5;
+            };
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Sender
+                    & m_Receiver
+
+                    & m_Fee
+                    & m_Height.m_Min
+                    & m_Height.m_Max
+                    & m_Commitment.m_X
+                    & m_Signature.m_k
+                    & m_Signature.m_NoncePub.m_X
+
+                    & m_TxoTicket.m_SerialPub.m_X
+                    & m_TxoTicket.m_Signature.m_pK
+                    & m_TxoTicket.m_Signature.m_NoncePub.m_X
+                    & m_Amount
+                    & m_AssetID
+
+                    & m_VoucherSharedSecret
+                    & m_VoucherSignature.m_k
+                    & m_VoucherSignature.m_NoncePub.m_X
+
+                    & m_pMessage;
+
+                uint8_t flags = 0;
+                if (ar.is_readable())
+                {
+                    ar& flags;
+                    m_Commitment.m_Y = (flags & ContentFlags::CommitmentY) ? 1 : 0;
+                    m_Signature.m_NoncePub.m_Y = (flags & ContentFlags::SignatureNoncePubY) ? 1 : 0;
+                    m_TxoTicket.m_SerialPub.m_Y = (flags & ContentFlags::TicketSerialPubY) ? 1 : 0;
+                    m_TxoTicket.m_Signature.m_NoncePub.m_Y = (flags & ContentFlags::TicketSignatureNoncePubY) ? 1 : 0;
+                    m_VoucherSignature.m_NoncePub.m_Y = (flags & ContentFlags::VoucherSignatureNoncePubY) ? 1 : 0;
+                    m_HideAssetAlways = (flags & ContentFlags::HideAssetAlways) ? true : false;
+                }
+                else
+                {
+                    flags =
+                        (m_Commitment.m_Y ? ContentFlags::CommitmentY : 0) |
+                        (m_Signature.m_NoncePub.m_Y ? ContentFlags::SignatureNoncePubY : 0) |
+                        (m_TxoTicket.m_SerialPub.m_Y ? ContentFlags::TicketSerialPubY : 0) |
+                        (m_TxoTicket.m_Signature.m_NoncePub.m_Y ? ContentFlags::TicketSignatureNoncePubY : 0) |
+                        (m_VoucherSignature.m_NoncePub.m_Y ? ContentFlags::VoucherSignatureNoncePubY : 0) |
+                        (m_HideAssetAlways ? ContentFlags::HideAssetAlways : 0);
+                    ar& flags;
+                }
+            }
+
+            Merkle::Hash            m_KernelID = Zero;
+
+            bool IsValid() const;
+            std::string to_string() const;
+            static ShieldedPaymentInfo FromByteBuffer(const ByteBuffer& data);
+            void RestoreKernelID();
+        };
+
         std::string ExportDataToJson(const IWalletDB& db);
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
@@ -1012,4 +1104,10 @@ namespace beam::wallet
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
     }  // namespace storage
+
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers);
+    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
+    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+
+
 }  // namespace beam::wallet
