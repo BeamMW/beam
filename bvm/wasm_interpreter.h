@@ -20,6 +20,25 @@
 namespace beam {
 namespace Wasm {
 
+	class Checkpoint
+	{
+		static thread_local Checkpoint* s_pTop;
+		Checkpoint* m_pNext;
+	public:
+		Checkpoint();
+		~Checkpoint();
+		virtual void Dump(std::ostream&) = 0;
+
+		static void DumpAll(std::ostream&);
+	};
+
+	class CheckpointTxt :public Checkpoint {
+		const char* m_sz;
+	public:
+		CheckpointTxt(const char* sz) :m_sz(sz) {}
+		virtual void Dump(std::ostream&) override;
+	};
+
 	void Fail();
 	void Test(bool);
 

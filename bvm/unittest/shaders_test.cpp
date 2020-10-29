@@ -488,8 +488,10 @@ namespace bvm2 {
 					SaveVar(cid, nullptr, 0);
 
 			}
-			catch (const std::exception&) {
+			catch (const std::exception& e) {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+				std::cout << e.what() << std::endl;
+
 				UndoChanges(nChanges);
 				m_FarCalls.m_Stack.Clear();
 
@@ -1030,8 +1032,9 @@ namespace bvm2 {
 			{
 				RunMany(iMethod);
 			}
-			catch (const std::exception&) {
+			catch (const std::exception& e) {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+				std::cout << e.what() << std::endl;
 				ret = false;
 			}
 			return ret;

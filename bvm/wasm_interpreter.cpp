@@ -23,8 +23,38 @@
 namespace beam {
 namespace Wasm {
 
-	void Fail() {
-		throw std::runtime_error("wasm");
+	thread_local Checkpoint* Checkpoint::s_pTop = nullptr;
+
+	Checkpoint::Checkpoint()
+	{
+		m_pNext = s_pTop;
+		s_pTop = this;
+	}
+
+	Checkpoint::~Checkpoint()
+	{
+		s_pTop = m_pNext;
+	}
+
+	void Checkpoint::DumpAll(std::ostream& os)
+	{
+		for (Checkpoint* p = s_pTop; p; p = p->m_pNext)
+		{
+			os << " <- ";
+			p->Dump(os);
+		}
+	}
+
+	void CheckpointTxt::Dump(std::ostream& os) {
+		os << m_sz;
+	}
+
+	void Fail()
+	{
+		std::ostringstream os;
+		os << "Error: ";
+		Checkpoint::DumpAll(os);
+		throw std::runtime_error(os.str());
 	}
 	void Test(bool b) {
 		if (!b)
@@ -316,6 +346,8 @@ namespace Wasm {
 
 	void CompilerPlus::ParsePlus(Reader inp)
 	{
+		CheckpointTxt cp("wasm/parse");
+
 		static const uint8_t pMagic[] = { 0, 'a', 's', 'm' };
 		Test(!memcmp(pMagic, inp.Consume(sizeof(pMagic)), sizeof(pMagic)));
 
@@ -1107,6 +1139,8 @@ namespace Wasm {
 
 	void Compiler::Build()
 	{
+		CheckpointTxt cp("wasm/Compiler/build");
+
 		for (uint32_t i = 0; i < m_Functions.size(); i++)
 		{
 			Context ctx(*this);
@@ -1134,6 +1168,16 @@ namespace Wasm {
 
 	void Compiler::Context::CompileFunc()
 	{
+		struct MyCheckpoint :public Checkpoint {
+			uint32_t m_iFunc;
+			uint32_t m_Line = 0;
+			virtual void Dump(std::ostream& os) override {
+				os << "iFunc=" << m_iFunc << ", Line=" << m_Line;
+			}
+
+		} cp;
+		cp.m_iFunc = m_iFunc;
+
 		auto& func = m_This.m_Functions[m_iFunc];
 		m_Code = func.m_Expression;
 
@@ -1152,9 +1196,8 @@ namespace Wasm {
 			WriteResU(nLocalVarsSize);
 		}
 
-		for (uint32_t nLine = 0; !m_Blocks.empty(); nLine++)
+		for ( ; !m_Blocks.empty(); cp.m_Line++)
 		{
-			nLine; // for dbg
 			m_p0 = m_Code.m_p0;
 
 			I nInstruction = (I) m_Code.Read1();
@@ -1480,11 +1523,19 @@ namespace Wasm {
 
 		void RunOncePlus()
 		{
+			struct MyCheckpoint :public Checkpoint {
+				Word m_Ip;
+				virtual void Dump(std::ostream& os) override {
+					os << "wasm/Run, Ip=" << uintBigFrom(m_Ip);
+				}
+			} cp;
+			cp.m_Ip = get_Ip();
+
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
 				if (m_Dbg.m_Instructions)
-					*m_Dbg.m_pOut << "ip=" << uintBigFrom(get_Ip()) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+					*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
 
 			switch (nInstruction)
 			{
@@ -1544,6 +1595,8 @@ namespace Wasm {
 
 	uint8_t* Processor::get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const
 	{
+		CheckpointTxt cp("mem/probe");
+
 		Blob blob;
 
 		Word nMemType = MemoryType::Mask & nOffset;
@@ -1583,6 +1636,8 @@ namespace Wasm {
 
 		uint32_t nSizeOut;
 		auto pRet = get_AddrExVar(nOffset, nSizeOut, bW);
+
+		CheckpointTxt cp("mem/bounds");
 		Test(nSize <= nSizeOut);
 
 		return pRet;
@@ -1724,7 +1779,18 @@ namespace Wasm {
 
 	void ProcessorPlus::On_call_ext()
 	{
-		InvokeExt(m_Instruction.Read<uint32_t>());
+		uint32_t iExt = m_Instruction.Read<uint32_t>();
+
+		struct MyCheckpoint :public Checkpoint {
+			uint32_t m_iExt;
+			virtual void Dump(std::ostream& os) override {
+				os << "InvokeExt=" << m_iExt;
+			}
+
+		} cp;
+		cp.m_iExt = iExt;
+
+		InvokeExt(iExt);
 	}
 
 	Word Processor::ReadTable(Word iItem) const

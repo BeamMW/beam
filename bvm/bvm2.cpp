@@ -256,6 +256,8 @@ namespace bvm2 {
 
 	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
 	{
+		Wasm::CheckpointTxt cp("Wasm/compile");
+
 		Wasm::Reader inp;
 		inp.m_p0 = reinterpret_cast<const uint8_t*>(src.p);
 		inp.m_p1 = inp.m_p0 + src.n;
@@ -456,14 +458,18 @@ namespace bvm2 {
 #define PAR_PASS(type, name) m_##name.V
 #define PAR_DECL(type, name) ParamWrap<type> m_##name;
 #define PAR_ASSIGN(type, name) args.m_##name =
+#define PAR_DUMP(type, name) << "," #name "=" << uintBigFrom(m_##name.V)
 
 #define THE_MACRO(id, ret, name) \
 		case id: { \
 			if (m_Dbg.m_ExtCall) \
 				*m_Dbg.m_pOut << "  " #name << std::endl; \
-			struct Args { \
+			struct Args :public Wasm::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
+				virtual void Dump(std::ostream& os) override { \
+					os << #name BVMOp_##name(PAR_DUMP, MACRO_NOP); \
+				} \
 			} args; \
 			BVMOp_##name(PAR_ASSIGN, MACRO_NOP) *this; \
 			Caller<RetType_##name>::Call(*this, args); \
@@ -678,6 +684,8 @@ namespace bvm2 {
 
 	const char* Processor::RealizeStr(Wasm::Word sz, uint32_t& nLenOut) const
 	{
+		Wasm::CheckpointTxt cp("string/realize");
+
 		uint32_t n;
 		auto sz_ = reinterpret_cast<const char*>(get_AddrExVar(sz, n, false));
 
