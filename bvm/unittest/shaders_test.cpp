@@ -772,6 +772,19 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		}
 
+		{
+			Dbg dbg = m_Dbg;
+			m_Dbg.m_Instructions = false;
+			m_Dbg.m_Stack = false;
+			m_Dbg.m_ExtCall = false;
+
+			Shaders::Dummy::InfCycle args;
+			args.m_Val = 12;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+
+			m_Dbg = dbg;
+		}
+
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 

@@ -43,3 +43,9 @@ export void Method_4(Dummy::DivTest1& r)
 {
     r.m_Denom = r.m_Nom / r.m_Denom;
 }
+
+export void Method_5(Dummy::InfCycle&)
+{
+    for (uint32_t i = 0; i < 20000000; i++)
+        Env::get_Height();
+}

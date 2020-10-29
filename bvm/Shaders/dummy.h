@@ -39,6 +39,19 @@ namespace Dummy
         }
     };
 
+    struct InfCycle
+    {
+        static const uint32_t s_iMethod = 5;
+
+        uint32_t m_Val;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Val);
+        }
+    };
+
 #pragma pack (pop)
 
 }
