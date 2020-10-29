@@ -157,7 +157,7 @@ void On_ManagerView()
 void On_Manager(const char* szAction, const ContractID* pCid)
 {
     if (!Env::Strcmp(szAction, "create")) {
-        Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0);
+        Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
         return;
     }
 
@@ -173,7 +173,7 @@ void On_Manager(const char* szAction, const ContractID* pCid)
             return;
         }
 
-        Env::GenerateKernel(pCid, 1, nullptr, 0, nullptr, 0, nullptr, 0);
+        Env::GenerateKernel(pCid, 1, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
         return;
     }
 
@@ -222,7 +222,7 @@ void On_MyAccount_MoveFunds(uint32_t iMethod, uint8_t nConsume, const ContractID
     sig.m_pID = &myid;
     sig.m_nID = sizeof(myid);
 
-    Env::GenerateKernel(&cid, iMethod, &arg, sizeof(arg), &fc, 1, &sig, !nConsume);
+    Env::GenerateKernel(&cid, iMethod, &arg, sizeof(arg), &fc, 1, &sig, !nConsume, 2000000U);
 }
 
 void On_MyAccount(const char* szAction, const ContractID& cid)
