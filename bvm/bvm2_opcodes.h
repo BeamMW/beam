@@ -52,6 +52,26 @@
 #define BVMOp_Heap_Free(macro, sep) \
 	macro(void*, pPtr)
 
+#define BVMOp_HashAlloc(macro, sep) \
+	macro(HashObj::Type, type)
+
+#define BVMOp_HashWrite(macro, sep) \
+	macro(HashObj*, pHash) sep \
+	macro(const void*, p) sep \
+	macro(uint32_t, size)
+
+#define BVMOp_HashWriteNum(macro, sep) \
+	macro(HashObj*, pHash) sep \
+	macro(uint64_t, num)
+
+#define BVMOp_HashGetValue(macro, sep) \
+	macro(HashObj*, pHash) sep \
+	macro(void*, pDst) sep \
+	macro(uint32_t, size)
+
+#define BVMOp_HashFree(macro, sep) \
+	macro(HashObj*, pHash)
+
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -187,6 +207,10 @@
 	macro(0x1A, void*    , Heap_Alloc) \
 	macro(0x1B, void     , Heap_Free) \
 	macro(0x28, void     , Halt) \
+	macro(0x2A, HashObj* , HashAlloc) \
+	macro(0x2B, void     , HashWrite) \
+	macro(0x2D, void     , HashGetValue) \
+	macro(0x2E, void     , HashFree) \
 	macro(0x40, Height   , get_Height) \
 
 #define BVMOpsAll_Contract(macro) \

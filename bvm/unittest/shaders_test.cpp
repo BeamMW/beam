@@ -785,6 +785,21 @@ namespace bvm2 {
 			m_Dbg = dbg;
 		}
 
+		{
+			Shaders::Dummy::Hash1 args;
+
+			memset(args.m_pInp, 0xab, sizeof(args.m_pInp));
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			ECC::Hash::Value hv;
+			ECC::Hash::Processor()
+				<< Blob(args.m_pInp, static_cast<uint32_t>(sizeof(args.m_pInp)))
+				>> hv;
+
+			static_assert(sizeof(hv) == sizeof(args.m_pRes));
+			verify_test(!memcmp(hv.m_pData, args.m_pRes, sizeof(args.m_pRes)));
+		}
+
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 

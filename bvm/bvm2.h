@@ -49,6 +49,7 @@ namespace bvm2 {
 	using Shaders::Height;
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
+	using Shaders::HashObj;
 
 	struct Limits
 	{
@@ -58,6 +59,8 @@ namespace bvm2 {
 
 		static const uint32_t StackSize = 0x10000; // 64K
 		static const uint32_t HeapSize = 0x10000; // 64K
+
+		static const uint32_t HashObjects = 8;
 
 		struct Cost
 		{
@@ -73,6 +76,8 @@ namespace bvm2 {
 			static const uint32_t CallFar = 5000;
 			static const uint32_t AddSig = 5000;
 			static const uint32_t AssetEmit = 10000;
+			static const uint32_t HashOp = 200; // alloc, getval
+			static const uint32_t HashOpPerByte = 10;
 		};
 
 		struct Charge
@@ -198,6 +203,27 @@ namespace bvm2 {
 
 		void DischargeMemOp(uint32_t size);
 		virtual void DischargeUnits(uint32_t size) {}
+
+		struct DataProcessor
+		{
+			struct Base
+				:public intrusive::set_base_hook<uint32_t>
+			{
+				virtual ~Base() {}
+				virtual void Write(const uint8_t*, uint32_t) = 0;
+				virtual uint32_t Read(uint8_t*, uint32_t) = 0;
+			};
+
+			typedef intrusive::multiset_autoclear<Base> Map;
+			Map m_Map;
+
+			struct Sha256;
+			struct Blake2b;
+
+			Base& FindStrict(uint32_t);
+			Base& FindStrict(HashObj*);
+
+		} m_DataProcessor;
 
 	public:
 

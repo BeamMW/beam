@@ -16,6 +16,12 @@
 #include "bvm2_impl.h"
 #include <sstream>
 
+template <>
+struct std::numeric_limits<Shaders::HashObj::Type>
+	:public std::numeric_limits<uint32_t>
+{
+};
+
 namespace beam {
 namespace bvm2 {
 
@@ -445,6 +451,9 @@ namespace bvm2 {
 		template <typename TOut, typename TIn>
 		TOut ToHost(TIn x) { return x; }
 
+		template <typename TOut, typename TIn>
+		TOut ToMethod(TIn x) { return x; }
+
 		void InvokeExtPlus(uint32_t nBinding);
 
 		BVMOpsAll_Common(THE_MACRO)
@@ -454,6 +463,12 @@ namespace bvm2 {
 	const char* ProcessorPlus::ToHost<const char*, Wasm::Word>(Wasm::Word sz)
 	{
 		return RealizeStr(sz);
+	}
+
+	template<>
+	Wasm::Word ProcessorPlus::ToMethod<Wasm::Word, HashObj*>(HashObj* p)
+	{
+		return static_cast<Wasm::Word>(reinterpret_cast<size_t>(p));
 	}
 
 	struct ProcessorPlus_Contract
@@ -494,6 +509,10 @@ namespace bvm2 {
 
 	uint32_t LogFrom(uint8_t x) {
 		return x;
+	}
+
+	uint32_t LogFrom(HashObj::Type x) {
+		return static_cast<uint32_t>(x);
 	}
 
 #define PAR_PASS(type, name) m_##name.V
@@ -673,12 +692,12 @@ namespace bvm2 {
 
 #define BVM_METHOD_PAR_DECL(type, name) ParamWrap<type>::Type name
 #define BVM_METHOD_PAR_DECL_HOST(type, name) type name
-#define BVM_METHOD_PAR_PASS(type, name) name
+#define BVM_METHOD_PAR_PASS_TO_METHOD(type, name) ProcessorPlus::From(*this).ToMethod<type>(name)
 #define BVM_METHOD_PAR_PASS_TO_HOST(type, name) ProcessorPlus::From(*this).ToHost<type>(name)
 #define BVM_METHOD(name) ProcessorFromMethod::name##_Type::RetType_##name ProcessorFromMethod::name##_Type::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
 #define BVM_METHOD_HOST(name) ProcessorFromMethod::name##_Type::RetTypeHost_##name ProcessorFromMethod::name##_TypeEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
 
-#define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS, MACRO_COMMA));
+#define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_METHOD, MACRO_COMMA));
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
 #define BVM_METHOD_VIA_HOST(name) BVM_METHOD(name) { return OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_HOST, MACRO_COMMA)); }
@@ -1199,6 +1218,109 @@ namespace bvm2 {
 		return get_Height();
 	}
 	BVM_METHOD_HOST_AUTO(get_Height)
+
+	struct Processor::DataProcessor::Sha256
+		:public Processor::DataProcessor::Base
+	{
+		ECC::Hash::Processor m_Hp;
+
+		virtual ~Sha256() {}
+		virtual void Write(const uint8_t* p, uint32_t n) override
+		{
+			m_Hp << Blob(p, n);
+		}
+		virtual uint32_t Read(uint8_t* p, uint32_t n)
+		{
+			ECC::Hash::Value hv;
+			ECC::Hash::Processor(m_Hp) >> hv;
+			m_Hp << hv;
+			
+			std::setmin(n, hv.nBytes);
+			memcpy(p, hv.m_pData, n);
+			return n;
+		}
+	};
+
+	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
+	{
+		auto it = m_Map.find(key, Base::Comparator());
+		Wasm::Test(m_Map.end() != it);
+		return *it;
+	}
+
+	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(HashObj* pObj)
+	{
+		return FindStrict(static_cast<uint32_t>(reinterpret_cast<size_t>(pObj)));
+	}
+
+	BVM_METHOD(HashAlloc)
+	{
+		if ((Kind::Contract == get_Kind()) && (m_DataProcessor.m_Map.size() >= Limits::HashObjects))
+			return 0;
+
+		DischargeUnits(Limits::Cost::HashOp);
+
+		std::unique_ptr<DataProcessor::Base> pRet;
+		switch (type)
+		{
+		case HashObj::Type::Sha256:
+			pRet = std::make_unique<DataProcessor::Sha256>();
+			break;
+
+		default:
+			return 0;
+		}
+
+		uint32_t ret = m_DataProcessor.m_Map.empty() ? 1 : (m_DataProcessor.m_Map.rbegin()->m_Key + 1);
+		pRet->m_Key = ret;
+		m_DataProcessor.m_Map.insert(*pRet.release());
+
+		return ret;
+	}
+
+	BVM_METHOD_HOST(HashAlloc)
+	{
+		auto val = ProcessorPlus::From(*this).OnMethod_HashAlloc(type);
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
+	}
+
+	BVM_METHOD(HashWrite)
+	{
+		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+
+		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
+	}
+
+	BVM_METHOD_HOST(HashWrite)
+	{
+		m_DataProcessor.FindStrict(pHash).Write(reinterpret_cast<const uint8_t*>(p), size);
+	}
+
+	BVM_METHOD(HashGetValue)
+	{
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+
+		uint8_t* pDst_ = get_AddrW(pDst, size);
+		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);
+		memset0(pDst_ + n, size - n);
+	}
+
+	BVM_METHOD_HOST(HashGetValue)
+	{
+		uint8_t* pDst_ = reinterpret_cast<uint8_t*>(pDst);
+		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);
+		memset0(pDst_ + n, size - n);
+	}
+
+	BVM_METHOD(HashFree)
+	{
+		m_DataProcessor.m_Map.Delete(m_DataProcessor.FindStrict(pHash));
+	}
+
+	BVM_METHOD_HOST(HashFree)
+	{
+		m_DataProcessor.m_Map.Delete(m_DataProcessor.FindStrict(pHash));
+	}
 
 	//BVM_METHOD(LoadVarEx)
 	//{
