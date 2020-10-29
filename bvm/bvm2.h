@@ -354,7 +354,7 @@ namespace bvm2 {
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
-		virtual uint32_t get_HeapLimit();
+		virtual uint32_t get_HeapLimit() override;
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
