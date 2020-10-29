@@ -273,7 +273,7 @@ namespace bvm2 {
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
-		virtual uint32_t get_HeapLimit();
+		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
