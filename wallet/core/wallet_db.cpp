@@ -6134,4 +6134,13 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::Voucher, voucher);
         return std::to_string(params);
     }
+
+    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB)
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
+        AppendLibraryVersion(params);
+        return std::to_string(params);
+    }
 }

@@ -1252,11 +1252,7 @@ namespace beam::wallet
 
     void WalletClient::getPublicAddress()
     {
-        TxParameters params;
-        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*m_walletDB->get_OwnerKdf(), 0));
-        AppendLibraryVersion(params);
-        onPublicAddress(std::to_string(params));
+        onPublicAddress(GeneratePublicOfflineAddress(*m_walletDB));
     }
 
     void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)
