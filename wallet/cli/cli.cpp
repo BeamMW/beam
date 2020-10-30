@@ -660,7 +660,7 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (auto it = vm.find(cli::MAX_PRIVACY_OFFLINE); it != vm.end())
+        if (auto it = vm.find(cli::OFFLINE_ADDRESS); it != vm.end())
         {
             auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
@@ -674,22 +674,30 @@ namespace
 
     int GetAddress(const po::variables_map& vm)
     {
-        TxParameters params;
-        boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
-        auto mpOfflineIt = vm.find(cli::MAX_PRIVACY_OFFLINE);
-
-        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (mpOfflineIt != vm.end());
-
+        std::string newAddress;
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            LOG_INFO() << "Generating public address";
-            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-            params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB->get_OwnerKdf(), 0));
+            LOG_INFO() << "Generating public offline address";
+            newAddress =  GeneratePublicOfflineAddress(*walletDB);
+        }
+        else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
+        {
+            LOG_INFO() << "Generating max privacy address";
+            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+            newAddress = GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+        }
+        else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
+        {
+            LOG_INFO() << "Generating offline address";
+            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, it2->second.as<Positive<uint32_t>>().value);
+            newAddress = GenerateOfflineAddress(walletAddress, 0, vouchers);
         }
         else
         {
+            boost::optional<WalletAddress> address;
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
                 auto receiver = it->second.as<string>();
@@ -704,12 +712,12 @@ namespace
                 address = walletDB->getAddress(walletID);
                 if (!address)
                 {
-                    LOG_ERROR() << "Cannot generate token, there is no address";
+                    LOG_ERROR() << "Cannot get address, there is no SBBS";
                     return -1;
                 }
                 if (address->isExpired())
                 {
-                    LOG_ERROR() << "Cannot generate token, address is expired";
+                    LOG_ERROR() << "Cannot get address, it is expired";
                     return -1;
                 }
                 if (!address->isPermanent())
@@ -717,34 +725,15 @@ namespace
                     LOG_ERROR() << "The address expiration time must be never.";
                     return -1;
                 }
-                if (isMaxPrivacyToken)
-                {
-                    LOG_INFO() << "Generating max privacy address";
-                    params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-                }
-            }
-            else if (isMaxPrivacyToken)
-            {
-                LOG_INFO() << "Generating max privacy address";
-                address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
             }
             else
             {
                 address = GenerateNewAddress(walletDB, "");
             }
-
-            params.SetParameter(TxParameterID::PeerID, address->m_walletID);
-            params.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
-            params.SetParameter(TxParameterID::IsPermanentPeerID, address->isPermanent());
-            AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
+            newAddress = GenerateRegularAddress(*address, 0, address->isPermanent(), "");
         }
-        AppendLibraryVersion(params);
-        if (!params.GetParameter<TxType>(TxParameterID::TransactionType))
-        {
-            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-        }
-        LOG_INFO() << "address: " << to_string(params);
+        
+        LOG_INFO() << "address: " << newAddress;
         return 0;
     }
 

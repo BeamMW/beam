@@ -116,7 +116,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
     }
 
-    if (vm.find(cli::MAX_PRIVACY) != vm.end() && vm[cli::MAX_PRIVACY].as<bool>())
+    if (vm.find(cli::MAX_PRIVACY_ADDRESS) != vm.end() && vm[cli::MAX_PRIVACY_ADDRESS].as<bool>())
     {
         params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
     }
