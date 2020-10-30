@@ -55,4 +55,12 @@ namespace beam::wallet
         bool operator==(const ExchangeRate& other) const;
         bool operator!=(const ExchangeRate& other) const;
     };
+
+    struct ExchangeRateHistoryEntity : public ExchangeRate
+    {
+        ExchangeRateHistoryEntity() = default;
+        ExchangeRateHistoryEntity(const ExchangeRate& rate) : ExchangeRate(rate) {}
+        Height m_height = 0;
+    };
+
 } // namespace beam::wallet

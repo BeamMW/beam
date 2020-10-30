@@ -539,6 +539,11 @@ namespace beam::wallet
         // Exchange rates management
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
+        virtual ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
+            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const = 0;
+        virtual std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(
+            uint64_t startHeight, uint64_t endHeight) const = 0;
+        virtual void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -693,6 +698,10 @@ namespace beam::wallet
         
         std::vector<ExchangeRate> getExchangeRates() const override;
         void saveExchangeRate(const ExchangeRate&) override;
+        ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
+            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const override;
+        std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
+        void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
