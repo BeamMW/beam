@@ -267,7 +267,8 @@ namespace bvm2 {
 	void Processor::DischargeMemOp(uint32_t size)
 	{
 		// don't care about overflow. Assume avail max mem size multiplied by cost won't overflow
-		DischargeUnits(size * Limits::Cost::MemOpPerByte);
+		size = size + 15 / 16;
+		DischargeUnits(size * Limits::Cost::MemOpPer16Byte);
 	}
 
 	void ProcessorContract::DischargeVar(uint32_t& trg, uint32_t val)
