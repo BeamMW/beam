@@ -51,3 +51,18 @@ struct HashObj
 	};
 };
 
+struct BlockHeader
+{
+	Height m_Height;
+	HashValue m_Hash;
+	Timestamp m_Timestamp;
+	HashValue m_Kernels;
+	HashValue m_Definition;
+
+	template <bool bToShader>
+	void Convert()
+	{
+		ConvertOrd<bToShader>(m_Height);
+		ConvertOrd<bToShader>(m_Timestamp);
+	}
+};

@@ -23,8 +23,10 @@ namespace Shaders {
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
+	typedef ECC::uintBig HashValue;
     using beam::Amount;
     using beam::Height;
+	using beam::Timestamp;
 
     template<bool bToShader, typename T>
     inline void ConvertOrd(T& x)
@@ -50,6 +52,7 @@ namespace bvm2 {
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
 	using Shaders::HashObj;
+	using Shaders::BlockHeader;
 
 	struct Limits
 	{
@@ -181,6 +184,7 @@ namespace bvm2 {
 
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
+		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
 			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
@@ -305,7 +309,6 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
-		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

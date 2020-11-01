@@ -30,6 +30,7 @@ typedef signed long long int64_t;
 typedef uint64_t Height;
 typedef uint64_t Amount;
 typedef uint32_t AssetID;
+typedef uint64_t Timestamp;
 
 #pragma pack (push, 1)
 
@@ -43,6 +44,7 @@ struct Opaque {
 typedef Opaque<33> PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;
+typedef Opaque<32> HashValue;
 
 template <bool bToShader, typename T>
 inline void ConvertOrd(T&) {}

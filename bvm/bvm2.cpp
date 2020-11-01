@@ -1220,6 +1220,25 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(get_Height)
 
+	BVM_METHOD(get_Hdr)
+	{
+		auto& hdr_ = get_AddrAsW<BlockHeader>(hdr); // currently ignore alignment
+		hdr_.Convert<false>();
+		OnHost_get_Hdr(hdr_);
+		hdr_.Convert<true>();
+	}
+	BVM_METHOD_HOST(get_Hdr)
+	{
+		Block::SystemState::Full s;
+		s.m_Height = Wasm::from_wasm(hdr.m_Height);
+		Wasm::Test(get_HdrAt(s));
+
+		s.get_Hash(hdr.m_Hash);
+		hdr.m_Timestamp = s.m_TimeStamp;
+		hdr.m_Kernels = s.m_Kernels;
+		hdr.m_Definition = s.m_Definition;
+	}
+
 	struct Processor::DataProcessor::Sha256
 		:public Processor::DataProcessor::Base
 	{

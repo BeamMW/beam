@@ -122,6 +122,9 @@
 
 #define BVMOp_get_Height(macro, sep)
 
+#define BVMOp_get_Hdr(macro, sep) \
+	macro(BlockHeader&, hdr)
+
 #define BVMOp_VarsEnum(macro, sep) \
 	macro(const void*, pKey0) sep \
 	macro(uint32_t, nKey0) sep \
@@ -212,6 +215,7 @@
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
 	macro(0x40, Height   , get_Height) \
+	macro(0x41, void     , get_Hdr) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
