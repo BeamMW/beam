@@ -126,6 +126,8 @@ public:
         _broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
     }
 
+    virtual ~ExchangeRateProvider() = default;
+
     std::string getRate(wallet::ExchangeRate::Currency unit, uint64_t height)
     {
         if (height >= _preloadStartHeight && height <= _preloadEndHeight)
