@@ -1398,4 +1398,32 @@ namespace beam::wallet
         return CalculateShieldedFeeByKernelsCount(GetShieldedInputsNum(v));
     }
 
+    TxAddressType GetAddressType(const TxDescription& tx)
+    {
+        if (tx.m_txType == TxType::Simple)
+            return TxAddressType::Regular;
+
+        if (tx.m_txType == TxType::AtomicSwap)
+            return TxAddressType::AtomicSwap;
+
+        if (tx.m_txType != TxType::PushTransaction)
+            return TxAddressType::Unknown;
+
+        auto token = tx.getToken();
+        auto p = ParseParameters(token);
+        const TxParameters& params = *p;
+        auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
+        if (voucher)
+            return TxAddressType::MaxPrivacy;
+
+        auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+        if (vouchers && !vouchers->empty())
+            return TxAddressType::Offline;
+        
+        auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+        if (gen)
+            return TxAddressType::PublicOffline;
+
+        return TxAddressType::Unknown;
+    }
 }  // namespace beam::wallet

@@ -2125,6 +2125,7 @@ namespace
 
                 if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
                 {
+                    // TODO: enough beam & asset
                     LOG_ERROR() << kErrorNotEnoughtCoins;
                     return -1;
                 }

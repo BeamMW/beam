@@ -123,7 +123,10 @@ namespace beam::wallet::lelantus
         packedMessage->m_TxID = Blob(m_Tx.GetTxID().data(), static_cast<uint32_t>(m_Tx.GetTxID().size()));
         uint8_t maxPrivacyMinAnonimitySet = 0;
         if (GetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, maxPrivacyMinAnonimitySet))
-            packedMessage->m_maxPrivacyMinAnonimitySet = maxPrivacyMinAnonimitySet;
+            packedMessage->m_MaxPrivacyMinAnonimitySet = maxPrivacyMinAnonimitySet;
+
+        // store receiver's own ID to allow it to restore the address
+        GetParameter(TxParameterID::PeerOwnID, packedMessage->m_ReceiverOwnID);
 
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
