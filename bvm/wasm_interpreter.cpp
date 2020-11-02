@@ -859,7 +859,7 @@ namespace Wasm {
 			if (iVar < fType.m_Args.n)
 				nOffsWords++; // retaddr
 
-			assert(var.m_Type - Type::s_Base < sizeof(Word));
+			assert(static_cast<size_t>(var.m_Type) - static_cast<size_t>(Type::s_Base) < sizeof(Word));
 
 			uint32_t nValue = (nOffsWords * sizeof(Word)) | (var.m_Type - Type::s_Base);
 			WriteResU(nValue);
