@@ -17,6 +17,7 @@
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
 #include "../core/block_rw.h"
+#include "../core/fly_client.h" // hdr pack decoding moved there
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -1719,42 +1720,66 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-	proto::HdrPack msgOut;
+    NodeDB::StateID sid;
+    sid.m_Height = msg.m_Top.m_Height;
+    sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_Top);
+    SendHdrs(sid, msg.m_Count);
+}
 
-	if (msg.m_Count)
-	{
-		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
-		std::setmin(msg.m_Count, proto::g_HdrPackMaxSize);
+void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
+{
+    NodeDB::StateID sid;
+    uint32_t nCount;
 
-		NodeDB& db = m_This.m_Processor.get_DB();
+    HeightRange hr(Rules::HeightGenesis, m_This.m_Processor.m_Cursor.m_Full.m_Height);
+    hr.Intersect(msg.m_Height);
+    if (!hr.IsEmpty())
+    {
+        Height dh = hr.m_Max - hr.m_Min + 1;
+        nCount = (dh > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dh);
 
-		NodeDB::StateID sid;
-		sid.m_Row = db.StateFindSafe(msg.m_Top);
-		if (sid.m_Row)
-		{
-			sid.m_Height = msg.m_Top.m_Height;
+        sid.m_Height = hr.m_Max;
+        sid.m_Row = m_This.m_Processor.FindActiveAtStrict(hr.m_Max);
+    }
+    else
+    {
+        nCount = 0;
+        sid.m_Row = 0;
+    }
 
-			NodeDB::WalkerSystemState wlk;
-			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
-			{
-				if (msgOut.m_vElements.empty())
-					msgOut.m_vElements.reserve(msg.m_Count);
+    SendHdrs(sid, nCount);
+}
 
-				msgOut.m_vElements.push_back(wlk.m_State);
+void Node::Peer::SendHdrs(NodeDB::StateID& sid, uint32_t nCount)
+{
+    if (nCount && sid.m_Row)
+    {
+        // don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
+        std::setmin(nCount, proto::g_HdrPackMaxSize);
 
-				if (msgOut.m_vElements.size() == msg.m_Count)
-					break;
-			}
+        proto::HdrPack msgOut;
+        msgOut.m_vElements.reserve(nCount);
 
-			if (!msgOut.m_vElements.empty())
-				msgOut.m_Prefix = wlk.m_State;
-		}
-	}
+        NodeDB& db = m_This.m_Processor.get_DB();
 
-	if (msgOut.m_vElements.empty())
-		Send(proto::DataMissing(Zero));
-	else
-		Send(msgOut);
+        NodeDB::WalkerSystemState wlk;
+        for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+        {
+            msgOut.m_vElements.push_back(wlk.m_State);
+
+            if (msgOut.m_vElements.size() == nCount)
+                break;
+        }
+
+        if (!msgOut.m_vElements.empty())
+        {
+            msgOut.m_Prefix = wlk.m_State;
+            Send(msgOut);
+            return;
+        }
+    }
+
+    Send(proto::DataMissing(Zero));
 }
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
@@ -1762,52 +1787,15 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
 		return false;
 
-	// PoW verification is heavy for big packs. Do it in parallel
-	v.resize(msg.m_vElements.size());
+    // PoW verification is heavy for big packs. Do it in parallel
+    Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-	Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
-	Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+    proto::details::ExtraData<proto::HdrPack> ex;
+    if (!ex.DecodeAndCheck(msg))
+        return false;
 
-	for (size_t i = 1; i < msg.m_vElements.size(); i++)
-	{
-		Block::SystemState::Full& s0 = v[i - 1];
-		Block::SystemState::Full& s1 = v[i];
-
-		s0.get_Hash(s1.m_Prev);
-		s1.m_Height = s0.m_Height + 1;
-		Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
-		s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
-	}
-
-	struct MyTask
-		:public Executor::TaskSync
-	{
-		const Block::SystemState::Full* m_pV;
-		uint32_t m_Count;
-		bool m_Valid;
-
-		virtual ~MyTask() {}
-
-		virtual void Exec(Executor::Context& ctx) override
-		{
-            uint32_t i0, nCount;
-            ctx.get_Portion(i0, nCount, m_Count);
-            nCount += i0;
-
-			for (; i0 < nCount; i0++)
-				if (!m_pV[i0].IsValid())
-					m_Valid = false;
-		}
-	};
-
-    MyTask t;
-    t.m_pV = &v.front();
-    t.m_Count = static_cast<uint32_t>(v.size());
-    t.m_Valid = true;
-
-    m_Processor.m_ExecutorMT.ExecAll(t);
-
-	return t.m_Valid;
+    v = std::move(ex.m_vStates);
+    return true;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)

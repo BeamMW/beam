@@ -3127,10 +3127,19 @@ namespace beam
 
 				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
+				RequestEnumHdrs::Ptr pHdrs(new RequestEnumHdrs);
+				pHdrs->m_Msg.m_Height.m_Min = 0;
+				pHdrs->m_Msg.m_Height.m_Max = MaxHeight; // result should be truncated
+
+				net.PostRequest(*pHdrs, *this);
+				m_nProofsExpected++;
+
 				SetTimer(90 * 1000);
 				m_bRunning = true;
 				io::Reactor::get_Current().run();
 				KillTimer();
+
+				verify_test(!pHdrs->m_vStates.empty());
 			}
 		};
 

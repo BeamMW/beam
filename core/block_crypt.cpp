@@ -1944,7 +1944,8 @@ namespace beam
 		oracle
 			<< "fork3"
 			<< pForks[3].m_Height
-			<< pForks[3].m_Hash;
+			// TODO: bvm contraints
+			>> pForks[3].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const

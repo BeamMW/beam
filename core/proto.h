@@ -33,6 +33,9 @@ namespace proto {
 #define BeamNodeMsg_GetHdr(macro) \
     macro(Block::SystemState::ID, ID)
 
+#define BeamNodeMsg_EnumHdrs(macro) \
+    macro(HeightRange, Height)
+
 #define BeamNodeMsg_Hdr(macro) \
     macro(Block::SystemState::Full, Description)
 
@@ -299,6 +302,7 @@ namespace proto {
     macro(0x2b, ShieldedList) \
     macro(0x1f, ContractVarsEnum) \
     macro(0x2d, ContractVars) \
+    macro(0x33, EnumHdrs) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
     macro(0x34, Events) \
@@ -339,7 +343,7 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
-            // 7 - Contract vars
+            // 7 - Contract vars, flexible hdr request
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 7;

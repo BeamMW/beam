@@ -23,8 +23,10 @@ namespace Shaders {
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
+	typedef ECC::uintBig HashValue;
     using beam::Amount;
     using beam::Height;
+	using beam::Timestamp;
 
     template<bool bToShader, typename T>
     inline void ConvertOrd(T& x)
@@ -50,6 +52,7 @@ namespace bvm2 {
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
 	using Shaders::HashObj;
+	using Shaders::BlockHeader;
 
 	struct Limits
 	{
@@ -64,20 +67,20 @@ namespace bvm2 {
 
 		struct Cost
 		{
-			static const Amount UnitPrice = 100; // groth
+			static const Amount UnitPrice = 50; // groth
 
-			static const uint32_t Cycle = 5;
-			static const uint32_t MemOpPerByte = 1;
-			static const uint32_t HeapOp = 150; // in addition to per-byte price
-			static const uint32_t LoadVar = 1000;
-			static const uint32_t LoadVarPerByte = 2;
-			static const uint32_t SaveVar = 3000;
-			static const uint32_t SaveVarPerByte = 5;
-			static const uint32_t CallFar = 5000;
-			static const uint32_t AddSig = 5000;
-			static const uint32_t AssetEmit = 10000;
-			static const uint32_t HashOp = 200; // alloc, getval
-			static const uint32_t HashOpPerByte = 10;
+			static const uint32_t Cycle = 1;
+			static const uint32_t MemOpPer16Byte = 1;
+			static const uint32_t HeapOp = 30; // in addition to per-byte price
+			static const uint32_t LoadVar = 200;
+			static const uint32_t LoadVarPerByte = 1;
+			static const uint32_t SaveVar = 600;
+			static const uint32_t SaveVarPerByte = 2;
+			static const uint32_t CallFar = 1000;
+			static const uint32_t AddSig = 1000;
+			static const uint32_t AssetEmit = 2000;
+			static const uint32_t HashOp = 40; // alloc, getval
+			static const uint32_t HashOpPerByte = 1;
 		};
 
 		struct Charge
@@ -85,7 +88,7 @@ namespace bvm2 {
 			static void Fail();
 			static void Test(bool);
 
-			uint32_t m_Units = 5000000; // max, regardless to the fee. Equivalent of ~1mln cycles
+			uint32_t m_Units = 20000000; // max, regardless to the fee. Equivalent of ~20mln cycles
 			uint32_t m_CallFar = 32;
 			uint32_t m_AddSig = 1024;
 			uint32_t m_AssetOps = 128;
@@ -181,6 +184,7 @@ namespace bvm2 {
 
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
+		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
 			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
@@ -305,7 +309,6 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
-		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

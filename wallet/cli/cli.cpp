@@ -2125,6 +2125,7 @@ namespace
 
                 if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
                 {
+                    // TODO: enough beam & asset
                     LOG_ERROR() << kErrorNotEnoughtCoins;
                     return -1;
                 }
@@ -2184,6 +2185,7 @@ namespace
 			    struct MyManager
 				    :public bvm2::ManagerStd
 			    {
+                    Block::SystemState::Full m_sTip;
 				    bool m_Done = false;
 				    bool m_Err = false;
                     bool m_Async = false;
@@ -2202,6 +2204,11 @@ namespace
                             io::Reactor::get_Current().stop();
 				    }
 
+                    Height get_Height() override
+                    {
+                        return m_sTip.m_Height;
+                    }
+
                     static void Compile(ByteBuffer& res, const char* sz, Kind kind)
                     {
                         std::FStream fs;
@@ -2218,6 +2225,7 @@ namespace
                 MyManager man;
                 man.m_pPKdf = walletDB->get_OwnerKdf();
                 man.m_pNetwork = wallet->GetNodeEndpoint();
+                walletDB->get_History().get_Tip(man.m_sTip);
 
                 auto sVal = vm[cli::SHADER_BYTECODE_MANAGER].as<string>();
                 if (sVal.empty())

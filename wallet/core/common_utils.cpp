@@ -98,7 +98,7 @@ Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount bea
 
     if (!isBeamTx && beamFee)
     {
-        auto coins = walletDB->selectCoins(amountAsset, assetId);
+        auto coins = walletDB->selectCoins(amountAsset, Asset::s_BeamID);
         const auto beamAvailable = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c)
         {
             return sum + c.m_ID.m_Value;
