@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "fly_client.h"
+#include "../utility/executor.h"
 
 namespace beam {
 namespace proto {
@@ -818,6 +819,87 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestStateSummary& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
 {
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestEnumHdrs& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);
+}
+
+bool details::ExtraData<proto::HdrPack>::DecodeAndCheck(const HdrPack& msg)
+{
+    if (msg.m_vElements.empty())
+        return true; // this is allowed
+
+    // PoW verification is heavy for big packs. Do it in parallel
+    std::vector<Block::SystemState::Full> v;
+    v.resize(msg.m_vElements.size());
+
+    Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
+    Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+
+    for (size_t i = 1; i < msg.m_vElements.size(); i++)
+    {
+        Block::SystemState::Full& s0 = v[i - 1];
+        Block::SystemState::Full& s1 = v[i];
+
+        s0.get_Hash(s1.m_Prev);
+        s1.m_Height = s0.m_Height + 1;
+        Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
+        s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
+    }
+
+    struct MyTask
+        :public Executor::TaskSync
+    {
+        const Block::SystemState::Full* m_pV;
+        uint32_t m_Count;
+        bool m_Valid;
+
+        virtual ~MyTask() {}
+
+        virtual void Exec(Executor::Context& ctx) override
+        {
+            uint32_t i0, nCount;
+            ctx.get_Portion(i0, nCount, m_Count);
+            TestRange(i0, nCount);
+        }
+
+        void TestRange(uint32_t i0, uint32_t nCount)
+        {
+            nCount += i0;
+            for (; i0 < nCount; i0++)
+                if (!m_pV[i0].IsValid())
+                    m_Valid = false;
+        }
+    };
+
+    MyTask t;
+    t.m_pV = &v.front();
+    t.m_Count = static_cast<uint32_t>(v.size());
+    t.m_Valid = true;
+
+    if (Executor::s_pInstance)
+        Executor::s_pInstance->ExecAll(t);
+    else
+        t.TestRange(0, t.m_Count);
+
+    if (t.m_Valid)
+        m_vStates = std::move(v);
+
+    return t.m_Valid;
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestEnumHdrs& req)
+{
+    if (!req.DecodeAndCheck(req.m_Res))
+        ThrowUnexpected();
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
+{
+    auto& req = Cast::Up<RequestEnumHdrs>(get_FirstRequestStrict(Request::Type::EnumHdrs));
+    OnFirstRequestDone(IsSupported(req));
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)

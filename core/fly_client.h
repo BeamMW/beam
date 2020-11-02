@@ -29,6 +29,13 @@ namespace proto {
 		template <> struct ExtraData<proto::Events> {
 			uint32_t m_Max = proto::Event::s_Max;
 		};
+
+		template <> struct ExtraData<proto::HdrPack>
+		{
+			std::vector<Block::SystemState::Full> m_vStates;
+
+			bool DecodeAndCheck(const HdrPack& msg);
+		};
 	}
 
 	struct FlyClient
@@ -45,6 +52,7 @@ namespace proto {
 		macro(BbsMsg,            BbsMsg,               Pong) \
 		macro(Asset,             GetProofAsset,        ProofAsset) \
 		macro(StateSummary,      GetStateSummary,      StateSummary) \
+		macro(EnumHdrs,          EnumHdrs,             HdrPack) \
 		macro(ContractVars,      ContractVarsEnum,     ContractVars)
 
 		class Request
@@ -229,6 +237,7 @@ namespace proto {
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
 				virtual void OnMsg(proto::BbsMsg&& msg) override;
 				virtual void OnMsg(proto::EventsSerif&& msg) override;
+				virtual void OnMsg(proto::DataMissing&& msg) override;
 				virtual void OnMsg(PeerInfo&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \

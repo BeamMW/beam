@@ -1076,6 +1076,10 @@ namespace beam::wallet
     {
     }
 
+    void Wallet::OnRequestComplete(MyRequestEnumHdrs&)
+    {
+    }
+
 
     void Wallet::RequestEvents()
     {

@@ -17,6 +17,7 @@
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
 #include "../core/block_rw.h"
+#include "../core/fly_client.h" // hdr pack decoding moved there
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -1786,52 +1787,15 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
 		return false;
 
-	// PoW verification is heavy for big packs. Do it in parallel
-	v.resize(msg.m_vElements.size());
+    // PoW verification is heavy for big packs. Do it in parallel
+    Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-	Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
-	Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+    proto::details::ExtraData<proto::HdrPack> ex;
+    if (!ex.DecodeAndCheck(msg))
+        return false;
 
-	for (size_t i = 1; i < msg.m_vElements.size(); i++)
-	{
-		Block::SystemState::Full& s0 = v[i - 1];
-		Block::SystemState::Full& s1 = v[i];
-
-		s0.get_Hash(s1.m_Prev);
-		s1.m_Height = s0.m_Height + 1;
-		Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
-		s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
-	}
-
-	struct MyTask
-		:public Executor::TaskSync
-	{
-		const Block::SystemState::Full* m_pV;
-		uint32_t m_Count;
-		bool m_Valid;
-
-		virtual ~MyTask() {}
-
-		virtual void Exec(Executor::Context& ctx) override
-		{
-            uint32_t i0, nCount;
-            ctx.get_Portion(i0, nCount, m_Count);
-            nCount += i0;
-
-			for (; i0 < nCount; i0++)
-				if (!m_pV[i0].IsValid())
-					m_Valid = false;
-		}
-	};
-
-    MyTask t;
-    t.m_pV = &v.front();
-    t.m_Count = static_cast<uint32_t>(v.size());
-    t.m_Valid = true;
-
-    m_Processor.m_ExecutorMT.ExecAll(t);
-
-	return t.m_Valid;
+    v = std::move(ex.m_vStates);
+    return true;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
