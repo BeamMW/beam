@@ -591,6 +591,10 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
 
+    Amount feeForShieldedInputs = 0;
+    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, walletDB, false, feeForShieldedInputs))
+        throw std::runtime_error("Fee to low");
+
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
     // TODO:SWAP use async callbacks or IWalletObserver?
@@ -598,14 +602,14 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
     FillSwapTxParams(&swapTxParameters,
-                        senderAddress.m_walletID,
-                        minHeight,
-                        amount,
-                        fee,
-                        swapCoin,
-                        swapAmount,
-                        swapFeeRate,
-                        isBeamSide);
+                     senderAddress.m_walletID,
+                     minHeight,
+                     amount,
+                     !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee,
+                     swapCoin,
+                     swapAmount,
+                     swapFeeRate,
+                     isBeamSide);
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 

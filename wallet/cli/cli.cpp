@@ -2092,38 +2092,17 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-                bool isShielded = type && *type == TxType::PushTransaction;
+                bool isPushTx = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                Transaction::FeeSettings fs;
-                Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
-
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
-
-                if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
-                {
-                    LOG_ERROR() << kErrorNotEnoughtCoins;
+                Amount feeForShieldedInputs = 0;
+                if (!CheckFeeForShieldedInputs(amount, fee, walletDB, isPushTx, feeForShieldedInputs))
                     return -1;
-                }
 
-                if (coinSelectionRes.minimalFee > fee)
-                {
-                    if (isShielded && !coinSelectionRes.shieldedInputsFee)
-                    {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
-                    }
-                    else
-                    {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
-                    }
-                    return -1;
-                }
-
-                if (isShielded)
+                if (isPushTx)
                 {
                     const auto& ownAddresses = walletDB->getAddresses(true);
                     auto it = std::find_if(
@@ -2145,7 +2124,7 @@ namespace
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automaticaly
-                    .SetParameter(TxParameterID::Fee, !!coinSelectionRes.shieldedInputsFee ? fee - coinSelectionRes.shieldedInputsFee : fee)
+                    .SetParameter(TxParameterID::Fee, !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);

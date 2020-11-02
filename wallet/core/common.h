@@ -797,7 +797,7 @@ namespace beam::wallet
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
-    Amount GetShieldedFee(const TxDescription& tx);
+    Amount GetShieldedFee(const TxParameters& tx, SubTxID subTxID = kDefaultSubTxID);
 
     TxAddressType GetAddressType(const TxDescription& tx);
 }    // beam::wallet
