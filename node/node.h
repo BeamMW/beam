@@ -551,7 +551,7 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
-
+		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
@@ -571,6 +571,7 @@ private:
 		virtual void OnMsg(proto::GetHdr&&) override;
 		virtual void OnMsg(proto::GetHdrPack&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
+		virtual void OnMsg(proto::EnumHdrs&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::GetBodyPack&&) override;
 		virtual void OnMsg(proto::Body&&) override;

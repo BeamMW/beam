@@ -1034,6 +1034,29 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::HeightRange serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::HeightRange& v)
+		{
+			beam::Height dh = v.m_Max - v.m_Min;
+			ar
+				& v.m_Min
+				& dh;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::HeightRange& v)
+		{
+			beam::Height dh;
+			ar
+				& v.m_Min
+				& dh;
+
+			v.m_Max = v.m_Min + dh;
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)

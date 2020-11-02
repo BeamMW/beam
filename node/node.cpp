@@ -1719,42 +1719,66 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-	proto::HdrPack msgOut;
+    NodeDB::StateID sid;
+    sid.m_Height = msg.m_Top.m_Height;
+    sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_Top);
+    SendHdrs(sid, msg.m_Count);
+}
 
-	if (msg.m_Count)
-	{
-		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
-		std::setmin(msg.m_Count, proto::g_HdrPackMaxSize);
+void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
+{
+    NodeDB::StateID sid;
+    uint32_t nCount;
 
-		NodeDB& db = m_This.m_Processor.get_DB();
+    HeightRange hr(Rules::HeightGenesis, m_This.m_Processor.m_Cursor.m_Full.m_Height);
+    hr.Intersect(msg.m_Height);
+    if (!hr.IsEmpty())
+    {
+        Height dh = hr.m_Max - hr.m_Min + 1;
+        nCount = (dh > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dh);
 
-		NodeDB::StateID sid;
-		sid.m_Row = db.StateFindSafe(msg.m_Top);
-		if (sid.m_Row)
-		{
-			sid.m_Height = msg.m_Top.m_Height;
+        sid.m_Height = hr.m_Max;
+        sid.m_Row = m_This.m_Processor.FindActiveAtStrict(hr.m_Max);
+    }
+    else
+    {
+        nCount = 0;
+        sid.m_Row = 0;
+    }
 
-			NodeDB::WalkerSystemState wlk;
-			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
-			{
-				if (msgOut.m_vElements.empty())
-					msgOut.m_vElements.reserve(msg.m_Count);
+    SendHdrs(sid, nCount);
+}
 
-				msgOut.m_vElements.push_back(wlk.m_State);
+void Node::Peer::SendHdrs(NodeDB::StateID& sid, uint32_t nCount)
+{
+    if (nCount && sid.m_Row)
+    {
+        // don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
+        std::setmin(nCount, proto::g_HdrPackMaxSize);
 
-				if (msgOut.m_vElements.size() == msg.m_Count)
-					break;
-			}
+        proto::HdrPack msgOut;
+        msgOut.m_vElements.reserve(nCount);
 
-			if (!msgOut.m_vElements.empty())
-				msgOut.m_Prefix = wlk.m_State;
-		}
-	}
+        NodeDB& db = m_This.m_Processor.get_DB();
 
-	if (msgOut.m_vElements.empty())
-		Send(proto::DataMissing(Zero));
-	else
-		Send(msgOut);
+        NodeDB::WalkerSystemState wlk;
+        for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+        {
+            msgOut.m_vElements.push_back(wlk.m_State);
+
+            if (msgOut.m_vElements.size() == nCount)
+                break;
+        }
+
+        if (!msgOut.m_vElements.empty())
+        {
+            msgOut.m_Prefix = wlk.m_State;
+            Send(msgOut);
+            return;
+        }
+    }
+
+    Send(proto::DataMissing(Zero));
 }
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
