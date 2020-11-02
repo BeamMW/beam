@@ -5027,7 +5027,7 @@ namespace beam::wallet
                 {
                     ShieldedCoin::UnlinkStatus unlinkStatus;
                     unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
-                    if (unlinkStatus.get_SpendPriority() < 1)
+                    if (unlinkStatus.m_Progress < 100)
                     {
                         c.m_Status = ShieldedCoin::Status::Maturing;
                         return;
