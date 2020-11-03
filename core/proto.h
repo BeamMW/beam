@@ -384,11 +384,12 @@ namespace proto {
         macro(AmountSigned, EmissionChange)
 
         struct Type {
-            enum Enum : int32_t{
+            enum Enum : uint32_t {
 #define THE_MACRO(id, name) name = id,
                 BeamEventsAll(THE_MACRO)
 #undef THE_MACRO
             };
+            static Enum Load(Deserializer&);
         };
 
         struct Flags {

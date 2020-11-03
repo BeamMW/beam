@@ -180,6 +180,13 @@ public:
         return *this;
     }
 
+    /// return symbol to the input stream, hack to handle invalid input
+    /// hack to fix #1622 TODO: remove after fork
+    void ungetch() {
+        _is.ungetch('\0'); // in our implementation we don't return any char we move the cursor back instead
+    }
+
+
 private:
     /// Contiguous buffer istream
     using Istream = detail::SerializeIstream;
