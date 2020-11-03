@@ -1658,8 +1658,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
-    beam::Height fork1Height = 10;
-    Rules::get().pForks[1].m_Height = fork1Height;
+    beam::Height fork1Height = Rules::get().pForks[1].m_Height;
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);
