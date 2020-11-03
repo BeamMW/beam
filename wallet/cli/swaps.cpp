@@ -689,6 +689,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
         << " Swap amount:  " << *swapAmount << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
+    
+    Amount fee = kMinFeeInGroth;
+    if (*isBeamSide)
+    {
+        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, false);
+        fee = coinSelectionRes.minimalFee - coinSelectionRes.shieldedInputsFee;
+        cout << " Fee:          " << PrintableAmount(!!coinSelectionRes.shieldedInputsFee ? coinSelectionRes.minimalFee : fee) << "\n";
+    }
 
     // get accepting
     // TODO: Refactor
@@ -715,7 +723,6 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     // on accepting
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-    Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
