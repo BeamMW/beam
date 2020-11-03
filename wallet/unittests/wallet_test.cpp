@@ -75,7 +75,7 @@ namespace
             LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
         }
         
-        ByteBuffer buf2 = from_hex("42");
+        ByteBuffer buf2 = from_hex("82");
 
         Deserializer der;
         der.reset(buf2.data(), buf2.size());
