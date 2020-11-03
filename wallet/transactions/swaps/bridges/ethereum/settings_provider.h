@@ -60,6 +60,7 @@ protected:
     std::string GetAccountIndexName() const;
     std::string GetShouldConnectName() const;
     std::string GetContractAddressName() const;
+    std::string GetHashlockContractAddressName() const;
         
     template<typename T>
     void ReadFromDB(const std::string& name, T& value)

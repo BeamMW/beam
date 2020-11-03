@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include "wallet/transactions/swaps/common.h"
+
 namespace beam::ethereum
 {
 struct Settings
@@ -28,9 +30,18 @@ struct Settings
     uint16_t m_txMinConfirmations = 12;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
-    std::string m_contractAddress = "";
+    std::string m_swapHashlockContractAddress = "";
+    std::string m_swapContractAddress = "";
     uint64_t m_lockTxGasLimit = 200'000;
     uint64_t m_withdrawTxGasLimit = 200'000;
+
+    std::string m_erc20SwapHashlockContractAddress;
+    std::string m_erc20SwapContractAddress;
+
+    // TODO: change
+    std::string m_daiContractAddress;
+    std::string m_usdtContractAddress;
+    std::string m_wbtcContractAddress;
 
     bool IsInitialized() const;
     bool IsActivated() const;
@@ -38,6 +49,9 @@ struct Settings
     uint16_t GetTxMinConfirmations() const;
     uint32_t GetLockTimeInBlocks() const;
     double GetBlocksPerHour() const;
-    std::string GetContractAddress() const;
+    std::string GetContractAddress(bool isHashLockScheme = false) const;
+    std::string GetERC20SwapContractAddress(bool isHashLockScheme = false) const;
+
+    std::string GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapCoin) const;
 };
 } // namespace beam::ethereum

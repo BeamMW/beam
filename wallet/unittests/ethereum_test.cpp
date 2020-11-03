@@ -301,7 +301,7 @@ void testSwapWithAggregateSignature()
     const std::string kRefundMethodHash = "0xfa89401a";
     const std::string kRedeemMethodHash = "0x8772acd6";
     const std::string kGetDetailsMethodHash = "0x7cf3285f";
-    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0x81f58775ef55867c1b8685c0b1090e7cd2298da8");
+    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0");
 
     ethereum::Settings settingsAlice;
     settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
@@ -332,30 +332,10 @@ void testSwapWithAggregateSignature()
     libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
     auto participant = bridgeBob.generateEthAddress();
     auto initiator = bridgeAlice.generateEthAddress();
-    libbitcoin::data_chunk hashData;
-    hashData.reserve(60);
-    hashData.insert(hashData.end(), addressFromSecret.cbegin(), addressFromSecret.cend());
-    hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
-    hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
-    auto hash = ethash::keccak256(&hashData[0], hashData.size());
-
-    libbitcoin::data_chunk result(std::begin(hash.bytes), std::end(hash.bytes));
 
     LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
     LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
     LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
-    LOG_DEBUG() << "HASH " << libbitcoin::encode_base16(result);
-
-    libbitcoin::hash_digest hashDigest;
-    std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
-    libbitcoin::recoverable_signature signature;
-    libbitcoin::sign_recoverable(signature, secretEC, hashDigest);
-
-    {
-        libbitcoin::data_chunk resultSign(std::begin(signature.signature), std::end(signature.signature));
-        resultSign.push_back(signature.recovery_id);
-        LOG_DEBUG() << "SIGN: " << libbitcoin::encode_base16(resultSign);
-    }
 
     ECC::uintBig gas = 200000u;
     ECC::uintBig gasPrice = 3000000u;
@@ -372,9 +352,140 @@ void testSwapWithAggregateSignature()
             ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
             ethereum::AddContractABIWordToBuffer(participant, lockData);
 
-            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash)
+            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+
+                    libbitcoin::data_chunk hashData;
+                    hashData.reserve(60);
+                    hashData.insert(hashData.end(), addressFromSecret.cbegin(), addressFromSecret.cend());
+                    hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
+                    hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
+                    hashData.insert(hashData.end(), std::cbegin(refundTimeInBlocks.m_pData), std::cend(refundTimeInBlocks.m_pData));
+                    auto hash = ethash::keccak256(&hashData[0], hashData.size());
+
+                    LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
+
+                    libbitcoin::hash_digest hashDigest;
+                    std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
+                    libbitcoin::recoverable_signature signature;
+                    libbitcoin::sign_recoverable(signature, secretEC, hashDigest);
+
+                    {
+                        libbitcoin::data_chunk resultSign(std::begin(signature.signature), std::end(signature.signature));
+                        resultSign.push_back(signature.recovery_id);
+                        LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
+                    }
+
+                    // redeem
+                    // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
+                    libbitcoin::data_chunk redeemData;
+                    redeemData.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
+                    libbitcoin::decode_base16(redeemData, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
+                    ethereum::AddContractABIWordToBuffer(addressFromSecret, redeemData);
+                    redeemData.insert(redeemData.end(), std::begin(signature.signature), std::end(signature.signature));
+                    redeemData.insert(redeemData.end(), 31u, 0x00);
+                    redeemData.push_back(signature.recovery_id + 27u);
+
+                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
+                        {
+                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            mainReactor->stop();
+                        });
+                });
+        });
+
+    mainReactor->run();
+}
+
+void testERC20SwapWithAggregateSignature()
+{
+    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0x4A2043c5625ec1E6759EA429C6FF8C02979e291E");
+
+    const std::string kLockMethodHash = "0x71c472e6";
+    const std::string kRefundMethodHash = "0xfa89401a";
+    const std::string kRedeemMethodHash = "0x8772acd6";
+    const std::string kGetDetailsMethodHash = "0x7cf3285f";
+    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0x1268071E90CEE6ed135292008f010f60a542c523");
+
+    ethereum::Settings settingsAlice;
+    settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsAlice.m_accountIndex = 3;
+    settingsAlice.m_address = "127.0.0.1:7545";
+    settingsAlice.m_shouldConnect = true;
+
+    ethereum::Settings settingsBob;
+    settingsBob.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsBob.m_accountIndex = 4;
+    settingsBob.m_address = "127.0.0.1:7545";
+    settingsBob.m_shouldConnect = true;
+
+    auto providerAlice = std::make_shared<ethereum::Provider>(settingsAlice);
+    auto providerBob = std::make_shared<ethereum::Provider>(settingsBob);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    ethereum::EthereumBridge bridgeAlice(*mainReactor, *providerAlice);
+    ethereum::EthereumBridge bridgeBob(*mainReactor, *providerBob);
+
+    ECC::uintBig secret;
+    ECC::GenRandom(secret);
+    libbitcoin::ec_secret secretEC;
+    std::move(std::begin(secret.m_pData), std::end(secret.m_pData), std::begin(secretEC));
+
+    auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
+    LOG_DEBUG() << "PUBLIC: " << rawPk;
+    libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
+    auto participant = bridgeBob.generateEthAddress();
+    auto initiator = bridgeAlice.generateEthAddress();
+
+    LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
+    LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
+    LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
+
+    ECC::uintBig gas = 500000u;
+    ECC::uintBig gasPrice = 3000000u;
+    ECC::uintBig swapAmount = 1'00'000'000'000'000'000u;
+
+    // TODO: call Token::approve before LockTx
+
+    bridgeAlice.getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
+        {
+            // LockMethodHash + refundTimeInBlocks + addressFromSecret + participant + contractAddress + value
+            ECC::uintBig refundTimeInBlocks = 4u + blockCount;
+            libbitcoin::data_chunk lockData;
+            lockData.reserve(ethereum::kEthContractMethodHashSize + 5 * ethereum::kEthContractABIWordSize);
+            libbitcoin::decode_base16(lockData, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
+            ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, lockData);
+            ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
+            ethereum::AddContractABIWordToBuffer(participant, lockData);
+            ethereum::AddContractABIWordToBuffer(kTokenContractAddress, lockData);
+            ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, lockData);
+
+            bridgeAlice.send(kContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash)
+                {
+                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+
+                    libbitcoin::data_chunk hashData;
+                    hashData.reserve(60);
+                    hashData.insert(hashData.end(), addressFromSecret.cbegin(), addressFromSecret.cend());
+                    hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
+                    hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
+                    hashData.insert(hashData.end(), std::cbegin(refundTimeInBlocks.m_pData), std::cend(refundTimeInBlocks.m_pData));
+                    hashData.insert(hashData.end(), kTokenContractAddress.cbegin(), kTokenContractAddress.cend());
+                    auto hash = ethash::keccak256(&hashData[0], hashData.size());
+
+                    LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
+
+                    libbitcoin::hash_digest hashDigest;
+                    std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
+                    libbitcoin::recoverable_signature signature;
+                    libbitcoin::sign_recoverable(signature, secretEC, hashDigest);
+
+                    {
+                        libbitcoin::data_chunk resultSign(std::begin(signature.signature), std::end(signature.signature));
+                        resultSign.push_back(signature.recovery_id);
+                        LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
+                    }
 
                     // redeem
                     // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
@@ -410,8 +521,8 @@ int main()
     testCall();
 
     testSwap();
-
     testSwapWithAggregateSignature();
+    testERC20SwapWithAggregateSignature();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

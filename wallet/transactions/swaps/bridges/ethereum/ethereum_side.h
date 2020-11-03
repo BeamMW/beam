@@ -67,6 +67,11 @@ namespace beam::wallet
 
         void OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash);
 
+        bool IsERC20Token() const;        
+        beam::ByteBuffer BuildLockTxData();
+        ECC::uintBig GetSwapAmount() const;
+        bool IsHashLockScheme() const;
+
     private:
         BaseTransaction& m_tx;
         ethereum::IBridge::Ptr m_ethBridge;

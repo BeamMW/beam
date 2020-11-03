@@ -444,7 +444,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
 
     if (vm.count(cli::ETH_CONTRACT_ADDRESS))
     {
-        settings.m_contractAddress = vm[cli::ETH_CONTRACT_ADDRESS].as<string>();
+        settings.m_swapContractAddress = vm[cli::ETH_CONTRACT_ADDRESS].as<string>();
         isChanged = true;
     }
 
@@ -506,7 +506,7 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         stream << "Ethereum node: " << settings.m_address << '\n';
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
-        stream << "Contract address: " << settings.m_contractAddress << '\n';
+        stream << "Contract address: " << settings.m_swapContractAddress << '\n';
         
         LOG_INFO() << stream.str();
         return;

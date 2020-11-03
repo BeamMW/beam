@@ -18,6 +18,8 @@
 #include <bitcoin/bitcoin.hpp>
 #include "core/ecc.h"
 
+#include "wallet/transactions/swaps/common.h"
+
 namespace beam::ethereum
 {
 inline constexpr uint8_t kEthContractABIWordSize = 32;
@@ -31,4 +33,24 @@ std::string AddHexPrefix(const std::string& value);
 std::string RemoveHexPrefix(const std::string& value);
 
 void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::data_chunk& dst);
+
+namespace ERC20Hashes
+{
+    // "allowance(address,address)"
+    inline const char* kAllowanceHash = "dd62ed3e";
+    // "approve(address,uint256)"
+    inline const char* kApproveHash = "095ea7b3";
+    // "balanceOf(address)"
+    inline const char* kBalanceOfHash = "70a08231";
+    // "totalSupply()"
+    inline const char* kTotalSupplyHash = "18160ddd";
+    // "transfer(address,uint256)"
+    inline const char* kTransferHash = "a9059cbb";
+    // "transferFrom(address,address,uint256)"
+    inline const char* kTransferFromHash = "23b872dd";
+    // "name()"
+    inline const char* kNameHash = "06fdde03";
+    // "decimals()"
+    inline const char* kDecimalsHash = "313ce567";
+} // namespace ERC20Hashes
 } // namespace beam::ethereum

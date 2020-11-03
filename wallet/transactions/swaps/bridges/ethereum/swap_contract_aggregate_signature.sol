@@ -51,7 +51,7 @@ contract AtomicSwap {
             revert("invalid signature 'v' value");
         }
 
-        bytes32 hash = keccak256(abi.encodePacked(hashedSecret, swaps[hashedSecret].participant, swaps[hashedSecret].initiator));
+        bytes32 hash = keccak256(abi.encodePacked(hashedSecret, swaps[hashedSecret].participant, swaps[hashedSecret].initiator, swaps[hashedSecret].refundTimeInBlocks));
 
         // If the signature is valid (and not malleable), return the signer address
         address signer = ecrecover(hash, v, r, s);

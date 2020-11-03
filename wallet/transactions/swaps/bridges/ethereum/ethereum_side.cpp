@@ -28,48 +28,59 @@ namespace
     // TODO: check
     constexpr uint32_t kExternalHeightMaxDifference = 10;
 
-    std::string GetRefundMethodHash(bool isHashLockScheme)
+    std::string GetRefundMethodHash(bool isErc20, bool isHashLockScheme)
     {
+        if (isErc20)
+        {
+            // TODO: add hashlockScheme support
+            return "fa89401a";
+        }
         return isHashLockScheme ? "7249fbb6" : "fa89401a";
     }
 
-    std::string GetLockMethodHash(bool isHashLockScheme)
+    std::string GetLockMethodHash(bool isErc20, bool isHashLockScheme)
     {
+        if (isErc20)
+        {
+            // TODO: add hashlockScheme support
+            return "71c472e6";
+        }
         return isHashLockScheme ? "ae052147" : "bc18cc34";
     }
 
-    std::string GetRedeemMethodHash(bool isHashLockScheme)
+    std::string GetRedeemMethodHash(bool isErc20, bool isHashLockScheme)
     {
+        if (isErc20)
+        {
+            // TODO: add hashlockScheme support
+            return "8772acd6";
+        }
         return isHashLockScheme ? "b31597ad" : "8772acd6";
     }
 
-    std::string GetDetailsMethodHash(bool isHashLockScheme)
+    std::string GetDetailsMethodHash(bool isErc20, bool isHashLockScheme)
     {
+        if (isErc20)
+        {
+            // TODO: add hashlockScheme support
+            return "7cf3285f";
+        }
         return isHashLockScheme ? "6bfec360" : "7cf3285f";
     }
 
-    // TODO: -> settings
-    constexpr bool kIsHashLockScheme = false;
-
-    beam::ByteBuffer BuildLockTxData(const beam::wallet::BaseTransaction& tx, bool isEthOwner, const beam::ByteBuffer& secretHash)
+    uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
     {
-        using namespace beam::wallet;
-
-        auto participantStr = isEthOwner ?
-            tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey) :
-            tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
-        auto participant = ethereum::ConvertStrToEthAddress(participantStr);
-        uintBig refundTimeInBlocks = tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
-
-        // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
-        beam::ByteBuffer out;
-        out.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
-        libbitcoin::decode_base16(out, GetLockMethodHash(kIsHashLockScheme));
-        ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, out);
-        ethereum::AddContractABIWordToBuffer(secretHash, out);
-        ethereum::AddContractABIWordToBuffer(participant, out);
-
-        return out;
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Ethereum:
+        case beam::wallet::AtomicSwapCoin::Dai:
+            return 1'000'000'000u;
+        case beam::wallet::AtomicSwapCoin::Tether:
+            return 1u;
+        default:
+            assert(false && "Unexpected swapCoin!");
+            return 1u;
+        }
     }
 }
 
@@ -189,10 +200,8 @@ bool EthereumSide::ConfirmLockTx()
 
                 std::string strValue = ethereum::RemoveHexPrefix(txInfo["value"].get<std::string>());
                 auto amount = ethereum::ConvertStrToUintBig(strValue);
-                uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+                uintBig swapAmount = GetSwapAmount();
 
-                // TODO roman.strilets
-                swapAmount = swapAmount * ECC::uintBig(1'000'000'000u);
                 if (amount != swapAmount)
                 {
                     LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
@@ -203,7 +212,7 @@ bool EthereumSide::ConfirmLockTx()
                 }
 
                 auto txInputStr = ethereum::RemoveHexPrefix(txInfo["input"].get<std::string>());
-                libbitcoin::data_chunk data = BuildLockTxData(m_tx, m_isEthOwner, GetSecretHash());
+                libbitcoin::data_chunk data = BuildLockTxData();
                 auto lockTxDataStr = libbitcoin::encode_base16(data);
 
                 if (txInputStr != lockTxDataStr)
@@ -318,13 +327,12 @@ bool EthereumSide::SendLockTx()
     if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
         return true;
 
+    // TODO: if IsERC20Token call ERC20::approve before send Tx
+    
     if (!m_isLockTxSent)
     {
-        libbitcoin::data_chunk data = BuildLockTxData(m_tx, m_isEthOwner, GetSecretHash());
-        uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
-
-        // TODO roman.strilets
-        swapAmount = swapAmount * ECC::uintBig(1'000'000'000u);
+        libbitcoin::data_chunk data = BuildLockTxData();
+        uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
 
         m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
             [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
@@ -358,7 +366,7 @@ bool EthereumSide::SendRefund()
     // kRefundMethodHash + secretHash/addressFromSecret
     libbitcoin::data_chunk data;
     data.reserve(4 + 32);
-    libbitcoin::decode_base16(data, GetRefundMethodHash(kIsHashLockScheme));
+    libbitcoin::decode_base16(data, GetRefundMethodHash(IsERC20Token(), IsHashLockScheme()));
     ethereum::AddContractABIWordToBuffer(secretHash, data);
 
     m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(SubTxIndex::REFUND_TX), GetGasPrice(SubTxIndex::REFUND_TX),
@@ -384,11 +392,11 @@ bool EthereumSide::SendRedeem()
     auto secret = GetSecret();
 
     libbitcoin::data_chunk data;
-    if (kIsHashLockScheme)
+    if (IsHashLockScheme())
     {
         // kRedeemMethodHash + secret + secretHash
         data.reserve(4 + 32 + 32);
-        libbitcoin::decode_base16(data, GetRedeemMethodHash(kIsHashLockScheme));
+        libbitcoin::decode_base16(data, GetRedeemMethodHash(IsERC20Token(), IsHashLockScheme()));
         data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
         data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
     }
@@ -398,12 +406,23 @@ bool EthereumSide::SendRedeem()
         auto initiator = ethereum::ConvertStrToEthAddress(initiatorStr);
         auto participant = m_ethBridge->generateEthAddress();
 
-        // keccak256: addressFromSecret + participant + initiator
+        // keccak256: addressFromSecret + participant + initiator + refundTimeInBlocks
+        uintBig refundTimeInBlocks = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
         libbitcoin::data_chunk hashData;
         hashData.reserve(60);
         hashData.insert(hashData.end(), secretHash.cbegin(), secretHash.cend());
         hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
         hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
+        hashData.insert(hashData.end(), std::cbegin(refundTimeInBlocks.m_pData), std::cend(refundTimeInBlocks.m_pData));
+
+        if (IsERC20Token())
+        {
+            // add TokenContractAddress
+            auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+            const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+            hashData.insert(hashData.end(), tokenContractAddress.cbegin(), tokenContractAddress.cend());
+        }
+
         auto hash = ethash::keccak256(&hashData[0], hashData.size());
 
         libbitcoin::hash_digest hashDigest;
@@ -416,7 +435,7 @@ bool EthereumSide::SendRedeem()
 
         // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
         data.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
-        libbitcoin::decode_base16(data, GetRedeemMethodHash(kIsHashLockScheme));
+        libbitcoin::decode_base16(data, GetRedeemMethodHash(IsERC20Token(), IsHashLockScheme()));
         ethereum::AddContractABIWordToBuffer(secretHash, data);
         data.insert(data.end(), std::begin(signature.signature), std::end(signature.signature));
         data.insert(data.end(), 31u, 0x00);
@@ -447,6 +466,68 @@ void EthereumSide::OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Er
     m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
     m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
     m_tx.UpdateAsync();
+}
+
+bool EthereumSide::IsERC20Token() const
+{
+    auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    switch (swapCoin)
+    {
+        case beam::wallet::AtomicSwapCoin::Dai:
+        case beam::wallet::AtomicSwapCoin::Tether:
+            return true;
+        case beam::wallet::AtomicSwapCoin::Ethereum:
+            return false;
+        default:
+        {
+            assert("Unexpected swapCoin type.");
+            return false;
+        }
+    }
+}
+
+beam::ByteBuffer EthereumSide::BuildLockTxData()
+{
+    auto participantStr = m_isEthOwner ?
+        m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey) :
+        m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
+    auto participant = ethereum::ConvertStrToEthAddress(participantStr);
+    uintBig refundTimeInBlocks = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+
+    // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
+    beam::ByteBuffer out;
+    out.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
+    libbitcoin::decode_base16(out, GetLockMethodHash(IsERC20Token(), IsHashLockScheme()));
+    ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, out);
+    ethereum::AddContractABIWordToBuffer(GetSecretHash(), out);
+    ethereum::AddContractABIWordToBuffer(participant, out);
+
+    if (IsERC20Token())
+    {
+        // + ERC20 contractAddress, + value
+        auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+        uintBig swapAmount = GetSwapAmount();
+
+        ethereum::AddContractABIWordToBuffer(tokenContractAddress, out);
+        ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, out);
+    }
+
+    return out;
+}
+
+bool EthereumSide::IsHashLockScheme() const
+{
+    // TODO: -> settings or mb add as TxParameterID
+    return false;
+}
+
+ECC::uintBig EthereumSide::GetSwapAmount() const
+{
+    auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+    swapAmount = swapAmount * ECC::uintBig(GetCoinUnitsMultiplier(swapCoin));
+    return swapAmount;
 }
 
 bool EthereumSide::IsLockTimeExpired()
@@ -508,7 +589,7 @@ void EthereumSide::InitSecret()
 {
     NoLeak<uintBig> secret;
     GenRandom(secret.V);
-    if (kIsHashLockScheme)
+    if (IsHashLockScheme())
     {
         m_tx.SetParameter(TxParameterID::PreImage, secret.V, false, BEAM_REDEEM_TX);
     }
@@ -541,7 +622,7 @@ uint32_t EthereumSide::GetLockTxEstimatedTimeInBeamBlocks() const
 
 ECC::uintBig EthereumSide::GetSecret() const
 {
-    if (kIsHashLockScheme)
+    if (IsHashLockScheme())
     {
         return m_tx.GetMandatoryParameter<Hash::Value>(TxParameterID::PreImage, SubTxIndex::BEAM_REDEEM_TX);
     }
@@ -553,7 +634,7 @@ ECC::uintBig EthereumSide::GetSecret() const
 
 ByteBuffer EthereumSide::GetSecretHash() const
 {
-    if (kIsHashLockScheme)
+    if (IsHashLockScheme())
     {
         Hash::Value lockImage(Zero);
 
@@ -617,7 +698,11 @@ libbitcoin::short_hash EthereumSide::GetContractAddress() const
 
 std::string EthereumSide::GetContractAddressStr() const
 {
-    return m_settingsProvider.GetSettings().GetContractAddress();
+    if (IsERC20Token())
+    {
+        return m_settingsProvider.GetSettings().GetERC20SwapContractAddress(IsHashLockScheme());
+    }
+    return m_settingsProvider.GetSettings().GetContractAddress(IsHashLockScheme());
 }
 
 } // namespace beam::wallet

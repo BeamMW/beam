@@ -18,7 +18,7 @@ namespace beam::ethereum
 {
 bool Settings::IsInitialized() const
 {
-    return m_secretWords.size() == 12 && !m_address.empty() && !m_contractAddress.empty();
+    return m_secretWords.size() == 12 && !m_address.empty() && !m_swapContractAddress.empty() && !m_swapHashlockContractAddress.empty();
 }
 
 bool Settings::IsActivated() const
@@ -41,8 +41,29 @@ double Settings::GetBlocksPerHour() const
     return m_blocksPerHour;
 }
 
-std::string Settings::GetContractAddress() const
+std::string Settings::GetContractAddress(bool isHashLockScheme) const
 {
-    return m_contractAddress;
+    return isHashLockScheme ? m_swapHashlockContractAddress : m_swapContractAddress;
+}
+
+std::string Settings::GetERC20SwapContractAddress(bool isHashLockScheme) const
+{
+    return isHashLockScheme ? m_erc20SwapHashlockContractAddress : m_erc20SwapContractAddress;
+}
+
+std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapCoin) const
+{
+    switch (swapCoin)
+    {
+    case beam::wallet::AtomicSwapCoin::Dai:
+        return m_daiContractAddress;
+    case beam::wallet::AtomicSwapCoin::Tether:
+        return m_usdtContractAddress;
+    case beam::wallet::AtomicSwapCoin::WBTC:
+        return m_wbtcContractAddress;
+    default:
+        assert(false && "Unsupported token!");
+        return {};
+    }
 }
 } // namespace beam::ethereum

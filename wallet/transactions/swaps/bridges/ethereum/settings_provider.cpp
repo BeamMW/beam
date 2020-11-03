@@ -34,7 +34,8 @@ void SettingsProvider::SetSettings(const Settings& settings)
     WriteToDb(GetSecretWordsName(), settings.m_secretWords);
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
-    WriteToDb(GetContractAddressName(), settings.m_contractAddress);
+    WriteToDb(GetContractAddressName(), settings.m_swapContractAddress);
+    WriteToDb(GetHashlockContractAddressName(), settings.m_swapHashlockContractAddress);
     
     // update m_settings
     m_settings = std::make_unique<Settings>(settings);
@@ -49,7 +50,8 @@ void SettingsProvider::Initialize()
         ReadFromDB(GetSecretWordsName(), m_settings->m_secretWords);
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
-        ReadFromDB(GetContractAddressName(), m_settings->m_contractAddress);
+        ReadFromDB(GetContractAddressName(), m_settings->m_swapContractAddress);
+        ReadFromDB(GetHashlockContractAddressName(), m_settings->m_swapHashlockContractAddress);
     }
 }
 
@@ -104,5 +106,10 @@ std::string SettingsProvider::GetShouldConnectName() const
 std::string SettingsProvider::GetContractAddressName() const
 {
     return GetSettingsName() + "_ContractAddress";
+}
+
+std::string SettingsProvider::GetHashlockContractAddressName() const
+{
+    return GetSettingsName() + "_HahslockContractAddress";
 }
 } // namespace beam::ethereum

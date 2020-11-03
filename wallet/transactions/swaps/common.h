@@ -53,6 +53,9 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Dogecoin,
     Dash,
     Ethereum,
+    Dai,
+    Tether,
+    WBTC,
     Unknown
 };
 
