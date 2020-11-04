@@ -78,7 +78,6 @@ namespace beam::wallet
         ethereum::ISettingsProvider& m_settingsProvider;
         bool m_isEthOwner;
         bool m_isWithdrawTxSent = false;
-        bool m_isLockTxSent = false;
         uint64_t m_blockCount = 0;
 
         uint64_t m_SwapLockTxConfirmations = 0;

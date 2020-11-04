@@ -294,7 +294,7 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
     if (!m_WithdrawTxBlockNumber)
     {
         // getTransactionReceipt
-            std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
+        std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
 
         m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
         {
@@ -323,13 +323,90 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
 
 bool EthereumSide::SendLockTx()
 {
+    SwapTxState swapTxState = SwapTxState::Initial;
+    bool stateExist = m_tx.GetParameter(TxParameterID::State, swapTxState, SubTxIndex::LOCK_TX);
+
     std::string txID;
-    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+    if (swapTxState == SwapTxState::Constructed && m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
         return true;
 
-    // TODO: if IsERC20Token call ERC20::approve before send Tx
-    
-    if (!m_isLockTxSent)
+    if (IsERC20Token())
+    {
+        if (!stateExist)
+        {
+            // ERC20::approve + swapContractAddress + value
+            uintBig swapAmount = GetSwapAmount();
+            libbitcoin::data_chunk data;
+            data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+            libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kApproveHash);
+            ethereum::AddContractABIWordToBuffer(GetContractAddress(), data);
+            ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, data);
+
+            auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+            const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+
+            // TODO(alex.starun): Add "approve" to ethereum::Bridge to control allowances
+            m_ethBridge->send(tokenContractAddress, data, ECC::Zero, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
+                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+            {
+                if (!weak.expired())
+                {
+                    if (error.m_type != ethereum::IBridge::None)
+                    {
+                        LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to call ERC20::approve!";
+                        // TODO: handle error
+                        return;
+                    }
+
+                    // temporary used for storing approve tx hash
+                    m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
+                    m_tx.UpdateAsync();
+                }
+            });
+            m_tx.SetState(SwapTxState::Initial, SubTxIndex::LOCK_TX);
+            return false;
+        }
+
+        if (swapTxState == SwapTxState::Initial)
+        {
+            // waiting result of ERC20::approve
+            std::string txHash;
+            if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, SubTxIndex::LOCK_TX))
+            {
+                return false;
+            }
+
+            m_ethBridge->getTxBlockNumber(txHash, [this, weak = weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+            {
+                if (weak.expired())
+                {
+                    return;
+                }
+
+                if (error.m_type != ethereum::IBridge::None)
+                {
+                    if (error.m_type != ethereum::IBridge::EmptyResult)
+                    {
+                        m_tx.UpdateOnNextTip();
+                        return;
+                    }
+                    LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to register ERC20::approve!";
+                    // TODO: handle error
+                    m_tx.UpdateOnNextTip();
+                    return;
+                }
+
+                m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
+                // reset TxParameterID::AtomicSwapExternalTxID
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, SubTxIndex::LOCK_TX);
+                m_tx.UpdateAsync();
+            });
+
+            return false;
+        }
+    }
+
+    if (swapTxState != SwapTxState::Constructed)
     {
         libbitcoin::data_chunk data = BuildLockTxData();
         uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
@@ -349,7 +426,7 @@ bool EthereumSide::SendLockTx()
                 m_tx.UpdateAsync();
             }
         });
-        m_isLockTxSent = true;
+        m_tx.SetState(SwapTxState::Constructed, SubTxIndex::LOCK_TX);
     }
     return false;
 }
