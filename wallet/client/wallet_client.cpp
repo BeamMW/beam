@@ -287,6 +287,26 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
 namespace beam::wallet
 {
+    bool WalletStatus::HasStatus(Asset::ID assetId) const
+    {
+        return all.find(assetId) != all.end();
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetStatus(Asset::ID assetId) const
+    {
+        if(all.find(assetId) == all.end())
+        {
+            AssetStatus result;
+            return result;
+        }
+        return all[assetId];
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetBeamStatus() const
+    {
+        return GetStatus(Asset::s_BeamID);
+    }
+
     WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }

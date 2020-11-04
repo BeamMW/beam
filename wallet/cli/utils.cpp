@@ -163,7 +163,7 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, con
     Amount shieldedOutputsFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
 
     auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-        walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isPushTx);
+        walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
     feeForShieldedInputs = coinSelectionRes.shieldedInputsFee;
 
     bool isBeam = assetId == Asset::s_BeamID;

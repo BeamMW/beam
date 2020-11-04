@@ -693,7 +693,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     Amount fee = kMinFeeInGroth;
     if (*isBeamSide)
     {
-        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, false);
+        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, Asset::s_BeamID, false);
         fee = coinSelectionRes.minimalFee - coinSelectionRes.shieldedInputsFee;
         cout << " Fee:          " << PrintableAmount(!!coinSelectionRes.shieldedInputsFee ? coinSelectionRes.minimalFee : fee) << "\n";
     }
