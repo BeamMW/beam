@@ -357,11 +357,12 @@ void WalletModel::onStatus(const WalletStatus& status)
 
     jobject walletStatus = env->AllocObject(WalletStatusClass);
 
-    setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
-    setLongField(env, WalletStatusClass, walletStatus, "receiving", status.receiving);
-    setLongField(env, WalletStatusClass, walletStatus, "sending", status.sending);
-    setLongField(env, WalletStatusClass, walletStatus, "maturing", status.maturing);
-    setLongField(env, WalletStatusClass, walletStatus, "shielded", status.shielded);
+    auto assetStatus = status.GetBeamStatus();
+    setLongField(env, WalletStatusClass, walletStatus, "available", assetStatus.available);
+    setLongField(env, WalletStatusClass, walletStatus, "receiving", assetStatus.receiving);
+    setLongField(env, WalletStatusClass, walletStatus, "sending", assetStatus.sending);
+    setLongField(env, WalletStatusClass, walletStatus, "maturing", assetStatus.maturing);
+    setLongField(env, WalletStatusClass, walletStatus, "shielded", assetStatus.shielded);
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
@@ -425,7 +426,7 @@ void WalletModel::onSyncProgressUpdated(int done, int total)
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
 
-void WalletModel::onChangeCalculated(Amount change)
+void WalletModel::onChangeCalculated(Amount change, beam::Amount changeBeam, beam::Asset::ID assetId)
 {
     LOG_DEBUG() << "onChangeCalculated(" << change << ")";
 
@@ -433,7 +434,7 @@ void WalletModel::onChangeCalculated(Amount change)
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onChangeCalculated", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, change);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, change, changeBeam, assetId);
 }
 
 void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
@@ -444,7 +445,7 @@ void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectio
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(JJJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.change, selectionRes.shieldedInputsFee);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
 }
 
 void WalletModel::onNeedExtractShieldedCoins(bool val)
