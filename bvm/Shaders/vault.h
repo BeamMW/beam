@@ -13,10 +13,6 @@ namespace Vault
         PubKey m_Account;
         AssetID m_Aid;
 
-        // methods are for internal use
-        Amount Load() const;
-        void Save(Amount) const;
-
         template <bool bToShader>
         void Convert()
         {
