@@ -22,6 +22,26 @@
 
 namespace beam::ethereum
 {
+namespace
+{
+bool IsChangedConnectionSettings(const Settings& currentSettings, const Settings& newSettings)
+{
+    bool isConnectionTypeChanged = currentSettings.m_shouldConnect != newSettings.m_shouldConnect;
+
+    if (isConnectionTypeChanged)
+    {
+        return true;
+    }
+
+    if (currentSettings.m_shouldConnect)
+    {
+        return currentSettings != newSettings;
+    }
+
+    return false;
+}
+}
+
 struct EthereumClientBridge : public Bridge<IClientAsync>
 {
     BRIDGE_INIT(EthereumClientBridge);
@@ -141,7 +161,7 @@ void Client::ChangeSettings(const Settings& settings)
 {
     {
         Lock lock(m_mutex);
-        /*auto currentSettings = m_settingsProvider->GetSettings();
+        auto currentSettings = m_settingsProvider->GetSettings();
         bool shouldReconnect = IsChangedConnectionSettings(currentSettings, settings);
 
         m_settingsProvider->SetSettings(settings);
@@ -173,7 +193,7 @@ void Client::ChangeSettings(const Settings& settings)
             {
                 SetStatus(Status::Uninitialized);
             }
-        }*/
+        }
     }
 
     OnChangedSettings();

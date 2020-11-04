@@ -53,5 +53,18 @@ struct Settings
     std::string GetERC20SwapContractAddress(bool isHashLockScheme = false) const;
 
     std::string GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapCoin) const;
+
+    bool operator == (const Settings& other) const
+    {
+        return m_address == other.m_address &&
+            m_secretWords == other.m_secretWords &&
+            m_accountIndex == other.m_accountIndex &&
+            m_shouldConnect == other.m_shouldConnect;
+    }
+
+    bool operator != (const Settings& other) const
+    {
+        return !(*this == other);
+    }
 };
 } // namespace beam::ethereum
