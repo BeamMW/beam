@@ -18,7 +18,7 @@ namespace beam::ethereum
 {
 bool Settings::IsInitialized() const
 {
-    return m_secretWords.size() == 12 && !m_address.empty() && !m_swapContractAddress.empty() && !m_swapHashlockContractAddress.empty();
+    return m_secretWords.size() == 12 && !m_address.empty() && (!m_swapContractAddress.empty() || !m_swapHashlockContractAddress.empty());
 }
 
 bool Settings::IsActivated() const
