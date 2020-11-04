@@ -938,7 +938,8 @@ namespace beam
 		HashBase(hp);
 
 		ECC::Point comm(Zero); // invalid point, avoid collision with Std kernel, which provides the commitment here
-		comm.m_Y = (m_Height.m_Min < Rules::get().pForks[3].m_Height) ? 1 : m_CanEmbed ? 2 : 3;
+		bool bFlag = m_CanEmbed && (m_Height.m_Min >= Rules::get().pForks[3].m_Height);
+		comm.m_Y = bFlag ? 2 : 1;
 
 		hp
 			<< comm
