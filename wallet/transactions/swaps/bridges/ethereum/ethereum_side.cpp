@@ -765,7 +765,9 @@ ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
 
 ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
 {
-    return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);
+    // TODO need change this. maybe overflow
+    // convert from gwei to wei
+    return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID) * 1'000'000'000u;
 }
 
 libbitcoin::short_hash EthereumSide::GetContractAddress() const

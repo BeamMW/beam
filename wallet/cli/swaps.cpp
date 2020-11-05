@@ -85,23 +85,7 @@ Amount ReadGasPrice(const po::variables_map& vm)
         throw std::runtime_error("eth_gas_price should be specified");
     }
 
-    const auto strAmount = vm[cli::ETH_GAS_PRICE].as<std::string>();
-
-    try
-    {
-        boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
-
-        preciseAmount *= 1'000'000'000u;
-
-        // maybe need to use boost::multiprecision::round
-        auto amount = preciseAmount.convert_to<boost::multiprecision::uint256_t>();
-
-        return amount.convert_to<Amount>();
-    }
-    catch (const std::runtime_error& /*err*/)
-    {
-        throw std::runtime_error((boost::format("the argument ('%1%') for option '--%2%' is invalid.") % strAmount % cli::ETH_SWAP_AMOUNT).str());
-    }
+    return vm[cli::ETH_GAS_PRICE].as<Positive<Amount>>().value;
 }
 
 std::string PrintEth(beam::Amount value)

@@ -476,7 +476,7 @@ namespace beam
             (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "")
             (cli::SHOULD_CONNECT, po::value<bool>(), "")
             (cli::ETH_CONTRACT_ADDRESS, po::value<string>(), "")
-            (cli::ETH_GAS_PRICE, po::value<string>(), "gas price in the gwei")
+            (cli::ETH_GAS_PRICE, po::value<Positive<Amount>>(), "gas price in the gwei")
             (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums");
 
         po::options_description wallet_assets_options("Confidential assets");
