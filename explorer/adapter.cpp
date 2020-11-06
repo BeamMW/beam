@@ -874,7 +874,7 @@ private:
         }
 
         json obj = json{
-            { "total_swaps", offers.size()},
+            { "total_swaps_count", offers.size()},
             { "beams_offered", std::to_string(wallet::PrintableAmount(beamAmount, true)) },
             { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
             { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
