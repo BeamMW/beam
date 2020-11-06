@@ -310,8 +310,14 @@ private:
     bool get_status(io::SerializedMsg& out) override {
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
-
             _cache.currentHeight = cursor.m_Sid.m_Height;
+
+            NodeDB& db = _nodeBackend.get_DB();
+            auto shieldedOuts24hAgo =
+                db.GetShieldedCount(cursor.m_Sid.m_Height >= 1440 ? cursor.m_Sid.m_Height - 1440 : 0);
+
+            auto shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedOuts24hAgo;
+            auto possibleShieldedReadyHours = Rules::get().Shielded.MaxWindowBacklog / 2 / shieldedPer24h * 24;
 
             char buf[80];
 
@@ -325,7 +331,10 @@ private:
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "peers_count", _node.get_AcessiblePeerCount() }
+                    { "peers_count", _node.get_AcessiblePeerCount() },
+                    { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
+                    { "shielded_outputs_per_24h", shieldedPer24h },
+                    { "shielded_possible_ready_in_hours", possibleShieldedReadyHours }
                 }
             )) {
                 return false;

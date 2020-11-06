@@ -186,6 +186,10 @@ public:
 			Dbg3,
 			Dbg4,
 
+			ShieldedStatisticSel,
+			ShieldedStatisticIns,
+			ShieldedStatisticUp,
+
 			count
 		};
 	};
@@ -519,6 +523,9 @@ public:
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
+	void SaveShieldedCount(Height h, uint64_t count);
+	uint64_t GetShieldedCount(Height h);
+
 	struct WalkerSystemState
 	{
 		Recordset m_Rs;
@@ -643,6 +650,7 @@ private:
 	void Create();
 	void CreateTables20();
 	void CreateTables21();
+	void CreateTables22();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
