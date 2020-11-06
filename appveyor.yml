@@ -16,7 +16,7 @@ before_build:
   - cmd: git submodule update --init --recursive
   - cmd: git apply 3rdparty/protobuf-patch.diff
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
-  - cmd: cmake -G "Visual Studio 16 2019" -A "win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=True -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
+  - cmd: cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=True -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
 
 test_script:
   - cmd: ctest -C %BUILD_CONFIG% --verbose
