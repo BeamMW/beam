@@ -1717,7 +1717,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     Amount beamAmount = 300;
     Amount beamFee = 101;
     Amount swapAmount = 2'000'000'000u;
-    Amount gasPrice = 3000000u;
+    Amount gasPrice = 30u;
     //Amount feeRate = 256;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
@@ -1850,7 +1850,7 @@ void TestSwapEthRefundTransaction()
     Amount beamAmount = 300;
     Amount beamFee = 101;
     Amount swapAmount = 2'000'000'000u;
-    Amount gasPrice = 3000000u;
+    Amount gasPrice = 30u;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
@@ -1955,7 +1955,7 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
     Amount beamAmount = 300;
     Amount beamFee = 101;
     Amount swapAmount = 1'000'000'000u;
-    Amount gasPrice = 3000000u;
+    Amount gasPrice = 30u;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);

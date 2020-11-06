@@ -385,7 +385,7 @@ bool EthereumSide::SendLockTx()
 
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    if (error.m_type != ethereum::IBridge::EmptyResult)
+                    if (error.m_type == ethereum::IBridge::EmptyResult)
                     {
                         m_tx.UpdateOnNextTip();
                         return;
