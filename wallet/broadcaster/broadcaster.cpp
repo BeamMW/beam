@@ -223,7 +223,7 @@ namespace
         SecString pass("tempPass"); // TODO: random password should be used
 
         WordList phrase;
-        phrase = createMnemonic(getEntropy(), language::en);
+        phrase = createMnemonic(getEntropy());
         BOOST_ASSERT(phrase.size() == 12);
 
         auto buf = decodeMnemonic(phrase);

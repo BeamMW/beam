@@ -278,17 +278,17 @@ struct KeyKeeper
 
     static std::string GeneratePhrase()
     {
-        return boost::join(createMnemonic(getEntropy(), language::en), " ");
+        return boost::join(createMnemonic(getEntropy()), " ");
     }
 
     static bool IsAllowedWord(const std::string& word)
     {
-        return isAllowedWord(word, language::en);
+        return isAllowedWord(word);
     }
 
     static bool IsValidPhrase(const std::string& words)
     {
-        return isValidMnemonic(string_helpers::split(words, ' '), language::en);
+        return isValidMnemonic(string_helpers::split(words, ' '));
     }
 
     static std::string ConvertTokenToJson(const std::string& token)

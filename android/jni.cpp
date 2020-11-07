@@ -314,7 +314,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         assert(phrases.size() == WORD_COUNT);
 
-        if (!isValidMnemonic(phrases, language::en))
+        if (!isValidMnemonic(phrases))
         {
             LOG_ERROR() << "Invalid seed phrase provided: " << st;
             return nullptr;
@@ -459,7 +459,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getLibVersion)(JNIEnv *env, jo
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, jobject thiz)
 {
-    auto phrases = createMnemonic(getEntropy(), language::en);
+    auto phrases = createMnemonic(getEntropy());
 
     jobjectArray phrasesArray = env->NewObjectArray(static_cast<jsize>(phrases.size()), env->FindClass("java/lang/String"), 0);
 

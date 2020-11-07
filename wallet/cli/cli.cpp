@@ -767,7 +767,7 @@ namespace
 
     WordList GeneratePhrase()
     {
-        auto phrase = createMnemonic(getEntropy(), language::en);
+        auto phrase = createMnemonic(getEntropy());
         BOOST_ASSERT(phrase.size() == 12);
         cout << kSeedPhraseGeneratedTitle;
         for (const auto& word : phrase)
@@ -800,7 +800,7 @@ namespace
             phrase = string_helpers::split(tempPhrase, ';');
 
             if (phrase.size() != WORD_COUNT
-                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase, language::en)))
+                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase)))
             {
                 LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;

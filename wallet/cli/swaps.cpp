@@ -438,15 +438,11 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
         settings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
-        // TODO roman.strilets check this code for ethereum
-        /*if (!bitcoin::validateElectrumMnemonic(settings.m_secretWords))
+        if (!isValidMnemonic(settings.m_secretWords))
         {
-            if (bitcoin::validateElectrumMnemonic(settings.m_secretWords, true))
-            {
-                throw std::runtime_error("Segwit seed phrase is not supported yet.");
-            }
             throw std::runtime_error("seed is not valid");
-        }*/
+        }
+
         isChanged = true;
     }
 
