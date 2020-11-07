@@ -17,7 +17,6 @@
 
 namespace
 {
-    // TODO check these parameters
     constexpr uint32_t kDogecoinWithdrawTxAverageSize = 360; 
     constexpr uint32_t kDogecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
 }

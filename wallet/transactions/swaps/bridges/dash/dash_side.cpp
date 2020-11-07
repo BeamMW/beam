@@ -17,7 +17,6 @@
 
 namespace
 {
-    // TODO check these parameters
     constexpr uint32_t kDashWithdrawTxAverageSize = 360; 
     constexpr uint32_t kDashLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
 }
