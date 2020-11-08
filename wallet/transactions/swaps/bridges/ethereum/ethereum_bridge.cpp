@@ -325,6 +325,31 @@ libbitcoin::short_hash EthereumBridge::generateEthAddress() const
     return GetEthAddressFromPubkeyStr(rawPk);
 }
 
+void EthereumBridge::getGasPrice(std::function<void(const Error&, Amount)> callback)
+{
+    LOG_DEBUG() << "EthereumBridge::getGasPrice";
+    sendRequest("eth_gasPrice", "", [callback](Error error, const json& result)
+    {
+        LOG_DEBUG() << "EthereumBridge::getGasPrice in";
+        Amount gasPrice = 0;
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                gasPrice = std::stoull(result["result"].get<std::string>(), nullptr, 16);
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+
+        callback(error, gasPrice);
+    });
+}
+
 void EthereumBridge::sendRequest(
     const std::string& method, 
     const std::string& params, 

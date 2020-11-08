@@ -42,6 +42,7 @@ public:
     void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     libbitcoin::short_hash generateEthAddress() const override;
+    void getGasPrice(std::function<void(const Error&, Amount)> callback) override;
 
 protected:
     void sendRequest(

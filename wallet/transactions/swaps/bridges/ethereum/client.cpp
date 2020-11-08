@@ -141,20 +141,23 @@ void Client::EstimateGasPrice()
         return;
     }
 
-    // TODO need to investigate block amount
-    //bridge->estimateFee(1, [this, weak = this->weak_from_this()](const IBridge::Error& error, Amount feeRate)
-    //{
-    //    if (weak.expired())
-    //    {
-    //        return;
-    //    }
+    bridge->getGasPrice([this, weak = this->weak_from_this()](const IBridge::Error& error, Amount gasPrice)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
 
-    //    // TODO: check error and update status
-    //    SetConnectionError(error.m_type);
-    //    SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+        // TODO: check error and update status
+        SetConnectionError(error.m_type);
+        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-    //    OnEstimatedFeeRate(feeRate);
-    //});
+        // TODO roman.strilets create constant
+        // convert from wei to gwei
+        Amount result = gasPrice / 1'000'000'000u;
+
+        OnEstimatedGasPrice(result);
+    });
 }
 
 void Client::ChangeSettings(const Settings& settings)

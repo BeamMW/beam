@@ -61,5 +61,6 @@ public:
     virtual void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual libbitcoin::short_hash generateEthAddress() const = 0;
+    virtual void getGasPrice(std::function<void(const Error&, Amount)> callback) = 0;
 };
 } // namespace beam::ethereum
