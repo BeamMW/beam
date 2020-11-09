@@ -41,6 +41,11 @@ double Settings::GetBlocksPerHour() const
     return m_blocksPerHour;
 }
 
+Amount Settings::GetMinFeeRate() const
+{
+    return m_minFeeRate;
+}
+
 std::string Settings::GetContractAddress(bool isHashLockScheme) const
 {
     return isHashLockScheme ? m_swapHashlockContractAddress : m_swapContractAddress;

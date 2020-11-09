@@ -653,6 +653,10 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     {
         return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
     }
+    case AtomicSwapCoin::Ethereum:
+    {
+        return GetMinSwapFeeRate<ethereum::SettingsProvider>(walletDB);
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
