@@ -19,9 +19,6 @@ set(SWAP_SRC
     bridges/bitcoin_cash/bitcoin_cash_core.cpp
     bridges/bitcoin_cash/bitcoin_cash_side.cpp
     bridges/bitcoin_cash/electrum.cpp
-    bridges/bitcoin_sv/common.cpp
-    bridges/bitcoin_sv/bitcoin_sv_core.cpp
-    #bridges/bitcoin_sv/bitcoin_sv_side.cpp
     bridges/dogecoin/common.cpp
     bridges/dogecoin/dogecoin_core_014.cpp
     bridges/dogecoin/dogecoin_side.cpp
