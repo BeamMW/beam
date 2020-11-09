@@ -104,4 +104,19 @@ void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::d
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
+uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
+{
+    switch (swapCoin)
+    {
+    case beam::wallet::AtomicSwapCoin::Ethereum:
+    case beam::wallet::AtomicSwapCoin::Dai:
+        return 1'000'000'000u;
+    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::WBTC:
+        return 1u;
+    default:
+        assert(false && "Unexpected swapCoin!");
+        return 1u;
+    }
+}
 } // namespace beam::ethereum

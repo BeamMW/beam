@@ -67,21 +67,6 @@ namespace
         }
         return isHashLockScheme ? "6bfec360" : "7cf3285f";
     }
-
-    uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
-    {
-        switch (swapCoin)
-        {
-        case beam::wallet::AtomicSwapCoin::Ethereum:
-        case beam::wallet::AtomicSwapCoin::Dai:
-            return 1'000'000'000u;
-        case beam::wallet::AtomicSwapCoin::Tether:
-            return 1u;
-        default:
-            assert(false && "Unexpected swapCoin!");
-            return 1u;
-        }
-    }
 }
 
 namespace beam::wallet
@@ -603,7 +588,7 @@ ECC::uintBig EthereumSide::GetSwapAmount() const
 {
     auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
     uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
-    swapAmount = swapAmount * ECC::uintBig(GetCoinUnitsMultiplier(swapCoin));
+    swapAmount = swapAmount * ECC::uintBig(ethereum::GetCoinUnitsMultiplier(swapCoin));
     return swapAmount;
 }
 

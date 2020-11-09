@@ -508,6 +508,41 @@ void testERC20SwapWithAggregateSignature()
     mainReactor->run();
 }
 
+void testERC20GetBalance()
+{
+    std::cout << "\nTesting call...\n";
+
+    ethereum::Settings settings;
+    settings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settings.m_accountIndex = 3;
+    settings.m_address = "127.0.0.1:7545";
+    settings.m_shouldConnect = true;
+
+    auto provider = std::make_shared<ethereum::Provider>(settings);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    ethereum::EthereumBridge bridge(*mainReactor, *provider);
+
+    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0x4A2043c5625ec1E6759EA429C6FF8C02979e291E");
+    libbitcoin::data_chunk data;
+    data.reserve(ethereum::kEthContractMethodHashSize + 1 * ethereum::kEthContractABIWordSize);
+    libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kBalanceOfHash);
+    ethereum::AddContractABIWordToBuffer(bridge.generateEthAddress(), data);
+
+    bridge.call(kTokenContractAddress, libbitcoin::encode_base16(data), [mainReactor](const ethereum::IBridge::Error&, const nlohmann::json& result)
+        {
+            LOG_DEBUG() << result.dump(4);
+
+            boost::multiprecision::uint256_t tmp(result.get<std::string>());
+            tmp /= ethereum::GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin::Dai);
+
+            LOG_DEBUG() << "Balance: " << tmp.convert_to<Amount>();
+            mainReactor->stop();
+        });
+
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -523,6 +558,8 @@ int main()
     testSwap();
     testSwapWithAggregateSignature();
     testERC20SwapWithAggregateSignature();
+
+    testERC20GetBalance();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

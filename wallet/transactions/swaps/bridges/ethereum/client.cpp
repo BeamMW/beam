@@ -51,9 +51,9 @@ struct EthereumClientBridge : public Bridge<IClientAsync>
         call_async(&IClientAsync::GetStatus);
     }
 
-    void GetBalance()
+    void GetBalance(wallet::AtomicSwapCoin swapCoin)
     {
-        call_async(&IClientAsync::GetBalance);
+        call_async(&IClientAsync::GetBalance, swapCoin);
     }
 
     void EstimateGasPrice()
@@ -103,7 +103,7 @@ void Client::GetStatus()
     OnStatus(status);
 }
 
-void Client::GetBalance()
+void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
 {
     auto bridge = GetBridge();
 
@@ -112,52 +112,58 @@ void Client::GetBalance()
         return;
     }
 
-    bridge->getBalance([this, weak = this->weak_from_this()](const IBridge::Error& error, ECC::uintBig balance)
+    if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        if (weak.expired())
+        bridge->getBalance([this, weak = this->weak_from_this()](const IBridge::Error& error, ECC::uintBig balance)
         {
-            return;
-        }
+            if (weak.expired())
+            {
+                return;
+            }
 
-        // TODO: check error and update status
-        SetConnectionError(error.m_type);
-        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-        std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
-        boost::multiprecision::uint256_t tmp(hex);
+            std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
+            boost::multiprecision::uint256_t tmp(hex);
 
-        tmp /= 1'000'000'000u;
+            tmp /= 1'000'000'000u;
 
-        OnBalance(tmp.convert_to<Amount>());
-    });
-}
-
-void Client::EstimateGasPrice()
-{
-    auto bridge = GetBridge();
-
-    if (!bridge)
-    {
-        return;
+            OnBalance(wallet::AtomicSwapCoin::Ethereum, tmp.convert_to<Amount>());
+        });
     }
-
-    bridge->getGasPrice([this, weak = this->weak_from_this()](const IBridge::Error& error, Amount gasPrice)
+    else
     {
-        if (weak.expired())
+        const auto tokenContractAddressStr = m_settingsProvider->GetSettings().GetTokenContractAddress(swapCoin);
+        if (tokenContractAddressStr.empty())
         {
             return;
         }
 
-        // TODO: check error and update status
-        SetConnectionError(error.m_type);
-        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+        const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(tokenContractAddressStr);
+        libbitcoin::data_chunk data;
+        data.reserve(ethereum::kEthContractMethodHashSize + ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kBalanceOfHash);
+        ethereum::AddContractABIWordToBuffer(bridge->generateEthAddress(), data);
 
-        // TODO roman.strilets create constant
-        // convert from wei to gwei
-        Amount result = gasPrice / 1'000'000'000u;
+        bridge->call(tokenContractAddress, libbitcoin::encode_base16(data), [this, weak = this->weak_from_this(), swapCoin](const IBridge::Error& error, const nlohmann::json& result)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
 
-        OnEstimatedGasPrice(result);
-    });
+            // TODO: check error and update status
+            SetConnectionError(error.m_type);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+            boost::multiprecision::uint256_t tmp(result.get<std::string>());
+            tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
+
+            OnBalance(swapCoin, tmp.convert_to<Amount>());
+        });
+    }
 }
 
 void Client::ChangeSettings(const Settings& settings)

@@ -242,6 +242,9 @@ bool IsSwapAmountValid(
     case AtomicSwapCoin::Dash:
         return DashSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::WBTC:
         // TODO roman.strilets
         return true;
     default:

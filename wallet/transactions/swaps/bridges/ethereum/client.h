@@ -25,7 +25,7 @@ public:
     using Ptr = std::shared_ptr<IClientAsync>;
 
     virtual void GetStatus() = 0;
-    virtual void GetBalance() = 0;
+    virtual void GetBalance(wallet::AtomicSwapCoin swapCoin) = 0;
     virtual void EstimateGasPrice() = 0;
     virtual void ChangeSettings(const Settings& settings) = 0;
 };
@@ -57,7 +57,7 @@ public:
 protected:
     virtual void OnStatus(Status status) = 0;
     // balance in gwei
-    virtual void OnBalance(Amount balance) = 0;
+    virtual void OnBalance(wallet::AtomicSwapCoin swapCoin, Amount balance) = 0;
     virtual void OnEstimatedGasPrice(Amount gasPrice) = 0;
     virtual void OnCanModifySettingsChanged(bool canModify) = 0;
     virtual void OnChangedSettings() = 0;
@@ -70,7 +70,7 @@ protected:
 private:
     // IClientAsync
     void GetStatus() override;
-    void GetBalance() override;
+    void GetBalance(wallet::AtomicSwapCoin swapCoin) override;
     void EstimateGasPrice() override;
     void ChangeSettings(const Settings& settings) override;
 
