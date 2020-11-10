@@ -808,6 +808,7 @@ namespace beam::wallet
     Amount GetShieldedFee(const TxParameters& tx, SubTxID subTxID = kDefaultSubTxID);
 
     TxAddressType GetAddressType(const TxDescription& tx);
+    TxAddressType GetAddressType(const std::string& address);
 }    // beam::wallet
 
 namespace beam

@@ -1419,6 +1419,39 @@ namespace beam::wallet
         return CalculateShieldedFeeByKernelsCount(shieldedInputs.size());
     }
 
+    namespace
+    {
+        TxAddressType GetAddressTypeImpl(const TxParameters& params)
+        {
+            auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
+            if (type)
+            {
+                if (*type == TxType::Simple)
+                    return TxAddressType::Regular;
+
+                if (*type == TxType::AtomicSwap)
+                    return TxAddressType::AtomicSwap;
+
+                if (*type != TxType::PushTransaction)
+                    return TxAddressType::Unknown;
+            }
+
+            auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
+            if (voucher)
+                return TxAddressType::MaxPrivacy;
+
+            auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+            if (vouchers && !vouchers->empty())
+                return TxAddressType::Offline;
+
+            auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+            if (gen)
+                return TxAddressType::PublicOffline;
+
+            return TxAddressType::Unknown;
+        }
+    }
+
     TxAddressType GetAddressType(const TxDescription& tx)
     {
         if (tx.m_txType == TxType::Simple)
@@ -1430,21 +1463,15 @@ namespace beam::wallet
         if (tx.m_txType != TxType::PushTransaction)
             return TxAddressType::Unknown;
 
-        auto token = tx.getToken();
-        auto p = ParseParameters(token);
-        const TxParameters& params = *p;
-        auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-        if (voucher)
-            return TxAddressType::MaxPrivacy;
+        return GetAddressType(tx.getToken());
+    }
 
-        auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
-        if (vouchers && !vouchers->empty())
-            return TxAddressType::Offline;
-        
-        auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
-        if (gen)
-            return TxAddressType::PublicOffline;
+    TxAddressType GetAddressType(const std::string& address)
+    {
+        auto p = ParseParameters(address);
+        if (!p)
+            return TxAddressType::Unknown;
 
-        return TxAddressType::Unknown;
+        return GetAddressTypeImpl(*p);
     }
 }  // namespace beam::wallet
