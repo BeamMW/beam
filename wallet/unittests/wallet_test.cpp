@@ -1598,7 +1598,31 @@ namespace
             std::string sbbsAddressStr = "b0ca7b4afd7f0000fe6d24e8fd052ef04ff4bb2a230a81c8eeeb0dd0e55af766a91c6513e377fb39";
             WALLET_CHECK(beam::wallet::CheckReceiverAddress(sbbsAddressStr) == false);
         }
+        {
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
 
+        {
+            WalletID invalidWalletID;
+            WALLET_CHECK(invalidWalletID.FromHex("1b516fb37884a3281bc07610000008bc51fdb1336882a2c7efebdb400d00d4"));
+            WALLET_CHECK(!invalidWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, invalidWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(!invalidToken.IsValid());
+            WALLET_CHECK(!CheckReceiverAddress(std::to_string(p)));
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
+        {
+            WalletID validWalletID;
+            WALLET_CHECK(validWalletID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+            WALLET_CHECK(validWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, validWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(invalidToken.IsValid());
+            WALLET_CHECK(CheckReceiverAddress(std::to_string(p)));
+        }
     }
 
     void TestConvertions()

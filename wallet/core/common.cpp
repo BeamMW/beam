@@ -470,6 +470,30 @@ namespace beam::wallet
         return result;
     }
 
+    bool TxToken::IsValid() const
+    {
+        for (const auto p : m_Parameters)
+        {
+            switch (p.first)
+            {
+#define MACRO(name, index, type) \
+            case TxParameterID::name: \
+                { \
+                    type value; \
+                    if (!fromByteBuffer(p.second, value)) \
+                    { \
+                        return false; \
+                    } \
+                } break; 
+                BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+            default:
+                break;
+            }
+        }
+        return true;
+    }
+
     boost::optional<TxParameters> ParseParameters(const string& text)
     {
         bool isValid = true;
@@ -498,7 +522,10 @@ namespace beam::wallet
                 d.reset(&buffer[0], buffer.size());
                 d & token;
 
-                return boost::make_optional<TxParameters>(token.UnpackParameters());
+                if (token.IsValid())
+                {
+                    return boost::make_optional<TxParameters>(token.UnpackParameters());
+                }
             }
             catch (...)
             {

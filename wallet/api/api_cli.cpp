@@ -55,7 +55,6 @@
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -305,7 +304,6 @@ public:
         initSwapClient<qtum::QtumCore017, qtum::Electrum, qtum::SettingsProvider>(AtomicSwapCoin::Qtum);
         initSwapClient<dash::DashCore014, dash::Electrum, dash::SettingsProvider>(AtomicSwapCoin::Dash);
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
-        initSwapClient<bitcoin_sv::BitcoinSVCore, bitcoin_sv::Electrum, bitcoin_sv::SettingsProvider>(AtomicSwapCoin::Bitcoin_SV);
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
     }
 

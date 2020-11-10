@@ -191,7 +191,14 @@ namespace beam::wallet
             Deserializer d;
             d.reset(b.data(), b.size());
             d & value;
-            return true;
+            if constexpr (std::is_same<T, WalletID>::value)
+            {
+                return value.IsValid();
+            }
+            else
+            {
+                return true;
+            }
         }
         if constexpr (std::is_trivially_destructible<T>::value && std::is_standard_layout<T>::value)
         {
@@ -267,7 +274,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
-    MACRO(IsPermanentPeerID,               8,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   bool) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \
@@ -481,6 +488,7 @@ namespace beam::wallet
         TxToken() = default;
         TxToken(const TxParameters&);
         TxParameters UnpackParameters() const;
+        bool IsValid() const;
         SERIALIZE(m_Flags, m_TxID, m_Parameters);
     private:
         uint8_t m_Flags = TokenFlag;

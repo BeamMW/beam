@@ -895,7 +895,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         ValidateAddress validateAddress;
-        validateAddress.address.FromHex(params["address"]);
+        validateAddress.address = params["address"].get<std::string>();
 
         getHandler().onMessage(id, validateAddress);
     }

@@ -24,7 +24,6 @@
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/transactions/swaps/common.h"
@@ -393,12 +392,6 @@ void RequestToBridge(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin, st
             (walletDB, swapCoin, callback);
         break;
     }
-    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
-    {
-        RequestToSpecificBridge<bitcoin_sv::SettingsProvider, bitcoin_sv::Electrum, bitcoin_sv::BitcoinSVCore>
-            (walletDB, swapCoin, callback);
-        break;
-    }
     case beam::wallet::AtomicSwapCoin::Dash:
     {
         RequestToSpecificBridge<dash::SettingsProvider, dash::Electrum, dash::DashCore014>
@@ -486,10 +479,6 @@ Amount GetMinSwapFeeRate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr w
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         return GetMinSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
-    }
-    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
-    {
-        return GetMinSwapFeeRate<bitcoin_sv::SettingsProvider>(walletDB);
     }
     case beam::wallet::AtomicSwapCoin::Dash:
     {
@@ -753,11 +742,6 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
         return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
             (vm, walletDB, kSwapCoinBCH);
     }
-    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
-    {
-        return HandleSwapCoin<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>
-            (vm, walletDB, kSwapCoinBSV);
-    }
     case beam::wallet::AtomicSwapCoin::Dogecoin:
     {
         return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
@@ -797,11 +781,6 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, swapCoin);
-        break;
-    }
-    case beam::wallet::AtomicSwapCoin::Bitcoin_SV:
-    {
-        ShowSwapSettings<bitcoin_sv::SettingsProvider>(walletDB, swapCoin);
         break;
     }
     case beam::wallet::AtomicSwapCoin::Dogecoin:
