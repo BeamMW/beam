@@ -128,7 +128,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
             boost::multiprecision::uint256_t tmp(hex);
 
-            tmp /= 1'000'000'000u;
+            tmp /= ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
 
             OnBalance(wallet::AtomicSwapCoin::Ethereum, tmp.convert_to<Amount>());
         });
@@ -164,6 +164,33 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             OnBalance(swapCoin, tmp.convert_to<Amount>());
         });
     }
+}
+
+void Client::EstimateGasPrice()
+{
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        return;
+    }
+
+    bridge->getGasPrice([this, weak = this->weak_from_this()](const IBridge::Error& error, Amount gasPrice)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        // TODO: check error and update status
+        SetConnectionError(error.m_type);
+        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+        // convert from wei to gwei
+        Amount result = gasPrice / ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
+
+        OnEstimatedGasPrice(result);
+    });
 }
 
 void Client::ChangeSettings(const Settings& settings)
