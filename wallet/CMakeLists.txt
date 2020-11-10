@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 add_subdirectory(core)
 add_subdirectory(client)
-
+add_subdirectory(api)
 
 if(BEAM_ATOMIC_SWAP_SUPPORT)
     add_subdirectory(transactions/swaps)
@@ -22,8 +22,6 @@ if (NOT ANDROID AND NOT IOS)
     endif()
     if(NOT BEAM_WALLET_CLIENT_LIBRARY)
         add_subdirectory(cli)
-
-        add_subdirectory(api)
 
         add_subdirectory(broadcaster)
 

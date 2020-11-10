@@ -88,6 +88,8 @@ namespace beam::wallet
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
+        Wallet::Ptr getWallet(); // can return null
+
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
@@ -211,6 +213,9 @@ namespace beam::wallet
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
         void getAssetInfo(const Asset::ID) override;
+
+        // we need call id to distinguish resul in callback
+        void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
