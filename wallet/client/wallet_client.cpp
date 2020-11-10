@@ -295,6 +295,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getAssetInfo, assetId);
     }
+
+    void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) override
+    {
+        call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
+    }
 };
 }
 
@@ -530,6 +535,12 @@ namespace beam::wallet
     IWalletModelAsync::Ptr WalletClient::getAsync()
     {
         return m_async;
+    }
+
+    Wallet::Ptr WalletClient::getWallet()
+    {
+        auto sp = m_wallet.lock();
+        return sp;
     }
 
     std::string WalletClient::getNodeAddress() const
@@ -1487,5 +1498,14 @@ namespace beam::wallet
                 onAssetInfo(assetId, *oasset);
             }
         }
+    }
+
+    void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback)
+    {
+        auto result = function();
+        postFunctionToClientContext([result, cb = std::move(resultCallback)]()
+        {
+            cb(result);
+        });
     }
 }
