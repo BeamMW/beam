@@ -17,6 +17,7 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "boost/any.hpp"
 
 namespace beam::wallet
 {
@@ -85,8 +86,8 @@ namespace beam::wallet
         virtual void getPublicAddress() = 0;
 
         virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) = 0;
-
         virtual void getAssetInfo(Asset::ID) = 0;
+        virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) = 0;
 
         virtual ~IWalletModelAsync() {}
     };

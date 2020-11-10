@@ -845,11 +845,11 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatusApi& data)
     {
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-        WalletStatus::Response response;
+        WalletStatusApi::Response response;
         auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB) {
             return doError(id, ApiError::NotOpenedError);
