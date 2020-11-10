@@ -85,6 +85,9 @@ namespace std
 
     string to_string(const Merkle::Hash& hash)
     {
+        if (memis0(hash.m_pData, hash.nBytes))
+            return string();
+
         char sz[Merkle::Hash::nTxtLen + 1];
         hash.Print(sz);
         return string(sz);

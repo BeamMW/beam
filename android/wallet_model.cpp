@@ -76,7 +76,7 @@ namespace
         setBooleanField(env, TxDescriptionClass, tx, "sender", txDescription.m_sender);
         setBooleanField(env, TxDescriptionClass, tx, "selfTx", txDescription.m_selfTx);
         setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(txDescription.m_status));
-        setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(txDescription.m_kernelID.m_pData, txDescription.m_kernelID.nBytes));
+        setStringField(env, TxDescriptionClass, tx, "kernelId", to_string(txDescription.m_kernelID));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
