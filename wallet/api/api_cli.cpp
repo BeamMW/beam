@@ -48,8 +48,6 @@
 #include "wallet/api/i_atomic_swap_provider.h"
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
@@ -57,6 +55,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "swap_client.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"
@@ -127,92 +126,6 @@ WalletApi::ACL loadACL(const std::string& path)
 
     return WalletApi::ACL(keys);
 }
-
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-using BaseSwapClient = beam::bitcoin::Client;
-class SwapClient : public BaseSwapClient
-{
-public:
-    using Ptr = std::shared_ptr<SwapClient>;
-    SwapClient(
-        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
-        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
-        io::Reactor& reactor)
-        : BaseSwapClient(bridgeHolder,
-                         std::move(settingsProvider),
-                         reactor)
-        , _timer(beam::io::Timer::create(reactor))
-        , _feeTimer(beam::io::Timer::create(reactor))
-        , _status(Status::Unknown)
-    {
-        requestBalance();
-        requestRecommendedFeeRate();
-        _timer->start(1000, true, [this] ()
-        {
-            requestBalance();
-        });
-
-        // TODO need name for the parameter
-        _feeTimer->start(60 * 1000, true, [this]()
-        {
-            requestRecommendedFeeRate();
-        });
-    }
-
-    Amount GetAvailable() const
-    {
-        return _balance.m_available;
-    }
-
-    Amount GetRecommendedFeeRate() const
-    {
-        return _recommendedFeeRate;
-    }
-
-    bool IsConnected() const
-    {
-        return _status == Status::Connected;
-    }
-
-private:
-    beam::io::Timer::Ptr _timer;
-    beam::io::Timer::Ptr _feeTimer;
-    Balance _balance;
-    Amount _recommendedFeeRate = 0;
-    Status _status;
-    void requestBalance()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update balance
-            GetAsync()->GetBalance();
-        }
-    }
-    void requestRecommendedFeeRate()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update recommended fee rate
-            GetAsync()->EstimateFeeRate();
-        }
-    }
-    void OnStatus(Status status) override
-    {
-        _status = status;
-    }
-    void OnBalance(const Balance& balance) override
-    {
-        _balance = balance;
-    }
-    void OnEstimatedFeeRate(Amount feeRate) override
-    {
-        _recommendedFeeRate = feeRate;
-    }
-    void OnCanModifySettingsChanged(bool canModify) override {}
-    void OnChangedSettings() override {}
-    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
-};
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 class IWalletApiServer
 {
@@ -369,7 +282,6 @@ protected:
 
     void stop()
     {
-
     }
 
     void closeConnection(uint64_t id) override
