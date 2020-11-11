@@ -59,6 +59,52 @@ WALLET_TEST_INIT
 
 namespace
 {
+    void TestEventTypeSerialization()
+    {
+        std::string serializedStr;
+        {
+            proto::Event::Type::Enum event = proto::Event::Type::Shielded;
+
+            Serializer ser;
+            ser& event;
+
+            ByteBuffer buf;
+            ser.swap_buf(buf);
+
+            serializedStr = beam::to_hex(&buf[0], buf.size());
+            LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
+        }
+        
+        auto f = [](const std::string& s, bool shouldThrow)
+        {
+            ByteBuffer buf2 = from_hex(s);
+
+            Deserializer der;
+            der.reset(buf2.data(), buf2.size());
+
+            proto::Event::Type::Enum event;
+            if (shouldThrow)
+            {
+                WALLET_CHECK_THROW(der & event);
+            }
+            else
+            {
+                WALLET_CHECK_NO_THROW(der & event);
+                WALLET_CHECK(proto::Event::Type::Shielded == event);
+            }
+
+            der.reset(buf2.data(), buf2.size());
+            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
+            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
+            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
+        };
+
+        // legacy case
+        f("42", true);
+        // Normal case
+        f("82", false);
+    }
+
     void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
     {
         cout << "\nTesting wallets negotiation...\n";
@@ -2870,6 +2916,7 @@ int main()
 
     storage::HookErrors();
 
+    TestEventTypeSerialization();
     TestKeyKeeper();
 
     TestVouchers();
