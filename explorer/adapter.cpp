@@ -761,11 +761,11 @@ private:
     }
 
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
-        Height endHeight = startHeight + n - 1;
-        _exchangeRateProvider->preloadRates(startHeight, endHeight);
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
+        Height endHeight = startHeight + n - 1;
+        _exchangeRateProvider->preloadRates(startHeight, endHeight);
         out.push_back(_leftBrace);
         uint64_t row = 0;
         uint64_t prevRow = 0;
