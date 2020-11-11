@@ -153,6 +153,7 @@ public:
 
     void preloadRates(uint64_t startHeight, uint64_t endHeight)
     {
+        if (endHeight < startHeight) return;
         _preloadStartHeight = startHeight;
         _preloadEndHeight = endHeight;
 
@@ -313,11 +314,17 @@ private:
             _cache.currentHeight = cursor.m_Sid.m_Height;
 
             NodeDB& db = _nodeBackend.get_DB();
-            auto shieldedOuts24hAgo =
+            auto shieldedByLast24h =
                 db.GetShieldedCount(cursor.m_Sid.m_Height >= 1440 ? cursor.m_Sid.m_Height - 1440 : 0);
+            auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
 
-            auto shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedOuts24hAgo;
-            auto possibleShieldedReadyHours = Rules::get().Shielded.MaxWindowBacklog / 2 / shieldedPer24h * 24;
+            double possibleShieldedReadyHours = 0;
+            uint64_t shieldedPer24h = 0;
+            if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
+            {
+                shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
+            }
 
             char buf[80];
 
@@ -334,7 +341,7 @@ private:
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
-                    { "shielded_possible_ready_in_hours", possibleShieldedReadyHours }
+                    { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
                 }
             )) {
                 return false;
