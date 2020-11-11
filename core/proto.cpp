@@ -1001,7 +1001,7 @@ Event::Type::Enum Event::Type::Load(Deserializer& der)
     {
         der& eType;
     }
-    catch (const yas::io_exception&)
+    catch (const std::exception&)
     {
         // workaround for the case whe enum was serialized as unsigned integer #1622
         // TODO: remove after fork

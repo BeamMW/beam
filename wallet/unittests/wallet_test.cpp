@@ -75,15 +75,34 @@ namespace
             LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
         }
         
-        ByteBuffer buf2 = from_hex("82");
+        auto f = [](const std::string& s, bool shouldThrow)
+        {
+            ByteBuffer buf2 = from_hex(s);
 
-        Deserializer der;
-        der.reset(buf2.data(), buf2.size());
+            Deserializer der;
+            der.reset(buf2.data(), buf2.size());
 
-        proto::Event::Type::Enum event;
-        WALLET_CHECK_NO_THROW(der& event);
-        WALLET_CHECK(proto::Event::Type::Shielded == event);
+            proto::Event::Type::Enum event;
+            if (shouldThrow)
+            {
+                WALLET_CHECK_THROW(der & event);
+            }
+            else
+            {
+                WALLET_CHECK_NO_THROW(der & event);
+                WALLET_CHECK(proto::Event::Type::Shielded == event);
+            }
 
+            der.reset(buf2.data(), buf2.size());
+            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
+            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
+            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
+        };
+
+        // legacy case
+        f("42", true);
+        // Normal case
+        f("82", false);
     }
 
     void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
