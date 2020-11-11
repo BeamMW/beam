@@ -324,23 +324,34 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ValidateAddress& data)
     {
-        LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "ValidateAddress( address = " << data.address << ")";
 
-        auto walletDB = _walletData.getWalletDBPtr();
-        if (!walletDB) {
-            return doError(id, ApiError::NotOpenedError);
-        }
+        auto p = ParseParameters(data.address);
 
-        bool isValid = data.address.IsValid();
+        bool isValid = !!p;
         bool isMine = false;
 
-        auto addr = walletDB->getAddress(data.address);
-        if (addr)
+        if (p)
         {
-            isMine = addr->isOwn();
-            if (isMine)
+            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerID); v)
             {
-                isValid = isValid && !addr->isExpired();
+                isValid &= v->IsValid();
+
+                auto walletDB = _walletData.getWalletDBPtr();
+                if (!walletDB)
+                {
+                    return doError(id, ApiError::NotOpenedError);
+                }
+
+                auto addr = walletDB->getAddress(*v);
+                if (addr)
+                {
+                    isMine = addr->isOwn();
+                    if (isMine)
+                    {
+                        isValid = isValid && !addr->isExpired();
+                    }
+                }
             }
         }
         doResponse(id, ValidateAddress::Response{ isValid, isMine });

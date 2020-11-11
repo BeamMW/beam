@@ -637,7 +637,7 @@ namespace
             void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.address.IsValid() == _valid);
+                WALLET_CHECK(CheckReceiverAddress(data.address) == _valid);
             }
         private:
             bool _valid;

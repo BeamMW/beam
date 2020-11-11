@@ -207,7 +207,33 @@ namespace beam::bitcoin
                         ec_private privateKey = privateKeys[coin.m_index];
                         script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider.GetSettings().GetAddressVersion()).hash());
                         endorsement sig;
-                        if (lockingScript.create_endorsement(sig, privateKey.secret(), lockingScript, tx, static_cast<uint32_t>(ind), machine::sighash_algorithm::all))
+                        bool isSuccess = false;
+
+                        if (NeedSignValue())
+                        {
+                            beam::Amount total = coin.m_details["value"].get<beam::Amount>();
+
+                            isSuccess = lockingScript.create_endorsement(
+                                sig,
+                                privateKey.secret(), 
+                                lockingScript, 
+                                tx, 
+                                static_cast<uint32_t>(ind), 
+                                GetSighashAlgorithm(), 
+                                libbitcoin::machine::script_version::zero, total);
+                        }
+                        else
+                        {
+                            isSuccess = lockingScript.create_endorsement(
+                                sig, 
+                                privateKey.secret(), 
+                                lockingScript, 
+                                tx, 
+                                static_cast<uint32_t>(ind), 
+                                GetSighashAlgorithm());
+                        }
+
+                        if (isSuccess)
                         {
                             script::operation::list sigScript;
                             sigScript.push_back(script::operation(sig));
@@ -877,5 +903,15 @@ namespace beam::bitcoin
     {
         auto iter = m_verifiedAddresses.find(address);
         return iter == m_verifiedAddresses.end() || (iter != m_verifiedAddresses.end() && iter->second);
+    }
+
+    uint8_t Electrum::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all;
+    }
+
+    bool Electrum::NeedSignValue() const
+    {
+        return false;
     }
 } // namespace beam::bitcoin

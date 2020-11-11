@@ -28,7 +28,7 @@ namespace beam::wallet
     {
     public:
         WalletUpdatesProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
-
+        virtual ~WalletUpdatesProvider() = default;
         // IBroadcastListener implementation
         bool onMessage(uint64_t unused, BroadcastMsg&&) override;
         

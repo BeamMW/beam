@@ -60,6 +60,52 @@ WALLET_TEST_INIT
 
 namespace
 {
+    void TestEventTypeSerialization()
+    {
+        std::string serializedStr;
+        {
+            proto::Event::Type::Enum event = proto::Event::Type::Shielded;
+
+            Serializer ser;
+            ser& event;
+
+            ByteBuffer buf;
+            ser.swap_buf(buf);
+
+            serializedStr = beam::to_hex(&buf[0], buf.size());
+            LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
+        }
+        
+        auto f = [](const std::string& s, bool shouldThrow)
+        {
+            ByteBuffer buf2 = from_hex(s);
+
+            Deserializer der;
+            der.reset(buf2.data(), buf2.size());
+
+            proto::Event::Type::Enum event;
+            if (shouldThrow)
+            {
+                WALLET_CHECK_THROW(der & event);
+            }
+            else
+            {
+                WALLET_CHECK_NO_THROW(der & event);
+                WALLET_CHECK(proto::Event::Type::Shielded == event);
+            }
+
+            der.reset(buf2.data(), buf2.size());
+            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
+            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
+            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
+        };
+
+        // legacy case
+        f("42", true);
+        // Normal case
+        f("82", false);
+    }
+
     void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
     {
         cout << "\nTesting wallets negotiation...\n";
@@ -1572,7 +1618,31 @@ namespace
             std::string sbbsAddressStr = "b0ca7b4afd7f0000fe6d24e8fd052ef04ff4bb2a230a81c8eeeb0dd0e55af766a91c6513e377fb39";
             WALLET_CHECK(beam::wallet::CheckReceiverAddress(sbbsAddressStr) == false);
         }
+        {
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
 
+        {
+            WalletID invalidWalletID;
+            WALLET_CHECK(invalidWalletID.FromHex("1b516fb37884a3281bc07610000008bc51fdb1336882a2c7efebdb400d00d4"));
+            WALLET_CHECK(!invalidWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, invalidWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(!invalidToken.IsValid());
+            WALLET_CHECK(!CheckReceiverAddress(std::to_string(p)));
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
+        {
+            WalletID validWalletID;
+            WALLET_CHECK(validWalletID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+            WALLET_CHECK(validWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, validWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(invalidToken.IsValid());
+            WALLET_CHECK(CheckReceiverAddress(std::to_string(p)));
+        }
     }
 
     void TestConvertions()
@@ -2915,6 +2985,7 @@ int main()
 
     storage::HookErrors();
 
+    TestEventTypeSerialization();
     TestKeyKeeper();
 
     TestVouchers();

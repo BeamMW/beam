@@ -89,6 +89,8 @@ namespace beam::wallet
         virtual void getAssetInfo(Asset::ID) = 0;
         virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) = 0;
 
+        // virtual void getAssetInfo(Asset::ID) = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }

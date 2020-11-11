@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
-#include "bitcoin_sv_core.h"
-#include "settings.h"
-#include "bitcoin_sv_side.h"
 #include "electrum.h"
-#include "common.h"
+
+#include "bitcoin/bitcoin.hpp"
+
+namespace beam::bitcoin_cash
+{
+    Electrum::Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider)
+        : bitcoin::Electrum(reactor, settingsProvider)
+    {
+    }
+
+    uint8_t Electrum::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all | 0x40;
+    }
+
+    bool Electrum::NeedSignValue() const
+    {
+        return true;
+    }
+
+} // namespace beam::bitcoin_cash

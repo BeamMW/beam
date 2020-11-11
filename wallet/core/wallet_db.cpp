@@ -84,6 +84,7 @@
 #define SHIELDED_COINS_NAME "ShieldedCoins"
 #define NOTIFICATIONS_NAME "notifications"
 #define EXCHANGE_RATES_NAME "exchangeRates"
+#define EXCHANGE_RATES_HISTORY_NAME "exchangeRatesHistory"
 #define VOUCHERS_NAME "vouchers"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 
@@ -188,6 +189,15 @@
     each(updateTime,    updateTime,     INTEGER,            obj)
 
 #define EXCHANGE_RATES_FIELDS ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, )
+
+#define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
+    each(height,        height,         INTEGER,            obj) sep \
+    each(currency,      currency,       INTEGER,            obj) sep \
+    each(unit,          unit,           INTEGER,            obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
+
+#define EXCHANGE_RATES_HISTORY_FIELDS ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_VOUCHERS_FIELDS(each, sep, obj) \
     each(WalletID,  WalletID,  BLOB NOT NULL, obj) sep \
@@ -896,7 +906,8 @@ namespace beam::wallet
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 25;
+        const int DbVersion   = 26;
+        const int DbVersion25 = 25;
         const int DbVersion24 = 24;
         const int DbVersion23 = 23;
         const int DbVersion22 = 22;
@@ -1200,6 +1211,13 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateExchangeRatesHistoryTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void AddAddressIdentityColumn(const WalletDB* walletDB, sqlite3* db)
         {
             const char* req = "ALTER TABLE " ADDRESSES_NAME " ADD Identity BLOB NULL;";
@@ -1423,6 +1441,7 @@ namespace beam::wallet
         CreateNotificationsTable(db);
         CreateExchangeRatesTable(db);
         CreateVouchersTable(db);
+        CreateExchangeRatesHistoryTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1903,6 +1922,9 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 24...";
                     MigrateAddressesFrom24(walletDB.get(), walletDB->_db);
 
+                case DbVersion25:
+                    LOG_INFO() << "Converting DB from format 25...";
+                    CreateExchangeRatesHistoryTable(walletDB->_db);
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -4057,6 +4079,51 @@ namespace beam::wallet
         }
     }
 
+    ExchangeRateHistoryEntity WalletDB::getExchangeRateHistoryEntity(
+        ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const
+    {
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        sqlite::Statement stm(this, req);
+        stm.bind(1, currency);
+        stm.bind(2, unit);
+        stm.bind(3, height);
+
+        ExchangeRateHistoryEntity rate;
+        while (stm.step())
+        {
+            int colIdx = 0;
+            ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
+        }
+
+        return rate;
+    }
+
+    std::vector<ExchangeRateHistoryEntity> WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
+    {
+        std::vector<ExchangeRateHistoryEntity> res;
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
+        sqlite::Statement stm(this, req);
+        stm.bind(1, endHeight);
+        stm.bind(2, startHeight);
+
+        while (stm.step())
+        {
+            auto& rate = res.emplace_back();
+            int colIdx = 0;
+            ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
+        }
+        return res;
+    }
+
+    void WalletDB::saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity& rate)
+    {
+        const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
+        sqlite::Statement stm(this, insertReq);
+        int colIdx = 0;
+        ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, rate);
+        stm.step();
+    }
+
     boost::optional<ShieldedTxo::Voucher> WalletDB::grabVoucher(const WalletID& peerID)
     {
         int f = VoucherFlags::Deleted;
@@ -4957,7 +5024,7 @@ namespace beam::wallet
                 {
                     ShieldedCoin::UnlinkStatus unlinkStatus;
                     unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
-                    if (unlinkStatus.get_SpendPriority() < 1)
+                    if (unlinkStatus.m_Progress < 100)
                     {
                         c.m_Status = ShieldedCoin::Status::Maturing;
                         return;
@@ -6059,6 +6126,15 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
         params.SetParameter(TxParameterID::Voucher, voucher);
+        return std::to_string(params);
+    }
+
+    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB)
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
+        AppendLibraryVersion(params);
         return std::to_string(params);
     }
 }

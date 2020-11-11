@@ -184,7 +184,8 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             shieldedOutputsFee,
             changeBeam,
             changeAsset,
-            assetId
+            assetId,
+            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
         };
     }
     else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
@@ -209,7 +210,8 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             shieldedOutputsFee,
             changeBeam,
             changeAsset,
-            assetId
+            assetId,
+            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
         };
     }
 
@@ -229,7 +231,8 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             shieldedOutputsFee,
             changeBeam,
             changeAsset,
-            assetId
+            assetId,
+            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
         };
     }
     else

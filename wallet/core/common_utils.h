@@ -51,6 +51,7 @@ namespace beam::wallet
         Amount changeBeam = 0;
         Amount changeAsset = 0; // if assetId is BEAM then changeAsset == changeBeam
         Asset::ID assetID = Asset::s_BeamID;
+        bool isEnought = true;
     };
     ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
 

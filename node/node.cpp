@@ -3522,8 +3522,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
                 Deserializer der;
                 der.reset(wlk.m_Body.p, wlk.m_Body.n);
 
-                proto::Event::Type::Enum eType;
-                der & eType;
+                proto::Event::Type::Enum eType = proto::Event::Type::Load(der);
                 if (bSkipAssets && (proto::Event::Type::AssetCtl == eType))
                     continue; // skip
 

@@ -848,7 +848,7 @@ namespace beam::wallet
 
             auto& msgOut = ExtendBy(m_MsgOut, m_Msg.m_Out, nSize);
             if (nSize)
-                memcpy(&msgOut + 1, reinterpret_cast<const void*>(&vec.front()), nSize);
+                memcpy(&msgOut + 1, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
 
             InvokeProtoEx(msgOut, m_Msg.m_In, nSize, 0);
         }

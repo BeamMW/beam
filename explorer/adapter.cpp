@@ -22,15 +22,16 @@
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/core/common.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
+#include "wallet/client/wallet_client.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
+#include "wallet/core/wallet_network.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/offers_protocol_handler.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#include "wallet/core/wallet_network.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam { namespace explorer {
@@ -43,7 +44,7 @@ static const size_t CACHE_DEPTH = 100000;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 const unsigned int FAKE_SEED = 10283UL;
 const char WALLET_DB_PATH[] = "explorer-wallet.db";
-const char WALLET_DB_PASS[] = "fake_db_pass";
+const char WALLET_DB_PASS[] = "1";
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
@@ -110,6 +111,107 @@ using nlohmann::json;
 
 } //namespace
 
+class ExchangeRateProvider
+        : public IBroadcastListener
+{
+public:
+    ExchangeRateProvider(IBroadcastMsgGateway& broadcastGateway, const wallet::IWalletDB::Ptr& walletDB) :
+        _broadcastGateway(broadcastGateway),
+        _walletDB(walletDB)
+    {
+        PeerID key;
+        if (wallet::BroadcastMsgValidator::stringToPublicKey(wallet::kBroadcastValidatorPublicKey, key))
+        {
+            _validator.setPublisherKeys( { key } );
+        }
+        _broadcastGateway.registerListener(BroadcastContentType::ExchangeRates, this);
+    }
+
+    virtual ~ExchangeRateProvider() = default;
+
+    std::string getRate(wallet::ExchangeRate::Currency unit, uint64_t height)
+    {
+        if (height >= _preloadStartHeight && height <= _preloadEndHeight)
+        {
+            auto it = std::find_if(
+                _ratesCache.begin(), _ratesCache.end(),
+                [unit, height] (const wallet::ExchangeRateHistoryEntity& rate) {
+                    return rate.m_currency == wallet::ExchangeRate::Currency::Beam
+                        && rate.m_unit == unit
+                        && rate.m_height <= height;
+                });
+            return it != _ratesCache.end()
+                ? std::to_string(wallet::PrintableAmount(it->m_rate, true))
+                : "-";
+        }
+        else
+        {
+            const auto rate = _walletDB->getExchangeRateHistoryEntity(
+                wallet::ExchangeRate::Currency::Beam, unit, height);
+            return rate.m_height ? std::to_string(wallet::PrintableAmount(rate.m_rate, true)) : "-";
+        }
+    }
+
+    void preloadRates(uint64_t startHeight, uint64_t endHeight)
+    {
+        _preloadStartHeight = startHeight;
+        _preloadEndHeight = endHeight;
+
+        const auto btcFirstRate = _walletDB->getExchangeRateHistoryEntity(
+            wallet::ExchangeRate::Currency::Beam,
+            wallet::ExchangeRate::Currency::Bitcoin,
+            startHeight);
+
+        const auto usdFirstRate = _walletDB->getExchangeRateHistoryEntity(
+            wallet::ExchangeRate::Currency::Beam,
+            wallet::ExchangeRate::Currency::Usd,
+            startHeight);
+
+        auto minHeight = std::min(btcFirstRate.m_height, usdFirstRate.m_height);
+
+        _ratesCache = _walletDB->getExchangeRatesHistory(minHeight, endHeight);
+    }
+
+    // IBroadcastListener implementation
+    bool onMessage(uint64_t unused, BroadcastMsg&& msg) override
+    {
+        Block::SystemState::Full blockState;
+        _walletDB->get_History().get_Tip(blockState);
+        if (!blockState.m_Height) return false;
+
+        if (_validator.isSignatureValid(msg))
+        {
+            try
+            {
+                std::vector<wallet::ExchangeRate> rates;
+                if (wallet::fromByteBuffer(msg.m_content, rates))
+                {
+                    for (auto& rate : rates)
+                    {
+                        wallet::ExchangeRateHistoryEntity rateHistory = rate;
+                        rateHistory.m_height = blockState.m_Height;
+                        _walletDB->saveExchangeRateHistoryEntity(rateHistory);
+                    }
+                }
+            }
+            catch(...)
+            {
+                LOG_WARNING() << "broadcast message processing exception";
+                return false;
+            }
+        }
+        return true;
+    }
+    
+private:
+    IBroadcastMsgGateway& _broadcastGateway;
+    wallet::IWalletDB::Ptr _walletDB;
+    wallet::BroadcastMsgValidator _validator;
+    uint64_t _preloadStartHeight = 0;
+    uint64_t _preloadEndHeight = 0;
+    std::vector<wallet::ExchangeRateHistoryEntity> _ratesCache;
+};
+
 /// Explorer server backend, gets callback on status update and returns json messages for server
 class Adapter : public Node::IObserver, public IAdapter {
 public:
@@ -126,7 +228,6 @@ public:
         _nextHook = *_hook;
         *_hook = this;
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
          if (!wallet::WalletDB::isInitialized(WALLET_DB_PATH))
          {
             ECC::NoLeak<ECC::uintBig> seed;
@@ -139,9 +240,7 @@ public:
          }
          
         _wallet = std::make_shared<wallet::Wallet>(_walletDB);
-
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
-
         nnet->m_Cfg.m_vNodes.push_back(node.m_Cfg.m_Listen);
         nnet->Connect();
 
@@ -151,6 +250,9 @@ public:
         _wallet->SetNodeEndpoint(nnet);
 
         _broadcastRouter = std::make_shared<BroadcastRouter>(*nnet, *wnet);
+        _exchangeRateProvider = std::make_shared<ExchangeRateProvider>(*_broadcastRouter, _walletDB);
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         _offerBoardProtocolHandler =
             std::make_shared<wallet::OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
         _offersBulletinBoard = std::make_shared<wallet::SwapOffersBoard>(
@@ -209,8 +311,14 @@ private:
     bool get_status(io::SerializedMsg& out) override {
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
-
             _cache.currentHeight = cursor.m_Sid.m_Height;
+
+            NodeDB& db = _nodeBackend.get_DB();
+            auto shieldedOuts24hAgo =
+                db.GetShieldedCount(cursor.m_Sid.m_Height >= 1440 ? cursor.m_Sid.m_Height - 1440 : 0);
+
+            auto shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedOuts24hAgo;
+            auto possibleShieldedReadyHours = Rules::get().Shielded.MaxWindowBacklog / 2 / shieldedPer24h * 24;
 
             char buf[80];
 
@@ -224,7 +332,10 @@ private:
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "peers_count", _node.get_AcessiblePeerCount() }
+                    { "peers_count", _node.get_AcessiblePeerCount() },
+                    { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
+                    { "shielded_outputs_per_24h", shieldedPer24h },
+                    { "shielded_possible_ready_in_hours", possibleShieldedReadyHours }
                 }
             )) {
                 return false;
@@ -554,6 +665,9 @@ private:
                 }
             }
 
+            auto btcRate = _exchangeRateProvider->getRate(wallet::ExchangeRate::Currency::Bitcoin, blockState.m_Height);
+            auto usdRate = _exchangeRateProvider->getRate(wallet::ExchangeRate::Currency::Usd, blockState.m_Height);
+
             out = json{
                 {"found",      true},
                 {"timestamp",  blockState.m_TimeStamp},
@@ -566,7 +680,10 @@ private:
                 {"assets",     assets},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
-                {"kernels",    kernels}
+                {"kernels",    kernels},
+                {"rate_btc",   btcRate},
+                {"rate_usd",   usdRate}
+
             };
 
             LOG_DEBUG() << out;
@@ -667,10 +784,11 @@ private:
     }
 
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
+        Height endHeight = startHeight + n - 1;
+        _exchangeRateProvider->preloadRates(startHeight, endHeight);
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
-        Height endHeight = startHeight + n - 1;
         out.push_back(_leftBrace);
         uint64_t row = 0;
         uint64_t prevRow = 0;
@@ -749,7 +867,6 @@ private:
                litecoinAmount = 0,
                qtumAmount = 0,
                bitcoinCashAmount = 0,
-               bitcoinSVAmount = 0,
                dogecoinAmount = 0,
                dashAmount = 0;
 
@@ -770,9 +887,6 @@ private:
                 case wallet::AtomicSwapCoin::Bitcoin_Cash :
                     bitcoinCashAmount += offer.amountSwapCoin();
                     break;
-                case wallet::AtomicSwapCoin::Bitcoin_SV :
-                    bitcoinSVAmount += offer.amountSwapCoin();
-                    break;
                 case wallet::AtomicSwapCoin::Dogecoin :
                     dogecoinAmount += offer.amountSwapCoin();
                     break;
@@ -786,13 +900,12 @@ private:
         }
 
         json obj = json{
-            { "total_swaps", offers.size()},
+            { "total_swaps_count", offers.size()},
             { "beams_offered", std::to_string(wallet::PrintableAmount(beamAmount, true)) },
             { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
             { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
             { "qtum_offered", std::to_string(wallet::PrintableAmount(qtumAmount, true))},
             { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
-            { "bitcoin_sv_offered", std::to_string(wallet::PrintableAmount(bitcoinSVAmount, true))},
             { "dogecoin_offered", std::to_string(wallet::PrintableAmount(dogecoinAmount, true))},
             { "dash_offered", std::to_string(wallet::PrintableAmount(dashAmount, true))}
         };
@@ -824,10 +937,11 @@ private:
 
     io::SerializedMsg _sm;
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     wallet::IWalletDB::Ptr _walletDB;
     wallet::Wallet::Ptr _wallet;
     std::shared_ptr<wallet::BroadcastRouter> _broadcastRouter;
+    std::shared_ptr<ExchangeRateProvider> _exchangeRateProvider;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     std::shared_ptr<wallet::OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     wallet::SwapOffersBoard::Ptr _offersBulletinBoard;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
