@@ -56,6 +56,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "swap_client.h"
+#include "swap_eth_client.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"
@@ -163,6 +164,12 @@ public:
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
+        // TODO roman.strilets implement to other coins
+        if (swapCoin == AtomicSwapCoin::Ethereum)
+        {
+            return _swapEthClient ? _swapEthClient->GetAvailable() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetAvailable() : 0;
@@ -170,6 +177,11 @@ public:
 
     Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (swapCoin == AtomicSwapCoin::Ethereum)
+        {
+            return _swapEthClient ? _swapEthClient->GetRecommendedFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetRecommendedFeeRate() : 0;
@@ -177,6 +189,11 @@ public:
 
     Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (swapCoin == AtomicSwapCoin::Ethereum)
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMinFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
@@ -189,6 +206,12 @@ public:
 
     bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
+        // TODO roman.strilets implement to other coins
+        if (swapCoin == AtomicSwapCoin::Ethereum)
+        {
+            return _swapEthClient ? _swapEthClient->IsConnected() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient && swapClient->IsConnected();
@@ -220,6 +243,7 @@ public:
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
         initSwapClient<bitcoin_sv::BitcoinSVCore, bitcoin_sv::Electrum, bitcoin_sv::SettingsProvider>(AtomicSwapCoin::Bitcoin_SV);
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
+        initEthClient(AtomicSwapCoin::Ethereum);
     }
 
     void onSwapOffersChanged(
@@ -240,6 +264,16 @@ private:
         _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
     }
 
+    void initEthClient(beam::wallet::AtomicSwapCoin /*swapCoin*/)
+    {
+        // TODO roman.strilets implement for other coin
+        auto settingsProvider = std::make_unique<ethereum::SettingsProvider>(_walletDB);
+        settingsProvider->Initialize();
+
+        _swapEthBridgeHolder = std::make_shared<ethereum::BridgeHolder>();
+        _swapEthClient = std::make_shared<SwapEthClient>(_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
+    }
+
     SwapClient::Ptr getSwapCoinClient(beam::wallet::AtomicSwapCoin swapCoin) const
     {
         auto it = _swapClients.find(swapCoin);
@@ -249,7 +283,7 @@ private:
         }
         return nullptr;
     }
-
+    
     std::shared_ptr<BroadcastRouter> _broadcastRouter;
     std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     SwapOffersBoard::Ptr _offersBulletinBoard;
@@ -258,6 +292,8 @@ private:
 
     std::map<beam::wallet::AtomicSwapCoin, SwapClient::Ptr> _swapClients;
     std::map<beam::wallet::AtomicSwapCoin, beam::bitcoin::IBridgeHolder::Ptr> _swapBridgeHolders;
+    SwapEthClient::Ptr _swapEthClient;
+    beam::ethereum::IBridgeHolder::Ptr _swapEthBridgeHolder;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 protected:

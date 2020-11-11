@@ -17,6 +17,7 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
     set(API_SRC
         ${API_SRC}
         swap_client.cpp
+        swap_eth_client.cpp
     )
 endif()
 

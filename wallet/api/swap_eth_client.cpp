@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swap_client.h"
+#include "swap_eth_client.h"
 
 using namespace beam;
 
-SwapClient::SwapClient(
-    bitcoin::IBridgeHolder::Ptr bridgeHolder,
-    std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+SwapEthClient::SwapEthClient(
+    ethereum::IBridgeHolder::Ptr bridgeHolder,
+    std::unique_ptr<beam::ethereum::SettingsProvider> settingsProvider,
     io::Reactor& reactor)
-    : bitcoin::Client(bridgeHolder, std::move(settingsProvider), reactor)
+    : ethereum::Client(bridgeHolder, std::move(settingsProvider), reactor)
     , _timer(io::Timer::create(reactor))
     , _feeTimer(io::Timer::create(reactor))
     , _status(Status::Unknown)
@@ -39,59 +39,60 @@ SwapClient::SwapClient(
     });
 }
 
-Amount SwapClient::GetAvailable() const
+Amount SwapEthClient::GetAvailable() const
 {
-    return _balance.m_available;
+    return _balance;
 }
 
-Amount SwapClient::GetRecommendedFeeRate() const
+Amount SwapEthClient::GetRecommendedFeeRate() const
 {
     return _recommendedFeeRate;
 }
 
-bool SwapClient::IsConnected() const
+bool SwapEthClient::IsConnected() const
 {
     return _status == Status::Connected;
 }
 
-void SwapClient::requestBalance()
+void SwapEthClient::requestBalance()
 {
     if (GetSettings().IsActivated())
     {
         // update balance
-        GetAsync()->GetBalance();
+        GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Ethereum);
     }
 }
 
-void SwapClient::requestRecommendedFeeRate()
+void SwapEthClient::requestRecommendedFeeRate()
 {
     if (GetSettings().IsActivated())
     {
         // update recommended fee rate
-        GetAsync()->EstimateFeeRate();
+        GetAsync()->EstimateGasPrice();
     }
 }
 
-void SwapClient::OnStatus(Status status)
+void SwapEthClient::OnStatus(Status status)
 {
     _status = status;
 }
 
-void SwapClient::OnBalance(const Balance& balance)
+void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin /*swapCoin*/, beam::Amount balance)
 {
+    // TODO roman.strilets
     _balance = balance;
 }
 
-void SwapClient::OnEstimatedFeeRate(Amount feeRate)
+void SwapEthClient::OnEstimatedGasPrice(Amount feeRate)
 {
     _recommendedFeeRate = feeRate;
 }
 
-void SwapClient::OnCanModifySettingsChanged(bool canModify)
+void SwapEthClient::OnCanModifySettingsChanged(bool canModify)
 {}
 
-void SwapClient::OnChangedSettings()
+void SwapEthClient::OnChangedSettings()
 {}
 
-void SwapClient::OnConnectionError(beam::bitcoin::IBridge::ErrorType error)
+void SwapEthClient::OnConnectionError(beam::ethereum::IBridge::ErrorType error)
 {}
