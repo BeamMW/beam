@@ -498,6 +498,16 @@ namespace beam::wallet
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
+    enum struct TxAddressType : uint8_t
+    {
+        Unknown,
+        Regular,
+        AtomicSwap,
+        Offline,
+        MaxPrivacy,
+        PublicOffline
+    };
+
     class TxStatusInterpreter
     {
     public:
@@ -525,9 +535,11 @@ namespace beam::wallet
     class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
     {
     public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
         ~MaxPrivacyTxStatusInterpreter() override = default;
         [[nodiscard]] std::string getStatus() const override;
+    private:
+        TxAddressType m_addressType = TxAddressType::Unknown;
     };
 
     class AssetTxStatusInterpreter : public TxStatusInterpreter
@@ -538,16 +550,6 @@ namespace beam::wallet
         [[nodiscard]] std::string getStatus() const override;
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-
-    enum struct TxAddressType : uint8_t
-    {
-        Unknown,
-        Regular,
-        AtomicSwap,
-        Offline,
-        MaxPrivacy,
-        PublicOffline
     };
 
     // Specifies key transaction parameters for interaction with Wallet Clients

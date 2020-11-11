@@ -660,21 +660,73 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
+    MaxPrivacyTxStatusInterpreter::MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    {
+        auto storedType = txParams.GetParameter<TxAddressType>(TxParameterID::AddressType);
+        if (storedType)
+        {
+            m_addressType = *storedType;
+        }
+        else
+        {
+            TxDescription tx_desc(txParams);
+            m_addressType = tx_desc.m_sender ? GetAddressType(tx_desc) : TxAddressType::Unknown;
+        }
+    };
+
     std::string MaxPrivacyTxStatusInterpreter::getStatus() const
     {
-        switch (m_status)
+        switch (m_addressType)
         {
-        case TxStatus::Registering:
-            return "in progress max privacy";
-        case TxStatus::Failed:
-            return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed max privacy";
-        case TxStatus::Canceled:
-            return "canceled max privacy";
-        case TxStatus::Completed:
-            return m_sender ? "sent max privacy" : "received max privacy";
-        default:
-            break;
+            case TxAddressType::MaxPrivacy:
+                switch (m_status)
+                {
+                case TxStatus::Registering:
+                    return "in progress max privacy";
+                case TxStatus::Failed:
+                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed max privacy";
+                case TxStatus::Canceled:
+                    return "canceled max privacy";
+                case TxStatus::Completed:
+                    return m_sender ? "sent max privacy" : "received max privacy";
+                default:
+                    break;
+                }
+                break;
+            case TxAddressType::Offline:
+                switch (m_status)
+                {
+                case TxStatus::Registering:
+                    return "in progress offline";
+                case TxStatus::Failed:
+                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed offline";
+                case TxStatus::Canceled:
+                    return "canceled offline";
+                case TxStatus::Completed:
+                    return m_sender ? "sent offline" : "received offline";
+                default:
+                    break;
+                }
+                break;
+            case TxAddressType::PublicOffline:
+                switch (m_status)
+                {
+                case TxStatus::Registering:
+                    return "in progress public offline";
+                case TxStatus::Failed:
+                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed public offline";
+                case TxStatus::Canceled:
+                    return "canceled public offline";
+                case TxStatus::Completed:
+                    return m_sender ? "sent public offline" : "received public offline";
+                default:
+                    break;
+                }
+                break;
+            default:
+                break;
         }
+
         return TxStatusInterpreter::getStatus();
     }
 
