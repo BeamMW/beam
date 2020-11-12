@@ -60,6 +60,9 @@ protected:
     std::string GetAccountIndexName() const;
     std::string GetShouldConnectName() const;
     std::string GetContractAddressName() const;
+    std::string GetDaiContractAddressName() const;
+    std::string GetWbtcContractAddressName() const;
+    std::string GetUsdtContractAddressName() const;
     std::string GetHashlockContractAddressName() const;
         
     template<typename T>

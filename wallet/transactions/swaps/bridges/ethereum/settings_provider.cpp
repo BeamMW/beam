@@ -35,6 +35,9 @@ void SettingsProvider::SetSettings(const Settings& settings)
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
     WriteToDb(GetContractAddressName(), settings.m_swapContractAddress);
+    WriteToDb(GetDaiContractAddressName(), settings.m_daiContractAddress);
+    WriteToDb(GetUsdtContractAddressName(), settings.m_usdtContractAddress);
+    WriteToDb(GetWbtcContractAddressName(), settings.m_wbtcContractAddress);
     WriteToDb(GetHashlockContractAddressName(), settings.m_swapHashlockContractAddress);
     
     // update m_settings
@@ -51,6 +54,9 @@ void SettingsProvider::Initialize()
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
         ReadFromDB(GetContractAddressName(), m_settings->m_swapContractAddress);
+        ReadFromDB(GetWbtcContractAddressName(), m_settings->m_wbtcContractAddress);
+        ReadFromDB(GetDaiContractAddressName(), m_settings->m_daiContractAddress);
+        ReadFromDB(GetUsdtContractAddressName(), m_settings->m_usdtContractAddress);
         ReadFromDB(GetHashlockContractAddressName(), m_settings->m_swapHashlockContractAddress);
     }
 }
@@ -106,6 +112,21 @@ std::string SettingsProvider::GetShouldConnectName() const
 std::string SettingsProvider::GetContractAddressName() const
 {
     return GetSettingsName() + "_ContractAddress";
+}
+
+std::string SettingsProvider::GetDaiContractAddressName() const
+{
+    return GetSettingsName() + "_DaiContractAddress";
+}
+
+std::string SettingsProvider::GetWbtcContractAddressName() const
+{
+    return GetSettingsName() + "_WbtcContractAddress";
+}
+
+std::string SettingsProvider::GetUsdtContractAddressName() const
+{
+    return GetSettingsName() + "_UsdtContractAddress";
 }
 
 std::string SettingsProvider::GetHashlockContractAddressName() const
