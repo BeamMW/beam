@@ -843,7 +843,7 @@ private:
                bitcoinAmount = 0,
                litecoinAmount = 0,
                qtumAmount = 0,
-               bitcoinCashAmount = 0,
+            //    bitcoinCashAmount = 0,
                dogecoinAmount = 0,
                dashAmount = 0;
 
@@ -861,9 +861,9 @@ private:
                 case wallet::AtomicSwapCoin::Qtum :
                     qtumAmount += offer.amountSwapCoin();
                     break;
-                case wallet::AtomicSwapCoin::Bitcoin_Cash :
-                    bitcoinCashAmount += offer.amountSwapCoin();
-                    break;
+                // case wallet::AtomicSwapCoin::Bitcoin_Cash :
+                //     bitcoinCashAmount += offer.amountSwapCoin();
+                //     break;
                 case wallet::AtomicSwapCoin::Dogecoin :
                     dogecoinAmount += offer.amountSwapCoin();
                     break;
@@ -882,7 +882,7 @@ private:
             { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
             { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
             { "qtum_offered", std::to_string(wallet::PrintableAmount(qtumAmount, true))},
-            { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
+            // { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
             { "dogecoin_offered", std::to_string(wallet::PrintableAmount(dogecoinAmount, true))},
             { "dash_offered", std::to_string(wallet::PrintableAmount(dashAmount, true))}
         };
