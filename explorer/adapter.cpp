@@ -313,17 +313,21 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
 
-            NodeDB& db = _nodeBackend.get_DB();
-            auto shieldedByLast24h =
-                db.GetShieldedCount(cursor.m_Sid.m_Height >= 1440 ? cursor.m_Sid.m_Height - 1440 : 0);
-            auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
-
             double possibleShieldedReadyHours = 0;
             uint64_t shieldedPer24h = 0;
-            if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
+
+            if (_cache.currentHeight)
             {
-                shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
-                possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
+                NodeDB& db = _nodeBackend.get_DB();
+                auto shieldedByLast24h =
+                    db.GetShieldedCount(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 0);
+                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+
+                if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
+                {
+                    shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                    possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
+                }
             }
 
             char buf[80];
