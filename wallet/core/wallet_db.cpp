@@ -6099,24 +6099,6 @@ namespace beam::wallet
         std::sort(v.begin(), v.end(), mcmp);
     }
 
-
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
-    {
-        TxParameters offlineParameters;
-        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        // add voucher parameter
-        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
-        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
-        if (amount > 0)
-        {
-            offlineParameters.SetParameter(TxParameterID::Amount, amount);
-        }
-        return std::to_string(offlineParameters);
-    }
-
     namespace
     {
         TxParameters GenerateCommonAddressPart(Amount amount, const std::string& clientVersion)
@@ -6137,6 +6119,23 @@ namespace beam::wallet
         }
     }
 
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
+    {
+        TxParameters offlineParameters;
+        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        // add voucher parameter
+        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
+        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
+        if (amount > 0)
+        {
+            offlineParameters.SetParameter(TxParameterID::Amount, amount);
+        }
+        return std::to_string(offlineParameters);
+    }
+
     std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion)
     {
         TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
@@ -6145,7 +6144,6 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanent);
         params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
-        params.DeleteParameter(TxParameterID::Voucher);
         return std::to_string(params);
     }
 
