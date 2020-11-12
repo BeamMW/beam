@@ -5533,28 +5533,20 @@ namespace beam::wallet
             PaymentInfo pi;
             auto tx = walletDB->getTx(txID);
 
-            TxAddressType addressType = TxAddressType::Unknown;
-            TxAddressType storedAddressType = TxAddressType::Unknown;
-
-            if (storage::getTxParameter(*walletDB, txID, TxParameterID::AddressType, storedAddressType) && storedAddressType != TxAddressType::Unknown)
-            {
-                addressType = storedAddressType;
-            }
-            else
-            {
-                TxDescription desc(*tx);
-                addressType = GetAddressType(desc);
-            }
+            TxDescription desc(*tx);
+            TxAddressType addressType = GetAddressType(desc);
 
             bool bSuccess = true;
-            bool isSenderPublicOffline = tx->m_sender && addressType == TxAddressType::PublicOffline;
-            if (!isSenderPublicOffline)
+            bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+            if (!hasNoPeerId)
+            {
                 bSuccess = bSuccess && storage::getTxParameter(*walletDB,
                                     txID,
                                     tx->m_sender
                                         ? TxParameterID::PeerID
                                         : TxParameterID::MyID,
                                     pi.m_Receiver);
+            }
 
             bSuccess = bSuccess && storage::getTxParameter(*walletDB,
                                 txID,
@@ -5585,16 +5577,7 @@ namespace beam::wallet
                     s << "Sender identity: " << senderIdentity << std::endl;
                 }
 
-                if (isSenderPublicOffline)
-                {
-                    TxDescription desc(*tx);
-                    s << "Receiver: " << desc.getToken() << std::endl;
-                }
-                else
-                {
-                    s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
-                }
-                
+                s << "Receiver: " << (hasNoPeerId ? desc.getToken() : std::to_string(pi.m_Receiver)) << std::endl;
                 if (showIdentity)
                 {
                     s << "Receiver identity: " << receiverIdentity << std::endl;

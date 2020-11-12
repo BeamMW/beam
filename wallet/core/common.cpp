@@ -239,12 +239,12 @@ namespace beam::wallet
 
             auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID); // sbbs addres
             auto peerIdentity = params.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); // identity
-            auto peerOwnID = params.GetParameter<uint64_t>(TxParameterID::PeerOwnID);           // public key to create identity
 
             auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-            if (voucher && peerIdentity && peerOwnID)
+            if (voucher && peerIdentity)
                 return TxAddressType::MaxPrivacy;
 
+            auto peerOwnID = params.GetParameter<uint64_t>(TxParameterID::PeerOwnID);           // public key to create identity
             auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
             if (vouchers && !vouchers->empty() && peerIdentity && peerOwnID && peerID)
                 return TxAddressType::Offline;
