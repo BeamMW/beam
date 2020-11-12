@@ -125,12 +125,15 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             SetConnectionError(error.m_type);
             SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-            std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
-            boost::multiprecision::uint256_t tmp(hex);
+            if (error.m_type == IBridge::None)
+            {
+                std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
+                boost::multiprecision::uint256_t tmp(hex);
 
-            tmp /= ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
+                tmp /= ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
 
-            OnBalance(wallet::AtomicSwapCoin::Ethereum, tmp.convert_to<Amount>());
+                OnBalance(wallet::AtomicSwapCoin::Ethereum, tmp.convert_to<Amount>());
+            }
         });
     }
     else
@@ -158,10 +161,13 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             SetConnectionError(error.m_type);
             SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-            boost::multiprecision::uint256_t tmp(result.get<std::string>());
-            tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
+            if (error.m_type == IBridge::None)
+            {
+                boost::multiprecision::uint256_t tmp(result.get<std::string>());
+                tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
 
-            OnBalance(swapCoin, tmp.convert_to<Amount>());
+                OnBalance(swapCoin, tmp.convert_to<Amount>());
+            }
         });
     }
 }
@@ -186,10 +192,13 @@ void Client::EstimateGasPrice()
         SetConnectionError(error.m_type);
         SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
-        // convert from wei to gwei
-        Amount result = gasPrice / ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
+        if (IBridge::None == error.m_type)
+        {
+            // convert from wei to gwei
+            Amount result = gasPrice / ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
 
-        OnEstimatedGasPrice(result);
+            OnEstimatedGasPrice(result);
+        }
     });
 }
 
