@@ -430,6 +430,11 @@ void EthereumBridge::sendRequest(
                 error.m_message = "Empty response.";
             }
         }
+        else
+        {
+            error.m_type = IBridge::ErrorType::IOError;
+            error.m_message = msg.error_str();
+        }
         callback(error, result);
         return false;
     });
