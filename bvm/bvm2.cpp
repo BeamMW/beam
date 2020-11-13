@@ -69,8 +69,8 @@ namespace bvm2 {
 
 		uint32_t m_Version;
 		uint32_t m_NumMethods;
-		uint32_t m_Data0;
-		uint32_t m_Table0;
+		uint32_t m_hdrData0;
+		uint32_t m_hdrTable0;
 
 		static const uint32_t s_MethodsMin = 2; // c'tor and d'tor
 		static const uint32_t s_MethodsMax = 1U << 28; // would be much much less of course, this is just to ensure no-overflow for offset calculation
@@ -93,7 +93,8 @@ namespace bvm2 {
 
 		memset(pStack, nFill, nStackBytes);
 
-		m_vHeap.clear();
+        decltype(m_vHeap)().swap(m_vHeap);
+		m_Heap.Clear();
 	}
 
 	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
@@ -111,6 +112,7 @@ namespace bvm2 {
 		ZeroObject(m_AuxAlloc);
 		m_EnumVars = false;
 		m_LocalDepth = 0;
+		m_NeedComma = false;
 	}
 
 	const Processor::Header& Processor::ParseMod()
@@ -127,10 +129,10 @@ namespace bvm2 {
 
 		m_Data.n = m_Code.n - nHdrSize;
 		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
-		m_Data0 = ByteOrder::from_le(hdr.m_Data0);
+		m_prData0 = ByteOrder::from_le(hdr.m_hdrData0);
 
-		m_Table0 = ByteOrder::from_le(hdr.m_Table0);
-		Wasm::Test(m_Table0 <= m_Code.n);
+		m_prTable0 = ByteOrder::from_le(hdr.m_hdrTable0);
+		Wasm::Test(m_prTable0 <= m_Code.n);
 
 		return hdr;
 	}
@@ -335,7 +337,7 @@ namespace bvm2 {
 
 		pHdr->m_Version = ByteOrder::to_le(Header::s_Version);
 		pHdr->m_NumMethods = ByteOrder::to_le(nNumMethods);
-		pHdr->m_Data0 = ByteOrder::to_le(c.m_Data0);
+		pHdr->m_hdrData0 = ByteOrder::to_le(c.m_cmplData0);
 
 		if (!c.m_Data.empty())
 			memcpy(&c.m_Result.front() + nSizeHdr, &c.m_Data.front(), c.m_Data.size());
@@ -345,7 +347,7 @@ namespace bvm2 {
 		c.Build();
 
 		pHdr = reinterpret_cast<Header*>(&c.m_Result.front());
-		pHdr->m_Table0 = ByteOrder::to_le(c.m_Table0);
+		pHdr->m_hdrTable0 = ByteOrder::to_le(c.m_cmplTable0);
 
 		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
 		{

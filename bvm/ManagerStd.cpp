@@ -134,6 +134,9 @@ namespace bvm2 {
 	{
 		InitMem();
 		m_Code = m_BodyManager;
+		m_Out.str("");
+		m_Out.clear();
+		decltype(m_vInvokeData)().swap(m_vInvokeData);
 
 		try {
 			CallMethod(iMethod);

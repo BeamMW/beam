@@ -360,7 +360,7 @@ namespace Wasm {
 		static const uint8_t pVer[] = { 1, 0, 0, 0 };
 		Test(!memcmp(pVer, inp.Consume(sizeof(pVer)), sizeof(pVer)));
 
-		m_Data0 = 0;
+		m_cmplData0 = 0;
 
 		for (uint8_t nPrevSection = 0; inp.m_p0 < inp.m_p1; )
 		{
@@ -624,14 +624,14 @@ namespace Wasm {
 
 			if (i) {
 				// assume data blocks are sorted w.r.t. their virtual offset, and no overlap
-				Test(nAddr >= m_Data0 + m_Data.size());
+				Test(nAddr >= m_cmplData0 + m_Data.size());
 			}
 			else
-				m_Data0 = nAddr;
+				m_cmplData0 = nAddr;
 
 			if (data.n)
 			{
-				nAddr -= m_Data0; // to rel
+				nAddr -= m_cmplData0; // to rel
 
 				size_t n = nAddr + data.n;
 				if (m_Data.size() < n)
@@ -1155,7 +1155,7 @@ namespace Wasm {
 			ctx.CompileFunc();
 		}
 
-		m_Table0 = static_cast<uint32_t>(m_Result.size());
+		m_cmplTable0 = static_cast<uint32_t>(m_Result.size());
 
 		for (uint32_t i = 0; i < m_IndirectFuncs.size(); i++)
 		{
@@ -1617,7 +1617,7 @@ namespace Wasm {
 		case MemoryType::Data:
 			Test(!bW);
 			blob = m_Data;
-			nOffset -= m_Data0; // data va start at specific offset
+			nOffset -= m_prData0; // data va start at specific offset
 			break;
 
 		case MemoryType::Stack:
@@ -1802,9 +1802,9 @@ namespace Wasm {
 	Word Processor::ReadTable(Word iItem) const
 	{
 		iItem--; // it's 1-based
-		assert(m_Table0 <= m_Code.n); // must be checked during setup
-		Test(iItem < (m_Code.n - m_Table0) / sizeof(Word));
-		return from_wasm<Word>(static_cast<const uint8_t*>(m_Code.p) + m_Table0 + sizeof(Word) * iItem);
+		assert(m_prTable0 <= m_Code.n); // must be checked during setup
+		Test(iItem < (m_Code.n - m_prTable0) / sizeof(Word));
+		return from_wasm<Word>(static_cast<const uint8_t*>(m_Code.p) + m_prTable0 + sizeof(Word) * iItem);
 	}
 
 	Word Processor::ReadVFunc(Word pObject, Word iFunc) const
