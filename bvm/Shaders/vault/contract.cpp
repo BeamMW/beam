@@ -1,8 +1,8 @@
 ////////////////////////
 // Simple 'vault' shader
-#include "common.h"
-#include "vault.h"
-#include "Math.h"
+#include "../common.h"
+#include "../Math.h"
+#include "contract.h"
 
 Amount LoadAccount(const Vault::Key& key)
 {

@@ -1,7 +1,7 @@
-#include "common.h"
-#include "dummy.h"
-#include "vault.h"
-#include "Math.h"
+#include "../common.h"
+#include "../Math.h"
+#include "contract.h"
+#include "../vault/contract.h"
 
 // Demonstration of the inter-shader interaction.
 

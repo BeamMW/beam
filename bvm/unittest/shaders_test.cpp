@@ -28,10 +28,10 @@ namespace Shaders {
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
-#include "../Shaders/vault.h"
-#include "../Shaders/oracle.h"
-#include "../Shaders/dummy.h"
-#include "../Shaders/StableCoin.h"
+#include "../Shaders/vault/contract.h"
+#include "../Shaders/oracle/contract.h"
+#include "../Shaders/dummy/contract.h"
+#include "../Shaders/StableCoin/contract.h"
 
 #define export
 
@@ -77,13 +77,13 @@ namespace Shaders {
 	} // namespace Env
 
 	namespace Vault {
-#include "../Shaders/vault.cpp"
+#include "../Shaders/vault/contract.cpp"
 	}
 	namespace Oracle {
-#include "../Shaders/oracle.cpp"
+#include "../Shaders/oracle/contract.cpp"
 	}
 	namespace StableCoin {
-#include "../Shaders/StableCoin.cpp"
+#include "../Shaders/StableCoin/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -667,10 +667,10 @@ namespace bvm2 {
 
 	void MyProcessor::TestAll()
 	{
-		AddCode(m_Code.m_Vault, "vault.wasm");
-		AddCode(m_Code.m_Dummy, "dummy.wasm");
-		AddCode(m_Code.m_Oracle, "oracle.wasm");
-		AddCode(m_Code.m_StableCoin, "StableCoin.wasm");
+		AddCode(m_Code.m_Vault, "vault/contract.wasm");
+		AddCode(m_Code.m_Dummy, "dummy/contract.wasm");
+		AddCode(m_Code.m_Oracle, "oracle/contract.wasm");
+		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
 
 		TestVault();
 		TestDummy();
@@ -1115,7 +1115,7 @@ int main()
 		man.TestHeap();
 
 		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "vaultManager.wasm", Processor::Kind::Manager);
+		MyProcessor::AddCodeEx(buf, "vault/manager.wasm", Processor::Kind::Manager);
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
