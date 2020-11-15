@@ -392,6 +392,10 @@ void EthereumBridge::sendRequest(
     else
     {
         host = url;
+        if (needSsl(settings.m_address))
+        {
+            url += ":443";
+        }
     }
 
     io::Address address;
