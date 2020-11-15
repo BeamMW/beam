@@ -435,6 +435,9 @@ namespace bvm2 {
 				{
 					std::cout << m_Dbg.m_pOut->str();
 					m_Dbg.m_pOut->str("");
+
+					if (m_Cycles >= 100000)
+						m_Dbg.m_pOut = nullptr; // in debug max num of cycles takes too long because if this
 				}
 			}
 
