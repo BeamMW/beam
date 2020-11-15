@@ -1115,7 +1115,7 @@ int main()
 		man.TestHeap();
 
 		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "vault/manager.wasm", Processor::Kind::Manager);
+		MyProcessor::AddCodeEx(buf, "vault/app.wasm", Processor::Kind::Manager);
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
