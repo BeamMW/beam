@@ -76,7 +76,7 @@ namespace
         setBooleanField(env, TxDescriptionClass, tx, "sender", txDescription.m_sender);
         setBooleanField(env, TxDescriptionClass, tx, "selfTx", txDescription.m_selfTx);
         setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(txDescription.m_status));
-        setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(txDescription.m_kernelID.m_pData, txDescription.m_kernelID.nBytes));
+        setStringField(env, TxDescriptionClass, tx, "kernelId", to_string(txDescription.m_kernelID));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
@@ -434,7 +434,7 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onChangeCalculated", "(J)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, changeBeam);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, changeAsset, changeBeam, assetId);
 }
 
 void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
@@ -443,9 +443,9 @@ void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectio
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(J)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(JJJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
 }
 
 void WalletModel::onNeedExtractShieldedCoins(bool val)

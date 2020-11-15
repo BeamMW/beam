@@ -294,7 +294,7 @@ namespace beam::wallet
 
     struct ValidateAddress
     {
-        WalletID address = Zero;
+        std::string address;
 
         struct Response
         {

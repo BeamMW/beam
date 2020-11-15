@@ -1,8 +1,8 @@
-#include "common.h"
-#include "StableCoin.h"
-#include "oracle.h"
-#include "vault.h"
-#include "Math.h"
+#include "../common.h"
+#include "../Math.h"
+#include "../oracle/contract.h"
+#include "../vault/contract.h"
+#include "contract.h"
 
 using StableCoin::Balance;
 

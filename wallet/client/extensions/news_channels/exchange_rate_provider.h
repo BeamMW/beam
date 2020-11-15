@@ -29,7 +29,7 @@ namespace beam::wallet
     {
     public:
         ExchangeRateProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&, bool isEnabled = true);
-
+        virtual ~ExchangeRateProvider() = default;
         std::vector<ExchangeRate> getRates();
 
         void setOnOff(bool isEnabled);

@@ -143,6 +143,7 @@ if(BEAM_USE_AVX)
 endif()
 
 option(BEAM_USE_STATIC "Build with staticaly linked libraries " FALSE)
+option(BEAM_USE_STATIC_RUNTIME "Build with staticaly linked runtime" FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -256,7 +257,7 @@ if(MSVC)
     target_compile_definitions(beam INTERFACE -D_WIN32_WINNT=0x0600)
     add_definitions(-D_WIN32_WINNT=0x0600)
 
-    if(BEAM_USE_STATIC)
+    if(BEAM_USE_STATIC_RUNTIME)
         #target_compile_options(beam INTERFACE $<IF:$<CONFIG:Debug>,/MTd, /MT>)
         #target_link_options(beam INTERFACE $<IF:$<NOT:$<CONFIG:Debug>>, /OPT:REF /INCREMENTAL:NO, >)
         # use static runtime
@@ -264,7 +265,7 @@ if(MSVC)
             CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
             flag_var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
             CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-
+    
             if(${flag_var} MATCHES "/MD")
                 string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
             endif(${flag_var} MATCHES "/MD")
@@ -374,7 +375,7 @@ else()
     if(BEAM_USE_STATIC)
         set(Boost_USE_MULTITHREADED ON)
         set(Boost_USE_STATIC_LIBS ON)
-        set(Boost_USE_STATIC_RUNTIME ON)
+        set(Boost_USE_STATIC_RUNTIME ${BEAM_USE_STATIC_RUNTIME})
     else()
         if (WIN32)
             target_compile_definitions(beam INTERFACE -DBOOST_ALL_DYN_LINK )
@@ -397,7 +398,7 @@ include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 
 if(BEAM_USE_STATIC)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
-    set(OPENSSL_MSVC_STATIC_RT TRUE)
+    set(OPENSSL_MSVC_STATIC_RT ${BEAM_USE_STATIC_RUNTIME})
     find_package(OpenSSL REQUIRED)
 else()
     if(ANDROID)

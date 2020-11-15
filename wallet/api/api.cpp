@@ -198,7 +198,7 @@ void GetStatusResponseJson(const TxDescription& tx,
     {
         if (tx.m_txType != TxType::AssetInfo && tx.m_txType != TxType::AtomicSwap)
         {
-            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+            msg["kernel"] = std::to_string(tx.m_kernelID);
         }
     }
 
@@ -895,7 +895,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         ValidateAddress validateAddress;
-        validateAddress.address.FromHex(params["address"]);
+        validateAddress.address = params["address"].get<std::string>();
 
         getHandler().onMessage(id, validateAddress);
     }

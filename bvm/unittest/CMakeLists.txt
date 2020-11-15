@@ -1,7 +1,7 @@
 add_test_snippet(shaders_test bvm)
 
-configure_file("../Shaders/vault.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault.wasm" COPYONLY)
-configure_file("../Shaders/vaultManager.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vaultManager.wasm" COPYONLY)
-configure_file("../Shaders/dummy.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dummy.wasm" COPYONLY)
-configure_file("../Shaders/oracle.wasm" "${CMAKE_CURRENT_BINARY_DIR}/oracle.wasm" COPYONLY)
-configure_file("../Shaders/StableCoin.wasm" "${CMAKE_CURRENT_BINARY_DIR}/StableCoin.wasm" COPYONLY)
+configure_file("../Shaders/vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/contract.wasm" COPYONLY)
+configure_file("../Shaders/vault/manager.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/manager.wasm" COPYONLY)
+configure_file("../Shaders/dummy/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dummy/contract.wasm" COPYONLY)
+configure_file("../Shaders/oracle/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/oracle/contract.wasm" COPYONLY)
+configure_file("../Shaders/StableCoin/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/StableCoin/contract.wasm" COPYONLY)

@@ -1,9 +1,9 @@
 ////////////////////////
 // Oracle shader
-#include "common.h"
-#include "oracle.h"
-#include "MergeSort.h"
-#include "Math.h"
+#include "../common.h"
+#include "../MergeSort.h"
+#include "../Math.h"
+#include "contract.h"
 
 #pragma pack (push, 1)
 

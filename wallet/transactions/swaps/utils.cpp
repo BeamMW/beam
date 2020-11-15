@@ -23,7 +23,6 @@
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 
 namespace beam::wallet
@@ -169,15 +168,6 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              bitcoin_cash::ISettingsProvider>(walletDB));
 
     swapTransactionCreator->RegisterFactory(
-        AtomicSwapCoin::Bitcoin_SV,
-        CreateFactory
-            <bitcoin_sv::SettingsProvider,
-             bitcoin_sv::Electrum, 
-             bitcoin_sv::BitcoinSVCore,
-             BitcoinSVSide, 
-             bitcoin_sv::ISettingsProvider>(walletDB));
-
-    swapTransactionCreator->RegisterFactory(
         AtomicSwapCoin::Dogecoin,
         CreateFactory
             <dogecoin::SettingsProvider,
@@ -209,8 +199,6 @@ bool IsSwapAmountValid(
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Bitcoin_Cash:
         return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
-    case AtomicSwapCoin::Bitcoin_SV:
-        return BitcoinSVSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Dogecoin:
         return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Dash:

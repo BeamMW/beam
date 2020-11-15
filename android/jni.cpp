@@ -35,6 +35,7 @@
 #include "node_model.h"
 #include "version.h"
 #include <regex>
+#include <limits>
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -961,7 +962,10 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getExchangeRates)(JNIEnv *env,
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JNIEnv *env, jobject thiz, jlong offset)
 {
-    walletModel->setCoinConfirmationsOffset(offset);
+    if (offset <= std::numeric_limits<uint32_t>::max())
+    {
+        walletModel->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
+    }
 }
 
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(JNIEnv *env, jobject thiz)

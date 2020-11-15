@@ -2404,8 +2404,8 @@ namespace beam
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
 
-				bvm2::Compile(proc.m_BodyManager, "vaultManager.wasm", bvm2::Processor::Kind::Manager);
-				bvm2::Compile(proc.m_BodyContract, "vault.wasm", bvm2::Processor::Kind::Contract);
+				bvm2::Compile(proc.m_BodyManager, "vault/manager.wasm", bvm2::Processor::Kind::Manager);
+				bvm2::Compile(proc.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
 
 				if (!m_pMyNetwork)
 					m_pMyNetwork = std::make_shared<MyNetwork>(*this);

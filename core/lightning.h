@@ -114,7 +114,7 @@ namespace Lightning {
 			CoinID m_msPeer; // my part of msigN for peer withdrawal
 			CoinID m_Outp; // phase2 output
 
-			enum struct Type
+			enum struct Type : uint32_t
 			{
 				None, // not ready yet
 				TimeLocked, // standard 2-phase withdrawal

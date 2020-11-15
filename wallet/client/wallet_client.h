@@ -39,6 +39,13 @@
 
 namespace beam::wallet
 {
+#if defined(BEAM_TESTNET)
+    constexpr char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
+#elif defined(BEAM_MAINNET)
+    constexpr char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
+#else
+    constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
+#endif
     struct WalletStatus
     {
         struct AssetStatus
