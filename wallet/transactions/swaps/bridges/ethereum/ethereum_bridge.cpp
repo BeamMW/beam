@@ -36,12 +36,18 @@ libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_pri
     const auto position = hard ? first + index : index;
     return privateKey.derive_private(position);
 }
+
+bool needSsl(const std::string& address)
+{
+    // TODO roman.strilets need insensitive
+    return address.find("infura") != std::string::npos;
+}
 }
 
 namespace beam::ethereum
 {
 EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider)
-    : m_httpClient(reactor)
+    : m_httpClient(reactor, needSsl(settingsProvider.GetSettings().m_address))
     , m_settingsProvider(settingsProvider)
 {
 }
@@ -357,32 +363,64 @@ void EthereumBridge::sendRequest(
 {
     const std::string content = (boost::format(R"({"jsonrpc":"2.0","method":"%1%","params":[%2%], "id":1})") % method % params).str();
     auto settings = m_settingsProvider.GetSettings();
+    std::string host;
+    std::string path = "/";
+    std::string url = settings.m_address;
+
+    auto pos = url.find("://");
+
+    // delete scheme
+    if (pos != std::string::npos)
+    {
+        url.erase(0, pos + 3);
+    }
+
+    // get path
+    pos = url.find("/");
+    if (pos != std::string::npos)
+    {
+        path = url.substr(pos);
+        url.erase(pos);
+    }
+
+    // get host
+    pos = url.find(":");
+    if (pos != std::string::npos)
+    {
+        host = url.substr(0, pos);
+    }
+    else
+    {
+        host = url;
+    }
+
     io::Address address;
 
     LOG_DEBUG() << "sendRequest: " << content;
 
-    if (!address.resolve(settings.m_address.c_str()))
+    if (!address.resolve(url.c_str()))
     {
-        LOG_ERROR() << "unable to resolve electrum address: " << settings.m_address;
+        LOG_ERROR() << "unable to resolve electrum address: " << url;
 
         // TODO maybe to need async??
-        Error error{ IOError, "unable to resolve ethereum provider address: " + settings.m_address };
+        Error error{ IOError, "unable to resolve ethereum provider address: " + url };
         json result;
         callback(error, result);
         return;
     }
 
-    const HeaderPair headers[] = {
-        {"Content-Type", "application/json"}
-    };
+    std::vector<HeaderPair> headers;
+
+    headers.push_back({"Content-Type", "application/json"});
+    headers.push_back({ "Host", host.c_str() });
+    
     HttpClient::Request request;
 
     request.address(address)
         .connectTimeoutMsec(2000)
-        .pathAndQuery("/")
-        .headers(headers)
-        .numHeaders(1)
-        //.contentType("Content-Type: application/json")
+        .pathAndQuery(path.c_str())
+        .headers(&headers.front())
+        .numHeaders(headers.size())
         .method("POST")
         .body(content.c_str(), content.size());
 
