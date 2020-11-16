@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 5)
-set(VERSION_MINOR 1)
+set(VERSION_MINOR 2 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -270,7 +270,7 @@ else()
         endif()
     endif()
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pthread -fvisibility=hidden")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb3")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 

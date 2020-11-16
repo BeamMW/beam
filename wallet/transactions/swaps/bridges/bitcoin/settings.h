@@ -67,7 +67,6 @@ namespace beam::bitcoin
             "e5a8f0d103c23.not.fyi:50002",
             "electrumx.electricnewyear.net:50002",
             "electrumx.schulzemic.net:50002",
-            "fortress.qtornado.com:443",
             "vps4.hsmiths.com:50002"
 #else // MASTERNET and TESTNET
             "testnet.hsmiths.com:53012",
@@ -126,6 +125,7 @@ namespace beam::bitcoin
         virtual double GetBlocksPerHour() const = 0;
         virtual uint8_t GetAddressVersion() const = 0;
         virtual std::vector<std::string> GetGenesisBlockHashes() const = 0;
+        virtual bool IsSupportedElectrum() const = 0;
     };
 
     boost::optional<ISettings::ConnectionType> from_string(const std::string&);
@@ -149,6 +149,7 @@ namespace beam::bitcoin
         double GetBlocksPerHour() const override;
         uint8_t GetAddressVersion() const override;
         std::vector<std::string> GetGenesisBlockHashes() const override;
+        bool IsSupportedElectrum() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
@@ -159,6 +160,7 @@ namespace beam::bitcoin
         void SetBlocksPerHour(double beamBlocksPerBlock);
         void SetAddressVersion(uint8_t addressVersion);
         void SetGenesisBlockHashes(const std::vector<std::string>& genesisBlockHashes);
+        void DisableElectrum();
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
@@ -171,5 +173,6 @@ namespace beam::bitcoin
         double m_blocksPerHour = 6;
         uint8_t m_addressVersion = getAddressVersion();
         std::vector<std::string> m_genesisBlockHashes = getGenesisBlockHashes();
+        bool m_isSupportedElectrum = true;
     };
 } // namespace beam::bitcoin

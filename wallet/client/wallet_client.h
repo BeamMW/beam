@@ -39,15 +39,30 @@
 
 namespace beam::wallet
 {
+#if defined(BEAM_TESTNET)
+    const char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
+#elif defined(BEAM_MAINNET)
+    const char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
+#else
+    const char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
+#endif
     struct WalletStatus
     {
-        Amount available = 0;
-        Amount receiving = 0;
-        Amount receivingIncoming = 0;
-        Amount receivingChange = 0;
-        Amount sending = 0;
-        Amount maturing = 0;
-        Amount shielded = 0;
+        struct AssetStatus
+        {
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount receivingIncoming = 0;
+            Amount receivingChange = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            Amount maturingMP = 0;
+            Amount shielded = 0;
+        };
+
+        bool HasStatus(Asset::ID assetId) const;
+        AssetStatus GetStatus(Asset::ID assetId) const; // If doesn't have status for the assetId returns an empty one
+        AssetStatus GetBeamStatus() const;
 
         struct
         {
@@ -57,6 +72,7 @@ namespace beam::wallet
         } update;
 
         Block::SystemState::ID stateID = {};
+        mutable std::map<Asset::ID, AssetStatus> all;
     };
 
     class WalletClient
@@ -75,7 +91,7 @@ namespace beam::wallet
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
-                    bool isSecondCurrencyEnabled = false,
+                    bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
@@ -115,7 +131,7 @@ namespace beam::wallet
         virtual void onStatus(const WalletStatus& status) {}
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
-        virtual void onChangeCalculated(Amount change) {}
+        virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
         virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
         virtual void onNeedExtractShieldedCoins(bool val) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
@@ -140,6 +156,7 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
@@ -148,6 +165,7 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
+        virtual void onPublicAddress(const std::string& publicAddr) {};
 
     private:
 
@@ -163,8 +181,8 @@ namespace beam::wallet
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
-        void calcChange(Amount amount) override;
-        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded = false) override;
+        void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
+        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getUtxosStatus() override;
@@ -180,10 +198,14 @@ namespace beam::wallet
         void getCoinsByTx(const TxID& txId) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void generateNewAddress() override;
+        void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
         void deleteAddress(const WalletID& id) override;
+        void deleteAddress(const std::string& addr) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void activateAddress(const WalletID& id) override;
         void getAddress(const WalletID& id) override;
+        void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
@@ -195,6 +217,7 @@ namespace beam::wallet
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
+        // void getAssetInfo(const Asset::ID) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
@@ -204,6 +227,9 @@ namespace beam::wallet
         void deleteNotification(const ECC::uintBig& id) override;
 
         void getExchangeRates() override;
+        void getPublicAddress() override;
+
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
@@ -217,7 +243,14 @@ namespace beam::wallet
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
+
     private:
+        // Asset info can be requested multiple times for the same ID
+        // We collect all such events and process them in bulk at
+        // the end of the libuv cycle ignoring duplicate reuqests
+        void processAInfo();
+        std::set<Asset::ID>  m_ainfoRequests;
+        beam::io::Timer::Ptr m_ainfoDelayed;
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;

@@ -412,7 +412,8 @@ Reactor::~Reactor() {
             &_loop,
             [](uv_handle_t* handle, void*) {
                 if (!uv_is_closing(handle)) {
-                    LOG_DEBUG() << uv_handle_type_name(uv_handle_get_type(handle)) << " " << handle;
+                    const char* typeName = uv_handle_type_name(uv_handle_get_type(handle));
+                    LOG_DEBUG() << (typeName ? typeName : "unknown handler type") << " " << handle;
                     handle->data = 0;
                     uv_close(handle, 0);
                 }

@@ -107,6 +107,7 @@ namespace beam::wallet
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
         PeerID    m_Identity;   // derived from master. Different from m_walletID
+        std::string m_Address;  // base58 address representation
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
@@ -485,9 +486,12 @@ namespace beam::wallet
         // Address management
         virtual boost::optional<WalletAddress> getAddress(
                 const WalletID&, bool isLaser = false) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(
+            const std::string&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
+        virtual void deleteAddress(const std::string&, bool isLaser = false) = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -535,6 +539,11 @@ namespace beam::wallet
         // Exchange rates management
         virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
+        virtual ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
+            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const = 0;
+        virtual std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(
+            uint64_t startHeight, uint64_t endHeight) const = 0;
+        virtual void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -636,7 +645,10 @@ namespace beam::wallet
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         boost::optional<WalletAddress> getAddress(
             const WalletID&, bool isLaser = false) const override;
+        boost::optional<WalletAddress> getAddress(
+            const std::string&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
+        void deleteAddress(const std::string&, bool isLaser = false) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -686,6 +698,10 @@ namespace beam::wallet
         
         std::vector<ExchangeRate> getExchangeRates() const override;
         void saveExchangeRate(const ExchangeRate&) override;
+        ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
+            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const override;
+        std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
+        void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
@@ -727,14 +743,13 @@ namespace beam::wallet
         void insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         bool hasTransaction(const TxID& txID) const;
-        void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
-        void deleteAddressFromCache(const WalletID& id);
         void flushDB();
         void rollbackDB();
         void onModified();
         void onFlushTimer();
         void onPrepareToModify();
         void MigrateCoins();
+        boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -764,7 +779,6 @@ namespace beam::wallet
         } m_History;
         
         mutable ParameterCache m_TxParametersCache;
-        mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
 
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
@@ -993,6 +1007,98 @@ namespace beam::wallet
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
 
+        struct ShieldedPaymentInfo
+        {
+            PeerID          m_Sender;
+            PeerID          m_Receiver;
+
+            // outer std kernel
+            Amount          m_Fee = 0;
+            HeightRange     m_Height;
+            ECC::Point      m_Commitment;
+            ECC::Signature  m_Signature;
+
+            // internal non std kernel
+            // ShieldedTxo
+            ShieldedTxo::Ticket     m_TxoTicket;
+            Amount                  m_Amount;
+            Asset::ID               m_AssetID = Asset::s_InvalidID;
+            bool                    m_HideAssetAlways = false;
+
+            // voucher
+            ECC::Hash::Value        m_VoucherSharedSecret;
+            ECC::Signature          m_VoucherSignature;
+
+            ECC::uintBig            m_pMessage[2] = { Zero, Zero };
+
+            struct ContentFlags
+            {
+                static constexpr uint8_t CommitmentY                = 1 << 0;
+                static constexpr uint8_t SignatureNoncePubY         = 1 << 1;
+                static constexpr uint8_t TicketSerialPubY           = 1 << 2;
+                static constexpr uint8_t TicketSignatureNoncePubY   = 1 << 3;
+                static constexpr uint8_t VoucherSignatureNoncePubY  = 1 << 4;
+                static constexpr uint8_t HideAssetAlways            = 1 << 5;
+            };
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Sender
+                    & m_Receiver
+
+                    & m_Fee
+                    & m_Height.m_Min
+                    & m_Height.m_Max
+                    & m_Commitment.m_X
+                    & m_Signature.m_k
+                    & m_Signature.m_NoncePub.m_X
+
+                    & m_TxoTicket.m_SerialPub.m_X
+                    & m_TxoTicket.m_Signature.m_pK
+                    & m_TxoTicket.m_Signature.m_NoncePub.m_X
+                    & m_Amount
+                    & m_AssetID
+
+                    & m_VoucherSharedSecret
+                    & m_VoucherSignature.m_k
+                    & m_VoucherSignature.m_NoncePub.m_X
+
+                    & m_pMessage;
+
+                uint8_t flags = 0;
+                if (ar.is_readable())
+                {
+                    ar& flags;
+                    m_Commitment.m_Y = (flags & ContentFlags::CommitmentY) ? 1 : 0;
+                    m_Signature.m_NoncePub.m_Y = (flags & ContentFlags::SignatureNoncePubY) ? 1 : 0;
+                    m_TxoTicket.m_SerialPub.m_Y = (flags & ContentFlags::TicketSerialPubY) ? 1 : 0;
+                    m_TxoTicket.m_Signature.m_NoncePub.m_Y = (flags & ContentFlags::TicketSignatureNoncePubY) ? 1 : 0;
+                    m_VoucherSignature.m_NoncePub.m_Y = (flags & ContentFlags::VoucherSignatureNoncePubY) ? 1 : 0;
+                    m_HideAssetAlways = (flags & ContentFlags::HideAssetAlways) ? true : false;
+                }
+                else
+                {
+                    flags =
+                        (m_Commitment.m_Y ? ContentFlags::CommitmentY : 0) |
+                        (m_Signature.m_NoncePub.m_Y ? ContentFlags::SignatureNoncePubY : 0) |
+                        (m_TxoTicket.m_SerialPub.m_Y ? ContentFlags::TicketSerialPubY : 0) |
+                        (m_TxoTicket.m_Signature.m_NoncePub.m_Y ? ContentFlags::TicketSignatureNoncePubY : 0) |
+                        (m_VoucherSignature.m_NoncePub.m_Y ? ContentFlags::VoucherSignatureNoncePubY : 0) |
+                        (m_HideAssetAlways ? ContentFlags::HideAssetAlways : 0);
+                    ar& flags;
+                }
+            }
+
+            Merkle::Hash            m_KernelID = Zero;
+
+            bool IsValid() const;
+            std::string to_string() const;
+            static ShieldedPaymentInfo FromByteBuffer(const ByteBuffer& data);
+            void RestoreKernelID();
+        };
+
         std::string ExportDataToJson(const IWalletDB& db);
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
@@ -1006,6 +1112,11 @@ namespace beam::wallet
         void HookErrors();
         bool isMyAddress(
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
-
     }  // namespace storage
+
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers);
+    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
+    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
+
 }  // namespace beam::wallet

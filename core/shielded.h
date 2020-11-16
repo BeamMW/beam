@@ -24,6 +24,7 @@ namespace beam
 		Key::IPKdf::Ptr m_pSer;
 
 		void FromViewer(const Viewer&);
+		uint32_t ExportP(void* p) const;
 	};
 
 	struct ShieldedTxo::Viewer
@@ -98,6 +99,16 @@ namespace beam
 			bool Recover(const ShieldedTxo&, ECC::Oracle&, const Viewer&);
 
 			void ToID(ID&) const;
+
+			void Set(Key::IPKdf& ownerKey, const ShieldedTxo::ID& id);
+
+			struct Plus
+			{
+				ECC::Point::Native m_hGen;
+				ECC::Scalar::Native m_skFull;
+
+				Plus(const Params&);
+			};
 		};
 
 		struct HashTxt;

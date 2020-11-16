@@ -134,25 +134,30 @@ void NodeModel::onFailedToStartNode(io::ErrorCode /*errorCode*/)
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
-uint16_t NodeModel::getLocalNodePort()
+uint16_t NodeModel::getLocalNodePort() const
 {
     // default value
     return 10005;
 }
 
-std::string NodeModel::getLocalNodeStorage()
+std::string NodeModel::getLocalNodeStorage() const
 {
     return m_appPath + "/node.db";
 }
 
-std::string NodeModel::getTempDir()
+std::string NodeModel::getTempDir() const
 {
     return m_appPath + "/temp";
 }
 
-std::vector<std::string> NodeModel::getLocalNodePeers()
+std::vector<std::string> NodeModel::getLocalNodePeers() const
 {
     return getDefaultPeers();
+}
+
+bool NodeModel::getPeersPersistent() const
+{
+    return false;
 }
 
 void NodeModel::onNodeThreadFinished()

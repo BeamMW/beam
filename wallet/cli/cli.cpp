@@ -183,8 +183,8 @@ namespace
             public:
                 explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
                 {
-                    auto value = txParams.GetParameter(wallet::TxParameterID::State);
-                    if (value) fromByteBuffer(*value, m_state);
+                    if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
+                        m_state = *value;
                 }
 
                 ~CliSwapTxStatusInterpreter() override = default;
@@ -660,7 +660,7 @@ namespace
 
     void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
     {
-        if (auto it = vm.find(cli::MAX_PRIVACY_OFFLINE); it != vm.end())
+        if (auto it = vm.find(cli::OFFLINE_ADDRESS); it != vm.end())
         {
             auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
             if (!vouchers.empty())
@@ -674,70 +674,66 @@ namespace
 
     int GetAddress(const po::variables_map& vm)
     {
-        TxParameters params;
-        boost::optional<WalletAddress> address;
         auto walletDB = OpenDataBase(vm);
-        auto mpIt = vm.find(cli::MAX_PRIVACY_ONLINE);
-        auto mpOfflineIt = vm.find(cli::MAX_PRIVACY_OFFLINE);
-        bool isMaxPrivacyToken = (mpIt != vm.end() && mpIt->second.as<bool>()) || (mpOfflineIt != vm.end());
-
-        if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
+        std::string newAddress;
+        if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            auto receiver = it->second.as<string>();
-            bool isValid = true;
-            WalletID walletID;
-            ByteBuffer buffer = from_hex(receiver, &isValid);
-            if (!isValid || !walletID.FromBuf(buffer))
-            {
-                LOG_ERROR() << "Invalid address";
-                return -1;
-            }
-            address = walletDB->getAddress(walletID);
-            if (!address)
-            {
-                LOG_ERROR() << "Cannot generate token, there is no address";
-                return -1;
-            }
-            if (address->isExpired())
-            {
-                LOG_ERROR() << "Cannot generate token, address is expired";
-                return -1;
-            }
-            if (!address->isPermanent())
-            {
-                LOG_ERROR() << "The address expiration time must be never.";
-                return -1;
-            }
-            if (isMaxPrivacyToken)
-            {
-                LOG_INFO() << "Generating max privacy address";
-                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-            }
+            LOG_INFO() << "Generating public offline address";
+            newAddress =  GeneratePublicOfflineAddress(*walletDB);
         }
-        else if (isMaxPrivacyToken)
+        else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
             LOG_INFO() << "Generating max privacy address";
-            address = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+            newAddress = GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+        }
+        else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
+        {
+            LOG_INFO() << "Generating offline address";
+            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
+            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, it2->second.as<Positive<uint32_t>>().value);
+            newAddress = GenerateOfflineAddress(walletAddress, 0, vouchers);
         }
         else
         {
-            address = GenerateNewAddress(walletDB, "");
+            boost::optional<WalletAddress> address;
+            if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
+            {
+                auto receiver = it->second.as<string>();
+                bool isValid = true;
+                WalletID walletID;
+                ByteBuffer buffer = from_hex(receiver, &isValid);
+                if (!isValid || !walletID.FromBuf(buffer))
+                {
+                    LOG_ERROR() << "Invalid address";
+                    return -1;
+                }
+                address = walletDB->getAddress(walletID);
+                if (!address)
+                {
+                    LOG_ERROR() << "Cannot get address, there is no SBBS";
+                    return -1;
+                }
+                if (address->isExpired())
+                {
+                    LOG_ERROR() << "Cannot get address, it is expired";
+                    return -1;
+                }
+                if (!address->isPermanent())
+                {
+                    LOG_ERROR() << "The address expiration time must be never.";
+                    return -1;
+                }
+            }
+            else
+            {
+                address = GenerateNewAddress(walletDB, "");
+            }
+            newAddress = GenerateRegularAddress(*address, 0, address->isPermanent(), "");
         }
-
-        params.SetParameter(TxParameterID::PeerID, address->m_walletID);
-#ifdef BEAM_LIB_VERSION
-        params.SetParameter(beam::wallet::TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
-#endif // BEAM_LIB_VERSION
-        params.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
-        params.SetParameter(TxParameterID::IsPermanentPeerID, address->isPermanent());
-        AddVoucherParameter(vm, params, walletDB, address->m_OwnID);
-
-        if (!params.GetParameter(TxParameterID::TransactionType))
-        {
-            params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-        }
-        LOG_INFO() << "address: " << to_string(params);
+        
+        LOG_INFO() << "address: " << newAddress;
         return 0;
     }
 
@@ -2078,7 +2074,7 @@ namespace
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
             {
                 io::Address receiverAddr;
-                Asset::ID assetId = Asset::s_InvalidID;
+                Asset::ID assetId = Asset::s_BeamID;
                 Amount amount = 0;
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
@@ -2088,46 +2084,26 @@ namespace
                     return -1;
                 }
 
-                if (assetId != Asset::s_InvalidID)
+                if (assetId != Asset::s_BeamID)
                 {
                     CheckAssetsAllowed(vm);
                 }
 
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
+
                 auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-                bool isShielded = type && *type == TxType::PushTransaction;
+                bool isPushTx = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                Transaction::FeeSettings fs;
-                Amount shieldedOutputsFee = isShielded ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
-
-                auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-                    walletDB, amount, (isShielded && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, isShielded);
-
-                if (coinSelectionRes.selectedSum - coinSelectionRes.selectedFee - coinSelectionRes.change < amount)
-                {
-                    LOG_ERROR() << kErrorNotEnoughtCoins;
+                Amount feeForShieldedInputs = 0;
+                if (!CheckFeeForShieldedInputs(amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
                     return -1;
-                }
 
-                if (coinSelectionRes.minimalFee > fee)
-                {
-                    if (isShielded && !coinSelectionRes.shieldedInputsFee)
-                    {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
-                    }
-                    else
-                    {
-                        LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
-                    }
-                    return -1;
-                }
-
-                if (isShielded)
+                if (isPushTx)
                 {
                     const auto& ownAddresses = walletDB->getAddresses(true);
                     auto it = std::find_if(
@@ -2149,7 +2125,7 @@ namespace
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automaticaly
-                    .SetParameter(TxParameterID::Fee, !!coinSelectionRes.shieldedInputsFee ? fee - coinSelectionRes.shieldedInputsFee : fee)
+                    .SetParameter(TxParameterID::Fee, !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);

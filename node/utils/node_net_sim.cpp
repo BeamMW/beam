@@ -856,16 +856,16 @@ struct Context
         sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
         Lelantus::Prover p(lst, pKrn->m_SpendProof);
-        p.m_Witness.V.m_L = nIdx;
-        p.m_Witness.V.m_R = sdp.m_Ticket.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
-        p.m_Witness.V.m_V = sdp.m_Output.m_Value;
+        p.m_Witness.m_L = nIdx;
+        p.m_Witness.m_R = sdp.m_Ticket.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
+        p.m_Witness.m_V = sdp.m_Output.m_Value;
 
         Key::IKdf::Ptr pShPriv;
         ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
-        pShPriv->DeriveKey(p.m_Witness.V.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
+        pShPriv->DeriveKey(p.m_Witness.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
         pKrn->UpdateMsg();
-        txo.get_SkOut(p.m_Witness.V.m_R_Output, pKrn->m_Fee, *m_pKdf);
+        txo.get_SkOut(p.m_Witness.m_R_Output, pKrn->m_Fee, *m_pKdf);
 
         {
             beam::Executor::Scope scope(m_Exec);
@@ -874,7 +874,7 @@ struct Context
 
         pTx->m_vKernels.push_back(std::move(pKrn));
 
-        ECC::Scalar::Native kOffs = p.m_Witness.V.m_R_Output;
+        ECC::Scalar::Native kOffs = p.m_Witness.m_R_Output;
 
         AddOutp(*pTx, kOffs, txo.m_Value - fee, 0, hr.m_Min);
 

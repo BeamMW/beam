@@ -316,9 +316,9 @@ namespace beam
         const char* EXTRACT_FROM_POOL   = "extract_from_pool";
         const char* SHIELDED_UTXOS      = "shielded_utxos";
         const char* SHIELDED_ID         = "shielded_id";
-        const char* MAX_PRIVACY         = "max_privacy";
-        const char* MAX_PRIVACY_ONLINE  = "max_privacy_online";
-        const char* MAX_PRIVACY_OFFLINE = "max_privacy_offline";
+        const char* MAX_PRIVACY_ADDRESS = "max_privacy";
+        const char* OFFLINE_ADDRESS     = "offline";
+        const char* PUBLIC_OFFLINE      = "public_offline";
     }
 
 
@@ -423,9 +423,9 @@ namespace beam
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
-            (cli::MAX_PRIVACY, po::bool_switch()->default_value(false), "send max privacy transaction")
-            (cli::MAX_PRIVACY_ONLINE, po::bool_switch()->default_value(false), "generate online max privacy transaction")
-            (cli::MAX_PRIVACY_OFFLINE, po::value<Positive<uint32_t>>(), "generate offline max privacy transaction address with given number of payments");
+            (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
+            (cli::OFFLINE_ADDRESS, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
+            (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

@@ -34,14 +34,6 @@ using namespace beam::wallet;
 
 const size_t kCollectorBufferSize = 50;
 
-#if defined(BEAM_TESTNET)
-const char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
-#elif defined(BEAM_MAINNET)
-const char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
-#else
-const char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
-#endif
-
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -70,14 +62,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::syncWithNode);
     }
 
-    void calcChange(Amount amount) override
+    void calcChange(Amount amount, Amount fee, Asset::ID assetId) override
     {
-        call_async(&IWalletModelAsync::calcChange, amount);
+        call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
-    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, bool isShielded /* = false */) override
+    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
     {
-        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, isShielded);
+        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, assetId, isShielded);
     }
 
     void getWalletStatus() override
@@ -143,12 +135,26 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void generateNewAddress() override
     {
-        call_async(&IWalletModelAsync::generateNewAddress);
+        typedef void(IWalletModelAsync::* MethodType)();
+        call_async((MethodType)&IWalletModelAsync::generateNewAddress);
+    }
+
+    void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(AsyncCallback<const WalletAddress&>&&);
+        call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
     }
 
     void deleteAddress(const wallet::WalletID& id) override
     {
-        call_async(&IWalletModelAsync::deleteAddress, id);
+        typedef void(IWalletModelAsync::* MethodType)(const wallet::WalletID&);
+        call_async((MethodType)&IWalletModelAsync::deleteAddress, id);
+    }
+
+    void deleteAddress(const std::string& addr) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&);
+        call_async((MethodType)&IWalletModelAsync::deleteAddress, addr);
     }
 
     void updateAddress(const wallet::WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override
@@ -163,7 +169,20 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void getAddress(const WalletID& id) override
     {
-        call_async(&IWalletModelAsync::getAddress, id);
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&);
+        call_async((MethodType)&IWalletModelAsync::getAddress, id);
+    }
+
+    void getAddress(const WalletID& id, AsyncCallback <const boost::optional<WalletAddress>&, size_t> && callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
+        call_async((MethodType)&IWalletModelAsync::getAddress, id, std::move(callback));
+    }
+
+    void getAddress(const std::string& addr, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
+        call_async((MethodType)&IWalletModelAsync::getAddress, addr, std::move(callback));
     }
 
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
@@ -253,11 +272,41 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getExchangeRates);
     }
+
+    void getPublicAddress() override
+    {
+        call_async(&IWalletModelAsync::getPublicAddress);
+    }
+
+    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override
+    {
+        call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
+    }
 };
 }
 
 namespace beam::wallet
 {
+    bool WalletStatus::HasStatus(Asset::ID assetId) const
+    {
+        return all.find(assetId) != all.end();
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetStatus(Asset::ID assetId) const
+    {
+        if(all.find(assetId) == all.end())
+        {
+            AssetStatus result;
+            return result;
+        }
+        return all[assetId];
+    }
+
+    WalletStatus::AssetStatus WalletStatus::GetBeamStatus() const
+    {
+        return GetStatus(Asset::s_BeamID);
+    }
+
     WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -741,14 +790,15 @@ namespace beam::wallet
     }
     }
 
-    void WalletClient::calcChange(Amount amount)
+    void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        onChangeCalculated(CalcChange(m_walletDB, amount));
+        const auto change = CalcChange(m_walletDB, amount, fee, assetId);
+        onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
     }
 
-    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, bool isShielded /* = false */)
+    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, isShielded);
+        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
         onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
         onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
     }
@@ -852,10 +902,31 @@ namespace beam::wallet
 
             onGeneratedNewAddress(address);
         }
-        //catch (const TrezorKeyKeeper::DeviceNotConnected&)
-        //{
-        //    onNoDeviceConnected();
-        //}
+        catch (const CannotGenerateSecretException&)
+        {
+            onNewAddressFailed();
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::generateNewAddress(AsyncCallback<const WalletAddress&>&& callback)
+    {
+        try
+        {
+            WalletAddress address;
+            m_walletDB->createAddress(address);
+
+            postFunctionToClientContext([address, cb = std::move(callback)]()
+            {
+                cb(address);
+            });
+        }
         catch (const CannotGenerateSecretException&)
         {
             onNewAddressFailed();
@@ -878,6 +949,21 @@ namespace beam::wallet
             {
                 m_walletDB->deleteAddress(id);
             }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::deleteAddress(const std::string& addr)
+    {
+        try
+        {
+            m_walletDB->deleteAddress(addr);
         }
         catch (const std::exception& e)
         {
@@ -950,6 +1036,52 @@ namespace beam::wallet
         try
         {
             onGetAddress(id, m_walletDB->getAddress(id), m_walletDB->getVoucherCount(id));
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
+    {
+        try
+        {
+            auto addr = m_walletDB->getAddress(id);
+            size_t vouchersCount = m_walletDB->getVoucherCount(id);
+
+            postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() 
+            {
+                cb(addr, vouchersCount);
+            });
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::getAddress(const std::string& addrStr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
+    {
+        try
+        {
+            auto addr = m_walletDB->getAddress(addrStr);
+            size_t vouchersCount = 0;
+            if (addr && addr->m_walletID != Zero)
+            {
+                vouchersCount = m_walletDB->getVoucherCount(addr->m_walletID);
+            }
+
+            postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]()
+            {
+                cb(addr, vouchersCount);
+            });
         }
         catch (const std::exception& e)
         {
@@ -1139,6 +1271,20 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::getPublicAddress()
+    {
+        onPublicAddress(GeneratePublicOfflineAddress(*m_walletDB));
+    }
+
+    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)
+    {
+        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
+        postFunctionToClientContext([res = std::move(vouchers), cb = std::move(callback)]() 
+        {
+            cb(std::move(res));
+        });
+    }
+
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
     {
         onImportRecoveryProgress(done, total);
@@ -1148,20 +1294,27 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals totalsCalc(*m_walletDB);
-        const auto& totals = totalsCalc.GetBeamTotals();
+        storage::Totals allTotals(*m_walletDB);
 
-        status.available         = AmountBig::get_Lo(totals.Avail);
-        status.receivingIncoming = AmountBig::get_Lo(totals.ReceivingIncoming);
-        status.receivingChange   = AmountBig::get_Lo(totals.ReceivingChange);
-        status.receiving         = AmountBig::get_Lo(totals.Incoming);
-        status.sending           = AmountBig::get_Lo(totals.Outgoing) + AmountBig::get_Lo(totals.OutgoingShielded);
-        status.maturing          = AmountBig::get_Lo(totals.Maturing);
-        status.shielded          = AmountBig::get_Lo(totals.AvailShielded);
-        status.update.lastTime   = m_walletDB->getLastUpdateTime();
+        for(const auto& totalsPair: allTotals.allTotals) {
+            const auto& info = totalsPair.second;
+            WalletStatus::AssetStatus assetStatus;
+
+            assetStatus.available         = AmountBig::get_Lo(info.Avail);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
+            assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
+            assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
+            assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
+            assetStatus.maturingMP        = AmountBig::get_Lo(info.MaturingShielded);
+            assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
+
+            status.all[totalsPair.first] = assetStatus;
+        }
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
+        status.update.lastTime = m_walletDB->getLastUpdateTime();
 
         return status;
     }

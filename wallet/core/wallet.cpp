@@ -83,10 +83,8 @@ namespace beam::wallet
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
     bool CheckReceiverAddress(const std::string& addr)
     {
-        WalletID walletID;
-        return
-            walletID.FromHex(addr) &&
-            walletID.IsValid();
+        auto p = ParseParameters(addr);
+        return !!p;
     }
 
     void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
@@ -125,7 +123,7 @@ namespace beam::wallet
             }
 
             // update address comment if changed
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 auto messageStr = std::string(message->begin(), message->end());
                 if (messageStr != receiverAddr->m_label)
@@ -144,7 +142,7 @@ namespace beam::wallet
             WalletAddress address;
             address.m_walletID = *peerID;
             address.m_createTime = getTimestamp();
-            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
@@ -1616,7 +1614,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter(TxParameterID::PeerWalletIdentity); peerID)
+        if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
             if (myID)
@@ -1681,33 +1679,63 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(tip);
         storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
 
-        if (coin.m_Status != ShieldedCoin::Status::Available && coin.m_Status != ShieldedCoin::Status::Spent)
+        if (coin.m_Status != ShieldedCoin::Status::Available &&
+            coin.m_Status != ShieldedCoin::Status::Maturing &&
+            coin.m_Status != ShieldedCoin::Status::Spent)
         {
             return;
         }
+
         const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
         TxID txID;
         std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
+
+        TxAddressType addressType = TxAddressType::Offline;
+        if (message->m_MaxPrivacyMinAnonimitySet)
+        {
+            addressType = TxAddressType::MaxPrivacy;
+        }
+        else if (!coin.m_CoinID.m_Key.m_IsCreatedByViewer)
+        {
+            addressType = TxAddressType::PublicOffline;
+        }
+
         auto tx = m_WalletDB->getTx(txID);
         if (tx)
         {
+            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::AddressType, addressType, true);
             return;
         }
         else
         {
-            WalletAddress tempAddress;
-            m_WalletDB->createAddress(tempAddress);
+            WalletAddress receiverAddress;
+            if (message->m_ReceiverOwnID)
+            {
+                m_WalletDB->get_SbbsWalletID(receiverAddress.m_walletID, message->m_ReceiverOwnID);
+                m_WalletDB->get_Identity(receiverAddress.m_Identity, message->m_ReceiverOwnID);
+            }
+            else
+            {
+                // fake address
+                m_WalletDB->createAddress(receiverAddress);
+            }
 
             auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                .SetParameter(TxParameterID::MyID, tempAddress.m_walletID)
+                .SetParameter(TxParameterID::MyID, receiverAddress.m_walletID)
                 .SetParameter(TxParameterID::PeerID, WalletID())
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                 .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
-                .SetParameter(TxParameterID::MyWalletIdentity, tempAddress.m_Identity)
+                .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
+
+            if (message->m_MaxPrivacyMinAnonimitySet)
+            {
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonimitySet);
+            }
+            params.SetParameter(TxParameterID::AddressType, addressType);
 
             auto packed = params.Pack();
             for (const auto& p : packed)

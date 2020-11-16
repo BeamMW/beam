@@ -294,7 +294,7 @@ namespace beam::wallet
 
     struct ValidateAddress
     {
-        WalletID address = Zero;
+        std::string address;
 
         struct Response
         {
@@ -423,6 +423,13 @@ namespace beam::wallet
         {
             boost::optional<Asset::ID> assetId;
         } filter;
+
+        struct 
+        {
+            std::string field = "default";
+            bool desc = false;
+        } sort;
+        
 
         struct Response
         {

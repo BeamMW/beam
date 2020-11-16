@@ -207,7 +207,33 @@ namespace beam::bitcoin
                         ec_private privateKey = privateKeys[coin.m_index];
                         script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider.GetSettings().GetAddressVersion()).hash());
                         endorsement sig;
-                        if (lockingScript.create_endorsement(sig, privateKey.secret(), lockingScript, tx, static_cast<uint32_t>(ind), machine::sighash_algorithm::all))
+                        bool isSuccess = false;
+
+                        if (NeedSignValue())
+                        {
+                            beam::Amount total = coin.m_details["value"].get<beam::Amount>();
+
+                            isSuccess = lockingScript.create_endorsement(
+                                sig,
+                                privateKey.secret(), 
+                                lockingScript, 
+                                tx, 
+                                static_cast<uint32_t>(ind), 
+                                GetSighashAlgorithm(), 
+                                libbitcoin::machine::script_version::zero, total);
+                        }
+                        else
+                        {
+                            isSuccess = lockingScript.create_endorsement(
+                                sig, 
+                                privateKey.secret(), 
+                                lockingScript, 
+                                tx, 
+                                static_cast<uint32_t>(ind), 
+                                GetSighashAlgorithm());
+                        }
+
+                        if (isSuccess)
                         {
                             script::operation::list sigScript;
                             sigScript.push_back(script::operation(sig));
@@ -700,6 +726,7 @@ namespace beam::bitcoin
                                         auto genesisBlockHashes = settings.GetGenesisBlockHashes();
                                         auto currentNodeAddress = settings.GetElectrumConnectionOptions().m_address;
 
+                                        connection.m_verifyingRequest = false;
                                         if (std::find(genesisBlockHashes.begin(), genesisBlockHashes.end(), genesisBlockHash) != genesisBlockHashes.end())
                                         {
                                             m_verifiedAddresses.emplace(currentNodeAddress, true);
@@ -719,6 +746,8 @@ namespace beam::bitcoin
                                             error.m_message = kInvalidGenesisBlockHashMsg;
                                             error.m_type = IBridge::InvalidGenesisBlock;
                                             connection.m_callback(error, result, currentId);
+                                            // TODO roman.strilets maybe need to add this code
+                                            // m_connections.erase(currentId);
                                             return false;
                                         }
                                     }
@@ -737,7 +766,19 @@ namespace beam::bitcoin
                         }
 
                         TCPConnect& connection = m_connections[currentId];
-                        isFinished = !connection.m_callback(error, result, currentId);
+                        if (error.m_type != ErrorType::None && connection.m_verifyingRequest)
+                        {
+                            error.m_message = kInvalidGenesisBlockHashMsg;
+                            error.m_type = IBridge::InvalidGenesisBlock;
+
+                            tryToChangeAddress();
+                            connection.m_callback(error, result, currentId);
+                            isFinished = true;
+                        }
+                        else
+                        {
+                            isFinished = !connection.m_callback(error, result, currentId);
+                        }
                     }
                     if (isFinished)
                     {
@@ -771,6 +812,7 @@ namespace beam::bitcoin
                     // Node have not validated yet
                     std::string verifyRequest = R"({"method":"server.features","params":[], "id": "verify"})";
                     verifyRequest += "\n";
+                    connection.m_verifyingRequest = true;
                     res = connection.m_stream->write(verifyRequest.data(), verifyRequest.size());
                 }
 
@@ -877,5 +919,15 @@ namespace beam::bitcoin
     {
         auto iter = m_verifiedAddresses.find(address);
         return iter == m_verifiedAddresses.end() || (iter != m_verifiedAddresses.end() && iter->second);
+    }
+
+    uint8_t Electrum::GetSighashAlgorithm() const
+    {
+        return libbitcoin::machine::sighash_algorithm::all;
+    }
+
+    bool Electrum::NeedSignValue() const
+    {
+        return false;
     }
 } // namespace beam::bitcoin

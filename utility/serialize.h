@@ -144,6 +144,41 @@ struct SerializerSizeCounter
 	}
 };
 
+struct SerializerIntoStaticBuf
+{
+    struct Cursor
+    {
+        uint8_t* m_pPos;
+
+        size_t write(const void* ptr, const size_t size)
+        {
+            memcpy(m_pPos, ptr, size);
+            m_pPos += size;
+            return size;
+        }
+
+    } m_Cursor;
+
+    yas::binary_oarchive<Cursor, SERIALIZE_OPTIONS> _oa;
+
+
+    SerializerIntoStaticBuf(void* pDst) : _oa(m_Cursor)
+    {
+        m_Cursor.m_pPos = reinterpret_cast<uint8_t*>(pDst);
+    }
+
+    template <typename T> SerializerIntoStaticBuf& operator & (const T& object)
+    {
+        _oa& object;
+        return *this;
+    }
+
+    size_t get_Size(void* pDst) const
+    {
+        return static_cast<size_t>(m_Cursor.m_pPos - static_cast<uint8_t*>(pDst));
+    }
+};
+
 /// Deserializer from static buffer
 class Deserializer {
 public:
@@ -179,6 +214,13 @@ public:
         _ia & object;
         return *this;
     }
+
+    /// return symbol to the input stream, hack to handle invalid input
+    /// hack to fix #1622 TODO: remove after fork
+    void ungetch() {
+        _is.ungetch('\0'); // in our implementation we don't return any char we move the cursor back instead
+    }
+
 
 private:
     /// Contiguous buffer istream

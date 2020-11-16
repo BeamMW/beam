@@ -37,10 +37,11 @@ namespace beam
         virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
         virtual void onSyncError(Node::IObserver::Error error) = 0;
 
-        virtual uint16_t getLocalNodePort() = 0;
-        virtual std::string getLocalNodeStorage() = 0;
-        virtual std::string getTempDir() = 0;
-        virtual std::vector<std::string> getLocalNodePeers() = 0;
+        virtual uint16_t getLocalNodePort() const = 0;
+        virtual std::string getLocalNodeStorage() const = 0;
+        virtual std::string getTempDir() const = 0;
+        virtual std::vector<std::string> getLocalNodePeers() const = 0;
+        virtual bool getPeersPersistent() const = 0;
 
         virtual void onNodeThreadFinished() = 0;
     };

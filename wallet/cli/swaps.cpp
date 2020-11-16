@@ -23,6 +23,11 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#if defined(BITCOIN_CASH_SUPPORT)
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#endif // BITCOIN_CASH_SUPPORT
+#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
+#include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
 
@@ -55,6 +60,11 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
         vm.count(cli::GENERATE_ELECTRUM_SEED) || vm.count(cli::SELECT_SERVER_AUTOMATICALLY) ||
         vm.count(cli::ADDRESSES_TO_RECEIVE) || vm.count(cli::ADDRESSES_FOR_CHANGE))
     {
+        if (!settings.IsSupportedElectrum())
+        {
+            throw std::runtime_error("electrum is not supported");
+        }
+
         auto electrumSettings = settings.GetElectrumConnectionOptions();
 
         if (!electrumSettings.IsInitialized())
@@ -329,7 +339,7 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
 }
 
 template<typename SettingsProvider, typename Electrum, typename Core>
-void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::IBridge::Ptr)> callback, AtomicSwapCoin swapCoin)
+void RequestToSpecificBridge(IWalletDB::Ptr walletDB, AtomicSwapCoin swapCoin, std::function<void(beam::bitcoin::IBridge::Ptr)> callback = nullptr)
 {
     SettingsProvider settingsProvider{ walletDB };
 
@@ -339,12 +349,64 @@ void RequestToBridge(IWalletDB::Ptr walletDB, std::function<void(beam::bitcoin::
 
     if (settings.IsActivated())
     {
-        bitcoin::BridgeHolder<Electrum, Core> bridgeHolder;
-        callback(bridgeHolder.Get(io::Reactor::get_Current(), settingsProvider));
+        if (callback)
+        {
+            bitcoin::BridgeHolder<Electrum, Core> bridgeHolder;
+            callback(bridgeHolder.Get(io::Reactor::get_Current(), settingsProvider));
+        }
         return;
     }
 
     throw std::runtime_error(GetCoinName(swapCoin) + " settings are not initialized.");
+}
+
+void RequestToBridge(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin, std::function<void(beam::bitcoin::IBridge::Ptr)> callback = nullptr)
+{
+    switch (swapCoin)
+    {
+    case beam::wallet::AtomicSwapCoin::Bitcoin:
+    {
+        RequestToSpecificBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Litecoin:
+    {
+        RequestToSpecificBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Qtum:
+    {
+        RequestToSpecificBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        RequestToSpecificBridge<dogecoin::SettingsProvider, dogecoin::Electrum, dogecoin::DogecoinCore014>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        RequestToSpecificBridge<bitcoin_cash::SettingsProvider, bitcoin_cash::Electrum, bitcoin_cash::BitcoinCashCore>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+#endif // BITCOIN_CASH_SUPPORT
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        RequestToSpecificBridge<dash::SettingsProvider, dash::Electrum, dash::DashCore014>
+            (walletDB, swapCoin, callback);
+        break;
+    }
+    default:
+    {
+        throw std::runtime_error("Unsupported coin for swap");
+    }
+    }
 }
 
 template<typename SettingsProvider>
@@ -393,31 +455,7 @@ Amount EstimateSwapFeerate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr
         io::Reactor::get_Current().run();
     };
 
-    switch (swapCoin)
-    {
-    case beam::wallet::AtomicSwapCoin::Bitcoin:
-    {
-        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    case beam::wallet::AtomicSwapCoin::Litecoin:
-    {
-        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    case beam::wallet::AtomicSwapCoin::Qtum:
-    {
-        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    default:
-    {
-        throw std::runtime_error("Unsupported coin for swap");
-    }
-    }
+    RequestToBridge(walletDB, swapCoin, callback);
 
     return result;
 }
@@ -437,6 +475,20 @@ Amount GetMinSwapFeeRate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr w
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
         return GetMinSwapFeeRate<qtum::SettingsProvider>(walletDB);
+    }
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        return GetMinSwapFeeRate<dogecoin::SettingsProvider>(walletDB);
+    }
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        return GetMinSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
+    }
+#endif // BITCOIN_CASH_SUPPORT
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
     }
     default:
     {
@@ -462,31 +514,7 @@ Amount GetBalance(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB
         io::Reactor::get_Current().run();
     };
 
-    switch (swapCoin)
-    {
-    case beam::wallet::AtomicSwapCoin::Bitcoin:
-    {
-        RequestToBridge<bitcoin::SettingsProvider, bitcoin::Electrum, bitcoin::BitcoinCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    case beam::wallet::AtomicSwapCoin::Litecoin:
-    {
-        RequestToBridge<litecoin::SettingsProvider, litecoin::Electrum, litecoin::LitecoinCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    case beam::wallet::AtomicSwapCoin::Qtum:
-    {
-        RequestToBridge<qtum::SettingsProvider, qtum::Electrum, qtum::QtumCore017>
-            (walletDB, callback, swapCoin);
-        break;
-    }
-    default:
-    {
-        throw std::runtime_error("Unsupported coin for swap");
-    }
-    }
+    RequestToBridge(walletDB, swapCoin, callback);
 
     return result;
 }
@@ -558,6 +586,10 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
 
+    Amount feeForShieldedInputs = 0;
+    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
+        throw std::runtime_error("Fee to low");
+
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
     // TODO:SWAP use async callbacks or IWalletObserver?
@@ -565,14 +597,14 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
     FillSwapTxParams(&swapTxParameters,
-                        senderAddress.m_walletID,
-                        minHeight,
-                        amount,
-                        fee,
-                        swapCoin,
-                        swapAmount,
-                        swapFeeRate,
-                        isBeamSide);
+                     senderAddress.m_walletID,
+                     minHeight,
+                     amount,
+                     !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee,
+                     swapCoin,
+                     swapAmount,
+                     swapFeeRate,
+                     isBeamSide);
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -636,78 +668,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
     }
 
-    if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
-    {
-        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-        btcSettingsProvider->Initialize();
-        auto btcSettings = btcSettingsProvider->GetSettings();
-        if (!btcSettings.IsInitialized())
-        {
-            throw std::runtime_error("BTC settings should be initialized.");
-        }
+    RequestToBridge(walletDB, *swapCoin);
 
-        if (!BitcoinSide::CheckAmount(*swapAmount, swapFeeRate))
-        {
-            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-        }
-    }
-    else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
+    if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
     {
-        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-        ltcSettingsProvider->Initialize();
-        auto ltcSettings = ltcSettingsProvider->GetSettings();
-        if (!ltcSettings.IsInitialized())
-        {
-            throw std::runtime_error("LTC settings should be initialized.");
-        }
-
-        if (!LitecoinSide::CheckAmount(*swapAmount, swapFeeRate))
-        {
-            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-        }
-    }
-    else if (swapCoin == wallet::AtomicSwapCoin::Qtum)
-    {
-        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-        qtumSettingsProvider->Initialize();
-        auto qtumSettings = qtumSettingsProvider->GetSettings();
-        if (!qtumSettings.IsInitialized())
-        {
-            throw std::runtime_error("Qtum settings should be initialized.");
-        }
-
-        if (!QtumSide::CheckAmount(*swapAmount, swapFeeRate))
-        {
-            throw std::runtime_error("The swap amount must be greater than the redemption fee.");
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported swap coin.");
+        throw std::runtime_error("The swap amount must be greater than the redemption fee.");
     }
 
-#ifdef BEAM_LIB_VERSION
-    if (auto libVersion = swapTxParameters->GetParameter(beam::wallet::TxParameterID::LibraryVersion); libVersion)
-    {
-        std::string libVersionStr;
-        beam::wallet::fromByteBuffer(*libVersion, libVersionStr);
-        std::string myLibVersionStr = BEAM_LIB_VERSION;
-
-        std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
-        if (std::regex_match(libVersionStr, libVersionRegex) &&
-            std::lexicographical_compare(
-                myLibVersionStr.begin(),
-                myLibVersionStr.end(),
-                libVersionStr.begin(),
-                libVersionStr.end(),
-                std::less<char>{}))
-        {
-            LOG_WARNING() <<
-                "This token generated by newer Beam library version(" << libVersionStr << ")\n" <<
-                "Your version is: " << myLibVersionStr << " Please, check for updates.";
-        }
-    }
-#endif  // BEAM_LIB_VERSION
+    ProcessLibraryVersion(*swapTxParameters);
 
     // display swap details to user
     cout << " Swap conditions: " << "\n"
@@ -716,6 +684,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
         << " Swap amount:  " << *swapAmount << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
+    
+    Amount fee = kMinFeeInGroth;
+    if (*isBeamSide)
+    {
+        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, Asset::s_BeamID, false);
+        fee = coinSelectionRes.minimalFee - coinSelectionRes.shieldedInputsFee;
+        cout << " Fee:          " << PrintableAmount(!!coinSelectionRes.shieldedInputsFee ? coinSelectionRes.minimalFee : fee) << "\n";
+    }
 
     // get accepting
     // TODO: Refactor
@@ -742,7 +718,6 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     // on accepting
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-    Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
@@ -768,6 +743,23 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
         return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
             (vm, walletDB, kSwapCoinQTUM);
     }
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
+            (vm, walletDB, kSwapCoinBCH);
+    }
+#endif // BITCOIN_CASH_SUPPORT
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
+            (vm, walletDB, kSwapCoinDOGE);
+    }
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        return HandleSwapCoin<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
+            (vm, walletDB, kSwapCoinDASH);
+    }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
@@ -792,6 +784,23 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     case beam::wallet::AtomicSwapCoin::Qtum:
     {
         ShowSwapSettings<qtum::SettingsProvider>(walletDB, swapCoin);
+        break;
+    }
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, swapCoin);
+        break;
+    }
+#endif // BITCOIN_CASH_SUPPORT
+    case beam::wallet::AtomicSwapCoin::Dogecoin:
+    {
+        ShowSwapSettings<dogecoin::SettingsProvider>(walletDB, swapCoin);
+        break;
+    }
+    case beam::wallet::AtomicSwapCoin::Dash:
+    {
+        ShowSwapSettings<dash::SettingsProvider>(walletDB, swapCoin);
         break;
     }
     default:

@@ -2444,7 +2444,7 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 
 		proto::Event::Type::Enum eType;
 		der.reset(wlk.m_Body.p, wlk.m_Body.n);
-		der & eType;
+		eType = proto::Event::Type::Load(der);
 
 		if (TEvt::s_Type == eType)
 			break;
@@ -3179,7 +3179,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 	}
 
 	if (bic.m_StoreShieldedOutput)
+	{
 		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedOutputs, m_Extra.m_ShieldedOutputs);
+		m_DB.SaveShieldedCount(m_Cursor.m_Sid.m_Height, m_Extra.m_ShieldedOutputs);
+	}
 
 	return true;
 }

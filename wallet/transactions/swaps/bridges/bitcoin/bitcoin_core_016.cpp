@@ -260,7 +260,7 @@ namespace beam::bitcoin
     {
         LOG_DEBUG() << "Send getRawChangeAddress command";
 
-        sendRequest("getrawchangeaddress", "\"legacy\"", [callback](IBridge::Error error, const json& result) {
+        sendRequest("getrawchangeaddress", getAddressType(), [callback](IBridge::Error error, const json& result) {
             std::string address;
 
             if (error.m_type == IBridge::None)
@@ -493,6 +493,11 @@ namespace beam::bitcoin
     std::string BitcoinCore016::getCoinName() const
     {
         return "bitcoin";
+    }
+
+    std::string BitcoinCore016::getAddressType() const
+    {
+        return "\"legacy\"";
     }
 
     void BitcoinCore016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
