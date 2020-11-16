@@ -32,6 +32,7 @@ namespace Shaders {
 #include "../Shaders/oracle/contract.h"
 #include "../Shaders/dummy/contract.h"
 #include "../Shaders/StableCoin/contract.h"
+#include "../Shaders/faucet/contract.h"
 
 #define export
 
@@ -84,6 +85,9 @@ namespace Shaders {
 	}
 	namespace StableCoin {
 #include "../Shaders/StableCoin/contract.cpp"
+	}
+	namespace Faucet {
+#include "../Shaders/faucet/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -273,6 +277,10 @@ namespace bvm2 {
 
 			return !bNew;
 		}
+
+		Height m_Height = 0;
+		Height get_Height() override { return m_Height; }
+
 
 		struct AssetData {
 			Amount m_Amount;
@@ -553,12 +561,14 @@ namespace bvm2 {
 			ByteBuffer m_Oracle;
 			ByteBuffer m_Dummy;
 			ByteBuffer m_StableCoin;
+			ByteBuffer m_Faucet;
 
 		} m_Code;
 
 		ContractID m_cidVault;
 		ContractID m_cidOracle;
 		ContractID m_cidStableCoin;
+		ContractID m_cidFaucet;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -642,6 +652,19 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidFaucet)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Faucet::Ctor(CastArg<Shaders::Faucet::Params>(pArgs)); return;
+				//case 1: Shaders::Faucet::Dtor(nullptr); return;
+				//case 2: Shaders::Faucet::Method_2(CastArg<Shaders::Faucet::Deposit>(pArgs)); return;
+				//case 3: Shaders::Faucet::Method_3(CastArg<Shaders::Faucet::Withdraw>(pArgs)); return;
+				//}
+			}
+
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -649,6 +672,7 @@ namespace bvm2 {
 		void TestDummy();
 		void TestOracle();
 		void TestStableCoin();
+		void TestFaucet();
 
 		void TestAll();
 	};
@@ -671,8 +695,10 @@ namespace bvm2 {
 		AddCode(m_Code.m_Dummy, "dummy/contract.wasm");
 		AddCode(m_Code.m_Oracle, "oracle/contract.wasm");
 		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
+		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 
 		TestVault();
+		TestFaucet();
 		TestDummy();
 		TestOracle();
 		TestStableCoin();
@@ -972,6 +998,50 @@ namespace bvm2 {
 		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
 	}
 
+	void MyProcessor::TestFaucet()
+	{
+		Shaders::Faucet::Params pars;
+		pars.m_BacklogPeriod = 5;
+		pars.m_MaxWithdraw = 400;
+
+		verify_test(ContractCreate_T(m_cidFaucet, m_Code.m_Faucet, pars));
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Faucet);
+		verify_test(sid == Shaders::Faucet::s_SID);
+
+		m_lstUndo.Clear();
+
+		Shaders::Faucet::Deposit deps;
+		deps.m_Aid = 10;
+		deps.m_Amount = 20000;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Deposit::s_iMethod, deps));
+
+		Shaders::Faucet::Withdraw wdrw;
+
+		ECC::Scalar::Native k;
+		ECC::SetRandom(k);
+		ECC::Point::Native pt = ECC::Context::get().G * k;
+
+		wdrw.m_Key.m_Account = pt;
+		wdrw.m_Key.m_Aid = 10;
+		wdrw.m_Amount = 150;
+
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(!RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		m_Height += 15;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		wdrw.m_Amount = 0;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		m_Height += 5;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		UndoChanges(); // up to (but not including) contract creation
+	}
 
 
 	struct MyManager
