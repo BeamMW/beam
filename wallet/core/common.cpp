@@ -244,9 +244,8 @@ namespace beam::wallet
             if (voucher && peerIdentity)
                 return TxAddressType::MaxPrivacy;
 
-            auto peerOwnID = params.GetParameter<uint64_t>(TxParameterID::PeerOwnID);           // public key to create identity
             auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
-            if (vouchers && !vouchers->empty() && peerIdentity && peerOwnID && peerID)
+            if (vouchers && !vouchers->empty() && peerIdentity && peerID)
                 return TxAddressType::Offline;
 
             auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
