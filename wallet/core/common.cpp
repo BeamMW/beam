@@ -650,7 +650,7 @@ namespace beam::wallet
                     LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
                     return false;
                 }
-                params.SetParameter(TxParameterID::Voucher, voucher);
+                params.SetParameter(TxParameterID::Voucher, *voucher);
             }
             break;
         default:
