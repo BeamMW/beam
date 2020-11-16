@@ -6,3 +6,4 @@ configure_file("../Shaders/dummy/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dum
 configure_file("../Shaders/oracle/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/oracle/contract.wasm" COPYONLY)
 configure_file("../Shaders/StableCoin/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/StableCoin/contract.wasm" COPYONLY)
 configure_file("../Shaders/faucet/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/faucet/contract.wasm" COPYONLY)
+configure_file("../Shaders/roulette/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/roulette/contract.wasm" COPYONLY)
