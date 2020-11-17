@@ -10,7 +10,10 @@ struct DocGroup {
     }
 };
 
-#define Faucet_manager_create(macro)
+#define Faucet_manager_create(macro) \
+    macro(Height, backlogPeriod) \
+    macro(Amount, withdrawLimit)
+
 #define Faucet_manager_view(macro)
 #define Faucet_manager_destroy(macro) macro(ContractID, cid)
 #define Faucet_manager_view_accounts(macro) macro(ContractID, cid)
@@ -156,7 +159,17 @@ ON_METHOD(manager, view)
 
 ON_METHOD(manager, create)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
+    if (!backlogPeriod || !withdrawLimit)
+    {
+        Env::DocAddText("error", "backlog and withdraw limit should be nnz");
+        return;
+    }
+
+    Faucet::Params pars;
+    pars.m_BacklogPeriod = backlogPeriod;
+    pars.m_MaxWithdraw = withdrawLimit;
+
+    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, 1000000U);
 }
 
 ON_METHOD(manager, destroy)
