@@ -242,21 +242,6 @@ ON_METHOD(my_account, view)
 #undef ON_METHOD
 #undef THE_FIELD
 
-void ReadArg(const char* sz, uint32_t& val) {
-    Env::DocGetNum(sz, val);
-}
-void ReadArg(const char* sz, uint64_t& val) {
-    Env::DocGetNum(sz, val);
-}
-void ReadArg(const char* sz, ContractID& val) {
-    if (sizeof(val) != Env::DocGetBlob(sz, &val, sizeof(val)))
-        Utils::ZeroObject(val);
-}
-void ReadArg(const char* sz, PubKey& val) {
-    if (sizeof(val) != Env::DocGetBlob(sz, &val, sizeof(val)))
-        Utils::ZeroObject(val);
-}
-
 export void Method_1()
 {
     char szRole[0x10], szAction[0x10];
@@ -272,7 +257,7 @@ export void Method_1()
         return;
     }
 
-#define PAR_READ(type, name) type arg_##name; ReadArg(#name, arg_##name);
+#define PAR_READ(type, name) type arg_##name; Env::DocGet(#name, arg_##name);
 #define PAR_PASS(type, name) arg_##name,
 
 #define THE_METHOD(role, name) \
