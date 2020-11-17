@@ -169,14 +169,22 @@ bool EthereumSide::ConfirmLockTx()
 
             if (error.m_type != ethereum::IBridge::None)
             {
+                // TODO(alex.starun): check
                 m_tx.UpdateOnNextTip();
+                LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << "Failed to get transaction: " << error.m_message;
                 return;
             }
 
             try
             {
                 auto contractAddrStr = txInfo["to"].get<std::string>();
-                if (contractAddrStr != GetContractAddressStr())
+                auto localContractAddrStr = GetContractAddressStr();
+                std::transform(localContractAddrStr.begin(),
+                               localContractAddrStr.end(),
+                               localContractAddrStr.begin(),
+                               [](char c) -> char { return static_cast<char>(std::tolower(c)); });
+
+                if (contractAddrStr != localContractAddrStr)
                 {
                     m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
@@ -206,6 +214,11 @@ bool EthereumSide::ConfirmLockTx()
                     m_tx.UpdateAsync();
                     return;
                 }
+
+                if (!txInfo["blockNumber"].is_null())
+                {
+                    m_SwapLockTxBlockNumber = std::stoull(txInfo["blockNumber"].get<std::string>(), nullptr, 16);
+                }
             }
             catch (const std::exception& ex)
             {
@@ -216,22 +229,7 @@ bool EthereumSide::ConfirmLockTx()
             }
 
         });
-
-        m_ethBridge->getTxBlockNumber(txHash, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
-        {
-            if (weak.expired())
-            {
-                return;
-            }
-
-            if (error.m_type != ethereum::IBridge::None)
-            {
-                m_tx.UpdateOnNextTip();
-                return;
-            }
-
-            m_SwapLockTxBlockNumber = txBlockNumber;
-        });
+        return false;
     }
 
     uint64_t currentBlockNumber = GetBlockCount();
