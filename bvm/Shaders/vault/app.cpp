@@ -35,6 +35,10 @@ struct DocGroup {
 
 #define Vault_my_account_withdraw(macro) Vault_my_account_deposit(macro)
 
+#define Vault_my_account_move(macro) \
+    macro(uint8_t, isDeposit) \
+    Vault_my_account_deposit(macro)
+
 #define VaultRole_my_account(macro) \
     macro(my_account, view) \
     macro(my_account, deposit) \
@@ -63,7 +67,10 @@ export void Method_0()
 #define THE_FIELD(type, name) const type& name,
 #define ON_METHOD(role, name) void On_##role##_##name(Vault_##role##_##name(THE_FIELD) int unused = 0)
 
-
+void OnError(const char* sz)
+{
+    Env::DocAddText("error", sz);
+}
 
 #pragma pack (push, 1)
 
@@ -198,13 +205,10 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &myid, sizeof(myid));
 }
 
-void On_MyAccount_MoveFunds(uint32_t iMethod, uint8_t nConsume, const ContractID& cid, Amount amount, AssetID aid)
+ON_METHOD(my_account, move)
 {
     if (!amount)
-    {
-        Env::DocAddText("error", "amount should be nnz");
-        return;
-    }
+        return OnError("amount should be nnz");
 
     Vault::Request arg;
     arg.m_Amount = amount;
@@ -214,26 +218,31 @@ void On_MyAccount_MoveFunds(uint32_t iMethod, uint8_t nConsume, const ContractID
     FundsChange fc;
     fc.m_Amount = arg.m_Amount;
     fc.m_Aid = arg.m_Aid;
-    fc.m_Consume = nConsume;
+    fc.m_Consume = isDeposit;
 
-    MyAccountID myid;
-    myid.m_Cid = cid;
+    if (isDeposit)
+        Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, 2000000U);
+    else
+    {
+        MyAccountID myid;
+        myid.m_Cid = cid;
 
-    SigRequest sig;
-    sig.m_pID = &myid;
-    sig.m_nID = sizeof(myid);
+        SigRequest sig;
+        sig.m_pID = &myid;
+        sig.m_nID = sizeof(myid);
 
-    Env::GenerateKernel(&cid, iMethod, &arg, sizeof(arg), &fc, 1, &sig, !nConsume, 2000000U);
+        Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 2000000U);
+    }
 }
 
 ON_METHOD(my_account, deposit)
 {
-    On_MyAccount_MoveFunds(Vault::Deposit::s_iMethod, 1, cid, amount, aid);
+    On_my_account_move(1, cid, amount, aid);
 }
 
 ON_METHOD(my_account, withdraw)
 {
-    On_MyAccount_MoveFunds(Vault::Deposit::s_iMethod, 0, cid, amount, aid);
+    On_my_account_move(0, cid, amount, aid);
 }
 
 ON_METHOD(my_account, view)
@@ -251,15 +260,11 @@ export void Method_1()
     char szRole[0x10], szAction[0x10];
     ContractID cid;
 
-    if (!Env::DocGetText("role", szRole, sizeof(szRole))) {
-        Env::DocAddText("error", "Role not specified");
-        return;
-    }
+    if (!Env::DocGetText("role", szRole, sizeof(szRole)))
+        return OnError("Role not specified");
 
-    if (!Env::DocGetText("action", szAction, sizeof(szAction))) {
-        Env::DocAddText("error", "Action not specified");
-        return;
-    }
+    if (!Env::DocGetText("action", szAction, sizeof(szAction)))
+        return OnError("Action not specified");
 
 #define PAR_READ(type, name) type arg_##name; Env::DocGet(#name, arg_##name);
 #define PAR_PASS(type, name) arg_##name,
@@ -274,8 +279,7 @@ export void Method_1()
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
         VaultRole_##name(THE_METHOD) \
-        Env::DocAddText("error", "invalid Action"); \
-        return; \
+        return OnError("invalid Action"); \
     }
 
     VaultRoles_All(THE_ROLE)
@@ -285,6 +289,6 @@ export void Method_1()
 #undef PAR_PASS
 #undef PAR_READ
 
-    Env::DocAddText("error", "unknown Role");
+    OnError("unknown Role");
 }
 
