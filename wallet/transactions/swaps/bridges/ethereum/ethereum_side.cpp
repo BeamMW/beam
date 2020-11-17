@@ -193,7 +193,7 @@ bool EthereumSide::ConfirmLockTx()
 
                 std::string strValue = ethereum::RemoveHexPrefix(txInfo["value"].get<std::string>());
                 auto amount = ethereum::ConvertStrToUintBig(strValue);
-                uintBig swapAmount = GetSwapAmount();
+                uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
 
                 if (amount != swapAmount)
                 {
@@ -239,12 +239,7 @@ bool EthereumSide::ConfirmLockTx()
         m_SwapLockTxConfirmations = currentBlockNumber - m_SwapLockTxBlockNumber;
     }
     
-    if (m_SwapLockTxConfirmations < GetTxMinConfirmations())
-    {
-        return false;
-    }
-
-    return true;
+    return m_SwapLockTxConfirmations >= GetTxMinConfirmations();
 }
 
 bool EthereumSide::ConfirmRefundTx()
@@ -276,7 +271,6 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
 {
     if (!m_WithdrawTxBlockNumber)
     {
-        // getTransactionReceipt
         std::string txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, subTxID);
 
         m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
@@ -416,38 +410,51 @@ bool EthereumSide::SendLockTx()
 
 bool EthereumSide::SendRefund()
 {
+    return SendWithdrawTx(SubTxIndex::REFUND_TX);
+}
+
+bool EthereumSide::SendRedeem()
+{
+    return SendWithdrawTx(SubTxIndex::REDEEM_TX);
+}
+
+bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
+{
     // TODO: check
     std::string txID;
-    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REFUND_TX))
+    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, subTxID))
         return true;
 
-    auto secretHash = GetSecretHash();
+    auto data = BuildWithdrawTxData(subTxID);
 
-    // kRefundMethodHash + secretHash/addressFromSecret
-    libbitcoin::data_chunk data;
-    data.reserve(4 + 32);
-    libbitcoin::decode_base16(data, GetRefundMethodHash(IsERC20Token(), IsHashLockScheme()));
-    ethereum::AddContractABIWordToBuffer(secretHash, data);
-
-    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(SubTxIndex::REFUND_TX), GetGasPrice(SubTxIndex::REFUND_TX),
-        [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(subTxID), GetGasPrice(subTxID),
+        [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash)
     {
         if (!weak.expired())
         {
-            OnSentWithdrawTx(SubTxIndex::REFUND_TX, error, txHash);
+            if (error.m_type != ethereum::IBridge::None)
+            {
+                // TODO: handle error
+                m_isWithdrawTxSent = false;
+                return;
+            }
+
+            m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
+            m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
+            m_tx.UpdateAsync();
         }
     });
     m_isWithdrawTxSent = true;
     return true;
 }
 
-bool EthereumSide::SendRedeem()
+beam::ByteBuffer EthereumSide::BuildWithdrawTxData(SubTxID subTxID)
 {
-    // TODO: check
-    std::string txID;
-    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REDEEM_TX))
-        return true;
+    return (subTxID == SubTxIndex::REDEEM_TX) ? BuildRedeemTxData() : BuildRefundTxData();
+}
 
+beam::ByteBuffer EthereumSide::BuildRedeemTxData()
+{
     auto secretHash = GetSecretHash();
     auto secret = GetSecret();
 
@@ -455,7 +462,7 @@ bool EthereumSide::SendRedeem()
     if (IsHashLockScheme())
     {
         // kRedeemMethodHash + secret + secretHash
-        data.reserve(4 + 32 + 32);
+        data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
         libbitcoin::decode_base16(data, GetRedeemMethodHash(IsERC20Token(), IsHashLockScheme()));
         data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
         data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
@@ -469,7 +476,7 @@ bool EthereumSide::SendRedeem()
         // keccak256: addressFromSecret + participant + initiator + refundTimeInBlocks
         uintBig refundTimeInBlocks = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
         libbitcoin::data_chunk hashData;
-        hashData.reserve(60);
+        hashData.reserve(3 * libbitcoin::short_hash_size + ethereum::kEthContractABIWordSize);
         hashData.insert(hashData.end(), secretHash.cbegin(), secretHash.cend());
         hashData.insert(hashData.end(), participant.cbegin(), participant.cend());
         hashData.insert(hashData.end(), initiator.cbegin(), initiator.cend());
@@ -502,30 +509,19 @@ bool EthereumSide::SendRedeem()
         data.push_back(signature.recovery_id + 27u);
     }
 
-    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(SubTxIndex::REDEEM_TX), GetGasPrice(SubTxIndex::REDEEM_TX),
-        [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
-    {
-        if (!weak.expired())
-        {
-            OnSentWithdrawTx(SubTxIndex::REDEEM_TX, error, txHash);
-        }
-    });
-    m_isWithdrawTxSent = true;
-    return true;
+    return data;
 }
 
-void EthereumSide::OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash)
+beam::ByteBuffer EthereumSide::BuildRefundTxData()
 {
-    if (error.m_type != ethereum::IBridge::None)
-    {
-        // TODO: handle error
-        m_isWithdrawTxSent = false;
-        return;
-    }
+    // kRefundMethodHash + secretHash/addressFromSecret
+    auto secretHash = GetSecretHash();
+    libbitcoin::data_chunk data;
+    data.reserve(ethereum::kEthContractMethodHashSize + ethereum::kEthContractABIWordSize);
+    libbitcoin::decode_base16(data, GetRefundMethodHash(IsERC20Token(), IsHashLockScheme()));
+    ethereum::AddContractABIWordToBuffer(secretHash, data);
 
-    m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
-    m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
-    m_tx.UpdateAsync();
+    return data;
 }
 
 bool EthereumSide::IsERC20Token() const

@@ -65,7 +65,10 @@ namespace beam::wallet
         libbitcoin::short_hash GetContractAddress() const;
         std::string GetContractAddressStr() const;
 
-        void OnSentWithdrawTx(SubTxID subTxID, const ethereum::IBridge::Error& error, const std::string& txHash);
+        bool SendWithdrawTx(SubTxID subTxID);
+        beam::ByteBuffer BuildWithdrawTxData(SubTxID subTxID);
+        beam::ByteBuffer BuildRedeemTxData();
+        beam::ByteBuffer BuildRefundTxData();
 
         bool IsERC20Token() const;        
         beam::ByteBuffer BuildLockTxData();
