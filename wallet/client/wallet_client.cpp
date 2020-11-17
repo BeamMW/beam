@@ -1516,14 +1516,14 @@ namespace beam::wallet
         {
             assert(false);
             postFunctionToClientContext([cb = std::move(cback)]() {
-                cb("unexpected: m_wallet is null", "");
+                cb("unexpected: m_wallet is null", "", TxID());
             });
             return;
         }
 
         if (_shaderCback || !smgr->IsDone()) {
             postFunctionToClientContext([cb = std::move(cback)]() {
-                cb("previous call is not finished", "");
+                cb("previous call is not finished", "", TxID());
             });
             return;
         }
@@ -1538,7 +1538,7 @@ namespace beam::wallet
         catch(std::runtime_error& err)
         {
             postFunctionToClientContext([cb = std::move(cback), msg = err.what()]() {
-                cb(msg, "");
+                cb(msg, "", TxID());
             });
             return;
         }
@@ -1552,7 +1552,7 @@ namespace beam::wallet
         catch(const std::runtime_error& err)
         {
             postFunctionToClientContext([cb = std::move(_shaderCback), msg = err.what()]() {
-                cb(msg, "");
+                cb(msg, "", TxID());
             });
 
             decltype(_shaderCback)().swap(_shaderCback);
@@ -1575,7 +1575,7 @@ namespace beam::wallet
             assert(false);
             LOG_ERROR() << "onShaderDone but empty manager";
             postFunctionToClientContext([cb = std::move(_shaderCback)]() {
-                cb("onShaderDone but empty manager", "");
+                cb("onShaderDone but empty manager", "", TxID());
             });
             return;
         }
@@ -1583,30 +1583,45 @@ namespace beam::wallet
         if (smgr->IsError())
         {
              postFunctionToClientContext([err = smgr->GetError(), cb = std::move(_shaderCback)]() {
-                cb(err, "");
+                cb(err, "", TxID());
             });
             return;
         }
 
-        // TODO: handle errors
         auto invoke = smgr->GetInvokeData();
-        if (!invoke.empty())
+        if (invoke.empty())
+        {
+            postFunctionToClientContext([res = smgr->GetResult(), cb = std::move(_shaderCback)]() {
+                cb("", res, TxID());
+            });
+        }
+        else
         {
             auto params = CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, invoke);
 
             auto spw = m_wallet.lock();
-            if (spw)
+            if (!spw)
+            {
+                postFunctionToClientContext([res = smgr->GetResult(), cb = std::move(_shaderCback)]() {
+                    cb("failed to create transaction, wallet is not available", res, TxID());
+                });
+            }
+
+            try
             {
                 auto txid = spw->StartTransaction(params);
-                LOG_INFO() << "Transaction created: " << txid;
+                postFunctionToClientContext([txid, res = smgr->GetResult(), cb = std::move(_shaderCback)]() {
+                    cb("", res, txid);
+                });
+            }
+            catch (std::runtime_error &err)
+            {
+                postFunctionToClientContext([err, res = smgr->GetResult(), cb = std::move(_shaderCback)]() {
+                    cb(err.what(), res, TxID());
+                });
             }
         }
-
-        postFunctionToClientContext([res = smgr->GetResult(), cb = std::move(_shaderCback)]() {
-            cb("", res);
-        });
-
         assert(!_shaderCback);
     }
 }

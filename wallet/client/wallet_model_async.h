@@ -89,7 +89,8 @@ namespace beam::wallet
         virtual void getAssetInfo(Asset::ID) = 0;
         virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) = 0;
 
-        typedef AsyncCallback<std::string, std::string> ShaderCallback;
+        // error (if any), shader output (if any), txid (if any)
+        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
         virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
 
         virtual ~IWalletModelAsync() {}
