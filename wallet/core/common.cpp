@@ -522,7 +522,7 @@ namespace beam::wallet
 
     bool TxToken::IsValid() const
     {
-        for (const auto p : m_Parameters)
+        for (const auto& p : m_Parameters)
         {
             switch (p.first)
             {
