@@ -15,6 +15,7 @@ struct DocGroup {
     macro(Amount, withdrawLimit)
 
 #define Faucet_manager_view(macro)
+#define Faucet_manager_view_params(macro) macro(ContractID, cid)
 #define Faucet_manager_destroy(macro) macro(ContractID, cid)
 #define Faucet_manager_view_accounts(macro) macro(ContractID, cid)
 
@@ -26,6 +27,7 @@ struct DocGroup {
     macro(manager, create) \
     macro(manager, destroy) \
     macro(manager, view) \
+    macro(manager, view_params) \
     macro(manager, view_accounts) \
     macro(manager, view_account)
 
@@ -87,6 +89,12 @@ struct KeyRaw
 {
     KeyPrefix m_Prefix;
     Faucet::Key m_Key;
+};
+
+struct KeyGlobal
+{
+    KeyPrefix m_Prefix;
+    uint8_t m_Val = 0;
 };
 
 #pragma pack (pop)
@@ -180,6 +188,27 @@ ON_METHOD(manager, destroy)
 {
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
 }
+
+ON_METHOD(manager, view_params)
+{
+    KeyGlobal k;
+    k.m_Prefix.m_Cid = cid;
+    k.m_Prefix.m_Tag = 0;
+
+    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
+
+    const void* pK;
+    const Faucet::Params* pVal;
+
+    uint32_t nKey, nVal;
+    if (!Env::VarsMoveNext(&pK, &nKey, (const void**) &pVal, &nVal) || (sizeof(*pVal) != nVal))
+        return OnError("failed to read");
+
+    DocGroup gr("res");
+    Env::DocAddNum("backlogPeriod", pVal->m_BacklogPeriod);
+    Env::DocAddNum("withdrawLimit", pVal->m_MaxWithdraw);
+}
+
 
 ON_METHOD(manager, view_accounts)
 {
