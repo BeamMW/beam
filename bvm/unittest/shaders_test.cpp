@@ -1280,8 +1280,8 @@ int main()
 		std::cout << man.m_Out.str();
 		man.m_Out.str("");
 
-		man.m_Args["role"] = "all_accounts";
-		man.m_Args["action"] = "view";
+		man.m_Args["role"] = "manager";
+		man.m_Args["action"] = "view_accounts";
 		man.set_ArgBlob("cid", Shaders::Vault::s_CID);
 
 		man.RunGuarded(1);
