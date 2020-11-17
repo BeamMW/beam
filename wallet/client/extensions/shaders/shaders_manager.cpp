@@ -21,6 +21,7 @@ ShadersManager::ShadersManager(beam::wallet::IWalletDB::Ptr walletDB, beam::prot
     assert(walletDB);
     m_pPKdf = _wdb->get_OwnerKdf();
     m_pNetwork = std::move(nodeNetwork);
+    m_pHist = &_wdb->get_History();
 }
 
 ShadersManager::~ShadersManager()
@@ -82,11 +83,4 @@ void ShadersManager::OnDone(const std::exception* pExc)
     _done  = true;
     _error = pExc ? pExc->what() : "";
     _doneHandler.onShaderDone();
-}
-
-beam::Height ShadersManager::get_Height()
-{
-    beam::Block::SystemState::Full tip;
-    _wdb->get_History().get_Tip(tip);
-    return tip.m_Height;
 }
