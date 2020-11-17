@@ -23,7 +23,9 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#if defined(BITCOIN_CASH_SUPPORT)
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/transactions/swaps/common.h"
@@ -386,12 +388,14 @@ void RequestToBridge(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin, st
             (walletDB, swapCoin, callback);
         break;
     }
+#if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         RequestToSpecificBridge<bitcoin_cash::SettingsProvider, bitcoin_cash::Electrum, bitcoin_cash::BitcoinCashCore>
             (walletDB, swapCoin, callback);
         break;
     }
+#endif // BITCOIN_CASH_SUPPORT
     case beam::wallet::AtomicSwapCoin::Dash:
     {
         RequestToSpecificBridge<dash::SettingsProvider, dash::Electrum, dash::DashCore014>
@@ -476,10 +480,12 @@ Amount GetMinSwapFeeRate(beam::wallet::AtomicSwapCoin swapCoin, IWalletDB::Ptr w
     {
         return GetMinSwapFeeRate<dogecoin::SettingsProvider>(walletDB);
     }
+#if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         return GetMinSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
     }
+#endif // BITCOIN_CASH_SUPPORT
     case beam::wallet::AtomicSwapCoin::Dash:
     {
         return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
@@ -737,11 +743,13 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
         return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
             (vm, walletDB, kSwapCoinQTUM);
     }
+#if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         return HandleSwapCoin<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
             (vm, walletDB, kSwapCoinBCH);
     }
+#endif // BITCOIN_CASH_SUPPORT
     case beam::wallet::AtomicSwapCoin::Dogecoin:
     {
         return HandleSwapCoin<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
@@ -778,11 +786,13 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
         ShowSwapSettings<qtum::SettingsProvider>(walletDB, swapCoin);
         break;
     }
+#if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, swapCoin);
         break;
     }
+#endif // BITCOIN_CASH_SUPPORT
     case beam::wallet::AtomicSwapCoin::Dogecoin:
     {
         ShowSwapSettings<dogecoin::SettingsProvider>(walletDB, swapCoin);

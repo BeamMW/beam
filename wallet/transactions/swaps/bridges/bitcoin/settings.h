@@ -67,7 +67,6 @@ namespace beam::bitcoin
             "e5a8f0d103c23.not.fyi:50002",
             "electrumx.electricnewyear.net:50002",
             "electrumx.schulzemic.net:50002",
-            "fortress.qtornado.com:443",
             "vps4.hsmiths.com:50002"
 #else // MASTERNET and TESTNET
             "testnet.hsmiths.com:53012",
