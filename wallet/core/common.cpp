@@ -906,6 +906,7 @@ namespace beam::wallet
         case TxType::AssetConsume: return "asset consume";
         case TxType::AtomicSwap: return "atomic swap";
         case TxType::AssetInfo: return "asset info";
+        case TxType::Contract: return "contract";
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
             return "unknown";
