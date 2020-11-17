@@ -1,8 +1,7 @@
 ////////////////////////
 // Simple 'vault' shader
-#include "common.h"
-#include "vault.h"
-#include "Math.h"
+#include "../common.h"
+#include "contract.h"
 
 struct DocGroup {
     DocGroup(const char* sz) {

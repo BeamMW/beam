@@ -14,6 +14,7 @@
 
 #include "utils.h"
 
+#include "wallet/core/common_utils.h"
 #include "wallet/core/strings_resources.h"
 
 #include <boost/format.hpp>
@@ -116,7 +117,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
     }
 
-    if (vm.find(cli::MAX_PRIVACY) != vm.end() && vm[cli::MAX_PRIVACY].as<bool>())
+    if (vm.find(cli::MAX_PRIVACY_ADDRESS) != vm.end() && vm[cli::MAX_PRIVACY_ADDRESS].as<bool>())
     {
         params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
     }
@@ -155,4 +156,44 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
 
     return true;
 }
+
+bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
+{
+    Transaction::FeeSettings fs;
+    Amount shieldedOutputsFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+
+    auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
+        walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
+    feeForShieldedInputs = coinSelectionRes.shieldedInputsFee;
+
+    bool isBeam = assetId == Asset::s_BeamID;
+    if (isBeam && (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - coinSelectionRes.changeBeam) < amount)
+    {
+        LOG_ERROR() << kErrorNotEnoughtCoins;
+        return false;
+    }
+
+    if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
+    {
+        // TODO: enough beam & asset
+        LOG_ERROR() << kErrorNotEnoughtCoins;
+        return false;
+    }
+
+    if (coinSelectionRes.minimalFee > fee)
+    {
+        if (isPushTx && !coinSelectionRes.shieldedInputsFee)
+        {
+            LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
+        }
+        else
+        {
+            LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace beam::wallet

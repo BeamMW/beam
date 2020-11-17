@@ -34,14 +34,6 @@ using namespace beam::wallet;
 
 const size_t kCollectorBufferSize = 50;
 
-#if defined(BEAM_TESTNET)
-const char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
-#elif defined(BEAM_MAINNET)
-const char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
-#else
-const char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
-#endif
-
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -1310,11 +1302,7 @@ namespace beam::wallet
 
     void WalletClient::getPublicAddress()
     {
-        TxParameters params;
-        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*m_walletDB->get_OwnerKdf(), 0));
-        AppendLibraryVersion(params);
-        onPublicAddress(std::to_string(params));
+        onPublicAddress(GeneratePublicOfflineAddress(*m_walletDB));
     }
 
     void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)

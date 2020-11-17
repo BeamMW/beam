@@ -192,7 +192,14 @@ namespace beam::wallet
             Deserializer d;
             d.reset(b.data(), b.size());
             d & value;
-            return true;
+            if constexpr (std::is_same<T, WalletID>::value)
+            {
+                return value.IsValid();
+            }
+            else
+            {
+                return true;
+            }
         }
         if constexpr (std::is_trivially_destructible<T>::value && std::is_standard_layout<T>::value)
         {
@@ -268,7 +275,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
-    MACRO(IsPermanentPeerID,               8,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   bool) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \
@@ -484,6 +491,7 @@ namespace beam::wallet
         TxToken() = default;
         TxToken(const TxParameters&);
         TxParameters UnpackParameters() const;
+        bool IsValid() const;
         SERIALIZE(m_Flags, m_TxID, m_Parameters);
     private:
         uint8_t m_Flags = TokenFlag;
@@ -492,6 +500,16 @@ namespace beam::wallet
     };    
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
+
+    enum struct TxAddressType : uint8_t
+    {
+        Unknown,
+        Regular,
+        AtomicSwap,
+        Offline,
+        MaxPrivacy,
+        PublicOffline
+    };
 
     class TxStatusInterpreter
     {
@@ -520,9 +538,11 @@ namespace beam::wallet
     class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
     {
     public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
         ~MaxPrivacyTxStatusInterpreter() override = default;
         [[nodiscard]] std::string getStatus() const override;
+    private:
+        TxAddressType m_addressType = TxAddressType::Unknown;
     };
 
     class AssetTxStatusInterpreter : public TxStatusInterpreter
@@ -543,16 +563,6 @@ namespace beam::wallet
         [[nodiscard]] std::string getStatus() const override;
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-
-    enum struct TxAddressType : uint8_t
-    {
-        Unknown,
-        Regular,
-        AtomicSwap,
-        Offline,
-        MaxPrivacy,
-        PublicOffline
     };
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -810,9 +820,10 @@ namespace beam::wallet
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
-    Amount GetShieldedFee(const TxDescription& tx);
+    Amount GetShieldedFee(const TxDescription& tx, SubTxID subTxID = kDefaultSubTxID);
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
+    TxAddressType GetAddressType(const std::string& address);
 }    // beam::wallet
 
 namespace beam

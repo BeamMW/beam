@@ -972,8 +972,7 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 // Event
 void Event::IParserBase::ProceedOnce(Deserializer& der)
 {
-    Type::Enum eType;
-    der & eType;
+    Type::Enum eType = Type::Load(der);
 
     switch (eType)
     {
@@ -992,6 +991,33 @@ void Event::IParserBase::ProceedOnce(Deserializer& der)
     default:
         throw std::runtime_error("Unk proto/Event");
     }
+}
+
+Event::Type::Enum Event::Type::Load(Deserializer& der)
+{
+    Type::Enum eType;
+    auto bytesLeft = der.bytes_left();
+    try
+    {
+        der& eType;
+    }
+    catch (const std::exception&)
+    {
+        // workaround for the case whe enum was serialized as unsigned integer #1622
+        // TODO: remove after fork
+        while (der.bytes_left() < bytesLeft)
+            der.ungetch();
+
+        enum Enum2 : int32_t {
+#define THE_MACRO(id, name) name = id,
+            BeamEventsAll(THE_MACRO)
+#undef THE_MACRO
+        };
+        Enum2 eType2;
+        der& eType2;
+        eType = static_cast<Type::Enum>(eType2);
+    }
+    return eType;
 }
 
 void Event::IParser::OnEventType(Utxo0& evt0)

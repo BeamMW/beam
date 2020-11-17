@@ -15,8 +15,18 @@
 #pragma once
 
 #include "../bitcoin/electrum.h"
+#include "settings_provider.h"
 
 namespace beam::bitcoin_cash
 {
-    using Electrum = bitcoin::Electrum;
+    class Electrum : public bitcoin::Electrum
+    {
+    public:
+        Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
+
+    protected:
+
+        uint8_t GetSighashAlgorithm() const override;
+        bool NeedSignValue() const override;
+    };
 } // namespace beam::bitcoin_cash

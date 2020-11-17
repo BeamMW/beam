@@ -106,6 +106,10 @@ namespace beam {
 #define TblAssetEvts_Index		"Seq"
 #define TblAssetEvts_Data		"Data"
 
+#define TblShieldedStatistic			"ShieldedStatistic"
+#define TblShieldedStatistic_Height		"Height"
+#define TblShieldedStatistic_OutCount	"OutCount"
+
 #define TblContracts			"Contracts"
 #define TblContracts_Key		"Key"
 #define TblContracts_Value		"Value"
@@ -345,7 +349,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 23;
+	const uint64_t nVersionTop = 24;
 
 
 	Transaction t(*this);
@@ -387,6 +391,10 @@ void NodeDB::Open(const char* szPath)
 
 		case 22:
 			CreateTables22();
+			// no break;
+
+		case 23:
+			CreateTables23();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
@@ -510,6 +518,7 @@ void NodeDB::Create()
 	CreateTables20();
 	CreateTables21();
 	CreateTables22();
+	CreateTables23();
 }
 
 void NodeDB::CreateTables20()
@@ -545,6 +554,13 @@ void NodeDB::CreateTables21()
 }
 
 void NodeDB::CreateTables22()
+{
+	ExecQuick("CREATE TABLE [" TblShieldedStatistic "] ("
+		"[" TblShieldedStatistic_Height"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblShieldedStatistic_OutCount"] INTEGER NOT NULL)");
+}
+
+void NodeDB::CreateTables23()
 {
 	ExecQuick("CREATE TABLE [" TblContracts "] ("
 		"[" TblContracts_Key		"] BLOB NOT NULL PRIMARY KEY,"
@@ -2439,6 +2455,45 @@ void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t 
 void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 {
 	ShieldeIO(pos, p, nCount, false);
+}
+
+void NodeDB::SaveShieldedCount(Height h, uint64_t count)
+{
+	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT * FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "=?");
+	rs.put(0, h);
+
+	if (rs.Step())
+	{
+		rs.Reset(*this, Query::ShieldedStatisticUp, "UPDATE " TblShieldedStatistic " SET " TblShieldedStatistic_OutCount "=? WHERE " TblShieldedStatistic_Height "=?");
+		rs.put(0, count);
+		rs.put(1, h);
+
+		rs.Step();
+	}
+	else
+	{
+		rs.Reset(*this, Query::ShieldedStatisticIns, "INSERT INTO " TblShieldedStatistic " (" TblShieldedStatistic_Height "," TblShieldedStatistic_OutCount ") VALUES(?,?)");
+		rs.put(0, h);
+		rs.put(1, count);
+
+		rs.Step();
+	}
+	
+
+	TestChanged1Row();
+}
+
+uint64_t NodeDB::GetShieldedCount(Height h)
+{
+	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height " <= ? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
+	rs.put(0, h);
+
+	if (!rs.Step())
+		return 0;
+
+	uint64_t ret;
+	rs.get(0, ret);
+	return ret;
 }
 
 bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
