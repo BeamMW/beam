@@ -946,6 +946,8 @@ namespace beam::wallet
             }
 
             auto txList = walletDB->getTxHistory(TxType::Simple);
+            auto txContract = walletDB->getTxHistory(TxType::Contract);
+            txList.insert(txList.end(), txContract.begin(), txContract.end());
 
             if (data.withAssets)
             {

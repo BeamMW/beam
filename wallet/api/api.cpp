@@ -151,6 +151,10 @@ void GetStatusResponseJson(const TxDescription& tx,
         statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
         #endif
     }
+    else if (tx.m_txType == TxType::Contract)
+    {
+        statusInterpreter = std::make_unique<ContractTxStatusInterpreter>(tx);
+    }
     msg = json
     {
         {"txId", TxIDToString(tx.m_txId)},
