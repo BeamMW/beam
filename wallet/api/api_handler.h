@@ -49,10 +49,15 @@ public:
         serializeMsg(msg);
     }
 
-    void doError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+    void doError(const JsonRpcId& id, ApiError code, const std::string& data = "")
+    {
+        json error;
+        getError(id, code, data, error);
+        serializeMsg(error);
+    }
 
+    void getError(const JsonRpcId& id, ApiError code, const std::string& data, json& error);
     void onInvalidJsonRpc(const json& msg) override;
-
     void FillAddressData(const AddressData& data, WalletAddress& address);
 
 #define MESSAGE_FUNC(api, name, _) \

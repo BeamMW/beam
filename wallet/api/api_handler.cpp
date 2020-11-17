@@ -185,10 +185,9 @@ namespace beam::wallet
     {
     }
 
-    void WalletApiHandler::doError(const JsonRpcId& id, ApiError code, const std::string& data)
+    void WalletApiHandler::getError(const JsonRpcId& id, ApiError code, const std::string& data, json& error)
     {
-        json msg
-        {
+        error = json {
             {"jsonrpc", "2.0"},
             {"id", id},
             {"error",
@@ -201,10 +200,8 @@ namespace beam::wallet
 
         if (!data.empty())
         {
-            msg["error"]["data"] = data;
+            error["error"]["data"] = data;
         }
-
-        serializeMsg(msg);
     }
 
     void WalletApiHandler::onInvalidJsonRpc(const json& msg)

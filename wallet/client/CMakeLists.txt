@@ -18,6 +18,8 @@ target_sources(wallet_client
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
         extensions/notifications/notification_center.cpp
+        extensions/shaders/shaders_manager.h
+        extensions/shaders/shaders_manager.cpp
 )
 
 target_link_libraries(wallet_client 
