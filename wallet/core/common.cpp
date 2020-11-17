@@ -755,6 +755,28 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
+    ContractTxStatusInterpreter::ContractTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    {
+        if (auto value = txParams.GetParameter<TxType>(TxParameterID::TransactionType); value)
+            m_txType = *value;
+    }
+
+    std::string ContractTxStatusInterpreter::getStatus() const
+    {
+        switch (m_status)
+        {
+        case TxStatus::InProgress:
+            return m_selfTx ? "sending to own address" : (m_sender ? "waiting for receiver" : "waiting for sender");
+        case TxStatus::Registering:
+            return m_selfTx ? "sending to own address" : "in progress";
+        case TxStatus::Completed:
+            return m_selfTx ? "sent to own address" : (m_sender ? "sent" : "received");
+        default:
+            break;
+        }
+        return TxStatusInterpreter::getStatus();
+    }
+
     TxDescription::TxDescription(const TxParameters& p)
         : TxParameters(p)
     {
