@@ -564,17 +564,7 @@ namespace beam::wallet
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
-
-    enum struct TxAddressType : uint8_t
-    {
-        Unknown,
-        Regular,
-        AtomicSwap,
-        Offline,
-        MaxPrivacy,
-        PublicOffline
-    };
-
+    
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
