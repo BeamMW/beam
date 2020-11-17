@@ -10,52 +10,60 @@ struct DocGroup {
     }
 };
 
-struct DocNamedGroup
-    :public DocGroup
-{
-    DocNamedGroup(const char* sz, const char* szName)
-        :DocGroup(sz)
-    {
-        Env::DocAddText("name", szName);
-    }
-};
+#define Faucet_manager_create(macro)
+#define Faucet_manager_view(macro)
+#define Faucet_manager_destroy(macro) macro(ContractID, cid)
+#define Faucet_manager_view_accounts(macro) macro(ContractID, cid)
+
+#define Faucet_manager_view_account(macro) \
+    macro(ContractID, cid) \
+    macro(PubKey, pubKey)
+
+#define FaucetRole_manager(macro) \
+    macro(manager, create) \
+    macro(manager, destroy) \
+    macro(manager, view) \
+    macro(manager, view_accounts) \
+    macro(manager, view_account)
+
+#define Faucet_my_account_view(macro) macro(ContractID, cid)
+
+#define Faucet_my_account_deposit(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amount) \
+    macro(AssetID, aid)
+
+#define Faucet_my_account_withdraw(macro) Faucet_my_account_deposit(macro)
+
+#define FaucetRole_my_account(macro) \
+    macro(my_account, view) \
+    macro(my_account, deposit) \
+    macro(my_account, withdraw)
+
+#define FaucetRoles_All(macro) \
+    macro(manager) \
+    macro(my_account)
 
 export void Method_0()
 {
     // scheme
     {   DocGroup gr("roles");
-        {   DocNamedGroup gr0("manager", "Manager");
-            {   DocNamedGroup gr1("create", "Create new");
-            }
-            {   DocNamedGroup gr1("destroy", "Destroy");
-                Env::DocAddText("cid", "ContractID");
-            }
-            {   DocNamedGroup gr1("view", "View");
-            }
-        }
-        {   DocNamedGroup gr0("my_account", "My account");
-            {   DocNamedGroup gr1("view", "View");
-                Env::DocAddText("cid", "ContractID");
-            }
-            {   DocNamedGroup gr1("deposit", "Deposit");
-                Env::DocAddText("cid", "ContractID");
-                Env::DocAddText("amount", "Amount");
-                Env::DocAddText("asset", "AssetID");
-            }
-            {   DocNamedGroup gr1("withdraw", "Withdraw");
-                Env::DocAddText("cid", "ContractID");
-                Env::DocAddText("amount", "Amount");
-                Env::DocAddText("asset", "AssetID");
-            }
-        }
-        {   DocNamedGroup gr0("all_accounts", "All accounts");
-            {   DocNamedGroup gr1("view", "View");
-                Env::DocAddText("cid", "ContractID");
-                Env::DocAddText("account", "PubKey");
-            }
-        }
+
+#define THE_FIELD(type, name) Env::DocAddText(#name, #type);
+#define THE_METHOD(role, name) { DocGroup grMethod(#name);  Faucet_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { DocGroup grRole(#name); FaucetRole_##name(THE_METHOD) }
+        
+        FaucetRoles_All(THE_ROLE)
+#undef THE_ROLE
+#undef THE_METHOD
+#undef THE_FIELD
     }
 }
+
+#define THE_FIELD(type, name) const type& name,
+#define ON_METHOD(role, name) void On_##role##_##name(Faucet_##role##_##name(THE_FIELD) int unused = 0)
+
+
 
 #pragma pack (push, 1)
 
@@ -110,7 +118,7 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
     EnumAndDump();
 }
 
-void On_ManagerView()
+ON_METHOD(manager, view)
 {
 
 #pragma pack (push, 1)
@@ -146,30 +154,31 @@ void On_ManagerView()
     }
 }
 
-void On_Manager(const char* szAction, const ContractID* pCid)
+ON_METHOD(manager, create)
 {
-    if (!Env::Strcmp(szAction, "create")) {
-        Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
-        return;
-    }
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
+}
 
-    if (!Env::Strcmp(szAction, "view")) {
-        On_ManagerView();
-        return;
-    }
+ON_METHOD(manager, destroy)
+{
+    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
+}
 
-    if (!Env::Strcmp(szAction, "destroy")) {
+ON_METHOD(manager, view_accounts)
+{
+    KeyPrefix k0, k1;
+    k0.m_Cid = cid;
+    k0.m_Tag = 0;
+    k1.m_Cid = cid;
+    k1.m_Tag = 1;
 
-        if (!pCid) {
-            Env::DocAddText("error", "cid missing");
-            return;
-        }
+    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
+    EnumAndDump();
+}
 
-        Env::GenerateKernel(pCid, 1, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
-        return;
-    }
-
-    Env::DocAddText("error", "invalid action");
+ON_METHOD(manager, view_account)
+{
+    DumpAccount(pubKey, cid);
 }
 
 void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
@@ -177,21 +186,18 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &cid, sizeof(cid));
 }
 
-void On_MyAccount_MoveFunds(uint8_t nConsume, const ContractID& cid)
+void On_MyAccount_MoveFunds(uint8_t nConsume, const ContractID& cid, Amount amount, AssetID aid)
 {
-    FundsChange fc;
-    fc.m_Amount = 0;
-    fc.m_Aid = 0;
-    fc.m_Consume = nConsume;
-
-    Env::DocGetNum("amount", fc.m_Amount);
-    if (!fc.m_Amount)
+    if (!amount)
     {
         Env::DocAddText("error", "amount should be nnz");
         return;
     }
 
-    Env::DocGetNum("asset", fc.m_Aid);
+    FundsChange fc;
+    fc.m_Amount = amount;
+    fc.m_Aid = aid;
+    fc.m_Consume = nConsume;
 
     if (nConsume)
     {
@@ -216,52 +222,39 @@ void On_MyAccount_MoveFunds(uint8_t nConsume, const ContractID& cid)
     }
 }
 
-void On_MyAccount(const char* szAction, const ContractID& cid)
+ON_METHOD(my_account, deposit)
 {
-    if (!Env::Strcmp(szAction, "view")) {
-
-        PubKey pubKey;
-        DeriveMyPk(pubKey, cid);
-        DumpAccount(pubKey, cid);
-        return;
-    }
-
-    if (!Env::Strcmp(szAction, "deposit"))
-    {
-        On_MyAccount_MoveFunds(1, cid);
-        return;
-    }
-
-    if (!Env::Strcmp(szAction, "withdraw"))
-    {
-        On_MyAccount_MoveFunds(0, cid);
-        return;
-    }
-
-    Env::DocAddText("error", "invalid action");
+    On_MyAccount_MoveFunds(1, cid, amount, aid);
 }
 
-void On_AllAccounts(const char* szAction, const ContractID& cid)
+ON_METHOD(my_account, withdraw)
 {
-    if (!Env::Strcmp(szAction, "view")) {
-        PubKey pubKey;
+    On_MyAccount_MoveFunds(0, cid, amount, aid);
+}
 
-        if (Env::DocGetBlob("account", &pubKey, sizeof(pubKey)) == sizeof(pubKey))
-            DumpAccount(pubKey, cid);
-        else
-        {
-            KeyPrefix k0, k1;
-            k0.m_Cid = cid;
-            k0.m_Tag = 0;
-            k1.m_Cid = cid;
-            k1.m_Tag = 1;
+ON_METHOD(my_account, view)
+{
+    PubKey pubKey;
+    DeriveMyPk(pubKey, cid);
+    DumpAccount(pubKey, cid);
+}
 
-            Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
-            EnumAndDump();
-        }
-    }
-    else
-        Env::DocAddText("error", "invalid action");
+#undef ON_METHOD
+#undef THE_FIELD
+
+void ReadArg(const char* sz, uint32_t& val) {
+    Env::DocGetNum(sz, val);
+}
+void ReadArg(const char* sz, uint64_t& val) {
+    Env::DocGetNum(sz, val);
+}
+void ReadArg(const char* sz, ContractID& val) {
+    if (sizeof(val) != Env::DocGetBlob(sz, &val, sizeof(val)))
+        Utils::ZeroObject(val);
+}
+void ReadArg(const char* sz, PubKey& val) {
+    if (sizeof(val) != Env::DocGetBlob(sz, &val, sizeof(val)))
+        Utils::ZeroObject(val);
 }
 
 export void Method_1()
@@ -274,28 +267,34 @@ export void Method_1()
         return;
     }
 
-    Env::DocGetText("action", szAction, sizeof(szAction));
-    bool bCid = Env::DocGetBlob("cid", &cid, sizeof(cid)) == sizeof(cid);
-
-    if (!Env::Strcmp(szRole, "manager")) {
-        On_Manager(szAction, bCid ? &cid : nullptr);
+    if (!Env::DocGetText("action", szAction, sizeof(szAction))) {
+        Env::DocAddText("error", "Action not specified");
         return;
     }
 
-    if (!bCid) {
-        Env::DocAddText("error", "cid missing");
-        return;
+#define PAR_READ(type, name) type arg_##name; ReadArg(#name, arg_##name);
+#define PAR_PASS(type, name) arg_##name,
+
+#define THE_METHOD(role, name) \
+        if (!Env::Strcmp(szAction, #name)) { \
+            Faucet_##role##_##name(PAR_READ) \
+            On_##role##_##name(Faucet_##role##_##name(PAR_PASS) 0); \
+            return; \
+        }
+
+#define THE_ROLE(name) \
+    if (!Env::Strcmp(szRole, #name)) { \
+        FaucetRole_##name(THE_METHOD) \
+        Env::DocAddText("error", "invalid Action"); \
+        return; \
     }
 
-    if (!Env::Strcmp(szRole, "my_account")) {
-        On_MyAccount(szAction, cid);
-        return;
-    }
+    FaucetRoles_All(THE_ROLE)
 
-    if (!Env::Strcmp(szRole, "all_accounts")) {
-        On_AllAccounts(szAction, cid);
-        return;
-    }
+#undef THE_ROLE
+#undef THE_METHOD
+#undef PAR_PASS
+#undef PAR_READ
 
     Env::DocAddText("error", "unknown Role");
 }
