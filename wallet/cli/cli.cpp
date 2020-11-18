@@ -2227,10 +2227,9 @@ namespace
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
 
-                auto txId = wallet->StartTransaction(
+                currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData);
-                txId;
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData));
                 return 0;
             });
     }
