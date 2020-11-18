@@ -5527,12 +5527,20 @@ namespace beam::wallet
             PaymentInfo pi;
             auto tx = walletDB->getTx(txID);
 
-            bool bSuccess = storage::getTxParameter(*walletDB,
-                                txID,
-                                tx->m_sender
-                                    ? TxParameterID::PeerID
-                                    : TxParameterID::MyID,
-                                pi.m_Receiver);
+            TxDescription desc(*tx);
+            TxAddressType addressType = GetAddressType(desc);
+
+            bool bSuccess = true;
+            bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+            if (!hasNoPeerId)
+            {
+                bSuccess = bSuccess && storage::getTxParameter(*walletDB,
+                                    txID,
+                                    tx->m_sender
+                                        ? TxParameterID::PeerID
+                                        : TxParameterID::MyID,
+                                    pi.m_Receiver);
+            }
 
             bSuccess = bSuccess && storage::getTxParameter(*walletDB,
                                 txID,
@@ -5563,7 +5571,7 @@ namespace beam::wallet
                     s << "Sender identity: " << senderIdentity << std::endl;
                 }
 
-                s << "Receiver: " << std::to_string(pi.m_Receiver) << std::endl;
+                s << "Receiver: " << (hasNoPeerId ? desc.getToken() : std::to_string(pi.m_Receiver)) << std::endl;
                 if (showIdentity)
                 {
                     s << "Receiver identity: " << receiverIdentity << std::endl;
@@ -6068,24 +6076,6 @@ namespace beam::wallet
         std::sort(v.begin(), v.end(), mcmp);
     }
 
-
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
-    {
-        TxParameters offlineParameters;
-        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        // add voucher parameter
-        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
-        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
-        if (amount > 0)
-        {
-            offlineParameters.SetParameter(TxParameterID::Amount, amount);
-        }
-        return std::to_string(offlineParameters);
-    }
-
     namespace
     {
         TxParameters GenerateCommonAddressPart(Amount amount, const std::string& clientVersion)
@@ -6106,6 +6096,23 @@ namespace beam::wallet
         }
     }
 
+    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
+    {
+        TxParameters offlineParameters;
+        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        // add voucher parameter
+        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
+        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
+        if (amount > 0)
+        {
+            offlineParameters.SetParameter(TxParameterID::Amount, amount);
+        }
+        return std::to_string(offlineParameters);
+    }
+
     std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion)
     {
         TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
@@ -6114,7 +6121,6 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanent);
         params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
-        params.DeleteParameter(TxParameterID::Voucher);
         return std::to_string(params);
     }
 

@@ -124,14 +124,30 @@ namespace Env {
     inline void DocAddNum(const char* szID, uint64_t val) {
         DocAddNum64(szID, val);
     }
-    inline bool DocGetNum(const char* szID, uint32_t& val) {
+
+    inline bool DocGet(const char* szID, uint32_t& val) {
         val = 0;
         return DocGetNum32(szID, &val) == sizeof(val);
     }
-    inline bool DocGetNum(const char* szID, uint64_t& val) {
+    inline bool DocGet(const char* szID, uint64_t& val) {
         val = 0;
         return DocGetNum64(szID, &val) == sizeof(val);
     }
+    inline bool DocGetBlobEx(const char* szID, void* p, uint32_t n)
+    {
+        if (DocGetBlob(szID, p, n) == n)
+            return true;
+
+        Memset(p, 0, n);
+        return false;
+    }
+    inline bool DocGet(const char* szID, ContractID& val) {
+        return DocGetBlobEx(szID, &val, sizeof(val));
+    }
+    inline bool DocGet(const char* szID, PubKey& val) {
+        return DocGetBlobEx(szID, &val, sizeof(val));
+    }
+
 
 } // namespace Env
 

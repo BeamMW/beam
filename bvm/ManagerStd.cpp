@@ -130,6 +130,64 @@ namespace bvm2 {
 		return true;
 	}
 
+	Height ManagerStd::get_Height()
+	{
+		Wasm::Test(m_pHist);
+
+		Block::SystemState::Full s;
+		m_pHist->get_Tip(s); // zero-inits if no tip
+		return s.m_Height;
+	}
+
+	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
+	{
+		Wasm::Test(m_pHist);
+
+		Height h = s.m_Height;
+		if (m_pHist->get_At(s, h))
+			return true;
+
+		// Fetch it synchronously. Awkward, but ok for now
+		Wasm::Test(m_pNetwork != nullptr);
+
+		struct MyHandler
+			:public proto::FlyClient::Request::IHandler
+		{
+			proto::FlyClient::RequestEnumHdrs::Ptr m_pReq;
+			bool m_Pending = false;
+
+			~MyHandler() {
+				if (m_Pending)
+					m_pReq->m_pTrg = nullptr;
+			}
+
+			virtual void OnComplete(proto::FlyClient::Request&) override
+			{
+				m_Pending = false;
+				io::Reactor::get_Current().stop();
+			}
+
+		} myHandler;
+
+		myHandler.m_pReq = new proto::FlyClient::RequestEnumHdrs;
+		auto& r = *myHandler.m_pReq;
+		r.m_Msg.m_Height = h;
+
+		myHandler.m_Pending = true;
+		m_pNetwork->PostRequest(r, myHandler);
+
+		io::Reactor::get_Current().run();
+
+		if (myHandler.m_Pending)
+			return false;
+
+		if (1 != r.m_vStates.size())
+			return false;
+
+		s = std::move(r.m_vStates.front());
+		return true;
+	}
+
 	void ManagerStd::StartRun(uint32_t iMethod)
 	{
 		InitMem();

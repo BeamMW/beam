@@ -73,6 +73,17 @@ namespace
         beam::to_hex(szBuf, &v[0], v.size());
         return SkipLeadingZeroes(szBuf);
     }
+
+    bool CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxParameters& input, beam::wallet::TxParameters& dest)
+    {
+        beam::wallet::ByteBuffer buf;
+        if (input.GetParameter(paramID, buf))
+        {
+            dest.SetParameter(paramID, buf);
+            return true; // copied
+        }
+        return false;
+    }
 }
 
 namespace std
@@ -209,6 +220,45 @@ namespace beam
 
 namespace beam::wallet
 {
+    namespace
+    {
+        TxAddressType GetAddressTypeImpl(const TxParameters& params)
+        {
+            auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
+            if (type)
+            {
+                if (*type == TxType::Simple)
+                    return TxAddressType::Regular;
+
+                if (*type == TxType::AtomicSwap)
+                    return TxAddressType::AtomicSwap;
+
+                if (*type != TxType::PushTransaction)
+                    return TxAddressType::Unknown;
+            }
+
+            auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID); // sbbs addres
+            auto peerIdentity = params.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); // identity
+
+            auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
+            if (voucher && peerIdentity)
+                return TxAddressType::MaxPrivacy;
+
+            auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+            if (vouchers && !vouchers->empty() && peerIdentity && peerID)
+                return TxAddressType::Offline;
+
+            auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+            if (gen)
+                return TxAddressType::PublicOffline;
+
+            if (peerID)
+                return TxAddressType::Regular;
+
+            return TxAddressType::Unknown;
+        }
+    }
+
     const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
 
@@ -547,30 +597,19 @@ namespace beam::wallet
 
     bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params)
     {
-        bool res = false;
         const TxParameters& p = receiverParams;
-        if (auto peerID = p.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        auto type = GetAddressTypeImpl(p);
+        switch (type)
         {
-            params.SetParameter(TxParameterID::PeerID, *peerID);
-            res = true;
-        }
-        if (auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
+        case TxAddressType::AtomicSwap:
+        case TxAddressType::Regular:
+            if (!CopyParameter(TxParameterID::PeerID, p, params))
+                return false;
+            CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
+            break;
+        case TxAddressType::PublicOffline:
         {
-            params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
-
-            if (auto vouchers = p.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
-            {
-                if (!IsValidVoucherList(*vouchers, *peerID))
-                {
-                    LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
-                    return false;
-                }
-                params.SetParameter(TxParameterID::ShieldedVoucherList, *vouchers);
-            }
-            res &= true;
-        }
-        if (auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen); publicGen)
-        {
+            auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
             // generate fake peerID 
             Scalar::Native sk;
             sk.GenRandomNnz();
@@ -579,8 +618,44 @@ namespace beam::wallet
             ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
             params.SetParameter(TxParameterID::Voucher, voucher);
             params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
-            res = true;
+
+        }break;
+        case TxAddressType::Offline:
+            {
+                CopyParameter(TxParameterID::PeerID, p, params);
+                CopyParameter(TxParameterID::PeerOwnID, p, params);
+                auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); 
+                params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
+
+                if (auto vouchers = p.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
+                {
+                    if (!IsValidVoucherList(*vouchers, *peerID))
+                    {
+                        LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
+                        return false;
+                    }
+                    params.SetParameter(TxParameterID::ShieldedVoucherList, *vouchers);
+                }
+            }
+            break;
+        case TxAddressType::MaxPrivacy:
+            {
+                CopyParameter(TxParameterID::PeerOwnID, p, params);
+                auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
+                params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
+                auto voucher = p.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
+                if (!voucher->IsValid(*peerID))
+                {
+                    LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
+                    return false;
+                }
+                params.SetParameter(TxParameterID::Voucher, *voucher);
+            }
+            break;
+        default:
+            return false;
         }
+
         if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
         {
             params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
@@ -588,7 +663,7 @@ namespace beam::wallet
 
         ProcessLibraryVersion(receiverParams);
 
-        return res;
+        return true;
     }
 
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s)
@@ -1501,39 +1576,6 @@ namespace beam::wallet
         std::vector<TxKernel::Ptr> v;
         tx.GetParameter(TxParameterID::ExtraKernels, v, subTxID);
         return CalculateShieldedFeeByKernelsCount(GetShieldedInputsNum(v));
-    }
-
-    namespace
-    {
-        TxAddressType GetAddressTypeImpl(const TxParameters& params)
-        {
-            auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-            if (type)
-            {
-                if (*type == TxType::Simple)
-                    return TxAddressType::Regular;
-
-                if (*type == TxType::AtomicSwap)
-                    return TxAddressType::AtomicSwap;
-
-                if (*type != TxType::PushTransaction)
-                    return TxAddressType::Unknown;
-            }
-
-            auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-            if (voucher)
-                return TxAddressType::MaxPrivacy;
-
-            auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
-            if (vouchers && !vouchers->empty())
-                return TxAddressType::Offline;
-
-            auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
-            if (gen)
-                return TxAddressType::PublicOffline;
-
-            return TxAddressType::Unknown;
-        }
     }
 
     TxAddressType GetAddressType(const TxDescription& tx)

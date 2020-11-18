@@ -154,6 +154,7 @@ public:
 
     void preloadRates(uint64_t startHeight, uint64_t endHeight)
     {
+        if (endHeight < startHeight) return;
         _preloadStartHeight = startHeight;
         _preloadEndHeight = endHeight;
 
@@ -313,12 +314,22 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
 
-            NodeDB& db = _nodeBackend.get_DB();
-            auto shieldedOuts24hAgo =
-                db.GetShieldedCount(cursor.m_Sid.m_Height >= 1440 ? cursor.m_Sid.m_Height - 1440 : 0);
+            double possibleShieldedReadyHours = 0;
+            uint64_t shieldedPer24h = 0;
 
-            auto shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedOuts24hAgo;
-            auto possibleShieldedReadyHours = Rules::get().Shielded.MaxWindowBacklog / 2 / shieldedPer24h * 24;
+            if (_cache.currentHeight)
+            {
+                NodeDB& db = _nodeBackend.get_DB();
+                auto shieldedByLast24h =
+                    db.GetShieldedCount(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 0);
+                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+
+                if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
+                {
+                    shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                    possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
+                }
+            }
 
             char buf[80];
 
@@ -335,7 +346,7 @@ private:
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
-                    { "shielded_possible_ready_in_hours", possibleShieldedReadyHours }
+                    { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
                 }
             )) {
                 return false;
@@ -784,11 +795,11 @@ private:
     }
 
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
-        Height endHeight = startHeight + n - 1;
-        _exchangeRateProvider->preloadRates(startHeight, endHeight);
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
+        Height endHeight = startHeight + n - 1;
+        _exchangeRateProvider->preloadRates(startHeight, endHeight);
         out.push_back(_leftBrace);
         uint64_t row = 0;
         uint64_t prevRow = 0;
@@ -866,7 +877,7 @@ private:
                bitcoinAmount = 0,
                litecoinAmount = 0,
                qtumAmount = 0,
-               bitcoinCashAmount = 0,
+            //    bitcoinCashAmount = 0,
                dogecoinAmount = 0,
                dashAmount = 0;
 
@@ -884,9 +895,9 @@ private:
                 case wallet::AtomicSwapCoin::Qtum :
                     qtumAmount += offer.amountSwapCoin();
                     break;
-                case wallet::AtomicSwapCoin::Bitcoin_Cash :
-                    bitcoinCashAmount += offer.amountSwapCoin();
-                    break;
+                // case wallet::AtomicSwapCoin::Bitcoin_Cash :
+                //     bitcoinCashAmount += offer.amountSwapCoin();
+                //     break;
                 case wallet::AtomicSwapCoin::Dogecoin :
                     dogecoinAmount += offer.amountSwapCoin();
                     break;
@@ -905,7 +916,7 @@ private:
             { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
             { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
             { "qtum_offered", std::to_string(wallet::PrintableAmount(qtumAmount, true))},
-            { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
+            // { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
             { "dogecoin_offered", std::to_string(wallet::PrintableAmount(dogecoinAmount, true))},
             { "dash_offered", std::to_string(wallet::PrintableAmount(dashAmount, true))}
         };
