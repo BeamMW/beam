@@ -118,11 +118,25 @@ namespace Env {
     }
 #endif // HOST_BUILD
 
+    struct DocArray {
+        DocArray(const char* sz) { DocAddArray(sz); }
+        ~DocArray() { DocCloseArray(); }
+    };
+
+    struct DocGroup {
+        DocGroup(const char* sz) { DocAddGroup(sz); }
+        ~DocGroup() { DocCloseGroup(); }
+    };
+
     inline void DocAddNum(const char* szID, uint32_t val) {
         DocAddNum32(szID, val);
     }
     inline void DocAddNum(const char* szID, uint64_t val) {
         DocAddNum64(szID, val);
+    }
+    template <typename T>
+    inline void DocAddBlob_T(const char* szID, const T& val) {
+        DocAddBlob(szID, &val, sizeof(val));
     }
 
     inline bool DocGet(const char* szID, uint32_t& val) {

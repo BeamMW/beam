@@ -1,15 +1,6 @@
 #include "../common.h"
 #include "contract.h"
 
-struct DocGroup {
-    DocGroup(const char* sz) {
-        Env::DocAddGroup(sz);
-    }
-    ~DocGroup() {
-        Env::DocCloseGroup();
-    }
-};
-
 #define Roulette_manager_create(macro)
 #define Roulette_manager_view(macro)
 #define Roulette_manager_view_params(macro) macro(ContractID, cid)
@@ -52,11 +43,13 @@ struct DocGroup {
 export void Method_0()
 {
     // scheme
-    {   DocGroup gr("roles");
+    Env::DocGroup root("");
+
+    {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { DocGroup grMethod(#name);  Roulette_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { DocGroup grRole(#name); RouletteRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Roulette_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); RouletteRole_##name(THE_METHOD) }
         
         RouletteRoles_All(THE_ROLE)
 #undef THE_ROLE
@@ -181,6 +174,8 @@ struct StateInfoPlus
 
 void EnumAndDump(const StateInfoPlus& sip)
 {
+    Env::DocArray gr("bids");
+
     while (true)
     {
         const KeyRaw* pRawKey;
@@ -192,9 +187,9 @@ void EnumAndDump(const StateInfoPlus& sip)
 
         if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
         {
-            DocGroup gr("bid");
+            Env::DocGroup gr("");
 
-            Env::DocAddBlob("Player", &pRawKey->m_Player, sizeof(pRawKey->m_Player));
+            Env::DocAddBlob_T("Player", pRawKey->m_Player);
             Env::DocAddNum("Sector", pVal->m_iSector);
             Env::DocAddNum("Round-end", pVal->m_hRoundEnd);
 
@@ -247,6 +242,8 @@ ON_METHOD(manager, view)
 
     Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
 
+    Env::DocArray gr("Cids");
+
     while (true)
     {
         const Key* pKey;
@@ -259,7 +256,7 @@ ON_METHOD(manager, view)
         if ((sizeof(Key) != nKey) || (1 != nVal))
             continue;
 
-        Env::DocAddBlob("Cid", &pKey->m_Cid, sizeof(pKey->m_Cid));
+        Env::DocAddBlob_T("", pKey->m_Cid);
     }
 }
 
@@ -320,9 +317,9 @@ ON_METHOD(manager, view_params)
     if (!pState)
         return;
 
-    DocGroup gr("res");
+    Env::DocGroup gr("params");
 
-    Env::DocAddBlob("Dealer", &pState->m_Dealer, sizeof(pState->m_Dealer));
+    Env::DocAddBlob_T("Dealer", pState->m_Dealer);
     Env::DocAddText("IsDealer", sip.m_isDealer ? "yes" : "no");
     Env::DocAddNum("Round-end", pState->m_hRoundEnd);
 
@@ -427,8 +424,9 @@ ON_METHOD(my_bid, take)
 
 export void Method_1() 
 {
+    Env::DocGroup root("");
+
     char szRole[0x10], szAction[0x10];
-    ContractID cid;
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
