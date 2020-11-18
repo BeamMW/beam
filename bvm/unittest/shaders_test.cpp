@@ -24,6 +24,27 @@
 
 namespace Shaders {
 
+	namespace Env {
+
+		extern "C" {
+
+#define PAR_DECL(type, name) type name
+#define MACRO_COMMA ,
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
+			BVMOpsAll_Common(THE_MACRO)
+			BVMOpsAll_Contract(THE_MACRO)
+			BVMOpsAll_Manager(THE_MACRO)
+#undef THE_MACRO
+
+#undef MACRO_COMMA
+#undef PAR_DECL
+
+		} // extern "C"
+
+	} // namespace Env
+
+
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER

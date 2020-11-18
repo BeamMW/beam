@@ -104,7 +104,7 @@ void EnumAndDump()
     while (true)
     {
         const KeyRaw* pRawKey;
-        const Amount* pVal;
+        const Faucet::AccountData* pVal;
 
         uint32_t nKey, nVal;
         if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
@@ -115,7 +115,8 @@ void EnumAndDump()
             Env::DocAddGroup("elem");
             Env::DocAddBlob("Account", &pRawKey->m_Key.m_Account, sizeof(pRawKey->m_Key.m_Account));
             Env::DocAddNum("AssetID", pRawKey->m_Key.m_Aid);
-            Env::DocAddNum("Amount", *pVal);
+            Env::DocAddNum("Amount", pVal->m_Amount);
+            Env::DocAddNum("h0", pVal->m_h0);
             Env::DocCloseGroup();
         }
     }
