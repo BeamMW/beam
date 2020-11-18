@@ -16,6 +16,7 @@
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
 #include "utility/logger.h"
+#include "bvm/ManagerStd.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
@@ -179,6 +180,21 @@ void GetStatusResponseJson(const TxDescription& tx,
     if (tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume || tx.m_txType == TxType::AssetInfo)
     {
         msg["asset_meta"] = tx.m_assetMeta;
+    }
+
+    if (tx.m_txType == TxType::Contract)
+    {
+        std::vector<beam::bvm2::ContractInvokeData> vData;
+        if(tx.GetParameter(TxParameterID::ContractDataPacked, vData))
+        {
+            for (const auto& data: vData)
+            {
+                auto ivdata = json {
+                   {"contract_id", data.m_Cid.str()}
+                };
+                msg["invoke_data"].push_back(ivdata);
+            }
+        }
     }
 
     if (txHeight > 0)
