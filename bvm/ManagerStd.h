@@ -66,12 +66,12 @@ namespace bvm2 {
 		void Unfreeze();
 		void OnUnfreezed();
 
-		//struct UnfreezeEvt
-		//	:public io::IdleEvt
-		//{
-		//	virtual void OnSchedule() override;
-		//	IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
-		//} m_UnfreezeEvt;
+		struct UnfreezeEvt
+			:public io::IdleEvt
+		{
+			virtual void OnSchedule() override;
+			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
+		} m_UnfreezeEvt;
 
 		// params readout
 		struct VarsRead
@@ -100,6 +100,8 @@ namespace bvm2 {
 		void RunSync();
 
 	protected:
+		Height get_Height() override;
+		bool get_HdrAt(Block::SystemState::Full&);
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
@@ -114,6 +116,7 @@ namespace bvm2 {
 		// Params
 		proto::FlyClient::INetwork::Ptr m_pNetwork; // required for 'view' operations
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
+		Block::SystemState::IHistory* m_pHist = nullptr;
 
 		ByteBuffer m_BodyManager; // always required
 		ByteBuffer m_BodyContract; // required if creating a new contract

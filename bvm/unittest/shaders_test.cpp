@@ -32,6 +32,8 @@ namespace Shaders {
 #include "../Shaders/oracle/contract.h"
 #include "../Shaders/dummy/contract.h"
 #include "../Shaders/StableCoin/contract.h"
+#include "../Shaders/faucet/contract.h"
+#include "../Shaders/roulette/contract.h"
 
 #define export
 
@@ -84,6 +86,12 @@ namespace Shaders {
 	}
 	namespace StableCoin {
 #include "../Shaders/StableCoin/contract.cpp"
+	}
+	namespace Faucet {
+#include "../Shaders/faucet/contract.cpp"
+	}
+	namespace Roulette {
+#include "../Shaders/roulette/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -272,6 +280,20 @@ namespace bvm2 {
 			}
 
 			return !bNew;
+		}
+
+		Height m_Height = 0;
+		Height get_Height() override { return m_Height; }
+
+		bool get_HdrAt(Block::SystemState::Full& s) override
+		{
+			Height h = s.m_Height;
+			if (h > m_Height)
+				return false;
+
+			ZeroObject(s);
+			s.m_Height = h;
+			return true;
 		}
 
 		struct AssetData {
@@ -553,12 +575,16 @@ namespace bvm2 {
 			ByteBuffer m_Oracle;
 			ByteBuffer m_Dummy;
 			ByteBuffer m_StableCoin;
+			ByteBuffer m_Faucet;
+			ByteBuffer m_Roulette;
 
 		} m_Code;
 
 		ContractID m_cidVault;
 		ContractID m_cidOracle;
 		ContractID m_cidStableCoin;
+		ContractID m_cidFaucet;
+		ContractID m_cidRoulette;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -642,6 +668,31 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidFaucet)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Faucet::Ctor(CastArg<Shaders::Faucet::Params>(pArgs)); return;
+				//case 1: Shaders::Faucet::Dtor(nullptr); return;
+				//case 2: Shaders::Faucet::Method_2(CastArg<Shaders::Faucet::Deposit>(pArgs)); return;
+				//case 3: Shaders::Faucet::Method_3(CastArg<Shaders::Faucet::Withdraw>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidRoulette)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Roulette::Ctor(CastArg<Shaders::Roulette::Params>(pArgs)); return;
+				//case 1: Shaders::Roulette::Dtor(nullptr); return;
+				//case 2: Shaders::Roulette::Method_2(CastArg<Shaders::Roulette::Restart>(pArgs)); return;
+				//case 3: Shaders::Roulette::Method_3(CastArg<Shaders::Roulette::PlaceBid>(pArgs)); return;
+				//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Take>(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -649,6 +700,8 @@ namespace bvm2 {
 		void TestDummy();
 		void TestOracle();
 		void TestStableCoin();
+		void TestFaucet();
+		void TestRoulette();
 
 		void TestAll();
 	};
@@ -671,8 +724,12 @@ namespace bvm2 {
 		AddCode(m_Code.m_Dummy, "dummy/contract.wasm");
 		AddCode(m_Code.m_Oracle, "oracle/contract.wasm");
 		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
+		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
+		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
 
 		TestVault();
+		TestFaucet();
+		TestRoulette();
 		TestDummy();
 		TestOracle();
 		TestStableCoin();
@@ -972,7 +1029,108 @@ namespace bvm2 {
 		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
 	}
 
+	void MyProcessor::TestFaucet()
+	{
+		Shaders::Faucet::Params pars;
+		pars.m_BacklogPeriod = 5;
+		pars.m_MaxWithdraw = 400;
 
+		verify_test(ContractCreate_T(m_cidFaucet, m_Code.m_Faucet, pars));
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Faucet);
+		verify_test(sid == Shaders::Faucet::s_SID);
+
+		m_lstUndo.Clear();
+
+		Shaders::Faucet::Deposit deps;
+		deps.m_Aid = 10;
+		deps.m_Amount = 20000;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Deposit::s_iMethod, deps));
+
+		Shaders::Faucet::Withdraw wdrw;
+
+		ECC::Scalar::Native k;
+		ECC::SetRandom(k);
+		ECC::Point::Native pt = ECC::Context::get().G * k;
+
+		wdrw.m_Key.m_Account = pt;
+		wdrw.m_Key.m_Aid = 10;
+		wdrw.m_Amount = 150;
+
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(!RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		m_Height += 15;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		wdrw.m_Amount = 0;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		m_Height += 5;
+		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+
+		UndoChanges(); // up to (but not including) contract creation
+	}
+
+	void MyProcessor::TestRoulette()
+	{
+		Shaders::Roulette::Params pars;
+		memset(&pars.m_Dealer, 0xe1, sizeof(pars.m_Dealer));
+
+		verify_test(ContractCreate_T(m_cidRoulette, m_Code.m_Roulette, pars));
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Roulette);
+		verify_test(sid == Shaders::Roulette::s_SID);
+
+		Shaders::Roulette::Restart rst;
+		rst.m_dhRound = 5;
+		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::Restart::s_iMethod, rst));
+
+		m_Height++;
+
+		Shaders::Roulette::PlaceBid bid;
+		bid.m_Player.m_Y = 0;
+
+		for (uint32_t i = 0; i < Shaders::Roulette::State::s_Sectors * 2; i++)
+		{
+			bid.m_Player.m_X = i;
+			bid.m_iSector = i % Shaders::Roulette::State::s_Sectors;
+			verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid));
+		}
+
+		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid)); // redundant bid
+
+		bid.m_iSector = Shaders::Roulette::State::s_Sectors + 3;
+		bid.m_Player.m_X = Shaders::Roulette::State::s_Sectors * 2 + 8;
+		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid)); // invalid sector
+
+		// alleged winner
+		Block::SystemState::Full s;
+		ZeroObject(s);
+		s.m_Height = m_Height + 4;
+		Merkle::Hash hv;
+		s.get_Hash(hv);
+
+		uint64_t val;
+		memcpy(&val, hv.m_pData, sizeof(val));
+		Shaders::ConvertOrd<false>(val);
+		uint32_t iWinner = static_cast<uint32_t>(val % Shaders::Roulette::State::s_Sectors);
+
+		Shaders::Roulette::Take take;
+		take.m_Player.m_X = iWinner;
+		take.m_Player.m_Y = 0;
+		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // round isn't over
+
+		m_Height += 5; // round over
+
+		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // ok
+		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // already took
+
+		UndoChanges(); // up to (but not including) contract creation
+	}
 
 	struct MyManager
 		:public ProcessorManager
@@ -1115,15 +1273,15 @@ int main()
 		man.TestHeap();
 
 		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "vault/manager.wasm", Processor::Kind::Manager);
+		MyProcessor::AddCodeEx(buf, "vault/app.wasm", Processor::Kind::Manager);
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
 		std::cout << man.m_Out.str();
 		man.m_Out.str("");
 
-		man.m_Args["role"] = "all_accounts";
-		man.m_Args["action"] = "view";
+		man.m_Args["role"] = "manager";
+		man.m_Args["action"] = "view_accounts";
 		man.set_ArgBlob("cid", Shaders::Vault::s_CID);
 
 		man.RunGuarded(1);

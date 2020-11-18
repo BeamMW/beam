@@ -2101,6 +2101,11 @@ namespace
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
+                if (auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher); voucher)
+                {
+                    params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
+                }
+
                 Amount feeForShieldedInputs = 0;
                 if (!CheckFeeForShieldedInputs(amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
                     return -1;
@@ -2127,7 +2132,7 @@ namespace
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automaticaly
-                    .SetParameter(TxParameterID::Fee, !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee)
+                    .SetParameter(TxParameterID::Fee, fee - feeForShieldedInputs)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);
@@ -2144,7 +2149,6 @@ namespace
 			    struct MyManager
 				    :public bvm2::ManagerStd
 			    {
-                    Block::SystemState::Full m_sTip;
 				    bool m_Done = false;
 				    bool m_Err = false;
                     bool m_Async = false;
@@ -2163,11 +2167,6 @@ namespace
                             io::Reactor::get_Current().stop();
 				    }
 
-                    Height get_Height() override
-                    {
-                        return m_sTip.m_Height;
-                    }
-
                     static void Compile(ByteBuffer& res, const char* sz, Kind kind)
                     {
                         std::FStream fs;
@@ -2184,7 +2183,7 @@ namespace
                 MyManager man;
                 man.m_pPKdf = walletDB->get_OwnerKdf();
                 man.m_pNetwork = wallet->GetNodeEndpoint();
-                walletDB->get_History().get_Tip(man.m_sTip);
+                man.m_pHist = &walletDB->get_History();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_MANAGER].as<string>();
                 if (sVal.empty())

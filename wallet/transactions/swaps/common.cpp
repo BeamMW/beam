@@ -25,8 +25,10 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Litecoin;
     else if (value == "qtum")
         return AtomicSwapCoin::Qtum;
+#if defined(BITCOIN_CASH_SUPPORT)
     else if (value == "bch")
         return AtomicSwapCoin::Bitcoin_Cash;
+#endif // BITCOIN_CASH_SUPPORT
     else if (value == "doge")
         return AtomicSwapCoin::Dogecoin;
     else if (value == "dash")
@@ -42,7 +44,9 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     case AtomicSwapCoin::Bitcoin:
     case AtomicSwapCoin::Litecoin:
     case AtomicSwapCoin::Qtum:
+#if defined(BITCOIN_CASH_SUPPORT)
     case AtomicSwapCoin::Bitcoin_Cash:
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
     case AtomicSwapCoin::Dash:
         return libbitcoin::satoshi_per_bitcoin;
@@ -70,10 +74,12 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     {
         return "Qtum";
     }
+#if defined(BITCOIN_CASH_SUPPORT)
     case AtomicSwapCoin::Bitcoin_Cash:
     {
         return "Bitcoin Cash";
     }
+#endif //BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
     {
         return "Dogecoin";
@@ -140,8 +146,10 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "LTC";
     case beam::wallet::AtomicSwapCoin::Qtum:
         return "QTUM";
+#if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
         return "BCH";
+#endif // BITCOIN_CASH_SUPPORT
     case beam::wallet::AtomicSwapCoin::Dogecoin:
         return "DOGE";
     case beam::wallet::AtomicSwapCoin::Dash:

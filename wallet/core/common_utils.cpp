@@ -159,7 +159,9 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
 
     Amount minFee = fs.Calculate(ts);
     Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
-    Amount selectedFee = std::max(requestedFee + shieldedOutputsFee, minFee);
+    Amount selectedFee = requestedFee >= shieldedInputsFee + shieldedOutputsFee
+        ? requestedFee
+        : std::max(requestedFee + shieldedOutputsFee, minFee);
 
     if (!shieldedInputsFee)
     {
@@ -172,6 +174,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
         // if asset is beam then changeAsset == changeBeam by convention
         auto changeBeam  = sumBeam - reqBeam - selectedFee;
         auto changeAsset = isBeam ? changeBeam : sumNonBeam - reqNonBeam;
+        bool isSelectedEnought = isBeam ? (sumBeam >= requestedSum + selectedFee) : (sumNonBeam >= requestedSum && sumBeam >= selectedFee);
 
         return {
             requestedSum,
@@ -185,7 +188,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             changeBeam,
             changeAsset,
             assetId,
-            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
+            isSelectedEnought
         };
     }
     else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
@@ -199,6 +202,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
     {
         auto changeBeam = sumBeam < reqBeam + selectedFee ? 0 : sumBeam - reqBeam + selectedFee;
         auto changeAsset = isBeam ? changeBeam : (sumNonBeam < reqNonBeam ? 0 : sumNonBeam - reqNonBeam);
+        bool isSelectedEnought = isBeam ? (sumBeam >= requestedSum + selectedFee) : (sumNonBeam >= requestedSum && sumBeam >= selectedFee);
         return {
             requestedSum,
             sumBeam,
@@ -211,7 +215,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             changeBeam,
             changeAsset,
             assetId,
-            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
+            isSelectedEnought
         };
     }
 
@@ -219,6 +223,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
     {
         auto changeBeam = sumBeam - reqBeam - selectedFee;
         auto changeAsset = isBeam ? changeBeam : sumNonBeam - reqNonBeam;
+        bool isSelectedEnought = isBeam ? (sumBeam >= requestedSum + selectedFee) : (sumNonBeam >= requestedSum && sumBeam >= selectedFee);
 
         return {
             requestedSum,
@@ -232,7 +237,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
             changeBeam,
             changeAsset,
             assetId,
-            isBeam ? sumBeam >= requestedSum : sumNonBeam >= requestedSum
+            isSelectedEnought
         };
     }
     else

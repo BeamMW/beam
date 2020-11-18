@@ -726,6 +726,7 @@ namespace beam::bitcoin
                                         auto genesisBlockHashes = settings.GetGenesisBlockHashes();
                                         auto currentNodeAddress = settings.GetElectrumConnectionOptions().m_address;
 
+                                        connection.m_verifyingRequest = false;
                                         if (std::find(genesisBlockHashes.begin(), genesisBlockHashes.end(), genesisBlockHash) != genesisBlockHashes.end())
                                         {
                                             m_verifiedAddresses.emplace(currentNodeAddress, true);
@@ -745,6 +746,8 @@ namespace beam::bitcoin
                                             error.m_message = kInvalidGenesisBlockHashMsg;
                                             error.m_type = IBridge::InvalidGenesisBlock;
                                             connection.m_callback(error, result, currentId);
+                                            // TODO roman.strilets maybe need to add this code
+                                            // m_connections.erase(currentId);
                                             return false;
                                         }
                                     }
@@ -763,7 +766,19 @@ namespace beam::bitcoin
                         }
 
                         TCPConnect& connection = m_connections[currentId];
-                        isFinished = !connection.m_callback(error, result, currentId);
+                        if (error.m_type != ErrorType::None && connection.m_verifyingRequest)
+                        {
+                            error.m_message = kInvalidGenesisBlockHashMsg;
+                            error.m_type = IBridge::InvalidGenesisBlock;
+
+                            tryToChangeAddress();
+                            connection.m_callback(error, result, currentId);
+                            isFinished = true;
+                        }
+                        else
+                        {
+                            isFinished = !connection.m_callback(error, result, currentId);
+                        }
                     }
                     if (isFinished)
                     {
@@ -797,6 +812,7 @@ namespace beam::bitcoin
                     // Node have not validated yet
                     std::string verifyRequest = R"({"method":"server.features","params":[], "id": "verify"})";
                     verifyRequest += "\n";
+                    connection.m_verifyingRequest = true;
                     res = connection.m_stream->write(verifyRequest.data(), verifyRequest.size());
                 }
 

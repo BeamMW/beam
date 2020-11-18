@@ -63,9 +63,6 @@ public:
 protected:
     void OnDone(const std::exception* pExc) override;
 
-    // TODO: check other overrides
-    beam::Height get_Height() override;
-
 private:
     bool _done  = true;
     bool _async = false;

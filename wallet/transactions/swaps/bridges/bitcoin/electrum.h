@@ -43,6 +43,7 @@ namespace beam::bitcoin
             std::string m_request;
             std::function<bool(const Error&, const nlohmann::json&, uint64_t)> m_callback;
             std::unique_ptr<beam::io::TcpStream> m_stream;
+            bool m_verifyingRequest = false;
         };
 
         struct Utxo
