@@ -190,6 +190,12 @@ namespace beam::wallet
         {
             for (const auto& item : items)
             {
+                if (item.m_txType == TxType::Contract)
+                {
+                    // no notifications for contracts at the moment
+                    continue;
+                }
+
                 Asset::ID assetId = Asset::s_InvalidID;
                 if (item.GetParameter(TxParameterID::AssetID, assetId))
                 {
