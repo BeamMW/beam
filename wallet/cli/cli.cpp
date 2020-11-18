@@ -1332,10 +1332,12 @@ namespace
 
             if (vm.count(cli::TX_HISTORY))
             {
-                auto txSimple  = walletDB->getTxHistory();
-                auto txMaxPriv = walletDB->getTxHistory(TxType::PushTransaction);
-                txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
-                txHistory.insert(txHistory.end(), txMaxPriv.begin(), txMaxPriv.end());
+                std::array<TxType, 3> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract };
+                for (auto type : types)
+                {
+                    auto v = walletDB->getTxHistory(type);
+                    txHistory.insert(txHistory.end(), v.begin(), v.end());
+                }
             }
 
             txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
@@ -2227,10 +2229,9 @@ namespace
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
 
-                auto txId = wallet->StartTransaction(
+                currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData);
-                txId;
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData));
                 return 0;
             });
     }

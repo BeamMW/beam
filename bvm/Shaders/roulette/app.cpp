@@ -118,9 +118,7 @@ struct StateInfoPlus
     bool m_RoundOver;
     bool m_isDealer;
     uint32_t m_iWinSector;
-    uint32_t m_Winners;
     Height m_hRoundEnd;
-    Amount m_PrizePerPlayer;
 
     const Roulette::State* Init(const ContractID& cid)
     {
@@ -150,18 +148,14 @@ struct StateInfoPlus
         if (m_RoundOver)
         {
             m_iWinSector = pVal->DeriveWinSector();
-            m_Winners = pVal->m_pBidders[m_iWinSector];
-
-            if (m_Winners)
-                m_PrizePerPlayer = Roulette::State::s_Prize / m_Winners;
         }
 
         return pVal;
     }
 
-    const char* get_BidStatus(const Roulette::BidInfo& bi, bool& bWin) const
+    const char* get_BidStatus(const Roulette::BidInfo& bi, Amount& nWin) const
     {
-        bWin = false;
+        nWin = 0;
 
         if (m_hRoundEnd != bi.m_hRoundEnd)
             return "not-actual";
@@ -169,11 +163,19 @@ struct StateInfoPlus
         if (!m_RoundOver)
             return "in-progress";
 
-        if (bi.m_iSector != m_iWinSector)
-            return "lose";
+        if (bi.m_iSector == m_iWinSector)
+        {
+            nWin = Roulette::State::s_PrizeSector;
+            return "jack-pot";
+        }
 
-        bWin = true;
-        return "win";
+        if (!(1 & (bi.m_iSector ^ m_iWinSector)))
+        {
+            nWin = Roulette::State::s_PrizeParity;
+            return "win";
+        }
+
+        return "lose";
     }
 };
 
@@ -196,13 +198,23 @@ void EnumAndDump(const StateInfoPlus& sip)
             Env::DocAddNum("Sector", pVal->m_iSector);
             Env::DocAddNum("Round-end", pVal->m_hRoundEnd);
 
-            bool bWin;
-            Env::DocAddText("Status", sip.get_BidStatus(*pVal, bWin));
+            Amount nWin;
+            Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
 
-            if (bWin)
-                Env::DocAddNum("Prize", sip.m_PrizePerPlayer);
+            if (nWin)
+                Env::DocAddNum("Prize", nWin);
         }
     }
+}
+
+void EnumBid(const PubKey& pubKey, const ContractID& cid)
+{
+    KeyRaw k;
+    k.m_Prefix.m_Cid = cid;
+    k.m_Prefix.m_Tag = 0;
+    k.m_Player = pubKey;
+
+    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
 }
 
 void DumpBid(const PubKey& pubKey, const ContractID& cid)
@@ -211,12 +223,7 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
     if (!sip.Init(cid))
         return;
 
-    KeyRaw k;
-    k.m_Prefix.m_Cid = cid;
-    k.m_Prefix.m_Tag = 0;
-    k.m_Player = pubKey;
-
-    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
+    EnumBid(pubKey, cid);
     EnumAndDump(sip);
 }
 
@@ -320,11 +327,7 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("Round-end", pState->m_hRoundEnd);
 
     if (sip.m_RoundOver)
-    {
         Env::DocAddNum("WinSector", sip.m_iWinSector);
-        Env::DocAddNum("Winners", sip.m_Winners);
-        Env::DocAddNum("PrizePerPlayer", sip.m_PrizePerPlayer);
-    }
 }
 
 
@@ -384,19 +387,36 @@ ON_METHOD(my_bid, take)
     if (!pState)
         return;
 
-    if (!sip.m_RoundOver || !sip.m_Winners)
-        return OnError("no eligible winners");
+    // pState is temporary, consequent vars enum will invalidate it.
+    FundsChange fc;
+    fc.m_Aid = pState->m_Aid;
+
+    if (!sip.m_RoundOver)
+        return OnError("round not finished");
 
     Roulette::Take arg;
     DerivePlayerPk(arg.m_Player, cid);
+
+    EnumBid(arg.m_Player, cid);
+
+    const KeyRaw* pRawKey;
+    const Roulette::BidInfo* pVal;
+
+    uint32_t nKey, nVal;
+    if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal) ||
+        (sizeof(*pRawKey) != nKey) ||
+        (sizeof(*pVal) != nVal))
+        return OnError("no bid");
+
+    sip.get_BidStatus(*pVal, fc.m_Amount);
+
+    if (!fc.m_Amount)
+        return OnError("you lost");
 
     SigRequest sig;
     sig.m_pID = &cid;
     sig.m_nID = sizeof(cid);
 
-    FundsChange fc;
-    fc.m_Aid = pState->m_Aid;
-    fc.m_Amount = sip.m_PrizePerPlayer;
     fc.m_Consume = 0;
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 1000000U);
