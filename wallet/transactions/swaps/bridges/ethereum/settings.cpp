@@ -21,6 +21,21 @@ bool Settings::IsInitialized() const
     return m_secretWords.size() == 12 && !m_address.empty() && (!m_swapContractAddress.empty() || !m_swapHashlockContractAddress.empty());
 }
 
+bool Settings::IsDaiInitialized() const
+{
+    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_daiContractAddress.empty();
+}
+
+bool Settings::IsTetherInitialized() const
+{
+    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_usdtContractAddress.empty();
+}
+
+bool Settings::IsWBTCInitialized() const
+{
+    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_wbtcContractAddress.empty();
+}
+
 bool Settings::IsActivated() const
 {
     return m_shouldConnect && IsInitialized();

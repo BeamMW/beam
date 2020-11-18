@@ -153,6 +153,10 @@ namespace beam
         extern const char* ETH_CONTRACT_ADDRESS;
         extern const char* ETH_GAS_PRICE;
         extern const char* ETH_SWAP_AMOUNT;
+        extern const char* ERC20_CONTRACT_ADDRESS;
+        extern const char* DAI_CONTRACT_ADDRESS;
+        extern const char* TETHER_CONTRACT_ADDRESS;
+        extern const char* WBTC_CONTRACT_ADDRESS;
         // values
         extern const char* EXPIRATION_TIME_24H;
         extern const char* EXPIRATION_TIME_NEVER;

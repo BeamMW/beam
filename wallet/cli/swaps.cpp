@@ -55,7 +55,7 @@ namespace
 {
 const char kElectrumSeparateSymbol = ' ';
 
-Amount ReadEthSwapAmount(const po::variables_map& vm)
+Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin)
 {
     if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
     {
@@ -68,7 +68,7 @@ Amount ReadEthSwapAmount(const po::variables_map& vm)
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
 
-        preciseAmount *= 1'000'000'000u;
+        preciseAmount *= ethereum::GetCoinUnitsMultiplier(swapCoin);
 
         // maybe need to use boost::multiprecision::round
         return preciseAmount.convert_to<Amount>();
@@ -385,7 +385,7 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
     LOG_INFO() << GetCoinName(swapCoin) << " settings are not initialized.";
 }
 
-int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, wallet::AtomicSwapCoin swapCoin)
 {
     ethereum::SettingsProvider settingsProvider{ walletDB };
     settingsProvider.Initialize();
@@ -417,6 +417,45 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
         }
     }
 
+    if (swapCoin == wallet::AtomicSwapCoin::Dai && !settings.IsDaiInitialized())
+    {
+        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("erc20 swap contract address should be specified");
+        }
+
+        if (!vm.count(cli::DAI_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("DAI contract address should be specified");
+        }
+    }
+
+    if (swapCoin == wallet::AtomicSwapCoin::Tether && !settings.IsTetherInitialized())
+    {
+        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("erc20 swap contract address should be specified");
+        }
+
+        if (!vm.count(cli::TETHER_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("Tether contract address should be specified");
+        }
+    }
+
+    if (swapCoin == wallet::AtomicSwapCoin::WBTC && !settings.IsWBTCInitialized())
+    {
+        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("erc20 swap contract address should be specified");
+        }
+
+        if (!vm.count(cli::WBTC_CONTRACT_ADDRESS))
+        {
+            throw std::runtime_error("WBTC contract address should be specified");
+        }
+    }
+
     if (vm.count(cli::ETHEREUM_ADDRESS))
     {
         settings.m_address = vm[cli::ETHEREUM_ADDRESS].as<string>();
@@ -430,6 +469,30 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     if (vm.count(cli::ETH_CONTRACT_ADDRESS))
     {
         settings.m_swapContractAddress = vm[cli::ETH_CONTRACT_ADDRESS].as<string>();
+        isChanged = true;
+    }
+
+    if (vm.count(cli::ERC20_CONTRACT_ADDRESS))
+    {
+        settings.m_erc20SwapContractAddress = vm[cli::ERC20_CONTRACT_ADDRESS].as<string>();
+        isChanged = true;
+    }
+
+    if (vm.count(cli::DAI_CONTRACT_ADDRESS))
+    {
+        settings.m_daiContractAddress = vm[cli::DAI_CONTRACT_ADDRESS].as<string>();
+        isChanged = true;
+    }
+
+    if (vm.count(cli::TETHER_CONTRACT_ADDRESS))
+    {
+        settings.m_daiContractAddress = vm[cli::DAI_CONTRACT_ADDRESS].as<string>();
+        isChanged = true;
+    }
+
+    if (vm.count(cli::WBTC_CONTRACT_ADDRESS))
+    {
+        settings.m_wbtcContractAddress = vm[cli::WBTC_CONTRACT_ADDRESS].as<string>();
         isChanged = true;
     }
 
@@ -487,7 +550,27 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         stream << "Ethereum node: " << settings.m_address << '\n';
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
-        stream << "Contract address: " << settings.m_swapContractAddress << '\n';
+        stream << "Swap contract address: " << settings.m_swapContractAddress << '\n';
+
+        if (!settings.m_erc20SwapContractAddress.empty())
+        {
+            stream << "ERC20 swap contract address: " << settings.m_erc20SwapContractAddress << '\n';
+        }
+
+        if (!settings.m_daiContractAddress.empty())
+        {
+            stream << "DAI contract address: " << settings.m_daiContractAddress << '\n';
+        }
+
+        if (!settings.m_usdtContractAddress.empty())
+        {
+            stream << "Tether contract address: " << settings.m_usdtContractAddress << '\n';
+        }
+
+        if (!settings.m_wbtcContractAddress.empty())
+        {
+            stream << "WBTC contract address: " << settings.m_wbtcContractAddress << '\n';
+        }
         
         LOG_INFO() << stream.str();
         return;
@@ -634,7 +717,7 @@ Amount EstimateSwapFeerate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
 {
     Amount result = 0;
 
-    if (swapCoin == AtomicSwapCoin::Ethereum)
+    if (ethereum::IsEthereumBased(swapCoin))
     {
         auto callback = [&result](ethereum::IBridge::Ptr bridge)
         {
@@ -642,7 +725,7 @@ Amount EstimateSwapFeerate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
             {
                 // TODO roman.strilets need to refactor
                 // convert from wei to gwei
-                result = gasPrice / 1'000'000'000u;
+                result = gasPrice / ethereum::GetCoinUnitsMultiplier(AtomicSwapCoin::Ethereum);
                 io::Reactor::get_Current().stop();
             });
 
@@ -704,6 +787,9 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
         return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
     }
     case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::WBTC:
     {
         return GetMinSwapFeeRate<ethereum::SettingsProvider>(walletDB);
     }
@@ -794,7 +880,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Amount swapAmount = 0;
     Amount swapFeeRate = 0;
 
-    if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
+    if (ethereum::IsEthereumBased(swapCoin))
     {
         if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
         {
@@ -806,7 +892,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        swapAmount = ReadEthSwapAmount(vm);
+        swapAmount = ReadEthSwapAmount(vm, swapCoin);
         swapFeeRate = ReadGasPrice(vm);
     }
     else
@@ -927,7 +1013,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     Amount swapFeeRate = 0;
 
-    if (*swapCoin == AtomicSwapCoin::Ethereum)
+    if (ethereum::IsEthereumBased(*swapCoin))
     {
         if (vm.count(cli::ETH_GAS_PRICE) == 0)
         {
@@ -1065,8 +1151,11 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
             (vm, walletDB);
     }
     case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::WBTC:
     {
-        return SetEthSettings(vm, walletDB);
+        return SetEthSettings(vm, walletDB, swapCoin);
     }
     default:
     {
@@ -1115,6 +1204,9 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
         break;
     }
     case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::WBTC:
     {
         ShowEthSettings(walletDB);
         break;
