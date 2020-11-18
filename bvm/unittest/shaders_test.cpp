@@ -1099,7 +1099,7 @@ namespace bvm2 {
 	void MyProcessor::TestRoulette()
 	{
 		Shaders::Roulette::Params pars;
-		memset(&pars.m_Dealer, 0xe1, sizeof(pars.m_Dealer));
+		memset(reinterpret_cast<void*>(&pars.m_Dealer), 0xe1, sizeof(pars.m_Dealer));
 
 		verify_test(ContractCreate_T(m_cidRoulette, m_Code.m_Roulette, pars));
 
