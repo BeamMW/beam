@@ -966,6 +966,16 @@ namespace beam::wallet
         return getIdentity(!m_sender);
     }
 
+    std::string TxDescription::getSender() const
+    {
+        return std::to_string(m_sender ? m_myId : m_peerId);
+    }
+
+    std::string TxDescription::getReceiver() const
+    {
+        return std::to_string(!m_sender ? m_myId : m_peerId);
+    }
+
     std::string TxDescription::getIdentity(bool isSender) const
     {
         auto v = isSender ? GetParameter<PeerID>(TxParameterID::MyWalletIdentity)

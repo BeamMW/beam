@@ -938,7 +938,7 @@ namespace
         return 0;
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {})
     {
         const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
@@ -948,7 +948,29 @@ namespace
         std::vector<boost::any> reliable;
         std::vector<boost::any> unreliable;
 
+        auto isSkipedByTxID = [&](const auto& txID, const auto& createID, const auto& spentID)
+        {
+            if (!txID)
+            {
+                return false;
+            }
+            if (createID && *createID == *txID)
+            {
+                return false;
+            }
+            if (spentID && *spentID == *txID)
+            {
+                return false;
+            }
+            return true;
+        };
+
         walletDB->visitCoins([&](const Coin& c)->bool {
+            if (isSkipedByTxID(txID, c.m_createTxId, c.m_spentTxId))
+            {
+                // skip
+                return true;
+            }
             if (c.m_ID.m_AssetID == assetId)
             {
                 if (c.m_confirmHeight < lockHeight)
@@ -964,6 +986,11 @@ namespace
         });
 
         walletDB->visitShieldedCoins([&](const ShieldedCoin& c)->bool {
+            if (isSkipedByTxID(txID, c.m_createTxId, c.m_spentTxId))
+            {
+                // skip
+                return true;
+            }
             if (c.m_CoinID.m_AssetID == assetId)
             {
                 if (c.m_confirmHeight < lockHeight)
@@ -1512,10 +1539,17 @@ namespace
         const auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
         const auto txstatus = statusInterpreter->getStatus();
 
-        LOG_INFO()
+        cout
+            << "\n"
             << boost::format(kTxDetailsFormat) % txdetails % txstatus
             << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
-            << (!token.empty() ? "\nAddress: " : "") << token;
+            << (!token.empty() ? "\nAddress:           " : "") << token;
+
+        if (vm.count(cli::UTXO_LIST))
+        {
+            cout << "\n\n";
+            ShowAssetCoins(walletDB, Zero, txId);
+        }
 
         return 0;
     }
