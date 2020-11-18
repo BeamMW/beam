@@ -34,6 +34,7 @@ std::string RemoveHexPrefix(const std::string& value);
 
 void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::data_chunk& dst);
 uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin);
+bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin);
 
 namespace ERC20Hashes
 {

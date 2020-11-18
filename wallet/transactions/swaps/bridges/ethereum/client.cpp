@@ -111,29 +111,29 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
     {
         return;
     }
+    auto callback = [this, weak = this->weak_from_this(), swapCoin](const IBridge::Error& error, const std::string& balance)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        // TODO: check error and update status
+        SetConnectionError(error.m_type);
+        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+        if (error.m_type == IBridge::None)
+        {
+            boost::multiprecision::uint256_t tmp(balance);
+            tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
+
+            OnBalance(swapCoin, tmp.convert_to<Amount>());
+        }
+    };
 
     if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        bridge->getBalance([this, weak = this->weak_from_this()](const IBridge::Error& error, const std::string& balance)
-        {
-            if (weak.expired())
-            {
-                return;
-            }
-
-            // TODO: check error and update status
-            SetConnectionError(error.m_type);
-            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
-
-            if (error.m_type == IBridge::None)
-            {
-                boost::multiprecision::uint256_t tmp(balance);
-
-                tmp /= ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
-
-                OnBalance(wallet::AtomicSwapCoin::Ethereum, tmp.convert_to<Amount>());
-            }
-        });
+        bridge->getBalance(callback);
     }
     else
     {
@@ -143,25 +143,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             return;
         }
 
-        bridge->getTokenBalance(tokenContractAddressStr, [this, weak = this->weak_from_this(), swapCoin](const IBridge::Error& error, const std::string& balance)
-        {
-            if (weak.expired())
-            {
-                return;
-            }
-
-            // TODO: check error and update status
-            SetConnectionError(error.m_type);
-            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
-
-            if (error.m_type == IBridge::None)
-            {
-                boost::multiprecision::uint256_t tmp(balance);
-                tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
-
-                OnBalance(swapCoin, tmp.convert_to<Amount>());
-            }
-        });
+        bridge->getTokenBalance(tokenContractAddressStr, callback);
     }
 }
 

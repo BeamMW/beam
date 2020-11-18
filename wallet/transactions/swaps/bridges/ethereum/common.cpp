@@ -119,4 +119,18 @@ uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
         return 1u;
     }
 }
+
+bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin)
+{
+    switch (swapCoin)
+    {
+    case beam::wallet::AtomicSwapCoin::Ethereum:
+    case beam::wallet::AtomicSwapCoin::Dai:
+    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::WBTC:
+        return true;
+    default:
+        return false;
+    }
+}
 } // namespace beam::ethereum

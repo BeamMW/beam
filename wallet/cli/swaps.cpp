@@ -719,28 +719,47 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
 {
     Amount result = 0;
 
-    if (swapCoin == AtomicSwapCoin::Ethereum)
+    if (ethereum::IsEthereumBased(swapCoin))
     {
-        auto callback = [&result](beam::ethereum::IBridge::Ptr bridge)
+        auto callback = [&result, swapCoin, walletDB](beam::ethereum::IBridge::Ptr bridge)
         {
-            bridge->getBalance([&result](const ethereum::IBridge::Error& error, const std::string& balance)
+            auto balanceCallback = [&result, swapCoin](const ethereum::IBridge::Error& error, const std::string& balance)
             {
                 // TODO roman.strilets need to refactor
                 boost::multiprecision::uint256_t tmp(balance);
 
-                tmp /= 1'000'000'000u;
+                tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
 
                 result = tmp.convert_to<Amount>();
                 io::Reactor::get_Current().stop();
 
                 // TODO process connection error
-            });
+            };
+
+            if (swapCoin == AtomicSwapCoin::Ethereum)
+            {
+                bridge->getBalance(balanceCallback);
+            }
+            else
+            {
+                ethereum::SettingsProvider settingsProvider(walletDB);
+
+                settingsProvider.Initialize();
+
+                const auto tokenContractAddressStr = settingsProvider.GetSettings().GetTokenContractAddress(swapCoin);
+                if (tokenContractAddressStr.empty())
+                {
+                    // TODO process connection error
+                    return;
+                }
+
+                bridge->getTokenBalance(tokenContractAddressStr, balanceCallback);
+            }
 
             io::Reactor::get_Current().run();
         };
 
         RequestToEthBridge(walletDB, callback);
-
     }
     else
     {
