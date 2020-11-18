@@ -2,7 +2,7 @@
 
 namespace Roulette
 {
-    static const ShaderID s_SID = { 0x5c,0x95,0x9d,0x1e,0x3b,0xaa,0x5a,0xda,0xaa,0x97,0x79,0x49,0x9e,0x03,0x93,0xe5,0x33,0xc6,0xdd,0x67,0xc5,0xa6,0xbe,0x4c,0x43,0x12,0xdb,0x55,0x74,0x1b,0xbf,0xb6 };
+    static const ShaderID s_SID = { 0xf3,0x7b,0x07,0x25,0xc3,0x0c,0x29,0x24,0xe2,0x05,0x4a,0x54,0x78,0xd2,0xe2,0xf0,0x4d,0xfc,0x1a,0xf5,0xa8,0x19,0xeb,0x91,0x1f,0xdb,0x9b,0xff,0x1c,0x39,0x6b,0xca };
 
 #pragma pack (push, 1)
 
@@ -19,6 +19,7 @@ namespace Roulette
     struct Restart {
         static const uint32_t s_iMethod = 2;
         Height m_dhRound;
+        uint32_t m_PlayingSectors = 0; // for tests, can lower num of sectors
 
         template <bool bToShader>
         void Convert()
@@ -52,11 +53,12 @@ namespace Roulette
     struct State
     {
         static const uint32_t s_Sectors = 36;
-        static const Amount s_Prize = 100000000U; // 1 jetton
+        static const Amount s_PrizeParity = 100000000U; // 1 jetton
+        static const Amount s_PrizeSector = s_PrizeParity * 25;
 
         AssetID m_Aid;
         Height m_hRoundEnd;
-        uint32_t m_pBidders[s_Sectors];
+        uint32_t m_PlayingSectors;
         PubKey m_Dealer;
 
         uint32_t DeriveWinSector() const
@@ -67,7 +69,7 @@ namespace Roulette
 
             uint64_t val;
             Env::Memcpy(&val, &hdr.m_Hash, sizeof(val));
-            return static_cast<uint32_t>(val % Roulette::State::s_Sectors);
+            return static_cast<uint32_t>(val % m_PlayingSectors);
         }
     };
 

@@ -39,7 +39,14 @@ export void Method_2(const Roulette::Restart& r)
     s.m_hRoundEnd = h;
     Strict::Add(s.m_hRoundEnd, r.m_dhRound);
 
-    Utils::ZeroObject(s.m_pBidders);
+    if (r.m_PlayingSectors)
+    {
+        Env::Halt_if(r.m_PlayingSectors > Roulette::State::s_Sectors);
+        s.m_PlayingSectors = r.m_PlayingSectors;
+    }
+    else
+        s.m_PlayingSectors = Roulette::State::s_Sectors;
+
     Env::SaveVar_T((uint8_t) 0, s);
 
     Env::AddSig(s.m_Dealer);
@@ -59,12 +66,9 @@ export void Method_3(const Roulette::PlaceBid& r)
     Env::Halt_if(Env::LoadVar_T(r.m_Player, bi) && (bi.m_hRoundEnd == s.m_hRoundEnd)); // bid already placed for this round
 
     // looks good
-    bi.m_iSector = r.m_iSector;
+    bi.m_iSector = r.m_iSector; // don't care if out-of-bounds for the current round with limited num of sectors
     bi.m_hRoundEnd = s.m_hRoundEnd;
     Env::SaveVar_T(r.m_Player, bi);
-
-    s.m_pBidders[r.m_iSector]++; // don't care about overflow
-    Env::SaveVar_T((uint8_t) 0, s);
 
     Env::AddSig(r.m_Player);
 }
@@ -74,18 +78,23 @@ export void Method_4(const Roulette::Take& r)
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
 
+    Roulette::BidInfo bi;
+    Env::Halt_if(!Env::LoadVar_T(r.m_Player, bi) || (s.m_hRoundEnd != bi.m_hRoundEnd));
+
     uint32_t iWinSector = s.DeriveWinSector();
 
-    Roulette::BidInfo bi;
-    Env::Halt_if(
-        !Env::LoadVar_T(r.m_Player, bi) ||
-        (s.m_hRoundEnd != bi.m_hRoundEnd) ||
-        (bi.m_iSector != iWinSector));
+    Amount nWonAmount;
+    if (bi.m_iSector == iWinSector)
+        nWonAmount = s.s_PrizeSector;
+    else
+    {
+        Env::Halt_if(1 & (bi.m_iSector ^ iWinSector));
+        nWonAmount = s.s_PrizeParity;
+    }
 
     Env::DelVar_T(r.m_Player);
 
     // looks good. The amount that should be withdrawn is: val / winners
-    Amount nWonAmount = Roulette::State::s_Prize / s.m_pBidders[iWinSector];
 
     Env::Halt_if(!Env::AssetEmit(s.m_Aid, nWonAmount, 1));
     Env::FundsUnlock(s.m_Aid, nWonAmount);
