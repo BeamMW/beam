@@ -16,6 +16,10 @@ struct DocGroup {
 #define Roulette_manager_destroy(macro) macro(ContractID, cid)
 #define Roulette_manager_view_bids(macro) macro(ContractID, cid)
 
+#define Roulette_manager_start_round(macro) \
+    macro(ContractID, cid) \
+    macro(Height, hDuration)
+
 #define Roulette_manager_view_bid(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pubKey)
@@ -23,6 +27,7 @@ struct DocGroup {
 #define RouletteRole_manager(macro) \
     macro(manager, create) \
     macro(manager, destroy) \
+    macro(manager, start_round) \
     macro(manager, view) \
     macro(manager, view_params) \
     macro(manager, view_bids) \
@@ -284,6 +289,23 @@ ON_METHOD(manager, destroy)
     Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
 }
 
+ON_METHOD(manager, start_round)
+{
+    if (!hDuration)
+        return OnError("round duration must be nnz");
+
+    DealerKey dk;
+
+    SigRequest sig;
+    sig.m_pID = &dk;
+    sig.m_nID = sizeof(dk);
+
+    Roulette::Restart arg;
+    arg.m_dhRound = hDuration;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 2000000U);
+}
+
 ON_METHOD(manager, view_params)
 {
     StateInfoPlus sip;
@@ -331,50 +353,7 @@ void DerivePlayerPk(PubKey& pubKey, const ContractID& cid)
 {
     Env::DerivePk(pubKey, &cid, sizeof(cid));
 }
-/*
-ON_METHOD(my_account, move)
-{
-    if (!amount)
-        return OnError("amount should be nnz");
 
-    FundsChange fc;
-    fc.m_Amount = amount;
-    fc.m_Aid = aid;
-    fc.m_Consume = isDeposit;
-
-    if (isDeposit)
-    {
-        Roulette::Deposit arg;
-        arg.m_Aid = fc.m_Aid;
-        arg.m_Amount = fc.m_Amount;
-
-        Env::GenerateKernel(&cid, Roulette::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, 1000000U);
-    }
-    else
-    {
-        Roulette::Withdraw arg;
-        arg.m_Amount = fc.m_Amount;
-        arg.m_Key.m_Aid = fc.m_Aid;
-        DerivePlayerPk(arg.m_Key.m_Account, cid);
-
-        SigRequest sig;
-        sig.m_pID = &cid;
-        sig.m_nID = sizeof(cid);
-
-        Env::GenerateKernel(&cid, Roulette::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 2000000U);
-    }
-}
-
-ON_METHOD(my_account, deposit)
-{
-    On_my_account_move(1, cid, amount, aid);
-}
-
-ON_METHOD(my_account, withdraw)
-{
-    On_my_account_move(0, cid, amount, aid);
-}
-*/
 ON_METHOD(my_bid, view)
 {
     PubKey pubKey;
