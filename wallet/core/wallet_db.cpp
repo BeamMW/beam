@@ -5524,67 +5524,51 @@ namespace beam::wallet
 
         std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
         {
-            PaymentInfo pi;
             auto tx = walletDB->getTx(txID);
-
-            TxDescription desc(*tx);
+            if (!tx)
+            {
+                LOG_WARNING() << "Can't get transaction details";
+                return "";
+            }
+            const TxDescription& desc = *tx;
             TxAddressType addressType = GetAddressType(desc);
 
-            bool bSuccess = true;
-            bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
-            if (!hasNoPeerId)
+            bool hasNoPeerId = desc.m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+
+            auto senderIdentity   = desc.getSenderIdentity();
+            auto receiverIdentity = desc.getReceiverIdentity();
+            bool showIdentity     = !senderIdentity.empty() && !receiverIdentity.empty();
+
+            auto sender = desc.getSender();
+            auto receiver = desc.getReceiver();
+            if (desc.m_txType == wallet::TxType::PushTransaction && !desc.m_sender)
             {
-                bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-                                    txID,
-                                    tx->m_sender
-                                        ? TxParameterID::PeerID
-                                        : TxParameterID::MyID,
-                                    pi.m_Receiver);
+                sender = "shielded pool";
+            }
+            else if (desc.m_txType == wallet::TxType::Contract)
+            {
+                sender = receiver = "n/a";
             }
 
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-                                txID,
-                                tx->m_sender
-                                    ? TxParameterID::MyID
-                                    : TxParameterID::PeerID,
-                                pi.m_Sender);
-
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::KernelID, pi.m_KernelID);
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::Amount, pi.m_Amount);
-
-            if (bSuccess)
+            std::ostringstream s;
+            s << "Type:              " << desc.getTxTypeString() << '\n';
+            s << "Sender:            " << sender << std::endl;
+            if (showIdentity)
             {
-                auto senderIdentity   = tx->getSenderIdentity();
-                auto receiverIdentity = tx->getReceiverIdentity();
-                bool showIdentity     = !senderIdentity.empty() && !receiverIdentity.empty();
-
-                auto sender = std::to_string(pi.m_Sender);
-                if (tx->m_txType == wallet::TxType::PushTransaction && !tx->m_sender)
-                {
-                    sender = "shielded pool";
-                }
-
-                std::ostringstream s;
-                s << "Sender: " << sender << std::endl;
-                if (showIdentity)
-                {
-                    s << "Sender identity: " << senderIdentity << std::endl;
-                }
-
-                s << "Receiver: " << (hasNoPeerId ? desc.getToken() : std::to_string(pi.m_Receiver)) << std::endl;
-                if (showIdentity)
-                {
-                    s << "Receiver identity: " << receiverIdentity << std::endl;
-                }
-
-                s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
-                s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
-
-                return s.str();
+                s << "Sender identity:   " << senderIdentity << std::endl;
             }
 
-            LOG_WARNING() << "Can't get transaction details";
-            return "";
+            s << "Receiver:          " << (hasNoPeerId ? desc.getToken() : receiver) << std::endl;
+            if (showIdentity)
+            {
+                s << "Receiver identity: " << receiverIdentity << std::endl;
+            }
+
+            s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
+            s << "KernelID:          " << std::to_string(desc.m_kernelID) << std::endl;
+
+            return s.str();
+
         }
 
         namespace
