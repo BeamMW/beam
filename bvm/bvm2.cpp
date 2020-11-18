@@ -1665,8 +1665,11 @@ namespace bvm2 {
 	void ProcessorManager::DocID(const char* sz)
 	{
 		DocOnNext();
-		DocQuotedText(sz);
-		*m_pOut << ": ";
+		if (*sz)
+		{
+			DocQuotedText(sz);
+			*m_pOut << ": ";
+		}
 	}
 
 	void ProcessorManager::DocQuotedText(const char* sz)
