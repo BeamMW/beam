@@ -101,7 +101,7 @@ namespace bvm2 {
 
 	protected:
 		Height get_Height() override;
-		bool get_HdrAt(Block::SystemState::Full&);
+		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
