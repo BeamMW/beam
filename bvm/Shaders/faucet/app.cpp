@@ -7,6 +7,7 @@
 
 #define Faucet_manager_view(macro)
 #define Faucet_manager_view_params(macro) macro(ContractID, cid)
+#define Faucet_manager_view_funds(macro) macro(ContractID, cid)
 #define Faucet_manager_destroy(macro) macro(ContractID, cid)
 #define Faucet_manager_view_accounts(macro) macro(ContractID, cid)
 
@@ -19,6 +20,7 @@
     macro(manager, destroy) \
     macro(manager, view) \
     macro(manager, view_params) \
+    macro(manager, view_funds) \
     macro(manager, view_accounts) \
     macro(manager, view_account)
 
@@ -90,7 +92,31 @@ struct KeyGlobal
     uint8_t m_Val = 0;
 };
 
+struct KeyFunds
+{
+    KeyPrefix m_Prefix;
+    AssetID m_Aid_be; // big-endian format
+};
+
+struct ValueFunds
+{
+    Amount m_Hi_be;
+    Amount m_Lo_be;
+};
+
 #pragma pack (pop)
+
+template <typename T>
+T FromBE(T x)
+{
+    const uint8_t* p = (const uint8_t*) &x;
+
+    T res = *p;
+    for (uint32_t i = 1; i < sizeof(x); i++)
+        res = (res << 8) | p[i];
+
+    return res;
+}
 
 void EnumAndDump()
 {
@@ -205,6 +231,39 @@ ON_METHOD(manager, view_params)
     Env::DocGroup gr("params");
     Env::DocAddNum("backlogPeriod", pVal->m_BacklogPeriod);
     Env::DocAddNum("withdrawLimit", pVal->m_MaxWithdraw);
+}
+
+ON_METHOD(manager, view_funds)
+{
+    KeyFunds k0, k1;
+    k0.m_Prefix.m_Cid = cid;
+    k0.m_Prefix.m_Tag = 1;
+
+    Env::Memcpy(&k1, &k0, sizeof(k1));
+    k0.m_Aid_be = 0;
+    k1.m_Aid_be = (AssetID) -1;
+
+    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
+
+    Env::DocArray("funds");
+
+    while (true)
+    {
+        const KeyFunds* pK;
+        const ValueFunds* pVal;
+
+        uint32_t nKey, nVal;
+        if (!Env::VarsMoveNext((const void**) &pK, &nKey, (const void**) &pVal, &nVal))
+            break;
+
+        if ((sizeof(*pK) == nKey) && (sizeof(*pVal) == nVal))
+        {
+            Env::DocGroup("");
+
+            Env::DocAddNum("Aid", FromBE(pK->m_Aid_be));
+            Env::DocAddNum("Amount", FromBE(pVal->m_Lo_be));
+        }
+    }
 }
 
 

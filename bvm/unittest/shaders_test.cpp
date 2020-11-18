@@ -708,9 +708,10 @@ namespace bvm2 {
 				//{
 				//case 0: Shaders::Roulette::Ctor(CastArg<Shaders::Roulette::Params>(pArgs)); return;
 				//case 1: Shaders::Roulette::Dtor(nullptr); return;
-				//case 2: Shaders::Roulette::Method_2(CastArg<Shaders::Roulette::Restart>(pArgs)); return;
-				//case 3: Shaders::Roulette::Method_3(CastArg<Shaders::Roulette::PlaceBid>(pArgs)); return;
-				//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Take>(pArgs)); return;
+				//case 2: Shaders::Roulette::Method_2(CastArg<Shaders::Roulette::Spin>(pArgs)); return;
+				//case 3: Shaders::Roulette::Method_3(nullptr); return;
+				//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Bid>(pArgs)); return;
+				//case 5: Shaders::Roulette::Method_5(CastArg<Shaders::Roulette::Take>(pArgs)); return;
 				//}
 			}
 
@@ -1098,7 +1099,7 @@ namespace bvm2 {
 	void MyProcessor::TestRoulette()
 	{
 		Shaders::Roulette::Params pars;
-		memset(&pars.m_Dealer, 0xe1, sizeof(pars.m_Dealer));
+		memset(reinterpret_cast<void*>(&pars.m_Dealer), 0xe1, sizeof(pars.m_Dealer));
 
 		verify_test(ContractCreate_T(m_cidRoulette, m_Code.m_Roulette, pars));
 
@@ -1106,32 +1107,29 @@ namespace bvm2 {
 		bvm2::get_ShaderID(sid, m_Code.m_Roulette);
 		verify_test(sid == Shaders::Roulette::s_SID);
 
-		Shaders::Roulette::Restart rst;
-		rst.m_dhRound = 5;
-		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::Restart::s_iMethod, rst));
+		Shaders::Roulette::Spin spin;
+		verify_test(RunGuarded_T(m_cidRoulette, spin.s_iMethod, spin));
 
-		m_Height++;
-
-		Shaders::Roulette::PlaceBid bid;
+		Shaders::Roulette::Bid bid;
 		bid.m_Player.m_Y = 0;
 
 		for (uint32_t i = 0; i < Shaders::Roulette::State::s_Sectors * 2; i++)
 		{
 			bid.m_Player.m_X = i;
 			bid.m_iSector = i % Shaders::Roulette::State::s_Sectors;
-			verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid));
+			verify_test(RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid));
 		}
 
-		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid)); // redundant bid
+		verify_test(!RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid)); // redundant bid
 
 		bid.m_iSector = Shaders::Roulette::State::s_Sectors + 3;
 		bid.m_Player.m_X = Shaders::Roulette::State::s_Sectors * 2 + 8;
-		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::PlaceBid::s_iMethod, bid)); // invalid sector
+		verify_test(!RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid)); // invalid sector
 
 		// alleged winner
 		Block::SystemState::Full s;
 		ZeroObject(s);
-		s.m_Height = m_Height + 4;
+		s.m_Height = m_Height;
 		Merkle::Hash hv;
 		s.get_Hash(hv);
 
@@ -1140,15 +1138,17 @@ namespace bvm2 {
 		Shaders::ConvertOrd<false>(val);
 		uint32_t iWinner = static_cast<uint32_t>(val % Shaders::Roulette::State::s_Sectors);
 
+
 		Shaders::Roulette::Take take;
 		take.m_Player.m_X = iWinner;
 		take.m_Player.m_Y = 0;
-		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // round isn't over
+		verify_test(!RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // round isn't over
 
-		m_Height += 5; // round over
+		Zero_ zero;
+		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::BetsOff::s_iMethod, zero));
 
-		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // ok
-		verify_test(!RunGuarded_T(m_cidRoulette, Shaders::Roulette::Take::s_iMethod, take)); // already took
+		verify_test(RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // ok
+		verify_test(!RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // already took
 
 		UndoChanges(); // up to (but not including) contract creation
 	}

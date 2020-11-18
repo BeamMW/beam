@@ -6,6 +6,7 @@ export void Ctor(const Roulette::Params& r)
 {
     Roulette::State s;
     Utils::ZeroObject(s);
+    s.m_iWinner = s.s_Sectors;
 
     static const char szMeta[] = "roulette jetton";
     s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
@@ -26,18 +27,10 @@ export void Dtor(void*)
     Env::AddSig(s.m_Dealer);
 }
 
-export void Method_2(const Roulette::Restart& r)
+export void Method_2(const Roulette::Spin& r)
 {
-    Env::Halt_if(!(r.m_dhRound));
-
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
-
-    Height h = Env::get_Height();
-    Env::Halt_if(s.m_hRoundEnd > h);
-
-    s.m_hRoundEnd = h;
-    Strict::Add(s.m_hRoundEnd, r.m_dhRound);
 
     if (r.m_PlayingSectors)
     {
@@ -47,48 +40,68 @@ export void Method_2(const Roulette::Restart& r)
     else
         s.m_PlayingSectors = Roulette::State::s_Sectors;
 
+    s.m_iRound++;
+    s.m_iWinner = s.s_Sectors; // invalid, i.e. no winner yet
+
     Env::SaveVar_T((uint8_t) 0, s);
 
     Env::AddSig(s.m_Dealer);
 }
 
-export void Method_3(const Roulette::PlaceBid& r)
+export void Method_3(void*)
 {
-    Env::Halt_if(r.m_iSector >= Roulette::State::s_Sectors);
-
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
+    Env::Halt_if(s.m_iWinner != s.s_Sectors); // already stopped
 
-    Height h = Env::get_Height();
-    Env::Halt_if(h >= s.m_hRoundEnd);
+    // set the winner
+    BlockHeader hdr;
+    hdr.m_Height = Env::get_Height();
+    Env::get_Hdr(hdr); // would fail if this height isn't reached yet
+
+    uint64_t val;
+    Env::Memcpy(&val, &hdr.m_Hash, sizeof(val));
+    s.m_iWinner = static_cast<uint32_t>(val % s.m_PlayingSectors);
+
+    Env::SaveVar_T((uint8_t) 0, s);
+
+    Env::AddSig(s.m_Dealer);
+}
+
+export void Method_4(const Roulette::Bid& r)
+{
+    Roulette::State s;
+    Env::LoadVar_T((uint8_t) 0, s);
+    Env::Halt_if(s.m_iWinner != s.s_Sectors); // already stopped
+
+    Env::Halt_if(r.m_iSector >= s.s_Sectors);
 
     Roulette::BidInfo bi;
-    Env::Halt_if(Env::LoadVar_T(r.m_Player, bi) && (bi.m_hRoundEnd == s.m_hRoundEnd)); // bid already placed for this round
+    Env::Halt_if(Env::LoadVar_T(r.m_Player, bi) && (bi.m_iRound == s.m_iRound)); // bid already placed for this round
 
     // looks good
     bi.m_iSector = r.m_iSector; // don't care if out-of-bounds for the current round with limited num of sectors
-    bi.m_hRoundEnd = s.m_hRoundEnd;
+    bi.m_iRound = s.m_iRound;
     Env::SaveVar_T(r.m_Player, bi);
 
     Env::AddSig(r.m_Player);
 }
 
-export void Method_4(const Roulette::Take& r)
+export void Method_5(const Roulette::Take& r)
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
+    Env::Halt_if(s.m_iWinner == s.s_Sectors); // in progress
 
     Roulette::BidInfo bi;
-    Env::Halt_if(!Env::LoadVar_T(r.m_Player, bi) || (s.m_hRoundEnd != bi.m_hRoundEnd));
-
-    uint32_t iWinSector = s.DeriveWinSector();
+    Env::Halt_if(!Env::LoadVar_T(r.m_Player, bi) || (s.m_iRound != bi.m_iRound));
 
     Amount nWonAmount;
-    if (bi.m_iSector == iWinSector)
+    if (bi.m_iSector == s.m_iWinner)
         nWonAmount = s.s_PrizeSector;
     else
     {
-        Env::Halt_if(1 & (bi.m_iSector ^ iWinSector));
+        Env::Halt_if(1 & (bi.m_iSector ^ s.m_iWinner));
         nWonAmount = s.s_PrizeParity;
     }
 

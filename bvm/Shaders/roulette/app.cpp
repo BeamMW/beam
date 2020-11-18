@@ -6,10 +6,8 @@
 #define Roulette_manager_view_params(macro) macro(ContractID, cid)
 #define Roulette_manager_destroy(macro) macro(ContractID, cid)
 #define Roulette_manager_view_bids(macro) macro(ContractID, cid)
-
-#define Roulette_manager_start_round(macro) \
-    macro(ContractID, cid) \
-    macro(Height, hDuration)
+#define Roulette_manager_spin(macro) macro(ContractID, cid)
+#define Roulette_manager_bets_off(macro) macro(ContractID, cid)
 
 #define Roulette_manager_view_bid(macro) \
     macro(ContractID, cid) \
@@ -18,27 +16,28 @@
 #define RouletteRole_manager(macro) \
     macro(manager, create) \
     macro(manager, destroy) \
-    macro(manager, start_round) \
+    macro(manager, spin) \
+    macro(manager, bets_off) \
     macro(manager, view) \
     macro(manager, view_params) \
     macro(manager, view_bids) \
     macro(manager, view_bid)
 
-#define Roulette_my_bid_view(macro) macro(ContractID, cid)
-#define Roulette_my_bid_take(macro) macro(ContractID, cid)
+#define Roulette_player_view(macro) macro(ContractID, cid)
+#define Roulette_player_take(macro) macro(ContractID, cid)
 
-#define Roulette_my_bid_make(macro) \
+#define Roulette_player_bid(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, iSector)
 
-#define RouletteRole_my_bid(macro) \
-    macro(my_bid, view) \
-    macro(my_bid, make) \
-    macro(my_bid, take)
+#define RouletteRole_player(macro) \
+    macro(player, view) \
+    macro(player, bid) \
+    macro(player, take)
 
 #define RouletteRoles_All(macro) \
     macro(manager) \
-    macro(my_bid)
+    macro(player)
 
 export void Method_0()
 {
@@ -108,12 +107,12 @@ struct DealerKey
 
 struct StateInfoPlus
 {
+    Roulette::State m_State;
+
     bool m_RoundOver;
     bool m_isDealer;
-    uint32_t m_iWinSector;
-    Height m_hRoundEnd;
 
-    const Roulette::State* Init(const ContractID& cid)
+    bool Init(const ContractID& cid)
     {
         KeyGlobal k;
         k.m_Prefix.m_Cid = cid;
@@ -128,41 +127,37 @@ struct StateInfoPlus
         if (!Env::VarsMoveNext(&pK, &nKey, (const void**) &pVal, &nVal) || (sizeof(*pVal) != nVal))
         {
             OnError("failed to read");
-            return nullptr;
+            return false;
         }
+
+        m_State = *pVal;
 
         DealerKey dk;
         PubKey pk;
         dk.DerivePk(pk);
-        m_isDealer = !Env::Memcmp(&pk, &pVal->m_Dealer, sizeof(pk));
+        m_isDealer = !Env::Memcmp(&pk, &m_State.m_Dealer, sizeof(pk));
+        m_RoundOver = (m_State.m_iWinner < m_State.s_Sectors);
 
-        m_hRoundEnd = pVal->m_hRoundEnd;
-        m_RoundOver = m_hRoundEnd && (Env::get_Height() >= m_hRoundEnd);
-        if (m_RoundOver)
-        {
-            m_iWinSector = pVal->DeriveWinSector();
-        }
-
-        return pVal;
+        return true;
     }
 
     const char* get_BidStatus(const Roulette::BidInfo& bi, Amount& nWin) const
     {
         nWin = 0;
 
-        if (m_hRoundEnd != bi.m_hRoundEnd)
+        if (m_State.m_iRound != bi.m_iRound)
             return "not-actual";
 
         if (!m_RoundOver)
             return "in-progress";
 
-        if (bi.m_iSector == m_iWinSector)
+        if (bi.m_iSector == m_State.m_iWinner)
         {
             nWin = Roulette::State::s_PrizeSector;
             return "jack-pot";
         }
 
-        if (!(1 & (bi.m_iSector ^ m_iWinSector)))
+        if (!(1 & (bi.m_iSector ^ m_State.m_iWinner)))
         {
             nWin = Roulette::State::s_PrizeParity;
             return "win";
@@ -191,7 +186,7 @@ void EnumAndDump(const StateInfoPlus& sip)
 
             Env::DocAddBlob_T("Player", pRawKey->m_Player);
             Env::DocAddNum("Sector", pVal->m_iSector);
-            Env::DocAddNum("Round-end", pVal->m_hRoundEnd);
+            Env::DocAddNum("iRound", pVal->m_iRound);
 
             Amount nWin;
             Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
@@ -293,38 +288,45 @@ ON_METHOD(manager, destroy)
     Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
 }
 
-ON_METHOD(manager, start_round)
+ON_METHOD(manager, spin)
 {
-    if (!hDuration)
-        return OnError("round duration must be nnz");
-
     DealerKey dk;
 
     SigRequest sig;
     sig.m_pID = &dk;
     sig.m_nID = sizeof(dk);
 
-    Roulette::Restart arg;
-    arg.m_dhRound = hDuration;
+    Roulette::Spin arg;
+    arg.m_PlayingSectors = 0; // max
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 2000000U);
+}
+
+ON_METHOD(manager, bets_off)
+{
+    DealerKey dk;
+
+    SigRequest sig;
+    sig.m_pID = &dk;
+    sig.m_nID = sizeof(dk);
+
+    Env::GenerateKernel(&cid, Roulette::BetsOff::s_iMethod, nullptr, 0, nullptr, 0, &sig, 1, 2000000U);
 }
 
 ON_METHOD(manager, view_params)
 {
     StateInfoPlus sip;
-    auto* pState = sip.Init(cid);
-    if (!pState)
+    if (!sip.Init(cid))
         return;
 
     Env::DocGroup gr("params");
 
-    Env::DocAddBlob_T("Dealer", pState->m_Dealer);
+    Env::DocAddBlob_T("Dealer", sip.m_State.m_Dealer);
     Env::DocAddText("IsDealer", sip.m_isDealer ? "yes" : "no");
-    Env::DocAddNum("Round-end", pState->m_hRoundEnd);
+    Env::DocAddNum("iRound", sip.m_State.m_iRound);
 
     if (sip.m_RoundOver)
-        Env::DocAddNum("WinSector", sip.m_iWinSector);
+        Env::DocAddNum("WinSector", sip.m_State.m_iWinner);
 }
 
 
@@ -354,18 +356,18 @@ void DerivePlayerPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &cid, sizeof(cid));
 }
 
-ON_METHOD(my_bid, view)
+ON_METHOD(player, view)
 {
     PubKey pubKey;
     DerivePlayerPk(pubKey, cid);
     DumpBid(pubKey, cid);
 }
 
-ON_METHOD(my_bid, make)
+ON_METHOD(player, bid)
 {
-    Roulette::PlaceBid arg;
+    Roulette::Bid arg;
     DerivePlayerPk(arg.m_Player, cid);
-    arg.m_iSector = iSector - 1;
+    arg.m_iSector = iSector;
 
     if (arg.m_iSector >= Roulette::State::s_Sectors)
         return OnError("sector is out of range");
@@ -377,16 +379,11 @@ ON_METHOD(my_bid, make)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 1000000U);
 }
 
-ON_METHOD(my_bid, take)
+ON_METHOD(player, take)
 {
     StateInfoPlus sip;
-    auto* pState = sip.Init(cid);
-    if (!pState)
+    if (!sip.Init(cid))
         return;
-
-    // pState is temporary, consequent vars enum will invalidate it.
-    FundsChange fc;
-    fc.m_Aid = pState->m_Aid;
 
     if (!sip.m_RoundOver)
         return OnError("round not finished");
@@ -404,6 +401,9 @@ ON_METHOD(my_bid, take)
         (sizeof(*pRawKey) != nKey) ||
         (sizeof(*pVal) != nVal))
         return OnError("no bid");
+
+    FundsChange fc;
+    fc.m_Aid = sip.m_State.m_Aid;
 
     sip.get_BidStatus(*pVal, fc.m_Amount);
 
