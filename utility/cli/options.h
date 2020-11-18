@@ -108,6 +108,8 @@ namespace beam
         extern const char* FEE_FULL;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
+        extern const char* LOG_ERROR;
+        extern const char* LOG_WARNING;
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;

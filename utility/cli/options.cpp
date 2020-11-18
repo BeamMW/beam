@@ -208,6 +208,8 @@ namespace beam
         const char* FEE_FULL = "fee,f";
         const char* LOG_LEVEL = "log_level";
         const char* FILE_LOG_LEVEL = "file_log_level";
+        const char* LOG_ERROR = "error";
+        const char* LOG_WARNING = "warning";
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
@@ -360,8 +362,8 @@ namespace beam
         general_options.add_options()
             (cli::HELP_FULL, "list all available options and commands")
             (cli::VERSION_FULL, "print project version")
-            (cli::LOG_LEVEL, po::value<string>(), "set log level [info|debug|verbose]")
-            (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [info|debug|verbose]")
+            (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::GIT_COMMIT_HASH, "print git commit hash value");
 
@@ -666,6 +668,8 @@ namespace beam
     {
         const map<std::string, int> logLevels
         {
+            { cli::LOG_ERROR, LOG_LEVEL_ERROR },
+            { cli::LOG_WARNING, LOG_LEVEL_WARNING },
             { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
             { cli::INFO, LOG_LEVEL_INFO },
             { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }
