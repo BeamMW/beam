@@ -2223,18 +2223,11 @@ namespace
 
                 auto txId = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
-                    .SetParameter(TxParameterID::Fee, Amount(25)));
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData);
                 txId;
                 return 0;
             });
     }
-
-
-
-
-
-
 
     int Listen(const po::variables_map& vm)
     {
