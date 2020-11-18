@@ -2423,7 +2423,7 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 
 		proto::Event::Type::Enum eType;
 		der.reset(wlk.m_Body.p, wlk.m_Body.n);
-		der & eType;
+		eType = proto::Event::Type::Load(der);
 
 		if (TEvt::s_Type == eType)
 			break;

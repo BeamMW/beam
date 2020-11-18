@@ -99,6 +99,7 @@ namespace beam
         extern const char* NEW_ADDRESS_COMMENT;
         extern const char* EXPIRATION_TIME;
         extern const char* TX_HISTORY;
+        extern const char* UTXO_LIST;
         extern const char* TX_ID;
         extern const char* SEED_PHRASE;
         extern const char* IGNORE_DICTIONARY;
