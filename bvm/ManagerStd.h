@@ -66,12 +66,12 @@ namespace bvm2 {
 		void Unfreeze();
 		void OnUnfreezed();
 
-		//struct UnfreezeEvt
-		//	:public io::IdleEvt
-		//{
-		//	virtual void OnSchedule() override;
-		//	IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
-		//} m_UnfreezeEvt;
+		struct UnfreezeEvt
+			:public io::IdleEvt
+		{
+			virtual void OnSchedule() override;
+			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
+		} m_UnfreezeEvt;
 
 		// params readout
 		struct VarsRead

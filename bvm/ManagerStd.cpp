@@ -26,8 +26,8 @@ namespace bvm2 {
 	{
 		assert(m_Freeze);
 		if (!--m_Freeze)
-			//m_UnfreezeEvt.start();
-			OnUnfreezed();
+			m_UnfreezeEvt.start();
+			//OnUnfreezed();
 	}
 
 	void ManagerStd::OnUnfreezed()
@@ -40,11 +40,11 @@ namespace bvm2 {
 		}
 	}
 
-	//void ManagerStd::UnfreezeEvt::OnSchedule()
-	//{
-	//	cancel();
-	//	get_ParentObj().OnUnfreezed();
-	//}
+	void ManagerStd::UnfreezeEvt::OnSchedule()
+	{
+		cancel();
+		get_ParentObj().OnUnfreezed();
+	}
 
 	void ManagerStd::VarsRead::Abort()
 	{
