@@ -387,6 +387,10 @@ ON_METHOD(my_bid, take)
     if (!pState)
         return;
 
+    // pState is temporary, consequent vars enum will invalidate it.
+    FundsChange fc;
+    fc.m_Aid = pState->m_Aid;
+
     if (!sip.m_RoundOver)
         return OnError("round not finished");
 
@@ -404,7 +408,6 @@ ON_METHOD(my_bid, take)
         (sizeof(*pVal) != nVal))
         return OnError("no bid");
 
-    FundsChange fc;
     sip.get_BidStatus(*pVal, fc.m_Amount);
 
     if (!fc.m_Amount)
@@ -414,7 +417,6 @@ ON_METHOD(my_bid, take)
     sig.m_pID = &cid;
     sig.m_nID = sizeof(cid);
 
-    fc.m_Aid = pState->m_Aid;
     fc.m_Consume = 0;
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 1000000U);
