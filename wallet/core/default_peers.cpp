@@ -30,9 +30,9 @@ namespace beam
             "ap-hk-nodes.mainnet.beam.mw:8100",
             "shanghai-node.mainnet.beam.mw:8100"
 #elif defined(BEAM_BEAMX)
-            "54.176.159.202:8100",
-            "52.53.60.146:8100",
-            "54.241.38.13:8100"
+            "us-node01.testnet-x.beam.mw:8100",
+            "us-node02.testnet-x.beam.mw:8100",
+            "us node03.testnet-x.beam.mw:8100"
 #else
             "eu-node01.masternet.beam.mw:8100",
             "eu-node02.masternet.beam.mw:8100",
