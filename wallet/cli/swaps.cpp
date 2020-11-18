@@ -723,11 +723,10 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     {
         auto callback = [&result](beam::ethereum::IBridge::Ptr bridge)
         {
-            bridge->getBalance([&result](const ethereum::IBridge::Error& error, ECC::uintBig balance)
+            bridge->getBalance([&result](const ethereum::IBridge::Error& error, const std::string& balance)
             {
                 // TODO roman.strilets need to refactor
-                std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
-                boost::multiprecision::uint256_t tmp(hex);
+                boost::multiprecision::uint256_t tmp(balance);
 
                 tmp /= 1'000'000'000u;
 

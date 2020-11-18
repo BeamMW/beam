@@ -45,7 +45,10 @@ public:
     using Ptr = std::shared_ptr<IBridge>;
     virtual ~IBridge() {};
 
-    virtual void getBalance(std::function<void(const Error&, ECC::uintBig)> callback) = 0;
+    virtual void getBalance(std::function<void(const Error&, const std::string&)> callback) = 0;
+    virtual void getTokenBalance(
+        const std::string& contractAddr, 
+        std::function<void(const Error&, const std::string&)> callback) = 0;
     virtual void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) = 0;
     virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;

@@ -52,7 +52,7 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
 {
 }
 
-void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> callback)
+void EthereumBridge::getBalance(std::function<void(const Error&, const std::string&)> callback)
 {
     LOG_DEBUG() << "EthereumBridge::getBalance";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
@@ -61,16 +61,47 @@ void EthereumBridge::getBalance(std::function<void(const Error&, ECC::uintBig)> 
     sendRequest("eth_getBalance", params, [callback](Error error, const json& result)
     {
         LOG_DEBUG() << "EthereumBridge::getBalance in";
-        ECC::uintBig balance = ECC::Zero;
+        std::string balance = "";
 
         if (error.m_type == IBridge::None)
         {
             try
             {
-                std::string strBalance = result["result"].get<std::string>();
-                strBalance.erase(0, 2);
+                balance = result["result"].get<std::string>();
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+        callback(error, balance);
+    });
+}
 
-                balance = ConvertStrToUintBig(strBalance);
+void EthereumBridge::getTokenBalance(
+    const std::string& contractAddr,
+    std::function<void(const Error&, const std::string&)> callback)
+{
+    LOG_DEBUG() << "EthereumBridge::getTokenBalance";
+    const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(contractAddr);
+
+    libbitcoin::data_chunk data;
+    data.reserve(ethereum::kEthContractMethodHashSize + ethereum::kEthContractABIWordSize);
+    libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kBalanceOfHash);
+    ethereum::AddContractABIWordToBuffer(generateEthAddress(), data);
+
+    call(tokenContractAddress, libbitcoin::encode_base16(data), [callback](const IBridge::Error& err, const nlohmann::json& result)
+    {
+        LOG_DEBUG() << "EthereumBridge::getTokenBalance in";
+        Error error = err;
+        std::string balance = "";
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                balance = result.get<std::string>();
             }
             catch (const std::exception& ex)
             {

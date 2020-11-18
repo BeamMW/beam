@@ -26,7 +26,10 @@ public:
     EthereumBridge() = delete;
     EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider);
 
-    void getBalance(std::function<void(const Error&, ECC::uintBig)> callback) override;
+    void getBalance(std::function<void(const Error&, const std::string&)> callback) override;
+    void getTokenBalance(
+        const std::string& contractAddr,
+        std::function<void(const Error&, const std::string&)> callback) override;
     void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) override;
     void getTransactionCount(std::function<void(const Error&, uint64_t)> callback) override;
     void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) override;

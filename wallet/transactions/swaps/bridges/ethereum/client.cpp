@@ -114,7 +114,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
 
     if (swapCoin == wallet::AtomicSwapCoin::Ethereum)
     {
-        bridge->getBalance([this, weak = this->weak_from_this()](const IBridge::Error& error, ECC::uintBig balance)
+        bridge->getBalance([this, weak = this->weak_from_this()](const IBridge::Error& error, const std::string& balance)
         {
             if (weak.expired())
             {
@@ -127,8 +127,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
 
             if (error.m_type == IBridge::None)
             {
-                std::string hex = beam::ethereum::AddHexPrefix(beam::to_hex(balance.m_pData, ECC::uintBig::nBytes));
-                boost::multiprecision::uint256_t tmp(hex);
+                boost::multiprecision::uint256_t tmp(balance);
 
                 tmp /= ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
 
@@ -144,13 +143,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
             return;
         }
 
-        const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(tokenContractAddressStr);
-        libbitcoin::data_chunk data;
-        data.reserve(ethereum::kEthContractMethodHashSize + ethereum::kEthContractABIWordSize);
-        libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kBalanceOfHash);
-        ethereum::AddContractABIWordToBuffer(bridge->generateEthAddress(), data);
-
-        bridge->call(tokenContractAddress, libbitcoin::encode_base16(data), [this, weak = this->weak_from_this(), swapCoin](const IBridge::Error& error, const nlohmann::json& result)
+        bridge->getTokenBalance(tokenContractAddressStr, [this, weak = this->weak_from_this(), swapCoin](const IBridge::Error& error, const std::string& balance)
         {
             if (weak.expired())
             {
@@ -163,7 +156,7 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
 
             if (error.m_type == IBridge::None)
             {
-                boost::multiprecision::uint256_t tmp(result.get<std::string>());
+                boost::multiprecision::uint256_t tmp(balance);
                 tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
 
                 OnBalance(swapCoin, tmp.convert_to<Amount>());
