@@ -1322,9 +1322,11 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent));
 
-        ShowAssetCoins(walletDB, Zero);
-
-        if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
+        if (vm.count(cli::UTXO_LIST))
+        {
+            ShowAssetCoins(walletDB, Zero);
+        }
+        else if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
         {
             std::vector<TxDescription> txHistory;
 
@@ -1381,6 +1383,10 @@ namespace
                         << std::endl;
                 }
             }
+        }
+        else
+        {
+            std::cout << "If you wish to see the list of UXTOs or transaction history use\n\t--" << cli::UTXO_LIST << "  or  --" << cli::TX_HISTORY << "  parameters correspondingly" << std::endl;
         }
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
