@@ -6,8 +6,6 @@
 #define Roulette_manager_view_params(macro) macro(ContractID, cid)
 #define Roulette_manager_destroy(macro) macro(ContractID, cid)
 #define Roulette_manager_view_bids(macro) macro(ContractID, cid)
-#define Roulette_manager_spin(macro) macro(ContractID, cid)
-#define Roulette_manager_bets_off(macro) macro(ContractID, cid)
 
 #define Roulette_manager_view_bid(macro) \
     macro(ContractID, cid) \
@@ -16,27 +14,33 @@
 #define RouletteRole_manager(macro) \
     macro(manager, create) \
     macro(manager, destroy) \
-    macro(manager, spin) \
-    macro(manager, bets_off) \
     macro(manager, view) \
     macro(manager, view_params) \
     macro(manager, view_bids) \
     macro(manager, view_bid)
 
-#define Roulette_player_view(macro) macro(ContractID, cid)
+#define Roulette_dealer_spin(macro) macro(ContractID, cid)
+#define Roulette_dealer_bets_off(macro) macro(ContractID, cid)
+
+#define RouletteRole_dealer(macro) \
+    macro(dealer, spin) \
+    macro(dealer, bets_off)
+
+#define Roulette_player_check(macro) macro(ContractID, cid)
 #define Roulette_player_take(macro) macro(ContractID, cid)
 
-#define Roulette_player_bid(macro) \
+#define Roulette_player_bet(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, iSector)
 
 #define RouletteRole_player(macro) \
-    macro(player, view) \
-    macro(player, bid) \
+    macro(player, check) \
+    macro(player, bet) \
     macro(player, take)
 
 #define RouletteRoles_All(macro) \
     macro(manager) \
+    macro(dealer) \
     macro(player)
 
 export void Method_0()
@@ -169,6 +173,9 @@ struct StateInfoPlus
 
 void EnumAndDump(const StateInfoPlus& sip)
 {
+    if (sip.m_RoundOver)
+        Env::DocAddNum("WinSector", sip.m_State.m_iWinner);
+
     Env::DocArray gr("bids");
 
     while (true)
@@ -288,7 +295,7 @@ ON_METHOD(manager, destroy)
     Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
 }
 
-ON_METHOD(manager, spin)
+ON_METHOD(dealer, spin)
 {
     DealerKey dk;
 
@@ -302,7 +309,7 @@ ON_METHOD(manager, spin)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 2000000U);
 }
 
-ON_METHOD(manager, bets_off)
+ON_METHOD(dealer, bets_off)
 {
     DealerKey dk;
 
@@ -356,14 +363,14 @@ void DerivePlayerPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &cid, sizeof(cid));
 }
 
-ON_METHOD(player, view)
+ON_METHOD(player, check)
 {
     PubKey pubKey;
     DerivePlayerPk(pubKey, cid);
     DumpBid(pubKey, cid);
 }
 
-ON_METHOD(player, bid)
+ON_METHOD(player, bet)
 {
     Roulette::Bid arg;
     DerivePlayerPk(arg.m_Player, cid);
