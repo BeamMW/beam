@@ -26,7 +26,7 @@ public:
         std::unique_ptr<beam::ethereum::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
-    beam::Amount GetAvailable() const;
+    beam::Amount GetAvailable(beam::wallet::AtomicSwapCoin swapCoin) const;
     beam::Amount GetRecommendedFeeRate() const;
     bool IsConnected() const;
 
@@ -44,7 +44,7 @@ private:
 private:
     beam::io::Timer::Ptr _timer;
     beam::io::Timer::Ptr _feeTimer;
-    beam::Amount _balance;
+    std::map<beam::wallet::AtomicSwapCoin, beam::Amount> _balances;
     beam::Amount _recommendedFeeRate = 0;
     Status _status;
 };

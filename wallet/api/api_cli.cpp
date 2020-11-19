@@ -55,6 +55,7 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 #include "swap_client.h"
 #include "swap_eth_client.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -164,10 +165,9 @@ public:
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
-        // TODO roman.strilets implement to other coins
-        if (swapCoin == AtomicSwapCoin::Ethereum)
+        if (ethereum::IsEthereumBased(swapCoin))
         {
-            return _swapEthClient ? _swapEthClient->GetAvailable() : 0;
+            return _swapEthClient ? _swapEthClient->GetAvailable(swapCoin) : 0;
         }
 
         auto swapClient = getSwapCoinClient(swapCoin);
@@ -177,7 +177,7 @@ public:
 
     Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        if (swapCoin == AtomicSwapCoin::Ethereum)
+        if (ethereum::IsEthereumBased(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetRecommendedFeeRate() : 0;
         }
@@ -189,7 +189,7 @@ public:
 
     Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        if (swapCoin == AtomicSwapCoin::Ethereum)
+        if (ethereum::IsEthereumBased(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetSettings().GetMinFeeRate() : 0;
         }

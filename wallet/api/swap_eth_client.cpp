@@ -39,9 +39,14 @@ SwapEthClient::SwapEthClient(
     });
 }
 
-Amount SwapEthClient::GetAvailable() const
+Amount SwapEthClient::GetAvailable(beam::wallet::AtomicSwapCoin swapCoin) const
 {
-    return _balance;
+    auto iter = _balances.find(swapCoin);
+    if (iter != _balances.end())
+    {
+        return iter->second;
+    }
+    return 0;
 }
 
 Amount SwapEthClient::GetRecommendedFeeRate() const
@@ -58,6 +63,7 @@ void SwapEthClient::requestBalance()
 {
     if (GetSettings().IsActivated())
     {
+        // TODO roman.strilets need to add tokens
         // update balance
         GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Ethereum);
     }
@@ -77,10 +83,10 @@ void SwapEthClient::OnStatus(Status status)
     _status = status;
 }
 
-void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin /*swapCoin*/, beam::Amount balance)
+void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin swapCoin, beam::Amount balance)
 {
     // TODO roman.strilets
-    _balance = balance;
+    _balances[swapCoin] = balance;
 }
 
 void SwapEthClient::OnEstimatedGasPrice(Amount feeRate)
