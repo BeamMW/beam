@@ -5615,13 +5615,21 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 		{
 			if (m_Target == m_nKrnIdx)
 			{
-				if (TxKernel::Subtype::AssetCreate != krn_.get_Subtype())
-					OnCorrupted();
-				const TxKernelAssetCreate& krn = Cast::Up<TxKernelAssetCreate>(krn_);
+				if (TxKernel::Subtype::AssetCreate == krn_.get_Subtype())
+				{
+					const TxKernelAssetCreate& krn = Cast::Up<TxKernelAssetCreate>(krn_);
 
-				m_pDst->m_Owner = krn.m_Owner;
-				m_pDst->m_Metadata.m_Value.swap(Cast::NotConst(krn.m_MetaData.m_Value));
-				m_pDst->m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
+					m_pDst->m_Owner = krn.m_Owner;
+					m_pDst->m_Metadata.m_Value.swap(Cast::NotConst(krn.m_MetaData.m_Value));
+					m_pDst->m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
+				}
+				else
+				{
+					// Was created by the contract. This is a workaround
+					m_pDst->m_Owner = Zero;
+					m_pDst->m_Metadata.m_Value.clear();
+					m_pDst->m_Metadata.m_Hash = Zero;
+				}
 			}
 			return true;
 		}
