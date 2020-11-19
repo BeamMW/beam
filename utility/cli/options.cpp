@@ -326,7 +326,7 @@ namespace beam
         // shaders
         const char* SHADER_INVOKE       = "shader";
         const char* SHADER_ARGS         = "shader_args";
-        const char* SHADER_BYTECODE_MANAGER  = "shader_app_file";
+        const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
     }
 
