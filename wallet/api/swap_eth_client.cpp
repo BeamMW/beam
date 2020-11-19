@@ -63,9 +63,24 @@ void SwapEthClient::requestBalance()
 {
     if (GetSettings().IsActivated())
     {
-        // TODO roman.strilets need to add tokens
         // update balance
         GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Ethereum);
+
+        // TODO roman.strilets need to check this
+        if (GetSettings().IsDaiInitialized())
+        {
+            GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Dai);
+        }
+
+        if (GetSettings().IsTetherInitialized())
+        {
+            GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Tether);
+        }
+
+        if (GetSettings().IsWBTCInitialized())
+        {
+            GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::WBTC);
+        }
     }
 }
 
@@ -85,7 +100,7 @@ void SwapEthClient::OnStatus(Status status)
 
 void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin swapCoin, beam::Amount balance)
 {
-    // TODO roman.strilets
+    // TODO roman.strilets need to check this
     _balances[swapCoin] = balance;
 }
 
