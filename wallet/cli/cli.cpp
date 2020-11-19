@@ -2227,7 +2227,7 @@ namespace
                 man.m_pNetwork = wallet->GetNodeEndpoint();
                 man.m_pHist = &walletDB->get_History();
 
-                auto sVal = vm[cli::SHADER_BYTECODE_MANAGER].as<string>();
+                auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())
                     throw std::runtime_error("shader file not specified");
 

@@ -227,7 +227,7 @@ namespace beam
         // shaders
         extern const char* SHADER_INVOKE;
         extern const char* SHADER_ARGS;
-        extern const char* SHADER_BYTECODE_MANAGER;
+        extern const char* SHADER_BYTECODE_APP;
         extern const char* SHADER_BYTECODE_CONTRACT;
     }
 
