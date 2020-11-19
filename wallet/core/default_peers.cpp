@@ -32,7 +32,7 @@ namespace beam
 #elif defined(BEAM_BEAMX)
             "us-node01.testnet-x.beam.mw:8100",
             "us-node02.testnet-x.beam.mw:8100",
-            "us node03.testnet-x.beam.mw:8100"
+            "us-node03.testnet-x.beam.mw:8100"
 #else
             "eu-node01.masternet.beam.mw:8100",
             "eu-node02.masternet.beam.mw:8100",
