@@ -35,6 +35,7 @@ void SettingsProvider::SetSettings(const Settings& settings)
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
     WriteToDb(GetContractAddressName(), settings.m_swapContractAddress);
+    WriteToDb(GetERC20ContractAddressName(), settings.m_erc20SwapContractAddress);
     WriteToDb(GetDaiContractAddressName(), settings.m_daiContractAddress);
     WriteToDb(GetUsdtContractAddressName(), settings.m_usdtContractAddress);
     WriteToDb(GetWbtcContractAddressName(), settings.m_wbtcContractAddress);
@@ -54,6 +55,7 @@ void SettingsProvider::Initialize()
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
         ReadFromDB(GetContractAddressName(), m_settings->m_swapContractAddress);
+        ReadFromDB(GetERC20ContractAddressName(), m_settings->m_erc20SwapContractAddress);
         ReadFromDB(GetWbtcContractAddressName(), m_settings->m_wbtcContractAddress);
         ReadFromDB(GetDaiContractAddressName(), m_settings->m_daiContractAddress);
         ReadFromDB(GetUsdtContractAddressName(), m_settings->m_usdtContractAddress);
@@ -112,6 +114,11 @@ std::string SettingsProvider::GetShouldConnectName() const
 std::string SettingsProvider::GetContractAddressName() const
 {
     return GetSettingsName() + "_ContractAddress";
+}
+
+std::string SettingsProvider::GetERC20ContractAddressName() const
+{
+    return GetSettingsName() + "_ERC20ContractAddress";
 }
 
 std::string SettingsProvider::GetDaiContractAddressName() const
