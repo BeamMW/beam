@@ -618,9 +618,11 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
-        LOG_INFO () << "!!!!! ON_COINS_CHANGED";
+        LOG_INFO () << "onCoinsChanged - CollectItems";
         m_CoinChangesCollector.CollectItems(action, items);
+        LOG_INFO () << "onCoinsChanged - update start";
         m_DeferredBalanceUpdate.start();
+        LOG_INFO () << "onCoinsChanged - finished";
     }
 
     void WalletClient::DeferredBalanceUpdate::OnSchedule()
