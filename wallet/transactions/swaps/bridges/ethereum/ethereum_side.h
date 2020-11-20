@@ -74,6 +74,7 @@ namespace beam::wallet
         beam::ByteBuffer BuildLockTxData();
         ECC::uintBig GetSwapAmount() const;
         bool IsHashLockScheme() const;
+        void SetTxError(const ethereum::IBridge::Error& error, SubTxID subTxID);
 
     private:
         BaseTransaction& m_tx;

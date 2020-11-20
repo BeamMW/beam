@@ -331,7 +331,14 @@ bool EthereumSide::SendLockTx()
                     if (error.m_type != ethereum::IBridge::None)
                     {
                         LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to call ERC20::approve!";
-                        // TODO: handle error
+
+                        // TODO roman.strilets need to check
+                        if (error.m_type == ethereum::IBridge::EthError ||
+                            error.m_type == ethereum::IBridge::InvalidResultFormat)
+                        {
+                            SetTxError(error, SubTxIndex::LOCK_TX);
+                        }
+                        m_tx.UpdateOnNextTip();
                         return;
                     }
 
@@ -362,11 +369,6 @@ bool EthereumSide::SendLockTx()
 
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    if (error.m_type == ethereum::IBridge::EmptyResult)
-                    {
-                        m_tx.UpdateOnNextTip();
-                        return;
-                    }
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to register ERC20::approve!";
                     // TODO: handle error
                     m_tx.UpdateOnNextTip();
@@ -395,7 +397,13 @@ bool EthereumSide::SendLockTx()
             {
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    // TODO: handle error
+                    // TODO roman.strilets need to check
+                    if (error.m_type == ethereum::IBridge::EthError ||
+                        error.m_type == ethereum::IBridge::InvalidResultFormat)
+                    {
+                        SetTxError(error, SubTxIndex::LOCK_TX);
+                    }
+                    m_tx.UpdateOnNextTip();
                     return;
                 }
 
@@ -576,6 +584,32 @@ bool EthereumSide::IsHashLockScheme() const
 {
     // TODO: -> settings or mb add as TxParameterID
     return false;
+}
+
+void EthereumSide::SetTxError(const ethereum::IBridge::Error& error, SubTxID subTxID)
+{
+    TxFailureReason previousReason;
+
+    if (m_tx.GetParameter(TxParameterID::InternalFailureReason, previousReason, subTxID))
+    {
+        return;
+    }
+
+    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
+    switch (error.m_type)
+    {
+    case ethereum::IBridge::EmptyResult:
+    case ethereum::IBridge::InvalidResultFormat:
+        m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, subTxID);
+        break;
+    case ethereum::IBridge::IOError:
+        m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapNetworkBridgeError, false, subTxID);
+        break;
+    default:
+        m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
+    }
+
+    m_tx.UpdateAsync();
 }
 
 ECC::uintBig EthereumSide::GetSwapAmount() const
