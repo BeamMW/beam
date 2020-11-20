@@ -3006,9 +3006,11 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 		ai.m_LockHeight = bic.m_Height;
 
 		ai.m_Metadata.m_Hash = md.m_Hash;
-		TemporarySwap<ByteBuffer> ts(Cast::NotConst(md).m_Value, ai.m_Metadata.m_Value);
 
-		InternalAssetAdd(ai, !bic.m_SkipDefinition);
+		{
+			TemporarySwap<ByteBuffer> ts(Cast::NotConst(md).m_Value, ai.m_Metadata.m_Value);
+			InternalAssetAdd(ai, !bic.m_SkipDefinition);
+		}
 
 		BlockInterpretCtx::Ser ser(bic);
 		ser & ai.m_ID;
@@ -3020,9 +3022,15 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 			evt.m_Height = bic.m_Height;
 			evt.m_Index = bic.m_nKrnIdx;
 
-			uint8_t dummy = 0;
-			evt.m_Body.p = &dummy;
-			evt.m_Body.n = sizeof(dummy);
+			ByteBuffer bufBlob;
+			bufBlob.resize(sizeof(AssetCreateInfoPacked) + md.m_Value.size());
+			auto* pAcip = reinterpret_cast<AssetCreateInfoPacked*>(&bufBlob.front());
+
+			memcpy(&pAcip->m_Owner, &pidOwner, sizeof(pidOwner));
+			if (!md.m_Value.empty())
+				memcpy(pAcip + 1, &md.m_Value.front(), md.m_Value.size());
+
+			evt.m_Body = bufBlob;
 
 			m_DB.AssetEvtsInsert(evt);
 		}
@@ -5598,50 +5606,29 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 	assert(h <= m_Cursor.m_ID.m_Height);
 
 	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h);
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h); // search for create/destroy
 	if (!wlk.MoveNext())
 		return 0;
 
-	if (!wlk.m_Body.n)
+	if (!wlk.m_Body.n) // last was destroy
 		return -1;
 
-	struct MyLocator1
-		:public IKrnWalker
-	{
-		Asset::Full* m_pDst;
-		uint32_t m_Target;
+	if (wlk.m_Body.n < sizeof(AssetCreateInfoPacked))
+		OnCorrupted();
 
-		virtual bool OnKrn(const TxKernel& krn_) override
-		{
-			if (m_Target == m_nKrnIdx)
-			{
-				if (TxKernel::Subtype::AssetCreate == krn_.get_Subtype())
-				{
-					const TxKernelAssetCreate& krn = Cast::Up<TxKernelAssetCreate>(krn_);
+	auto* pAcip = reinterpret_cast<const AssetCreateInfoPacked*>(wlk.m_Body.p);
+	memcpy(&ai.m_Owner, &pAcip->m_Owner, sizeof(ai.m_Owner));
 
-					m_pDst->m_Owner = krn.m_Owner;
-					m_pDst->m_Metadata.m_Value.swap(Cast::NotConst(krn.m_MetaData.m_Value));
-					m_pDst->m_Metadata.m_Hash = krn.m_MetaData.m_Hash;
-				}
-				else
-				{
-					// Was created by the contract. This is a workaround
-					m_pDst->m_Owner = Zero;
-					m_pDst->m_Metadata.m_Value.clear();
-					m_pDst->m_Metadata.m_Hash = Zero;
-				}
-			}
-			return true;
-		}
+	ai.m_Metadata.m_Value.resize(wlk.m_Body.n - sizeof(AssetCreateInfoPacked));
+	if (!ai.m_Metadata.m_Value.empty())
+		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
+	ai.m_Metadata.UpdateHash();
 
-	} loc;
-	loc.m_pDst = &ai;
-	loc.m_Target = wlk.m_Index;
-
-	EnumKernels(loc, wlk.m_Height);
+	typedef std::pair<Height, uint32_t> HeightAndIndex;
+	HeightAndIndex hiCreate(wlk.m_Height, wlk.m_Index);
 
 	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);
-	if (wlk.MoveNext())
+	if (wlk.MoveNext() && (HeightAndIndex(wlk.m_Height, wlk.m_Index) > hiCreate))
 	{
 		AssetDataPacked adp;
 		adp.set_Strict(wlk.m_Body);
