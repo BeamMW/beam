@@ -338,15 +338,11 @@ namespace beam::wallet
         {
             SetState(State::KernelConfirmation);
             ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
-            LOG_INFO () << GetTxID() << " In tx confirmation";
             return;
         }
 
-        LOG_INFO () << GetTxID() << " Completing coins";
         SetCompletedTxCoinStatuses(hProof);
-        LOG_INFO () << GetTxID() << " Completing tx";
         CompleteTx();
-        LOG_INFO () << GetTxID() << " Completed";
     }
 
     SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(Asset::ID assetId)
