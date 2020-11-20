@@ -17,6 +17,11 @@
 
 namespace beam::wallet
 {
+bool IsEthToken(AtomicSwapCoin swapCoin)
+{
+    return std::count(std::begin(kEthTokens), std::end(kEthTokens), swapCoin);
+}
+
 AtomicSwapCoin from_string(const std::string& value)
 {
     if (value == "btc")

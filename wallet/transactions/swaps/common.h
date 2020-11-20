@@ -59,6 +59,10 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Unknown
 };
 
+const AtomicSwapCoin kEthTokens[] = { AtomicSwapCoin::Dai, AtomicSwapCoin::Tether, AtomicSwapCoin::WBTC };
+
+bool IsEthToken(AtomicSwapCoin swapCoin);
+
 enum class SwapOfferStatus : uint32_t
 {
     Pending,

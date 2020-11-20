@@ -21,19 +21,24 @@ bool Settings::IsInitialized() const
     return m_secretWords.size() == 12 && !m_address.empty() && (!m_swapContractAddress.empty() || !m_swapHashlockContractAddress.empty());
 }
 
-bool Settings::IsDaiInitialized() const
+bool Settings::IsTokenInitialized(beam::wallet::AtomicSwapCoin swapCoin) const
 {
-    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_daiContractAddress.empty();
-}
-
-bool Settings::IsTetherInitialized() const
-{
-    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_usdtContractAddress.empty();
-}
-
-bool Settings::IsWBTCInitialized() const
-{
-    return IsInitialized() && !m_erc20SwapContractAddress.empty() && !m_wbtcContractAddress.empty();
+    if (IsInitialized() && !m_erc20SwapContractAddress.empty())
+    {
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Dai:
+            return !m_daiContractAddress.empty();
+        case beam::wallet::AtomicSwapCoin::Tether:
+            return !m_usdtContractAddress.empty();
+        case beam::wallet::AtomicSwapCoin::WBTC:
+            return !m_wbtcContractAddress.empty();
+        default:
+            assert(false && "Unsupported token!");
+            break;
+        }
+    }
+    return false;
 }
 
 bool Settings::IsActivated() const

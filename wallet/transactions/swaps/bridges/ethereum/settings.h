@@ -46,9 +46,7 @@ struct Settings
     std::string m_wbtcContractAddress;
 
     bool IsInitialized() const;
-    bool IsDaiInitialized() const;
-    bool IsTetherInitialized() const;
-    bool IsWBTCInitialized() const;
+    bool IsTokenInitialized(beam::wallet::AtomicSwapCoin swapCoin) const;
     bool IsActivated() const;
 
     uint16_t GetTxMinConfirmations() const;

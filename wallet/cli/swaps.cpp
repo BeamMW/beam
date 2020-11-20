@@ -417,7 +417,8 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
         }
     }
 
-    if (swapCoin == wallet::AtomicSwapCoin::Dai && !settings.IsDaiInitialized())
+    // TODO roman.strilets need to unit this code
+    if (swapCoin == wallet::AtomicSwapCoin::Dai && !settings.IsTokenInitialized(swapCoin))
     {
         if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
         {
@@ -430,7 +431,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
         }
     }
 
-    if (swapCoin == wallet::AtomicSwapCoin::Tether && !settings.IsTetherInitialized())
+    if (swapCoin == wallet::AtomicSwapCoin::Tether && !settings.IsTokenInitialized(swapCoin))
     {
         if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
         {
@@ -443,7 +444,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
         }
     }
 
-    if (swapCoin == wallet::AtomicSwapCoin::WBTC && !settings.IsWBTCInitialized())
+    if (swapCoin == wallet::AtomicSwapCoin::WBTC && !settings.IsTokenInitialized(swapCoin))
     {
         if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
         {
