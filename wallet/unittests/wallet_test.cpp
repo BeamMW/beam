@@ -63,13 +63,11 @@ namespace
     struct AtomicSwapProvider : IAtomicSwapProvider
     {
     public:
-        Amount getBtcAvailable() const override { throw std::runtime_error("not impl"); }
-        Amount getLtcAvailable() const override { throw std::runtime_error("not impl"); }
-        Amount getQtumAvailable() const override { throw std::runtime_error("not impl"); }
+        Amount getBalance(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         const SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
-        bool isBtcConnected() const override { throw std::runtime_error("not impl"); }
-        bool isLtcConnected() const override { throw std::runtime_error("not impl"); }
-        bool isQtumConnected() const override { throw std::runtime_error("not impl"); }
+        bool isConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
 
     struct WalletData : WalletApiHandler::IWalletData
@@ -82,14 +80,14 @@ namespace
 
         virtual ~WalletData() {}
 
-        IWalletDB::Ptr getWalletDB() override
+        IWalletDB::Ptr getWalletDBPtr() override
         {
             return m_walletDB;
         }
 
-        Wallet& getWallet() override
+        Wallet::Ptr getWalletPtr() override
         {
-            return m_wallet;
+            throw std::runtime_error("not impl");
         }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -198,7 +196,7 @@ namespace
         AtomicSwapProvider asp;
         WalletData wd(sender.m_WalletDB, sender.m_Wallet, asp);
         WalletApi::ACL acl;
-        ApiHandler handler(wd, acl, false);
+        ApiHandler handler(wd, acl);
         TxList message;
         message.count = 10;
         message.skip = 30;

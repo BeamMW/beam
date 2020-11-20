@@ -949,7 +949,7 @@ namespace beam::wallet
             }
 
             Block::SystemState::ID stateID = {};
-            _walletData.getWalletDB()->getSystemStateID(stateID);
+            _walletData.getWalletDBPtr()->getSystemStateID(stateID);
             res.resultList.reserve(data.count);
             int offset = 0;
             int counter = 0;
