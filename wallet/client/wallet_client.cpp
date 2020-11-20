@@ -1314,6 +1314,7 @@ namespace beam::wallet
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
+        status.shieldedTotalCount = m_walletDB->get_ShieldedOuts();
         status.update.lastTime = m_walletDB->getLastUpdateTime();
 
         return status;
