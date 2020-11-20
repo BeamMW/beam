@@ -349,7 +349,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 24;
+	const uint64_t nVersionTop = 25;
 
 
 	Transaction t(*this);
@@ -386,7 +386,6 @@ void NodeDB::Open(const char* szPath)
 
 		case 21:
 			CreateTables21();
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate21);
 			// no break;
 
 		case 22:
@@ -397,6 +396,10 @@ void NodeDB::Open(const char* szPath)
 			CreateTables23();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
+			// no break;
+
+		case 24:
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate24);
 			// no break;
 
 		case nVersionTop:
@@ -2849,6 +2852,12 @@ void NodeDB::ContractDataDel(const Blob& key)
 
 	rs.Step();
 	TestChanged1Row();
+}
+
+void NodeDB::ContractDataDelAll()
+{
+	Recordset rs(*this, Query::ContractDataDelAll, "DELETE FROM " TblContracts);
+	rs.Step();
 }
 
 void NodeDB::ContractDataEnum(WalkerContractData& wlk, const Blob& keyMin, const Blob& keyMax)

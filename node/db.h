@@ -66,7 +66,7 @@ public:
 	};
 
 	struct Flags1 {
-		static const uint64_t PendingMigrate21 = 1;
+		static const uint64_t PendingMigrate24 = 1;
 	};
 
 	struct Query
@@ -186,6 +186,7 @@ public:
 			ContractDataUpdate,
 			ContractDataDel,
 			ContractDataEnum,
+			ContractDataDelAll,
 
 			Dbg0,
 			Dbg1,
@@ -637,6 +638,7 @@ public:
 	void ContractDataInsert(const Blob& key, const Blob&);
 	void ContractDataUpdate(const Blob& key, const Blob&);
 	void ContractDataDel(const Blob& key);
+	void ContractDataDelAll();
 
 	struct WalkerContractData
 	{
