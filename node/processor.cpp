@@ -172,11 +172,11 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Horizon.Normalize();
 
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
-	if (NodeDB::Flags1::PendingMigrate21 & nFlags1)
+	if (NodeDB::Flags1::PendingMigrate24 & nFlags1)
 	{
-		Migrate21();
+		Migrate24();
 
-		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingMigrate21);
+		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingMigrate24);
 		CommitDB();
 	}
 
@@ -3975,12 +3975,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
 {
-	return m_Proc.m_Cursor.m_Full.m_Height;
+	return m_Bic.m_Height - 1;
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemState::Full& s)
 {
-	if (s.m_Height > m_Proc.m_Cursor.m_Full.m_Height)
+	if (s.m_Height > m_Bic.m_Height - 1)
 		return false;
 
 	if (s.m_Height == m_Proc.m_Cursor.m_Full.m_Height)
@@ -5549,7 +5549,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 	e.m_State = s;
 }
 
-void NodeProcessor::Migrate21()
+void NodeProcessor::Migrate24()
 {
 	LOG_INFO() << "Migrating asset tables...";
 
@@ -5557,6 +5557,8 @@ void NodeProcessor::Migrate21()
 
 	while (m_Mmr.m_Assets.m_Count)
 		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count), true);
+
+	m_DB.ContractDataDelAll();
 
 	struct KrnWalkerAssetsMigrate
 		:public IKrnWalker
@@ -5573,6 +5575,8 @@ void NodeProcessor::Migrate21()
 			case TxKernel::Subtype::AssetCreate:
 			case TxKernel::Subtype::AssetEmit:
 			case TxKernel::Subtype::AssetDestroy:
+			case TxKernel::Subtype::ContractCreate:
+			case TxKernel::Subtype::ContractInvoke:
 				break;
 			default:
 				return true;
@@ -5590,6 +5594,7 @@ void NodeProcessor::Migrate21()
 
 			bic.m_Rollback.swap(m_Rollback);
 			m_Rollback.clear();
+			m_nKrnIdx = bic.m_nKrnIdx;
 
 			return true;
 		}

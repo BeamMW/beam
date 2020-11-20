@@ -51,7 +51,7 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
-	void Migrate21();
+	void Migrate24();
 	void InitializeUtxos();
 	bool TestDefinition();
 	void TestDefinitionStrict();
