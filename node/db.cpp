@@ -16,6 +16,7 @@
 #include <algorithm> // sort
 #include "../core/peer_manager.h"
 #include "../utility/logger.h"
+#include <algorithm>
 
 namespace beam {
 

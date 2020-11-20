@@ -856,11 +856,11 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetWalletStatus& data)
     {
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-        WalletStatus::Response response;
+        GetWalletStatus::Response response;
         auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB) {
             return doError(id, ApiError::NotOpenedError);
@@ -948,59 +948,66 @@ namespace beam::wallet
                 return doError(id, ApiError::NotOpenedError);
             }
 
-            auto txList = walletDB->getTxHistory(TxType::Simple);
-
-            if (data.withAssets)
-            {
-                auto txIssue = walletDB->getTxHistory(TxType::AssetIssue);
-                auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
-                auto txInfo = walletDB->getTxHistory(TxType::AssetInfo);
-
-                txList.insert(txList.end(), txIssue.begin(), txIssue.end());
-                txList.insert(txList.end(), txConsume.begin(), txConsume.end());
-                txList.insert(txList.end(), txInfo.begin(), txInfo.end());
-            }
-
-            std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
-                return a.m_minHeight > b.m_minHeight;
-             });
-
             Block::SystemState::ID stateID = {};
-            walletDB->getSystemStateID(stateID);
-
-            for (const auto& tx : txList)
+            _walletData.getWalletDB()->getSystemStateID(stateID);
+            res.resultList.reserve(data.count);
+            int offset = 0;
+            int counter = 0;
+            walletDB->visitTx([&](TxType type, TxStatus status)
             {
-                if (!data.withAssets && tx.m_assetId != Asset::s_InvalidID)
+                if (type != TxType::Simple
+                    && type != TxType::AssetIssue
+                    && type != TxType::AssetConsume
+                    && type != TxType::AssetInfo)
                 {
-                    continue;
+                    return false;
+                }
+
+                if (data.filter.status && status != *data.filter.status)
+                {
+                    return false;
+                }
+
+                ++offset;
+                if (offset <= data.skip)
+                {
+                    return false;
+                }
+
+                ++counter;
+                return data.count == 0 || counter <= data.count;
+            }, 
+            [&](const auto& tx)
+            {
+                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
+                {
+                    return;
                 }
 
                 if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
                 {
-                    continue;
-                }
-
-                if (data.filter.status && tx.m_status != *data.filter.status)
-                {
-                    continue;
+                    return;
                 }
 
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
                 if (data.filter.height && height != *data.filter.height)
                 {
-                    continue;
+                    return;
                 }
 
-                Status::Response item;
+                Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-                res.resultList.push_back(item);
-            }
+            });
+
+            std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
+            {
+                return a.tx.m_minHeight > b.tx.m_minHeight;
+            });
         }
 
-        doPagination(data.skip, data.count, res.resultList);
         doResponse(id, res);
     }
 

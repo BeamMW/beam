@@ -1273,9 +1273,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, txList);
     }
 
-    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const json& params)
+    void WalletApi::onGetWalletStatusMessage(const JsonRpcId& id, const json& params)
     {
-        WalletStatus walletStatus;
+        GetWalletStatus walletStatus;
         walletStatus.withAssets = readAssetsParameter(id, params);
         getHandler().onMessage(id, walletStatus);
     }
@@ -1765,7 +1765,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const WalletStatus::Response& res, json& msg)
+    void WalletApi::getResponse(const JsonRpcId& id, const GetWalletStatus::Response& res, json& msg)
     {
         if (res.totals)
         {
