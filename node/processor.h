@@ -524,6 +524,11 @@ public:
 		void set_Strict(const Blob&);
 	};
 
+	struct AssetCreateInfoPacked {
+		PeerID m_Owner;
+		// followed by metadata
+	};
+
 #pragma pack (pop)
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
