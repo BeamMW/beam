@@ -71,13 +71,14 @@ void OnError(const char* sz)
 
 #pragma pack (push, 1)
 
+// TODO: Move to the common.h
 struct KeyPrefix
 {
     ContractID m_Cid;
-    uint8_t m_Tag;
+    uint8_t m_Tag; // used to differentiate between keys used by the virtual machine and those used by the contract
 };
 
-struct KeyRaw
+struct KeyRaw // Key of specific player 
 {
     KeyPrefix m_Prefix;
     PubKey m_Player;
@@ -91,7 +92,7 @@ struct KeyGlobal
 
 struct DealerKey
 {
-#define DEALER_SEED "roulette-dealyer-key"
+#define DEALER_SEED "roulette-dealyer-key" // used to differntiate between public keys for different contracts
     ShaderID m_SID;
     uint8_t m_pSeed[sizeof(DEALER_SEED)];
 
@@ -103,7 +104,7 @@ struct DealerKey
 
     void DerivePk(PubKey& pk) const
     {
-        Env::DerivePk(pk, this, sizeof(*this));
+        Env::DerivePk(pk, this, sizeof(*this)); // create public key for the user
     }
 };
 
@@ -116,13 +117,15 @@ struct StateInfoPlus
     bool m_RoundOver;
     bool m_isDealer;
 
-    bool Init(const ContractID& cid)
+    bool Init(const ContractID& cid) // Reads current state from a specific contract id
     {
         KeyGlobal k;
         k.m_Prefix.m_Cid = cid;
         k.m_Prefix.m_Tag = 0;
 
-        Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
+        // Read contract variable from the node
+        // TODO Add syntactic sugar for this case?
+        Env::VarsEnum(&k, sizeof(k), &k, sizeof(k)); // read a range of variables from k to k (one variable)
 
         const void* pK;
         const Roulette::State* pVal;
@@ -138,24 +141,26 @@ struct StateInfoPlus
 
         DealerKey dk;
         PubKey pk;
-        dk.DerivePk(pk);
+        dk.DerivePk(pk); // create public key from dealer key seed
+
         m_isDealer = !Env::Memcmp(&pk, &m_State.m_Dealer, sizeof(pk));
         m_RoundOver = (m_State.m_iWinner < m_State.s_Sectors);
 
         return true;
     }
 
+    // Check status of the bet
     const char* get_BidStatus(const Roulette::BidInfo& bi, Amount& nWin) const
     {
         nWin = 0;
 
-        if (m_State.m_iRound != bi.m_iRound)
+        if (m_State.m_iRound != bi.m_iRound) // there is a bet for an old round
             return "not-actual";
 
         if (!m_RoundOver)
             return "in-progress";
 
-        if (bi.m_iSector == m_State.m_iWinner)
+        if (bi.m_iSector == m_State.m_iWinner) // exact match, big win!
         {
             nWin = Roulette::State::s_PrizeSector;
             return "jack-pot";
@@ -171,6 +176,9 @@ struct StateInfoPlus
     }
 };
 
+
+// This function assumes that ANOTHER function that does vars enum was called before
+// Students, never ever write code like this ))
 void EnumAndDump(const StateInfoPlus& sip)
 {
     if (sip.m_RoundOver)
@@ -204,6 +212,7 @@ void EnumAndDump(const StateInfoPlus& sip)
     }
 }
 
+// 
 void EnumBid(const PubKey& pubKey, const ContractID& cid)
 {
     KeyRaw k;
@@ -271,11 +280,15 @@ ON_METHOD(manager, create)
     DealerKey dk;
     dk.DerivePk(pars.m_Dealer);
 
+    // The following structure describes the input or output of the transaction
+    // Basically whether the caller loses or gains funds as a result of this transaction
     FundsChange fc;
-    fc.m_Aid = 0;
-    fc.m_Amount = g_DepositCA;
-    fc.m_Consume = 1;
+    fc.m_Aid = 0; // asset id
+    fc.m_Amount = g_DepositCA; // amount of the input or output
+    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
+    // Create kernel with all the required parameters
+    // 
     Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, 2000000U);
 }
 
@@ -292,6 +305,15 @@ ON_METHOD(manager, destroy)
     fc.m_Amount = g_DepositCA;
     fc.m_Consume = 0;
 
+    // contract id
+    // number of called method (1 is the destructor)
+    // arguments buffer
+    // argument pointer size
+    // funds change
+    // number of funds changes
+    // signatures
+    // number of signatures
+    // transaction fees
     Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
 }
 
@@ -410,7 +432,7 @@ ON_METHOD(player, take)
         return OnError("no bid");
 
     FundsChange fc;
-    fc.m_Aid = sip.m_State.m_Aid;
+    fc.m_Aid = sip.m_State.m_Aid; // receive funds of a specific asset type
 
     sip.get_BidStatus(*pVal, fc.m_Amount);
 

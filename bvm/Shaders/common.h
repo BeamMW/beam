@@ -75,6 +75,7 @@ namespace Env {
 #undef PAR_DECL
     } // extern "C"
 
+    // Template wrapper that returns true if the size of loaded variables matches the provided parameter and false otherwise
     template <typename TKey, typename TVal>
     inline bool LoadVar_T(const TKey& key, TVal& val)
     {
