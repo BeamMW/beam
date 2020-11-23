@@ -71,24 +71,7 @@ void OnError(const char* sz)
 
 #pragma pack (push, 1)
 
-// TODO: Move to the common.h
-struct KeyPrefix
-{
-    ContractID m_Cid;
-    uint8_t m_Tag; // used to differentiate between keys used by the virtual machine and those used by the contract
-};
-
-struct KeyRaw // Key of specific player 
-{
-    KeyPrefix m_Prefix;
-    PubKey m_Player;
-};
-
-struct KeyGlobal
-{
-    KeyPrefix m_Prefix;
-    uint8_t m_Val = 0;
-};
+typedef Env::Key_T<PubKey> KeyPlayer; // Key of specific player 
 
 struct DealerKey
 {
@@ -119,25 +102,18 @@ struct StateInfoPlus
 
     bool Init(const ContractID& cid) // Reads current state from a specific contract id
     {
-        KeyGlobal k;
+        Env::Key_T<uint8_t> k;
         k.m_Prefix.m_Cid = cid;
-        k.m_Prefix.m_Tag = 0;
+        k.m_KeyInContract = 0;
 
-        // Read contract variable from the node
-        // TODO Add syntactic sugar for this case?
-        Env::VarsEnum(&k, sizeof(k), &k, sizeof(k)); // read a range of variables from k to k (one variable)
-
-        const void* pK;
-        const Roulette::State* pVal;
-
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext(&pK, &nKey, (const void**) &pVal, &nVal) || (sizeof(*pVal) != nVal))
+        auto* pState = Env::VarRead_T<Roulette::State>(k);
+        if (!pState)
         {
             OnError("failed to read");
             return false;
         }
 
-        m_State = *pVal;
+        m_State = *pState;
 
         DealerKey dk;
         PubKey pk;
@@ -188,39 +164,33 @@ void EnumAndDump(const StateInfoPlus& sip)
 
     while (true)
     {
-        const KeyRaw* pRawKey;
+        const KeyPlayer* pPlayer;
         const Roulette::BidInfo* pVal;
 
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
+        if (!Env::VarsMoveNext_T(pPlayer, pVal))
             break;
 
-        if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
-        {
-            Env::DocGroup gr("");
+        Env::DocGroup gr("");
 
-            Env::DocAddBlob_T("Player", pRawKey->m_Player);
-            Env::DocAddNum("Sector", pVal->m_iSector);
-            Env::DocAddNum("iRound", pVal->m_iRound);
+        Env::DocAddBlob_T("Player", pPlayer->m_KeyInContract);
+        Env::DocAddNum("Sector", pVal->m_iSector);
+        Env::DocAddNum("iRound", pVal->m_iRound);
 
-            Amount nWin;
-            Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
+        Amount nWin;
+        Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
 
-            if (nWin)
-                Env::DocAddNum("Prize", nWin);
-        }
+        if (nWin)
+            Env::DocAddNum("Prize", nWin);
     }
 }
 
 // 
 void EnumBid(const PubKey& pubKey, const ContractID& cid)
 {
-    KeyRaw k;
+    KeyPlayer k;
     k.m_Prefix.m_Cid = cid;
-    k.m_Prefix.m_Tag = 0;
-    k.m_Player = pubKey;
-
-    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
+    k.m_KeyInContract = pubKey;
+    Env::VarsEnum_T(k, k);
 }
 
 void DumpBid(const PubKey& pubKey, const ContractID& cid)
@@ -235,39 +205,28 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
 
 ON_METHOD(manager, view)
 {
-
-#pragma pack (push, 1)
-    struct Key {
-        KeyPrefix m_Prefix;
-        ContractID m_Cid;
-    };
-#pragma pack (pop)
-
-    Key k0, k1;
+    typedef Env::Key_T<ContractID> KeyContract;
+    KeyContract k0, k1;
     k0.m_Prefix.m_Cid = Roulette::s_SID;
     k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    k1.m_Prefix = k0.m_Prefix;
+    Env::Memcpy(&k1.m_Prefix, &k0.m_Prefix, sizeof(k1.m_Prefix));
 
-    Env::Memset(&k0.m_Cid, 0, sizeof(k0.m_Cid));
-    Env::Memset(&k1.m_Cid, 0xff, sizeof(k1.m_Cid));
+    Env::Memset(&k0.m_KeyInContract, 0, sizeof(k0.m_KeyInContract));
+    Env::Memset(&k1.m_KeyInContract, 0xff, sizeof(k1.m_KeyInContract));
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
+    Env::VarsEnum_T(k0, k1);
 
     Env::DocArray gr("Cids");
 
     while (true)
     {
-        const Key* pKey;
-        const void* pVal;
-        uint32_t nKey, nVal;
+        const KeyContract* pKey;
+        const uint8_t* pVal;
 
-        if (!Env::VarsMoveNext((const void**) &pKey, &nKey, &pVal, &nVal))
+        if (!Env::VarsMoveNext_T(pKey, pVal))
             break;
 
-        if ((sizeof(Key) != nKey) || (1 != nVal))
-            continue;
-
-        Env::DocAddBlob_T("", pKey->m_Cid);
+        Env::DocAddBlob_T("", pKey->m_KeyInContract);
     }
 }
 
@@ -365,13 +324,12 @@ ON_METHOD(manager, view_bids)
     if (!sip.Init(cid))
         return;
 
-    KeyPrefix k0, k1;
+    Env::KeyPrefix k0, k1;
     k0.m_Cid = cid;
-    k0.m_Tag = 0;
     k1.m_Cid = cid;
     k1.m_Tag = 1;
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
+    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
     EnumAndDump(sip);
 }
 
@@ -422,13 +380,10 @@ ON_METHOD(player, take)
 
     EnumBid(arg.m_Player, cid);
 
-    const KeyRaw* pRawKey;
+    const KeyPlayer* pPlayer;
     const Roulette::BidInfo* pVal;
 
-    uint32_t nKey, nVal;
-    if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal) ||
-        (sizeof(*pRawKey) != nKey) ||
-        (sizeof(*pVal) != nVal))
+    if (!Env::VarsMoveNext_T(pPlayer, pVal))
         return OnError("no bid");
 
     FundsChange fc;

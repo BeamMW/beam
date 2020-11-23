@@ -163,6 +163,60 @@ namespace Env {
         return DocGetBlobEx(szID, &val, sizeof(val));
     }
 
+    // variable enum/read wrappers
+#pragma pack (push, 1)
+    struct KeyPrefix
+    {
+        ContractID m_Cid;
+        uint8_t m_Tag = 0; // used to differentiate between keys used by the virtual machine and those used by the contract
+    };
+
+    template <typename T>
+    struct Key_T
+    {
+        KeyPrefix m_Prefix;
+        T m_KeyInContract;
+    };
+#pragma pack (pop)
+
+    template <typename TKey, typename TValue>
+    inline bool VarsMoveNext_T(const TKey*& pKey, const TValue*& pValue)
+    {
+        while (true)
+        {
+            uint32_t nKey, nVal;
+            if (!VarsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal))
+                return false;
+
+            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
+                break;
+        }
+
+        return true;
+    }
+
+    template <typename TKey0, typename TKey1>
+    inline void VarsEnum_T(const TKey0& key0, const TKey1& key1)
+    {
+        VarsEnum(&key0, sizeof(key0), &key1, sizeof(key1));
+    }
+
+    template <typename TKey, typename TValue>
+    inline bool VarRead_T(const TKey& key, const TValue*& pValue)
+    {
+        VarsEnum_T(key, key);
+
+        const TKey* pKey;
+        return VarsMoveNext_T(pKey, pValue);
+    }
+
+    template <typename TValue, typename TKey>
+    inline const TValue* VarRead_T(const TKey& key)
+    {
+        const TValue* pValue;
+        return VarRead_T(key, pValue) ? pValue : nullptr;
+
+    }
 
 } // namespace Env
 
