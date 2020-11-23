@@ -94,11 +94,11 @@ void testBalance()
     io::Reactor::Scope scope(*mainReactor);
     ethereum::EthereumBridge bridge(*mainReactor, *provider);
 
-    //std::cout << bridge.generateEthAddress() << std::endl;
-
-    bridge.getBalance([mainReactor](const ethereum::IBridge::Error&, ECC::uintBig balance)
+    bridge.getBalance([mainReactor](const ethereum::IBridge::Error&, const std::string& balance)
     {
-        std::cout << balance << std::endl;
+        boost::multiprecision::uint256_t tmp(balance);
+        tmp /= ethereum::GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin::Ethereum);
+        std::cout << tmp.str() << std::endl;
         mainReactor->stop();
     });
 
