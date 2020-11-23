@@ -81,8 +81,8 @@ struct DealerKey
 
     DealerKey()
     {
-        Env::Memcpy(&m_SID, &Roulette::s_SID, sizeof(Roulette::s_SID));
-        Env::Memcpy(m_pSeed, DEALER_SEED, sizeof(DEALER_SEED));
+        Utils::Copy(m_SID, Roulette::s_SID);
+        Utils::Copy(m_pSeed, DEALER_SEED);
     }
 
     void DerivePk(PubKey& pk) const
@@ -119,7 +119,7 @@ struct StateInfoPlus
         PubKey pk;
         dk.DerivePk(pk); // create public key from dealer key seed
 
-        m_isDealer = !Env::Memcmp(&pk, &m_State.m_Dealer, sizeof(pk));
+        m_isDealer = !Utils::Cmp(pk, m_State.m_Dealer);
         m_RoundOver = (m_State.m_iWinner < m_State.s_Sectors);
 
         return true;
@@ -209,10 +209,10 @@ ON_METHOD(manager, view)
     KeyContract k0, k1;
     k0.m_Prefix.m_Cid = Roulette::s_SID;
     k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    Env::Memcpy(&k1.m_Prefix, &k0.m_Prefix, sizeof(k1.m_Prefix));
+    Utils::Copy(k1.m_Prefix, k0.m_Prefix);
 
-    Env::Memset(&k0.m_KeyInContract, 0, sizeof(k0.m_KeyInContract));
-    Env::Memset(&k1.m_KeyInContract, 0xff, sizeof(k1.m_KeyInContract));
+    Utils::SetObject(k0.m_KeyInContract, 0);
+    Utils::SetObject(k1.m_KeyInContract, 0xff);
 
     Env::VarsEnum_T(k0, k1);
 

@@ -223,8 +223,27 @@ namespace Env {
 namespace Utils {
 
     template <typename T>
+    inline void SetObject(T& x, uint8_t nFill) {
+        Env::Memset(&x, nFill, sizeof(x));
+    }
+
+    template <typename T>
     inline void ZeroObject(T& x) {
-        Env::Memset(&x, 0, sizeof(x));
+        SetObject(x, 0);
+    }
+
+    template <typename TDst, typename TSrc>
+    inline void Copy(TDst& dst, const TSrc& src)
+    {
+        static_assert(sizeof(dst) == sizeof(src), "operands must have equal size");
+        Env::Memcpy(&dst, &src, sizeof(dst));
+    }
+
+    template <typename TSrc0, typename TSrc1>
+    inline int32_t Cmp(const TSrc0& src0, const TSrc1& src1)
+    {
+        static_assert(sizeof(src0) == sizeof(src1), "operands must have equal size");
+        return Env::Memcmp(&src0, &src1, sizeof(src0));
     }
 
 } // namespace Utils
