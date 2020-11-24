@@ -279,9 +279,15 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
         {
             try
             {
-                // TODO roman.strilets : process this situation!!!!!!
-                assert(std::stoull(result["status"].get<std::string>(), nullptr, 16) == 1);
-                txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
+                if (std::stoull(result["status"].get<std::string>(), nullptr, 16) == 0)
+                {
+                    tmp.m_type = IBridge::EthError;
+                    tmp.m_message = "Status transaction is 0";
+                }
+                else
+                {
+                    txBlockNumber = std::stoull(result["blockNumber"].get<std::string>(), nullptr, 16);
+                }
             }
             catch (const std::exception& ex)
             {

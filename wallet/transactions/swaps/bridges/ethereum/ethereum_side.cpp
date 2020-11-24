@@ -370,7 +370,13 @@ bool EthereumSide::SendLockTx()
                 if (error.m_type != ethereum::IBridge::None)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to register ERC20::approve!";
-                    // TODO: handle error
+
+                    if (error.m_type == ethereum::IBridge::EthError ||
+                        error.m_type == ethereum::IBridge::InvalidResultFormat)
+                    {
+                        SetTxError(error, SubTxIndex::LOCK_TX);
+                    }
+
                     m_tx.UpdateOnNextTip();
                     return;
                 }
