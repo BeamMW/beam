@@ -62,9 +62,11 @@ namespace
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
+        auto shieldedFee = GetShieldedFee(txDescription);
+
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
-        setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
+        setLongField(env, TxDescriptionClass, tx, "fee", shieldedFee);
         setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
 
         setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
@@ -81,9 +83,44 @@ namespace
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
 
-        auto vouchers = txDescription.GetParameter<ShieldedVoucherList>(wallet::TxParameterID::ShieldedVoucherList);
-        setBooleanField(env, TxDescriptionClass, tx, "isOffline", (vouchers && !vouchers->empty()));
-        setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", txDescription.m_txType == wallet::TxType::PushTransaction);
+        if(txDescription.m_txType == wallet::TxType::PushTransaction) {
+            auto token = txDescription.getToken();
+            if (token.size() > 0) { //send
+                auto p = wallet::ParseParameters(token);
+                
+                auto voucher = p->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
+                setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", !!voucher);
+
+                auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+                if (vouchers && !vouchers->empty())
+                {
+                    setBooleanField(env, TxDescriptionClass, tx, "isShielded", true);
+                }
+                else
+                {
+                    auto gen = p->GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+                    if (gen)
+                    {
+                         setBooleanField(env, TxDescriptionClass, tx, "isPublicOffline", true);
+                    }
+                }
+            }
+            else { //recieved
+                auto storedType = txDescription.GetParameter<TxAddressType>(TxParameterID::AddressType);
+                if (storedType)
+                {
+                    if(storedType == TxAddressType::PublicOffline) {
+                         setBooleanField(env, TxDescriptionClass, tx, "isPublicOffline", true);
+                    }
+                    else if(storedType == TxAddressType::MaxPrivacy) {
+                         setBooleanField(env, TxDescriptionClass, tx, "isMaxPrivacy", true);
+                    }
+                    else if(storedType == TxAddressType::Offline) {
+                           setBooleanField(env, TxDescriptionClass, tx, "isShielded", true);
+                    }
+                }
+            }
+        }
 
         return tx;
     }
@@ -363,6 +400,8 @@ void WalletModel::onStatus(const WalletStatus& status)
     setLongField(env, WalletStatusClass, walletStatus, "sending", assetStatus.sending);
     setLongField(env, WalletStatusClass, walletStatus, "maturing", assetStatus.maturing);
     setLongField(env, WalletStatusClass, walletStatus, "shielded", assetStatus.shielded);
+    setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", assetStatus.maturingMP);
+
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
@@ -451,12 +490,6 @@ void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectio
 void WalletModel::onNeedExtractShieldedCoins(bool val)
 {
     LOG_DEBUG() << "onNeedExtractShieldedCoins(" << val <<")";
-
-    // JNIEnv* env = Android_JNI_getEnv();
-
-    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNeedExtractShieldedCoins", "(J)V");
-
-    // env->CallStaticVoidMethod(WalletListenerClass, callback, val);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
@@ -760,6 +793,20 @@ void WalletModel::callMyFunction()
 void WalletModel::doFunction(const std::function<void()>& func)
 {
     func();  
+}
+
+void WalletModel::onPublicAddress(const std::string& publicAddr)
+{
+    LOG_DEBUG() << "onPublicAddress()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPublicAddress", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(publicAddr.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
 }
 
 

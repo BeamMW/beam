@@ -65,4 +65,5 @@ private:
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
     void onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) override;
+    void onPublicAddress(const std::string& publicAddr) override;
 };
