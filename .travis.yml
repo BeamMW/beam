@@ -503,7 +503,7 @@ before_script:
 
 after_success:
   # deploy using ftp server
-  - BEAM_ROOT_DIR = $HOME/build/BeamMW/beam
+  - BEAM_ROOT_DIR=$HOME/build/BeamMW/beam
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
   - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
