@@ -69,7 +69,7 @@ void SwapEthClient::requestBalance()
         // TODO roman.strilets need to check this
         for (auto token : beam::wallet::kEthTokens)
         {
-            if (GetSettings().IsTokenInitialized(token))
+            if (GetSettings().IsTokenActivated(token))
             {
                 GetAsync()->GetBalance(token);
             }

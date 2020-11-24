@@ -41,6 +41,26 @@ bool Settings::IsTokenInitialized(beam::wallet::AtomicSwapCoin swapCoin) const
     return false;
 }
 
+bool Settings::IsTokenActivated(beam::wallet::AtomicSwapCoin swapCoin) const
+{
+    if (IsTokenInitialized(swapCoin))
+    {
+        switch (swapCoin)
+        {
+        case beam::wallet::AtomicSwapCoin::Dai:
+            return m_shouldConnectToDai;
+        case beam::wallet::AtomicSwapCoin::Tether:
+            return m_shouldConnectToUsdt;
+        case beam::wallet::AtomicSwapCoin::WBTC:
+            return m_shouldConnectToWBTC;
+        default:
+            assert(false && "Unsupported token!");
+            break;
+        }
+    }
+    return false;
+}
+
 bool Settings::IsActivated() const
 {
     return m_shouldConnect && IsInitialized();

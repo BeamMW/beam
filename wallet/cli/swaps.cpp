@@ -525,7 +525,24 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 
     if (vm.count(cli::SHOULD_CONNECT))
     {
-        settings.m_shouldConnect = vm[cli::SHOULD_CONNECT].as<bool>();
+        switch (swapCoin)
+        {        
+        case beam::wallet::AtomicSwapCoin::Ethereum:
+            settings.m_shouldConnect = vm[cli::SHOULD_CONNECT].as<bool>();
+            break;
+        case beam::wallet::AtomicSwapCoin::Dai:
+            settings.m_shouldConnectToDai = vm[cli::SHOULD_CONNECT].as<bool>();
+            break;
+        case beam::wallet::AtomicSwapCoin::Tether:
+            settings.m_shouldConnectToUsdt = vm[cli::SHOULD_CONNECT].as<bool>();
+            break;
+        case beam::wallet::AtomicSwapCoin::WBTC:
+            settings.m_shouldConnectToWBTC = vm[cli::SHOULD_CONNECT].as<bool>();
+            break;
+        default:
+            assert(false && "unsupported coin");
+            break;
+        }
         isChanged = true;
     }
 
@@ -1077,6 +1094,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam side:    " << *isBeamSide << "\n"
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
+        // TODO roman.strilets added tokens
         << " Swap amount:  " << (*swapCoin == AtomicSwapCoin::Ethereum ? PrintEth(*swapAmount): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
 

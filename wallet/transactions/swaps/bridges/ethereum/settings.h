@@ -42,11 +42,15 @@ struct Settings
 
     // TODO: change
     std::string m_daiContractAddress;
+    bool m_shouldConnectToDai = false;
     std::string m_usdtContractAddress;
+    bool m_shouldConnectToUsdt = false;
     std::string m_wbtcContractAddress;
+    bool m_shouldConnectToWBTC = false;
 
     bool IsInitialized() const;
     bool IsTokenInitialized(beam::wallet::AtomicSwapCoin swapCoin) const;
+    bool IsTokenActivated(beam::wallet::AtomicSwapCoin swapCoin) const;
     bool IsActivated() const;
 
     uint16_t GetTxMinConfirmations() const;
@@ -60,10 +64,21 @@ struct Settings
 
     bool operator == (const Settings& other) const
     {
+        // TODO roman.strilets need to review
         return m_address == other.m_address &&
             m_secretWords == other.m_secretWords &&
             m_accountIndex == other.m_accountIndex &&
-            m_shouldConnect == other.m_shouldConnect;
+            m_shouldConnect == other.m_shouldConnect &&
+            // tokens
+            m_shouldConnectToDai == other.m_shouldConnectToDai &&
+            m_shouldConnectToUsdt == other.m_shouldConnectToUsdt &&
+            m_shouldConnectToWBTC == other.m_shouldConnectToWBTC &&
+            // TODO roman.strilets need for testnet and Ganache
+            m_erc20SwapContractAddress == other.m_erc20SwapContractAddress &&
+            m_swapContractAddress == other.m_swapContractAddress &&
+            m_daiContractAddress == other.m_daiContractAddress &&
+            m_usdtContractAddress == other.m_usdtContractAddress &&
+            m_wbtcContractAddress == other.m_wbtcContractAddress;
     }
 
     bool operator != (const Settings& other) const

@@ -64,6 +64,9 @@ protected:
     std::string GetDaiContractAddressName() const;
     std::string GetWbtcContractAddressName() const;
     std::string GetUsdtContractAddressName() const;
+    std::string GetShouldConnectToDaiName() const;
+    std::string GetShouldConnectToUsdtName() const;
+    std::string GetShouldConnectToWBTCName() const;
     std::string GetHashlockContractAddressName() const;
         
     template<typename T>
