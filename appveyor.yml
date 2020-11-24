@@ -64,6 +64,8 @@ after_build:
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+
     copy c:\projects\beam\beam\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
 on_success:
