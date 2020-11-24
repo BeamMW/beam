@@ -47,6 +47,8 @@ after_build:
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/broadcaster/%BUILD_CONFIG%/broadcaster%BEAM_TARGET_SUFFIX%.exe
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/beam/beam-node.cfg c:/projects/beam/wallet/cli/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/cli/beam-wallet.cfg c:/projects/beam/bvm/Shaders 
         
     mkdir pdb
     
@@ -61,6 +63,8 @@ after_build:
     copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
@@ -92,17 +96,14 @@ artifacts:
   - path: wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  # - path: wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
-  #  name: BeamWalletService
-
-  # - path: sbbs-monitor%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
-  #  name: BeamSbbsMonitor
-
   - path: explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamNodeExplorer
 
   - path: broadcaster%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamBroadcaster
+
+  - path: beam-shader-pack%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+    name: BeamShaderPack
 
   - path: pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamPdb
@@ -118,7 +119,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/"
-  artifact: BeamPdb, BeamWalletApi, BeamWalletService, BeamSbbsMonitor, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamBroadcaster
+  artifact: BeamPdb, BeamWalletApi, BeamWalletService, BeamSbbsMonitor, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamBroadcaster, BeamShaderPack
 
 notifications:
   - provider: Email

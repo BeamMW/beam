@@ -71,39 +71,23 @@ void OnError(const char* sz)
 
 #pragma pack (push, 1)
 
-struct KeyPrefix
-{
-    ContractID m_Cid;
-    uint8_t m_Tag;
-};
-
-struct KeyRaw
-{
-    KeyPrefix m_Prefix;
-    PubKey m_Player;
-};
-
-struct KeyGlobal
-{
-    KeyPrefix m_Prefix;
-    uint8_t m_Val = 0;
-};
+typedef Env::Key_T<PubKey> KeyPlayer; // Key of specific player 
 
 struct DealerKey
 {
-#define DEALER_SEED "roulette-dealyer-key"
+#define DEALER_SEED "roulette-dealyer-key" // used to differntiate between public keys for different contracts
     ShaderID m_SID;
     uint8_t m_pSeed[sizeof(DEALER_SEED)];
 
     DealerKey()
     {
-        Env::Memcpy(&m_SID, &Roulette::s_SID, sizeof(Roulette::s_SID));
-        Env::Memcpy(m_pSeed, DEALER_SEED, sizeof(DEALER_SEED));
+        Utils::Copy(m_SID, Roulette::s_SID);
+        Utils::Copy(m_pSeed, DEALER_SEED);
     }
 
     void DerivePk(PubKey& pk) const
     {
-        Env::DerivePk(pk, this, sizeof(*this));
+        Env::DerivePk(pk, this, sizeof(*this)); // create public key for the user
     }
 };
 
@@ -116,46 +100,43 @@ struct StateInfoPlus
     bool m_RoundOver;
     bool m_isDealer;
 
-    bool Init(const ContractID& cid)
+    bool Init(const ContractID& cid) // Reads current state from a specific contract id
     {
-        KeyGlobal k;
+        Env::Key_T<uint8_t> k;
         k.m_Prefix.m_Cid = cid;
-        k.m_Prefix.m_Tag = 0;
+        k.m_KeyInContract = 0;
 
-        Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
-
-        const void* pK;
-        const Roulette::State* pVal;
-
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext(&pK, &nKey, (const void**) &pVal, &nVal) || (sizeof(*pVal) != nVal))
+        auto* pState = Env::VarRead_T<Roulette::State>(k);
+        if (!pState)
         {
             OnError("failed to read");
             return false;
         }
 
-        m_State = *pVal;
+        m_State = *pState;
 
         DealerKey dk;
         PubKey pk;
-        dk.DerivePk(pk);
-        m_isDealer = !Env::Memcmp(&pk, &m_State.m_Dealer, sizeof(pk));
+        dk.DerivePk(pk); // create public key from dealer key seed
+
+        m_isDealer = !Utils::Cmp(pk, m_State.m_Dealer);
         m_RoundOver = (m_State.m_iWinner < m_State.s_Sectors);
 
         return true;
     }
 
+    // Check status of the bet
     const char* get_BidStatus(const Roulette::BidInfo& bi, Amount& nWin) const
     {
         nWin = 0;
 
-        if (m_State.m_iRound != bi.m_iRound)
+        if (m_State.m_iRound != bi.m_iRound) // there is a bet for an old round
             return "not-actual";
 
         if (!m_RoundOver)
             return "in-progress";
 
-        if (bi.m_iSector == m_State.m_iWinner)
+        if (bi.m_iSector == m_State.m_iWinner) // exact match, big win!
         {
             nWin = Roulette::State::s_PrizeSector;
             return "jack-pot";
@@ -171,6 +152,9 @@ struct StateInfoPlus
     }
 };
 
+
+// This function assumes that ANOTHER function that does vars enum was called before
+// Students, never ever write code like this ))
 void EnumAndDump(const StateInfoPlus& sip)
 {
     if (sip.m_RoundOver)
@@ -180,38 +164,33 @@ void EnumAndDump(const StateInfoPlus& sip)
 
     while (true)
     {
-        const KeyRaw* pRawKey;
+        const KeyPlayer* pPlayer;
         const Roulette::BidInfo* pVal;
 
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
+        if (!Env::VarsMoveNext_T(pPlayer, pVal))
             break;
 
-        if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
-        {
-            Env::DocGroup gr("");
+        Env::DocGroup gr("");
 
-            Env::DocAddBlob_T("Player", pRawKey->m_Player);
-            Env::DocAddNum("Sector", pVal->m_iSector);
-            Env::DocAddNum("iRound", pVal->m_iRound);
+        Env::DocAddBlob_T("Player", pPlayer->m_KeyInContract);
+        Env::DocAddNum("Sector", pVal->m_iSector);
+        Env::DocAddNum("iRound", pVal->m_iRound);
 
-            Amount nWin;
-            Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
+        Amount nWin;
+        Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
 
-            if (nWin)
-                Env::DocAddNum("Prize", nWin);
-        }
+        if (nWin)
+            Env::DocAddNum("Prize", nWin);
     }
 }
 
+// 
 void EnumBid(const PubKey& pubKey, const ContractID& cid)
 {
-    KeyRaw k;
+    KeyPlayer k;
     k.m_Prefix.m_Cid = cid;
-    k.m_Prefix.m_Tag = 0;
-    k.m_Player = pubKey;
-
-    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
+    k.m_KeyInContract = pubKey;
+    Env::VarsEnum_T(k, k);
 }
 
 void DumpBid(const PubKey& pubKey, const ContractID& cid)
@@ -226,39 +205,28 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
 
 ON_METHOD(manager, view)
 {
-
-#pragma pack (push, 1)
-    struct Key {
-        KeyPrefix m_Prefix;
-        ContractID m_Cid;
-    };
-#pragma pack (pop)
-
-    Key k0, k1;
+    typedef Env::Key_T<ContractID> KeyContract;
+    KeyContract k0, k1;
     k0.m_Prefix.m_Cid = Roulette::s_SID;
     k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    k1.m_Prefix = k0.m_Prefix;
+    Utils::Copy(k1.m_Prefix, k0.m_Prefix);
 
-    Env::Memset(&k0.m_Cid, 0, sizeof(k0.m_Cid));
-    Env::Memset(&k1.m_Cid, 0xff, sizeof(k1.m_Cid));
+    Utils::SetObject(k0.m_KeyInContract, 0);
+    Utils::SetObject(k1.m_KeyInContract, 0xff);
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
+    Env::VarsEnum_T(k0, k1);
 
     Env::DocArray gr("Cids");
 
     while (true)
     {
-        const Key* pKey;
-        const void* pVal;
-        uint32_t nKey, nVal;
+        const KeyContract* pKey;
+        const uint8_t* pVal;
 
-        if (!Env::VarsMoveNext((const void**) &pKey, &nKey, &pVal, &nVal))
+        if (!Env::VarsMoveNext_T(pKey, pVal))
             break;
 
-        if ((sizeof(Key) != nKey) || (1 != nVal))
-            continue;
-
-        Env::DocAddBlob_T("", pKey->m_Cid);
+        Env::DocAddBlob_T("", pKey->m_KeyInContract);
     }
 }
 
@@ -271,11 +239,15 @@ ON_METHOD(manager, create)
     DealerKey dk;
     dk.DerivePk(pars.m_Dealer);
 
+    // The following structure describes the input or output of the transaction
+    // Basically whether the caller loses or gains funds as a result of this transaction
     FundsChange fc;
-    fc.m_Aid = 0;
-    fc.m_Amount = g_DepositCA;
-    fc.m_Consume = 1;
+    fc.m_Aid = 0; // asset id
+    fc.m_Amount = g_DepositCA; // amount of the input or output
+    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
+    // Create kernel with all the required parameters
+    // 
     Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, 2000000U);
 }
 
@@ -292,6 +264,15 @@ ON_METHOD(manager, destroy)
     fc.m_Amount = g_DepositCA;
     fc.m_Consume = 0;
 
+    // contract id
+    // number of called method (1 is the destructor)
+    // arguments buffer
+    // argument pointer size
+    // funds change
+    // number of funds changes
+    // signatures
+    // number of signatures
+    // transaction fees
     Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
 }
 
@@ -343,13 +324,12 @@ ON_METHOD(manager, view_bids)
     if (!sip.Init(cid))
         return;
 
-    KeyPrefix k0, k1;
+    Env::KeyPrefix k0, k1;
     k0.m_Cid = cid;
-    k0.m_Tag = 0;
     k1.m_Cid = cid;
     k1.m_Tag = 1;
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
+    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
     EnumAndDump(sip);
 }
 
@@ -400,17 +380,14 @@ ON_METHOD(player, take)
 
     EnumBid(arg.m_Player, cid);
 
-    const KeyRaw* pRawKey;
+    const KeyPlayer* pPlayer;
     const Roulette::BidInfo* pVal;
 
-    uint32_t nKey, nVal;
-    if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal) ||
-        (sizeof(*pRawKey) != nKey) ||
-        (sizeof(*pVal) != nVal))
+    if (!Env::VarsMoveNext_T(pPlayer, pVal))
         return OnError("no bid");
 
     FundsChange fc;
-    fc.m_Aid = sip.m_State.m_Aid;
+    fc.m_Aid = sip.m_State.m_Aid; // receive funds of a specific asset type
 
     sip.get_BidStatus(*pVal, fc.m_Amount);
 
