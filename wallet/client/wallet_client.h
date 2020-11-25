@@ -119,17 +119,9 @@ namespace beam::wallet
         // that no virtual function calls below will result in purecall
         void stopReactor();
 
-        using MessageFunction = std::function<void()>;
-
         // use this function to post function call to client's main loop
+        using MessageFunction = std::function<void()>;
         void postFunctionToClientContext(MessageFunction&& func);
-
-        struct DeferredBalanceUpdate
-            :public io::IdleEvt
-        {
-            virtual void OnSchedule() override;
-            IMPLEMENT_GET_PARENT_OBJ(WalletClient, m_DeferredBalanceUpdate)
-        } m_DeferredBalanceUpdate;
 
         // Callbacks
         virtual void onStatus(const WalletStatus& status) {}
@@ -265,6 +257,10 @@ namespace beam::wallet
         void processAInfo();
         std::set<Asset::ID>  m_ainfoRequests;
         beam::io::Timer::Ptr m_ainfoDelayed;
+
+        // Scheduled balance updae
+        beam::io::Timer::Ptr m_balanceDelayed;
+        void scheduleBalance();
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
