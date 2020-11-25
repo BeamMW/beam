@@ -358,8 +358,17 @@ namespace bvm2 {
 			AddSpend(it->first, it->second);
 	}
 
+	void FundsMap::operator += (const ContractInvokeData& x)
+	{
+		*this += x.m_Spend;
+		(*this)[0] += x.m_Fee;
+	}
 
-
+	void FundsMap::operator += (const std::vector<ContractInvokeData>& v)
+	{
+		for (size_t i = 0; i < v.size(); i++)
+			*this += v[i];
+	}
 
 
 

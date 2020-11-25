@@ -19,11 +19,15 @@
 namespace beam {
 namespace bvm2 {
 
+	struct ContractInvokeData;
+
 	struct FundsMap
 		:public std::map<Asset::ID, AmountSigned>
 	{
 		void AddSpend(Asset::ID aid, AmountSigned val);
 		void operator += (const FundsMap&);
+		void operator += (const ContractInvokeData&);
+		void operator += (const std::vector<ContractInvokeData>&);
 	};
 
 	struct ContractInvokeData

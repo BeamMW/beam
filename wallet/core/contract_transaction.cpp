@@ -97,14 +97,11 @@ namespace beam::wallet
             BaseTxBuilder::Balance bb(builder);
             bb.AddPreselected();
 
-            for (uint32_t i = 0; i < vData.size(); i++)
-            {
-                const auto& cdata = vData[i];
-                for (auto it = cdata.m_Spend.begin(); cdata.m_Spend.end() != it; it++)
-                    bb.m_Map[it->first].m_Value -= it->second;
+            bvm2::FundsMap fm;
+            fm += vData;
 
-                bb.m_Map[0].m_Value -= cdata.m_Fee;
-            }
+            for (auto it = fm.begin(); fm.end() != it; it++)
+                bb.m_Map[it->first].m_Value -= it->second;
 
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
