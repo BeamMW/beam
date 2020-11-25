@@ -89,15 +89,16 @@ Amount ReadGasPrice(const po::variables_map& vm)
     return vm[cli::ETH_GAS_PRICE].as<Positive<Amount>>().value;
 }
 
-std::string PrintEth(beam::Amount value)
+std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin)
 {
     boost::multiprecision::cpp_dec_float_50 preciseAmount(value);
 
+    // TODO roman.strilets implement for token
     preciseAmount /= 1'000u;
     preciseAmount = boost::multiprecision::round(preciseAmount);
     preciseAmount /= 1'000'000;
 
-    return preciseAmount.str() + " ETHs";
+    return preciseAmount.str() + " " + std::to_string(swapCoin);
 }
 
 template<typename Settings>
@@ -568,6 +569,9 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         stream << "Ethereum node: " << settings.m_address << '\n';
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
+        stream << "Should connect to DAI: " << settings.m_shouldConnectToDai << '\n';
+        stream << "Should connect to USDT: " << settings.m_shouldConnectToUsdt << '\n';
+        stream << "Should connect to WBTC: " << settings.m_shouldConnectToWBTC << '\n';
         stream << "Swap contract address: " << settings.m_swapContractAddress << '\n';
 
         if (!settings.m_erc20SwapContractAddress.empty())
@@ -1095,7 +1099,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
         // TODO roman.strilets added tokens
-        << " Swap amount:  " << (*swapCoin == AtomicSwapCoin::Ethereum ? PrintEth(*swapAmount): std::to_string(*swapAmount)) << "\n"
+        << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
 
     // get accepting

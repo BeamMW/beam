@@ -174,7 +174,7 @@ string to_string(beam::wallet::AtomicSwapCoin value)
     case beam::wallet::AtomicSwapCoin::Dai:
         return "DAI";
     case beam::wallet::AtomicSwapCoin::Tether:
-        return "TETHER";
+        return "USDT";
     case beam::wallet::AtomicSwapCoin::WBTC:
         return "WBTC";
     default:
