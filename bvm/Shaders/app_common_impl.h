@@ -84,3 +84,58 @@ inline void EnumAndDumpContracts(const ShaderID& sid)
 	}
 }
 
+struct WalkerFunds
+{
+#pragma pack (push, 1)
+
+	typedef Env::Key_T<AssetID> KeyFunds; // AssetID is in big-endian format
+
+	struct ValueFunds
+	{
+		Amount m_Hi;
+		Amount m_Lo;
+	};
+
+#pragma pack (pop)
+
+	AssetID m_Aid;
+	ValueFunds m_Val;
+
+	void Enum(const ContractID& cid, const AssetID* pAid = nullptr)
+	{
+		KeyFunds k0;
+		k0.m_Prefix.m_Cid = cid;
+		k0.m_Prefix.m_Tag = KeyTag::LockedAmount;
+
+		if (pAid)
+		{
+			k0.m_KeyInContract = Utils::FromBE(*pAid);
+			Env::VarsEnum_T(k0, k0);
+		}
+		else
+		{
+			KeyFunds k1;
+			Utils::Copy(k1.m_Prefix, k0.m_Prefix);
+
+			k0.m_KeyInContract = 0;
+			k1.m_KeyInContract = static_cast<AssetID>(-1);
+
+			Env::VarsEnum_T(k0, k1);
+		}
+	}
+
+	bool MoveNext()
+	{
+		const KeyFunds* pKey;
+		const ValueFunds* pVal;
+
+		if (!Env::VarsMoveNext_T(pKey, pVal))
+			return false;
+
+		m_Aid = Utils::FromBE(pKey->m_KeyInContract);
+		m_Val.m_Lo = Utils::FromBE(pVal->m_Lo);
+		m_Val.m_Hi = Utils::FromBE(pVal->m_Hi);
+
+		return true;
+	}
+};
