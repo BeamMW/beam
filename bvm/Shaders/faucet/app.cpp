@@ -73,90 +73,41 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-#pragma pack (push, 1)
+typedef Env::Key_T<Faucet::Key> KeyAccount;
 
-struct KeyPrefix
-{
-    ContractID m_Cid;
-    uint8_t m_Tag;
-};
-
-struct KeyRaw
-{
-    KeyPrefix m_Prefix;
-    Faucet::Key m_Key;
-};
-
-struct KeyGlobal
-{
-    KeyPrefix m_Prefix;
-    uint8_t m_Val = 0;
-};
-
-struct KeyFunds
-{
-    KeyPrefix m_Prefix;
-    AssetID m_Aid_be; // big-endian format
-};
-
-struct ValueFunds
-{
-    Amount m_Hi_be;
-    Amount m_Lo_be;
-};
-
-#pragma pack (pop)
-
-template <typename T>
-T FromBE(T x)
-{
-    const uint8_t* p = (const uint8_t*) &x;
-
-    T res = *p;
-    for (uint32_t i = 1; i < sizeof(x); i++)
-        res = (res << 8) | p[i];
-
-    return res;
-}
-
-void EnumAndDump()
+void DumpAccounts()
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyRaw* pRawKey;
+        const KeyAccount* pAccount;
         const Faucet::AccountData* pVal;
 
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
+        if (!Env::VarsMoveNext_T(pAccount, pVal))
             break;
 
-        if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
-        {
-            Env::DocGroup gr("");
+        Env::DocGroup gr("");
 
-            Env::DocAddBlob_T("Account", pRawKey->m_Key.m_Account);
-            Env::DocAddNum("AssetID", pRawKey->m_Key.m_Aid);
-            Env::DocAddNum("Amount", pVal->m_Amount);
-            Env::DocAddNum("h0", pVal->m_h0);
-        }
+        Env::DocAddBlob_T("Account", pAccount->m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", pAccount->m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", pVal->m_Amount);
+        Env::DocAddNum("h0", pVal->m_h0);
     }
 }
 
 void DumpAccount(const PubKey& pubKey, const ContractID& cid)
 {
-    KeyRaw k0, k1;
+    KeyAccount k0, k1;
     k0.m_Prefix.m_Cid = cid;
-    k0.m_Prefix.m_Tag = 0;
-    k0.m_Key.m_Account = pubKey;
-    k0.m_Key.m_Aid = 0;
+    k0.m_KeyInContract.m_Account = pubKey;
+    k0.m_KeyInContract.m_Aid = 0;
 
-    Env::Memcpy(&k1, &k0, sizeof(k0));
-    k1.m_Key.m_Aid = static_cast<AssetID>(-1);
+    Utils::Copy(k1, k0);
+    k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1);
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view)
@@ -183,17 +134,12 @@ ON_METHOD(manager, destroy)
 
 ON_METHOD(manager, view_params)
 {
-    KeyGlobal k;
+    Env::Key_T<uint8_t> k;
     k.m_Prefix.m_Cid = cid;
-    k.m_Prefix.m_Tag = 0;
+    k.m_KeyInContract = 0;
 
-    Env::VarsEnum(&k, sizeof(k), &k, sizeof(k));
-
-    const void* pK;
-    const Faucet::Params* pVal;
-
-    uint32_t nKey, nVal;
-    if (!Env::VarsMoveNext(&pK, &nKey, (const void**) &pVal, &nVal) || (sizeof(*pVal) != nVal))
+    auto* pVal = Env::VarRead_T<Faucet::Params>(k);
+    if (!pVal)
         return OnError("failed to read");
 
     Env::DocGroup gr("params");
@@ -218,14 +164,13 @@ ON_METHOD(manager, view_funds)
 
 ON_METHOD(manager, view_accounts)
 {
-    KeyPrefix k0, k1;
+    Env::KeyPrefix k0, k1;
     k0.m_Cid = cid;
-    k0.m_Tag = 0;
     k1.m_Cid = cid;
-    k1.m_Tag = 1;
+    k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view_account)

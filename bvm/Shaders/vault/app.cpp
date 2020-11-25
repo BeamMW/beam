@@ -66,60 +66,41 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-#pragma pack (push, 1)
+typedef Env::Key_T<Vault::Key> KeyAccount;
 
-struct KeyPrefix
-{
-    ContractID m_Cid;
-    uint8_t m_Tag;
-};
 
-struct KeyRaw
-{
-    KeyPrefix m_Prefix;
-    Vault::Key m_Key;
-};
-
-#pragma pack (pop)
-
-void EnumAndDump()
+void DumpAccounts()
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyRaw* pRawKey;
-        const Amount* pVal;
-
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
+        const KeyAccount* pAccount;
+        const Amount* pAmount;
+        
+        if (!Env::VarsMoveNext_T(pAccount, pAmount))
             break;
 
-        if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
-        {
-            // alignment isn't important for bvm
-            Env::DocGroup gr("");
+        Env::DocGroup gr("");
 
-            Env::DocAddBlob_T("Account", pRawKey->m_Key.m_Account);
-            Env::DocAddNum("AssetID", pRawKey->m_Key.m_Aid);
-            Env::DocAddNum("Amount", *pVal);
-        }
+        Env::DocAddBlob_T("Account", pAccount->m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", pAccount->m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", *pAmount);
     }
 }
 
 void DumpAccount(const PubKey& pubKey, const ContractID& cid)
 {
-    KeyRaw k0, k1;
+    KeyAccount k0, k1;
     k0.m_Prefix.m_Cid = cid;
-    k0.m_Prefix.m_Tag = 0;
-    k0.m_Key.m_Account = pubKey;
-    k0.m_Key.m_Aid = 0;
+    k0.m_KeyInContract.m_Account = pubKey;
+    k0.m_KeyInContract.m_Aid = 0;
 
-    Env::Memcpy(&k1, &k0, sizeof(k0));
-    k1.m_Key.m_Aid = static_cast<AssetID>(-1);
+    Utils::Copy(k1, k0);
+    k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1);
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view)
@@ -139,14 +120,13 @@ ON_METHOD(manager, destroy)
 
 ON_METHOD(manager, view_accounts)
 {
-    KeyPrefix k0, k1;
-    k0.m_Cid = cid;
-    k0.m_Tag = 0;
-    k1.m_Cid = cid;
-    k1.m_Tag = 1;
+    Env::KeyPrefix k0, k1;
+    Utils::Copy(k0.m_Cid, cid);
+    Utils::Copy(k1.m_Cid, cid);
+    k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view_account)
