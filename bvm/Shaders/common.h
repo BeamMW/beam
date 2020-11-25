@@ -168,7 +168,7 @@ namespace Env {
     struct KeyPrefix
     {
         ContractID m_Cid;
-        uint8_t m_Tag = 0; // used to differentiate between keys used by the virtual machine and those used by the contract
+        uint8_t m_Tag = KeyTag::Internal; // used to differentiate between keys used by the virtual machine and those used by the contract
     };
 
     template <typename T>

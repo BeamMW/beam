@@ -162,15 +162,7 @@ namespace bvm2 {
 
 		struct VarKey
 		{
-			struct Tag
-			{
-				static const uint8_t Internal = 0;
-				static const uint8_t LockedAmount = 1;
-				static const uint8_t Refs = 2;
-				static const uint8_t OwnedAsset = 3;
-
-				static const uint8_t ShaderID = 16; // not really a contract var. Needed to distinguish between contract vars and sid-cid pairs
-			};
+			typedef Shaders::KeyTag Tag;
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
 			uint32_t m_Size;

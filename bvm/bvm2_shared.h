@@ -66,3 +66,14 @@ struct BlockHeader
 		ConvertOrd<bToShader>(m_Timestamp);
 	}
 };
+
+struct KeyTag
+{
+	static const uint8_t Internal = 0;
+	static const uint8_t LockedAmount = 1;
+	static const uint8_t Refs = 2;
+	static const uint8_t OwnedAsset = 3;
+
+	// Synthetic tags, not really contract vars
+	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
+};

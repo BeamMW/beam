@@ -4145,17 +4145,18 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
 {
-	static_assert(sizeof(bvm2::ShaderID) == sizeof(bvm2::ContractID));
+	uint8_t pKey[bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1];
+	memset0(pKey, bvm2::ContractID::nBytes);
+	pKey[bvm2::ContractID::nBytes] = VarKey::Tag::SidCid;
+	memcpy(pKey + bvm2::ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
+	memcpy(pKey + bvm2::ContractID::nBytes + 1 + bvm2::ShaderID::nBytes, cid.m_pData, cid.nBytes);
 
-	VarKey vk;
-	vk.Set(sid);
-	vk.Append(VarKey::Tag::ShaderID, cid);
-	Blob blob(vk.m_p, vk.m_Size);
+	Blob blob(pKey, bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
 
 	if (bSet)
 	{
-		uint8_t dummy = 0;
-		SaveVar(blob, Blob(&dummy, 1));
+		auto h = uintBigFrom(m_Bic.m_Height);
+		SaveVar(blob, h);
 	}
 	else
 		SaveVar(blob, Blob(nullptr, 0));
