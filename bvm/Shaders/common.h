@@ -246,6 +246,14 @@ namespace Utils {
         return Env::Memcmp(&src0, &src1, sizeof(src0));
     }
 
+#ifdef HOST_BUILD
+
+    template <typename T>
+    inline T FromBE(T x) {
+        return ByteOrder::from_be(x);
+    }
+
+#else // HOST_BUILD
     inline uint16_t FromBE(uint16_t x) {
         return __builtin_bswap16(x);
     }
@@ -257,6 +265,7 @@ namespace Utils {
     inline uint64_t FromBE(uint64_t x) {
         return __builtin_bswap64(x);
     }
+#endif // HOST_BUILD
 
 } // namespace Utils
 
