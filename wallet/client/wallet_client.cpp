@@ -335,6 +335,7 @@ namespace beam::wallet
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
+        m_balanceDelayed = io::Timer::create(*m_reactor);
     }
 
     WalletClient::~WalletClient()
@@ -518,7 +519,7 @@ namespace beam::wallet
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
 
-                m_DeferredBalanceUpdate.cancel(); // for more safety, while we see the same reactor
+                m_balanceDelayed->cancel();
                 m_ainfoDelayed->cancel();
             }
             catch (const runtime_error& ex)
@@ -618,15 +619,15 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
-        LOG_INFO () << "!!!!! ON_COINS_CHANGED";
         m_CoinChangesCollector.CollectItems(action, items);
-        m_DeferredBalanceUpdate.start();
+        scheduleBalance();
     }
 
-    void WalletClient::DeferredBalanceUpdate::OnSchedule()
+    void WalletClient::scheduleBalance()
     {
-        cancel();
-        get_ParentObj().onStatus(get_ParentObj().getStatus());
+        m_balanceDelayed->start(0, false, [this] () {
+            onStatus(getStatus());
+        });
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
@@ -668,9 +669,8 @@ namespace beam::wallet
     {
         // add virtual transaction for receiver
 #ifdef BEAM_LELANTUS_SUPPORT
-
         m_ShieldedCoinChangesCollector.CollectItems(action, coins);
-        m_DeferredBalanceUpdate.start();
+        scheduleBalance();
 #endif // BEAM_LELANTUS_SUPPORT
     }
 
