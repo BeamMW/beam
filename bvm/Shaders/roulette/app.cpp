@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../app_common_impl.h"
 #include "contract.h"
 
 #define Roulette_manager_create(macro)
@@ -205,29 +206,7 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
 
 ON_METHOD(manager, view)
 {
-    typedef Env::Key_T<ContractID> KeyContract;
-    KeyContract k0, k1;
-    k0.m_Prefix.m_Cid = Roulette::s_SID;
-    k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    Utils::Copy(k1.m_Prefix, k0.m_Prefix);
-
-    Utils::SetObject(k0.m_KeyInContract, 0);
-    Utils::SetObject(k1.m_KeyInContract, 0xff);
-
-    Env::VarsEnum_T(k0, k1);
-
-    Env::DocArray gr("Cids");
-
-    while (true)
-    {
-        const KeyContract* pKey;
-        const uint8_t* pVal;
-
-        if (!Env::VarsMoveNext_T(pKey, pVal))
-            break;
-
-        Env::DocAddBlob_T("", pKey->m_KeyInContract);
-    }
+    EnumAndDumpContracts(Roulette::s_SID);
 }
 
 static const Amount g_DepositCA = 100000000000ULL; // 1K beams

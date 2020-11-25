@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../app_common_impl.h"
 #include "contract.h"
 
 #define Faucet_manager_create(macro) \
@@ -160,40 +161,7 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
 
 ON_METHOD(manager, view)
 {
-
-#pragma pack (push, 1)
-    struct Key {
-        KeyPrefix m_Prefix;
-        ContractID m_Cid;
-    };
-#pragma pack (pop)
-
-    Key k0, k1;
-    k0.m_Prefix.m_Cid = Faucet::s_SID;
-    k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    k1.m_Prefix = k0.m_Prefix;
-
-    Env::Memset(&k0.m_Cid, 0, sizeof(k0.m_Cid));
-    Env::Memset(&k1.m_Cid, 0xff, sizeof(k1.m_Cid));
-
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
-
-    Env::DocArray gr("Cids");
-
-    while (true)
-    {
-        const Key* pKey;
-        const void* pVal;
-        uint32_t nKey, nVal;
-
-        if (!Env::VarsMoveNext((const void**) &pKey, &nKey, &pVal, &nVal))
-            break;
-
-        if ((sizeof(Key) != nKey) || (1 != nVal))
-            continue;
-
-        Env::DocAddBlob_T("", pKey->m_Cid);
-    }
+    EnumAndDumpContracts(Faucet::s_SID);
 }
 
 ON_METHOD(manager, create)

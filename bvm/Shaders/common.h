@@ -246,6 +246,18 @@ namespace Utils {
         return Env::Memcmp(&src0, &src1, sizeof(src0));
     }
 
+    inline uint16_t FromBE(uint16_t x) {
+        return __builtin_bswap16(x);
+    }
+
+    inline uint32_t FromBE(uint32_t x) {
+        return __builtin_bswap32(x);
+    }
+
+    inline uint64_t FromBE(uint64_t x) {
+        return __builtin_bswap64(x);
+    }
+
 } // namespace Utils
 
 namespace std {
