@@ -227,7 +227,7 @@ namespace bvm2 {
 		pubKey = pt;
 	}
 
-	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee)
+	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount nFee)
 	{
 		ContractInvokeData& v = m_vInvokeData.emplace_back();
 
@@ -245,6 +245,7 @@ namespace bvm2 {
 		v.m_iMethod = iMethod;
 		args.Export(v.m_Args);
 		v.m_vSig.assign(pSig, pSig + nSig);
+		v.m_sComment = szComment;
 		v.m_Fee = nFee;
 
 		for (uint32_t i = 0; i < nFunds; i++)

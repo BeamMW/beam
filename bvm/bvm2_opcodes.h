@@ -196,6 +196,7 @@
 	macro(uint32_t, nFunds) sep \
 	macro(const SigRequest*, pSig) sep \
 	macro(uint32_t, nSig) sep \
+	macro(const char*, szComment) sep \
 	macro(Amount, nFee)
 
 #define BVMOpsAll_Common(macro) \
