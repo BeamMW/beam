@@ -2261,11 +2261,54 @@ namespace
                 if (man.m_Err || man.m_vInvokeData.empty())
                     return 1;
 
+                std::string sComment = "Contract: ";
+                bvm2::FundsMap fm;
+                Amount fee = 0;
+
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+
+                for (size_t i = 0; i < man.m_vInvokeData.size(); i++)
+                {
+                    const auto& cdata = man.m_vInvokeData[i];
+                    fm += cdata.m_Spend;
+                    fee += cdata.m_Fee;
+
+                    if (i)
+                        sComment += "; ";
+                    sComment += cdata.m_sComment;
+
+                    std::cout << "\tComment: " << cdata.m_sComment << std::endl;
+                }
+
+                for (auto it = fm.begin(); fm.end() != it; it++)
+                {
+                    auto aid = it->first;
+                    auto amount = it->second;
+
+                    bool bSpend = (amount > 0);
+                    if (!bSpend)
+                        amount = -amount;
+
+                    PrintableAmount prnt(static_cast<Amount>(amount));
+                    if (aid)
+                    {
+                        prnt.m_coinName = "Asset-" + to_string(aid);
+                        prnt.m_grothName = prnt.m_coinName + "-grooth";
+                    }
+
+                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << prnt << std::endl;
+                }
+
+                std::cout << "\tTotal fee: " << PrintableAmount(fee) << std::endl;
+
+                ByteBuffer msg(sComment.begin(), sComment.end());
+
 
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData));
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::Message, msg)
+                );
                 return 0;
             });
     }
