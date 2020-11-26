@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../app_common_impl.h"
 #include "contract.h"
 
 #define Roulette_manager_create(macro)
@@ -205,29 +206,7 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
 
 ON_METHOD(manager, view)
 {
-    typedef Env::Key_T<ContractID> KeyContract;
-    KeyContract k0, k1;
-    k0.m_Prefix.m_Cid = Roulette::s_SID;
-    k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    Utils::Copy(k1.m_Prefix, k0.m_Prefix);
-
-    Utils::SetObject(k0.m_KeyInContract, 0);
-    Utils::SetObject(k1.m_KeyInContract, 0xff);
-
-    Env::VarsEnum_T(k0, k1);
-
-    Env::DocArray gr("Cids");
-
-    while (true)
-    {
-        const KeyContract* pKey;
-        const uint8_t* pVal;
-
-        if (!Env::VarsMoveNext_T(pKey, pVal))
-            break;
-
-        Env::DocAddBlob_T("", pKey->m_KeyInContract);
-    }
+    EnumAndDumpContracts(Roulette::s_SID);
 }
 
 static const Amount g_DepositCA = 100000000000ULL; // 1K beams
@@ -248,7 +227,7 @@ ON_METHOD(manager, create)
 
     // Create kernel with all the required parameters
     // 
-    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, 2000000U);
+    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, "generate Roulette contract", 2000000U);
 }
 
 ON_METHOD(manager, destroy)
@@ -273,7 +252,7 @@ ON_METHOD(manager, destroy)
     // signatures
     // number of signatures
     // transaction fees
-    Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, 2000000U);
+    Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, "destroy Roulette contract", 2000000U);
 }
 
 ON_METHOD(dealer, spin)
@@ -287,7 +266,7 @@ ON_METHOD(dealer, spin)
     Roulette::Spin arg;
     arg.m_PlayingSectors = 0; // max
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 2000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "spin Roulette", 2000000U);
 }
 
 ON_METHOD(dealer, bets_off)
@@ -298,7 +277,7 @@ ON_METHOD(dealer, bets_off)
     sig.m_pID = &dk;
     sig.m_nID = sizeof(dk);
 
-    Env::GenerateKernel(&cid, Roulette::BetsOff::s_iMethod, nullptr, 0, nullptr, 0, &sig, 1, 2000000U);
+    Env::GenerateKernel(&cid, Roulette::BetsOff::s_iMethod, nullptr, 0, nullptr, 0, &sig, 1, "bets-off Roulette", 2000000U);
 }
 
 ON_METHOD(manager, view_params)
@@ -363,7 +342,7 @@ ON_METHOD(player, bet)
     sig.m_pID = &cid;
     sig.m_nID = sizeof(cid);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Place a bet on Roulette", 1000000U);
 }
 
 ON_METHOD(player, take)
@@ -400,7 +379,7 @@ ON_METHOD(player, take)
 
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Take the prize from Roulette", 1000000U);
 }
 
 #undef ON_METHOD

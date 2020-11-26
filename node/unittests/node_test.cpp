@@ -2308,9 +2308,9 @@ namespace beam
 				{
 				}
 
-				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee) override
+				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount nFee) override
 				{
-					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, nFee);
+					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, szComment, nFee);
 
 					if (!iMethod)
 					{

@@ -19,11 +19,15 @@
 namespace beam {
 namespace bvm2 {
 
+	struct ContractInvokeData;
+
 	struct FundsMap
 		:public std::map<Asset::ID, AmountSigned>
 	{
 		void AddSpend(Asset::ID aid, AmountSigned val);
 		void operator += (const FundsMap&);
+		void operator += (const ContractInvokeData&);
+		void operator += (const std::vector<ContractInvokeData>&);
 	};
 
 	struct ContractInvokeData
@@ -35,6 +39,7 @@ namespace bvm2 {
 		std::vector<ECC::Hash::Value> m_vSig;
 		Amount m_Fee;
 		FundsMap m_Spend; // ins - outs, not including fee
+		std::string m_sComment;
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -44,6 +49,7 @@ namespace bvm2 {
 				& m_Args
 				& m_vSig
 				& m_Fee
+				& m_sComment
 				& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_Spend);
 
 			if (m_iMethod)
@@ -105,7 +111,7 @@ namespace bvm2 {
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
-		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount nFee) override;
+		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount nFee) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 

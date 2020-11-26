@@ -1985,6 +1985,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
+	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2674,7 +2675,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 
 		auto& e = bic.get_ContractVar(cid, m_DB);
 		if (!e.m_Data.empty())
+		{
+			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
 			return false; // contract already exists
+		}
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		proc.SaveVar(cid, krn.m_Data);
@@ -2702,7 +2706,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	if (bic.m_Fwd)
 	{
 		if (!krn.m_iMethod)
+		{
+			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
 			return false; // c'tor call attempt
+		}
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		if (!proc.Invoke(krn.m_Cid, krn.m_iMethod, krn))
@@ -2719,6 +2726,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
+				bic.m_TxStatus = proto::TxStatus::ContractFailNode;
 				proc.UndoVars();
 				return false;
 			}
@@ -3849,6 +3857,7 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
 {
+	bool bRes = false;
 	try
 	{
 		InitStack();
@@ -3880,14 +3889,22 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 			CheckSigs(krn.m_Commitment, krn.m_Signature);
+
+		bRes = true;
+	}
+	catch (const Wasm::Exc& e)
+	{
+		uint32_t n = e.m_Type + proto::TxStatus::ContractFailFirst;
+		m_Bic.m_TxStatus = (n < proto::TxStatus::ContractFailLast) ? static_cast<uint8_t>(n) : proto::TxStatus::ContractFailFirst;
 	}
 	catch (const std::exception&)
 	{
-		UndoVars();
-		return false;
+		m_Bic.m_TxStatus = proto::TxStatus::ContractFailFirst;
 	}
 
-	return true;
+	if (!bRes)
+		UndoVars();
+	return bRes;
 }
 
 BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
@@ -4145,17 +4162,18 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
 {
-	static_assert(sizeof(bvm2::ShaderID) == sizeof(bvm2::ContractID));
+	uint8_t pKey[bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1];
+	memset0(pKey, bvm2::ContractID::nBytes);
+	pKey[bvm2::ContractID::nBytes] = VarKey::Tag::SidCid;
+	memcpy(pKey + bvm2::ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
+	memcpy(pKey + bvm2::ContractID::nBytes + 1 + bvm2::ShaderID::nBytes, cid.m_pData, cid.nBytes);
 
-	VarKey vk;
-	vk.Set(sid);
-	vk.Append(VarKey::Tag::ShaderID, cid);
-	Blob blob(vk.m_p, vk.m_Size);
+	Blob blob(pKey, bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
 
 	if (bSet)
 	{
-		uint8_t dummy = 0;
-		SaveVar(blob, Blob(&dummy, 1));
+		auto h = uintBigFrom(m_Bic.m_Height);
+		SaveVar(blob, h);
 	}
 	else
 		SaveVar(blob, Blob(nullptr, 0));
@@ -4681,7 +4699,15 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	HandleElementVecBwd(tx.m_vKernels, bic, n);
 
 	if (!bOk)
-		return bic.m_LimitExceeded ? proto::TxStatus::LimitExceeded : proto::TxStatus::InvalidContext;
+	{
+		if (bic.m_LimitExceeded)
+			return proto::TxStatus::LimitExceeded;
+
+		if (proto::TxStatus::Unspecified != bic.m_TxStatus)
+			return bic.m_TxStatus;
+
+		return proto::TxStatus::InvalidContext;
+	}
 
 	// Ensure output assets are in range
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)

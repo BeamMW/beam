@@ -275,6 +275,18 @@ namespace bvm2 {
 
 	void ProcessorContract::DischargeVar(uint32_t& trg, uint32_t val)
 	{
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			void Dump(std::ostream& os) override {
+				os << "Discharge";
+			}
+
+			uint32_t get_Type() override {
+				return ErrorSubType::NoCharge;
+			}
+
+		} cp;
+
 		Limits::Charge::Test(trg >= val);
 		trg -= val;
 	}
@@ -1081,6 +1093,18 @@ namespace bvm2 {
 
 	BVM_METHOD(Halt)
 	{
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			void Dump(std::ostream& os) override {
+				os << "Explicit Halt";
+			}
+
+			uint32_t get_Type() override {
+				return ErrorSubType::Internal;
+			}
+
+		} cp;
+
 		Wasm::Fail();
 	}
 	BVM_METHOD_HOST_AUTO(Halt)
@@ -1751,7 +1775,7 @@ namespace bvm2 {
 
 		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
 
-		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, nFee);
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, RealizeStr(szComment), nFee);
 
 		for (uint32_t i = 0; i < nFunds; i++)
 			pFunds_[i].Convert<false>();
@@ -1767,7 +1791,7 @@ namespace bvm2 {
 			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
 		}
 
-		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, nFee);
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nFee);
 	}
 
 #undef BVM_METHOD_BinaryVar
@@ -1865,6 +1889,18 @@ namespace bvm2 {
 
 	void ProcessorContract::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
 	{
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			void Dump(std::ostream& os) override {
+				os << "Funds I/O";
+			}
+
+			uint32_t get_Type() override {
+				return ErrorSubType::FundsIO;
+			}
+
+		} cp;
+
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, uintBigFrom(aid));
 
@@ -1967,6 +2003,18 @@ namespace bvm2 {
 	{
 		if (!m_pSigValidate)
 			return;
+
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			void Dump(std::ostream& os) override {
+				os << "CheckSigs";
+			}
+
+			uint32_t get_Type() override {
+				return ErrorSubType::BadSignature;
+			}
+
+		} cp;
 
 		auto& comm = AddSigInternal(pt);
 

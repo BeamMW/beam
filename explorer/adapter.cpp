@@ -407,18 +407,25 @@ private:
                 }
             }
 
-            void OnContract(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl& krn)
+            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn)
             {
-                m_os << "Contract.";
+                m_os << "Contract " << cid << ", ";
 
-                switch (iMethod)
+                if (pSid)
+                    m_os << "Create sid=" << *pSid;
+                else
                 {
-                case 0: m_os << "Create"; break;
-                case 1: m_os << "Destroy"; break;
-                default: m_os << "Method_" << iMethod;
+                    if (iMethod)
+                        m_os << "Method_" << iMethod;
+                    else
+                        m_os << "Destroy";
                 }
 
-                m_os << ", Args=" << krn.m_Args.size();
+                if (!krn.m_Args.empty())
+                {
+                    m_os << ", Args=";
+                    uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
+                }
             }
         };
 
@@ -550,17 +557,19 @@ private:
 
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
+                    bvm2::ShaderID sid;
+                    bvm2::get_ShaderID(sid, krn.m_Data);
                     bvm2::ContractID cid;
-                    bvm2::get_Cid(cid, krn.m_Data, krn.m_Args);
+                    bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
                     m_Wr.Next();
-                    m_Wr.OnContract(cid, 0, krn);
+                    m_Wr.OnContract(cid, &sid, 0, krn);
                 }
 
                 void OnKrnEx(const TxKernelContractInvoke& krn)
                 {
                     m_Wr.Next();
-                    m_Wr.OnContract(krn.m_Cid, krn.m_iMethod, krn);
+                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn);
                 }
 
             } wlk;

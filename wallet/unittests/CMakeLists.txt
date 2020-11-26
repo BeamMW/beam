@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 add_definitions( -DSQLITE_HAS_CODEC )
 
-add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client)
+add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client wallet_api)
 add_test_snippet(wallet_db_test wallet)
 add_test_snippet(wallet_api_test wallet_api_proto)
 add_test_snippet(wallet_assets_test core node wallet pow assets)

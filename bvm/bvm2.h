@@ -54,6 +54,14 @@ namespace bvm2 {
 	using Shaders::HashObj;
 	using Shaders::BlockHeader;
 
+	struct ErrorSubType
+	{
+		static const uint32_t NoCharge = 1;
+		static const uint32_t Internal = 2; // shader called Halt
+		static const uint32_t BadSignature = 3;
+		static const uint32_t FundsIO = 4;
+	};
+
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
@@ -162,15 +170,7 @@ namespace bvm2 {
 
 		struct VarKey
 		{
-			struct Tag
-			{
-				static const uint8_t Internal = 0;
-				static const uint8_t LockedAmount = 1;
-				static const uint8_t Refs = 2;
-				static const uint8_t OwnedAsset = 3;
-
-				static const uint8_t ShaderID = 16; // not really a contract var. Needed to distinguish between contract vars and sid-cid pairs
-			};
+			typedef Shaders::KeyTag Tag;
 
 			uint8_t m_p[ContractID::nBytes + 1 + Limits::VarKeySize];
 			uint32_t m_Size;
@@ -388,7 +388,7 @@ namespace bvm2 {
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
-		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, Amount fee) {}
+		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount fee) {}
 
 	public:
 

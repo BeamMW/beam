@@ -1354,6 +1354,7 @@ namespace beam::wallet
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
+        status.shieldedTotalCount = m_walletDB->get_ShieldedOuts();
         status.update.lastTime = m_walletDB->getLastUpdateTime();
 
         return status;
@@ -1597,8 +1598,22 @@ namespace beam::wallet
         }
         else
         {
+            std::string sComment = "Contract: ";
+
+            for (size_t i = 0; i < invoke.size(); i++)
+            {
+                const auto& cdata = invoke[i];
+                if (i)
+                    sComment += "; ";
+                sComment += cdata.m_sComment;
+            }
+
+            ByteBuffer msg(sComment.begin(), sComment.end());
+
+
             auto params = CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, invoke);
+                    .SetParameter(TxParameterID::ContractDataPacked, invoke)
+                    .SetParameter(TxParameterID::Message, msg);
 
             auto spw = m_wallet.lock();
             if (!spw)

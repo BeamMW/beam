@@ -467,6 +467,7 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
+        virtual void visitTx(std::function<bool(TxType, TxStatus)> filter, std::function<void(const TxDescription&)> func) const = 0;
         virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
@@ -632,6 +633,7 @@ namespace beam::wallet
         void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
+        void visitTx(std::function<bool(TxType, TxStatus)> filter, std::function<void(const TxDescription&)> func) const override;
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
@@ -750,6 +752,17 @@ namespace beam::wallet
         void onPrepareToModify();
         void MigrateCoins();
         boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
+        bool getTxParameterImpl(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob, sqlite::Statement& stm) const;
+
+        template<typename T>
+        bool getTxParameterImpl(const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value, sqlite::Statement& stm) const
+        {
+            ByteBuffer b;
+            if (getTxParameterImpl(txID, subTxID, paramID, b, stm))
+                return fromByteBuffer<T>(b, value);
+            return false;
+        }
+
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;

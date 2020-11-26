@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../app_common_impl.h"
 #include "contract.h"
 
 #define Vault_manager_create(macro)
@@ -65,120 +66,67 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-#pragma pack (push, 1)
+typedef Env::Key_T<Vault::Key> KeyAccount;
 
-struct KeyPrefix
-{
-    ContractID m_Cid;
-    uint8_t m_Tag;
-};
 
-struct KeyRaw
-{
-    KeyPrefix m_Prefix;
-    Vault::Key m_Key;
-};
-
-#pragma pack (pop)
-
-void EnumAndDump()
+void DumpAccounts()
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyRaw* pRawKey;
-        const Amount* pVal;
-
-        uint32_t nKey, nVal;
-        if (!Env::VarsMoveNext((const void**) &pRawKey, &nKey, (const void**) &pVal, &nVal))
+        const KeyAccount* pAccount;
+        const Amount* pAmount;
+        
+        if (!Env::VarsMoveNext_T(pAccount, pAmount))
             break;
 
-        if ((sizeof(*pRawKey) == nKey) && (sizeof(*pVal) == nVal))
-        {
-            // alignment isn't important for bvm
-            Env::DocGroup gr("");
+        Env::DocGroup gr("");
 
-            Env::DocAddBlob_T("Account", pRawKey->m_Key.m_Account);
-            Env::DocAddNum("AssetID", pRawKey->m_Key.m_Aid);
-            Env::DocAddNum("Amount", *pVal);
-        }
+        Env::DocAddBlob_T("Account", pAccount->m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", pAccount->m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", *pAmount);
     }
 }
 
 void DumpAccount(const PubKey& pubKey, const ContractID& cid)
 {
-    KeyRaw k0, k1;
+    KeyAccount k0, k1;
     k0.m_Prefix.m_Cid = cid;
-    k0.m_Prefix.m_Tag = 0;
-    k0.m_Key.m_Account = pubKey;
-    k0.m_Key.m_Aid = 0;
+    k0.m_KeyInContract.m_Account = pubKey;
+    k0.m_KeyInContract.m_Aid = 0;
 
-    Env::Memcpy(&k1, &k0, sizeof(k0));
-    k1.m_Key.m_Aid = static_cast<AssetID>(-1);
+    Utils::Copy(k1, k0);
+    k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1);
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view)
 {
-
-#pragma pack (push, 1)
-    struct Key {
-        KeyPrefix m_Prefix;
-        ContractID m_Cid;
-    };
-#pragma pack (pop)
-
-    Key k0, k1;
-    k0.m_Prefix.m_Cid = Vault::s_SID;
-    k0.m_Prefix.m_Tag = 0x10; // sid-cid tag
-    k1.m_Prefix = k0.m_Prefix;
-
-    Env::Memset(&k0.m_Cid, 0, sizeof(k0.m_Cid));
-    Env::Memset(&k1.m_Cid, 0xff, sizeof(k1.m_Cid));
-
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1));
-
-    Env::DocArray gr("Cids");
-
-    while (true)
-    {
-        const Key* pKey;
-        const void* pVal;
-        uint32_t nKey, nVal;
-
-        if (!Env::VarsMoveNext((const void**) &pKey, &nKey, &pVal, &nVal))
-            break;
-
-        if ((sizeof(Key) != nKey) || (1 != nVal))
-            continue;
-
-        Env::DocAddBlob_T("", pKey->m_Cid);
-    }
+    EnumAndDumpContracts(Vault::s_SID);
 }
 
 ON_METHOD(manager, create)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create Vault contract", 1000000U);
 }
 
 ON_METHOD(manager, destroy)
 {
-    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, 1000000U);
+    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Vault contract", 1000000U);
 }
 
 ON_METHOD(manager, view_accounts)
 {
-    KeyPrefix k0, k1;
-    k0.m_Cid = cid;
-    k0.m_Tag = 0;
-    k1.m_Cid = cid;
-    k1.m_Tag = 1;
+    Env::KeyPrefix k0, k1;
+    Utils::Copy(k0.m_Cid, cid);
+    Utils::Copy(k1.m_Cid, cid);
+    k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum(&k0, sizeof(k0), &k1, sizeof(k1)); // enum all internal contract vars
-    EnumAndDump();
+    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
+    DumpAccounts();
 }
 
 ON_METHOD(manager, view_account)
@@ -218,7 +166,7 @@ ON_METHOD(my_account, move)
     fc.m_Consume = isDeposit;
 
     if (isDeposit)
-        Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, 2000000U);
+        Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 2000000U);
     else
     {
         MyAccountID myid;
@@ -228,7 +176,7 @@ ON_METHOD(my_account, move)
         sig.m_pID = &myid;
         sig.m_nID = sizeof(myid);
 
-        Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, 2000000U);
+        Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 2000000U);
     }
 }
 

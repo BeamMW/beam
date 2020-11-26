@@ -168,7 +168,7 @@ namespace Env {
     struct KeyPrefix
     {
         ContractID m_Cid;
-        uint8_t m_Tag = 0; // used to differentiate between keys used by the virtual machine and those used by the contract
+        uint8_t m_Tag = KeyTag::Internal; // used to differentiate between keys used by the virtual machine and those used by the contract
     };
 
     template <typename T>
@@ -245,6 +245,27 @@ namespace Utils {
         static_assert(sizeof(src0) == sizeof(src1), "operands must have equal size");
         return Env::Memcmp(&src0, &src1, sizeof(src0));
     }
+
+#ifdef HOST_BUILD
+
+    template <typename T>
+    inline T FromBE(T x) {
+        return beam::ByteOrder::from_be(x);
+    }
+
+#else // HOST_BUILD
+    inline uint16_t FromBE(uint16_t x) {
+        return __builtin_bswap16(x);
+    }
+
+    inline uint32_t FromBE(uint32_t x) {
+        return __builtin_bswap32(x);
+    }
+
+    inline uint64_t FromBE(uint64_t x) {
+        return __builtin_bswap64(x);
+    }
+#endif // HOST_BUILD
 
 } // namespace Utils
 
