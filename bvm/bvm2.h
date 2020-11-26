@@ -54,6 +54,14 @@ namespace bvm2 {
 	using Shaders::HashObj;
 	using Shaders::BlockHeader;
 
+	struct ErrorSubType
+	{
+		static const uint32_t NoCharge = 1;
+		static const uint32_t Internal = 2; // shader called Halt
+		static const uint32_t BadSignature = 3;
+		static const uint32_t FundsIO = 4;
+	};
+
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
