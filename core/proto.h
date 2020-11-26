@@ -563,7 +563,12 @@ namespace proto {
 
 		static const uint8_t LimitExceeded = 0x13; // block limit exceeded (tx too large, too many shielded ins/outs, etc.)
 		static const uint8_t InvalidInput = 0x14; // non-existing or non-matured inputs referenced
-	};
+
+        static const uint8_t ContractFailFirst = 0x30;
+        static const uint8_t ContractFailLast = 0x3f;
+
+        static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
+    };
 
 
 #define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
