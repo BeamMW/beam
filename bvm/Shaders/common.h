@@ -250,7 +250,7 @@ namespace Utils {
 
     template <typename T>
     inline T FromBE(T x) {
-        return ByteOrder::from_be(x);
+        return beam::ByteOrder::from_be(x);
     }
 
 #else // HOST_BUILD

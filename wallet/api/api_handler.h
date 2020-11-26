@@ -75,17 +75,19 @@ public:
         if (count > 0)
         {
             size_t start = skip;
-            size_t end = start + count;
             size_t size = res.size();
 
             if (start < size)
             {
-                if (end > size) end = size;
-
-                res = std::vector<T>(res.begin() + start, res.begin() + end);
+                res.erase(res.begin(), res.begin() + start);
+                if (count < res.size())
+                {
+                    res.erase(res.begin() + count, res.end());
+                }
             }
             else res = {};
         }
+        else res = {};
     }
 
     template<typename T>

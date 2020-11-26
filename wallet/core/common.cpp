@@ -650,6 +650,7 @@ namespace beam::wallet
                     return false;
                 }
                 params.SetParameter(TxParameterID::Voucher, *voucher);
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
             }
             break;
         default:

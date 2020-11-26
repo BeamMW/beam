@@ -2143,11 +2143,6 @@ namespace
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                if (auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher); voucher)
-                {
-                    params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
-                }
-
                 Amount feeForShieldedInputs = 0;
                 if (!CheckFeeForShieldedInputs(amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
                     return -1;

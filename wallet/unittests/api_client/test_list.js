@@ -12,8 +12,12 @@ client.connect(10000, '127.0.0.1', function() {
 			{
 				filter:
 				{
-					status:5
-				}
+
+					//status:4
+				},
+				count: 4,
+				skip: 0
+
 			}
 		}) + '\n');
 });

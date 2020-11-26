@@ -57,9 +57,158 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
+#include "wallet/api/api_handler.h"
 
 namespace
 {
+    struct AtomicSwapProvider : IAtomicSwapProvider
+    {
+    public:
+        Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        const SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
+        bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+    };
+
+    struct WalletData : WalletApiHandler::IWalletData
+    {
+        WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+            : m_walletDB(walletDB)
+            , m_wallet(wallet)
+            , m_atomicSwapProvider(atomicSwapProvider)
+        {}
+
+        virtual ~WalletData() {}
+
+        IWalletDB::Ptr getWalletDBPtr() override
+        {
+            return m_walletDB;
+        }
+
+        Wallet::Ptr getWalletPtr() override
+        {
+            throw std::runtime_error("not impl");
+        }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        const IAtomicSwapProvider& getAtomicSwapProvider() const override
+        {
+            return m_atomicSwapProvider;
+        }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        IWalletDB::Ptr m_walletDB;
+        Wallet& m_wallet;
+        IAtomicSwapProvider& m_atomicSwapProvider;
+    };
+
+    struct ApiHandler : beam::wallet::WalletApiHandler
+    {
+        using beam::wallet::WalletApiHandler::WalletApiHandler;
+        void serializeMsg(const json& msg) override
+        {
+
+        }
+    };
+
+    void TestTxList()
+    {
+        cout << "\nTesting Tx list...\n";
+
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(0, 0, v);
+            WALLET_CHECK(v.empty()); 
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(0, 3, v);
+            WALLET_CHECK(v == std::vector<int>({1,2,3}));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(1, 3, v);
+            WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(2, 3, v);
+            WALLET_CHECK(v == std::vector<int>({ 3,4 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(1, 2, v);
+            WALLET_CHECK(v == std::vector<int>({ 2,3 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(4, 3, v);
+            WALLET_CHECK(v.empty());
+        }
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        constexpr int Count = 64;
+        int completedCount = 2 * Count;
+        auto f = [&](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2 * Count;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig sender(createSenderWalletDB(Count, 5), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+
+        helpers::StopWatch sw;
+        sw.start();
+
+        for (int i = 0; i < Count; ++i)
+        {
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(1))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200)));
+        }
+        
+        mainReactor->run();
+        sw.stop();
+
+
+        // check coins
+        vector<Coin> newSenderCoins = sender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        //WALLET_CHECK(newSenderCoins.size() == Count);
+        WALLET_CHECK(newReceiverCoins.size() == Count);
+
+        // Tx history check
+        auto sh = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(sh.size() == Count);
+        auto rh = receiver.m_WalletDB->getTxHistory();
+        WALLET_CHECK(rh.size() == Count);
+
+        AtomicSwapProvider asp;
+        WalletData wd(sender.m_WalletDB, sender.m_Wallet, asp);
+        WalletApi::ACL acl;
+        ApiHandler handler(wd, acl);
+        TxList message;
+        message.count = 10;
+        message.skip = 30;
+        message.filter.status = wallet::TxStatus::Completed;
+        message.withAssets = false;
+        for (int i = 0; i < 100; ++i)
+        {
+            handler.onMessage(1, message);
+        }
+    }
+
     void TestEventTypeSerialization()
     {
         std::string serializedStr;
@@ -2975,7 +3124,7 @@ void TestHWWallet()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG; 
+    int logLevel = LOG_LEVEL_ERROR; 
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
@@ -2994,8 +3143,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-
-    TestEventTypeSerialization();
+    TestTxList();
     TestKeyKeeper();
 
     TestVouchers();
