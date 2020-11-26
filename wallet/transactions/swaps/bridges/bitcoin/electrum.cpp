@@ -45,6 +45,13 @@ namespace
         return libbitcoin::encode_base16(reverseSecretHash);
     }
 
+    beam::Amount calcFee(const libbitcoin::chain::transaction& tx, beam::Amount feeRate)
+    {
+        beam::Amount vsize = (tx.weight() + 3u) / 4u;
+
+        return (vsize * feeRate) / 1000u;
+    }
+
     const char kInvalidGenesisBlockHashMsg[] = "Invalid genesis block hash";
 }
 
@@ -87,89 +94,111 @@ namespace beam::bitcoin
 
             reviewLockedUtxo();
 
-            data_chunk txData;
-            decode_base16(txData, rawTx);
-            transaction tx;
-            tx.from_data_without_inputs(txData);
-            uint64_t total = 0;
-            for (auto o : tx.outputs())
+            try
             {
-                total += o.value();
-            }
-
-            points_value unspentPoints;
-            for (auto coin : coins)
-            {
-                if (isLockedUtxo(coin.m_details["tx_hash"].get<std::string>(), coin.m_details["tx_pos"].get<uint32_t>()))
-                    continue;
-                hash_digest txHash;
-                decode_hash(txHash, coin.m_details["tx_hash"].get<std::string>());
-                unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
-            }
-
-            auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
-            while (true)
-            {
-                int changePosition = -1;
-                points_value resultPoints;
-
-                select_outputs::select(resultPoints, unspentPoints, total);
-
-                if (resultPoints.value() < total)
+                data_chunk txData;
+                decode_base16(txData, rawTx);
+                transaction tx;
+                tx.from_data_without_inputs(txData);
+                uint64_t total = 0;
+                for (auto o : tx.outputs())
                 {
-                    IBridge::Error internalError{ErrorType::BitcoinError, "not enough coins"};
-                    callback(internalError, "", 0);
+                    total += o.value();
+                }
+
+                points_value unspentPoints;
+                for (auto coin : coins)
+                {
+                    if (isLockedUtxo(coin.m_details["tx_hash"].get<std::string>(), coin.m_details["tx_pos"].get<uint32_t>()))
+                        continue;
+                    hash_digest txHash;
+                    decode_hash(txHash, coin.m_details["tx_hash"].get<std::string>());
+                    unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
+                }
+
+                auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
+                while (true)
+                {
+                    int changePosition = -1;
+                    points_value resultPoints;
+
+                    select_outputs::select(resultPoints, unspentPoints, total);
+
+                    if (resultPoints.value() < total)
+                    {
+                        IBridge::Error internalError{ ErrorType::BitcoinError, "not enough coins" };
+                        callback(internalError, "", 0);
+                        return;
+                    }
+
+                    transaction newTx(tx);
+                    newTx.set_version(kTransactionVersion);
+
+                    uint64_t totalInputValue = 0;
+                    for (auto p : resultPoints.points)
+                    {
+                        input in;
+                        output_point outputPoint(p.hash(), p.index());
+                        totalInputValue += p.value();
+                        in.set_previous_output(outputPoint);
+                        newTx.inputs().push_back(in);
+                    }
+                    auto changeValue = totalInputValue - newTx.total_output_value();
+
+                    auto signTx = signRawTx(newTx, coins);
+                    auto fee = calcFee(signTx, feeRate);
+
+                    if (fee > changeValue)
+                    {
+                        total += fee - changeValue;
+                        continue;
+                    }
+
+                    if (fee + getDust() < changeValue)
+                    {
+                        payment_address destinationAddress(getElectrumAddress(privateKeys.second, 0, m_settingsProvider.GetSettings().GetAddressVersion()));
+                        script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
+                        output out(changeValue, outputScript);
+
+                        newTx.outputs().push_back(out);
+                        changePosition = static_cast<int>(newTx.outputs().size()) - 1;
+
+                        signTx = signRawTx(newTx, coins);
+                        auto newFee = calcFee(signTx, feeRate);
+
+                        if (newFee > changeValue)
+                        {
+                            total += newFee - changeValue;
+                            continue;
+                        }
+
+                        if (changeValue - newFee <= getDust())
+                        {
+                            total += getDust() - (changeValue - newFee) + 1;
+                            continue;
+                        }
+
+                        LOG_DEBUG() << "electrum fundrawtransaction: sign weight = " << signTx.weight() << ", fee = " << newFee << ", size = " << signTx.serialized_size();
+                        newTx.outputs().back().set_value(changeValue - newFee);
+                    }
+
+                    for (auto p : resultPoints.points)
+                    {
+                        lockUtxo(encode_hash(p.hash()), p.index());
+                    }
+
+                    LOG_DEBUG() << "electrum fundrawtransaction: weight = " << newTx.weight() << ", fee = " << fee << ", size = " << newTx.serialized_size();
+
+                    callback(error, encode_base16(newTx.to_data()), changePosition);
                     return;
                 }
-
-                transaction newTx(tx);
-                newTx.set_version(kTransactionVersion);
-
-                uint64_t totalInputValue = 0;
-                for (auto p : resultPoints.points)
-                {
-                    input in;
-                    output_point outputPoint(p.hash(), p.index());
-                    totalInputValue += p.value();
-                    in.set_previous_output(outputPoint);
-                    newTx.inputs().push_back(in);
-                }
-                auto weight = newTx.weight();
-
-                Amount fee = static_cast<Amount>(std::round(double(weight * feeRate) / 1000));
-                auto newTxFee = totalInputValue - newTx.total_output_value();
-
-                if (fee > newTxFee)
-                {
-                    total += fee;
-                    continue;
-                }
-
-                if (fee < newTxFee)
-                {
-                    payment_address destinationAddress(getElectrumAddress(privateKeys.second, 0, m_settingsProvider.GetSettings().GetAddressVersion()));
-                    script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
-                    output out(newTxFee - fee, outputScript);
-                    Amount feeOutput = static_cast<Amount>(std::round(double(out.serialized_size() * feeRate) / 1000));
-
-                    if (fee + feeOutput < newTxFee)
-                    {
-                        out.set_value(newTxFee - (fee + feeOutput));
-                        if (!out.is_dust(kDustThreshold))
-                        {
-                            newTx.outputs().push_back(out);
-                            changePosition = static_cast<int>(newTx.outputs().size()) - 1;
-                        }
-                    }
-                }
-
-                for (auto p : resultPoints.points)
-                {
-                    lockUtxo(encode_hash(p.hash()), p.index());
-                }
-
-                callback(error, encode_base16(newTx.to_data()), changePosition);
-                return;
+            }
+            catch (const std::runtime_error& err)
+            {
+                Error tmp;
+                tmp.m_type = IBridge::BitcoinError;
+                tmp.m_message = err.what();
+                callback(tmp, "", -1);
             }
         });
     }
@@ -191,76 +220,15 @@ namespace beam::bitcoin
             decode_base16(txData, rawTx);
             transaction tx = transaction::factory_from_data(txData);
 
-            for (size_t ind = 0; ind < tx.inputs().size(); ++ind)
+            try
             {
-                // TODO roman.strilets should be tested without inputs
-                auto previousOutput = tx.inputs()[ind].previous_output();
-                auto strHash = encode_hash(previousOutput.hash());
-                auto index = previousOutput.index();
-                bool isFoundCoin = false;
-
-                for (auto coin : coins)
-                {
-                    if (coin.m_details["tx_hash"].get<std::string>() == strHash && coin.m_details["tx_pos"].get<uint32_t>() == index)
-                    {
-                        isFoundCoin = true;
-                        ec_private privateKey = privateKeys[coin.m_index];
-                        script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider.GetSettings().GetAddressVersion()).hash());
-                        endorsement sig;
-                        bool isSuccess = false;
-
-                        if (NeedSignValue())
-                        {
-                            beam::Amount total = coin.m_details["value"].get<beam::Amount>();
-
-                            isSuccess = lockingScript.create_endorsement(
-                                sig,
-                                privateKey.secret(), 
-                                lockingScript, 
-                                tx, 
-                                static_cast<uint32_t>(ind), 
-                                GetSighashAlgorithm(), 
-                                libbitcoin::machine::script_version::zero, total);
-                        }
-                        else
-                        {
-                            isSuccess = lockingScript.create_endorsement(
-                                sig, 
-                                privateKey.secret(), 
-                                lockingScript, 
-                                tx, 
-                                static_cast<uint32_t>(ind), 
-                                GetSighashAlgorithm());
-                        }
-
-                        if (isSuccess)
-                        {
-                            script::operation::list sigScript;
-                            sigScript.push_back(script::operation(sig));
-                            data_chunk tmp;
-                            privateKey.to_public().to_data(tmp);
-                            sigScript.push_back(script::operation(tmp));
-                            script unlockingScript(sigScript);
-
-                            tx.inputs()[ind].set_script(unlockingScript);
-                        }
-                        else
-                        {
-                            LOG_DEBUG() << "signRawTransaction command: failed in lockingScript.create_endorsement";
-                            callback({IBridge::BitcoinError, "Transaction is not signed"}, "", false);
-                            return;
-                        }
-                        break;
-                    }
-                }
-
-                if (!isFoundCoin)
-                {
-                    LOG_DEBUG() << "signRawTransaction command: coin is not found";
-                    callback({ IBridge::BitcoinError, "Transaction is not signed" }, "", false);
-                    return;
-                }
+                tx = signRawTx(tx, coins);
             }
+            catch (const std::runtime_error& err)
+            {
+                callback({ IBridge::BitcoinError, err.what() }, "", false);
+                return;
+            }            
 
             if (!tx.is_valid())
             {
@@ -268,6 +236,7 @@ namespace beam::bitcoin
                 return;
             }
 
+            LOG_DEBUG() << "electrum signRawTransaction: weight = " << tx.weight() << ", size = " << tx.serialized_size();
             callback(error, encode_base16(tx.to_data()), true);
         });
     }
@@ -929,5 +898,87 @@ namespace beam::bitcoin
     bool Electrum::NeedSignValue() const
     {
         return false;
+    }
+
+    Amount Electrum::getDust() const
+    {
+        return kDustThreshold;
+    }
+
+    transaction Electrum::signRawTx(const transaction& tx1, const std::vector<Utxo>& coins)
+    {
+        transaction signTx(tx1);
+        auto privateKeys = generatePrivateKeyList();
+
+        for (size_t ind = 0; ind < signTx.inputs().size(); ++ind)
+        {
+            // TODO roman.strilets should be tested without inputs
+            auto previousOutput = signTx.inputs()[ind].previous_output();
+            auto strHash = encode_hash(previousOutput.hash());
+            auto index = previousOutput.index();
+            bool isFoundCoin = false;
+
+            for (auto coin : coins)
+            {
+                if (coin.m_details["tx_hash"].get<std::string>() == strHash && coin.m_details["tx_pos"].get<uint32_t>() == index)
+                {
+                    isFoundCoin = true;
+                    ec_private privateKey = privateKeys[coin.m_index];
+                    script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider.GetSettings().GetAddressVersion()).hash());
+                    endorsement sig;
+                    bool isSuccess = false;
+
+                    if (NeedSignValue())
+                    {
+                        beam::Amount total = coin.m_details["value"].get<beam::Amount>();
+
+                        isSuccess = lockingScript.create_endorsement(
+                            sig,
+                            privateKey.secret(),
+                            lockingScript,
+                            signTx,
+                            static_cast<uint32_t>(ind),
+                            GetSighashAlgorithm(),
+                            libbitcoin::machine::script_version::zero, total);
+                    }
+                    else
+                    {
+                        isSuccess = lockingScript.create_endorsement(
+                            sig,
+                            privateKey.secret(),
+                            lockingScript,
+                            signTx,
+                            static_cast<uint32_t>(ind),
+                            GetSighashAlgorithm());
+                    }
+
+                    if (isSuccess)
+                    {
+                        script::operation::list sigScript;
+                        sigScript.push_back(script::operation(sig));
+                        data_chunk tmp;
+                        privateKey.to_public().to_data(tmp);
+                        sigScript.push_back(script::operation(tmp));
+                        script unlockingScript(sigScript);
+
+                        signTx.inputs()[ind].set_script(unlockingScript);
+                    }
+                    else
+                    {
+                        LOG_DEBUG() << "signRawTx: failed in lockingScript.create_endorsement";
+                        throw std::runtime_error("Transaction is not signed");
+                    }
+                    break;
+                }
+            }
+
+            if (!isFoundCoin)
+            {
+                LOG_DEBUG() << "signRawTx: coin is not found";
+                throw std::runtime_error("Transaction is not signed");
+            }
+        }
+
+        return signTx;
     }
 } // namespace beam::bitcoin

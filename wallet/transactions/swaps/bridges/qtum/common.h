@@ -20,6 +20,7 @@
 
 namespace beam::qtum
 {
+    constexpr uint64_t kQtumDustThreshold = 72800;
     extern const char kMainnetGenesisBlockHash[];
     extern const char kTestnetGenesisBlockHash[];
     extern const char kRegtestGenesisBlockHash[];

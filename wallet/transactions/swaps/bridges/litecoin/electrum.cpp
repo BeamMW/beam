@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "electrum.h"
+#include "common.h"
 
-#include "../bitcoin/electrum.h"
-#include "settings_provider.h"
-
-namespace beam::qtum
+namespace beam::litecoin
 {
-    class Electrum : public bitcoin::Electrum
-    {
-    public:
-        Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
+Electrum::Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider)
+    : bitcoin::Electrum(reactor, settingsProvider)
+{
+}
 
-    protected:
-
-        Amount getDust() const override;
-    };
-} // namespace beam::qtum
+Amount Electrum::getDust() const
+{
+    return kDustThreshold;
+}
+} // namespace beam::litecoin
