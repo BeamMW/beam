@@ -81,10 +81,6 @@ namespace beam::wallet
             void Add(const ShieldedTxo::ID&); // same as above, assuming default fee
 
             void CompleteBalance(); // completes the balance.
-
-        private:
-            void Add_(const Coin::ID&, bool bOutp);
-            void Add_(const IPrivateKeyKeeper2::ShieldedInput&);
         };
 
         void SaveCoins();

@@ -148,10 +148,7 @@ namespace beam::wallet
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value -= builder.m_Fee;
             if (_issue)
-            {
                 bb.m_Map[wa.m_ID].m_Value += builder.m_Value;
-                bb.CreateOutput(builder.m_Value, wa.m_ID, Key::Type::Regular);
-            }
             else
                 bb.m_Map[wa.m_ID].m_Value -= builder.m_Value;
 

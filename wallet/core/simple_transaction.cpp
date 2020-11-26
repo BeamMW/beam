@@ -240,7 +240,6 @@ namespace beam::wallet
             }
 
             BaseTxBuilder::Balance bb(builder);
-            bb.AddPreselected();
 
             if (pMutualBuilder && pMutualBuilder->m_IsSender)
             {

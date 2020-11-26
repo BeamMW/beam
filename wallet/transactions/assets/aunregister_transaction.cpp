@@ -144,10 +144,6 @@ namespace beam::wallet
 
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;
-
-            if (bb.m_Map[0].m_Value > 0)
-                bb.CreateOutput(bb.m_Map[0].m_Value, 0, Key::Type::Regular); // it would better be regular, than "Change"
-
             bb.CompleteBalance();
 
             builder.SaveCoins();

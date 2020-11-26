@@ -95,8 +95,6 @@ namespace beam::wallet
                 throw TransactionFailedException(false, TxFailureReason::Unknown);
 
             BaseTxBuilder::Balance bb(builder);
-            bb.AddPreselected();
-
             bvm2::FundsMap fm;
             fm += vData;
 

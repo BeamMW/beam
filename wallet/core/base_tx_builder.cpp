@@ -142,18 +142,12 @@ namespace beam::wallet
     BaseTxBuilder::Balance::Balance(BaseTxBuilder& b)
         :m_Builder(b)
     {
-        for (const auto& cid : b.m_Coins.m_Input)
-            Add_(cid, false);
-
-        for (const auto& cid : b.m_Coins.m_Output)
-            Add_(cid, true);
-
-        for (const auto& si : b.m_Coins.m_InputShielded)
-            Add_(si);
     }
 
-    void BaseTxBuilder::Balance::Add_(const Coin::ID& cid, bool bOutp)
+    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
     {
+        (bOutp ? m_Builder.m_Coins.m_Output : m_Builder.m_Coins.m_Input).push_back(cid);
+
         Entry& x = m_Map[cid.m_AssetID];
         if (bOutp)
             x.m_Value -= cid.m_Value;
@@ -161,22 +155,12 @@ namespace beam::wallet
             x.m_Value += cid.m_Value;
     }
 
-    void BaseTxBuilder::Balance::Add_(const IPrivateKeyKeeper2::ShieldedInput& si)
-    {
-        m_Map[si.m_AssetID].m_Value += si.m_Value;
-        m_Map[0].m_Value -= si.m_Fee;
-    }
-
-    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
-    {
-        Add_(cid, bOutp);
-        (bOutp ? m_Builder.m_Coins.m_Output : m_Builder.m_Coins.m_Input).push_back(cid);
-    }
-
     void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
     {
-        Add_(si);
         m_Builder.m_Coins.m_InputShielded.push_back(si);
+
+        m_Map[si.m_AssetID].m_Value += si.m_Value;
+        m_Map[0].m_Value -= si.m_Fee;
     }
 
     void BaseTxBuilder::Balance::Add(const ShieldedTxo::ID& sid)
@@ -211,8 +195,16 @@ namespace beam::wallet
 
     void BaseTxBuilder::Balance::CompleteBalance()
     {
-        uint32_t nNeedInputs = 0;
+        std::set<Asset::ID> setRcv; // those auto-created coins should be 'Regular' instead of 'Change'
+        for (const auto& v : m_Map)
+        {
+            if (v.second.m_Value > 0)
+                setRcv.insert(v.first);
+        }
 
+        AddPreselected();
+
+        uint32_t nNeedInputs = 0;
         for (const auto& v : m_Map)
         {
             if (v.second.m_Value < 0)
@@ -227,7 +219,8 @@ namespace beam::wallet
             // go by asset type in reverse order, to reach the def asset last
             for (auto it = m_Map.rbegin(); m_Map.rend() != it; it++)
             {
-                if (it->second.m_Value >= 0)
+                AmountSigned& val = it->second.m_Value;
+                if (val >= 0)
                     continue;
 
                 uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
@@ -242,7 +235,6 @@ namespace beam::wallet
                 nShieldedMax = (nShieldedMax + nNeedInputs - 1) / nNeedInputs; // leave some reserve to other assets
 
                 Asset::ID aid = it->first;
-                AmountSigned& val = it->second.m_Value;
 
                 std::vector<Coin> vSelStd;
                 std::vector<ShieldedCoin> vSelShielded;
@@ -272,8 +264,16 @@ namespace beam::wallet
 
         for (const auto& v : m_Map)
         {
-            if (v.second.m_Value > 0)
-                CreateOutput(v.second.m_Value, v.first, Key::Type::Change);
+            AmountSigned val = v.second.m_Value;
+            assert(val >= 0);
+
+            if (val > 0)
+            {
+                Asset::ID aid = v.first;
+
+                bool bRcv = setRcv.end() != setRcv.find(aid);
+                CreateOutput(val, aid, bRcv ? Key::Type::Regular : Key::Type::Change);
+            }
 
             assert(!v.second.m_Value);
         }
