@@ -36,13 +36,18 @@ namespace Wasm {
 		s_pTop = m_pNext;
 	}
 
-	void Checkpoint::DumpAll(std::ostream& os)
+	uint32_t Checkpoint::DumpAll(std::ostream& os)
 	{
+		uint32_t ret = 0;
 		for (Checkpoint* p = s_pTop; p; p = p->m_pNext)
 		{
 			os << " <- ";
 			p->Dump(os);
+
+			if (!ret)
+				ret = p->get_Type();
 		}
+		return ret;
 	}
 
 	void CheckpointTxt::Dump(std::ostream& os) {
@@ -58,8 +63,13 @@ namespace Wasm {
 	{
 		std::ostringstream os;
 		os << sz << ": ";
-		Checkpoint::DumpAll(os);
-		throw std::runtime_error(os.str());
+
+		uint32_t nType = Checkpoint::DumpAll(os);
+
+		Exc exc(os.str());
+		exc.m_Type = nType;
+
+		throw exc;
 	}
 
 	void Test(bool b) {
