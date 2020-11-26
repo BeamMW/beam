@@ -42,7 +42,7 @@ matrix:
 
     - os: osx
       language: cpp
-      osx_image: xcode10.1
+      osx_image: xcode10.2
       install:
         - export TZ=GMT-3
         - sudo systemsetup -gettimezone
