@@ -161,25 +161,21 @@ namespace beam::bitcoin
                         output out(changeValue, outputScript);
 
                         newTx.outputs().push_back(out);
-                        changePosition = static_cast<int>(newTx.outputs().size()) - 1;
 
                         signTx = signRawTx(newTx, coins);
                         auto newFee = calcFee(signTx, feeRate);
 
-                        if (newFee > changeValue)
+                        if (newFee > changeValue || changeValue - newFee <= getDust())
                         {
-                            total += newFee - changeValue;
-                            continue;
+                            newTx.outputs().pop_back();
                         }
-
-                        if (changeValue - newFee <= getDust())
+                        else
                         {
-                            total += getDust() - (changeValue - newFee) + 1;
-                            continue;
+                            changePosition = static_cast<int>(newTx.outputs().size()) - 1;
+                            newTx.outputs().back().set_value(changeValue - newFee);
                         }
 
                         LOG_DEBUG() << "electrum fundrawtransaction: sign weight = " << signTx.weight() << ", fee = " << newFee << ", size = " << signTx.serialized_size();
-                        newTx.outputs().back().set_value(changeValue - newFee);
                     }
 
                     for (auto p : resultPoints.points)
