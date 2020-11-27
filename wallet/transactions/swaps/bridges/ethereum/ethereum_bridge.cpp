@@ -22,8 +22,6 @@
 #include <ethash/keccak.hpp>
 #include "utility/hex.h"
 
-#include "ethereum_base_transaction.h"
-
 #include <boost/format.hpp>
 
 using json = nlohmann::json;
@@ -49,6 +47,7 @@ namespace beam::ethereum
 EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider)
     : m_httpClient(reactor, needSsl(settingsProvider.GetSettings().m_address))
     , m_settingsProvider(settingsProvider)
+    , m_txConfirmationTimer(io::Timer::create(reactor))
 {
 }
 
@@ -142,7 +141,7 @@ void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64
 {
     LOG_DEBUG() << "EthereumBridge::getTransactionCount";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
-    std::string params = (boost::format(R"("%1%","latest")") % ethAddress).str();
+    std::string params = (boost::format(R"("%1%","pending")") % ethAddress).str();
 
     sendRequest("eth_getTransactionCount", params, [callback](Error error, const json& result)
     {
@@ -201,41 +200,124 @@ void EthereumBridge::send(
     const ECC::uintBig& value,
     const ECC::uintBig& gas,
     const ECC::uintBig& gasPrice,
-    std::function<void(const Error&, std::string)> callback)
+    std::function<void(const Error&, std::string, uint64_t)> callback)
 {
-    EthBaseTransaction ethTx;
-    ethTx.m_from = generateEthAddress();
-    ethTx.m_receiveAddress = to;
-    ethTx.m_value = value;
-    ethTx.m_data = data;
-    ethTx.m_gas = gas;
-    ethTx.m_gasPrice = gasPrice;
+    auto ethTx = std::make_shared<EthPendingTransaction>();
+    ethTx->m_ethBaseTx.m_from = generateEthAddress();
+    ethTx->m_ethBaseTx.m_receiveAddress = to;
+    ethTx->m_ethBaseTx.m_value = value;
+    ethTx->m_ethBaseTx.m_data = data;
+    ethTx->m_ethBaseTx.m_gas = gas;
+    ethTx->m_ethBaseTx.m_gasPrice = gasPrice;
+    ethTx->m_confirmedCallback = callback;
 
-    getTransactionCount([this, ethTx, callback](const Error& error, uint64_t txCount) mutable
+    bool shouldProcessedNow = m_pendingTxs.empty();
+    m_pendingTxs.push(ethTx);
+
+    if (shouldProcessedNow)
     {
-        Error tmp(error);
+        processPendingTx();
+    }
+}
 
-        if (tmp.m_type == IBridge::None)
+void EthereumBridge::processPendingTx()
+{
+    if (!m_pendingTxs.empty())
+    {
+        getTransactionCount([this, weak = this->weak_from_this()](const Error& error, uint64_t txCount)
         {
-            try
+            if (!weak.expired())
             {
-                ethTx.m_nonce = txCount;
-
-                auto signedTx = ethTx.GetRawSigned(generatePrivateKey());
-                std::string stTx = libbitcoin::encode_base16(signedTx);
-
-                sendRawTransaction(stTx, callback);
-
-                return;
+                onGotTransactionCount(error, txCount);
             }
-            catch (const std::exception& ex)
+        });
+    }
+}
+
+void EthereumBridge::onGotTransactionCount(const Error& error, uint64_t txCount)
+{
+    auto ethTx = m_pendingTxs.front();
+    Error tmp(error);
+
+    if (tmp.m_type == IBridge::None)
+    {
+        try
+        {
+            ethTx->m_ethBaseTx.m_nonce = txCount;
+
+            auto signedTx = ethTx->m_ethBaseTx.GetRawSigned(generatePrivateKey());
+            std::string stTx = libbitcoin::encode_base16(signedTx);
+
+            sendRawTransaction(stTx, [this, txNonce = txCount, weak = this->weak_from_this()](const Error& error, const std::string& txHash)
             {
-                tmp.m_type = IBridge::InvalidResultFormat;
-                tmp.m_message = ex.what();
-            }
+                if (!weak.expired())
+                {
+                    onSentRawTransaction(error, txHash, txNonce);
+                }
+            });
+
+            return;
         }
+        catch (const std::exception& ex)
+        {
+            tmp.m_type = IBridge::InvalidResultFormat;
+            tmp.m_message = ex.what();
+        }
+    }
 
-        callback(tmp, "");
+    ethTx->m_confirmedCallback(tmp, "", 0);
+}
+
+void EthereumBridge::onSentRawTransaction(const Error& error, const std::string& txHash, uint64_t txNonce)
+{
+    auto ethTx = m_pendingTxs.front();
+    Error tmp(error);
+
+    if (tmp.m_type == IBridge::None)
+    {
+        ethTx->m_txHash = txHash;
+        requestTxConfirmation();
+
+        // TODO(alex.starun): mb add additional callback
+        // return txHash & txNonce
+        ethTx->m_confirmedCallback(tmp, txHash, txNonce);
+        return;
+    }
+
+    ethTx->m_confirmedCallback(tmp, "", 0);
+}
+
+void EthereumBridge::requestTxConfirmation()
+{
+    getTxByHash(m_pendingTxs.front()->m_txHash, [this, weak = this->weak_from_this()](const Error& error, const nlohmann::json& result)
+    {
+        if (!weak.expired())
+        {
+            onGotTxConfirmation(error, result);
+        }
+    });
+}
+
+void EthereumBridge::onGotTxConfirmation(const Error& error, const nlohmann::json& result)
+{
+    if (error.m_type == IBridge::None && !result.is_null())
+    {
+        // confirmed
+        m_pendingTxs.pop();
+
+        // process next
+        processPendingTx();
+        return;
+    }
+
+    // TODO(alex.starun): timer or asyncEvent
+    constexpr unsigned kTxRequestIntervalMsec = 500;
+    m_txConfirmationTimer->start(kTxRequestIntervalMsec, false, [this, weak = this->weak_from_this()]()
+    {
+        if (!weak.expired())
+        {
+            requestTxConfirmation();
+        }
     });
 }
 

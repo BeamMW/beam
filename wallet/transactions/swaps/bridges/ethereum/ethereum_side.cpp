@@ -324,7 +324,7 @@ bool EthereumSide::SendLockTx()
 
             // TODO(alex.starun): Add "approve" to ethereum::Bridge to control allowances
             m_ethBridge->send(tokenContractAddress, data, ECC::Zero, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
-                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
             {
                 if (!weak.expired())
                 {
@@ -344,6 +344,7 @@ bool EthereumSide::SendLockTx()
 
                     // temporary used for storing approve tx hash
                     m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
+                    m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
                 }
             });
@@ -382,8 +383,9 @@ bool EthereumSide::SendLockTx()
                 }
 
                 m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
-                // reset TxParameterID::AtomicSwapExternalTxID
+                // reset TxParameterID::AtomicSwapExternalTxID & TxParameterID::NonceSlot
                 m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, SubTxIndex::LOCK_TX);
+                m_tx.SetParameter(TxParameterID::NonceSlot, Zero, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
             });
 
@@ -397,7 +399,7 @@ bool EthereumSide::SendLockTx()
         uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
 
         m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
-            [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
+            [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
         {
             if (!weak.expired())
             {
@@ -414,6 +416,7 @@ bool EthereumSide::SendLockTx()
                 }
 
                 m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
+                m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
             }
         });
@@ -442,7 +445,7 @@ bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
     auto data = BuildWithdrawTxData(subTxID);
 
     m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(subTxID), GetGasPrice(subTxID),
-        [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash)
+        [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
     {
         if (!weak.expired())
         {
@@ -455,6 +458,7 @@ bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
 
             m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
             m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
+            m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, subTxID);
             m_tx.UpdateAsync();
         }
     });

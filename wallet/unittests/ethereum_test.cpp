@@ -271,7 +271,7 @@ void testSwap()
             lockData.insert(lockData.end(), 12u, 0x00);
             lockData.insert(lockData.end(), std::begin(participant), std::end(participant));
 
-            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash)
+            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -283,7 +283,7 @@ void testSwap()
                     redeemData.insert(redeemData.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
                     redeemData.insert(redeemData.end(), std::begin(secretHash), std::end(secretHash));
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
+                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -352,7 +352,7 @@ void testSwapWithAggregateSignature()
             ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
             ethereum::AddContractABIWordToBuffer(participant, lockData);
 
-            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash)
+            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -387,7 +387,7 @@ void testSwapWithAggregateSignature()
                     redeemData.insert(redeemData.end(), 31u, 0x00);
                     redeemData.push_back(signature.recovery_id + 27u);
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
+                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -461,7 +461,7 @@ void testERC20SwapWithAggregateSignature()
             ethereum::AddContractABIWordToBuffer(kTokenContractAddress, lockData);
             ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, lockData);
 
-            bridgeAlice.send(kContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash)
+            bridgeAlice.send(kContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -497,7 +497,7 @@ void testERC20SwapWithAggregateSignature()
                     redeemData.insert(redeemData.end(), 31u, 0x00);
                     redeemData.push_back(signature.recovery_id + 27u);
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
+                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -543,6 +543,42 @@ void testERC20GetBalance()
     mainReactor->run();
 }
 
+void testMultipleSend()
+{
+    ethereum::Settings settingsAlice;
+    settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsAlice.m_accountIndex = 2;
+    settingsAlice.m_address = "https://ropsten.infura.io/v3/{ID}";
+    //settingsAlice.m_address = "127.0.0.1:7545";
+    settingsAlice.m_shouldConnect = true;
+
+    auto providerAlice = std::make_shared<ethereum::Provider>(settingsAlice);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto initiator = bridgeAlice->generateEthAddress();
+
+    ECC::uintBig gas = 25000u;
+    ECC::uintBig gasPrice = 50'000'000'000u;
+
+    bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
+        {
+            LOG_DEBUG() << "First Tx hash: " << txHash << " nonce: " << nonce;
+        });
+
+    bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
+        {
+            LOG_DEBUG() << "Second Tx hash: " << txHash << " nonce: " << nonce;
+        });
+
+    bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
+        {
+            LOG_DEBUG() << "Third Tx hash: " << txHash << " nonce: " << nonce;
+        });
+
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -560,6 +596,8 @@ int main()
     testERC20SwapWithAggregateSignature();
 
     testERC20GetBalance();
+
+    testMultipleSend();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

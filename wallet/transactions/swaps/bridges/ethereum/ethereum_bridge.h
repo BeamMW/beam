@@ -17,10 +17,13 @@
 #include "bridge.h"
 #include "http/http_client.h"
 #include "settings_provider.h"
+#include "ethereum_base_transaction.h"
+
+#include <memory>
 
 namespace beam::ethereum
 {
-class EthereumBridge : public IBridge
+class EthereumBridge : public IBridge, public std::enable_shared_from_this<EthereumBridge>
 {
 public:
     EthereumBridge() = delete;
@@ -39,7 +42,7 @@ public:
         const ECC::uintBig& value,
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
-        std::function<void(const Error&, std::string)> callback) override;
+        std::function<void(const Error&, std::string, uint64_t)> callback) override;
     void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) override;
     void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
@@ -55,7 +58,24 @@ protected:
     libbitcoin::ec_secret generatePrivateKey() const;
 
 private:
+
+    void processPendingTx();
+    void onGotTransactionCount(const Error& error, uint64_t txCount);
+    void onSentRawTransaction(const Error& error, const std::string& txHash, uint64_t txNonce);
+    void requestTxConfirmation();
+    void onGotTxConfirmation(const Error& error, const nlohmann::json& result);
+
+    struct EthPendingTransaction
+    {
+        EthBaseTransaction m_ethBaseTx;
+        std::function<void(const Error&, std::string, uint64_t)> m_confirmedCallback;
+        std::string m_txHash;
+    };
+
     HttpClient m_httpClient;
     ISettingsProvider& m_settingsProvider;
+
+    io::Timer::Ptr m_txConfirmationTimer;
+    std::queue<std::shared_ptr<EthPendingTransaction>> m_pendingTxs;
 };
 } // namespace beam::ethereum
