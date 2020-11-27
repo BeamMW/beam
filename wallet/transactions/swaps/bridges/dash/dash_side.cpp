@@ -49,9 +49,4 @@ namespace beam::wallet
     {
         return false;
     }
-
-    uint32_t DashSide::GetWithdrawTxAverageSize() const
-    {
-        return kDashWithdrawTxAverageSize;
-    }
 }

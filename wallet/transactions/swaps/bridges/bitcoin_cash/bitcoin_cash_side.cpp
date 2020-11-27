@@ -54,9 +54,4 @@ namespace beam::wallet
     {
         return false;
     }
-
-    uint32_t BitcoinCashSide::GetWithdrawTxAverageSize() const
-    {
-        return kBCHWithdrawTxAverageSize;
-    }
 }
