@@ -143,10 +143,6 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
     macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_Login0(macro) \
-    macro(ECC::Hash::Value, CfgChecksum) \
-    macro(uint8_t, Flags)
-
 #define BeamNodeMsg_Login(macro) \
     macro(std::vector<ECC::Hash::Value>, Cfgs) \
     macro(uint32_t, Flags)
@@ -254,7 +250,6 @@ namespace proto {
 
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
-    macro(0x00, Login0) \
     macro(0x01, Bye) \
     macro(0x02, Ping) \
     macro(0x03, Pong) \
@@ -733,7 +728,6 @@ namespace proto {
 		virtual void OnMsg(Ping&&) override;
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
-		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
