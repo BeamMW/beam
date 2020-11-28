@@ -154,7 +154,7 @@ ON_METHOD(manager, view_funds)
     WalkerFunds wlk;
     for (wlk.Enum(cid); wlk.MoveNext(); )
     {
-        Env::DocGroup("");
+        Env::DocGroup gr("");
 
         Env::DocAddNum("Aid", wlk.m_Aid);
         Env::DocAddNum("Amount", wlk.m_Val.m_Lo);
