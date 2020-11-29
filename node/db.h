@@ -79,8 +79,8 @@ public:
 			Scheme,
 			AutoincrementID,
 			ParamGet,
-			ParamIns,
-			ParamUpd,
+			ParamSet,
+			ParamDel,
 			StateIns,
 			StateDel,
 			StateGet,
@@ -303,6 +303,7 @@ public:
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
+	bool ParamDelSafe(uint32_t ID);
 
 	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
 	void ParamIntSet(uint32_t ID, uint64_t val);

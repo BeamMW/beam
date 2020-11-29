@@ -687,27 +687,13 @@ void NodeDB::TestChanged1Row()
 
 void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 {
-	Recordset rs(*this, Query::ParamUpd, "UPDATE " TblParams " SET " TblParams_Int "=?," TblParams_Blob "=? WHERE " TblParams_ID "=?");
+	Recordset rs(*this, Query::ParamSet, "INSERT OR REPLACE INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
+	rs.put(0, ID);
 	if (p0)
-		rs.put(0, *p0);
+		rs.put(1, *p0);
 	if (p1)
-		rs.put(1, *p1);
-	rs.put(2, ID);
+		rs.put(2, *p1);
 	rs.Step();
-
-	if (!get_RowsChanged())
-	{
-		rs.Reset(*this, Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
-
-		rs.put(0, ID);
-		if (p0)
-			rs.put(1, *p0);
-		if (p1)
-			rs.put(2, *p1);
-		rs.Step();
-
-		TestChanged1Row();
-	}
 }
 
 void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
@@ -742,6 +728,15 @@ uint64_t NodeDB::ParamIntGetDef(uint32_t ID, uint64_t def /* = 0 */)
 {
 	ParamGet(ID, &def, NULL);
 	return def;
+}
+
+bool NodeDB::ParamDelSafe(uint32_t ID)
+{
+	Recordset rs(*this, Query::ParamDel, "DELETE FROM " TblParams " WHERE " TblParams_ID "=?");
+	rs.put(0, ID);
+	rs.Step();
+
+	return !!get_RowsChanged();
 }
 
 NodeDB::Transaction::Transaction(NodeDB* pDB)
