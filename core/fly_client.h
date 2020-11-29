@@ -53,7 +53,8 @@ namespace proto {
 		macro(Asset,             GetProofAsset,        ProofAsset) \
 		macro(StateSummary,      GetStateSummary,      StateSummary) \
 		macro(EnumHdrs,          EnumHdrs,             HdrPack) \
-		macro(ContractVars,      ContractVarsEnum,     ContractVars)
+		macro(ContractVars,      ContractVarsEnum,     ContractVars) \
+		macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt)
 
 		class Request
 		{

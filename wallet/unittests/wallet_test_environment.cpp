@@ -1101,6 +1101,12 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetShieldedOutputsAt&& msg) override
+        {
+            proto::ShieldedOutputsAt msgOut;
+            Send(msgOut);
+        }
+
         void OnMsg(proto::GetShieldedList&& msg) override
         {
             const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
