@@ -545,6 +545,10 @@ public:
 
 	} m_Mmr;
 
+	TxoID get_ShieldedInputs() const {
+		return m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
+	}
+
 	struct ValidatedCache
 	{
 		struct Entry

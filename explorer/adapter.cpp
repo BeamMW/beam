@@ -321,7 +321,7 @@ private:
             {
                 NodeDB& db = _nodeBackend.get_DB();
                 auto shieldedByLast24h =
-                    db.GetShieldedCount(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 0);
+                    db.ShieldedOutpGet(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 0);
                 auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
 
                 if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)

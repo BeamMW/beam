@@ -55,7 +55,7 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			UtxoStamp,
-			ShieldedOutputs,
+			ShieldedOutputs, // deprecated
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
@@ -190,15 +190,15 @@ public:
 			ContractDataEnum,
 			ContractDataDelAll,
 
+			ShieldedStatisticSel,
+			ShieldedStatisticIns,
+			ShieldedStatisticDel,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
 			Dbg3,
 			Dbg4,
-
-			ShieldedStatisticSel,
-			ShieldedStatisticIns,
-			ShieldedStatisticUp,
 
 			count
 		};
@@ -534,8 +534,9 @@ public:
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
-	void SaveShieldedCount(Height h, uint64_t count);
-	uint64_t GetShieldedCount(Height h);
+	void ShieldedOutpSet(Height h, uint64_t count);
+	uint64_t ShieldedOutpGet(Height h);
+	void ShieldedOutpDelFrom(Height h);
 
 	struct WalkerSystemState
 	{
