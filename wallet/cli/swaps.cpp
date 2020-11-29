@@ -68,9 +68,8 @@ Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin)
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
 
-        preciseAmount *= ethereum::GetCoinUnitsMultiplier(swapCoin);
+        preciseAmount *= UnitsPerCoin(swapCoin);
 
-        // maybe need to use boost::multiprecision::round
         return preciseAmount.convert_to<Amount>();
     }
     catch (const std::runtime_error& /*err*/)

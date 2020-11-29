@@ -61,7 +61,13 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     case AtomicSwapCoin::Bitcoin_SV:
     case AtomicSwapCoin::Dogecoin:
     case AtomicSwapCoin::Dash:
+    case AtomicSwapCoin::WBTC:
         return libbitcoin::satoshi_per_bitcoin;
+    case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+        return 1'000'000'000u;
+    case AtomicSwapCoin::Tether:
+        return 1'000'000u;
     default:
     {
         assert("Unsupported swapCoin type.");
