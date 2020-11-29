@@ -350,7 +350,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 25;
+	const uint64_t nVersionTop = 26;
 
 
 	Transaction t(*this);
@@ -400,7 +400,11 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 24:
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate24);
+		case 25:
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			ParamDelSafe(ParamID::ShieldedOutputs);
+			ParamDelSafe(ParamID::SyncTarget);
+			ParamDelSafe(ParamID::Deprecated_2);
 			// no break;
 
 		case nVersionTop:

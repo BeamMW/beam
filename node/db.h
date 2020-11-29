@@ -66,7 +66,7 @@ public:
 	};
 
 	struct Flags1 {
-		static const uint64_t PendingMigrate24 = 1;
+		static const uint64_t PendingRebuildNonStd = 1;
 	};
 
 	struct Query

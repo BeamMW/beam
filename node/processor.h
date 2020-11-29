@@ -51,7 +51,7 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
-	void Migrate24();
+	void RebuildNonStd();
 	void InitializeUtxos();
 	bool TestDefinition();
 	void TestDefinitionStrict();
@@ -458,6 +458,7 @@ public:
 	struct IKrnWalker
 		:public TxKernel::IWalker
 	{
+		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
 	};
 
