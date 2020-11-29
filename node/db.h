@@ -167,6 +167,7 @@ public:
 			UniqueIns,
 			UniqueFind,
 			UniqueDel,
+			UniqueDelAll,
 
 			AssetFindOwner,
 			AssetFindMin,
@@ -174,6 +175,7 @@ public:
 			AssetDel,
 			AssetGet,
 			AssetSetVal,
+			AssetsDelAll,
 
 			AssetEvtsInsert,
 			AssetEvtsEnumBwd,
@@ -605,6 +607,7 @@ public:
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
+	void UniqueDeleteAll();
 
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
@@ -612,6 +615,7 @@ public:
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
+	void AssetsDelAll();
 
 	struct AssetEvt
 	{
@@ -650,6 +654,8 @@ public:
 	};
 
 	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
+
+	void StreamsDelAll();
 
 private:
 
@@ -705,6 +711,7 @@ private:
 
 	void StreamIO(StreamType::Enum, uint64_t pos, uint8_t*, uint64_t nCount, bool bWrite);
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
+	void StreamShrinkInternal(uint64_t k0, uint64_t k1);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 
