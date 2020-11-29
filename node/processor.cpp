@@ -100,17 +100,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	Merkle::Hash hv;
 	Blob blob(hv);
 
-	ZeroObject(m_Extra);
-	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
-	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
-	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-
-	m_Extra.m_ShieldedOutputs = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedOutputs);
-	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
-	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
-
-	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
-
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
@@ -146,6 +135,15 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 
+	ZeroObject(m_Extra);
+	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
+	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
+	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+
+	m_DB.get_Cursor(m_Cursor.m_Sid);
+	m_Mmr.m_States.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
+	InitCursor(false);
+
 	ZeroObject(m_SyncData);
 
 	blob.p = &m_SyncData;
@@ -161,24 +159,25 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	m_DB.get_Cursor(m_Cursor.m_Sid);
-	m_Mmr.m_States.m_Count = m_Cursor.m_Sid.m_Height - Rules::HeightGenesis;
-	InitCursor(false);
+	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
+	if (NodeDB::Flags1::PendingRebuildNonStd & nFlags1)
+	{
+		RebuildNonStd();
+		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
+	}
+
+	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
+	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
+	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
+	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
 
 	InitializeUtxos(szPath);
+
+	CommitDB();
 
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	m_Horizon.Normalize();
-
-	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
-	if (NodeDB::Flags1::PendingMigrate24 & nFlags1)
-	{
-		Migrate24();
-
-		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingMigrate24);
-		CommitDB();
-	}
 
 	if (PruneOld() && !sp.m_Vacuum)
 	{
@@ -2080,6 +2079,27 @@ struct NodeProcessor::BlockInterpretCtx
 	}
 
 	void EnsureAssetsUsed(NodeDB&);
+
+	struct ChangesFlush
+	{
+		TxoID m_ShieldedOutps;
+		TxoID m_ShieldedInputs;
+		ChangesFlush(NodeProcessor& p)
+		{
+			m_ShieldedOutps = p.m_Extra.m_ShieldedOutputs;
+			m_ShieldedInputs = p.get_ShieldedInputs();
+		}
+
+		void Do(NodeProcessor& p, Height h)
+		{
+			if (p.m_Extra.m_ShieldedOutputs != m_ShieldedOutps)
+				p.m_DB.ShieldedOutpSet(h, p.m_Extra.m_ShieldedOutputs);
+
+			TxoID val = p.get_ShieldedInputs();
+			if (val != m_ShieldedInputs)
+				p.m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, val);
+		}
+	};
 };
 
 bool NodeProcessor::HandleTreasury(const Blob& blob)
@@ -2117,6 +2137,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	LOG_INFO() << os.str();
 
 	BlockInterpretCtx bic(0, true);
+	BlockInterpretCtx::ChangesFlush cf(*this);
 	bic.SetAssetHi(*this);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
@@ -2134,6 +2155,8 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 			return false;
 		}
 	}
+
+	cf.Do(*this, 0);
 
 	Serializer ser;
 	TxoID id0 = 0;
@@ -2259,6 +2282,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
+	BlockInterpretCtx::ChangesFlush cf(*this);
 	bic.SetAssetHi(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
@@ -2387,6 +2411,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 
 		m_RecentStates.Push(sid.m_Row, s);
+
+		cf.Do(*this, sid.m_Height);
 	}
 	else
 	{
@@ -3307,12 +3333,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		m_Extra.m_ShieldedOutputs--;
 	}
 
-	if (!bic.m_Temporary)
-	{
-		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedOutputs, m_Extra.m_ShieldedOutputs);
-		m_DB.SaveShieldedCount(m_Cursor.m_Sid.m_Height, m_Extra.m_ShieldedOutputs);
-	}
-
 	return true;
 }
 
@@ -3370,14 +3390,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 
 		assert(bic.m_ShieldedIns);
 		bic.m_ShieldedIns--;
-	}
-
-	if (!bic.m_Temporary)
-	{
-		assert(!bic.m_SkipDefinition); // otherwise the following formula will be wrong
-
-		TxoID nShieldedInputs = m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
-		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, nShieldedInputs);
 	}
 
 	return true;
@@ -4269,6 +4281,7 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.TxoDelFrom(id0);
 	m_DB.DeleteEventsFrom(h + 1);
 	m_DB.AssetEvtsDeleteFrom(h + 1);
+	m_DB.ShieldedOutpDelFrom(h + 1);
 
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
@@ -5241,7 +5254,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		der & txve;
 
 		wlkKrn.m_nKrnIdx = 0;
-		if (!wlkKrn.Process(txve.m_vKernels))
+		if (!wlkKrn.ProcessHeight(txve.m_vKernels))
 			return false;
 	}
 
@@ -5575,61 +5588,62 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 	e.m_State = s;
 }
 
-void NodeProcessor::Migrate24()
+void NodeProcessor::RebuildNonStd()
 {
-	LOG_INFO() << "Migrating asset tables...";
+	LOG_INFO() << "Rebuilding non-std data...";
 
-	// Delete all asset info, and replay only the relevant kernels
-
-	while (m_Mmr.m_Assets.m_Count)
-		InternalAssetDel(static_cast<Asset::ID>(m_Mmr.m_Assets.m_Count), true);
-
+	// Delete all asset info, contracts, shielded, and replay everything
 	m_DB.ContractDataDelAll();
+	m_DB.ShieldedOutpDelFrom(0);
+	m_DB.StreamsDelAll();
+	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
+	m_DB.AssetsDelAll();
+	m_DB.UniqueDeleteAll();
 
-	struct KrnWalkerAssetsMigrate
+	struct KrnWalkerRebuild
 		:public IKrnWalker
 	{
 		NodeProcessor& m_This;
-		KrnWalkerAssetsMigrate(NodeProcessor& p) :m_This(p) {}
+		BlockInterpretCtx* m_pBic;
+		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;
 
-		virtual bool OnKrn(const TxKernel& krn) override
+		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) override
 		{
-			switch (krn.get_Subtype())
-			{
-			case TxKernel::Subtype::AssetCreate:
-			case TxKernel::Subtype::AssetEmit:
-			case TxKernel::Subtype::AssetDestroy:
-			case TxKernel::Subtype::ContractCreate:
-			case TxKernel::Subtype::ContractInvoke:
-				break;
-			default:
-				return true;
-			}
-
 			BlockInterpretCtx bic(m_Height, true);
-			bic.m_nKrnIdx = m_nKrnIdx;
+			m_pBic = &bic;
+			BlockInterpretCtx::ChangesFlush cf(m_This);
+
 			bic.m_AlreadyValidated = true;
 			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
 
-			if (!m_This.HandleKernelTypeAny(krn, bic))
-				OnCorrupted();
+			Process(v);
 
 			bic.m_Rollback.swap(m_Rollback);
 			m_Rollback.clear();
-			m_nKrnIdx = bic.m_nKrnIdx;
 
+			cf.Do(m_This, m_Height);
+
+			return true;
+		}
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			m_pBic->m_nKrnIdx = m_nKrnIdx;
+
+			if (!m_This.HandleKernelTypeAny(krn, *m_pBic))
+				OnCorrupted();
+
+			m_nKrnIdx = m_pBic->m_nKrnIdx;
 			return true;
 		}
 
 	} wlk(*this);
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
-
-	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)

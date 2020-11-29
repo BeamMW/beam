@@ -601,6 +601,7 @@ private:
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 		virtual void OnMsg(proto::GetStateSummary&&) override;
 		virtual void OnMsg(proto::ContractVarsEnum&&) override;
+		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

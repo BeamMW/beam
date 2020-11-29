@@ -239,6 +239,12 @@ namespace proto {
     macro(Asset::ID, AssetsMax) \
     macro(Asset::ID, AssetsActive) \
 
+#define BeamNodeMsg_GetShieldedOutputsAt(macro) \
+    macro(Height, Height)
+
+#define BeamNodeMsg_ShieldedOutputsAt(macro) \
+    macro(TxoID, ShieldedOuts)
+
 #define BeamNodeMsg_ContractVarsEnum(macro) \
     macro(ByteBuffer, KeyMin) \
     macro(ByteBuffer, KeyMax) \
@@ -314,8 +320,11 @@ namespace proto {
     macro(0x3b, BbsSubscribe) \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
+    /* stats */ \
     macro(0x45, GetStateSummary) \
     macro(0x46, StateSummary) \
+    macro(0x47, GetShieldedOutputsAt) \
+    macro(0x48, ShieldedOutputsAt)
 
 
     struct LoginFlags {
@@ -338,7 +347,7 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
-            // 7 - Contract vars, flexible hdr request
+            // 7 - Contract vars, flexible hdr request, 
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 7;

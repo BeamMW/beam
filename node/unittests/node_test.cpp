@@ -3311,6 +3311,13 @@ void TestAll()
 	beam::TestNodeClientProto();
 
 	{
+		{
+			// test migration
+			beam::NodeDB db;
+			db.Open(beam::g_sz);
+			db.ParamIntSet(beam::NodeDB::ParamID::Flags1, beam::NodeDB::Flags1::PendingRebuildNonStd);
+		}
+
 		// test utxo set image rebuilding with shielded in/outs
 		beam::io::Reactor::Ptr pReactor(beam::io::Reactor::create());
 		beam::io::Reactor::Scope scope(*pReactor);

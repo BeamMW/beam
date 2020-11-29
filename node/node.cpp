@@ -3662,6 +3662,16 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
+{
+    Processor& p = m_This.m_Processor;
+    Height h = std::min(msg.m_Height, p.m_Cursor.m_Full.m_Height); // don't throw exc if the height is too high, theoretically height can go down due to reorg (of course the chainwork must be higher anyway)
+
+    proto::ShieldedOutputsAt msgOut;
+    msgOut.m_ShieldedOuts = p.get_DB().ShieldedOutpGet(h);
+    Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
     NodeDB::WalkerContractData wlk;

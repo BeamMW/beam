@@ -350,7 +350,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 25;
+	const uint64_t nVersionTop = 26;
 
 
 	Transaction t(*this);
@@ -400,7 +400,11 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 24:
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate24);
+		case 25:
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			ParamDelSafe(ParamID::ShieldedOutputs);
+			ParamDelSafe(ParamID::SyncTarget);
+			ParamDelSafe(ParamID::Deprecated_2);
 			// no break;
 
 		case nVersionTop:
@@ -687,27 +691,13 @@ void NodeDB::TestChanged1Row()
 
 void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 {
-	Recordset rs(*this, Query::ParamUpd, "UPDATE " TblParams " SET " TblParams_Int "=?," TblParams_Blob "=? WHERE " TblParams_ID "=?");
+	Recordset rs(*this, Query::ParamSet, "INSERT OR REPLACE INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
+	rs.put(0, ID);
 	if (p0)
-		rs.put(0, *p0);
+		rs.put(1, *p0);
 	if (p1)
-		rs.put(1, *p1);
-	rs.put(2, ID);
+		rs.put(2, *p1);
 	rs.Step();
-
-	if (!get_RowsChanged())
-	{
-		rs.Reset(*this, Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
-
-		rs.put(0, ID);
-		if (p0)
-			rs.put(1, *p0);
-		if (p1)
-			rs.put(2, *p1);
-		rs.Step();
-
-		TestChanged1Row();
-	}
 }
 
 void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
@@ -742,6 +732,15 @@ uint64_t NodeDB::ParamIntGetDef(uint32_t ID, uint64_t def /* = 0 */)
 {
 	ParamGet(ID, &def, NULL);
 	return def;
+}
+
+bool NodeDB::ParamDelSafe(uint32_t ID)
+{
+	Recordset rs(*this, Query::ParamDel, "DELETE FROM " TblParams " WHERE " TblParams_ID "=?");
+	rs.put(0, ID);
+	rs.Step();
+
+	return !!get_RowsChanged();
 }
 
 NodeDB::Transaction::Transaction(NodeDB* pDB)
@@ -2391,15 +2390,25 @@ void NodeDB::StreamResize(StreamType::Enum eType, uint64_t n, uint64_t n0)
 
 	if (nBlobs0 > nBlobs1)
 	{
-		Recordset rs(*this, Query::StreamDel, "DELETE FROM " TblStreams " WHERE " TblStream_ID ">=? AND " TblStream_ID "<?");
-		rs.put(0, StreamType::Key(nBlobs1, eType));
-		rs.put(1, StreamType::Key(nBlobs0, eType));
-		rs.Step();
+		StreamShrinkInternal(StreamType::Key(nBlobs1, eType), StreamType::Key(nBlobs0, eType));
 
 		uint64_t ret = get_RowsChanged();
 		if (ret != nBlobs0 - nBlobs1)
 			ThrowInconsistent();
 	}
+}
+
+void NodeDB::StreamShrinkInternal(uint64_t k0, uint64_t k1)
+{
+	Recordset rs(*this, Query::StreamDel, "DELETE FROM " TblStreams " WHERE " TblStream_ID ">=? AND " TblStream_ID "<?");
+	rs.put(0, k0);
+	rs.put(1, k1);
+	rs.Step();
+}
+
+void NodeDB::StreamsDelAll()
+{
+	StreamShrinkInternal(0, std::numeric_limits<int64_t>::max());
 }
 
 void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)
@@ -2461,35 +2470,17 @@ void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 	ShieldeIO(pos, p, nCount, false);
 }
 
-void NodeDB::SaveShieldedCount(Height h, uint64_t count)
+void NodeDB::ShieldedOutpSet(Height h, uint64_t count)
 {
-	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT * FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "=?");
+	Recordset rs(*this, Query::ShieldedStatisticIns, "INSERT INTO " TblShieldedStatistic " (" TblShieldedStatistic_Height "," TblShieldedStatistic_OutCount ") VALUES(?,?)");
 	rs.put(0, h);
-
-	if (rs.Step())
-	{
-		rs.Reset(*this, Query::ShieldedStatisticUp, "UPDATE " TblShieldedStatistic " SET " TblShieldedStatistic_OutCount "=? WHERE " TblShieldedStatistic_Height "=?");
-		rs.put(0, count);
-		rs.put(1, h);
-
-		rs.Step();
-	}
-	else
-	{
-		rs.Reset(*this, Query::ShieldedStatisticIns, "INSERT INTO " TblShieldedStatistic " (" TblShieldedStatistic_Height "," TblShieldedStatistic_OutCount ") VALUES(?,?)");
-		rs.put(0, h);
-		rs.put(1, count);
-
-		rs.Step();
-	}
-	
-
-	TestChanged1Row();
+	rs.put(1, count);
+	rs.Step();
 }
 
-uint64_t NodeDB::GetShieldedCount(Height h)
+uint64_t NodeDB::ShieldedOutpGet(Height h)
 {
-	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height " <= ? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
+	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "<=? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
 	rs.put(0, h);
 
 	if (!rs.Step())
@@ -2498,6 +2489,13 @@ uint64_t NodeDB::GetShieldedCount(Height h)
 	uint64_t ret;
 	rs.get(0, ret);
 	return ret;
+}
+
+void NodeDB::ShieldedOutpDelFrom(Height h)
+{
+	Recordset rs(*this, Query::ShieldedStatisticDel, "DELETE FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height ">=?");
+	rs.put(0, h);
+	rs.Step();
 }
 
 bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)
@@ -2524,6 +2522,12 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 
 	rs.Step();
 	TestChanged1Row();
+}
+
+void NodeDB::UniqueDeleteAll()
+{
+	Recordset rs(*this, Query::UniqueDel, "DELETE FROM " TblUnique);
+	rs.Step();
 }
 
 const Asset::ID NodeDB::s_AssetEmpty0 = Asset::s_MaxCount;
@@ -2632,6 +2636,15 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) - 1);
 
 	return nCount;
+}
+
+void NodeDB::AssetsDelAll()
+{
+	Recordset rs(*this, Query::AssetsDelAll, "DELETE FROM " TblAssets);
+	rs.Step();
+
+	ParamDelSafe(ParamID::AssetsCountUsed);
+	ParamDelSafe(ParamID::AssetsCount);
 }
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)

@@ -447,6 +447,11 @@ namespace beam::wallet
         return false;
     }
 
+    bool Wallet::MyRequestShieldedOutputsAt::operator < (const MyRequestShieldedOutputsAt& x) const
+    {
+        return false;
+    }
+
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -1078,6 +1083,10 @@ namespace beam::wallet
     {
     }
 
+    void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt&)
+    {
+        // TODO
+    }
 
     void Wallet::RequestEvents()
     {

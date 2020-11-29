@@ -55,7 +55,7 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			UtxoStamp,
-			ShieldedOutputs,
+			ShieldedOutputs, // deprecated
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
@@ -66,7 +66,7 @@ public:
 	};
 
 	struct Flags1 {
-		static const uint64_t PendingMigrate24 = 1;
+		static const uint64_t PendingRebuildNonStd = 1;
 	};
 
 	struct Query
@@ -79,8 +79,8 @@ public:
 			Scheme,
 			AutoincrementID,
 			ParamGet,
-			ParamIns,
-			ParamUpd,
+			ParamSet,
+			ParamDel,
 			StateIns,
 			StateDel,
 			StateGet,
@@ -167,6 +167,7 @@ public:
 			UniqueIns,
 			UniqueFind,
 			UniqueDel,
+			UniqueDelAll,
 
 			AssetFindOwner,
 			AssetFindMin,
@@ -174,6 +175,7 @@ public:
 			AssetDel,
 			AssetGet,
 			AssetSetVal,
+			AssetsDelAll,
 
 			AssetEvtsInsert,
 			AssetEvtsEnumBwd,
@@ -188,15 +190,15 @@ public:
 			ContractDataEnum,
 			ContractDataDelAll,
 
+			ShieldedStatisticSel,
+			ShieldedStatisticIns,
+			ShieldedStatisticDel,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
 			Dbg3,
 			Dbg4,
-
-			ShieldedStatisticSel,
-			ShieldedStatisticIns,
-			ShieldedStatisticUp,
 
 			count
 		};
@@ -303,6 +305,7 @@ public:
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
+	bool ParamDelSafe(uint32_t ID);
 
 	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
 	void ParamIntSet(uint32_t ID, uint64_t val);
@@ -531,8 +534,9 @@ public:
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
-	void SaveShieldedCount(Height h, uint64_t count);
-	uint64_t GetShieldedCount(Height h);
+	void ShieldedOutpSet(Height h, uint64_t count);
+	uint64_t ShieldedOutpGet(Height h);
+	void ShieldedOutpDelFrom(Height h);
 
 	struct WalkerSystemState
 	{
@@ -604,6 +608,7 @@ public:
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
+	void UniqueDeleteAll();
 
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
@@ -611,6 +616,7 @@ public:
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
+	void AssetsDelAll();
 
 	struct AssetEvt
 	{
@@ -649,6 +655,8 @@ public:
 	};
 
 	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
+
+	void StreamsDelAll();
 
 private:
 
@@ -704,6 +712,7 @@ private:
 
 	void StreamIO(StreamType::Enum, uint64_t pos, uint8_t*, uint64_t nCount, bool bWrite);
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
+	void StreamShrinkInternal(uint64_t k0, uint64_t k1);
 
 	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 
