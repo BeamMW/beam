@@ -31,7 +31,6 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
-#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
@@ -75,6 +74,8 @@ namespace beam::wallet
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
     };
+
+    class SwapOffersBoard;
 
     class WalletClient
         : private IWalletObserver

@@ -20,6 +20,9 @@
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
