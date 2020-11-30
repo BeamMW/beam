@@ -339,9 +339,24 @@ namespace std
 	void ThrowLastError()
 	{
 #ifdef WIN32
-		ThrowSystemError(GetLastError());
+		LPSTR buffer;
+		auto error = GetLastError();
+		auto count = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
+			, nullptr
+			, error
+			, LocaleNameToLCID(L"en-US", 0)
+			, (LPSTR)&buffer
+			, 0
+			, nullptr);
+		if (count)
+		{
+			std::string message(buffer, buffer + count);
+			::LocalFree(&buffer);
+			throw runtime_error(message);
+		}
+		ThrowSystemError(error);
 #else // WIN32
-		ThrowSystemError(errno);
+		throw runtime_error(strerror(errno));
 #endif // WIN32
 	}
 
