@@ -285,6 +285,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
     }
+
+    void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getShieldedCountAt, h, std::move(callback));
+    }
 };
 }
 
@@ -1286,6 +1291,11 @@ namespace beam::wallet
         {
             cb(std::move(res));
         });
+    }
+
+    void WalletClient::getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback)
+    {
+        // TODO ui 304
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

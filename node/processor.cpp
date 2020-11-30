@@ -3181,7 +3181,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 	if (bic.m_StoreShieldedOutput)
 	{
 		m_DB.ParamIntSet(NodeDB::ParamID::ShieldedOutputs, m_Extra.m_ShieldedOutputs);
-		m_DB.SaveShieldedCount(m_Cursor.m_Sid.m_Height, m_Extra.m_ShieldedOutputs);
+		m_DB.ShieldedOutpSet(bic.m_Height, m_Extra.m_ShieldedOutputs);
 	}
 
 	return true;
