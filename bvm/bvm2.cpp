@@ -16,6 +16,12 @@
 #include "bvm2_impl.h"
 #include <sstream>
 
+#if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
+#include "crypto/blake/ref/blake2.h"
+#else
+#include "crypto/blake/sse/blake2.h"
+#endif
+
 namespace beam {
 namespace bvm2 {
 
@@ -89,6 +95,8 @@ namespace bvm2 {
 
         decltype(m_vHeap)().swap(m_vHeap);
 		m_Heap.Clear();
+
+		m_DataProcessor.m_Map.Clear();
 	}
 
 	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
@@ -1277,6 +1285,30 @@ namespace bvm2 {
 		}
 	};
 
+	struct Processor::DataProcessor::Blake2b
+		:public Processor::DataProcessor::Base
+	{
+		blake2b_state m_State;
+
+		virtual ~Blake2b() {}
+		virtual void Write(const uint8_t* p, uint32_t n) override
+		{
+			blake2b_update(&m_State, p, n);
+		}
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		{
+			blake2b_state s = m_State; // copy
+
+			if (blake2b_final(&s, p, n))
+				return 0;
+
+			assert(s.outlen <= n);
+			Write(p, static_cast<uint32_t>(s.outlen));
+
+			return static_cast<uint32_t>(s.outlen);
+		}
+	};
+
 	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Base::Comparator());
@@ -1289,20 +1321,24 @@ namespace bvm2 {
 		return FindStrict(static_cast<uint32_t>(reinterpret_cast<size_t>(pObj)));
 	}
 
-	BVM_METHOD(HashCreateSha256)
+	uint32_t Processor::AddHash(std::unique_ptr<DataProcessor::Base>&& p)
 	{
 		if ((Kind::Contract == get_Kind()) && (m_DataProcessor.m_Map.size() >= Limits::HashObjects))
 			return 0;
 
 		DischargeUnits(Limits::Cost::HashOp);
 
-		auto pRet = std::make_unique<DataProcessor::Sha256>();
-
 		uint32_t ret = m_DataProcessor.m_Map.empty() ? 1 : (m_DataProcessor.m_Map.rbegin()->m_Key + 1);
-		pRet->m_Key = ret;
-		m_DataProcessor.m_Map.insert(*pRet.release());
+		p->m_Key = ret;
+		m_DataProcessor.m_Map.insert(*p.release());
 
 		return ret;
+	}
+
+	BVM_METHOD(HashCreateSha256)
+	{
+		auto pRet = std::make_unique<DataProcessor::Sha256>();
+		return AddHash(std::move(pRet));
 	}
 
 	BVM_METHOD_HOST(HashCreateSha256)
@@ -1310,6 +1346,30 @@ namespace bvm2 {
 		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateSha256();
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
+
+	BVM_METHOD(HashCreateBlake2b)
+	{
+		auto val = ProcessorPlus::From(*this).OnHost_HashCreateBlake2b(get_AddrR(pPersonal, nPersonal), nPersonal, nResultSize);
+		return val ? static_cast<uint32_t>(reinterpret_cast<size_t>(val)) : 0;
+	}
+
+	BVM_METHOD_HOST(HashCreateBlake2b)
+	{
+		blake2b_param pars = { 0 };
+		pars.digest_length = static_cast<uint8_t>(nResultSize);
+		pars.fanout = 1;
+		pars.depth = 1;
+
+		memcpy(pars.personal, pPersonal, std::min<size_t>(sizeof(pars.personal), nPersonal));
+
+		auto pRet = std::make_unique<DataProcessor::Blake2b>();
+		if (blake2b_init_param(&pRet->m_State, &pars))
+			return nullptr;
+
+		auto val = AddHash(std::move(pRet));
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
+	}
+
 
 	BVM_METHOD(HashWrite)
 	{

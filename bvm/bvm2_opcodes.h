@@ -54,6 +54,12 @@
 
 #define BVMOp_HashCreateSha256(macro, sep)
 
+#define BVMOp_HashCreateBlake2b(macro, sep) \
+	macro(const void*, pPersonal) sep \
+	macro(uint32_t, nPersonal) sep \
+	macro(uint32_t, nResultSize)
+
+
 #define BVMOp_HashWrite(macro, sep) \
 	macro(HashObj*, pHash) sep \
 	macro(const void*, p) sep \
@@ -215,7 +221,8 @@
 	macro(0x2E, void     , HashFree) \
 	macro(0x40, Height   , get_Height) \
 	macro(0x41, void     , get_Hdr) \
-	macro(0x50, HashObj* , HashCreateSha256) \
+	macro(0x48, HashObj* , HashCreateSha256) \
+	macro(0x49, HashObj* , HashCreateBlake2b) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \

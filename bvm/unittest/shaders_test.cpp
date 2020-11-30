@@ -22,6 +22,12 @@
 
 #include <sstream>
 
+#if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
+#include "crypto/blake/ref/blake2.h"
+#else
+#include "crypto/blake/sse/blake2.h"
+#endif
+
 namespace Shaders {
 
 	namespace Env {
@@ -880,6 +886,31 @@ namespace bvm2 {
 
 			static_assert(sizeof(hv) == sizeof(args.m_pRes));
 			verify_test(!memcmp(hv.m_pData, args.m_pRes, sizeof(args.m_pRes)));
+		}
+
+		{
+			Shaders::Dummy::Hash2 args;
+
+			memset(args.m_pInp, 0xcd, sizeof(args.m_pInp));
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+
+			blake2b_state s;
+			blake2b_param pars = { 0 };
+			pars.digest_length = static_cast<uint8_t>(sizeof(args.m_pRes));
+			pars.fanout = 1;
+			pars.depth = 1;
+
+			static const char szPers[] = "abcd";
+			memcpy(pars.personal, szPers, sizeof(szPers) - 1);
+
+			blake2b_init_param(&s, &pars);
+			blake2b_update(&s, args.m_pInp, sizeof(args.m_pInp));
+
+			uint8_t pRes[sizeof(args.m_pRes)];
+			blake2b_final(&s, pRes, sizeof(pRes));
+
+			verify_test(!memcmp(pRes, args.m_pRes, sizeof(pRes)));
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));

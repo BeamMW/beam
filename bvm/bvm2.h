@@ -229,6 +229,8 @@ namespace bvm2 {
 
 		} m_DataProcessor;
 
+		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
+
 	public:
 
 		enum struct Kind {
