@@ -16,12 +16,6 @@
 #include "bvm2_impl.h"
 #include <sstream>
 
-template <>
-struct std::numeric_limits<Shaders::HashObj::Type>
-	:public std::numeric_limits<uint32_t>
-{
-};
-
 namespace beam {
 namespace bvm2 {
 
@@ -524,10 +518,6 @@ namespace bvm2 {
 
 	uint32_t LogFrom(uint8_t x) {
 		return x;
-	}
-
-	uint32_t LogFrom(HashObj::Type x) {
-		return static_cast<uint32_t>(x);
 	}
 
 #define PAR_PASS(type, name) m_##name.V
@@ -1299,23 +1289,14 @@ namespace bvm2 {
 		return FindStrict(static_cast<uint32_t>(reinterpret_cast<size_t>(pObj)));
 	}
 
-	BVM_METHOD(HashAlloc)
+	BVM_METHOD(HashCreateSha256)
 	{
 		if ((Kind::Contract == get_Kind()) && (m_DataProcessor.m_Map.size() >= Limits::HashObjects))
 			return 0;
 
 		DischargeUnits(Limits::Cost::HashOp);
 
-		std::unique_ptr<DataProcessor::Base> pRet;
-		switch (type)
-		{
-		case HashObj::Type::Sha256:
-			pRet = std::make_unique<DataProcessor::Sha256>();
-			break;
-
-		default:
-			return 0;
-		}
+		auto pRet = std::make_unique<DataProcessor::Sha256>();
 
 		uint32_t ret = m_DataProcessor.m_Map.empty() ? 1 : (m_DataProcessor.m_Map.rbegin()->m_Key + 1);
 		pRet->m_Key = ret;
@@ -1324,9 +1305,9 @@ namespace bvm2 {
 		return ret;
 	}
 
-	BVM_METHOD_HOST(HashAlloc)
+	BVM_METHOD_HOST(HashCreateSha256)
 	{
-		auto val = ProcessorPlus::From(*this).OnMethod_HashAlloc(type);
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateSha256();
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 

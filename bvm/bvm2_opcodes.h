@@ -52,8 +52,7 @@
 #define BVMOp_Heap_Free(macro, sep) \
 	macro(void*, pPtr)
 
-#define BVMOp_HashAlloc(macro, sep) \
-	macro(HashObj::Type, type)
+#define BVMOp_HashCreateSha256(macro, sep)
 
 #define BVMOp_HashWrite(macro, sep) \
 	macro(HashObj*, pHash) sep \
@@ -211,12 +210,12 @@
 	macro(0x1A, void*    , Heap_Alloc) \
 	macro(0x1B, void     , Heap_Free) \
 	macro(0x28, void     , Halt) \
-	macro(0x2A, HashObj* , HashAlloc) \
 	macro(0x2B, void     , HashWrite) \
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
 	macro(0x40, Height   , get_Height) \
 	macro(0x41, void     , get_Hdr) \
+	macro(0x50, HashObj* , HashCreateSha256) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \

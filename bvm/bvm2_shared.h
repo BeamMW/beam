@@ -43,13 +43,7 @@ struct SigRequest
 
 #pragma pack (pop)
 
-struct HashObj
-{
-	enum Type : uint32_t
-	{
-		Sha256 = 0,
-	};
-};
+struct HashObj;
 
 struct BlockHeader
 {

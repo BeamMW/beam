@@ -52,7 +52,7 @@ export void Method_5(Dummy::InfCycle&)
 
 export void Method_6(Dummy::Hash1& r)
 {
-    HashObj* pHash = Env::HashAlloc(HashObj::Type::Sha256);
+    HashObj* pHash = Env::HashCreateSha256();
     Env::Halt_if(!pHash);
 
     Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));
