@@ -180,11 +180,11 @@ namespace beam::wallet
     void Wallet::CleanupNetwork()
     {
         // clear all requests
-#define THE_MACRO(type, msgOut, msgIn) \
+#define THE_MACRO(type) \
                 while (!m_Pending##type.empty()) \
                     DeleteReq(*m_Pending##type.begin());
 
-        REQUEST_TYPES_All(THE_MACRO)
+        WalletFlyClientRequests_All(THE_MACRO)
 #undef THE_MACRO
 
         m_MessageEndpoints.clear();
@@ -402,6 +402,14 @@ namespace beam::wallet
         on_tx_completed(txID);
     }
 
+#define WALLET_REQUEST_Single(type) \
+    bool Wallet::MyRequest##type::operator < (const MyRequest##type& x) const { return false; }
+
+    WALLET_REQUEST_Single(Events)
+    WALLET_REQUEST_Single(StateSummary)
+    WALLET_REQUEST_Single(ShieldedOutputsAt)
+
+
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
     {
         return m_Msg.m_Utxo < x.m_Msg.m_Utxo;
@@ -427,11 +435,6 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
-    bool Wallet::MyRequestEvents::operator < (const MyRequestEvents& x) const
-    {
-        return false;
-    }
-
     bool Wallet::MyRequestProofShieldedOutp::operator < (const MyRequestProofShieldedOutp& x) const
     {
         return m_TxID < x.m_TxID;
@@ -442,23 +445,13 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
-    bool Wallet::MyRequestStateSummary::operator < (const MyRequestStateSummary& x) const
-    {
-        return false;
-    }
-
-    bool Wallet::MyRequestShieldedOutputsAt::operator < (const MyRequestShieldedOutputsAt& x) const
-    {
-        return false;
-    }
-
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
 
         switch (r.get_Type())
         {
-#define THE_MACRO(type, msgOut, msgIn) \
+#define THE_MACRO(type) \
         case Request::Type::type: \
             { \
                 MyRequest##type& x = static_cast<MyRequest##type&>(r); \
@@ -467,7 +460,7 @@ namespace beam::wallet
             } \
             break;
 
-            REQUEST_TYPES_All(THE_MACRO)
+            WalletFlyClientRequests_All(THE_MACRO)
 #undef THE_MACRO
 
         default:
@@ -1054,33 +1047,15 @@ namespace beam::wallet
         r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res);
     }
 
-    void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
-    {
-        // TODO(alex.starun): implement this
-    }
-
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
         r.m_callback(r.m_Res); // either successful or not
-    }
-
-    void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
-    {
-        assert(false);
     }
 
     void Wallet::OnRequestComplete(MyRequestStateSummary& r)
     {
         // TODO: save full response?
         m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
-    }
-
-    void Wallet::OnRequestComplete(MyRequestContractVars&)
-    {
-    }
-
-    void Wallet::OnRequestComplete(MyRequestEnumHdrs&)
-    {
     }
 
     void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt&)
