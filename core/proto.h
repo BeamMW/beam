@@ -347,10 +347,11 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
-            // 7 - Contract vars, flexible hdr request, 
+            // 7 - GetShieldedOutputsAt
+            // 8 - Contract vars, flexible hdr request
 
             static const uint32_t Minimum = 4;
-            static const uint32_t Maximum = 7;
+            static const uint32_t Maximum = 8;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
