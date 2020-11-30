@@ -505,53 +505,53 @@ after_success:
   # deploy using ftp server
   - BEAM_ROOT_DIR=$HOME/build/BeamMW/beam
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
-  - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
+  #- tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
+  #- tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
   - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/api/ wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
   - tar -cvzf broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/broadcaster broadcaster$BEAM_TARGET_SUFFIX
-  - tar -cvzf beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz -C $BEAM_ROOT_DIR/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg -C $BEAM_ROOT_DIR/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg -C $BEAM_ROOT_DIR/bvm Shaders
+  - tar -cvzf beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz -C $BEAM_ROOT_DIR/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg -C $BEAM_ROOT_DIR/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg -C $BEAM_ROOT_DIR/bvm Shaders
 
   # upload binaries to FTP
-  - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  #- curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  #- curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
   # upload binaries to FTP, to the latest folder
   - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER
-  - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/broadcaster$BEAM_TARGET_SUFFIX.tar.gz
-  - curl --retry 3 --ftp-create-dirs -T beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-shader-pack$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-shader-pack$BEAM_TARGET_SUFFIX.tar.gz
 
   # upload binaries to S3
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
 
   # prep for deploy to AWS S3, latest folder
-  - cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - cp wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - cp explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - cp broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz broadcaster$BEAM_TARGET_SUFFIX.tar.gz
-  - cp beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-shader-pack$BEAM_TARGET_SUFFIX.tar.gz
+  - cp beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node-wallet-shaders$BEAM_TARGET_SUFFIX.tar.gz
 
   # upload binaries to S3, to the latest folder
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-shader-pack$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node-wallet-shaders$BEAM_TARGET_SUFFIX.tar.gz
 
 notifications:
   email:
