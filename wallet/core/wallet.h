@@ -158,6 +158,7 @@ namespace beam::wallet
         // voucher management
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
+        void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -222,7 +223,6 @@ namespace beam::wallet
         Height GetEventsHeightNext();
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
-        void RequestShieldedOutputsAt();
 
         void OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
@@ -298,6 +298,10 @@ namespace beam::wallet
             {
                 TxID m_TxID;
                 ShieldedListCallback m_callback;
+            };
+            struct ShieldedOutputsAt
+            {
+                std::function<void(Height, TxoID)> m_callback;
             };
         };
 

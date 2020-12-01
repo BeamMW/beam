@@ -1295,7 +1295,17 @@ namespace beam::wallet
 
     void WalletClient::getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback)
     {
-        // TODO ui 304
+        if (auto w = m_wallet.lock(); w)
+        {
+            auto onRequestComplete = [this, cb = std::move(callback)](Height h, TxoID count)
+            {
+                postFunctionToClientContext([h, count, clientContextCallback = std::move(cb)]()
+                {
+                    clientContextCallback(h, count);
+                });
+            };
+            w->RequestShieldedOutputsAt(h, onRequestComplete);
+        }
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

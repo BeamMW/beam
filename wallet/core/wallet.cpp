@@ -168,7 +168,6 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
-        RequestShieldedOutputsAt();
     }
 
     Wallet::~Wallet()
@@ -1071,7 +1070,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt& r)
     {
-        LOG_DEBUG() << r.m_Res.m_ShieldedOuts;
+        r.m_callback(r.m_Msg.m_Height, r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()
@@ -1369,7 +1368,6 @@ namespace beam::wallet
 
         RequestEvents();
         RequestStateSummary();
-        RequestShieldedOutputsAt();
 
         for (auto& tx : m_NextTipTransactionToUpdate)
         {
@@ -1684,13 +1682,11 @@ namespace beam::wallet
         PostReqUnique(*pReq);
     }
 
-    void Wallet::RequestShieldedOutputsAt()
+    void Wallet::RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete)
     {
-        beam::Block::SystemState::Full tip;
-        m_WalletDB->get_History().get_Tip(tip);
-
         MyRequestShieldedOutputsAt::Ptr pVal(new MyRequestShieldedOutputsAt);
-        pVal->m_Msg.m_Height = tip.m_Height >= 1440 ? tip.m_Height - 1440 : 1;
+        pVal->m_Msg.m_Height = h;
+        pVal->m_callback = std::move(onRequestComplete);
         PostReqUnique(*pVal);
     }
 
