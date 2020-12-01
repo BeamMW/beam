@@ -22,6 +22,8 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
+#include "crypto/keccak256.h"
+
 namespace beam {
 namespace bvm2 {
 
@@ -1309,6 +1311,44 @@ namespace bvm2 {
 		}
 	};
 
+	struct Processor::DataProcessor::Keccak256
+		:public Processor::DataProcessor::Base
+	{
+		SHA3_CTX m_State;
+
+		Keccak256()
+		{
+			keccak_init(&m_State);
+		}
+
+		virtual ~Keccak256() {}
+		virtual void Write(const uint8_t* p, uint32_t n) override
+		{
+			const uint16_t naggle = std::numeric_limits<uint16_t>::max();
+			while (n > naggle)
+			{
+				keccak_update(&m_State, p, naggle);
+				p += naggle;
+				n -= naggle;
+			}
+
+			keccak_update(&m_State, p, static_cast<uint16_t>(n));
+
+		}
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		{
+			SHA3_CTX s = m_State; // copy
+
+			ECC::Hash::Value hv;
+			keccak_final(&s, hv.m_pData);
+			keccak_update(&m_State, hv.m_pData, static_cast<uint16_t>(hv.nBytes));
+
+			std::setmin(n, hv.nBytes);
+			memcpy(p, hv.m_pData, n);
+			return n;
+		}
+	};
+
 	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Base::Comparator());
@@ -1370,6 +1410,17 @@ namespace bvm2 {
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
+	BVM_METHOD(HashCreateKeccak256)
+	{
+		auto pRet = std::make_unique<DataProcessor::Keccak256>();
+		return AddHash(std::move(pRet));
+	}
+
+	BVM_METHOD_HOST(HashCreateKeccak256)
+	{
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak256();
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
+	}
 
 	BVM_METHOD(HashWrite)
 	{

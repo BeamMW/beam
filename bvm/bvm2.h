@@ -230,6 +230,7 @@ namespace bvm2 {
 
 			struct Sha256;
 			struct Blake2b;
+			struct Keccak256;
 
 			Base& FindStrict(uint32_t);
 			Base& FindStrict(HashObj*);

@@ -78,6 +78,19 @@ namespace Dummy
         }
     };
 
+    struct Hash3
+    {
+        static const uint32_t s_iMethod = 8;
+
+        uint8_t m_pInp[15];
+        uint8_t m_pRes[32];
+
+        template <bool bToShader>
+        void Convert()
+        {
+        }
+    };
+
 #pragma pack (pop)
 
 }

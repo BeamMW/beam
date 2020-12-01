@@ -54,6 +54,8 @@
 
 #define BVMOp_HashCreateSha256(macro, sep)
 
+#define BVMOp_HashCreateKeccak256(macro, sep)
+
 #define BVMOp_HashCreateBlake2b(macro, sep) \
 	macro(const void*, pPersonal) sep \
 	macro(uint32_t, nPersonal) sep \
@@ -223,6 +225,7 @@
 	macro(0x41, void     , get_Hdr) \
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
+	macro(0x4A, HashObj* , HashCreateKeccak256) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \

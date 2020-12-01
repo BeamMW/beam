@@ -73,3 +73,14 @@ export void Method_7(Dummy::Hash2& r)
 
     Env::HashFree(pHash);
 }
+
+export void Method_8(Dummy::Hash3& r)
+{
+    HashObj* pHash = Env::HashCreateKeccak256();
+    Env::Halt_if(!pHash);
+
+    Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));
+    Env::HashGetValue(pHash, r.m_pRes, sizeof(r.m_pRes));
+
+    Env::HashFree(pHash);
+}
