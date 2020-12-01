@@ -234,6 +234,9 @@ namespace beam::wallet
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
         void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override;
 
+        void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
+        void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 

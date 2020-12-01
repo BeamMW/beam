@@ -290,6 +290,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getShieldedCountAt, h, std::move(callback));
     }
+
+    void setMaxPrivacyLockTimeLimitHours(uint8_t limit)
+    {
+        call_async(&IWalletModelAsync::setMaxPrivacyLockTimeLimitHours, limit);
+    }
+
+    void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
+    {
+        call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
+    }
 };
 }
 
@@ -1306,6 +1316,22 @@ namespace beam::wallet
             };
             w->RequestShieldedOutputsAt(h, onRequestComplete);
         }
+    }
+
+    void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
+    {
+        m_walletDB->set_MaxPrivacyLockTimeLimitHours(limit);
+        onStatus(getStatus());
+        updateClientState();
+    }
+
+    void WalletClient::getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
+    {
+        auto limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours();
+        postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
+        {
+            cb(std::move(res));
+        });
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

@@ -645,7 +645,7 @@ namespace beam
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
-				uint8_t m_MaxPrivacyMinAnonimitySet;
+				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
 				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
 			};

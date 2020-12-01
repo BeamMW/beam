@@ -1709,7 +1709,7 @@ namespace beam::wallet
         std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
 
         TxAddressType addressType = TxAddressType::Offline;
-        if (message->m_MaxPrivacyMinAnonimitySet)
+        if (message->m_MaxPrivacyMinAnonymitySet)
         {
             addressType = TxAddressType::MaxPrivacy;
         }
@@ -1749,9 +1749,9 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
-            if (message->m_MaxPrivacyMinAnonimitySet)
+            if (message->m_MaxPrivacyMinAnonymitySet)
             {
-                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonimitySet);
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
             }
             params.SetParameter(TxParameterID::AddressType, addressType);
 
