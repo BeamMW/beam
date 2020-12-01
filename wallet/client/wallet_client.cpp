@@ -824,7 +824,7 @@ namespace beam::wallet
     void WalletClient::getUtxosStatus()
     {
         onAllUtxoChanged(ChangeAction::Reset, getUtxos());
-        onShieldedCoinChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(0));
+        onShieldedCoinChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(beam::Asset::s_BeamID));
     }
 
     void WalletClient::getAddresses(bool own)
