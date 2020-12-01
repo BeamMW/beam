@@ -5125,7 +5125,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (storage::IsOngoingTx(walletDB, c.m_spentTxId))
+            if (storage::IsOngoingTx(walletDB, c.m_createTxId))
             {
                 c.m_Status = ShieldedCoin::Status::Incoming;
                 return;
