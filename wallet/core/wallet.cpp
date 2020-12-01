@@ -442,7 +442,7 @@ namespace beam::wallet
 
     bool Wallet::MyRequestShieldedOutputsAt::operator < (const MyRequestShieldedOutputsAt& x) const
     {
-        return false;
+        return m_Msg.m_Height < x.m_Msg.m_Height;
     }
 
     void Wallet::RequestHandler::OnComplete(Request& r)
