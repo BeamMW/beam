@@ -1029,10 +1029,10 @@ namespace bvm2 {
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
 
-		DischargeUnits(
-			Limits::Cost::LoadVar +
-			Limits::Cost::LoadVarPerByte * (nKey + std::min(nVal, ret))
-		);
+		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + std::min(nVal, ret));
+
+		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerAtom * nAtoms);
+		DischargeVar(m_Charge.m_VarLoadAtoms, 1);
 
 		return ret;
 	}
@@ -1047,10 +1047,10 @@ namespace bvm2 {
 
 	BVM_METHOD(SaveVar)
 	{
-		DischargeUnits(
-			Limits::Cost::SaveVar +
-			Limits::Cost::SaveVarPerByte * (nKey + nVal)
-		);
+		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + nVal);
+
+		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerAtom * nAtoms);
+		DischargeVar(m_Charge.m_VarSaveAtoms, 1);
 
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
@@ -1373,7 +1373,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1385,7 +1385,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);

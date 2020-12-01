@@ -77,18 +77,23 @@ namespace bvm2 {
 		{
 			static const Amount UnitPrice = 50; // groth
 
+			static const uint32_t AtomSize = 256; // bytes
+			static uint32_t get_Atoms(uint32_t n) {
+				return 1 + n / AtomSize; // 1 at least, even if n==0
+			}
+
 			static const uint32_t Cycle = 1;
 			static const uint32_t MemOpPer16Byte = 1;
 			static const uint32_t HeapOp = 30; // in addition to per-byte price
 			static const uint32_t LoadVar = 200;
-			static const uint32_t LoadVarPerByte = 1;
+			static const uint32_t LoadVarPerAtom = 200;
 			static const uint32_t SaveVar = 600;
-			static const uint32_t SaveVarPerByte = 2;
+			static const uint32_t SaveVarPerAtom = 500;
 			static const uint32_t CallFar = 1000;
 			static const uint32_t AddSig = 1000;
 			static const uint32_t AssetEmit = 2000;
 			static const uint32_t HashOp = 40; // alloc, getval
-			static const uint32_t HashOpPerByte = 1;
+			static const uint32_t HashOpPerAtom = 200;
 		};
 
 		struct Charge
@@ -97,9 +102,11 @@ namespace bvm2 {
 			static void Test(bool);
 
 			uint32_t m_Units = 20000000; // max, regardless to the fee. Equivalent of ~20mln cycles
-			uint32_t m_CallFar = 32;
+			uint32_t m_CallFar = 320;
 			uint32_t m_AddSig = 1024;
-			uint32_t m_AssetOps = 128;
+			uint32_t m_AssetOps = 512;
+			uint32_t m_VarLoadAtoms = 32768;
+			uint32_t m_VarSaveAtoms = 8192;
 		};
 	};
 
