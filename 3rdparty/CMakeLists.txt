@@ -5,6 +5,7 @@ add_library(pbkdf STATIC
    pkcs5_pbkdf2.c
    sha512.c
    zeroize.c
+   crypto/keccak256.c
 )
 
 add_subdirectory(secp256k1-zkp)
