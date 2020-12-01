@@ -244,7 +244,6 @@ namespace proto {
     macro(Height, Height)
 
 #define BeamNodeMsg_ShieldedOutputsAt(macro) \
-    macro(Height, Height) \
     macro(TxoID, ShieldedOuts)
 
 #define BeamNodeMsgsAll(macro) \

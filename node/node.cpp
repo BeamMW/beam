@@ -3678,7 +3678,6 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 {
     proto::ShieldedOutputsAt msgOut;
     auto& db = m_This.m_Processor.get_DB();
-    msgOut.m_Height = msg.m_Height;
     msgOut.m_ShieldedOuts = db.ShieldedOutpGet(msg.m_Height);
     Send(msgOut);
 }
