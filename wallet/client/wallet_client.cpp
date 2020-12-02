@@ -291,12 +291,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getShieldedCountAt, h, std::move(callback));
     }
 
-    void setMaxPrivacyLockTimeLimitHours(uint8_t limit)
+    void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
     {
         call_async(&IWalletModelAsync::setMaxPrivacyLockTimeLimitHours, limit);
     }
 
-    void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
+    void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override
     {
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
