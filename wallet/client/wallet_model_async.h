@@ -90,6 +90,9 @@ namespace beam::wallet
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
 
+        virtual void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) = 0;
+        virtual void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) = 0;
+
         // virtual void getAssetInfo(Asset::ID) = 0;
 
         virtual ~IWalletModelAsync() {}

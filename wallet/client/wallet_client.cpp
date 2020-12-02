@@ -300,6 +300,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
+
+    void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getCoins, assetId, std::move(callback));
+    }
+
+    void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getShieldedCoins, assetId, std::move(callback));
+    }
 };
 }
 
@@ -833,8 +843,8 @@ namespace beam::wallet
 
     void WalletClient::getUtxosStatus()
     {
-        onAllUtxoChanged(ChangeAction::Reset, getUtxos());
-        onShieldedCoinChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(beam::Asset::s_BeamID));
+        onCoinsChanged(ChangeAction::Reset, getUtxos(beam::Asset::s_BeamID));
+        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(beam::Asset::s_BeamID));
     }
 
     void WalletClient::getAddresses(bool own)
@@ -1334,6 +1344,24 @@ namespace beam::wallet
         });
     }
 
+    void WalletClient::getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback)
+    {
+        auto coins = getUtxos(assetId);
+        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
+        {
+            cb(std::move(coins));
+        });
+    }
+
+    void WalletClient::getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback)
+    {
+        auto coins = m_walletDB->getShieldedCoins(assetId);
+        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
+        {
+            cb(std::move(coins));
+        });
+    }
+
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
     {
         onImportRecoveryProgress(done, total);
@@ -1369,12 +1397,13 @@ namespace beam::wallet
         return status;
     }
 
-    vector<Coin> WalletClient::getUtxos() const
+    vector<Coin> WalletClient::getUtxos(Asset::ID assetId) const
     {
         vector<Coin> utxos;
-        m_walletDB->visitCoins([&utxos](const Coin& c)->bool
+        m_walletDB->visitCoins([&utxos, assetId](const Coin& c)->bool
             {
-                utxos.push_back(c);
+                if (c.isAsset(assetId))
+                    utxos.push_back(c);
                 return true;
             });
         return utxos;

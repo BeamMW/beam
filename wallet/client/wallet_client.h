@@ -237,11 +237,14 @@ namespace beam::wallet
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
 
+        void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override;
+        void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
-        std::vector<Coin> getUtxos() const;
+        std::vector<Coin> getUtxos(Asset::ID assetId) const;
         
 
         void updateClientState();
