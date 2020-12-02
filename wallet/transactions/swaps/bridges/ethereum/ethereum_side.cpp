@@ -236,7 +236,14 @@ bool EthereumSide::ConfirmLockTx()
 
     if (m_SwapLockTxBlockNumber < currentBlockNumber)
     {
-        m_SwapLockTxConfirmations = currentBlockNumber - m_SwapLockTxBlockNumber;
+        uint32_t confirmations = static_cast<uint32_t>(currentBlockNumber - m_SwapLockTxBlockNumber);
+        if (confirmations != m_SwapLockTxConfirmations)
+        {
+            m_SwapLockTxConfirmations = confirmations;
+            LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
+                << GetTxMinConfirmations() << " confirmations are received.";
+            m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, SubTxIndex::LOCK_TX);
+        }
     }
     
     return m_SwapLockTxConfirmations >= GetTxMinConfirmations();
@@ -294,7 +301,14 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
     auto currentBlockCount = GetBlockCount();
     if (currentBlockCount >= m_WithdrawTxBlockNumber)
     {
-        m_WithdrawTxConfirmations = currentBlockCount - m_WithdrawTxBlockNumber;
+        uint32_t confirmations = static_cast<uint32_t>(currentBlockCount - m_WithdrawTxBlockNumber);
+        if (confirmations != m_WithdrawTxConfirmations)
+        {
+            m_WithdrawTxConfirmations = confirmations;
+            LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "] " << confirmations << "/"
+                << GetTxMinConfirmations() << " confirmations are received.";
+            m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, subTxID);
+        }
     }
 }
 
