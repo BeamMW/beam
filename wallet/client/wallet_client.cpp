@@ -1378,7 +1378,7 @@ namespace beam::wallet
             WalletStatus::AssetStatus assetStatus;
 
             assetStatus.available         = AmountBig::get_Lo(info.Avail);
-            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming) + AmountBig::get_Lo(info.IncomingShielded);
             assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
             assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
             assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
