@@ -58,6 +58,33 @@ namespace
         return addr;
     }
 
+    std::string getAddressFrom(TxDescription m_tx)
+    {
+        if (m_tx.m_txType == wallet::TxType::PushTransaction && !m_tx.m_sender){
+            return m_tx.getSenderIdentity();
+        }
+        return to_string(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
+    }
+
+    std::string getAddressTo(TxDescription m_tx)
+    {
+        if (m_tx.m_sender)
+        {
+            auto token = m_tx.getToken();
+            if (token.length() == 0) {
+                return to_string(m_tx.m_myId);
+            }
+            auto params = beam::wallet::ParseParameters(token);
+            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
+            {
+                auto s = std::to_string(*peerIdentity);
+                return s;
+            }
+            return token;
+        }
+        return to_string(m_tx.m_myId);
+    }
+
     jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
@@ -82,6 +109,12 @@ namespace
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+
+        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
+        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
+
+        setStringField(env, TxDescriptionClass, tx, "receiverAddress", getAddressTo(txDescription));
+        setStringField(env, TxDescriptionClass, tx, "senderAddress", getAddressFrom(txDescription));
 
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
