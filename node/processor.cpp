@@ -2058,6 +2058,8 @@ struct NodeProcessor::BlockInterpretCtx
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 	};
 
+	bvm2::Limits::Charge m_ChargePerBlock;
+
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
 
@@ -3878,7 +3880,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		fee /= bvm2::Limits::Cost::UnitPrice;
 		uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
 
+		m_Charge = m_Bic.m_ChargePerBlock;
 		std::setmin(m_Charge.m_Units, nUnits);
+		uint32_t nUnits0 = m_Charge.m_Units;
 
 		m_Stack.PushAlias(krn.m_Args);
 		DischargeMemOp(static_cast<uint32_t>(krn.m_Args.size()));
@@ -3903,11 +3907,20 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			CheckSigs(krn.m_Commitment, krn.m_Signature);
 
 		bRes = true;
+
+		nUnits0 -= m_Charge.m_Units; // units burned by this invocation
+		uint32_t nUnitsPerBlockLeft = m_Bic.m_ChargePerBlock.m_Units - nUnits0;
+
+		m_Bic.m_ChargePerBlock = m_Charge;
+		m_Bic.m_ChargePerBlock.m_Units = nUnitsPerBlockLeft;
 	}
 	catch (const Wasm::Exc& e)
 	{
 		uint32_t n = e.m_Type + proto::TxStatus::ContractFailFirst;
 		m_Bic.m_TxStatus = (n < proto::TxStatus::ContractFailLast) ? static_cast<uint8_t>(n) : proto::TxStatus::ContractFailFirst;
+
+		if (e.m_Type == bvm2::ErrorSubType::NoCharge)
+			m_Bic.m_LimitExceeded = true;
 	}
 	catch (const std::exception&)
 	{
@@ -4713,11 +4726,11 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	if (!bOk)
 	{
-		if (bic.m_LimitExceeded)
-			return proto::TxStatus::LimitExceeded;
-
 		if (proto::TxStatus::Unspecified != bic.m_TxStatus)
 			return bic.m_TxStatus;
+
+		if (bic.m_LimitExceeded)
+			return proto::TxStatus::LimitExceeded;
 
 		return proto::TxStatus::InvalidContext;
 	}
@@ -5595,10 +5608,12 @@ void NodeProcessor::RebuildNonStd()
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_DB.ContractDataDelAll();
 	m_DB.ShieldedOutpDelFrom(0);
-	m_DB.StreamsDelAll();
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+
+	static_assert(NodeDB::StreamType::StatesMmr == 0);
+	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
 
 	struct KrnWalkerRebuild
 		:public IKrnWalker

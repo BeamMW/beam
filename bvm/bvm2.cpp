@@ -16,11 +16,13 @@
 #include "bvm2_impl.h"
 #include <sstream>
 
-template <>
-struct std::numeric_limits<Shaders::HashObj::Type>
-	:public std::numeric_limits<uint32_t>
-{
-};
+#if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
+#include "crypto/blake/ref/blake2.h"
+#else
+#include "crypto/blake/sse/blake2.h"
+#endif
+
+#include "crypto/keccak256.h"
 
 namespace beam {
 namespace bvm2 {
@@ -95,6 +97,8 @@ namespace bvm2 {
 
         decltype(m_vHeap)().swap(m_vHeap);
 		m_Heap.Clear();
+
+		m_DataProcessor.m_Map.Clear();
 	}
 
 	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
@@ -524,10 +528,6 @@ namespace bvm2 {
 
 	uint32_t LogFrom(uint8_t x) {
 		return x;
-	}
-
-	uint32_t LogFrom(HashObj::Type x) {
-		return static_cast<uint32_t>(x);
 	}
 
 #define PAR_PASS(type, name) m_##name.V
@@ -1031,10 +1031,10 @@ namespace bvm2 {
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
 
-		DischargeUnits(
-			Limits::Cost::LoadVar +
-			Limits::Cost::LoadVarPerByte * (nKey + std::min(nVal, ret))
-		);
+		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + std::min(nVal, ret));
+
+		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerAtom * nAtoms);
+		DischargeVar(m_Charge.m_VarLoadAtoms, 1);
 
 		return ret;
 	}
@@ -1049,10 +1049,10 @@ namespace bvm2 {
 
 	BVM_METHOD(SaveVar)
 	{
-		DischargeUnits(
-			Limits::Cost::SaveVar +
-			Limits::Cost::SaveVarPerByte * (nKey + nVal)
-		);
+		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + nVal);
+
+		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerAtom * nAtoms);
+		DischargeVar(m_Charge.m_VarSaveAtoms, 1);
 
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
@@ -1287,6 +1287,68 @@ namespace bvm2 {
 		}
 	};
 
+	struct Processor::DataProcessor::Blake2b
+		:public Processor::DataProcessor::Base
+	{
+		blake2b_state m_State;
+
+		virtual ~Blake2b() {}
+		virtual void Write(const uint8_t* p, uint32_t n) override
+		{
+			blake2b_update(&m_State, p, n);
+		}
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		{
+			blake2b_state s = m_State; // copy
+
+			if (blake2b_final(&s, p, n))
+				return 0;
+
+			assert(s.outlen <= n);
+			Write(p, static_cast<uint32_t>(s.outlen));
+
+			return static_cast<uint32_t>(s.outlen);
+		}
+	};
+
+	struct Processor::DataProcessor::Keccak256
+		:public Processor::DataProcessor::Base
+	{
+		SHA3_CTX m_State;
+
+		Keccak256()
+		{
+			keccak_init(&m_State);
+		}
+
+		virtual ~Keccak256() {}
+		virtual void Write(const uint8_t* p, uint32_t n) override
+		{
+			const uint16_t naggle = std::numeric_limits<uint16_t>::max();
+			while (n > naggle)
+			{
+				keccak_update(&m_State, p, naggle);
+				p += naggle;
+				n -= naggle;
+			}
+
+			keccak_update(&m_State, p, static_cast<uint16_t>(n));
+
+		}
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		{
+			SHA3_CTX s = m_State; // copy
+
+			ECC::Hash::Value hv;
+			keccak_final(&s, hv.m_pData);
+			keccak_update(&m_State, hv.m_pData, static_cast<uint16_t>(hv.nBytes));
+
+			std::setmin(n, hv.nBytes);
+			memcpy(p, hv.m_pData, n);
+			return n;
+		}
+	};
+
 	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Base::Comparator());
@@ -1299,40 +1361,70 @@ namespace bvm2 {
 		return FindStrict(static_cast<uint32_t>(reinterpret_cast<size_t>(pObj)));
 	}
 
-	BVM_METHOD(HashAlloc)
+	uint32_t Processor::AddHash(std::unique_ptr<DataProcessor::Base>&& p)
 	{
 		if ((Kind::Contract == get_Kind()) && (m_DataProcessor.m_Map.size() >= Limits::HashObjects))
 			return 0;
 
 		DischargeUnits(Limits::Cost::HashOp);
 
-		std::unique_ptr<DataProcessor::Base> pRet;
-		switch (type)
-		{
-		case HashObj::Type::Sha256:
-			pRet = std::make_unique<DataProcessor::Sha256>();
-			break;
-
-		default:
-			return 0;
-		}
-
 		uint32_t ret = m_DataProcessor.m_Map.empty() ? 1 : (m_DataProcessor.m_Map.rbegin()->m_Key + 1);
-		pRet->m_Key = ret;
-		m_DataProcessor.m_Map.insert(*pRet.release());
+		p->m_Key = ret;
+		m_DataProcessor.m_Map.insert(*p.release());
 
 		return ret;
 	}
 
-	BVM_METHOD_HOST(HashAlloc)
+	BVM_METHOD(HashCreateSha256)
 	{
-		auto val = ProcessorPlus::From(*this).OnMethod_HashAlloc(type);
+		auto pRet = std::make_unique<DataProcessor::Sha256>();
+		return AddHash(std::move(pRet));
+	}
+
+	BVM_METHOD_HOST(HashCreateSha256)
+	{
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateSha256();
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
+	}
+
+	BVM_METHOD(HashCreateBlake2b)
+	{
+		auto val = ProcessorPlus::From(*this).OnHost_HashCreateBlake2b(get_AddrR(pPersonal, nPersonal), nPersonal, nResultSize);
+		return val ? static_cast<uint32_t>(reinterpret_cast<size_t>(val)) : 0;
+	}
+
+	BVM_METHOD_HOST(HashCreateBlake2b)
+	{
+		blake2b_param pars = { 0 };
+		pars.digest_length = static_cast<uint8_t>(nResultSize);
+		pars.fanout = 1;
+		pars.depth = 1;
+
+		memcpy(pars.personal, pPersonal, std::min<size_t>(sizeof(pars.personal), nPersonal));
+
+		auto pRet = std::make_unique<DataProcessor::Blake2b>();
+		if (blake2b_init_param(&pRet->m_State, &pars))
+			return nullptr;
+
+		auto val = AddHash(std::move(pRet));
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
+	}
+
+	BVM_METHOD(HashCreateKeccak256)
+	{
+		auto pRet = std::make_unique<DataProcessor::Keccak256>();
+		return AddHash(std::move(pRet));
+	}
+
+	BVM_METHOD_HOST(HashCreateKeccak256)
+	{
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak256();
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1344,7 +1436,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);

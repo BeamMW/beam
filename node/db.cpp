@@ -395,8 +395,6 @@ void NodeDB::Open(const char* szPath)
 
 		case 23:
 			CreateTables23();
-
-			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
 		case 24:
@@ -406,6 +404,8 @@ void NodeDB::Open(const char* szPath)
 			ParamDelSafe(ParamID::SyncTarget);
 			ParamDelSafe(ParamID::Deprecated_2);
 			// no break;
+
+			ParamIntSet(ParamID::DbVer, nVersionTop);
 
 		case nVersionTop:
 			break;
@@ -2406,9 +2406,9 @@ void NodeDB::StreamShrinkInternal(uint64_t k0, uint64_t k1)
 	rs.Step();
 }
 
-void NodeDB::StreamsDelAll()
+void NodeDB::StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1)
 {
-	StreamShrinkInternal(0, std::numeric_limits<int64_t>::max());
+	StreamShrinkInternal(StreamType::Key(0, t0), StreamType::Key(std::numeric_limits<uint32_t>::max(), t1));
 }
 
 void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)

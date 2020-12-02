@@ -656,7 +656,7 @@ public:
 
 	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
 
-	void StreamsDelAll();
+	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
 private:
 

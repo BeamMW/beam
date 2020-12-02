@@ -301,7 +301,10 @@ namespace beam::wallet
             };
         };
 
-#define THE_MACRO(type, msgOut, msgIn) \
+#define REQUEST_Cmp_less_Single { return false; }
+#define REQUEST_Cmp_less_Multiple ;
+
+#define THE_MACRO(type) \
         struct MyRequest##type \
             :public Request##type \
             ,public boost::intrusive::set_base_hook<> \
@@ -340,8 +343,24 @@ namespace beam::wallet
             return true; \
         }
 
-        REQUEST_TYPES_All(THE_MACRO)
+#define WalletFlyClientRequests_All(macro) \
+	macro(Utxo) \
+	macro(Kernel) \
+	macro(Kernel2) \
+	macro(Events) \
+	macro(Transaction) \
+	macro(ShieldedList) \
+	macro(ProofShieldedOutp) \
+	macro(Asset) \
+	macro(StateSummary) \
+	macro(ShieldedOutputsAt)
+
+
+    WalletFlyClientRequests_All(THE_MACRO)
+
 #undef THE_MACRO
+#undef REQUEST_Cmp_less_Single
+#undef REQUEST_Cmp_less_Multiple
 
 
         IWalletDB::Ptr m_WalletDB; 

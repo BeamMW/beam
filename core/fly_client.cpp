@@ -823,7 +823,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestEnumHdrs& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
 }
 
 bool details::ExtraData<proto::HdrPack>::DecodeAndCheck(const HdrPack& msg)
@@ -904,7 +904,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)

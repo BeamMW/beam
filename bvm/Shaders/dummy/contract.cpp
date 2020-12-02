@@ -52,7 +52,31 @@ export void Method_5(Dummy::InfCycle&)
 
 export void Method_6(Dummy::Hash1& r)
 {
-    HashObj* pHash = Env::HashAlloc(HashObj::Type::Sha256);
+    HashObj* pHash = Env::HashCreateSha256();
+    Env::Halt_if(!pHash);
+
+    Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));
+    Env::HashGetValue(pHash, r.m_pRes, sizeof(r.m_pRes));
+
+    Env::HashFree(pHash);
+}
+
+export void Method_7(Dummy::Hash2& r)
+{
+    static const char szPers[] = "abcd";
+
+    HashObj* pHash = Env::HashCreateBlake2b(szPers, sizeof(szPers)-1, sizeof(r.m_pRes));
+    Env::Halt_if(!pHash);
+
+    Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));
+    Env::HashGetValue(pHash, r.m_pRes, sizeof(r.m_pRes));
+
+    Env::HashFree(pHash);
+}
+
+export void Method_8(Dummy::Hash3& r)
+{
+    HashObj* pHash = Env::HashCreateKeccak256();
     Env::Halt_if(!pHash);
 
     Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));

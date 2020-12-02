@@ -2758,7 +2758,7 @@ int main_impl(int argc, char* argv[])
             return 0;
         }
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_WARNING);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"
