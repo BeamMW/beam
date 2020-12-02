@@ -208,12 +208,12 @@ namespace
             setIntField(env, UtxoClass, utxo, "keyType", -1);
             setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
             
-            const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-            TxID txID;
-            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
-            auto trId = txIDToString(txID);
+            if (coin.m_createTxId)
+                 setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));
 
-            setStringField(env, UtxoClass, utxo, "createTxId", trId);
+            if (coin.m_spentTxId)
+                setStringField(env, UtxoClass, utxo, "spentTxId", to_hex(coin.m_spentTxId->data(), coin.m_spentTxId->size()));
+
 
             
             env->SetObjectArrayElement(utxos, static_cast<jsize>(i), utxo);
