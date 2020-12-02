@@ -5608,10 +5608,12 @@ void NodeProcessor::RebuildNonStd()
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_DB.ContractDataDelAll();
 	m_DB.ShieldedOutpDelFrom(0);
-	m_DB.StreamsDelAll();
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+
+	static_assert(NodeDB::StreamType::StatesMmr == 0);
+	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
 
 	struct KrnWalkerRebuild
 		:public IKrnWalker
