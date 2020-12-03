@@ -1500,7 +1500,7 @@ namespace beam::wallet
         if (IsHashlockScheme())
         {
             TxKernelStd::Ptr pKrn = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, SubTxIndex::BEAM_REDEEM_TX);
-            SetParameter(TxParameterID::PreImage, pKrn->m_pHashLock->m_Value, SubTxIndex::BEAM_REDEEM_TX);
+            SetParameter(TxParameterID::PreImage, pKrn->m_pHashLock->m_Value, false, SubTxIndex::BEAM_REDEEM_TX);
         }
         else
         {

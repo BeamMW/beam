@@ -397,8 +397,8 @@ bool EthereumSide::SendLockTx()
 
                 m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
                 // reset TxParameterID::AtomicSwapExternalTxID & TxParameterID::NonceSlot
-                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, SubTxIndex::LOCK_TX);
-                m_tx.SetParameter(TxParameterID::NonceSlot, Zero, SubTxIndex::LOCK_TX);
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, static_cast<SubTxID>(SubTxIndex::LOCK_TX));
+                m_tx.SetParameter(TxParameterID::NonceSlot, Zero, static_cast<SubTxID>(SubTxIndex::LOCK_TX));
                 m_tx.UpdateAsync();
             });
 
