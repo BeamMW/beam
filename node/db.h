@@ -180,6 +180,12 @@ public:
 			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
+			ShieldedStatisticGet,
+			ShieldedStatisticSel,
+			ShieldedStatisticUp,
+			ShieldedStatisticIns,
+			ShieldedStatisticDel,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -519,6 +525,9 @@ public:
 	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
 
+	void ShieldedOutpSet(Height h, uint64_t count);
+	uint64_t ShieldedOutpGet(Height h);
+
 	struct WalkerSystemState
 	{
 		Recordset m_Rs;
@@ -643,6 +652,7 @@ private:
 	void Create();
 	void CreateTables20();
 	void CreateTables21();
+	void CreateTables22();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

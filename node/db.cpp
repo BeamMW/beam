@@ -16,6 +16,12 @@
 #include <algorithm> // sort
 #include "../core/peer_manager.h"
 #include "../utility/logger.h"
+#include <algorithm>
+
+namespace {
+	constexpr uint32_t kBlocksPerSol = 1440;
+	constexpr uint32_t kBlocksPe30Sol = 30 * kBlocksPerSol;
+}  // namespace
 
 namespace beam {
 
@@ -105,6 +111,10 @@ namespace beam {
 #define TblAssetEvts_Height		"Height"
 #define TblAssetEvts_Index		"Seq"
 #define TblAssetEvts_Data		"Data"
+
+#define TblShieldedStatistic			"ShieldedStatistic"
+#define TblShieldedStatistic_Height		"Height"
+#define TblShieldedStatistic_OutCount	"OutCount"
 
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
@@ -341,7 +351,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 22;
+	const uint64_t nVersionTop = 23;
 
 
 	Transaction t(*this);
@@ -379,6 +389,9 @@ void NodeDB::Open(const char* szPath)
 		case 21:
 			CreateTables21();
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingMigrate21);
+
+		case 22:
+			CreateTables22();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
@@ -501,6 +514,7 @@ void NodeDB::Create()
 
 	CreateTables20();
 	CreateTables21();
+	CreateTables22();
 }
 
 void NodeDB::CreateTables20()
@@ -533,6 +547,13 @@ void NodeDB::CreateTables21()
 
 	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_1" "] ON [" TblAssetEvts "] ([" TblAssetEvts_ID "],[" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
 	ExecQuick("CREATE INDEX [Idx" TblAssetEvts "_2" "] ON [" TblAssetEvts "] ([" TblAssetEvts_Height  "],[" TblAssetEvts_Index "]);");
+}
+
+void NodeDB::CreateTables22()
+{
+	ExecQuick("CREATE TABLE [" TblShieldedStatistic "] ("
+		"[" TblShieldedStatistic_Height"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblShieldedStatistic_OutCount"] INTEGER NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -2423,6 +2444,49 @@ void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t 
 void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 {
 	ShieldeIO(pos, p, nCount, false);
+}
+
+void NodeDB::ShieldedOutpSet(Height h, uint64_t count)
+{
+	if (h > kBlocksPe30Sol && !(h % 60))
+	{
+		Recordset rsDel(*this, Query::ShieldedStatisticDel, "DELETE FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "<?");
+		rsDel.put(0, h - kBlocksPe30Sol);
+		rsDel.Step();
+	}
+
+	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT * FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "=?");
+	rs.put(0, h);
+
+	if (rs.Step())
+	{
+		rs.Reset(*this, Query::ShieldedStatisticUp, "UPDATE " TblShieldedStatistic " SET " TblShieldedStatistic_OutCount "=? WHERE " TblShieldedStatistic_Height "=?");
+		rs.put(0, count);
+		rs.put(1, h);
+
+		rs.Step();
+	}
+	else
+	{
+		rs.Reset(*this, Query::ShieldedStatisticIns, "INSERT INTO " TblShieldedStatistic " (" TblShieldedStatistic_Height "," TblShieldedStatistic_OutCount ") VALUES(?,?)");
+		rs.put(0, h);
+		rs.put(1, count);
+
+		rs.Step();
+	}
+}
+
+uint64_t NodeDB::ShieldedOutpGet(Height h)
+{
+	Recordset rs(*this, Query::ShieldedStatisticGet, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height " <= ? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
+	rs.put(0, h);
+
+	if (!rs.Step())
+		return 0;
+
+	uint64_t ret;
+	rs.get(0, ret);
+	return ret;
 }
 
 bool NodeDB::UniqueInsertSafe(const Blob& key, const Blob* pVal)

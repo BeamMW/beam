@@ -836,6 +836,15 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
     return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& req)
+{
+}
+
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
 	Send(req.m_Msg);

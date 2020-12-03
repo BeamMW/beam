@@ -22,15 +22,11 @@
 #include <memory>
 #include <chrono>
 
+#include "bitcoin/bitcoin.hpp"
+
 namespace beam::io
 {
     class TcpStream;
-}
-
-namespace libbitcoin::wallet
-{
-    class ec_private;
-    class hd_private;
 }
 
 namespace beam::bitcoin
@@ -43,6 +39,7 @@ namespace beam::bitcoin
             std::string m_request;
             std::function<bool(const Error&, const nlohmann::json&, uint64_t)> m_callback;
             std::unique_ptr<beam::io::TcpStream> m_stream;
+            bool m_verifyingRequest = false;
         };
 
         struct Utxo
@@ -98,6 +95,14 @@ namespace beam::bitcoin
         void tryToChangeAddress();
 
         bool isNodeAddressCheckedAndVerified(const std::string& address) const;
+
+        virtual uint8_t GetSighashAlgorithm() const;
+        virtual bool NeedSignValue() const;
+        virtual Amount getDust() const;
+
+    private:
+        libbitcoin::chain::transaction signRawTx
+        (const libbitcoin::chain::transaction& tx, const std::vector<Utxo>& coins);
 
     private:
         beam::io::Reactor& m_reactor;

@@ -28,6 +28,42 @@ content-type: application/json-rpc
 {
     "jsonrpc": "2.0",
     "id": 1236,
+    "method": "get_utxo",
+    "params": {
+        "sort": {
+            "field": "amount",
+            "direction": "asc"
+        }
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo",
+    "params":  {
+        "count": 10,
+        "skip": 0,
+        "sort": {
+            "field": "status"
+        }
+    }
+   
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
     "method": "set_confirmations_count",
     "params": {
         "count": 5

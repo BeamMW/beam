@@ -151,6 +151,12 @@ namespace beam::bitcoin
                 return;
             }
 
+            // TODO roman.strilets sometimes bitcoin server returns bad estimate fee rate (< min fee rate)
+            if (GetSettings().GetMinFeeRate() > feeRate)
+            {
+                feeRate = 0;
+            }
+
             // TODO: check error and update status
             SetConnectionError(error.m_type);
             SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);

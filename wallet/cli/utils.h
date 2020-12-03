@@ -19,6 +19,7 @@
 #include "utility/cli/options.h"
 
 #include "wallet/core/common.h"
+#include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
@@ -26,4 +27,5 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
 bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee);
 bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
 bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID = false);
+bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs);
 } // namespace beam::wallet

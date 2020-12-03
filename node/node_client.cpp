@@ -259,6 +259,7 @@ namespace beam
             node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
             node.m_Cfg.m_MiningThreads = 0;
             node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+            node.m_Cfg.m_PeersPersistent = m_observer->getPeersPersistent();
 
             if (m_pKdf)
             {

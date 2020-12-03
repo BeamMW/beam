@@ -469,8 +469,8 @@ namespace
                 };
                 for (auto p : paramsToCompare)
                 {
-                    auto receivedValue = receivedOffer.GetParameter(p);
-                    auto dispatchedValue = correctOffer.GetParameter(p);
+                    auto receivedValue = receivedOffer.GetParameter<ByteBuffer>(p);
+                    auto dispatchedValue = correctOffer.GetParameter<ByteBuffer>(p);
                     WALLET_CHECK(receivedValue && dispatchedValue);
                     WALLET_CHECK(*receivedValue == *dispatchedValue);
                 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "api_handler.h"
+#include "wallet/core/common_utils.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
@@ -21,14 +22,16 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #include <regex>
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
+using namespace std::placeholders;
 
 namespace
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     using namespace beam::wallet;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
     const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
     const char kBeamAmountToLowError[] = "\'beam_amount\' must be greater than \"beam_fee\".";
@@ -52,14 +55,15 @@ namespace
         Amount swapAmount, Amount swapFeeRate)
     {
         beam::Amount total = swapAmount + swapFeeRate;
-
-        return swapProvider.getBalance(swapCoin) > total;
+        return swapProvider.getCoinAvailable(swapCoin) > total;
     }
 
     void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
     {
-        if (!swapProvider.isConnected(swapCoin))
+        if (!swapProvider.isCoinClientConnected(swapCoin))
+        {
             throw FailToConnectSwap(std::to_string(swapCoin));
+        }
     }
 
     boost::optional<SwapOffer> getOfferFromBoardByTxId(
@@ -142,6 +146,29 @@ namespace
     }
 
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    std::map<std::string, std::function<bool(const Coin& a, const Coin& b)>> utxoSortMap = 
+    {
+        {"id", [] (const Coin& a, const Coin& b) { return a.toStringID() < b.toStringID();} },
+        {"asset_id", [] (const Coin& a, const Coin& b) { return a.m_ID.m_AssetID < b.m_ID.m_AssetID;}},
+        {"amount", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Value < b.m_ID.m_Value;}},
+        {"type", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Type < b.m_ID.m_Type;}},
+        {"maturity", [] (const Coin& a, const Coin& b) { return a.get_Maturity() < b.get_Maturity();}},
+        {"createTxId", [] (const Coin& a, const Coin& b)
+            {
+                std::string createTxIdA = a.m_createTxId.is_initialized() ? TxIDToString(*a.m_createTxId) : "";
+                std::string createTxIdB = b.m_createTxId.is_initialized() ? TxIDToString(*b.m_createTxId) : "";
+                return createTxIdA < createTxIdB;
+            }},
+        {"spentTxId", [] (const Coin& a, const Coin& b)
+            {
+                std::string spentTxIdA = a.m_spentTxId.is_initialized() ? TxIDToString(*a.m_spentTxId) : "";
+                std::string spentTxIdB = b.m_spentTxId.is_initialized() ? TxIDToString(*b.m_spentTxId) : "";
+                return spentTxIdA < spentTxIdB;
+            }},
+        {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}},
+        {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
+    };
 
 }  // namespace
 
@@ -298,23 +325,34 @@ namespace beam::wallet
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ValidateAddress& data)
     {
-        LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "ValidateAddress( address = " << data.address << ")";
 
-        auto walletDB = _walletData.getWalletDBPtr();
-        if (!walletDB) {
-            return doError(id, ApiError::NotOpenedError);
-        }
+        auto p = ParseParameters(data.address);
 
-        bool isValid = data.address.IsValid();
+        bool isValid = !!p;
         bool isMine = false;
 
-        auto addr = walletDB->getAddress(data.address);
-        if (addr)
+        if (p)
         {
-            isMine = addr->isOwn();
-            if (isMine)
+            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerID); v)
             {
-                isValid = isValid && !addr->isExpired();
+                isValid &= v->IsValid();
+
+                auto walletDB = _walletData.getWalletDBPtr();
+                if (!walletDB)
+                {
+                    return doError(id, ApiError::NotOpenedError);
+                }
+
+                auto addr = walletDB->getAddress(*v);
+                if (addr)
+                {
+                    isMine = addr->isOwn();
+                    if (isMine)
+                    {
+                        isValid = isValid && !addr->isExpired();
+                    }
+                }
             }
         }
         doResponse(id, ValidateAddress::Response{ isValid, isMine });
@@ -798,15 +836,32 @@ namespace beam::wallet
             return true;
         });
 
+        if (data.sort.field != "default")
+        {
+            if (const auto& it = utxoSortMap.find(data.sort.field); it != utxoSortMap.end())
+            {
+                std::sort(response.utxos.begin(), response.utxos.end(),
+                        data.sort.desc ? std::bind(it->second, _2, _1) : it->second);
+            }
+            else
+            {
+                return doError(id, ApiError::InvalidParamsJsonRpc, "Can't sort by \"" + data.sort.field + "\" field");
+            }
+        }
+        else if (data.sort.desc)
+        {
+            std::reverse(response.utxos.begin(), response.utxos.end());
+        }
+
         doPagination(data.skip, data.count, response.utxos);
         doResponse(id, response);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetWalletStatus& data)
     {
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-        WalletStatus::Response response;
+        GetWalletStatus::Response response;
         auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB) {
             return doError(id, ApiError::NotOpenedError);
@@ -894,59 +949,66 @@ namespace beam::wallet
                 return doError(id, ApiError::NotOpenedError);
             }
 
-            auto txList = walletDB->getTxHistory(TxType::Simple);
-
-            if (data.withAssets)
-            {
-                auto txIssue = walletDB->getTxHistory(TxType::AssetIssue);
-                auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
-                auto txInfo = walletDB->getTxHistory(TxType::AssetInfo);
-
-                txList.insert(txList.end(), txIssue.begin(), txIssue.end());
-                txList.insert(txList.end(), txConsume.begin(), txConsume.end());
-                txList.insert(txList.end(), txInfo.begin(), txInfo.end());
-            }
-
-            std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
-                return a.m_minHeight > b.m_minHeight;
-             });
-
             Block::SystemState::ID stateID = {};
-            walletDB->getSystemStateID(stateID);
-
-            for (const auto& tx : txList)
+            _walletData.getWalletDBPtr()->getSystemStateID(stateID);
+            res.resultList.reserve(data.count);
+            int offset = 0;
+            int counter = 0;
+            walletDB->visitTx([&](TxType type, TxStatus status)
             {
-                if (!data.withAssets && tx.m_assetId != Asset::s_InvalidID)
+                if (type != TxType::Simple
+                    && type != TxType::AssetIssue
+                    && type != TxType::AssetConsume
+                    && type != TxType::AssetInfo)
                 {
-                    continue;
+                    return false;
+                }
+
+                if (data.filter.status && status != *data.filter.status)
+                {
+                    return false;
+                }
+
+                ++offset;
+                if (offset <= data.skip)
+                {
+                    return false;
+                }
+
+                ++counter;
+                return data.count == 0 || counter <= data.count;
+            }, 
+            [&](const auto& tx)
+            {
+                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
+                {
+                    return;
                 }
 
                 if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
                 {
-                    continue;
-                }
-
-                if (data.filter.status && tx.m_status != *data.filter.status)
-                {
-                    continue;
+                    return;
                 }
 
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
                 if (data.filter.height && height != *data.filter.height)
                 {
-                    continue;
+                    return;
                 }
 
-                Status::Response item;
+                Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-                res.resultList.push_back(item);
-            }
+            });
+
+            std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
+            {
+                return a.tx.m_minHeight > b.tx.m_minHeight;
+            });
         }
 
-        doPagination(data.skip, data.count, res.resultList);
         doResponse(id, res);
     }
 
@@ -1242,29 +1304,8 @@ namespace beam::wallet
             auto txParams = ParseParameters(data.token);
             if (!txParams)
                 throw FailToParseToken();
-#ifdef BEAM_LIB_VERSION
-            auto libVersion = txParams->GetParameter(beam::wallet::TxParameterID::LibraryVersion);
-            if (libVersion)
-            {
-                std::string libVersionStr;
-                beam::wallet::fromByteBuffer(*libVersion, libVersionStr);
-                std::string myLibVersionStr = BEAM_LIB_VERSION;
 
-                std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
-                if (std::regex_match(libVersionStr, libVersionRegex) &&
-                    std::lexicographical_compare(
-                        myLibVersionStr.begin(),
-                        myLibVersionStr.end(),
-                        libVersionStr.begin(),
-                        libVersionStr.end(),
-                        std::less<char>{}))
-                {
-                    LOG_WARNING() <<
-                        "This token generated by newer Beam library version(" << libVersionStr << ")\n" <<
-                        "Your version is: " << myLibVersionStr << " Please, check for updates.";
-                }
-            }
-#endif  // BEAM_LIB_VERSION
+            ProcessLibraryVersion(*txParams);
 
             auto txId = txParams->GetTxID();
             if (!txId)
@@ -1502,7 +1543,7 @@ namespace beam::wallet
         {
             checkSwapConnection(_walletData.getAtomicSwapProvider(), data.coin);
 
-            Amount available = _walletData.getAtomicSwapProvider().getBalance(data.coin);
+            Amount available = _walletData.getAtomicSwapProvider().getCoinAvailable(data.coin);
 
             doResponse(id, GetBalance::Response{ available });
         }
