@@ -77,7 +77,7 @@ matrix:
         - git apply 3rdparty/protobuf-patch.diff
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
         - make -j$(sysctl -n hw.ncpu)
-        - ctest --verbose
+        #  - ctest --verbose
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
@@ -94,7 +94,7 @@ matrix:
     - os: osx
       language: cpp
       cache: ccache
-      osx_image: xcode10.1
+      osx_image: xcode10.2
       install:
         - export TZ=GMT-3
         - brew update
