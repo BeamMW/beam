@@ -1402,7 +1402,7 @@ namespace beam::wallet
         vector<Coin> utxos;
         m_walletDB->visitCoins([&utxos, assetId](const Coin& c)->bool
             {
-                if (c.isAsset(assetId))
+                if (c.m_ID.m_AssetID == assetId)
                     utxos.push_back(c);
                 return true;
             });
