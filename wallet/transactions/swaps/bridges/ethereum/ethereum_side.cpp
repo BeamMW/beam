@@ -169,9 +169,7 @@ bool EthereumSide::ConfirmLockTx()
 
             if (error.m_type != ethereum::IBridge::None)
             {
-                // TODO(alex.starun): check
-                m_tx.UpdateOnNextTip();
-                LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << "Failed to get transaction: " << error.m_message;
+                LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to get transaction: " << error.m_message;
                 return;
             }
 
@@ -210,6 +208,8 @@ bool EthereumSide::ConfirmLockTx()
 
                 if (txInputStr != lockTxDataStr)
                 {
+                    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
+                        << " Transaction data does not match.";
                     m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
                     return;
@@ -289,7 +289,6 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
 
             if (error.m_type != ethereum::IBridge::None)
             {
-                m_tx.UpdateOnNextTip();
                 return;
             }
 
@@ -344,7 +343,7 @@ bool EthereumSide::SendLockTx()
                 {
                     if (error.m_type != ethereum::IBridge::None)
                     {
-                        LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to call ERC20::approve!";
+                        LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to call ERC20::approve!";
 
                         // TODO roman.strilets need to check
                         if (error.m_type == ethereum::IBridge::EthError ||
@@ -384,7 +383,7 @@ bool EthereumSide::SendLockTx()
 
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Failed to register ERC20::approve!";
+                    LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to register ERC20::approve!";
 
                     if (error.m_type == ethereum::IBridge::EthError ||
                         error.m_type == ethereum::IBridge::InvalidResultFormat)
@@ -451,33 +450,37 @@ bool EthereumSide::SendRedeem()
 
 bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
 {
-    // TODO: check
     std::string txID;
-    if (m_isWithdrawTxSent || m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, subTxID))
+    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, subTxID))
         return true;
 
-    auto data = BuildWithdrawTxData(subTxID);
-
-    m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(subTxID), GetGasPrice(subTxID),
-        [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
+    if (!m_isWithdrawTxSent)
     {
-        if (!weak.expired())
-        {
-            if (error.m_type != ethereum::IBridge::None)
-            {
-                // TODO: handle error
-                m_isWithdrawTxSent = false;
-                return;
-            }
+        auto data = BuildWithdrawTxData(subTxID);
 
-            m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
-            m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
-            m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, subTxID);
-            m_tx.UpdateAsync();
-        }
-    });
-    m_isWithdrawTxSent = true;
-    return true;
+        m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(subTxID), GetGasPrice(subTxID),
+            [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
+        {
+            if (!weak.expired())
+            {
+                if (error.m_type != ethereum::IBridge::None)
+                {
+                    LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << " Failed to send withdraw TX: " << error.m_message;
+                    m_isWithdrawTxSent = false;
+                    // trying to resend
+                    m_tx.UpdateOnNextTip();
+                    return;
+                }
+
+                m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, subTxID);
+                m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, subTxID);
+                m_tx.UpdateAsync();
+            }
+        });
+        m_isWithdrawTxSent = true;
+    }
+    return false;
 }
 
 beam::ByteBuffer EthereumSide::BuildWithdrawTxData(SubTxID subTxID)
