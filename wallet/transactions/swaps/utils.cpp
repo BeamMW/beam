@@ -59,12 +59,12 @@ ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
     auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
     settingsProvider->Initialize();
 
-    auto bridgeCreator = [provider = settingsProvider]() -> Bridge::Ptr
+    auto bridgeCreator = [provider = settingsProvider]() -> typename Bridge::Ptr
     {
         if (provider->GetSettings().IsActivated())
             return std::make_shared<Bridge>(io::Reactor::get_Current(), *provider);
 
-        return Bridge::Ptr();
+        return typename Bridge::Ptr();
     };
 
     return wallet::MakeSecondSideFactory<SecondSide, Bridge, ISettingsProvider>(bridgeCreator, *settingsProvider);
