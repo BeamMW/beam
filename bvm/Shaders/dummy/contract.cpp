@@ -189,7 +189,7 @@ struct Difficulty
         uint32_t order = (nPacked >> s_MantissaBits);
 
         if (order > 231)
-            Utils::SetObject(res, -1); // inf
+            Utils::SetObject(res, static_cast<uint8_t>(-1)); // inf
         else
         {
             MultiPrecision::UInt<1> mantissa = nLeadingBit | (nPacked & (nLeadingBit - 1));

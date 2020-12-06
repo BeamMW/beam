@@ -120,6 +120,9 @@ namespace Shaders {
 	namespace Roulette {
 #include "../Shaders/roulette/contract.cpp"
 	}
+	namespace Dummy {
+#include "../Shaders/dummy/contract.cpp"
+	}
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -612,6 +615,7 @@ namespace bvm2 {
 		ContractID m_cidStableCoin;
 		ContractID m_cidFaucet;
 		ContractID m_cidRoulette;
+		ContractID m_cidDummy;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -718,6 +722,15 @@ namespace bvm2 {
 				//case 3: Shaders::Roulette::Method_3(nullptr); return;
 				//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Bid>(pArgs)); return;
 				//case 5: Shaders::Roulette::Method_5(CastArg<Shaders::Roulette::Take>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidDummy)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//}
 			}
 
@@ -835,6 +848,7 @@ namespace bvm2 {
 		ContractID cid;
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
+		m_cidDummy = cid;
 
 		{
 			Shaders::Dummy::MathTest1 args;

@@ -253,6 +253,11 @@ namespace Utils {
         return beam::ByteOrder::from_be(x);
     }
 
+    template <typename T>
+    inline T FromLE(T x) {
+        return beam::ByteOrder::from_le(x);
+    }
+
 #else // HOST_BUILD
     inline uint16_t FromBE(uint16_t x) {
         return __builtin_bswap16(x);
@@ -264,6 +269,10 @@ namespace Utils {
 
     inline uint64_t FromBE(uint64_t x) {
         return __builtin_bswap64(x);
+    }
+
+    inline uint32_t FromLE(uint32_t x) {
+        return x;
     }
 #endif // HOST_BUILD
 
