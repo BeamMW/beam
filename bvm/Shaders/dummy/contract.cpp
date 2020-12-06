@@ -198,6 +198,46 @@ struct Difficulty
     }
 };
 
+namespace IndexDecoder
+{
+	typedef uint32_t Word;
+	static const uint32_t s_WordBits = sizeof(Word) * 8;
+
+	template <uint32_t nBitsPerIndex, uint32_t nSrcIdx, uint32_t nSrcTotal>
+	struct State
+	{
+		static_assert(nBitsPerIndex <= s_WordBits, "");
+		static_assert(nBitsPerIndex >= s_WordBits/2, "unpack should affect no more than 3 adjacent indices");
+
+		static const Word s_Msk = (((Word) 1) << nBitsPerIndex) - 1;
+
+		static const uint32_t s_BitsDecoded = nSrcIdx * s_WordBits;
+
+		static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
+		static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
+		static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
+
+		static void Do(Word* pDst, const Word* pSrc)
+		{
+			Word src = Utils::FromLE(pSrc[nSrcIdx]);
+
+			if constexpr (s_nDstBitsDone > 0)
+				pDst[s_iDst] |= (src << s_nDstBitsDone) & s_Msk;
+			else
+				pDst[s_iDst] = src & s_Msk;
+
+			pDst[s_iDst + 1] = (src >> s_nDstBitsRemaining) & s_Msk;
+
+			if constexpr (s_nDstBitsRemaining + nBitsPerIndex < s_WordBits)
+				pDst[s_iDst + 2] = (src >> (s_nDstBitsRemaining + nBitsPerIndex)) & s_Msk;
+
+			if constexpr (nSrcIdx + 1 < nSrcTotal)
+				State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
+		}
+	};
+}
+
+
 export void Method_9(Dummy::VerifyBeamHeader& r)
 {
     get_HdrHash(r.m_HashForPoW, r.m_Hdr, false, &r.m_RulesCfg);
@@ -221,4 +261,30 @@ export void Method_9(Dummy::VerifyBeamHeader& r)
 
     static_assert(!(Difficulty::s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
     r.m_DiffTestOk = Env::Memis0(r.m_pDiffMultiplied, sizeof(src) - (Difficulty::s_MantissaBits >> 3));
+
+    {
+        HashProcessor hp;
+
+#pragma pack (push, 1)
+        struct Personal {
+            char m_sz[8];
+            uint32_t m_WorkBits;
+            uint32_t m_Rounds;
+        } pers;
+#pragma pack (pop)
+
+        Env::Memcpy(pers.m_sz, "Beam-PoW", sizeof(pers.m_sz));
+        pers.m_WorkBits = 448;
+        pers.m_Rounds = 5;
+
+        hp.m_p = Env::HashCreateBlake2b(&pers, sizeof(pers), 32);
+        hp << r.m_HashForPoW;
+        hp.Write(r.m_Hdr.m_pNonce, sizeof(r.m_Hdr.m_pNonce));
+
+        static_assert(sizeof(r.m_Hdr.m_pIndices) == 104, "");
+        hp.Write(r.m_Hdr.m_pIndices + 100, 4); // last 4 bytes are the extra nonce
+        hp >> r.m_PrePoW;
+    }
+
+    IndexDecoder::State<25, 0, 25>::Do(r.m_pIndices, (const uint32_t*) r.m_Hdr.m_pIndices);
 }

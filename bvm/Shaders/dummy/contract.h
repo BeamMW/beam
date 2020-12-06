@@ -125,6 +125,8 @@ namespace Dummy
         HashValue m_DiffUnpacked;
         uint8_t m_pDiffMultiplied[64];
         uint8_t m_DiffTestOk;
+        HashValue m_PrePoW;
+        uint32_t m_pIndices[32];
 
         template <bool bToShader>
         void Convert()

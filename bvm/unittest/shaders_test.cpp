@@ -843,6 +843,100 @@ namespace bvm2 {
 		m_lstUndo.Clear();
 	}
 
+	namespace IndexDecoder
+	{
+		typedef uint32_t Word;
+
+		template <uint32_t n>
+		struct SrcRemaining
+		{
+			template <uint32_t nBitsPerIndex, uint32_t nSrcIdx>
+			struct State
+			{
+				static const uint32_t s_BitsDecoded = nSrcIdx * 8;
+
+				static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
+				static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
+				static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
+
+				static void Do(Word* pDst, const uint8_t* pSrc)
+				{
+					uint8_t src = pSrc[nSrcIdx];
+					if constexpr (s_nDstBitsRemaining >= 8)
+					{
+						if constexpr (!s_nDstBitsDone)
+							pDst[s_iDst] = src;
+						else
+							pDst[s_iDst] |= ((Word) src)  << s_nDstBitsDone;
+					}
+					else
+					{
+						const uint8_t msk = (1 << s_nDstBitsRemaining) - 1;
+						pDst[s_iDst] |= ((Word) (src & msk)) << s_nDstBitsDone;
+						pDst[s_iDst + 1] = src >> s_nDstBitsRemaining;
+					}
+
+					typedef typename SrcRemaining<n - 1>::template State<nBitsPerIndex, nSrcIdx + 1> StateNext;
+					StateNext::Do(pDst, pSrc);
+				}
+			};
+		};
+
+		template <>
+		struct SrcRemaining<0>
+		{
+			template <uint32_t nBitsPerIndex, uint32_t nSrcIdx>
+			struct State
+			{
+				static void Do(Word* pDst, const uint8_t* pSrc)
+				{
+				}
+			};
+		};
+	}
+
+
+
+	namespace IndexDecoder2
+	{
+		typedef uint32_t Word;
+		static const uint32_t s_WordBits = sizeof(Word) * 8;
+
+		template <uint32_t nBitsPerIndex, uint32_t nSrcIdx, uint32_t nSrcTotal>
+		struct State
+		{
+			static_assert(nBitsPerIndex <= s_WordBits, "");
+			static_assert(nBitsPerIndex >= s_WordBits/2, "unpack should affect no more than 3 adjacent indices");
+
+			static const Word s_Msk = (((Word) 1) << nBitsPerIndex) - 1;
+
+			static const uint32_t s_BitsDecoded = nSrcIdx * s_WordBits;
+
+			static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
+			static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
+			static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
+
+			static void Do(Word* pDst, const Word* pSrc)
+			{
+				Word src = ByteOrder::from_le(pSrc[nSrcIdx]);
+
+				if constexpr (s_nDstBitsDone > 0)
+					pDst[s_iDst] |= (src << s_nDstBitsDone) & s_Msk;
+				else
+					pDst[s_iDst] = src & s_Msk;
+
+				pDst[s_iDst + 1] = (src >> s_nDstBitsRemaining) & s_Msk;
+
+				if constexpr (s_nDstBitsRemaining + nBitsPerIndex < s_WordBits)
+					pDst[s_iDst + 2] = (src >> (s_nDstBitsRemaining + nBitsPerIndex)) & s_Msk;
+
+				if constexpr (nSrcIdx + 1 < nSrcTotal)
+					typename State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
+			}
+		};
+	}
+
+
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
@@ -982,6 +1076,10 @@ namespace bvm2 {
 
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 			verify_test(args.m_Hash == hv);
+
+			uint32_t pIndices[32];
+			IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
+			verify_test(memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
 
 			s.get_HashForPoW(hvExpected);
 			verify_test(args.m_HashForPoW == hvExpected);
