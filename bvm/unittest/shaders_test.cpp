@@ -1079,7 +1079,7 @@ namespace bvm2 {
 
 			uint32_t pIndices[32];
 			IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
-			verify_test(memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
+			verify_test(!memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
 
 			s.get_HashForPoW(hvExpected);
 			verify_test(args.m_HashForPoW == hvExpected);
