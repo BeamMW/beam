@@ -931,7 +931,7 @@ namespace bvm2 {
 					pDst[s_iDst + 2] = (src >> (s_nDstBitsRemaining + nBitsPerIndex)) & s_Msk;
 
 				if constexpr (nSrcIdx + 1 < nSrcTotal)
-					typename State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
+					State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
 			}
 		};
 	}
