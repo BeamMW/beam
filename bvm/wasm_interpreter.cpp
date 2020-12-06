@@ -817,30 +817,34 @@ namespace Wasm {
 			WriteRes(reinterpret_cast<uint8_t*>(&n), sizeof(n));
 		}
 
-		void OnBranch()
+		void PutBranchLabel(uint32_t nLabel)
 		{
-			auto nLabel = m_Code.Read<uint32_t>();
 			Test(nLabel + 1 < m_Blocks.size());
 			assert(nLabel < m_This.m_Labels.m_Items.size());
 
-			auto& b = get_B();
+			auto iBlock = m_Blocks.size() - (nLabel + 1);
+			auto& b = m_Blocks[iBlock];
+
+			size_t nOperands = b.m_OperandsAtExit;
 			if (b.m_Loop)
 			{
-				assert(m_Blocks.size() > 1); // function block can't be loop
-
-				size_t n = b.m_OperandsAtExit + b.m_Type.m_Args.n - b.m_Type.m_Rets.n;
-				Test(m_Operands.size() == n);
-				TestOperands(b.m_Type.m_Args);
-			}
-			else
-			{
-				TestBlockCanClose();
+				assert(iBlock); // function block can't be loop
+				nOperands += b.m_Type.m_Args.n - b.m_Type.m_Rets.n;
 			}
 
+			TestOperands(b.m_Type.m_Args);
+			Test(m_Operands.size() == nOperands);
+
+			PutLabelTrg(m_Blocks[m_Blocks.size() - (nLabel + 1)].m_iLabel);
+		}
+
+		void OnBranch()
+		{
 			WriteRes(*m_p0); // opcode
 			m_p0 = nullptr;
 
-			PutLabelTrg(m_Blocks[m_Blocks.size() - (nLabel + 1)].m_iLabel);
+			auto nLabel = m_Code.Read<uint32_t>();
+			PutBranchLabel(nLabel);
 		}
 
 		uint8_t OnLocalVar()
