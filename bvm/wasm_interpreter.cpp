@@ -265,6 +265,7 @@ namespace Wasm {
 	macro(0x11, call_indirect) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
+	macro(0x0E, br_table) \
 	macro(0x0F, ret) \
 	macro(0x41, i32_const) \
 	macro(0x42, i64_const) \
@@ -956,6 +957,27 @@ namespace Wasm {
 		void On_br_if() {
 			Pop(Type::i32); // conditional
 			OnBranch();
+		}
+
+		void On_br_table()
+		{
+			Pop(Type::i32); // operand
+
+			WriteRes(*m_p0); // opcode
+			m_p0 = nullptr;
+
+			uint32_t nLabels;
+			m_Code.Read(nLabels);
+			WriteResU(nLabels);
+
+			// the following loop includes the 'def' label too
+			do
+			{
+				auto nLabel = m_Code.Read<uint32_t>();
+				PutBranchLabel(nLabel);
+
+			} while (nLabels--);
+
 		}
 
 		void On_ret()
@@ -1787,6 +1809,22 @@ namespace Wasm {
 		Word addr = ReadAddr();
 		if (m_Stack.Pop<Word>())
 			Jmp(addr);
+	}
+
+	void ProcessorPlus::On_br_table()
+	{
+		uint32_t nLabels;
+		m_Instruction.Read(nLabels);
+
+		Word nOperand = m_Stack.Pop<Word>();
+		std::setmin(nOperand, nLabels); // fallback to 'def' if out-of-range
+
+		nLabels++;
+		uint32_t nSize = sizeof(Word) * nLabels;
+		Test(nSize / sizeof(Word) == nLabels); // overflow check
+
+		auto* pAddrs = reinterpret_cast<const Word*>(m_Instruction.Consume(nSize));
+		Jmp(from_wasm<Word>(pAddrs[nOperand]));
 	}
 
 	void ProcessorPlus::On_call()
