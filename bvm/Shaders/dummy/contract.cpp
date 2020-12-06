@@ -168,8 +168,57 @@ void get_HdrHash(HashValue& out, const Dummy::VerifyBeamHeader::Hdr& hdr, bool b
     hp >> out;
 }
 
+template <typename TDst, typename TSrc>
+void BSwap(TDst& dst, const TSrc& src)
+{
+    static_assert(sizeof(dst) == sizeof(src), "");
+    for (uint32_t i = 0; i < sizeof(src); i++)
+        ((uint8_t*) &dst)[i] = ((uint8_t*) &src)[sizeof(src) - 1 - i];
+}
+
+struct Difficulty
+{
+    typedef MultiPrecision::UInt<8> Raw;
+
+    static const uint32_t s_MantissaBits = 24;
+
+    static void Unpack(Raw& res, uint32_t nPacked)
+    {
+        // unpack difficulty
+        const uint32_t nLeadingBit = 1U << s_MantissaBits;
+        uint32_t order = (nPacked >> s_MantissaBits);
+
+        if (order > 231)
+            Utils::SetObject(res, -1); // inf
+        else
+        {
+            MultiPrecision::UInt<1> mantissa = nLeadingBit | (nPacked & (nLeadingBit - 1));
+            res.Set(mantissa, order);
+        }
+    }
+};
+
 export void Method_9(Dummy::VerifyBeamHeader& r)
 {
     get_HdrHash(r.m_HashForPoW, r.m_Hdr, false, &r.m_RulesCfg);
     get_HdrHash(r.m_Hash, r.m_Hdr, true, &r.m_RulesCfg);
+
+    // test difficulty
+    {
+        HashProcessor hp;
+        hp.m_p = Env::HashCreateSha256();
+        hp.Write(r.m_Hdr.m_pIndices, sizeof(r.m_Hdr.m_pIndices));
+        hp >> r.m_DiffRes;
+    }
+
+    Difficulty::Raw diff, src;
+    Difficulty::Unpack(diff, r.m_Hdr.m_DifficultyPacked);
+    BSwap(r.m_DiffUnpacked, diff);
+
+    BSwap(src, r.m_DiffRes);
+    auto a = diff * src; // would be 512 bits
+    BSwap(r.m_pDiffMultiplied, a);
+
+    static_assert(!(Difficulty::s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
+    r.m_DiffTestOk = Env::Memis0(r.m_pDiffMultiplied, sizeof(src) - (Difficulty::s_MantissaBits >> 3));
 }

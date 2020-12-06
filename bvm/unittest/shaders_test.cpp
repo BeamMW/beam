@@ -971,6 +971,12 @@ namespace bvm2 {
 
 			s.get_HashForPoW(hvExpected);
 			verify_test(args.m_HashForPoW == hvExpected);
+
+			Difficulty::Raw diffRaw;
+			s.m_PoW.m_Difficulty.Unpack(diffRaw);
+
+			verify_test(diffRaw == args.m_DiffUnpacked);
+			verify_test(args.m_DiffTestOk);
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));

@@ -121,6 +121,10 @@ namespace Dummy
         HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
         HashValue m_HashForPoW;
         HashValue m_Hash;
+        HashValue m_DiffRes;
+        HashValue m_DiffUnpacked;
+        uint8_t m_pDiffMultiplied[64];
+        uint8_t m_DiffTestOk;
 
         template <bool bToShader>
         void Convert()
