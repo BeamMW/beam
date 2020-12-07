@@ -51,11 +51,6 @@ namespace beam::wallet
         return false;
     }
 
-    uint32_t DogecoinSide::GetWithdrawTxAverageSize() const
-    {
-        return kDogecoinWithdrawTxAverageSize;
-    }
-
     Amount DogecoinSide::GetFee(Amount feeRate) const
     {
         return CalcTotalFee(feeRate);

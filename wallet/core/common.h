@@ -170,7 +170,7 @@ namespace beam::wallet
     MACRO(NoVoucher,                     44, "No voucher, no address to receive it") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
     MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
-    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
+    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is too big.") \
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \

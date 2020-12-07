@@ -397,6 +397,9 @@ namespace beam::wallet
         TxoID get_ShieldedOuts() const;
         void set_ShieldedOuts(TxoID);
 
+        uint8_t get_MaxPrivacyLockTimeLimitHours() const;
+        void set_MaxPrivacyLockTimeLimitHours(uint8_t);
+
 		struct IRecoveryProgress
 		{
 			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery

@@ -1058,9 +1058,9 @@ namespace beam::wallet
         m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
     }
 
-    void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt&)
+    void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt& r)
     {
-        // TODO
+        r.m_callback(r.m_Msg.m_Height, r.m_Res.m_ShieldedOuts);
     }
 
     void Wallet::RequestEvents()
@@ -1672,6 +1672,14 @@ namespace beam::wallet
         PostReqUnique(*pReq);
     }
 
+    void Wallet::RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete)
+    {
+        MyRequestShieldedOutputsAt::Ptr pVal(new MyRequestShieldedOutputsAt);
+        pVal->m_Msg.m_Height = h;
+        pVal->m_callback = std::move(onRequestComplete);
+        PostReqUnique(*pVal);
+    }
+
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
@@ -1691,7 +1699,7 @@ namespace beam::wallet
         std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
 
         TxAddressType addressType = TxAddressType::Offline;
-        if (message->m_MaxPrivacyMinAnonimitySet)
+        if (message->m_MaxPrivacyMinAnonymitySet)
         {
             addressType = TxAddressType::MaxPrivacy;
         }
@@ -1731,9 +1739,9 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                 .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
-            if (message->m_MaxPrivacyMinAnonimitySet)
+            if (message->m_MaxPrivacyMinAnonymitySet)
             {
-                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonimitySet);
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
             }
             params.SetParameter(TxParameterID::AddressType, addressType);
 

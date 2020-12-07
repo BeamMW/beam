@@ -1654,7 +1654,7 @@ void TestIgnoringThirdPeer()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();

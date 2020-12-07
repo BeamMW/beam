@@ -905,8 +905,11 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
+        const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
+        const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 26;
+        const int DbVersion   = 27;
+        const int DbVersion26 = 26;
         const int DbVersion25 = 25;
         const int DbVersion24 = 24;
         const int DbVersion23 = 23;
@@ -1334,6 +1337,26 @@ namespace beam::wallet
         {
             MigrateAddressesFrom24(walletDB, db, ADDRESSES_NAME);
             MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
+        }
+
+        void MigrateTransactionsFrom25(WalletDB* walletDB)
+        {
+            sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE subTxID=?1 AND paramID=?2;");
+            stm.bind(1, kDefaultSubTxID);
+            stm.bind(2, TxParameterID::OriginalToken);
+            while (stm.step())
+            {
+                TxID txID;
+                std::string originalAddress;
+                ByteBuffer buf;
+                stm.get(0, txID);
+                stm.get(1, buf);
+                if (fromByteBuffer(buf, originalAddress))
+                {
+                    auto addressType = GetAddressType(originalAddress);
+                    storage::setTxParameter(*walletDB, txID, TxParameterID::AddressType, addressType, false);
+                }
+            }
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
@@ -1919,6 +1942,7 @@ namespace beam::wallet
 
                 case DbVersion22:
                     CreateShieldedCoinsTableIndex(db);
+                    // no break
 
                 case DbVersion23:
                     LOG_INFO() << "Converting DB from format 23...";
@@ -1926,14 +1950,21 @@ namespace beam::wallet
                     {
                         AddVouchersFlagsColumn(db);
                     }
+                    // no break
 
                 case DbVersion24:
                     LOG_INFO() << "Converting DB from format 24...";
                     MigrateAddressesFrom24(walletDB.get(), walletDB->_db);
+                    // no break
 
                 case DbVersion25:
                     LOG_INFO() << "Converting DB from format 25...";
                     CreateExchangeRatesHistoryTable(walletDB->_db);
+                    // no break
+
+                case DbVersion26:
+                    LOG_INFO() << "Converting DB from format 26...";
+                    MigrateTransactionsFrom25(walletDB.get());
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -2404,6 +2435,18 @@ namespace beam::wallet
     void IWalletDB::set_ShieldedOuts(TxoID val)
     {
         storage::setVar(*this, kStateSummaryShieldedOutsDBPath, val);
+    }
+
+    uint8_t IWalletDB::get_MaxPrivacyLockTimeLimitHours() const
+    {
+        uint8_t ret = kDefaultMaxPrivacyLockTimeLimitHours;
+        storage::getVar(*this, kMaxPrivacyLockTimeLimitHours, ret);
+        return ret;
+    }
+
+    void IWalletDB::set_MaxPrivacyLockTimeLimitHours(uint8_t val)
+    {
+        storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
     }
 
     void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
@@ -5066,14 +5109,22 @@ namespace beam::wallet
             if (c.m_confirmHeight != MaxHeight)
             {
                 const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
-                if (packedMessage->m_MaxPrivacyMinAnonimitySet)
+                auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+                if (mpAnonymitySet)
                 {
-                    ShieldedCoin::UnlinkStatus unlinkStatus;
-                    unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
-                    if (unlinkStatus.m_Progress < 100)
+                    auto timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
+                    Block::SystemState::ID stateID = {};
+                    walletDB.getSystemStateID(stateID);
+
+                    if (!timeLimit || c.m_confirmHeight + timeLimit * 60 > stateID.m_Height)
                     {
-                        c.m_Status = ShieldedCoin::Status::Maturing;
-                        return;
+                        ShieldedCoin::UnlinkStatus unlinkStatus;
+                        unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
+                        if (unlinkStatus.m_Progress < 100 * mpAnonymitySet / 64U)
+                        {
+                            c.m_Status = ShieldedCoin::Status::Maturing;
+                            return;
+                        }
                     }
                 }
 
@@ -5093,7 +5144,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (storage::IsOngoingTx(walletDB, c.m_spentTxId))
+            if (storage::IsOngoingTx(walletDB, c.m_createTxId))
             {
                 c.m_Status = ShieldedCoin::Status::Incoming;
                 return;

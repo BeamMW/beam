@@ -28,7 +28,8 @@ namespace beam::bitcoin
 {
     constexpr uint32_t kTransactionVersion = 2;
     constexpr uint64_t kDustThreshold = 546;
-    constexpr uint32_t kBTCWithdrawTxAverageSize = 160;
+    constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
+    constexpr uint32_t kBTCWithdrawSegwitTxAverageSize = 160;
     extern const char kMainnetGenesisBlockHash[];
     extern const char kTestnetGenesisBlockHash[];
     extern const char kRegtestGenesisBlockHash[];

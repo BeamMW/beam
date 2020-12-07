@@ -32,7 +32,6 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_observer.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
-#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
@@ -76,6 +75,8 @@ namespace beam::wallet
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
     };
+
+    class SwapOffersBoard;
 
     class WalletClient
         : private IWalletObserver
@@ -230,12 +231,19 @@ namespace beam::wallet
         void getPublicAddress() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
+        void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override;
+
+        void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
+        void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
+        void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override;
+        void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
-        std::vector<Coin> getUtxos() const;
+        std::vector<Coin> getUtxos(Asset::ID assetId) const;
         
 
         void updateClientState();

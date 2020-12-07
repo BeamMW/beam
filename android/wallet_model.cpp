@@ -58,6 +58,33 @@ namespace
         return addr;
     }
 
+    std::string getAddressFrom(TxDescription m_tx)
+    {
+        if (m_tx.m_txType == wallet::TxType::PushTransaction && !m_tx.m_sender){
+            return m_tx.getSenderIdentity();
+        }
+        return to_string(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
+    }
+
+    std::string getAddressTo(TxDescription m_tx)
+    {
+        if (m_tx.m_sender)
+        {
+            auto token = m_tx.getToken();
+            if (token.length() == 0) {
+                return to_string(m_tx.m_myId);
+            }
+            auto params = beam::wallet::ParseParameters(token);
+            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
+            {
+                auto s = std::to_string(*peerIdentity);
+                return s;
+            }
+            return token;
+        }
+        return to_string(m_tx.m_myId);
+    }
+
     jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
@@ -82,6 +109,12 @@ namespace
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
         setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+
+        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
+        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
+
+        setStringField(env, TxDescriptionClass, tx, "receiverAddress", getAddressTo(txDescription));
+        setStringField(env, TxDescriptionClass, tx, "senderAddress", getAddressFrom(txDescription));
 
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
@@ -175,12 +208,12 @@ namespace
             setIntField(env, UtxoClass, utxo, "keyType", -1);
             setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
             
-            const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-            TxID txID;
-            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
-            auto trId = txIDToString(txID);
+            if (coin.m_createTxId)
+                 setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));
 
-            setStringField(env, UtxoClass, utxo, "createTxId", trId);
+            if (coin.m_spentTxId)
+                setStringField(env, UtxoClass, utxo, "spentTxId", to_hex(coin.m_spentTxId->data(), coin.m_spentTxId->size()));
+
 
             
             env->SetObjectArrayElement(utxos, static_cast<jsize>(i), utxo);
