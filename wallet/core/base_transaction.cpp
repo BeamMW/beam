@@ -257,8 +257,16 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
             && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
         {
-            // we have no data to make decision
-            return false;
+            // we have no data to make decision, but we can use kernels maximum life time from the rules
+            if (GetParameter(TxParameterID::MinHeight, maxHeight))
+            {
+                maxHeight += Rules::get().MaxKernelValidityDH;
+            }
+            else
+            {
+                return false;
+            }
+            
         }
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;

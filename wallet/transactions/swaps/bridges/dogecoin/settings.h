@@ -30,7 +30,7 @@ namespace beam::dogecoin
         {
             constexpr double kDogeBlocksPerHour = 60;
             constexpr uint32_t kDogeDefaultLockTimeInBlocks = 12 * 60;
-            constexpr Amount kDogeMinFeeRate = 300'000'000;
+            constexpr Amount kDogeMinFeeRate = 100'000'000;
 
             SetLockTimeInBlocks(kDogeDefaultLockTimeInBlocks);
             SetMinFeeRate(kDogeMinFeeRate);

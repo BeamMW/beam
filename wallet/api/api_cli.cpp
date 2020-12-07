@@ -45,16 +45,18 @@
 #include "wallet/transactions/assets/assets_reg_creators.h"
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#include "wallet/api/i_atomic_swap_provider.h"
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
+#if defined(BITCOIN_CASH_SUPPORT)
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
+#endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 #include "swap_client.h"
 #include "swap_eth_client.h"
@@ -240,8 +242,9 @@ public:
         initSwapClient<litecoin::LitecoinCore017, litecoin::Electrum, litecoin::SettingsProvider>(AtomicSwapCoin::Litecoin);
         initSwapClient<qtum::QtumCore017, qtum::Electrum, qtum::SettingsProvider>(AtomicSwapCoin::Qtum);
         initSwapClient<dash::DashCore014, dash::Electrum, dash::SettingsProvider>(AtomicSwapCoin::Dash);
+#if defined(BITCOIN_CASH_SUPPORT)
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
-        initSwapClient<bitcoin_sv::BitcoinSVCore, bitcoin_sv::Electrum, bitcoin_sv::SettingsProvider>(AtomicSwapCoin::Bitcoin_SV);
+#endif // BITCOIN_CASH_SUPPORT
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
         initEthClient(AtomicSwapCoin::Ethereum);
     }

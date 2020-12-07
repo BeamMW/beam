@@ -19,6 +19,7 @@
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
+#include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -197,7 +198,7 @@ void GetStatusResponseJson(const TxDescription& tx,
     {
         if (tx.m_txType != TxType::AssetInfo && tx.m_txType != TxType::AtomicSwap)
         {
-            msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
+            msg["kernel"] = std::to_string(tx.m_kernelID);
         }
     }
 
@@ -375,20 +376,6 @@ static void FillAddressData(const JsonRpcId& id, const json& params, AddressData
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
     throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
-}
-
-std::string swapOfferStatusToString(const SwapOfferStatus& status)
-{
-    switch(status)
-    {
-    case SwapOfferStatus::Canceled : return "cancelled";
-    case SwapOfferStatus::Completed : return "completed";
-    case SwapOfferStatus::Expired : return "expired";
-    case SwapOfferStatus::Failed : return "failed";
-    case SwapOfferStatus::InProgress : return "in progress";
-    case SwapOfferStatus::Pending : return "pending";
-    default : return "unknown";
-    }
 }
 
 json OfferToJson(const SwapOffer& offer,
@@ -908,7 +895,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         ValidateAddress validateAddress;
-        validateAddress.address.FromHex(params["address"]);
+        validateAddress.address = params["address"].get<std::string>();
 
         getHandler().onMessage(id, validateAddress);
     }
@@ -1286,9 +1273,9 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         getHandler().onMessage(id, txList);
     }
 
-    void WalletApi::onWalletStatusMessage(const JsonRpcId& id, const json& params)
+    void WalletApi::onGetWalletStatusMessage(const JsonRpcId& id, const json& params)
     {
-        WalletStatus walletStatus;
+        GetWalletStatus walletStatus;
         walletStatus.withAssets = readAssetsParameter(id, params);
         getHandler().onMessage(id, walletStatus);
     }
@@ -1778,7 +1765,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const WalletStatus::Response& res, json& msg)
+    void WalletApi::getResponse(const JsonRpcId& id, const GetWalletStatus::Response& res, json& msg)
     {
         if (res.totals)
         {

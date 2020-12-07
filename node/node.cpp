@@ -3534,8 +3534,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
                 Deserializer der;
                 der.reset(wlk.m_Body.p, wlk.m_Body.n);
 
-                proto::Event::Type::Enum eType;
-                der & eType;
+                proto::Event::Type::Enum eType = proto::Event::Type::Load(der);
                 if (bSkipAssets && (proto::Event::Type::AssetCtl == eType))
                     continue; // skip
 
@@ -3672,6 +3671,14 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
     msgOut.m_AssetsMax = static_cast<Asset::ID>(p.m_Mmr.m_Assets.m_Count);
     msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 
+    Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
+{
+    proto::ShieldedOutputsAt msgOut;
+    auto& db = m_This.m_Processor.get_DB();
+    msgOut.m_ShieldedOuts = db.ShieldedOutpGet(msg.m_Height);
     Send(msgOut);
 }
 

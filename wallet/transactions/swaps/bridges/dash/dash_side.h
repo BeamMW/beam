@@ -25,6 +25,7 @@ namespace beam::wallet
         DashSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, dash::ISettingsProvider& settingsProvider, bool isBeamSide);
 
         static bool CheckAmount(Amount amount, Amount feeRate);
+        static Amount CalcTotalFee(Amount feeRate);
 
     protected:
 

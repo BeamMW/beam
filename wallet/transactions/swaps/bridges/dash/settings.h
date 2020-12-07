@@ -43,8 +43,10 @@ namespace beam::dash
             electrumSettings.m_nodeAddresses =
             {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+                "165.232.38.144:50002",
+                "178.62.234.69:50002",
                 "drk.p2pay.com:50002",
-                "electrum.dash.siampm.com:50002"
+                "electrumx-mainnet.dash.org:50002"
 #else // MASTERNET and TESTNET
                 "dword.ga:51002"
 #endif

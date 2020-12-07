@@ -49,7 +49,6 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Litecoin,
     Qtum,
     Bitcoin_Cash,
-    Bitcoin_SV,
     Dogecoin,
     Dash,
     Ethereum,
@@ -77,6 +76,7 @@ AtomicSwapCoin from_string(const std::string& value);
 uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
 // TODO roman.strilets: maybe it is bad name
 std::string GetCoinName(AtomicSwapCoin swapCoin);
+std::string swapOfferStatusToString(const SwapOfferStatus& status);
 }  // namespace beam::wallet
 
 namespace std

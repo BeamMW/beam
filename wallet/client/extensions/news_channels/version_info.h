@@ -55,7 +55,7 @@ namespace beam::wallet
         Version m_version;          // Beam Core Wallet library version info
         std::string m_title;        // RFU
         std::string m_message;      // RFU
-        uint32_t m_UIrevision;      // UI revision
+        uint32_t m_UIrevision = 0;  // UI revision
 
         Version getBeamCoreVersion() const;
         uint32_t getUIrevision() const;

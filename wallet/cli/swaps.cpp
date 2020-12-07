@@ -23,8 +23,9 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#if defined(BITCOIN_CASH_SUPPORT)
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
+#endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
@@ -662,7 +663,8 @@ void RequestToBridge(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin, st
                 (walletDB, swapCoin, callback);
         break;
     }
-    case AtomicSwapCoin::Bitcoin_Cash:
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         RequestToSpecificBridge
             <bitcoin_cash::SettingsProvider, 
@@ -671,15 +673,7 @@ void RequestToBridge(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin, st
                 (walletDB, swapCoin, callback);
         break;
     }
-    case AtomicSwapCoin::Bitcoin_SV:
-    {
-        RequestToSpecificBridge
-            <bitcoin_sv::SettingsProvider, 
-            bitcoin::IBridge,
-            bitcoin::BridgeHolder<bitcoin_sv::Electrum, bitcoin_sv::BitcoinSVCore>>
-                (walletDB, swapCoin, callback);
-        break;
-    }
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dash:
     {
         RequestToSpecificBridge
@@ -795,14 +789,12 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     {
         return GetMinSwapFeeRate<dogecoin::SettingsProvider>(walletDB);
     }
-    case AtomicSwapCoin::Bitcoin_Cash:
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         return GetMinSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
     }
-    case AtomicSwapCoin::Bitcoin_SV:
-    {
-        return GetMinSwapFeeRate<bitcoin_sv::SettingsProvider>(walletDB);
-    }
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dash:
     {
         return GetMinSwapFeeRate<dash::SettingsProvider>(walletDB);
@@ -974,6 +966,10 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
 
+    Amount feeForShieldedInputs = 0;
+    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
+        throw std::runtime_error("Fee to low");
+
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
     // TODO:SWAP use async callbacks or IWalletObserver?
@@ -982,14 +978,14 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     auto swapTxParameters = CreateSwapTransactionParameters();
 
     FillSwapTxParams(&swapTxParameters,
-        senderAddress.m_walletID,
-        minHeight,
-        amount,
-        fee,
-        swapCoin,
-        swapAmount,
-        swapFeeRate,
-        isBeamSide);
+                     senderAddress.m_walletID,
+                     minHeight,
+                     amount,
+                     !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee,
+                     swapCoin,
+                     swapAmount,
+                     swapFeeRate,
+                     isBeamSide);
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -1100,6 +1096,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         // TODO roman.strilets added tokens
         << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
+    
+    Amount fee = kMinFeeInGroth;
+    if (*isBeamSide)
+    {
+        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, Asset::s_BeamID, false);
+        fee = coinSelectionRes.minimalFee - coinSelectionRes.shieldedInputsFee;
+        cout << " Fee:          " << PrintableAmount(!!coinSelectionRes.shieldedInputsFee ? coinSelectionRes.minimalFee : fee) << "\n";
+    }
 
     // get accepting
     // TODO: Refactor
@@ -1126,7 +1130,6 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     // on accepting
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-    Amount fee = kMinFeeInGroth;
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
@@ -1152,16 +1155,13 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
         return SetSwapSettings<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
             (vm, walletDB);
     }
-    case AtomicSwapCoin::Bitcoin_Cash:
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         return SetSwapSettings<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
             (vm, walletDB);
     }
-    case AtomicSwapCoin::Bitcoin_SV:
-    {
-        return SetSwapSettings<bitcoin_sv::SettingsProvider, bitcoin_sv::Settings, bitcoin_sv::CoreSettings, bitcoin_sv::ElectrumSettings>
-            (vm, walletDB);
-    }
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
     {
         return SetSwapSettings<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
@@ -1205,16 +1205,13 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
         ShowSwapSettings<qtum::SettingsProvider>(walletDB, swapCoin);
         break;
     }
-    case AtomicSwapCoin::Bitcoin_Cash:
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
         ShowSwapSettings<bitcoin_cash::SettingsProvider>(walletDB, swapCoin);
         break;
     }
-    case AtomicSwapCoin::Bitcoin_SV:
-    {
-        ShowSwapSettings<bitcoin_sv::SettingsProvider>(walletDB, swapCoin);
-        break;
-    }
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
     {
         ShowSwapSettings<dogecoin::SettingsProvider>(walletDB, swapCoin);

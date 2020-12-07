@@ -30,8 +30,13 @@ namespace beam::wallet
 
     bool DashSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(kDashWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > dash::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= dash::kDustThreshold;
+    }
+
+    Amount DashSide::CalcTotalFee(Amount feeRate)
+    {
+        return static_cast<Amount>(std::round(double(kDashWithdrawTxAverageSize * feeRate) / 1000));
     }
 
     uint32_t DashSide::GetLockTxEstimatedTimeInBeamBlocks() const

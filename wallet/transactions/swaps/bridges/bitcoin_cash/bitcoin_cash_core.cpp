@@ -27,4 +27,9 @@ namespace beam::bitcoin_cash
     {
         return "bitcoin cash";
     }
+
+    std::string BitcoinCashCore::getAddressType() const
+    {
+        return "";
+    }
 } // namespace beam::bitcoin_cash

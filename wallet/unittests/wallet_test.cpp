@@ -56,9 +56,204 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
+#include "wallet/api/api_handler.h"
 
 namespace
 {
+    struct AtomicSwapProvider : IAtomicSwapProvider
+    {
+    public:
+        Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        const SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
+        bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+    };
+
+    struct WalletData : WalletApiHandler::IWalletData
+    {
+        WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+            : m_walletDB(walletDB)
+            , m_wallet(wallet)
+            , m_atomicSwapProvider(atomicSwapProvider)
+        {}
+
+        virtual ~WalletData() {}
+
+        IWalletDB::Ptr getWalletDBPtr() override
+        {
+            return m_walletDB;
+        }
+
+        Wallet::Ptr getWalletPtr() override
+        {
+            throw std::runtime_error("not impl");
+        }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        const IAtomicSwapProvider& getAtomicSwapProvider() const override
+        {
+            return m_atomicSwapProvider;
+        }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        IWalletDB::Ptr m_walletDB;
+        Wallet& m_wallet;
+        IAtomicSwapProvider& m_atomicSwapProvider;
+    };
+
+    struct ApiHandler : beam::wallet::WalletApiHandler
+    {
+        using beam::wallet::WalletApiHandler::WalletApiHandler;
+        void serializeMsg(const json& msg) override
+        {
+
+        }
+    };
+
+    void TestTxList()
+    {
+        cout << "\nTesting Tx list...\n";
+
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(0, 0, v);
+            WALLET_CHECK(v.empty()); 
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(0, 3, v);
+            WALLET_CHECK(v == std::vector<int>({1,2,3}));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(1, 3, v);
+            WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(2, 3, v);
+            WALLET_CHECK(v == std::vector<int>({ 3,4 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(1, 2, v);
+            WALLET_CHECK(v == std::vector<int>({ 2,3 }));
+        }
+        {
+            std::vector<int> v = { 1, 2, 3, 4 };
+            WalletApiHandler::doPagination(4, 3, v);
+            WALLET_CHECK(v.empty());
+        }
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        constexpr int Count = 64;
+        int completedCount = 2 * Count;
+        auto f = [&](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2 * Count;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig sender(createSenderWalletDB(Count, 5), f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+
+        helpers::StopWatch sw;
+        sw.start();
+
+        for (int i = 0; i < Count; ++i)
+        {
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(1))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200)));
+        }
+        
+        mainReactor->run();
+        sw.stop();
+
+
+        // check coins
+        vector<Coin> newSenderCoins = sender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        //WALLET_CHECK(newSenderCoins.size() == Count);
+        WALLET_CHECK(newReceiverCoins.size() == Count);
+
+        // Tx history check
+        auto sh = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(sh.size() == Count);
+        auto rh = receiver.m_WalletDB->getTxHistory();
+        WALLET_CHECK(rh.size() == Count);
+
+        AtomicSwapProvider asp;
+        WalletData wd(sender.m_WalletDB, sender.m_Wallet, asp);
+        WalletApi::ACL acl;
+        ApiHandler handler(wd, acl);
+        TxList message;
+        message.count = 10;
+        message.skip = 30;
+        message.filter.status = wallet::TxStatus::Completed;
+        message.withAssets = false;
+        for (int i = 0; i < 100; ++i)
+        {
+            handler.onMessage(1, message);
+        }
+    }
+
+    void TestEventTypeSerialization()
+    {
+        std::string serializedStr;
+        {
+            proto::Event::Type::Enum event = proto::Event::Type::Shielded;
+
+            Serializer ser;
+            ser& event;
+
+            ByteBuffer buf;
+            ser.swap_buf(buf);
+
+            serializedStr = beam::to_hex(&buf[0], buf.size());
+            LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
+        }
+        
+        auto f = [](const std::string& s, bool shouldThrow)
+        {
+            ByteBuffer buf2 = from_hex(s);
+
+            Deserializer der;
+            der.reset(buf2.data(), buf2.size());
+
+            proto::Event::Type::Enum event;
+            if (shouldThrow)
+            {
+                WALLET_CHECK_THROW(der & event);
+            }
+            else
+            {
+                WALLET_CHECK_NO_THROW(der & event);
+                WALLET_CHECK(proto::Event::Type::Shielded == event);
+            }
+
+            der.reset(buf2.data(), buf2.size());
+            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
+            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
+            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
+        };
+
+        // legacy case
+        f("42", true);
+        // Normal case
+        f("82", false);
+    }
+
     void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
     {
         cout << "\nTesting wallets negotiation...\n";
@@ -1571,7 +1766,41 @@ namespace
             std::string sbbsAddressStr = "b0ca7b4afd7f0000fe6d24e8fd052ef04ff4bb2a230a81c8eeeb0dd0e55af766a91c6513e377fb39";
             WALLET_CHECK(beam::wallet::CheckReceiverAddress(sbbsAddressStr) == false);
         }
+        {
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
 
+        {
+            WalletID invalidWalletID;
+            WALLET_CHECK(invalidWalletID.FromHex("1b516fb37884a3281bc07610000008bc51fdb1336882a2c7efebdb400d00d4"));
+            WALLET_CHECK(!invalidWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, invalidWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(!invalidToken.IsValid());
+            WALLET_CHECK(!CheckReceiverAddress(std::to_string(p)));
+            WALLET_CHECK(!CheckReceiverAddress("6dFBAa1SQ6gtPdZGimrFpxr6ByuQSg3XyzXAjXb5xTrj7x1izcFv29ropCqXs5opBUCN9uS4fCJpR2HEUYhmfpRvTijFcVsP"));
+        }
+        {
+            WalletID validWalletID;
+            WALLET_CHECK(validWalletID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+            WALLET_CHECK(validWalletID.IsValid());
+            TxParameters p;
+            p.SetParameter(TxParameterID::PeerID, validWalletID);
+            TxToken invalidToken(p);
+            WALLET_CHECK(invalidToken.IsValid());
+            WALLET_CHECK(CheckReceiverAddress(std::to_string(p)));
+        }
+
+        {
+            WALLET_CHECK(GetAddressType("2d37efaaf8550a576d3dabb9bb2799dfe1b40b5bd29c6436ccd729744c806a7355e") == TxAddressType::Unknown);
+            WALLET_CHECK(GetAddressType("VnodAMahC2nTGmLYDqLpuPzziGhg9veyJ1BC6W1CrCd5RRcwxduMUmLJpFAekC1uJYqrYDRrouT4wXNDVqH6QdHggAETr4HF6fAoubsV8YX92WvRZ4Ga6BftT4GfRaNmjk") == TxAddressType::Unknown);
+            WALLET_CHECK(GetAddressType("2d37efaaf8e80a576d3dabb9bb2799dfe1b40b5bd29c6436ccd729744c806a7355e") == TxAddressType::Regular);
+            WALLET_CHECK(GetAddressType("VnodAMahC2nTGmLYDqLpuPzziGhg9veyJ1BC6W1CrCd5RRcwxduMUmLJpFAe2YtZsUZ2BRyZQdNgfXkU6jNH6yAy7yMNnjiafvXnd5b142MqnEEEzkC1uJYqrYDRrouT4wXNDVqH6QdHggAETr4HF6fAoubsV8YX92WvRZ4Ga6BftT4GfRaNmjk") == TxAddressType::Regular);
+            WALLET_CHECK(GetAddressType("PMaqLZQ3WZK2RUkyoYmasoXFcQo6T3WmoF1qAhQDQSJaQMpft6RjHSesbWKrc885CgM7DoJemPAm9vYHkNhQx82mZqwKJF5ELiB5JHaCvqLwbHGRzkak8RC4ia99ZPZ4Q9gkSDh5oumUoQ41kk79HDRoF8PAcdwxR1L1XsBShNYTZE12RZZ5R7LsVTZder8GchoFPRqZk895pFazLjyzk4ps9dYn5FcG43mVd6A5grbjMoMCT2M4j1xti9Qzc2ni85h5f6mpsXQwxYpzu9jkDyzMY6ZuNobw34j1yMzygyrc8K9dguBvy491MWGDvY9g99XBJHkDUQcVPLWvNemMPEgcSFzYMi6nhJ4MZ8Dzhfr7JYz8jVTBkUsyKdvC3uyEPjEzkqDpSjTVqWsCkvBy3Tfafm9DoVpuXtFJacf7YvQwgSPfGB4EcqaSwD2ccLw8") == TxAddressType::MaxPrivacy);
+            WALLET_CHECK(GetAddressType("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") == TxAddressType::Offline);
+            WALLET_CHECK(GetAddressType("344t9xwfSpreKLKTJHG1PMiD9B3zgXu7hjnwo479wdqZGFVHvbLc1jsGcNZw6j6Xu8WsoMvDV1QpPtcoXqpPMgbmyYvxojihjrzYm566rEFKxzuW7tFYaQ4i8TajabgRfQS32QCAYCDWuAqNHXYYePT5CkvkwiVSUaBchqNkQh7zAmLuPJrRy1WjTDY3d6obefygYvm4yz8aBoZ8XFgqGuFn8omz6iD14adyBUkzEtL71VmS4HeYwHd1CDvwLGnz44wYo6A3TRRSEJAPTRo2YNjDodan4FAfKzBcMkzBQ") == TxAddressType::PublicOffline);
+        }
     }
 
     void TestConvertions()
@@ -1934,40 +2163,40 @@ namespace
         Amount nOutFee = fs.m_ShieldedOutput + fs.m_Kernel + fs.m_Output;
         Amount beforehandFee = 1000100;
 
-        auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 6000000, beforehandFee);
-        WALLET_CHECK(6000000 > selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 6000000, beforehandFee, Asset::s_BeamID);
+        WALLET_CHECK(6000000 > selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.change == 0);
+        WALLET_CHECK(selectionRes.changeBeam == 0);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, beforehandFee);
-        WALLET_CHECK(4000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, beforehandFee, Asset::s_BeamID);
+        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.change != 0);
+        WALLET_CHECK(selectionRes.changeBeam != 0);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, 100);
-        WALLET_CHECK(4000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, 100, Asset::s_BeamID);
+        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > 100);
-        WALLET_CHECK(selectionRes.change != 0);
+        WALLET_CHECK(selectionRes.changeBeam != 0);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 500000, beforehandFee);
-        WALLET_CHECK(500000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 500000, beforehandFee,  Asset::s_BeamID);
+        WALLET_CHECK(500000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
         WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
-        WALLET_CHECK(selectionRes.change != 0);
+        WALLET_CHECK(selectionRes.changeBeam != 0);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 3000000, beforehandFee, true);
-        WALLET_CHECK(3000000 == selectionRes.selectedSum - selectionRes.selectedFee - selectionRes.change);
+        selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 3000000, beforehandFee, Asset::s_BeamID, true);
+        WALLET_CHECK(3000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
         WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee * 3);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.change != 0);
+        WALLET_CHECK(selectionRes.changeBeam != 0);
 
         cout << "\nShielded coins selection tested\n";
     }
@@ -2854,7 +3083,7 @@ void TestHWWallet()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG; 
+    int logLevel = LOG_LEVEL_WARNING; 
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
@@ -2870,7 +3099,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-
+    TestTxList();
     TestKeyKeeper();
 
     TestVouchers();

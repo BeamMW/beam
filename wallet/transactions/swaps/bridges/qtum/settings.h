@@ -48,9 +48,11 @@ namespace beam::qtum
                 "s1.qtum.info:50002",
                 "s3.qtum.info:50002",
                 "s4.qtum.info:50002",
+                "s5.qtum.info:50002",
                 "s7.qtum.info:50002",
                 "s8.qtum.info:50002",
-                "s9.qtum.info:50002"
+                "s9.qtum.info:50002",
+                "s10.qtum.info:50002"
 #else // MASTERNET and TESTNET
                 "s2.qtum.info:51002"
 #endif

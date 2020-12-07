@@ -527,7 +527,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
 
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -539,7 +540,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -550,7 +552,8 @@ void TestDirectAnonymousPayment()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID);
+                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
             
                 sender.m_Wallet.StartTransaction(parameters);
             }
@@ -601,6 +604,55 @@ void TestDirectAnonymousPayment()
             if (tx.m_txType == TxType::PushTransaction)
             {
                 WALLET_CHECK(tx.m_amount == 18000000);
+            }
+        }
+
+        {
+            TxID txID = *txHistory[0].GetTxID();
+
+            WALLET_CHECK(txHistory[0].m_myId == receiver.m_WalletID);
+            WALLET_CHECK(txHistory[0].getReceiverIdentity() == std::to_string(receiver.m_SecureWalletID));
+            ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
+
+            WALLET_CHECK(storage::VerifyPaymentProof(b));
+
+            auto pi2 = storage::ShieldedPaymentInfo::FromByteBuffer(b);
+
+            TxKernel::Ptr k;
+            ShieldedTxo::Voucher voucher;
+            Amount amount = 0;
+            Asset::ID assetID = Asset::s_InvalidID;;
+            PeerID peerIdentity = Zero;
+            PeerID myIdentity = Zero;
+            bool success = true;
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Kernel, k);
+            WALLET_CHECK(k->get_Subtype() == TxKernel::Subtype::Std);
+
+            auto& kernel = k->m_vNested[0]->CastTo_ShieldedOutput();
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Voucher, voucher);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::PeerWalletIdentity, peerIdentity);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::MyWalletIdentity, myIdentity);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Amount, amount);
+            storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::AssetID, assetID);
+
+            WALLET_CHECK(pi2.m_KernelID == k->m_Internal.m_ID);
+
+            WALLET_CHECK(success);
+            {
+                ShieldedTxo::Voucher voucher2;
+                voucher2.m_SharedSecret = voucher.m_SharedSecret;
+                voucher2.m_Signature = voucher.m_Signature;
+                voucher2.m_Ticket = kernel.m_Txo.m_Ticket;
+
+                WALLET_CHECK(voucher2.IsValid(peerIdentity));
+
+                ECC::Oracle oracle;
+                oracle << kernel.m_Msg;
+                ShieldedTxo::Data::OutputParams outputParams;
+                WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, oracle));
+                WALLET_CHECK(outputParams.m_Value == amount);
+                WALLET_CHECK(outputParams.m_AssetID == assetID);
+                WALLET_CHECK(outputParams.m_User.m_Sender == myIdentity);
             }
         }
     }
@@ -1317,7 +1369,7 @@ void TestReextract()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
@@ -1329,7 +1381,6 @@ int main()
 
     //TestUnlinkTx();
     //TestCancelUnlinkTx();
-
     TestSimpleTx();
     TestMaxPrivacyTx();
     TestPublicAddressTx();

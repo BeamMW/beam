@@ -334,17 +334,25 @@ namespace beam::wallet
 
     uint32_t BitcoinSide::GetWithdrawTxAverageSize() const
     {
+        if (CanUseSegwit())
+            return bitcoin::kBTCWithdrawSegwitTxAverageSize;
         return bitcoin::kBTCWithdrawTxAverageSize;
+    }
+
+    Amount BitcoinSide::GetFee(Amount feeRate) const
+    {
+        return static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * feeRate) / 1000));
     }
 
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > bitcoin::kDustThreshold && amount > fee;
+        Amount fee = CalcTotalFee(feeRate);
+        return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
     Amount BitcoinSide::CalcTotalFee(Amount feeRate)
     {
+        // TODO roman.strilets need to use segwit 
         return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
     }
 
@@ -572,7 +580,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * GetFeeRate(subTxID)) / 1000));
+            Amount fee = GetFee(GetFeeRate(subTxID));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();

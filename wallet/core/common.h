@@ -169,7 +169,7 @@ namespace beam::wallet
     MACRO(NoVoucher,                     44, "No voucher, no address to receive it") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
     MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
-    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
+    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is too big.") \
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
@@ -191,7 +191,14 @@ namespace beam::wallet
             Deserializer d;
             d.reset(b.data(), b.size());
             d & value;
-            return true;
+            if constexpr (std::is_same<T, WalletID>::value)
+            {
+                return value.IsValid();
+            }
+            else
+            {
+                return true;
+            }
         }
         if constexpr (std::is_trivially_destructible<T>::value && std::is_standard_layout<T>::value)
         {
@@ -267,7 +274,7 @@ namespace beam::wallet
     MACRO(Message,                         5,   ByteBuffer) \
     MACRO(MyID,                            6,   WalletID) \
     MACRO(PeerID,                          7,   WalletID) \
-    MACRO(IsPermanentPeerID,               8,   WalletID) \
+    MACRO(IsPermanentPeerID,               8,   bool) \
     MACRO(CreateTime,                      10,  Timestamp) \
     MACRO(IsInitiator,                     11,  bool) \
     MACRO(PeerMaxHeight,                   12,  Height) \
@@ -305,6 +312,8 @@ namespace beam::wallet
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \
     MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
+    /* allows to restore receiver address from */ \
+    MACRO(PeerOwnID,                       101, uint64_t) \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
@@ -379,6 +388,8 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
+
+        AddressType = 211,
     
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
@@ -477,6 +488,7 @@ namespace beam::wallet
         TxToken() = default;
         TxToken(const TxParameters&);
         TxParameters UnpackParameters() const;
+        bool IsValid() const;
         SERIALIZE(m_Flags, m_TxID, m_Parameters);
     private:
         uint8_t m_Flags = TokenFlag;
@@ -485,6 +497,16 @@ namespace beam::wallet
     };    
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
+
+    enum struct TxAddressType : uint8_t
+    {
+        Unknown,
+        Regular,
+        AtomicSwap,
+        Offline,
+        MaxPrivacy,
+        PublicOffline
+    };
 
     class TxStatusInterpreter
     {
@@ -513,9 +535,11 @@ namespace beam::wallet
     class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
     {
     public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
         ~MaxPrivacyTxStatusInterpreter() override = default;
         [[nodiscard]] std::string getStatus() const override;
+    private:
+        TxAddressType m_addressType = TxAddressType::Unknown;
     };
 
     class AssetTxStatusInterpreter : public TxStatusInterpreter
@@ -783,7 +807,10 @@ namespace beam::wallet
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
     Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
-    Amount GetShieldedFee(const TxDescription& tx);
+    Amount GetShieldedFee(const TxParameters& tx, SubTxID subTxID = kDefaultSubTxID);
+
+    TxAddressType GetAddressType(const TxDescription& tx);
+    TxAddressType GetAddressType(const std::string& address);
 }    // beam::wallet
 
 namespace beam

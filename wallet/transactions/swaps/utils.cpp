@@ -22,8 +22,9 @@
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#if defined(BITCOIN_CASH_SUPPORT)
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#include "wallet/transactions/swaps/bridges/bitcoin_sv/bitcoin_sv.h"
+#endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 
@@ -176,7 +177,7 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              qtum::QtumCore017,
              QtumSide, 
              qtum::ISettingsProvider>(walletDB));
-
+#if defined(BITCOIN_CASH_SUPPORT)
     swapTransactionCreator->RegisterFactory(
         AtomicSwapCoin::Bitcoin_Cash,
         CreateFactory
@@ -185,16 +186,7 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              bitcoin_cash::BitcoinCashCore,
              BitcoinCashSide, 
              bitcoin_cash::ISettingsProvider>(walletDB));
-
-    swapTransactionCreator->RegisterFactory(
-        AtomicSwapCoin::Bitcoin_SV,
-        CreateFactory
-            <bitcoin_sv::SettingsProvider,
-             bitcoin_sv::Electrum, 
-             bitcoin_sv::BitcoinSVCore,
-             BitcoinSVSide, 
-             bitcoin_sv::ISettingsProvider>(walletDB));
-
+#endif // BITCOIN_CASH_SUPPORT
     swapTransactionCreator->RegisterFactory(
         AtomicSwapCoin::Dogecoin,
         CreateFactory
@@ -233,10 +225,10 @@ bool IsSwapAmountValid(
         return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Qtum:
         return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+#if defined(BITCOIN_CASH_SUPPORT)
     case AtomicSwapCoin::Bitcoin_Cash:
         return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
-    case AtomicSwapCoin::Bitcoin_SV:
-        return BitcoinSVSide::CheckAmount(swapAmount, swapFeeRate);
+#endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
         return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
     case AtomicSwapCoin::Dash:

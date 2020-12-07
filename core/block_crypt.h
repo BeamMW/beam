@@ -108,9 +108,9 @@ namespace beam
 	struct Asset
 	{
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
-		static const ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
-		static const ID s_InvalidID = 0;
-		static const ID s_BeamID    = 0;
+		static constexpr ID s_MaxCount  = uint32_t(1) << 30; // 1 billion. Of course practically it'll be very much smaller
+		static constexpr ID s_InvalidID = 0;
+		static constexpr ID s_BeamID    = 0;
 		static const PeerID s_InvalidOwnerID;
 
 		struct Base
@@ -645,8 +645,9 @@ namespace beam
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
-				uint8_t m_maxPrivacyMinAnonimitySet;
-				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t)];
+				uint8_t m_MaxPrivacyMinAnonymitySet;
+				uint64_t m_ReceiverOwnID;
+				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
 			};
 #pragma pack (pop)
 			static PackedMessage* ToPackedMessage(User& user)

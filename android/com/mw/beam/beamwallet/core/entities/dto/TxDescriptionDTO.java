@@ -32,6 +32,7 @@ public class TxDescriptionDTO
     public String kernelId;
 	public int failureReason;
 	public String identity;
-	public boolean isOffline;
+	public boolean isPublicOffline;
     public boolean isMaxPrivacy;
+    public boolean isShielded;
 }

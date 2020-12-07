@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "electrum.h"
+#include "common.h"
 
-#include <stdint.h>
-
-#include "../bitcoin/common.h"
-
-namespace beam::bitcoin_sv
+namespace beam::qtum
 {
-    constexpr uint64_t kDustThreshold = bitcoin::kDustThreshold;
+Electrum::Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider)
+    : bitcoin::Electrum(reactor, settingsProvider)
+{
+}
 
-    uint8_t getAddressVersion();
-    std::vector<std::string> getGenesisBlockHashes();
-} // namespace beam::bitcoin_sv
+Amount Electrum::getDust() const
+{
+    return kQtumDustThreshold;
+}
+} // namespace beam::qtum
