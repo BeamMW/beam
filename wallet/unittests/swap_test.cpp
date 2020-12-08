@@ -1903,7 +1903,7 @@ void TestSwapEthRefundTransaction()
     io::AsyncEvent::Ptr eventToUpdate;
     //uint64_t startBlocks = receiverBtcWallet.getBlockCount();
 
-    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &timer]()
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate]()
         {
             if (sender)
             {
