@@ -72,15 +72,18 @@ namespace
 namespace beam::wallet
 {
 EthereumSide::EthereumSide(BaseTransaction& tx, ethereum::IBridge::Ptr ethBridge, ethereum::ISettingsProvider& settingsProvider, bool isBeamSide)
-    : m_tx(tx),
-      m_ethBridge(ethBridge),
-      m_settingsProvider(settingsProvider),
-      m_isEthOwner(!isBeamSide)
+    : m_tx(tx)
+    , m_ethBridge(ethBridge)
+    , m_settingsProvider(settingsProvider)
+    , m_isEthOwner(!isBeamSide)
 {
+    m_settingsProvider.AddRef();
 }
 
 EthereumSide::~EthereumSide()
-{}
+{
+    m_settingsProvider.ReleaseRef();
+}
 
 bool EthereumSide::Initialize()
 {
