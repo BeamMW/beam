@@ -164,7 +164,12 @@ namespace beam::ethereum
     beam::ByteBuffer EthBaseTransaction::GetRawSigned(const libbitcoin::ec_secret& secret)
     {
         // Sign
-        auto signature = Sign(secret);
+        libbitcoin::recoverable_signature signature;
+        if (!Sign(signature, secret))
+        {
+            // failed to sign raw TX
+            return {};
+        }
 
         RLPStream rlpStream;
         rlpStream << m_nonce << m_gasPrice << m_gas << m_receiveAddress << m_value << m_data;
@@ -180,7 +185,7 @@ namespace beam::ethereum
         return rlpStream.out();
     }
 
-    libbitcoin::recoverable_signature EthBaseTransaction::Sign(const libbitcoin::ec_secret& secret)
+    bool EthBaseTransaction::Sign(libbitcoin::recoverable_signature& out, const libbitcoin::ec_secret& secret)
     {
         RLPStream rlpStream;
         // TODO: chainID!
@@ -192,10 +197,7 @@ namespace beam::ethereum
         libbitcoin::hash_digest hashDigest;
         std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
 
-        libbitcoin::recoverable_signature signature;
-        // TODO: check result
-        libbitcoin::sign_recoverable(signature, secret, hashDigest);
-        return signature;
+        return libbitcoin::sign_recoverable(out, secret, hashDigest);
     }
 } // namespace beam::ethereum
 

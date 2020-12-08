@@ -32,7 +32,7 @@ struct EthBaseTransaction
     ECC::uintBig m_gasPrice = ECC::Zero;
 
     beam::ByteBuffer GetRawSigned(const libbitcoin::ec_secret& secret);
-    libbitcoin::recoverable_signature Sign(const libbitcoin::ec_secret& secret);
+    bool Sign(libbitcoin::recoverable_signature& out, const libbitcoin::ec_secret& secret);
 };
 
 } // namespace beam::ethereum

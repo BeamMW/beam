@@ -246,6 +246,14 @@ void EthereumBridge::onGotTransactionCount(const Error& error, uint64_t txCount)
             ethTx->m_ethBaseTx.m_nonce = txCount;
 
             auto signedTx = ethTx->m_ethBaseTx.GetRawSigned(generatePrivateKey());
+            if (signedTx.empty())
+            {
+                tmp.m_type = IBridge::EthError;
+                tmp.m_message = "Failed to sign raw transaction!";
+                ethTx->m_confirmedCallback(tmp, "", 0);
+                return;
+            }
+
             std::string stTx = libbitcoin::encode_base16(signedTx);
 
             sendRawTransaction(stTx, [this, txNonce = txCount, weak = this->weak_from_this()](const Error& error, const std::string& txHash)
