@@ -28,6 +28,8 @@ inline constexpr uint8_t kEthContractMethodHashSize = 4;
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
 libbitcoin::short_hash GetEthAddressFromPubkeyStr(const std::string& pubkeyStr);
+libbitcoin::ec_secret GeneratePrivateKey(const std::vector<std::string> words, uint32_t accountIndex);
+libbitcoin::short_hash GenerateEthereumAddress(const std::vector<std::string> words, uint32_t accountIndex);
 ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex = true);
 std::string AddHexPrefix(const std::string& value);
 std::string RemoveHexPrefix(const std::string& value);

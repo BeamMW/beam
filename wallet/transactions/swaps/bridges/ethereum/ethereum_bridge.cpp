@@ -28,13 +28,6 @@ using json = nlohmann::json;
 
 namespace
 {
-libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
-{
-    static constexpr auto first = libbitcoin::wallet::hd_first_hardened_key;
-    const auto position = hard ? first + index : index;
-    return privateKey.derive_private(position);
-}
-
 bool needSsl(const std::string& address)
 {
     // TODO roman.strilets need insensitive
@@ -447,15 +440,8 @@ void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& d
 
 libbitcoin::short_hash EthereumBridge::generateEthAddress() const
 {
-    auto privateKey = generatePrivateKey();
-    libbitcoin::ec_compressed point;
-
-    libbitcoin::secret_to_public(point, privateKey);
-
-    auto pk = libbitcoin::wallet::ec_public(point, false);
-    auto rawPk = pk.encoded();
-
-    return GetEthAddressFromPubkeyStr(rawPk);
+    auto settings = m_settingsProvider.GetSettings();
+    return GenerateEthereumAddress(settings.m_secretWords, settings.m_accountIndex);
 }
 
 void EthereumBridge::getGasPrice(std::function<void(const Error&, Amount)> callback)
@@ -614,18 +600,7 @@ void EthereumBridge::sendRequest(
 libbitcoin::ec_secret EthereumBridge::generatePrivateKey() const
 {
     auto settings = m_settingsProvider.GetSettings();
-    auto seed = libbitcoin::wallet::decode_mnemonic(settings.m_secretWords);
-    libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
 
-    const auto prefixes = libbitcoin::wallet::hd_private::to_prefixes(0, 0);
-    libbitcoin::wallet::hd_private private_key(seed_chunk, prefixes);
-
-    private_key = ProcessHDPrivate(private_key, 44);
-    private_key = ProcessHDPrivate(private_key, 60);
-    private_key = ProcessHDPrivate(private_key, 0);
-    private_key = ProcessHDPrivate(private_key, 0, false);
-    private_key = ProcessHDPrivate(private_key, settings.m_accountIndex, false);
-
-    return private_key.secret();
+    return GeneratePrivateKey(settings.m_secretWords, settings.m_accountIndex);
 }
 } // namespace beam::ethereum

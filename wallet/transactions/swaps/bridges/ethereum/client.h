@@ -51,8 +51,6 @@ public:
 
     IClientAsync::Ptr GetAsync();
 
-    std::string GetEthereumAddress();
-
     Settings GetSettings() const override;
     void SetSettings(const Settings& settings) override;
 

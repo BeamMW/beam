@@ -26,6 +26,13 @@ namespace
     {
         return value.find(kHexPrefix) == 0;
     }
+
+    libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
+    {
+        static constexpr auto first = libbitcoin::wallet::hd_first_hardened_key;
+        const auto position = hard ? first + index : index;
+        return privateKey.derive_private(position);
+    }
 }
 
 namespace beam::ethereum
@@ -50,6 +57,36 @@ libbitcoin::short_hash GetEthAddressFromPubkeyStr(const std::string& pubkeyStr)
 
     std::copy_n(&hash.bytes[12], 20, address.begin());
     return address;
+}
+
+libbitcoin::ec_secret GeneratePrivateKey(const std::vector<std::string> words, uint32_t accountIndex)
+{
+    auto seed = libbitcoin::wallet::decode_mnemonic(words);
+    libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
+
+    const auto prefixes = libbitcoin::wallet::hd_private::to_prefixes(0, 0);
+    libbitcoin::wallet::hd_private private_key(seed_chunk, prefixes);
+
+    private_key = ProcessHDPrivate(private_key, 44);
+    private_key = ProcessHDPrivate(private_key, 60);
+    private_key = ProcessHDPrivate(private_key, 0);
+    private_key = ProcessHDPrivate(private_key, 0, false);
+    private_key = ProcessHDPrivate(private_key, accountIndex, false);
+
+    return private_key.secret();
+}
+
+libbitcoin::short_hash GenerateEthereumAddress(const std::vector<std::string> words, uint32_t accountIndex)
+{
+    auto privateKey = GeneratePrivateKey(words, accountIndex);
+    libbitcoin::ec_compressed point;
+
+    libbitcoin::secret_to_public(point, privateKey);
+
+    auto pk = libbitcoin::wallet::ec_public(point, false);
+    auto rawPk = pk.encoded();
+
+    return GetEthAddressFromPubkeyStr(rawPk);
 }
 
 ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex)
