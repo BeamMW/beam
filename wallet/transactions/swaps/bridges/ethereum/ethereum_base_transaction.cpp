@@ -66,7 +66,6 @@ namespace
         beam::ByteBuffer EncodeLength(size_t size, uint8_t offset = kRLPDataLenStart) const;
 
         beam::ByteBuffer m_out;
-        bool m_finallized = false;
     };
 
     RLPStream& RLPStream::append(const ECC::uintBig& value)
