@@ -82,6 +82,19 @@ IClientAsync::Ptr Client::GetAsync()
     return m_async;
 }
 
+std::string Client::GetEthereumAddress()
+{
+    Lock lock(m_mutex);
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        return "";
+    }
+
+    return ethereum::ConvertEthAddressToStr(bridge->generateEthAddress());
+}
+
 Settings Client::GetSettings() const
 {
     Lock lock(m_mutex);
