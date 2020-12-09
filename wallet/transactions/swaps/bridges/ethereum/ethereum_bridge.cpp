@@ -24,6 +24,8 @@
 
 #include <boost/format.hpp>
 
+#include <bitcoin/bitcoin.hpp>
+
 using json = nlohmann::json;
 
 namespace
