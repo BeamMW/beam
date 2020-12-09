@@ -331,9 +331,6 @@ void StepElemLite::applyMix(uint32_t remLen, const uint32_t* pIdx, uint32_t nIdx
     Env::Memcpy(pTemp, m_pWorkWords, sizeof(m_pWorkWords));
     Env::Memset(pTemp + _countof(m_pWorkWords), 0, sizeof(pTemp) - sizeof(m_pWorkWords));
 
-    static_assert(!(collisionBitSize % 8), "");
-    const uint32_t collisionBytes = collisionBitSize / 8;
-
     // Add in the bits of the index tree to the end of work bits
     uint32_t padNum = ((512 - remLen) + collisionBitSize) / (collisionBitSize + 1);
     if (padNum > nIdx)
