@@ -1426,8 +1426,8 @@ namespace Wasm {
 
 	void Processor::Stack::TestAlignmentPower(uint32_t n)
 	{
-		static_assert(s_Alignment == (1 << 3));
-		Test(n <= 3);
+		static_assert(s_Alignment == (1 << 4));
+		Test(n <= 4);
 	}
 
 	struct ProcessorPlus
