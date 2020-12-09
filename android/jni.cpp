@@ -1021,6 +1021,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPublicAddress)(JNIEnv *env,
     walletModel->getAsync()->getPublicAddress();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportTxHistoryToCsv)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->exportTxHistoryToCsv();
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JNIEnv *env, jobject thiz, jlong offset)
 {
     walletModel->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
