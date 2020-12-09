@@ -828,6 +828,20 @@ void WalletModel::doFunction(const std::function<void()>& func)
     func();  
 }
 
+void WalletModel::onExportTxHistoryToCsv(const std::string& data) 
+{
+    LOG_DEBUG() << "onExportTxHistoryToCsv()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportTxHistoryToCsv", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
+}
+
 void WalletModel::onPublicAddress(const std::string& publicAddr)
 {
     LOG_DEBUG() << "onPublicAddress()";
