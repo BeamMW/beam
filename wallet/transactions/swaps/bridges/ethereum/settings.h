@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "wallet/transactions/swaps/common.h"
+#include "common.h"
 
 namespace beam::ethereum
 {
@@ -34,8 +35,8 @@ struct Settings
     Amount m_minFeeRate = 1;
     std::string m_swapHashlockContractAddress = "";
     std::string m_swapContractAddress = "";
-    uint64_t m_lockTxGasLimit = 200'000;
-    uint64_t m_withdrawTxGasLimit = 200'000;
+    uint64_t m_lockTxGasLimit = kLockTxGasLimit;
+    uint64_t m_withdrawTxGasLimit = kWithdrawTxGasLimit;
 
     std::string m_erc20SwapHashlockContractAddress;
     std::string m_erc20SwapContractAddress;

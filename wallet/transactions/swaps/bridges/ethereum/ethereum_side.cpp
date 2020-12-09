@@ -636,6 +636,16 @@ bool EthereumSide::IsQuickRefundAvailable()
     return false;
 }
 
+Amount EthereumSide::CalcLockTxFee(Amount priceGas, AtomicSwapCoin /*swapCoin*/)
+{
+    return priceGas * ethereum::kLockTxGasLimit;
+}
+
+Amount EthereumSide::CalcWithdrawTxFee(Amount priceGas, AtomicSwapCoin swapCoin)
+{
+    return priceGas * ethereum::kWithdrawTxGasLimit;
+}
+
 uint64_t EthereumSide::GetBlockCount(bool notify)
 {
     m_ethBridge->getBlockNumber([this, weak = this->weak_from_this(), notify](const ethereum::IBridge::Error& error, uint64_t blockCount)

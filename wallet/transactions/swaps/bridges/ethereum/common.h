@@ -25,6 +25,9 @@ namespace beam::ethereum
 inline constexpr uint8_t kEthContractABIWordSize = 32;
 inline constexpr uint8_t kEthContractMethodHashSize = 4;
 
+const uint64_t kLockTxGasLimit = 200'000u;
+const uint64_t kWithdrawTxGasLimit = 200'000u;
+
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);
 libbitcoin::short_hash ConvertStrToEthAddress(const std::string& addressStr);
 libbitcoin::short_hash GetEthAddressFromPubkeyStr(const std::string& pubkeyStr);

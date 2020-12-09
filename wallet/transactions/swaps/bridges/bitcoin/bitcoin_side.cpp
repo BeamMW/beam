@@ -344,13 +344,13 @@ namespace beam::wallet
         return static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * feeRate) / 1000));
     }
 
-    bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
+    bool BitcoinSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
-    Amount BitcoinSide::CalcTotalFee(Amount feeRate)
+    Amount BitcoinSide::CalcWithdrawTxFee(Amount feeRate)
     {
         // TODO roman.strilets need to use segwit 
         return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));

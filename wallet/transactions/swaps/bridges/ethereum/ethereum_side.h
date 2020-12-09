@@ -44,6 +44,9 @@ namespace beam::wallet
         bool HasEnoughTimeToProcessLockTx() override;
         bool IsQuickRefundAvailable() override;
 
+        static Amount CalcLockTxFee(Amount priceGas, AtomicSwapCoin swapCoin);
+        static Amount CalcWithdrawTxFee(Amount priceGas, AtomicSwapCoin swapCoin);
+
     private:
         uint64_t GetBlockCount(bool notify = false);
         void InitSecret();

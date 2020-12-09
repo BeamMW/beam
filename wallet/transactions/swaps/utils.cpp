@@ -214,30 +214,30 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              ethereum::ISettingsProvider>(walletDB));
 }
 
-bool IsSwapAmountValid(
-    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
+bool IsLockTxAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount withdrawFeeRate)
 {
     switch (swapCoin)
     {
     case AtomicSwapCoin::Bitcoin:
-        return BitcoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return BitcoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Litecoin:
-        return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return LitecoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Qtum:
-        return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+        return QtumSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
 #if defined(BITCOIN_CASH_SUPPORT)
     case AtomicSwapCoin::Bitcoin_Cash:
-        return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
+        return BitcoinCashSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
 #endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
-        return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return DogecoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Dash:
-        return DashSide::CheckAmount(swapAmount, swapFeeRate);
+        return DashSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
+    // For ethereum based coins receiver pays fee
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Tether:
     case AtomicSwapCoin::WBTC:
-        // TODO roman.strilets
         return true;
     default:
         throw std::runtime_error("Unsupported coin for swap");

@@ -939,7 +939,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         }
 
         bool isSwapAmountValid =
-            IsSwapAmountValid(swapCoin, swapAmount, swapFeeRate);
+            IsLockTxAmountValid(swapCoin, swapAmount, swapFeeRate);
         if (!isSwapAmountValid)
             throw std::runtime_error("The swap amount must be greater than the redemption fee.");
     }
@@ -1080,7 +1080,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
         RequestToBridge(walletDB, *swapCoin);
 
-        if (!IsSwapAmountValid(*swapCoin, *swapAmount, swapFeeRate))
+        if (!IsLockTxAmountValid(*swapCoin, *swapAmount, swapFeeRate))
         {
             throw std::runtime_error("The swap amount must be greater than the redemption fee.");
         }

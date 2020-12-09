@@ -1167,7 +1167,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
+            if (!IsLockTxAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
             {
                 doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
                 return;
@@ -1383,7 +1383,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (!IsSwapAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
+            if (!IsLockTxAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
             {
                 doError(id, ApiError::InvalidJsonRpc, kSwapAmountToLowError);
                 return;
