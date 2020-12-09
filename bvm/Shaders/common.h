@@ -49,7 +49,15 @@ typedef Opaque<32> HashValue;
 template <bool bToShader, typename T>
 inline void ConvertOrd(T&) {}
 
+#ifndef _countof
+#   define _countof(x) (sizeof(x) / sizeof((x)[0]))
+#endif // _countof
+
 #   define export __attribute__( ( visibility( "default" ) ) ) extern "C"
+
+#ifndef assert
+#   define assert(expr) do {} while (false)
+#endif // assert
 
 #endif // HOST_BUILD
 
