@@ -208,8 +208,7 @@ public:
 
     bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
-        // TODO roman.strilets implement to other coins
-        if (swapCoin == AtomicSwapCoin::Ethereum)
+        if (ethereum::IsEthereumBased(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->IsConnected() : 0;
         }
@@ -246,7 +245,7 @@ public:
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
 #endif // BITCOIN_CASH_SUPPORT
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
-        initEthClient(AtomicSwapCoin::Ethereum);
+        initEthClient();
     }
 
     void onSwapOffersChanged(
@@ -267,14 +266,14 @@ private:
         _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
     }
 
-    void initEthClient(beam::wallet::AtomicSwapCoin /*swapCoin*/)
+    void initEthClient()
     {
-        // TODO roman.strilets implement for other coin
         auto settingsProvider = std::make_unique<ethereum::SettingsProvider>(_walletDB);
         settingsProvider->Initialize();
 
         _swapEthBridgeHolder = std::make_shared<ethereum::BridgeHolder>();
-        _swapEthClient = std::make_shared<SwapEthClient>(_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
+        _swapEthClient = std::make_shared<SwapEthClient>
+            (_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
     }
 
     SwapClient::Ptr getSwapCoinClient(beam::wallet::AtomicSwapCoin swapCoin) const

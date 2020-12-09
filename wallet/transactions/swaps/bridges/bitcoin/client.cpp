@@ -150,7 +150,7 @@ namespace beam::bitcoin
                 return;
             }
 
-            // TODO roman.strilets sometimes bitcoin server returns bad estimate fee rate (< min fee rate)
+            // sometimes bitcoin server returns bad estimate fee rate (< min fee rate)
             if (GetSettings().GetMinFeeRate() > feeRate)
             {
                 feeRate = 0;

@@ -738,7 +738,6 @@ Amount EstimateSwapFeerate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
         {
             bridge->getGasPrice([&result](const ethereum::IBridge::Error& error, Amount gasPrice)
             {
-                // TODO roman.strilets need to refactor
                 // convert from wei to gwei
                 result = gasPrice / ethereum::GetCoinUnitsMultiplier(AtomicSwapCoin::Ethereum);
                 io::Reactor::get_Current().stop();

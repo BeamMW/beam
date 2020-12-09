@@ -66,7 +66,6 @@ void SwapEthClient::requestBalance()
         // update balance
         GetAsync()->GetBalance(beam::wallet::AtomicSwapCoin::Ethereum);
 
-        // TODO roman.strilets need to check this
         for (auto token : beam::wallet::kEthTokens)
         {
             if (GetSettings().IsTokenActivated(token))
@@ -93,7 +92,6 @@ void SwapEthClient::OnStatus(Status status)
 
 void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin swapCoin, beam::Amount balance)
 {
-    // TODO roman.strilets need to check this
     _balances[swapCoin] = balance;
 }
 
