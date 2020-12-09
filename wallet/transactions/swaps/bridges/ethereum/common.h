@@ -57,4 +57,12 @@ namespace ERC20Hashes
     // "decimals()"
     inline const char* kDecimalsHash = "313ce567";
 } // namespace ERC20Hashes
+
+namespace swap_contract
+{
+    std::string GetRefundMethodHash(bool isHashLockScheme);
+    std::string GetLockMethodHash(bool isErc20, bool isHashLockScheme);
+    std::string GetRedeemMethodHash(bool isHashLockScheme);
+    std::string GetDetailsMethodHash(bool isHashLockScheme);
+} // swap_contract
 } // namespace beam::ethereum

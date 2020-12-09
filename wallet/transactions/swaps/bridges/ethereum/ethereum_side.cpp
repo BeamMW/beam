@@ -25,46 +25,6 @@ namespace
 {
     // TODO: check
     constexpr uint32_t kExternalHeightMaxDifference = 10;
-
-    std::string GetRefundMethodHash(bool isErc20, bool isHashLockScheme)
-    {
-        if (isErc20)
-        {
-            // TODO: add hashlockScheme support
-            return "fa89401a";
-        }
-        return isHashLockScheme ? "7249fbb6" : "fa89401a";
-    }
-
-    std::string GetLockMethodHash(bool isErc20, bool isHashLockScheme)
-    {
-        if (isErc20)
-        {
-            // TODO: add hashlockScheme support
-            return "71c472e6";
-        }
-        return isHashLockScheme ? "ae052147" : "bc18cc34";
-    }
-
-    std::string GetRedeemMethodHash(bool isErc20, bool isHashLockScheme)
-    {
-        if (isErc20)
-        {
-            // TODO: add hashlockScheme support
-            return "8772acd6";
-        }
-        return isHashLockScheme ? "b31597ad" : "8772acd6";
-    }
-
-    std::string GetDetailsMethodHash(bool isErc20, bool isHashLockScheme)
-    {
-        if (isErc20)
-        {
-            // TODO: add hashlockScheme support
-            return "7cf3285f";
-        }
-        return isHashLockScheme ? "6bfec360" : "7cf3285f";
-    }
 }
 
 namespace beam::wallet
@@ -499,7 +459,7 @@ beam::ByteBuffer EthereumSide::BuildRedeemTxData()
     {
         // kRedeemMethodHash + secret + secretHash
         data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
-        libbitcoin::decode_base16(data, GetRedeemMethodHash(IsERC20Token(), IsHashLockScheme()));
+        libbitcoin::decode_base16(data, ethereum::swap_contract::GetRedeemMethodHash(IsHashLockScheme()));
         data.insert(data.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
         data.insert(data.end(), std::begin(secretHash), std::end(secretHash));
     }
@@ -538,7 +498,7 @@ beam::ByteBuffer EthereumSide::BuildRedeemTxData()
 
         // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
         data.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
-        libbitcoin::decode_base16(data, GetRedeemMethodHash(IsERC20Token(), IsHashLockScheme()));
+        libbitcoin::decode_base16(data, ethereum::swap_contract::GetRedeemMethodHash(IsHashLockScheme()));
         ethereum::AddContractABIWordToBuffer(secretHash, data);
         data.insert(data.end(), std::begin(signature.signature), std::end(signature.signature));
         data.insert(data.end(), 31u, 0x00);
@@ -554,7 +514,7 @@ beam::ByteBuffer EthereumSide::BuildRefundTxData()
     auto secretHash = GetSecretHash();
     libbitcoin::data_chunk data;
     data.reserve(ethereum::kEthContractMethodHashSize + ethereum::kEthContractABIWordSize);
-    libbitcoin::decode_base16(data, GetRefundMethodHash(IsERC20Token(), IsHashLockScheme()));
+    libbitcoin::decode_base16(data, ethereum::swap_contract::GetRefundMethodHash(IsHashLockScheme()));
     ethereum::AddContractABIWordToBuffer(secretHash, data);
 
     return data;
@@ -589,7 +549,7 @@ beam::ByteBuffer EthereumSide::BuildLockTxData()
     // LockMethodHash + refundTimeInBlocks + hashedSecret/addressFromSecret + participant
     beam::ByteBuffer out;
     out.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
-    libbitcoin::decode_base16(out, GetLockMethodHash(IsERC20Token(), IsHashLockScheme()));
+    libbitcoin::decode_base16(out, ethereum::swap_contract::GetLockMethodHash(IsERC20Token(), IsHashLockScheme()));
     ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, out);
     ethereum::AddContractABIWordToBuffer(GetSecretHash(), out);
     ethereum::AddContractABIWordToBuffer(participant, out);

@@ -219,11 +219,7 @@ libbitcoin::short_hash ShortAddressFromStr(const std::string& addressStr)
 
 void testSwap()
 {
-    const std::string kLockMethodHash = "0xae052147";
-    const std::string kRefundMethodHash = "0x7249fbb6";
-    const std::string kRedeemMethodHash = "0xb31597ad";
-    const std::string kGetDetailsMethodHash = "0x6bfec360";
-    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0xe27A9126570731aC4C2E4b27690C74eA20CA56B0");
+    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0xe27a9126570731ac4c2e4b27690c74ea20ca56b0");
 
     ethereum::Settings settingsAlice;               
     settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
@@ -241,8 +237,8 @@ void testSwap()
     auto providerBob = std::make_shared<ethereum::Provider>(settingsBob);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    ethereum::EthereumBridge bridgeAlice(*mainReactor, *providerAlice);
-    ethereum::EthereumBridge bridgeBob(*mainReactor, *providerBob);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto bridgeBob = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerBob);
 
     // lock
     ECC::uintBig gas = 200000u;
@@ -253,25 +249,25 @@ void testSwap()
     ECC::GenRandom(secret);
     libbitcoin::data_chunk secretDataChunk(std::begin(secret.m_pData), std::end(secret.m_pData));
     libbitcoin::hash_digest secretHash = libbitcoin::sha256_hash(secretDataChunk);
-    libbitcoin::short_hash participant = bridgeBob.generateEthAddress();
+    libbitcoin::short_hash participant = bridgeBob->generateEthAddress();
 
     LOG_DEBUG() << "secret: " << secret.str();
     LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
 
-    bridgeAlice.getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
+    bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
         {
             // LockMethodHash + refundTimeInBlocks + hashedSecret + participant
             ECC::uintBig refundTimeInBlocks = 4u + blockCount;
             libbitcoin::data_chunk lockData;
             lockData.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
-            libbitcoin::decode_base16(lockData, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
+            libbitcoin::decode_base16(lockData, ethereum::swap_contract::GetLockMethodHash(false, true));
             lockData.insert(lockData.end(), std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData));
             lockData.insert(lockData.end(), std::begin(secretHash), std::end(secretHash));
             // address's size is 20, so fill 12 elements by 0x00
             lockData.insert(lockData.end(), 12u, 0x00);
             lockData.insert(lockData.end(), std::begin(participant), std::end(participant));
 
-            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+            bridgeAlice->send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -279,11 +275,11 @@ void testSwap()
                     // kRedeemMethodHash + secret + secretHash
                     libbitcoin::data_chunk redeemData;
                     redeemData.reserve(4 + 32 + 32);
-                    libbitcoin::decode_base16(redeemData, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
+                    libbitcoin::decode_base16(redeemData, ethereum::swap_contract::GetRedeemMethodHash(true));
                     redeemData.insert(redeemData.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
                     redeemData.insert(redeemData.end(), std::begin(secretHash), std::end(secretHash));
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+                    bridgeBob->send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -297,11 +293,7 @@ void testSwap()
 
 void testSwapWithAggregateSignature()
 {
-    const std::string kLockMethodHash = "0xbc18cc34";
-    const std::string kRefundMethodHash = "0xfa89401a";
-    const std::string kRedeemMethodHash = "0x8772acd6";
-    const std::string kGetDetailsMethodHash = "0x7cf3285f";
-    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0");
+    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0x81f58775ef55867c1b8685c0b1090e7cd2298da8");
 
     ethereum::Settings settingsAlice;
     settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
@@ -319,8 +311,8 @@ void testSwapWithAggregateSignature()
     auto providerBob = std::make_shared<ethereum::Provider>(settingsBob);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    ethereum::EthereumBridge bridgeAlice(*mainReactor, *providerAlice);
-    ethereum::EthereumBridge bridgeBob(*mainReactor, *providerBob);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto bridgeBob = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerBob);
 
     ECC::uintBig secret;
     ECC::GenRandom(secret);
@@ -330,8 +322,8 @@ void testSwapWithAggregateSignature()
     auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
     LOG_DEBUG() << "PUBLIC: " << rawPk;
     libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
-    auto participant = bridgeBob.generateEthAddress();
-    auto initiator = bridgeAlice.generateEthAddress();
+    auto participant = bridgeBob->generateEthAddress();
+    auto initiator = bridgeAlice->generateEthAddress();
 
     LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
     LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
@@ -341,18 +333,18 @@ void testSwapWithAggregateSignature()
     ECC::uintBig gasPrice = 3000000u;
     ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
 
-    bridgeAlice.getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
+    bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
         {
             // LockMethodHash + refundTimeInBlocks + addressFromSecret + participant
             ECC::uintBig refundTimeInBlocks = 4u + blockCount;
             libbitcoin::data_chunk lockData;
             lockData.reserve(ethereum::kEthContractMethodHashSize + 3 * ethereum::kEthContractABIWordSize);
-            libbitcoin::decode_base16(lockData, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
+            libbitcoin::decode_base16(lockData, ethereum::swap_contract::GetLockMethodHash(false, false));
             ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, lockData);
             ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
             ethereum::AddContractABIWordToBuffer(participant, lockData);
 
-            bridgeAlice.send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+            bridgeAlice->send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -381,13 +373,13 @@ void testSwapWithAggregateSignature()
                     // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
                     libbitcoin::data_chunk redeemData;
                     redeemData.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
-                    libbitcoin::decode_base16(redeemData, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
+                    libbitcoin::decode_base16(redeemData, ethereum::swap_contract::GetRedeemMethodHash(false));
                     ethereum::AddContractABIWordToBuffer(addressFromSecret, redeemData);
                     redeemData.insert(redeemData.end(), std::begin(signature.signature), std::end(signature.signature));
                     redeemData.insert(redeemData.end(), 31u, 0x00);
                     redeemData.push_back(signature.recovery_id + 27u);
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+                    bridgeBob->send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -398,15 +390,10 @@ void testSwapWithAggregateSignature()
     mainReactor->run();
 }
 
-void testERC20SwapWithAggregateSignature()
+void testERC20Swap()
 {
-    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0x4A2043c5625ec1E6759EA429C6FF8C02979e291E");
-
-    const std::string kLockMethodHash = "0x71c472e6";
-    const std::string kRefundMethodHash = "0xfa89401a";
-    const std::string kRedeemMethodHash = "0x8772acd6";
-    const std::string kGetDetailsMethodHash = "0x7cf3285f";
-    const libbitcoin::short_hash kContractAddress = ethereum::ConvertStrToEthAddress("0x1268071E90CEE6ed135292008f010f60a542c523");
+    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0xe0a55f2c08125b7dac7132e02b043ed30359034e");
+    const libbitcoin::short_hash kERC20HashLockContractAddress = ethereum::ConvertStrToEthAddress("0xfff7efc650f4a18567e830cf19fc6de067e0ffcf");
 
     ethereum::Settings settingsAlice;
     settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
@@ -424,8 +411,83 @@ void testERC20SwapWithAggregateSignature()
     auto providerBob = std::make_shared<ethereum::Provider>(settingsBob);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    ethereum::EthereumBridge bridgeAlice(*mainReactor, *providerAlice);
-    ethereum::EthereumBridge bridgeBob(*mainReactor, *providerBob);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto bridgeBob = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerBob);
+
+    // lock
+    ECC::uintBig gas = 200000u;
+    ECC::uintBig gasPrice = 3000000u;
+    ECC::uintBig swapAmount = 2'000'000'000'000'000'000u;
+
+    ECC::uintBig secret;
+    ECC::GenRandom(secret);
+    libbitcoin::data_chunk secretDataChunk(std::begin(secret.m_pData), std::end(secret.m_pData));
+    libbitcoin::hash_digest secretHash = libbitcoin::sha256_hash(secretDataChunk);
+    libbitcoin::short_hash participant = bridgeBob->generateEthAddress();
+
+    LOG_DEBUG() << "secret: " << secret.str();
+    LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
+
+    bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
+        {
+            // LockMethodHash + refundTimeInBlocks + addressFromSecret + participant + contractAddress + value
+            ECC::uintBig refundTimeInBlocks = 4u + blockCount;
+            libbitcoin::data_chunk lockData;
+            lockData.reserve(ethereum::kEthContractMethodHashSize + 5 * ethereum::kEthContractABIWordSize);
+            libbitcoin::decode_base16(lockData, ethereum::swap_contract::GetLockMethodHash(true, true));
+            lockData.insert(lockData.end(), std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData));
+            lockData.insert(lockData.end(), std::begin(secretHash), std::end(secretHash));
+            ethereum::AddContractABIWordToBuffer(participant, lockData);
+            ethereum::AddContractABIWordToBuffer(kTokenContractAddress, lockData);
+            ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, lockData);
+
+            bridgeAlice->send(kERC20HashLockContractAddress, lockData, ECC::Zero, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+                {
+                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+
+                    // redeem
+                    // kRedeemMethodHash + secret + secretHash
+                    libbitcoin::data_chunk redeemData;
+                    redeemData.reserve(4 + 32 + 32);
+                    libbitcoin::decode_base16(redeemData, ethereum::swap_contract::GetRedeemMethodHash(true));
+                    redeemData.insert(redeemData.end(), std::begin(secret.m_pData), std::end(secret.m_pData));
+                    redeemData.insert(redeemData.end(), std::begin(secretHash), std::end(secretHash));
+
+                    bridgeBob->send(kERC20HashLockContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+                        {
+                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            mainReactor->stop();
+                        });
+                });
+        });
+
+    mainReactor->run();
+
+}
+
+void testERC20SwapWithAggregateSignature()
+{
+    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0xe0a55f2c08125b7dac7132e02b043ED30359034E");
+    const libbitcoin::short_hash kERC20ContractAddress = ethereum::ConvertStrToEthAddress("0xd6B18EC3711e777F029B17283aa4ea6557493E35");
+
+    ethereum::Settings settingsAlice;
+    settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsAlice.m_accountIndex = 3;
+    settingsAlice.m_address = "127.0.0.1:7545";
+    settingsAlice.m_shouldConnect = true;
+
+    ethereum::Settings settingsBob;
+    settingsBob.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsBob.m_accountIndex = 4;
+    settingsBob.m_address = "127.0.0.1:7545";
+    settingsBob.m_shouldConnect = true;
+
+    auto providerAlice = std::make_shared<ethereum::Provider>(settingsAlice);
+    auto providerBob = std::make_shared<ethereum::Provider>(settingsBob);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto bridgeBob = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerBob);
 
     ECC::uintBig secret;
     ECC::GenRandom(secret);
@@ -435,8 +497,8 @@ void testERC20SwapWithAggregateSignature()
     auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
     LOG_DEBUG() << "PUBLIC: " << rawPk;
     libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
-    auto participant = bridgeBob.generateEthAddress();
-    auto initiator = bridgeAlice.generateEthAddress();
+    auto participant = bridgeBob->generateEthAddress();
+    auto initiator = bridgeAlice->generateEthAddress();
 
     LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
     LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
@@ -448,20 +510,20 @@ void testERC20SwapWithAggregateSignature()
 
     // TODO: call Token::approve before LockTx
 
-    bridgeAlice.getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
+    bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
         {
             // LockMethodHash + refundTimeInBlocks + addressFromSecret + participant + contractAddress + value
             ECC::uintBig refundTimeInBlocks = 4u + blockCount;
             libbitcoin::data_chunk lockData;
             lockData.reserve(ethereum::kEthContractMethodHashSize + 5 * ethereum::kEthContractABIWordSize);
-            libbitcoin::decode_base16(lockData, std::string(std::begin(kLockMethodHash) + 2, std::end(kLockMethodHash)));
+            libbitcoin::decode_base16(lockData, ethereum::swap_contract::GetLockMethodHash(true, false));
             ethereum::AddContractABIWordToBuffer({ std::begin(refundTimeInBlocks.m_pData), std::end(refundTimeInBlocks.m_pData) }, lockData);
             ethereum::AddContractABIWordToBuffer(addressFromSecret, lockData);
             ethereum::AddContractABIWordToBuffer(participant, lockData);
             ethereum::AddContractABIWordToBuffer(kTokenContractAddress, lockData);
             ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, lockData);
 
-            bridgeAlice.send(kContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+            bridgeAlice->send(kERC20ContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
                     LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
@@ -491,13 +553,13 @@ void testERC20SwapWithAggregateSignature()
                     // kRedeemMethodHash + addressFromSecret + signature (r, s, v)
                     libbitcoin::data_chunk redeemData;
                     redeemData.reserve(ethereum::kEthContractMethodHashSize + 4 * ethereum::kEthContractABIWordSize);
-                    libbitcoin::decode_base16(redeemData, std::string(std::begin(kRedeemMethodHash) + 2, std::end(kRedeemMethodHash)));
+                    libbitcoin::decode_base16(redeemData, ethereum::swap_contract::GetRedeemMethodHash(false));
                     ethereum::AddContractABIWordToBuffer(addressFromSecret, redeemData);
                     redeemData.insert(redeemData.end(), std::begin(signature.signature), std::end(signature.signature));
                     redeemData.insert(redeemData.end(), 31u, 0x00);
                     redeemData.push_back(signature.recovery_id + 27u);
 
-                    bridgeBob.send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
+                    bridgeBob->send(kERC20ContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
                             LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
@@ -593,6 +655,7 @@ int main()
 
     testSwap();
     testSwapWithAggregateSignature();
+    testERC20Swap();
     testERC20SwapWithAggregateSignature();
 
     testERC20GetBalance();

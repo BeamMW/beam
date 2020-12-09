@@ -170,4 +170,31 @@ bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin)
         return false;
     }
 }
+
+namespace swap_contract
+{
+    std::string GetRefundMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "7249fbb6" : "fa89401a";
+    }
+
+    std::string GetLockMethodHash(bool isErc20, bool isHashLockScheme)
+    {
+        if (isErc20)
+        {
+            return isHashLockScheme ? "15601f4f" : "71c472e6";
+        }
+        return isHashLockScheme ? "ae052147" : "bc18cc34";
+    }
+
+    std::string GetRedeemMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "b31597ad" : "8772acd6";
+    }
+
+    std::string GetDetailsMethodHash(bool isHashLockScheme)
+    {
+        return isHashLockScheme ? "6bfec360" : "7cf3285f";
+    }
+} // namespace swap_contract
 } // namespace beam::ethereum
