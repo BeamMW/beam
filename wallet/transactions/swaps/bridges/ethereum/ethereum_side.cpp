@@ -771,7 +771,7 @@ ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
     return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID) * 1'000'000'000u;
 }
 
-ethereum::IBridge::short_hash EthereumSide::GetContractAddress() const
+libbitcoin::short_hash EthereumSide::GetContractAddress() const
 {
     return ethereum::ConvertStrToEthAddress(GetContractAddressStr());
 }

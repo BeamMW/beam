@@ -13,7 +13,8 @@
 // limitations under the License.
 
 #pragma once
-#include <bitcoin/bitcoin.hpp>
+#include <bitcoin/bitcoin/math/hash.hpp>
+#include <bitcoin/bitcoin/math/elliptic_curve.hpp>
 
 #include "core/ecc.h"
 

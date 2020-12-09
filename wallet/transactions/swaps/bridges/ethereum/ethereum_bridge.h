@@ -37,8 +37,8 @@ public:
     void getTransactionCount(std::function<void(const Error&, uint64_t)> callback) override;
     void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) override;
     void send(
-        const short_hash& to,
-        const data_chunk& data,
+        const libbitcoin::short_hash& to,
+        const libbitcoin::data_chunk& data,
         const ECC::uintBig& value,
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
@@ -47,7 +47,7 @@ public:
     void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) override;
     void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     void call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback) override;
-    short_hash generateEthAddress() const override;
+    libbitcoin::short_hash generateEthAddress() const override;
     void getGasPrice(std::function<void(const Error&, Amount)> callback) override;
 
 protected:
