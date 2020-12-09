@@ -1074,7 +1074,15 @@ namespace bvm2 {
 			args.m_Hdr.m_DifficultyPacked = s.m_PoW.m_Difficulty.m_Packed;
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
+			Dbg dbg = m_Dbg;
+			m_Dbg.m_Instructions = false;
+			m_Dbg.m_Stack = false;
+			m_Dbg.m_ExtCall = false;
+
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			m_Dbg = dbg;
+
 			verify_test(args.m_Hash == hv);
 
 			uint32_t pIndices[32];
