@@ -36,6 +36,25 @@ struct BeamDifficulty
         }
     };
 
+    static void Unpack(Raw& res, uint32_t nPacked)
+    {
+        const uint32_t nWordBits = sizeof(MultiPrecision::Word) * 8;
+        const uint32_t nMaxOrder = Raw::nWords * nWordBits - s_MantissaBits - 1;
+        const uint32_t nInf = (nMaxOrder + 1) << s_MantissaBits;
+
+        if (nPacked < nInf)
+        {
+            Data d(nPacked);
+            MultiPrecision::UInt<1> x(d.m_Mantissa);
+            res.Set(x, d.m_Order);
+        }
+        else
+        {
+            Utils::SetObject(res, static_cast<uint8_t>(-1)); // inf
+        }
+
+    }
+
     static uint32_t Unpack(Short& res, uint32_t nPacked)
     {
         const uint32_t nWordBits = sizeof(MultiPrecision::Word) * 8;

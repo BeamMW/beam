@@ -1085,6 +1085,11 @@ namespace bvm2 {
 
 			verify_test(args.m_Hash == hv);
 
+			Difficulty::Raw diff;
+			s.m_PoW.m_Difficulty.Unpack(diff);
+			diff += s.m_ChainWork;
+			verify_test(diff == args.m_ChainWork1);
+
 			//uint32_t pIndices[32];
 			//IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
 			//verify_test(!memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));

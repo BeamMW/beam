@@ -100,6 +100,7 @@ namespace Dummy
 
         HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
         HashValue m_Hash;
+        HashValue m_ChainWork1;
 
         template <bool bToShader>
         void Convert()
