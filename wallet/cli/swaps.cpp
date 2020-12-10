@@ -1103,6 +1103,15 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         }
     }
 
+    Amount fee = 0;
+    Amount feeForShieldedInputs = 0;
+
+    ReadFee(vm, fee, checkFee);    
+    if (*isBeamSide && !CheckFeeForShieldedInputs(*beamAmount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
+        throw std::runtime_error("Fee to low");
+
+    fee = !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee;
+
     ProcessLibraryVersion(*swapTxParameters);
 
     // display swap details to user
@@ -1111,16 +1120,9 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
         << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
-        << " Peer ID:      " << to_string(*peerID) << "\n";
+        << " Peer ID:      " << to_string(*peerID) << "\n"
+        << " Fee:          " << PrintableAmount(fee) << "\n";
     
-    Amount fee = kMinFeeInGroth;
-    if (*isBeamSide)
-    {
-        auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, *beamAmount, kMinFeeInGroth, Asset::s_BeamID, false);
-        fee = coinSelectionRes.minimalFee - coinSelectionRes.shieldedInputsFee;
-        cout << " Fee:          " << PrintableAmount(!!coinSelectionRes.shieldedInputsFee ? coinSelectionRes.minimalFee : fee) << "\n";
-    }
-
     // get accepting
     // TODO: Refactor
     bool isAccepted = false;
