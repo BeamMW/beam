@@ -3314,18 +3314,35 @@ namespace beam::wallet
 
     void WalletDB::visitTx(std::function<bool(TxType, TxStatus)> filter, std::function<void(const TxDescription&)> func) const
     {
-        sqlite::Statement stm(this, "SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2 ORDER BY value DESC;");
-        stm.bind(1, TxParameterID::CreateTime);
-        stm.bind(2, kDefaultSubTxID);
+        using TxData = std::pair<TxID, Timestamp>;
+        auto pred = [](const TxData& left, const TxData& right) {return left.second < right.second; };
+        std::priority_queue<TxData, std::vector<TxData>, decltype(pred)> transactions(pred);
+        {
+            sqlite::Statement stm(this, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2;");
+            stm.bind(1, TxParameterID::CreateTime);
+            stm.bind(2, kDefaultSubTxID);
+            TxID txID;
+            ByteBuffer buffer;
+            Timestamp timestamp;
+            while (stm.step())
+            {
+                stm.get(0, txID);
+                stm.get(1, buffer);
+                if (fromByteBuffer<Timestamp>(buffer, timestamp))
+                {
+                    transactions.emplace(txID, timestamp);
+                }
+            }
+        }
 
         const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm2(this, gtParamReq);
         sqlite::Statement stm3(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
-        while (stm.step())
+        while (!transactions.empty())
         {
-            TxID txID;
-            stm.get(0, txID);
+            TxID txID = transactions.top().first;
+            transactions.pop();
             TxType type;
             TxStatus status;
             if (!getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::TransactionType, type, stm3) ||
