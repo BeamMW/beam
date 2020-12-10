@@ -91,12 +91,25 @@ Amount ReadGasPrice(const po::variables_map& vm)
 
 std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin)
 {
+    const uint64_t unitsToPrint = 1'000'000u;
     boost::multiprecision::cpp_dec_float_50 preciseAmount(value);
+    auto unitsPerCoin = UnitsPerCoin(swapCoin);
 
-    // TODO roman.strilets implement for token
-    preciseAmount /= 1'000u;
+    if (unitsPerCoin > unitsToPrint)
+    {
+        preciseAmount /= UnitsPerCoin(swapCoin) / unitsToPrint;
+    }
+
     preciseAmount = boost::multiprecision::round(preciseAmount);
-    preciseAmount /= 1'000'000;
+
+    if (unitsPerCoin < unitsToPrint)
+    {
+        preciseAmount /= unitsPerCoin;
+    }
+    else
+    {
+        preciseAmount /= unitsToPrint;
+    }
 
     return preciseAmount.str() + " " + std::to_string(swapCoin);
 }
@@ -823,15 +836,17 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
         {
             auto balanceCallback = [&result, swapCoin](const ethereum::IBridge::Error& error, const std::string& balance)
             {
-                // TODO roman.strilets need to refactor
+                if (error.m_type != ethereum::IBridge::ErrorType::None)
+                {
+                    throw std::runtime_error(error.m_message);
+                }
+
                 boost::multiprecision::uint256_t tmp(balance);
 
                 tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
 
                 result = tmp.convert_to<Amount>();
                 io::Reactor::get_Current().stop();
-
-                // TODO process connection error
             };
 
             if (swapCoin == AtomicSwapCoin::Ethereum)
@@ -847,7 +862,7 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
                 const auto tokenContractAddressStr = settingsProvider.GetSettings().GetTokenContractAddress(swapCoin);
                 if (tokenContractAddressStr.empty())
                 {
-                    // TODO process connection error
+                    throw std::runtime_error("Token contract is absent");
                     return;
                 }
 
@@ -865,10 +880,13 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
         {
             bridge->getDetailedBalance([&result](const bitcoin::IBridge::Error& error, Amount balance, Amount, Amount)
             {
+                if (error.m_type != ethereum::IBridge::ErrorType::None)
+                {
+                    throw std::runtime_error(error.m_message);
+                }
+
                 result = balance;
                 io::Reactor::get_Current().stop();
-
-                // TODO process connection error
             });
 
             io::Reactor::get_Current().run();
@@ -1092,7 +1110,6 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam side:    " << *isBeamSide << "\n"
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
-        // TODO roman.strilets added tokens
         << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n";
     

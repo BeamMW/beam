@@ -65,7 +65,6 @@ struct Settings
 
     bool operator == (const Settings& other) const
     {
-        // TODO roman.strilets need to review
         return m_address == other.m_address &&
             m_secretWords == other.m_secretWords &&
             m_accountIndex == other.m_accountIndex &&
@@ -76,6 +75,7 @@ struct Settings
             m_shouldConnectToWBTC == other.m_shouldConnectToWBTC &&
             // TODO roman.strilets need for testnet and Ganache
             m_erc20SwapContractAddress == other.m_erc20SwapContractAddress &&
+            m_swapHashlockContractAddress == other.m_swapHashlockContractAddress &&
             m_swapContractAddress == other.m_swapContractAddress &&
             m_daiContractAddress == other.m_daiContractAddress &&
             m_usdtContractAddress == other.m_usdtContractAddress &&

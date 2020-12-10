@@ -66,7 +66,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <iomanip>
 #include <iterator>

@@ -306,7 +306,6 @@ bool EthereumSide::SendLockTx()
                     {
                         LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to call ERC20::approve!";
 
-                        // TODO roman.strilets need to check
                         if (error.m_type == ethereum::IBridge::EthError ||
                             error.m_type == ethereum::IBridge::InvalidResultFormat)
                         {
@@ -379,7 +378,6 @@ bool EthereumSide::SendLockTx()
             {
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    // TODO roman.strilets need to check
                     if (error.m_type == ethereum::IBridge::EthError ||
                         error.m_type == ethereum::IBridge::InvalidResultFormat)
                     {
