@@ -18,23 +18,35 @@
 struct BeamDifficulty
 {
     typedef MultiPrecision::UInt<2> Short;
+    typedef MultiPrecision::UInt<8> Raw;
 
     static const uint32_t s_MantissaBits = 24;
+
+    struct Data
+    {
+        uint32_t m_Order;
+        uint32_t m_Mantissa;
+
+        Data(uint32_t nPacked)
+        {
+            m_Order = (nPacked >> s_MantissaBits);
+
+            const uint32_t nLeadingBit = 1U << s_MantissaBits;
+            m_Mantissa = nLeadingBit | (nPacked & (nLeadingBit - 1));
+        }
+    };
 
     static uint32_t Unpack(Short& res, uint32_t nPacked)
     {
         const uint32_t nWordBits = sizeof(MultiPrecision::Word) * 8;
         static_assert(nWordBits > s_MantissaBits, "");
 
-        uint32_t order = (nPacked >> s_MantissaBits);
+        Data d(nPacked);
 
-        uint32_t nWords = order / nWordBits;
-        order %= nWordBits;
+        uint32_t nWords = d.m_Order / nWordBits;
+        d.m_Order %= nWordBits;
 
-        const uint32_t nLeadingBit = 1U << s_MantissaBits;
-        uint32_t mantissa = nLeadingBit | (nPacked & (nLeadingBit - 1));
-
-        res = ((uint64_t) mantissa) << (order + nWordBits - s_MantissaBits);
+        res = ((uint64_t) d.m_Mantissa) << (d.m_Order + nWordBits - s_MantissaBits);
 
         return nWords + 1;
     }
@@ -46,7 +58,7 @@ struct BeamDifficulty
         const uint32_t nSrcWords = sizeof(T) / sizeof(MultiPrecision::Word);
 
         MultiPrecision::UInt<nSrcWords> src;
-        src.FromBE((const MultiPrecision::Word*) &val);
+        src.FromBE_T(val);
 
         Short diffShort;
         uint32_t nZeroWords = Unpack(diffShort, nPacked);

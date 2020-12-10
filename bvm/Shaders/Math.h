@@ -113,6 +113,20 @@ namespace MultiPrecision
 			Base::FromBE(p + 1);
 		}
 
+		template <typename T>
+		void ToBE_T(T& arg) const
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			ToBE(reinterpret_cast<Word*>(&arg));
+		}
+
+		template <typename T>
+		void FromBE_T(const T& arg)
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			FromBE(reinterpret_cast<const Word*>(&arg));
+		}
+
 		void operator = (uint64_t x)
 		{
 			set_Ord<0>(x);
