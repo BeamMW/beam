@@ -253,9 +253,9 @@ namespace beam
         const char* ETH_GAS_PRICE = "eth_gas_price";
         const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
         const char* ERC20_CONTRACT_ADDRESS = "erc20_contract_address";
-        const char* DAI_CONTRACT_ADDRESS = "erc20_contract_address";
-        const char* TETHER_CONTRACT_ADDRESS = "erc20_contract_address";
-        const char* WBTC_CONTRACT_ADDRESS = "erc20_contract_address";
+        const char* DAI_CONTRACT_ADDRESS = "dai_contract_address";
+        const char* TETHER_CONTRACT_ADDRESS = "usdt_contract_address";
+        const char* WBTC_CONTRACT_ADDRESS = "wbtc_contract_address";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";

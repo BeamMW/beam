@@ -205,13 +205,15 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              DashSide, 
              dash::ISettingsProvider>(walletDB));
 
-    swapTransactionCreator->RegisterFactory(
-        AtomicSwapCoin::Ethereum,
-        CreateFactory
-            <ethereum::SettingsProvider,
-             ethereum::EthereumBridge,
-             EthereumSide, 
-             ethereum::ISettingsProvider>(walletDB));
+    auto ethFactory = CreateFactory
+            <ethereum::SettingsProvider, ethereum::EthereumBridge, EthereumSide, ethereum::ISettingsProvider>
+                (walletDB);
+
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Ethereum, ethFactory);
+    // register ERC20 tokens
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dai, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Tether, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::WBTC, ethFactory);
 }
 
 bool IsLockTxAmountValid(

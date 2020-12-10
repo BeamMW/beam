@@ -454,7 +454,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 
         if (!vm.count(cli::TETHER_CONTRACT_ADDRESS))
         {
-            throw std::runtime_error("Tether contract address should be specified");
+            throw std::runtime_error("usdt contract address should be specified");
         }
     }
 
