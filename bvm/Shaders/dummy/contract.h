@@ -1,4 +1,5 @@
 #pragma once
+#include "../BeamHeader.h"
 
 namespace Dummy
 {
@@ -95,38 +96,10 @@ namespace Dummy
     {
         static const uint32_t s_iMethod = 9;
 
-        struct Hdr
-        {
-            Height m_Height;
-            HashValue m_Prev;
-            HashValue m_ChainWork; // not hash, just same size
-            HashValue m_Kernels;
-            HashValue m_Definition;
-            Timestamp m_TimeStamp;
-            // pow
-            uint8_t m_pIndices[104];
-            uint8_t m_pNonce[8];
-            uint32_t m_DifficultyPacked;
+        BeamHeaderFull m_Hdr;
 
-            template <bool bToShader>
-            void Convert()
-            {
-                ConvertOrd<bToShader>(m_Height);
-                ConvertOrd<bToShader>(m_TimeStamp);
-                ConvertOrd<bToShader>(m_DifficultyPacked);
-            }
-        };
-
-        Hdr m_Hdr;
         HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
-        HashValue m_HashForPoW;
         HashValue m_Hash;
-        HashValue m_DiffRes;
-        HashValue m_DiffUnpacked;
-        uint8_t m_pDiffMultiplied[64];
-        uint8_t m_DiffTestOk;
-        HashValue m_PrePoW;
-        uint32_t m_pIndices[32];
 
         template <bool bToShader>
         void Convert()
