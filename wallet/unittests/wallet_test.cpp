@@ -166,6 +166,7 @@ namespace
         helpers::StopWatch sw;
         sw.start();
 
+        Timestamp createTime = getTimestamp();
         for (int i = 0; i < Count; ++i)
         {
             sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
@@ -173,9 +174,11 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(1))
                 .SetParameter(TxParameterID::Fee, Amount(2))
-                .SetParameter(TxParameterID::Lifetime, Height(200)));
+                .SetParameter(TxParameterID::Lifetime, Height(200))
+                .SetParameter(TxParameterID::CreateTime, createTime));
+            createTime += 1000;
         }
-        
+
         mainReactor->run();
         sw.stop();
 
@@ -202,10 +205,28 @@ namespace
         message.skip = 30;
         message.filter.status = wallet::TxStatus::Completed;
         message.withAssets = false;
+        sw.start();
         for (int i = 0; i < 100; ++i)
         {
             handler.onMessage(1, message);
         }
+        sw.stop();
+        cout << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
+
+        Timestamp t = std::numeric_limits<Timestamp>::max();
+        int count = 0;
+        sender.m_WalletDB->visitTx([](auto t, auto s)
+        {
+            return true;
+        }, [&](const auto& tx)
+        {
+            WALLET_CHECK(tx.m_createTime > 0);
+            WALLET_CHECK(tx.m_createTime < t);
+            t = tx.m_createTime;
+            ++count;
+            return true;
+        });
+        WALLET_CHECK(count == Count);
     }
 
     void TestEventTypeSerialization()
@@ -3138,8 +3159,8 @@ int main()
     TestNoResponse();
     TestTransactionUpdate();
     //TestTxPerformance();
-    //TestTxNonces();
-    
+  //TestTxNonces();
+  
     TestTxExceptionHandling();
     
    
