@@ -24,6 +24,7 @@
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #include <regex>
+#include <string_view>
 
 namespace beam::wallet {
     namespace {
@@ -849,7 +850,37 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onCreateAddressMessage(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
+        
         FillAddressData(id, params, createAddress);
+
+        auto it = params.find("type");
+        if (it != params.end())
+        {
+            std::array<std::pair<std::string_view, TxAddressType>, 4> types =
+            {
+                {
+                    {"regular",         TxAddressType::Regular},
+                    {"offline",         TxAddressType::Offline},
+                    {"max_privacy",     TxAddressType::MaxPrivacy},
+                    {"public_offline",  TxAddressType::PublicOffline}
+                }
+            };
+            auto t = std::find_if(types.begin(), types.end(), [&](const auto& p) { return p.first == it->get<std::string>(); });
+            if (t != types.end())
+            {
+                createAddress.type = t->second;
+            }
+        }
+        it = params.find("new_style_regular");
+        if (it != params.end())
+        {
+            createAddress.newStyleRegular = it->get<bool>();
+        }
+        it = params.find("offline_payments");
+        if (it != params.end())
+        {
+            createAddress.offlinePayments = it->get<uint32_t>();
+        }
         getHandler().onMessage(id, createAddress);
     }
 
@@ -1487,7 +1518,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result", std::to_string(res.address)}
+            {"result", res.address}
         };
     }
 

@@ -19,6 +19,7 @@
 #include "sqlite/sqlite3.h"
 #include "core/block_rw.h"
 #include "wallet/core/common.h"
+#include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -6262,5 +6263,79 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
         return std::to_string(params);
+    }
+
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular, const string& label, WalletAddress::ExpirationStatus expiration, const std::string& existingSBBS, uint32_t offlineCount)
+    {
+        switch (type)
+        {
+        case beam::wallet::TxAddressType::Unknown:
+            throw std::runtime_error("Unknown address type");
+
+        case beam::wallet::TxAddressType::Regular:
+            {
+                boost::optional<WalletAddress> address;
+                if (!existingSBBS.empty())
+                {
+                    auto receiver = existingSBBS;
+                    bool isValid = true;
+                    WalletID walletID;
+                    ByteBuffer buffer = from_hex(receiver, &isValid);
+                    if (!isValid || !walletID.FromBuf(buffer))
+                    {
+                        throw std::runtime_error("Invalid address");
+                    }
+                    address = walletDB->getAddress(walletID);
+                    if (!address)
+                    {
+                        throw std::runtime_error("Cannot get address, there is no SBBS");
+                    }
+                    if (address->isExpired())
+                    {
+                        throw std::runtime_error("Cannot get address, it is expired");
+                    }
+                    if (!address->isPermanent())
+                    {
+                        throw std::runtime_error("The address expiration time must be never.");
+                    }
+                }
+                else
+                {
+                    address = GenerateNewAddress(walletDB, label, expiration);
+                }
+                if (newStyleRegular)
+                {
+                    return GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+                }
+                else
+                {
+                    return std::to_string(address->m_walletID);
+                }
+            }
+        case beam::wallet::TxAddressType::AtomicSwap:
+            throw std::runtime_error("Unsupported address type");
+
+        case beam::wallet::TxAddressType::Offline:
+            {
+                LOG_INFO() << "Generating offline address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, offlineCount);
+                return GenerateOfflineAddress(walletAddress, 0, vouchers);
+            }
+        case beam::wallet::TxAddressType::MaxPrivacy:
+            {
+                LOG_INFO() << "Generating max privacy address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                return GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+            }
+        case beam::wallet::TxAddressType::PublicOffline:
+            {
+                LOG_INFO() << "Generating public offline address";
+                return GeneratePublicOfflineAddress(*walletDB);
+            }
+        default:
+            throw std::runtime_error("Unexpected address type");
+        }
     }
 }
