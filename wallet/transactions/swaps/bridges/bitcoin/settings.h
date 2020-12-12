@@ -139,6 +139,7 @@ namespace beam::bitcoin
         ElectrumSettings GetElectrumConnectionOptions() const;
         bool IsElectrumActivated() const;
         Amount GetMinFeeRate() const;
+        Amount GetMaxFeeRate() const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
         bool IsInitialized() const;
@@ -155,6 +156,7 @@ namespace beam::bitcoin
 
     protected:
         void SetMinFeeRate(Amount feeRate);
+        void SetMaxFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetBlocksPerHour(double beamBlocksPerBlock);
@@ -167,7 +169,9 @@ namespace beam::bitcoin
         ElectrumSettings m_electrumConnectionSettings;
         ConnectionType m_connectionType = ConnectionType::None;
         // They are not stored in DB
-        Amount m_minFeeRate = 1000;
+        Amount m_minFeeRate = 1000u;
+        // TODO roman.strilet need to investigate
+        Amount m_maxFeeRate = 1'000'000u;
         uint16_t m_txMinConfirmations = 6;
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;

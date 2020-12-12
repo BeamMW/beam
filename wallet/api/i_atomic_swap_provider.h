@@ -26,6 +26,7 @@ public:
     virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
     virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
+    virtual Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const = 0;
     virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
     virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
 };

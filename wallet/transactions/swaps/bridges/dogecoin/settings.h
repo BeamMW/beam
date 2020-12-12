@@ -31,9 +31,11 @@ namespace beam::dogecoin
             constexpr double kDogeBlocksPerHour = 60;
             constexpr uint32_t kDogeDefaultLockTimeInBlocks = 12 * 60;
             constexpr Amount kDogeMinFeeRate = 100'000'000;
+            constexpr Amount kDogeMaxFeeRate = 1000'000'000; // TODO roman.strilets need to investigate
 
             SetLockTimeInBlocks(kDogeDefaultLockTimeInBlocks);
             SetMinFeeRate(kDogeMinFeeRate);
+            SetMaxFeeRate(kDogeMaxFeeRate);
             SetBlocksPerHour(kDogeBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());

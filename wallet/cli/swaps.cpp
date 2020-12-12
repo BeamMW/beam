@@ -719,7 +719,17 @@ Amount GetMinSwapFeeRate(IWalletDB::Ptr walletDB)
 
     auto settings = settingsProvider.GetSettings();
     return settings.GetMinFeeRate();
+}
 
+template<typename SettingsProvider>
+Amount GetMaxSwapFeeRate(IWalletDB::Ptr walletDB)
+{
+    SettingsProvider settingsProvider{ walletDB };
+
+    settingsProvider.Initialize();
+
+    auto settings = settingsProvider.GetSettings();
+    return settings.GetMaxFeeRate();
 }
 } // namespace
 
@@ -817,6 +827,51 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     case AtomicSwapCoin::WBTC:
     {
         return GetMinSwapFeeRate<ethereum::SettingsProvider>(walletDB);
+    }
+    default:
+    {
+        throw std::runtime_error("Unsupported coin for swap");
+        return 0;
+    }
+    }
+}
+
+Amount GetMaxSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
+{
+    switch (swapCoin)
+    {
+    case AtomicSwapCoin::Bitcoin:
+    {
+        return GetMaxSwapFeeRate<bitcoin::SettingsProvider>(walletDB);
+    }
+    case AtomicSwapCoin::Litecoin:
+    {
+        return GetMaxSwapFeeRate<litecoin::SettingsProvider>(walletDB);
+    }
+    case AtomicSwapCoin::Qtum:
+    {
+        return GetMaxSwapFeeRate<qtum::SettingsProvider>(walletDB);
+    }
+    case AtomicSwapCoin::Dogecoin:
+    {
+        return GetMaxSwapFeeRate<dogecoin::SettingsProvider>(walletDB);
+    }
+#if defined(BITCOIN_CASH_SUPPORT)
+    case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
+    {
+        return GetMaxSwapFeeRate<bitcoin_cash::SettingsProvider>(walletDB);
+    }
+#endif // BITCOIN_CASH_SUPPORT
+    case AtomicSwapCoin::Dash:
+    {
+        return GetMaxSwapFeeRate<dash::SettingsProvider>(walletDB);
+    }
+    case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::WBTC:
+    {
+        return GetMaxSwapFeeRate<ethereum::SettingsProvider>(walletDB);
     }
     default:
     {
@@ -924,6 +979,28 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
         swapAmount = ReadEthSwapAmount(vm, swapCoin);
         swapFeeRate = ReadGasPrice(vm);
+
+        // TODO need to unite with InitSwap
+        Amount estimatedFeeRate = EstimateSwapFeerate(swapCoin, walletDB);
+
+        if (estimatedFeeRate > 0 && estimatedFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("eth_gas_price must be greater than the etimate gas price.");
+        }
+
+        Amount minFeeRate = GetMinSwapFeeRate(swapCoin, walletDB);
+
+        if (minFeeRate > 0 && minFeeRate > swapFeeRate)
+        {
+            throw std::runtime_error("eth_gas_price must be greater than the minimum gas price.");
+        }
+
+        Amount maxFeeRate = GetMaxSwapFeeRate(swapCoin, walletDB);
+
+        if (maxFeeRate > 0 && maxFeeRate < swapFeeRate)
+        {
+            throw std::runtime_error("eth_gas_price must be less than the maximum gas price.");
+        }
     }
     else
     {
@@ -953,6 +1030,13 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         if (minFeeRate > 0 && minFeeRate > swapFeeRate)
         {
             throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
+        }
+
+        Amount maxFeeRate = GetMaxSwapFeeRate(swapCoin, walletDB);
+
+        if (maxFeeRate > 0 && maxFeeRate < swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be less than the maximum fee rate.");
         }
 
         bool isSwapAmountValid =
@@ -1070,6 +1154,13 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         {
             throw std::runtime_error("eth_gas_price must be greater than the minimum gas price.");
         }
+
+        Amount maxFeeRate = GetMaxSwapFeeRate(*swapCoin, walletDB);
+
+        if (maxFeeRate > 0 && maxFeeRate < swapFeeRate)
+        {
+            throw std::runtime_error("eth_gas_price must be less than the maximum gas price.");
+        }
     }
     else
     {
@@ -1093,6 +1184,13 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         if (minFeeRate > 0 && minFeeRate > swapFeeRate)
         {
             throw std::runtime_error("swap_feerate must be greater than the minimum fee rate.");
+        }
+
+        Amount maxFeeRate = GetMaxSwapFeeRate(*swapCoin, walletDB);
+
+        if (maxFeeRate > 0 && maxFeeRate < swapFeeRate)
+        {
+            throw std::runtime_error("swap_feerate must be less than the maximum fee rate.");
         }
 
         RequestToBridge(walletDB, *swapCoin);

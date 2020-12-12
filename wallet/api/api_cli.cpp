@@ -201,6 +201,18 @@ public:
         return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
     }
 
+    Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMaxFeeRate() : 0;
+        }
+
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetSettings().GetMaxFeeRate() : 0;
+    }
+
     const SwapOffersBoard& getSwapOffersBoard() const override
     {
         return *_offersBulletinBoard;

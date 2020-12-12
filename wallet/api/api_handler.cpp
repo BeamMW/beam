@@ -38,6 +38,7 @@ namespace
     const char kSwapNotEnoughtSwapCoins[] = "There is not enough funds to complete the transaction.";
     const char kSwapFeeToLowRecommenededError[] = "\'fee_rate\' must be greater or equal than recommended fee rate.";
     const char kSwapFeeToLowError[] = "\'fee_rate\' must be greater or equal than ";
+    const char kSwapFeeToHighError[] = "\'fee_rate\' must be less or equal than ";
 
     void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
@@ -1161,6 +1162,16 @@ namespace beam::wallet
                 return;
             }
 
+            Amount maxFeeRate = _walletData.getAtomicSwapProvider().getMaxFeeRate(data.swapCoin);
+
+            if (maxFeeRate > 0 && data.swapFeeRate > maxFeeRate)
+            {
+                std::stringstream msg;
+                msg << kSwapFeeToHighError << maxFeeRate;
+                doError(id, ApiError::InvalidJsonRpc, msg.str());
+                return;
+            }
+
             if (data.beamAmount <= data.beamFee)
             {
                 doError(id, ApiError::InvalidJsonRpc, kBeamAmountToLowError);
@@ -1373,6 +1384,16 @@ namespace beam::wallet
             {
                 std::stringstream msg;
                 msg << kSwapFeeToLowError << minFeeRate;
+                doError(id, ApiError::InvalidJsonRpc, msg.str());
+                return;
+            }
+
+            Amount maxFeeRate = _walletData.getAtomicSwapProvider().getMaxFeeRate(*swapCoin);
+
+            if (maxFeeRate > 0 && data.swapFeeRate > maxFeeRate)
+            {
+                std::stringstream msg;
+                msg << kSwapFeeToHighError << maxFeeRate;
                 doError(id, ApiError::InvalidJsonRpc, msg.str());
                 return;
             }

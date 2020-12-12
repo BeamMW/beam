@@ -86,6 +86,11 @@ Amount Settings::GetMinFeeRate() const
     return m_minFeeRate;
 }
 
+Amount Settings::GetMaxFeeRate() const
+{
+    return m_maxFeeRate;
+}
+
 std::string Settings::GetContractAddress(bool isHashLockScheme) const
 {
     return isHashLockScheme ? m_swapHashlockContractAddress : m_swapContractAddress;

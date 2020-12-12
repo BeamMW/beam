@@ -32,7 +32,8 @@ struct Settings
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
     // TODO roman.strilets need to investigate
-    Amount m_minFeeRate = 1;
+    Amount m_minFeeRate = 1u;
+    Amount m_maxFeeRate = 1'000'000'000u;
     std::string m_swapHashlockContractAddress = "";
     std::string m_swapContractAddress = "";
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
@@ -58,6 +59,7 @@ struct Settings
     uint32_t GetLockTimeInBlocks() const;
     double GetBlocksPerHour() const;
     Amount GetMinFeeRate() const;
+    Amount GetMaxFeeRate() const;
     std::string GetContractAddress(bool isHashLockScheme = false) const;
     std::string GetERC20SwapContractAddress(bool isHashLockScheme = false) const;
 
