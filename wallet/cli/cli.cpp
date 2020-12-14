@@ -35,7 +35,6 @@
 #include "core/treasury.h"
 #include "core/block_rw.h"
 #include <algorithm>
-//#include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
 #include "version.h"

@@ -319,6 +319,7 @@ namespace beam
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
         const char* OFFLINE_ADDRESS     = "offline";
         const char* PUBLIC_OFFLINE      = "public_offline";
+        const char* ENABLE_LELANTUS     = "enable_lelentus";
     }
 
 
