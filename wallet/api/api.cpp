@@ -961,21 +961,18 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         auto txParams = ParseParameters(addressOrToken);
         if (!txParams)
         {
-            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }
-        send.txParameters = *txParams;
-
-        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        send.txParameters = std::move(*txParams);
+        auto peerID = send.txParameters.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID);
+        if (peerID)
         {
             send.address = *peerID;
-            if (std::to_string(*peerID) != addressOrToken)
-            {
-                send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
-            }
         }
-        else
+
+        if (!peerID || std::to_string(*peerID) != addressOrToken)
         {
-            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
+            send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
         }
 
         if (existsJsonParam(params, "from"))

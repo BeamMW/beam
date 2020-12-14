@@ -61,6 +61,8 @@
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
+#include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+
 #include "nlohmann/json.hpp"
 #include "version.h"
 
@@ -706,7 +708,7 @@ int main(int argc, char* argv[])
             std::string whitelist;
 
             uint32_t logCleanupPeriod;
-
+            bool enableLelentus = false;
         } options;
 
         TlsOptions tlsOptions;
@@ -729,7 +731,8 @@ int main(int argc, char* argv[])
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
+                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
+                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -850,6 +853,8 @@ int main(int argc, char* argv[])
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
             wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
+
+            options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
         io::Address listenTo = io::Address().port(options.port);
@@ -894,6 +899,11 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAssetCreators(*wallet);
+        }
+
+        if (options.enableLelentus)
+        {
+            lelantus::RegisterCreators(*wallet, walletDB);
         }
 
         // All TxCreators must be registered by this point
