@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "ethereum_side.h"
-
+#include <bitcoin/bitcoin.hpp>
 #include <ethash/keccak.hpp>
 
 #include "common.h"

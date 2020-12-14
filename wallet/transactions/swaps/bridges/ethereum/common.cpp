@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
-
+#include <bitcoin/bitcoin.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <ethash/keccak.hpp>
 #include "utility/hex.h"

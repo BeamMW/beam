@@ -15,7 +15,9 @@
 #pragma once
 
 #include <string>
-#include <bitcoin/bitcoin.hpp>
+#include <bitcoin/bitcoin/math/hash.hpp>
+#include <bitcoin/bitcoin/math/elliptic_curve.hpp>
+#include <bitcoin/bitcoin/utility/data.hpp>
 #include "core/ecc.h"
 
 #include "wallet/transactions/swaps/common.h"
