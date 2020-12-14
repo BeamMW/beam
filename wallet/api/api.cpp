@@ -856,7 +856,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         auto it = params.find("type");
         if (it != params.end())
         {
-            std::array<std::pair<std::string_view, TxAddressType>, 4> types =
+            static constexpr std::array<std::pair<std::string_view, TxAddressType>, 4> types =
             {
                 {
                     {"regular",         TxAddressType::Regular},
