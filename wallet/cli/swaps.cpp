@@ -935,7 +935,7 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
         {
             bridge->getDetailedBalance([&result](const bitcoin::IBridge::Error& error, Amount balance, Amount, Amount)
             {
-                if (error.m_type != ethereum::IBridge::ErrorType::None)
+                if (error.m_type != bitcoin::IBridge::ErrorType::None)
                 {
                     throw std::runtime_error(error.m_message);
                 }
