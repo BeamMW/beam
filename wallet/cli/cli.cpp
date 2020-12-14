@@ -2295,7 +2295,7 @@ namespace
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
             Amount feeRate = EstimateSwapFeerate(swapCoin, walletDB);
 
-            cout << "estimate fee rate = " << feeRate;
+            cout << "estimate fee rate = " << feeRate << endl;
             return 0;
         }
 
@@ -2311,7 +2311,7 @@ namespace
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
             Amount balance = GetBalance(swapCoin, walletDB);
 
-            cout << "avaible: " << balance;
+            cout << "avaible: " << balance << endl;
             return 0;
         }
 

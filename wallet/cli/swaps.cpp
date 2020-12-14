@@ -1219,7 +1219,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
         << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
         << " Peer ID:      " << to_string(*peerID) << "\n"
-        << " Fee:          " << PrintableAmount(fee) << "\n";
+        << " Fee:          " << PrintableAmount(fee) << "\n" << endl;
     
     // get accepting
     // TODO: Refactor
@@ -1227,7 +1227,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     while (true)
     {
         std::string result;
-        cout << "Do you agree to these conditions? (y/n): ";
+        cout << "Do you agree to these conditions? (y/n): " << endl;
         cin >> result;
 
         if (result == "y" || result == "n")
