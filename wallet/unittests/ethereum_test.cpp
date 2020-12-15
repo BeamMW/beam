@@ -19,6 +19,8 @@
 
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 
+#include "bitcoin/bitcoin.hpp"
+
 WALLET_TEST_INIT
 
 using namespace beam;
