@@ -43,6 +43,13 @@ public:
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
         std::function<void(const Error&, std::string, uint64_t)> callback) override;
+    void erc20Approve(
+        const libbitcoin::short_hash& token,
+        const libbitcoin::short_hash& spender,
+        const ECC::uintBig& value,
+        const ECC::uintBig& gas,
+        const ECC::uintBig& gasPrice,
+        ERC20ApproveCallback&& callback) override;
     void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
     void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) override;
     void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) override;
@@ -65,10 +72,16 @@ private:
     void requestTxConfirmation();
     void onGotTxConfirmation(const Error& error, const nlohmann::json& result);
 
+    void processPendingApproveTx();
+    void onGotAllowance(const Error& error, const nlohmann::json& result);
+    void onSentApprove(const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce);
+    void requestApproveTxConfirmation();
+    void onGotApproveTxConfirmation(const Error& error, uint64_t txBlockNumber);
+
     struct EthPendingTransaction
     {
         EthBaseTransaction m_ethBaseTx;
-        std::function<void(const Error&, std::string, uint64_t)> m_confirmedCallback;
+        std::function<void(const Error&, std::string, uint64_t)> m_callback;
         std::string m_txHash;
     };
 
@@ -77,5 +90,31 @@ private:
 
     io::Timer::Ptr m_txConfirmationTimer;
     std::queue<std::shared_ptr<EthPendingTransaction>> m_pendingTxs;
+
+    // for ERC20::approve
+    struct EthPendingApprove
+    {
+        EthPendingApprove(const libbitcoin::short_hash& token, const libbitcoin::short_hash& spender,
+            const ECC::uintBig& gas, const ECC::uintBig& gasPrice,
+            const ECC::uintBig& value, ERC20ApproveCallback&& callback)
+            : m_token(token)
+            , m_spender(spender)
+            , m_gas(gas)
+            , m_gasPrice(gasPrice)
+            , m_value(value)
+            , m_callback(std::move(callback))
+        {};
+
+        libbitcoin::short_hash m_token;
+        libbitcoin::short_hash m_spender;
+        ECC::uintBig m_gas;
+        ECC::uintBig m_gasPrice;
+        ECC::uintBig m_value;
+        ERC20ApproveCallback m_callback;
+        std::string m_txHash;
+    };
+
+    io::Timer::Ptr m_approveTxConfirmationTimer;
+    std::queue<std::shared_ptr<EthPendingApprove>> m_pendingApprovals;
 };
 } // namespace beam::ethereum

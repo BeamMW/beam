@@ -641,6 +641,100 @@ void testMultipleSend()
     mainReactor->run();
 }
 
+void testERC20MultipleApprove()
+{
+    beam::wallet::AtomicSwapCoin token = beam::wallet::AtomicSwapCoin::Dai;
+    const libbitcoin::short_hash kTokenContractAddress = ethereum::ConvertStrToEthAddress("0xe0a55f2c08125b7dac7132e02b043ED30359034E");
+    const libbitcoin::short_hash kERC20ContractAddress = ethereum::ConvertStrToEthAddress("0xd6B18EC3711e777F029B17283aa4ea6557493E35");
+
+    ethereum::Settings settingsAlice;
+    settingsAlice.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    settingsAlice.m_accountIndex = 3;
+    settingsAlice.m_address = "127.0.0.1:7545";
+    settingsAlice.m_shouldConnect = true;
+
+    auto providerAlice = std::make_shared<ethereum::Provider>(settingsAlice);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto bridgeAlice = std::make_shared<ethereum::EthereumBridge>(*mainReactor, *providerAlice);
+    auto initiator = bridgeAlice->generateEthAddress();
+
+    ECC::uintBig gas = 50000u;
+    ECC::uintBig gasPrice = 50'000'000'000u;
+    ECC::uintBig value = 1'000'000'000'000'000'000u;
+
+    // get current allowance
+    Amount startAllowance = 0;
+    {
+        libbitcoin::data_chunk data;
+        data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kAllowanceHash);
+        ethereum::AddContractABIWordToBuffer(bridgeAlice->generateEthAddress(), data);
+        ethereum::AddContractABIWordToBuffer(kERC20ContractAddress, data);
+
+        bridgeAlice->call(kTokenContractAddress, libbitcoin::encode_base16(data), [mainReactor, &startAllowance, token](const ethereum::IBridge::Error&, const nlohmann::json& result)
+            {
+                boost::multiprecision::uint256_t tmp(result.get<std::string>());
+                tmp /= ethereum::GetCoinUnitsMultiplier(token);
+                startAllowance = tmp.convert_to<Amount>();
+                LOG_DEBUG() << "allowance: " << startAllowance;
+
+                mainReactor->stop();
+            });
+
+        mainReactor->run();
+    }
+
+    // send multiple approveTx
+    {
+        bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash)
+            {
+                LOG_DEBUG() << "First ApproveTx hash: " << txHash;
+            });
+
+        bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash)
+            {
+                LOG_DEBUG() << "Second ApproveTx hash: " << txHash;
+            });
+
+        bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
+            {
+                LOG_DEBUG() << "Third ApproveTx hash: " << txHash;
+                mainReactor->stop();
+            });
+
+        mainReactor->run();
+    }
+
+    // check allowance
+    Amount endAllowance = 0;
+    {
+        libbitcoin::data_chunk data;
+        data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kAllowanceHash);
+        ethereum::AddContractABIWordToBuffer(bridgeAlice->generateEthAddress(), data);
+        ethereum::AddContractABIWordToBuffer(kERC20ContractAddress, data);
+
+        bridgeAlice->call(kTokenContractAddress, libbitcoin::encode_base16(data), [mainReactor, &endAllowance, token](const ethereum::IBridge::Error&, const nlohmann::json& result)
+            {
+                boost::multiprecision::uint256_t tmp(result.get<std::string>());
+                tmp /= ethereum::GetCoinUnitsMultiplier(token);
+                endAllowance = tmp.convert_to<Amount>();
+                LOG_DEBUG() << "end allowance: " << tmp.convert_to<Amount>();
+
+                mainReactor->stop();
+            });
+
+        mainReactor->run();
+    }
+
+    std::string hex = beam::ethereum::AddHexPrefix(value.str());
+    boost::multiprecision::uint256_t tmp(hex);
+    tmp /= ethereum::GetCoinUnitsMultiplier(token);
+    auto expectedAllowance = startAllowance + (3 * tmp).convert_to<Amount>();
+    WALLET_CHECK(endAllowance == expectedAllowance);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -659,6 +753,7 @@ int main()
     testERC20SwapWithAggregateSignature();
 
     testERC20GetBalance();
+    testERC20MultipleApprove();
 
     testMultipleSend();
 

@@ -44,6 +44,7 @@ public:
     };
     
     using Ptr = std::shared_ptr<IBridge>;
+    using ERC20ApproveCallback = std::function<void(const Error&, std::string)>;
     virtual ~IBridge() {};
 
     virtual void getBalance(std::function<void(const Error&, const std::string&)> callback) = 0;
@@ -60,6 +61,13 @@ public:
         const ECC::uintBig& gas,
         const ECC::uintBig& gasPrice,
         std::function<void(const Error&, std::string, uint64_t)> callback) = 0;
+    virtual void erc20Approve(
+        const libbitcoin::short_hash& token,
+        const libbitcoin::short_hash& spender,
+        const ECC::uintBig& value,
+        const ECC::uintBig& gas,
+        const ECC::uintBig& gasPrice,
+        ERC20ApproveCallback&& callback) = 0;
     virtual void getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;
     virtual void getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback) = 0;
     virtual void getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback) = 0;

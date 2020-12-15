@@ -43,6 +43,7 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
     : m_httpClient(reactor, needSsl(settingsProvider.GetSettings().m_address))
     , m_settingsProvider(settingsProvider)
     , m_txConfirmationTimer(io::Timer::create(reactor))
+    , m_approveTxConfirmationTimer(io::Timer::create(reactor))
 {
 }
 
@@ -204,7 +205,7 @@ void EthereumBridge::send(
     ethTx->m_ethBaseTx.m_data = data;
     ethTx->m_ethBaseTx.m_gas = gas;
     ethTx->m_ethBaseTx.m_gasPrice = gasPrice;
-    ethTx->m_confirmedCallback = callback;
+    ethTx->m_callback = callback;
 
     bool shouldProcessedNow = m_pendingTxs.empty();
     m_pendingTxs.push(ethTx);
@@ -239,27 +240,27 @@ void EthereumBridge::onGotTransactionCount(const Error& error, uint64_t txCount)
         try
         {
             ethTx->m_ethBaseTx.m_nonce = txCount;
-
             auto signedTx = ethTx->m_ethBaseTx.GetRawSigned(generatePrivateKey());
+
             if (signedTx.empty())
             {
                 tmp.m_type = IBridge::EthError;
                 tmp.m_message = "Failed to sign raw transaction!";
-                ethTx->m_confirmedCallback(tmp, "", 0);
+            }
+            else
+            {
+                std::string stTx = libbitcoin::encode_base16(signedTx);
+
+                sendRawTransaction(stTx, [this, txNonce = txCount, weak = this->weak_from_this()](const Error& error, const std::string& txHash)
+                {
+                    if (!weak.expired())
+                    {
+                        onSentRawTransaction(error, txHash, txNonce);
+                    }
+                });
+
                 return;
             }
-
-            std::string stTx = libbitcoin::encode_base16(signedTx);
-
-            sendRawTransaction(stTx, [this, txNonce = txCount, weak = this->weak_from_this()](const Error& error, const std::string& txHash)
-            {
-                if (!weak.expired())
-                {
-                    onSentRawTransaction(error, txHash, txNonce);
-                }
-            });
-
-            return;
         }
         catch (const std::exception& ex)
         {
@@ -268,7 +269,10 @@ void EthereumBridge::onGotTransactionCount(const Error& error, uint64_t txCount)
         }
     }
 
-    ethTx->m_confirmedCallback(tmp, "", 0);
+    ethTx->m_callback(tmp, "", 0);
+
+    m_pendingTxs.pop();
+    processPendingTx();
 }
 
 void EthereumBridge::onSentRawTransaction(const Error& error, const std::string& txHash, uint64_t txNonce)
@@ -281,13 +285,12 @@ void EthereumBridge::onSentRawTransaction(const Error& error, const std::string&
         ethTx->m_txHash = txHash;
         requestTxConfirmation();
 
-        // TODO(alex.starun): mb add additional callback
         // return txHash & txNonce
-        ethTx->m_confirmedCallback(tmp, txHash, txNonce);
+        ethTx->m_callback(tmp, txHash, txNonce);
         return;
     }
 
-    ethTx->m_confirmedCallback(tmp, "", 0);
+    ethTx->m_callback(tmp, "", 0);
 }
 
 void EthereumBridge::requestTxConfirmation()
@@ -305,6 +308,7 @@ void EthereumBridge::onGotTxConfirmation(const Error& error, const nlohmann::jso
 {
     if (error.m_type == IBridge::None && !result.is_null())
     {
+        // TODO(alex.starun): "confirmed" callback?
         // confirmed
         m_pendingTxs.pop();
 
@@ -322,6 +326,145 @@ void EthereumBridge::onGotTxConfirmation(const Error& error, const nlohmann::jso
             requestTxConfirmation();
         }
     });
+}
+
+void EthereumBridge::erc20Approve(
+    const libbitcoin::short_hash& token,
+    const libbitcoin::short_hash& spender,
+    const ECC::uintBig& value,
+    const ECC::uintBig& gas,
+    const ECC::uintBig& gasPrice,
+    ERC20ApproveCallback&& callback)
+{
+    auto pendingApproval = std::make_shared<EthPendingApprove>(token, spender, gas, gasPrice, value, std::move(callback));
+
+    m_pendingApprovals.push(pendingApproval);
+
+    if (m_pendingApprovals.size() == 1)
+    {
+        processPendingApproveTx();
+    }
+}
+
+void EthereumBridge::processPendingApproveTx()
+{
+    if (!m_pendingApprovals.empty())
+    {
+        auto pendingTx = m_pendingApprovals.front();
+
+        libbitcoin::data_chunk data;
+        data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+        libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kAllowanceHash);
+        ethereum::AddContractABIWordToBuffer(generateEthAddress(), data);
+        ethereum::AddContractABIWordToBuffer(pendingTx->m_spender, data);
+
+        call(pendingTx->m_token, libbitcoin::encode_base16(data), [this, weak = this->weak_from_this()](const Error& error, const nlohmann::json& result)
+        {
+            if (!weak.expired())
+            {
+                onGotAllowance(error, result);
+            }
+        });
+    }
+}
+
+void EthereumBridge::onGotAllowance(const Error& error, const nlohmann::json& result)
+{
+    auto pendingTx = m_pendingApprovals.front();
+    Error tmp(error);
+
+    if (tmp.m_type == IBridge::None)
+    {
+        try
+        {
+            auto allowance = ConvertStrToUintBig(result.get<std::string>());
+
+            allowance += pendingTx->m_value;
+
+            // ERC20::approve + spender + value
+            libbitcoin::data_chunk data;
+            data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+            libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kApproveHash);
+            ethereum::AddContractABIWordToBuffer(pendingTx->m_spender, data);
+            ethereum::AddContractABIWordToBuffer({ std::begin(allowance.m_pData), std::end(allowance.m_pData) }, data);
+
+            send(pendingTx->m_token, data, ECC::Zero, pendingTx->m_gas, pendingTx->m_gasPrice,
+                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce)
+            {
+                if (!weak.expired())
+                {
+                    onSentApprove(error, txHash, txNonce);
+                }
+            });
+
+            return;
+        }
+        catch (const std::exception& ex)
+        {
+            tmp.m_type = IBridge::InvalidResultFormat;
+            tmp.m_message = ex.what();
+        }
+    }
+
+    // error
+    pendingTx->m_callback(tmp, "");
+
+    // process next
+    m_pendingApprovals.pop();
+    processPendingApproveTx();
+}
+
+void EthereumBridge::onSentApprove(const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce)
+{
+    if (error.m_type == IBridge::None)
+    {
+        m_pendingApprovals.front()->m_txHash = txHash;
+        requestApproveTxConfirmation();
+        return;
+    }
+
+    // error
+    m_pendingApprovals.front()->m_callback(error, "");
+
+    // process next
+    m_pendingApprovals.pop();
+    processPendingApproveTx();
+}
+
+void EthereumBridge::requestApproveTxConfirmation()
+{
+    auto txHash = m_pendingApprovals.front()->m_txHash;
+    getTxBlockNumber(txHash, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+    {
+        if (!weak.expired())
+        {
+            onGotApproveTxConfirmation(error, txBlockNumber);
+        }
+    });
+}
+
+void EthereumBridge::onGotApproveTxConfirmation(const Error& error, uint64_t txBlockNumber)
+{
+    if (error.m_type == IBridge::EmptyResult)
+    {
+        constexpr unsigned kApproveTxRequestIntervalMsec = 1000;
+        m_approveTxConfirmationTimer->start(kApproveTxRequestIntervalMsec, false, [this, weak = this->weak_from_this()]()
+        {
+            if (!weak.expired())
+            {
+                requestApproveTxConfirmation();
+            }
+        });
+        return;
+    }
+
+    // callback
+    auto pendingTx = m_pendingApprovals.front();
+    pendingTx->m_callback(error, pendingTx->m_txHash);
+
+    // process next
+    m_pendingApprovals.pop();
+    processPendingApproveTx();
 }
 
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)

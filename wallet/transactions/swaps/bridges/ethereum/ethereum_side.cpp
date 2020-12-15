@@ -296,9 +296,9 @@ bool EthereumSide::SendLockTx()
             auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
             const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
 
-            // TODO(alex.starun): Add "approve" to ethereum::Bridge to control allowances
-            m_ethBridge->send(tokenContractAddress, data, ECC::Zero, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
-                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
+            // TODO(alex.starun): use different gaslimit
+            m_ethBridge->erc20Approve(tokenContractAddress, GetContractAddress(), swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
+                [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
             {
                 if (!weak.expired())
                 {
@@ -317,7 +317,6 @@ bool EthereumSide::SendLockTx()
 
                     // temporary used for storing approve tx hash
                     m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
-                    m_tx.SetParameter(TxParameterID::NonceSlot, txNonce, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
                 }
             });
@@ -356,9 +355,8 @@ bool EthereumSide::SendLockTx()
                 }
 
                 m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
-                // reset TxParameterID::AtomicSwapExternalTxID & TxParameterID::NonceSlot
+                // reset TxParameterID::AtomicSwapExternalTxID
                 m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, static_cast<SubTxID>(SubTxIndex::LOCK_TX));
-                m_tx.SetParameter(TxParameterID::NonceSlot, Zero, static_cast<SubTxID>(SubTxIndex::LOCK_TX));
                 m_tx.UpdateAsync();
             });
 
