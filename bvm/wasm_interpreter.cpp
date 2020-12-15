@@ -265,6 +265,7 @@ namespace Wasm {
 	macro(0x11, call_indirect) \
 	macro(0x0C, br) \
 	macro(0x0D, br_if) \
+	macro(0x0E, br_table) \
 	macro(0x0F, ret) \
 	macro(0x41, i32_const) \
 	macro(0x42, i64_const) \
@@ -817,30 +818,34 @@ namespace Wasm {
 			WriteRes(reinterpret_cast<uint8_t*>(&n), sizeof(n));
 		}
 
-		void OnBranch()
+		void PutBranchLabel(uint32_t nLabel)
 		{
-			auto nLabel = m_Code.Read<uint32_t>();
 			Test(nLabel + 1 < m_Blocks.size());
 			assert(nLabel < m_This.m_Labels.m_Items.size());
 
-			auto& b = get_B();
+			auto iBlock = m_Blocks.size() - (nLabel + 1);
+			auto& b = m_Blocks[iBlock];
+
+			size_t nOperands = b.m_OperandsAtExit;
 			if (b.m_Loop)
 			{
-				assert(m_Blocks.size() > 1); // function block can't be loop
-
-				size_t n = b.m_OperandsAtExit + b.m_Type.m_Args.n - b.m_Type.m_Rets.n;
-				Test(m_Operands.size() == n);
-				TestOperands(b.m_Type.m_Args);
-			}
-			else
-			{
-				TestBlockCanClose();
+				assert(iBlock); // function block can't be loop
+				nOperands += b.m_Type.m_Args.n - b.m_Type.m_Rets.n;
 			}
 
+			TestOperands(b.m_Type.m_Args);
+			Test(m_Operands.size() == nOperands);
+
+			PutLabelTrg(m_Blocks[m_Blocks.size() - (nLabel + 1)].m_iLabel);
+		}
+
+		void OnBranch()
+		{
 			WriteRes(*m_p0); // opcode
 			m_p0 = nullptr;
 
-			PutLabelTrg(m_Blocks[m_Blocks.size() - (nLabel + 1)].m_iLabel);
+			auto nLabel = m_Code.Read<uint32_t>();
+			PutBranchLabel(nLabel);
 		}
 
 		uint8_t OnLocalVar()
@@ -952,6 +957,27 @@ namespace Wasm {
 		void On_br_if() {
 			Pop(Type::i32); // conditional
 			OnBranch();
+		}
+
+		void On_br_table()
+		{
+			Pop(Type::i32); // operand
+
+			WriteRes(*m_p0); // opcode
+			m_p0 = nullptr;
+
+			uint32_t nLabels;
+			m_Code.Read(nLabels);
+			WriteResU(nLabels);
+
+			// the following loop includes the 'def' label too
+			do
+			{
+				auto nLabel = m_Code.Read<uint32_t>();
+				PutBranchLabel(nLabel);
+
+			} while (nLabels--);
+
 		}
 
 		void On_ret()
@@ -1400,8 +1426,8 @@ namespace Wasm {
 
 	void Processor::Stack::TestAlignmentPower(uint32_t n)
 	{
-		static_assert(s_Alignment == (1 << 3));
-		Test(n <= 3);
+		static_assert(s_Alignment == (1 << 4));
+		Test(n <= 4);
 	}
 
 	struct ProcessorPlus
@@ -1783,6 +1809,22 @@ namespace Wasm {
 		Word addr = ReadAddr();
 		if (m_Stack.Pop<Word>())
 			Jmp(addr);
+	}
+
+	void ProcessorPlus::On_br_table()
+	{
+		uint32_t nLabels;
+		m_Instruction.Read(nLabels);
+
+		Word nOperand = m_Stack.Pop<Word>();
+		std::setmin(nOperand, nLabels); // fallback to 'def' if out-of-range
+
+		nLabels++;
+		uint32_t nSize = sizeof(Word) * nLabels;
+		Test(nSize / sizeof(Word) == nLabels); // overflow check
+
+		auto* pAddrs = reinterpret_cast<const Word*>(m_Instruction.Consume(nSize));
+		Jmp(from_wasm<Word>(pAddrs[nOperand]));
 	}
 
 	void ProcessorPlus::On_call()

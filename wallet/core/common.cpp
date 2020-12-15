@@ -661,6 +661,7 @@ namespace beam::wallet
         {
             params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
         }
+        params.SetParameter(TxParameterID::AddressType, type);
 
         ProcessLibraryVersion(receiverParams);
 
@@ -1590,16 +1591,7 @@ namespace beam::wallet
 
     TxAddressType GetAddressType(const TxDescription& tx)
     {
-        if (tx.m_txType == TxType::Simple)
-            return TxAddressType::Regular;
-
-        if (tx.m_txType == TxType::AtomicSwap)
-            return TxAddressType::AtomicSwap;
-
-        if (tx.m_txType != TxType::PushTransaction)
-            return TxAddressType::Unknown;
-
-        return GetAddressType(tx.getToken());
+        return GetAddressTypeImpl(tx);
     }
 
     TxAddressType GetAddressType(const std::string& address)

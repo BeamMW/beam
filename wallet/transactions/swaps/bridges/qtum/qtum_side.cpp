@@ -18,7 +18,6 @@
 namespace
 {
     constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
-    constexpr beam::Amount kQtumDustThreshold = 72800;
     constexpr uint32_t kQtumLockTxEstimatedTimeInBeamBlocks = 30;   // it's average value
 }
 
@@ -32,7 +31,7 @@ namespace beam::wallet
     bool QtumSide::CheckAmount(Amount amount, Amount feeRate)
     {
         Amount fee = CalcTotalFee(feeRate);
-        return amount > fee && (amount - fee) > kQtumDustThreshold;
+        return amount > fee && (amount - fee) > qtum::kQtumDustThreshold;
     }
 
     Amount QtumSide::CalcTotalFee(Amount feeRate)
@@ -48,10 +47,5 @@ namespace beam::wallet
     bool QtumSide::IsSegwitSupported() const
     {
         return false;
-    }
-
-    uint32_t QtumSide::GetWithdrawTxAverageSize() const
-    {
-        return kQtumWithdrawTxAverageSize;
     }
 }

@@ -2,6 +2,7 @@
 #include "../Math.h"
 #include "contract.h"
 #include "../vault/contract.h"
+#include "../BeamHeader.h"
 
 // Demonstration of the inter-shader interaction.
 
@@ -83,4 +84,16 @@ export void Method_8(Dummy::Hash3& r)
     Env::HashGetValue(pHash, r.m_pRes, sizeof(r.m_pRes));
 
     Env::HashFree(pHash);
+}
+
+export void Method_9(Dummy::VerifyBeamHeader& r)
+{
+    r.m_Hdr.get_Hash(r.m_Hash, &r.m_RulesCfg);
+    Env::Halt_if(!r.m_Hdr.IsValid(&r.m_RulesCfg));
+
+    BeamDifficulty::Raw w0, w1;
+    BeamDifficulty::Unpack(w1, r.m_Hdr.m_PoW.m_Difficulty);
+    w0.FromBE_T(r.m_Hdr.m_ChainWork);
+    w0 += w1;
+    w0.ToBE_T(r.m_ChainWork1);
 }

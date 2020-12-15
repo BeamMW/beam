@@ -55,18 +55,18 @@ namespace Shaders {
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
+#define export
+
+#include "../Shaders/common.h"
+#include "../Shaders/Math.h"
+#include "../Shaders/MergeSort.h"
+
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
 #include "../Shaders/dummy/contract.h"
 #include "../Shaders/StableCoin/contract.h"
 #include "../Shaders/faucet/contract.h"
 #include "../Shaders/roulette/contract.h"
-
-#define export
-
-#include "../Shaders/common.h"
-#include "../Shaders/Math.h"
-#include "../Shaders/MergeSort.h"
 
 	namespace Env {
 
@@ -119,6 +119,9 @@ namespace Shaders {
 	}
 	namespace Roulette {
 #include "../Shaders/roulette/contract.cpp"
+	}
+	namespace Dummy {
+#include "../Shaders/dummy/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -612,6 +615,7 @@ namespace bvm2 {
 		ContractID m_cidStableCoin;
 		ContractID m_cidFaucet;
 		ContractID m_cidRoulette;
+		ContractID m_cidDummy;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -718,6 +722,15 @@ namespace bvm2 {
 				//case 3: Shaders::Roulette::Method_3(nullptr); return;
 				//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Bid>(pArgs)); return;
 				//case 5: Shaders::Roulette::Method_5(CastArg<Shaders::Roulette::Take>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidDummy)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//}
 			}
 
@@ -830,11 +843,106 @@ namespace bvm2 {
 		m_lstUndo.Clear();
 	}
 
+	namespace IndexDecoder
+	{
+		typedef uint32_t Word;
+
+		template <uint32_t n>
+		struct SrcRemaining
+		{
+			template <uint32_t nBitsPerIndex, uint32_t nSrcIdx>
+			struct State
+			{
+				static const uint32_t s_BitsDecoded = nSrcIdx * 8;
+
+				static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
+				static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
+				static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
+
+				static void Do(Word* pDst, const uint8_t* pSrc)
+				{
+					uint8_t src = pSrc[nSrcIdx];
+					if constexpr (s_nDstBitsRemaining >= 8)
+					{
+						if constexpr (!s_nDstBitsDone)
+							pDst[s_iDst] = src;
+						else
+							pDst[s_iDst] |= ((Word) src)  << s_nDstBitsDone;
+					}
+					else
+					{
+						const uint8_t msk = (1 << s_nDstBitsRemaining) - 1;
+						pDst[s_iDst] |= ((Word) (src & msk)) << s_nDstBitsDone;
+						pDst[s_iDst + 1] = src >> s_nDstBitsRemaining;
+					}
+
+					typedef typename SrcRemaining<n - 1>::template State<nBitsPerIndex, nSrcIdx + 1> StateNext;
+					StateNext::Do(pDst, pSrc);
+				}
+			};
+		};
+
+		template <>
+		struct SrcRemaining<0>
+		{
+			template <uint32_t nBitsPerIndex, uint32_t nSrcIdx>
+			struct State
+			{
+				static void Do(Word* pDst, const uint8_t* pSrc)
+				{
+				}
+			};
+		};
+	}
+
+
+
+	namespace IndexDecoder2
+	{
+		typedef uint32_t Word;
+		static const uint32_t s_WordBits = sizeof(Word) * 8;
+
+		template <uint32_t nBitsPerIndex, uint32_t nSrcIdx, uint32_t nSrcTotal>
+		struct State
+		{
+			static_assert(nBitsPerIndex <= s_WordBits, "");
+			static_assert(nBitsPerIndex >= s_WordBits/2, "unpack should affect no more than 3 adjacent indices");
+
+			static const Word s_Msk = (((Word) 1) << nBitsPerIndex) - 1;
+
+			static const uint32_t s_BitsDecoded = nSrcIdx * s_WordBits;
+
+			static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
+			static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
+			static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
+
+			static void Do(Word* pDst, const Word* pSrc)
+			{
+				Word src = ByteOrder::from_le(pSrc[nSrcIdx]);
+
+				if constexpr (s_nDstBitsDone > 0)
+					pDst[s_iDst] |= (src << s_nDstBitsDone) & s_Msk;
+				else
+					pDst[s_iDst] = src & s_Msk;
+
+				pDst[s_iDst + 1] = (src >> s_nDstBitsRemaining) & s_Msk;
+
+				if constexpr (s_nDstBitsRemaining + nBitsPerIndex < s_WordBits)
+					pDst[s_iDst + 2] = (src >> (s_nDstBitsRemaining + nBitsPerIndex)) & s_Msk;
+
+				if constexpr (nSrcIdx + 1 < nSrcTotal)
+					State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
+			}
+		};
+	}
+
+
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
+		m_cidDummy = cid;
 
 		{
 			Shaders::Dummy::MathTest1 args;
@@ -925,6 +1033,76 @@ namespace bvm2 {
 			verify_test(!memcmp(pRes, args.m_pRes, sizeof(args.m_pRes)));
 		}
 
+		{
+			// set mainnet rules
+			auto& r = Rules::get();
+			r.pForks[0].m_Height = 0;
+			r.pForks[0].m_Hash.Scan("ed91a717313c6eb0e3f082411584d0da8f0c8af2a4ac01e5af1959e0ec4338bc");
+			r.pForks[1].m_Height = 321321;
+			r.pForks[1].m_Hash.Scan("622e615cfd29d0f8cdd9bdd76d3ca0b769c8661b29d7ba9c45856c96bc2ec5bc");
+			r.pForks[2].m_Height = 777777;
+			r.pForks[2].m_Hash.Scan("1ce8f721bf0c9fa7473795a97e365ad38bbc539aab821d6912d86f24e67720fc");
+
+			r.pForks[3].m_Height = 999999999;
+			r.pForks[3].m_Hash = Zero;
+
+			beam::Block::SystemState::Full s;
+			s.m_Height = 903720;
+			s.m_Prev.Scan("62020e8ee408de5fdbd4c815e47ea098f5e30b84c788be566ac9425e9b07804d");
+			s.m_ChainWork.Scan("0000000000000000000000000000000000000000000000aa0bd15c0cf6e00000");
+			s.m_Kernels.Scan("ccabdcee29eb38842626ad1155014e2d7fc1b00d0a70ccb3590878bdb7f26a02");
+			s.m_Definition.Scan("da1cf1a333d3e8b0d44e4c0c167df7bf604b55352e5bca3bc67dfd350fb707e9");
+			s.m_TimeStamp = 1600968920;
+			reinterpret_cast<uintBig_t<sizeof(s.m_PoW)>*>(&s.m_PoW)->Scan("188306068af692bdd9d40355eeca8640005aa7ff65b61a85b45fc70a8a2ac127db2d90c4fc397643a5d98f3e644f9f59fcf9677a0da2e90f597f61a1bf17d67512c6d57e680d0aa2642f7d275d2700188dbf8b43fac5c88fa08fa270e8d8fbc33777619b00000000ad636476f7117400acd56618");
+			
+			ECC::Hash::Value hv, hvExpected;
+			hvExpected.Scan("23fe8673db74c43d4933b1f2d16db11b1a4895e3924a2f9caf92afa89fd01faf");
+
+			s.get_Hash(hv);
+			verify_test(hv == hvExpected);
+			verify_test(s.IsValid());
+
+			Shaders::Dummy::VerifyBeamHeader args;
+			args.m_Hdr.m_Height = s.m_Height;
+			args.m_Hdr.m_Prev = s.m_Prev;
+			args.m_Hdr.m_ChainWork = s.m_ChainWork;
+			args.m_Hdr.m_Kernels = s.m_Kernels;
+			args.m_Hdr.m_Definition = s.m_Definition;
+			args.m_Hdr.m_TimeStamp = s.m_TimeStamp;
+			memcpy(&args.m_Hdr.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
+			memcpy(&args.m_Hdr.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
+			args.m_Hdr.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
+			args.m_RulesCfg = r.pForks[2].m_Hash;
+
+			Dbg dbg = m_Dbg;
+			m_Dbg.m_Instructions = false;
+			m_Dbg.m_Stack = false;
+			m_Dbg.m_ExtCall = false;
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			m_Dbg = dbg;
+
+			verify_test(args.m_Hash == hv);
+
+			Difficulty::Raw diff;
+			s.m_PoW.m_Difficulty.Unpack(diff);
+			diff += s.m_ChainWork;
+			verify_test(diff == args.m_ChainWork1);
+
+			//uint32_t pIndices[32];
+			//IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
+			//verify_test(!memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
+
+			//s.get_HashForPoW(hvExpected);
+			//verify_test(args.m_HashForPoW == hvExpected);
+
+			//Difficulty::Raw diffRaw;
+			//s.m_PoW.m_Difficulty.Unpack(diffRaw);
+
+			//verify_test(diffRaw == args.m_DiffUnpacked);
+			//verify_test(args.m_DiffTestOk);
+		}
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}

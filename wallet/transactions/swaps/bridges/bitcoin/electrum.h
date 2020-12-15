@@ -22,15 +22,11 @@
 #include <memory>
 #include <chrono>
 
+#include "bitcoin/bitcoin.hpp"
+
 namespace beam::io
 {
     class TcpStream;
-}
-
-namespace libbitcoin::wallet
-{
-    class ec_private;
-    class hd_private;
 }
 
 namespace beam::bitcoin
@@ -102,6 +98,11 @@ namespace beam::bitcoin
 
         virtual uint8_t GetSighashAlgorithm() const;
         virtual bool NeedSignValue() const;
+        virtual Amount getDust() const;
+
+    private:
+        libbitcoin::chain::transaction signRawTx
+        (const libbitcoin::chain::transaction& tx, const std::vector<Utxo>& coins);
 
     private:
         beam::io::Reactor& m_reactor;

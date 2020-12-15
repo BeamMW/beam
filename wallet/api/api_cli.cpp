@@ -45,7 +45,6 @@
 #include "wallet/transactions/assets/assets_reg_creators.h"
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#include "wallet/api/i_atomic_swap_provider.h"
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/client.h"
@@ -58,6 +57,8 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
+#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "nlohmann/json.hpp"

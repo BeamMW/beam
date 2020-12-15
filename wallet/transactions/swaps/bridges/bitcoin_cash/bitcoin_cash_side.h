@@ -33,6 +33,5 @@ namespace beam::wallet
         uint8_t GetSighashAlgorithm() const override;
         bool NeedSignValue() const override;
         bool IsSegwitSupported() const override;
-        uint32_t GetWithdrawTxAverageSize() const override;
     };
 }

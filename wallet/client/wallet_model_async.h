@@ -93,6 +93,14 @@ namespace beam::wallet
         typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
         virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
 
+        virtual void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) = 0;
+
+        virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
+        virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
+
+        virtual void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) = 0;
+        virtual void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }

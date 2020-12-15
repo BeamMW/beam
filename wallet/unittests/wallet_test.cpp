@@ -3124,7 +3124,7 @@ void TestHWWallet()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_ERROR; 
+    int logLevel = LOG_LEVEL_WARNING; 
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif

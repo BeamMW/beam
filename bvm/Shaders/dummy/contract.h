@@ -1,4 +1,5 @@
 #pragma once
+#include "../BeamHeader.h"
 
 namespace Dummy
 {
@@ -88,6 +89,23 @@ namespace Dummy
         template <bool bToShader>
         void Convert()
         {
+        }
+    };
+
+    struct VerifyBeamHeader
+    {
+        static const uint32_t s_iMethod = 9;
+
+        BeamHeaderFull m_Hdr;
+
+        HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
+        HashValue m_Hash;
+        HashValue m_ChainWork1;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            m_Hdr.Convert<bToShader>();
         }
     };
 

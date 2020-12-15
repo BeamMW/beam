@@ -24,6 +24,40 @@ namespace MultiPrecision
 
 	static const uint32_t nWordBits = sizeof(Word) * 8;
 
+	inline Word get_Safe(const Word* pSrc, uint32_t nSrc, uint32_t i)
+	{
+		return (i < nSrc) ? pSrc[i] : 0;
+	}
+
+	inline void SetShifted(Word* pDst, uint32_t nDst, const Word* pSrc, uint32_t nSrc, int nLShift)
+	{
+		uint32_t iSrc = -(nLShift / (int) nWordBits); // don't care about overflow
+		nLShift %= nWordBits;
+
+		if (nLShift)
+		{
+			if (nLShift > 0)
+				iSrc--;
+			else
+				nLShift += nWordBits;
+
+			uint32_t nRShift = nWordBits - nLShift;
+			Word s0 = get_Safe(pSrc, nSrc, iSrc);
+
+			for (uint32_t iDst = 0; iDst < nDst; iDst++)
+			{
+				Word s1 = get_Safe(pSrc, nSrc, ++iSrc);
+				pDst[iDst] = (s0 >> nRShift) | (s1 << static_cast<uint32_t>(nLShift));
+				s0 = s1;
+			}
+		}
+		else
+		{
+			for (uint32_t iDst = 0; iDst < nDst; iDst++, iSrc++)
+				pDst[iDst] = get_Safe(pSrc, nSrc, iSrc);
+		}
+	}
+
 	template <uint32_t nWords_> struct UInt
 		:public UInt<nWords_ - 1>
 	{
@@ -67,6 +101,32 @@ namespace MultiPrecision
 			operator = (x);
 		}
 
+		void ToBE(Word* p) const
+		{
+			*p = Utils::FromBE(m_Val);
+			Base::ToBE(p + 1);
+		}
+
+		void FromBE(const Word* p)
+		{
+			m_Val = Utils::FromBE(*p);
+			Base::FromBE(p + 1);
+		}
+
+		template <typename T>
+		void ToBE_T(T& arg) const
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			ToBE(reinterpret_cast<Word*>(&arg));
+		}
+
+		template <typename T>
+		void FromBE_T(const T& arg)
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			FromBE(reinterpret_cast<const Word*>(&arg));
+		}
+
 		void operator = (uint64_t x)
 		{
 			set_Ord<0>(x);
@@ -76,6 +136,22 @@ namespace MultiPrecision
 		void Set(T val)
 		{
 			set_Ord<nShiftWords, T>(val);
+		}
+
+		template <uint32_t wa>
+		void Set(const UInt<wa>& a, int nLShift)
+		{
+			SetShifted(get_AsArr(), nWords, a.get_AsArr(), wa, nLShift);
+		}
+
+		const Word* get_AsArr() const
+		{
+			return reinterpret_cast<const Word*>(this);
+		}
+
+		Word* get_AsArr()
+		{
+			return reinterpret_cast<Word*>(this);
 		}
 
 		template <uint32_t wa>
@@ -91,7 +167,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator + (const UInt<wa>& a)
+		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator + (const UInt<wa>& a) const
 		{
 			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
 			if constexpr (nWords <= wa)
@@ -102,7 +178,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const UInt<wa>& a)
+		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const UInt<wa>& a) const
 		{
 			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
 			ret.SetSub(*this, a);
@@ -110,7 +186,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt<nWords + wa> operator * (const UInt<wa>& a)
+		UInt<nWords + wa> operator * (const UInt<wa>& a) const
 		{
 			UInt<nWords + wa> ret;
 			ret.Set0();
@@ -234,6 +310,14 @@ namespace MultiPrecision
 
 		template <uint32_t nDepth>
 		void set_Val(Word x)
+		{
+		}
+
+		void ToBE(Word* p) const
+		{
+		}
+
+		void FromBE(const Word* p)
 		{
 		}
 

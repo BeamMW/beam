@@ -20,6 +20,9 @@
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
@@ -296,6 +299,31 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override
     {
         call_async(&IWalletModelAsync::callShader, shader, args, cback);
+    }
+
+    void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getShieldedCountAt, h, std::move(callback));
+    }
+
+    void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
+    {
+        call_async(&IWalletModelAsync::setMaxPrivacyLockTimeLimitHours, limit);
+    }
+
+    void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
+    }
+
+    void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getCoins, assetId, std::move(callback));
+    }
+
+    void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getShieldedCoins, assetId, std::move(callback));
     }
 };
 }
@@ -845,8 +873,8 @@ namespace beam::wallet
 
     void WalletClient::getUtxosStatus()
     {
-        onAllUtxoChanged(ChangeAction::Reset, getUtxos());
-        onShieldedCoinChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(0));
+        onCoinsChanged(ChangeAction::Reset, getUtxos(beam::Asset::s_BeamID));
+        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(beam::Asset::s_BeamID));
     }
 
     void WalletClient::getAddresses(bool own)
@@ -1314,18 +1342,68 @@ namespace beam::wallet
         });
     }
 
+    void WalletClient::getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback)
+    {
+        if (auto w = m_wallet.lock(); w)
+        {
+            auto onRequestComplete = [this, cb = std::move(callback)](Height h, TxoID count)
+            {
+                postFunctionToClientContext([h, count, clientContextCallback = std::move(cb)]()
+                {
+                    clientContextCallback(h, count);
+                });
+            };
+            w->RequestShieldedOutputsAt(h, onRequestComplete);
+        }
+    }
+
+    void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
+    {
+        m_walletDB->set_MaxPrivacyLockTimeLimitHours(limit);
+        onStatus(getStatus());
+        updateClientState();
+    }
+
+    void WalletClient::getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
+    {
+        auto limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours();
+        postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
+        {
+            cb(std::move(res));
+        });
+    }
+
+    void WalletClient::getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback)
+    {
+        auto coins = getUtxos(assetId);
+        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
+        {
+            cb(std::move(coins));
+        });
+    }
+
+    void WalletClient::getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback)
+    {
+        auto coins = m_walletDB->getShieldedCoins(assetId);
+        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
+        {
+            cb(std::move(coins));
+        });
+    }
+
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
     {
         onImportRecoveryProgress(done, total);
         return true;
     }
 
-    vector<Coin> WalletClient::getUtxos() const
+    vector<Coin> WalletClient::getUtxos(Asset::ID assetId) const
     {
         vector<Coin> utxos;
-        m_walletDB->visitCoins([&utxos](const Coin& c)->bool
+        m_walletDB->visitCoins([&utxos, assetId](const Coin& c)->bool
             {
-                utxos.push_back(c);
+                if (c.m_ID.m_AssetID == assetId)
+                    utxos.push_back(c);
                 return true;
             });
         return utxos;
@@ -1341,7 +1419,7 @@ namespace beam::wallet
             WalletStatus::AssetStatus assetStatus;
 
             assetStatus.available         = AmountBig::get_Lo(info.Avail);
-            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming);
+            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming) + AmountBig::get_Lo(info.IncomingShielded);
             assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
             assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
             assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
