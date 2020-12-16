@@ -117,23 +117,6 @@ namespace
         TxAddressType addressType = GetAddressType(desc);
 
         bool bSuccess = true;
-        bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
-        if (!hasNoPeerId)
-        {
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-                txID,
-                tx->m_sender
-                ? TxParameterID::PeerID
-                : TxParameterID::MyID,
-                pi.m_Receiver);
-        }
-
-        bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-            txID,
-            tx->m_sender
-            ? TxParameterID::MyID
-            : TxParameterID::PeerID,
-            pi.m_Sender);
 
         bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::Amount, pi.m_Amount);
 
@@ -149,34 +132,45 @@ namespace
 
             if (bSuccess)
             {
-                // TODO roman.strilets need to refactor this code
-                auto txDescription = walletDB->getTx(txID);
-                if (txDescription)
+                SwapTxDescription swapDescription(desc);
+                auto swapToken = swapDescription.getToken();
+
+                if (swapToken)
                 {
-                    SwapTxDescription swapDescription(*txDescription);
-                    auto swapToken = swapDescription.getToken();
+                    std::ostringstream s;
 
-                    if (swapToken)
-                    {
-                        std::ostringstream s;
+                    s << "Type:        " << "atomic swap" << std::endl;
+                    s << "Swap coin:   " << std::to_string(swapCoin) << std::endl;
+                    s << "Beam side:   " << isBeamSide << std::endl;
+                    s << "Beam amount: " << PrintableAmount(pi.m_Amount) << std::endl;
+                    s << "Swap amount: " << std::to_string(swapAmount) << std::endl;
+                    s << "Swap token:  " << *swapToken << std::endl;
 
-                        s << "Type:        " << "atomic swap" << std::endl;
-                        s << "Sender:      " << std::to_string(pi.m_Sender) << std::endl;
-                        s << "Swap coin:   " << std::to_string(swapCoin) << std::endl;
-                        s << "Beam side:   " << isBeamSide << std::endl;
-                        s << "Receiver:    " << (hasNoPeerId ? desc.getToken() : std::to_string(pi.m_Receiver)) << std::endl;
-                        s << "Beam amount: " << PrintableAmount(pi.m_Amount) << std::endl;
-                        s << "Swap amount: " << std::to_string(swapAmount) << std::endl;
-                        s << "Swap token:  " << *swapToken << std::endl;
-
-                        return s.str();
-                    }
+                    return s.str();
                 }
             }
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else
         {
+            bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+            if (!hasNoPeerId)
+            {
+                bSuccess = bSuccess && storage::getTxParameter(*walletDB,
+                    txID,
+                    tx->m_sender
+                    ? TxParameterID::PeerID
+                    : TxParameterID::MyID,
+                    pi.m_Receiver);
+            }
+
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB,
+                txID,
+                tx->m_sender
+                ? TxParameterID::MyID
+                : TxParameterID::PeerID,
+                pi.m_Sender);
+
             bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::KernelID, pi.m_KernelID);
 
             if (bSuccess)
@@ -1576,7 +1570,7 @@ namespace
 
         const auto txdetails = TxDetailsInfo(walletDB, *txId);
         if (txdetails.empty()) {
-            // storage::TxDetailsInfo already printed an error
+            // TxDetailsInfo already printed an error
             return -1;
         }
 
