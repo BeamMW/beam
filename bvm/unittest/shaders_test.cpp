@@ -67,6 +67,7 @@ namespace Shaders {
 #include "../Shaders/StableCoin/contract.h"
 #include "../Shaders/faucet/contract.h"
 #include "../Shaders/roulette/contract.h"
+#include "../Shaders/sidechain/contract.h"
 
 	namespace Env {
 
@@ -122,6 +123,10 @@ namespace Shaders {
 	}
 	namespace Dummy {
 #include "../Shaders/dummy/contract.cpp"
+	}
+
+	namespace Sidechain {
+#include "../Shaders/sidechain/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -604,6 +609,7 @@ namespace bvm2 {
 			ByteBuffer m_Vault;
 			ByteBuffer m_Oracle;
 			ByteBuffer m_Dummy;
+			ByteBuffer m_Sidechain;
 			ByteBuffer m_StableCoin;
 			ByteBuffer m_Faucet;
 			ByteBuffer m_Roulette;
@@ -616,6 +622,7 @@ namespace bvm2 {
 		ContractID m_cidFaucet;
 		ContractID m_cidRoulette;
 		ContractID m_cidDummy;
+		ContractID m_cidSidechain;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -734,6 +741,16 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidSidechain)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
+				//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -743,6 +760,7 @@ namespace bvm2 {
 		void TestStableCoin();
 		void TestFaucet();
 		void TestRoulette();
+		void TestSidechain();
 
 		void TestAll();
 	};
@@ -767,11 +785,13 @@ namespace bvm2 {
 		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
 		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
+		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
 
 		TestVault();
 		TestFaucet();
 		TestRoulette();
 		TestDummy();
+		TestSidechain();
 		TestOracle();
 		TestStableCoin();
 	}
@@ -1116,6 +1136,43 @@ namespace bvm2 {
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));
+	}
+
+	void MyProcessor::TestSidechain()
+	{
+		Block::SystemState::Full s;
+		ZeroObject(s);
+		s.m_Height = 920000;
+		s.m_ChainWork = 100500U;
+
+		{
+			Shaders::Sidechain::Init args;
+			ZeroObject(args);
+			CvtHdrPrefix(args.m_Hdr0, s);
+			CvtHdrElement(args.m_Hdr0, s);
+			args.m_Rules = Rules::get().pForks[2].m_Hash;
+			verify_test(ContractCreate_T(m_cidSidechain, m_Code.m_Sidechain, args));
+		}
+
+		{
+			Shaders::Sidechain::Grow<10> args;
+			ZeroObject(args);
+			args.m_nSequence = 10;
+
+			s.NextPrefix();
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
+
+			CvtHdrPrefix(args.m_Prefix, s);
+
+			for (uint32_t i = 0; i < 10; i++)
+			{
+				CvtHdrElement(args.m_pSequence[i], s);
+				s.NextPrefix();
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
+			}
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+		}
 	}
 
 	void MyProcessor::TestOracle()
