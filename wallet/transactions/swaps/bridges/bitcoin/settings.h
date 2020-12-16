@@ -170,8 +170,7 @@ namespace beam::bitcoin
         ConnectionType m_connectionType = ConnectionType::None;
         // They are not stored in DB
         Amount m_minFeeRate = 1000u;
-        // TODO roman.strilet need to investigate
-        Amount m_maxFeeRate = 1'000'000u;
+        Amount m_maxFeeRate = 1'000'000u; // COIN / 100
         uint16_t m_txMinConfirmations = 6;
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;
