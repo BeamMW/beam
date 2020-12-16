@@ -936,6 +936,23 @@ namespace bvm2 {
 		};
 	}
 
+	void CvtHdrPrefix(Shaders::BeamHeaderPrefix& bh, const Block::SystemState::Sequence::Prefix& s)
+	{
+		bh.m_Prev = s.m_Prev;
+		bh.m_ChainWork = s.m_ChainWork;
+		bh.m_Height = s.m_Height;
+	}
+
+	void CvtHdrElement(Shaders::BeamHeaderSequence& bh, const Block::SystemState::Sequence::Element& s)
+	{
+		bh.m_Definition = s.m_Definition;
+		bh.m_Kernels = s.m_Kernels;
+		bh.m_TimeStamp = s.m_TimeStamp;
+		memcpy(&bh.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
+		memcpy(&bh.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
+		bh.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
+	}
+
 
 	void MyProcessor::TestDummy()
 	{
@@ -1063,15 +1080,8 @@ namespace bvm2 {
 			verify_test(s.IsValid());
 
 			Shaders::Dummy::VerifyBeamHeader args;
-			args.m_Hdr.m_Height = s.m_Height;
-			args.m_Hdr.m_Prev = s.m_Prev;
-			args.m_Hdr.m_ChainWork = s.m_ChainWork;
-			args.m_Hdr.m_Kernels = s.m_Kernels;
-			args.m_Hdr.m_Definition = s.m_Definition;
-			args.m_Hdr.m_TimeStamp = s.m_TimeStamp;
-			memcpy(&args.m_Hdr.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
-			memcpy(&args.m_Hdr.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
-			args.m_Hdr.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
+			CvtHdrPrefix(args.m_Hdr, s);
+			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
 			Dbg dbg = m_Dbg;
