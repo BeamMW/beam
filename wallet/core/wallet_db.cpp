@@ -19,6 +19,7 @@
 #include "sqlite/sqlite3.h"
 #include "core/block_rw.h"
 #include "wallet/core/common.h"
+#include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -3314,18 +3315,35 @@ namespace beam::wallet
 
     void WalletDB::visitTx(std::function<bool(TxType, TxStatus)> filter, std::function<void(const TxDescription&)> func) const
     {
-        sqlite::Statement stm(this, "SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2 ORDER BY value DESC;");
-        stm.bind(1, TxParameterID::CreateTime);
-        stm.bind(2, kDefaultSubTxID);
+        using TxData = std::pair<TxID, Timestamp>;
+        auto pred = [](const TxData& left, const TxData& right) {return left.second < right.second; };
+        std::priority_queue<TxData, std::vector<TxData>, decltype(pred)> transactions(pred);
+        {
+            sqlite::Statement stm(this, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2;");
+            stm.bind(1, TxParameterID::CreateTime);
+            stm.bind(2, kDefaultSubTxID);
+            TxID txID;
+            ByteBuffer buffer;
+            Timestamp timestamp;
+            while (stm.step())
+            {
+                stm.get(0, txID);
+                stm.get(1, buffer);
+                if (fromByteBuffer<Timestamp>(buffer, timestamp))
+                {
+                    transactions.emplace(txID, timestamp);
+                }
+            }
+        }
 
         const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm2(this, gtParamReq);
         sqlite::Statement stm3(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
-        while (stm.step())
+        while (!transactions.empty())
         {
-            TxID txID;
-            stm.get(0, txID);
+            TxID txID = transactions.top().first;
+            transactions.pop();
             TxType type;
             TxStatus status;
             if (!getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::TransactionType, type, stm3) ||
@@ -6180,5 +6198,79 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
         return std::to_string(params);
+    }
+
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular, const string& label, WalletAddress::ExpirationStatus expiration, const std::string& existingSBBS, uint32_t offlineCount)
+    {
+        switch (type)
+        {
+        case beam::wallet::TxAddressType::Unknown:
+            throw std::runtime_error("Unknown address type");
+
+        case beam::wallet::TxAddressType::Regular:
+            {
+                boost::optional<WalletAddress> address;
+                if (!existingSBBS.empty())
+                {
+                    auto receiver = existingSBBS;
+                    bool isValid = true;
+                    WalletID walletID;
+                    ByteBuffer buffer = from_hex(receiver, &isValid);
+                    if (!isValid || !walletID.FromBuf(buffer))
+                    {
+                        throw std::runtime_error("Invalid address");
+                    }
+                    address = walletDB->getAddress(walletID);
+                    if (!address)
+                    {
+                        throw std::runtime_error("Cannot get address, there is no SBBS");
+                    }
+                    if (address->isExpired())
+                    {
+                        throw std::runtime_error("Cannot get address, it is expired");
+                    }
+                    if (!address->isPermanent())
+                    {
+                        throw std::runtime_error("The address expiration time must be never.");
+                    }
+                }
+                else
+                {
+                    address = GenerateNewAddress(walletDB, label, expiration);
+                }
+                if (newStyleRegular)
+                {
+                    return GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+                }
+                else
+                {
+                    return std::to_string(address->m_walletID);
+                }
+            }
+        case beam::wallet::TxAddressType::AtomicSwap:
+            throw std::runtime_error("Unsupported address type");
+
+        case beam::wallet::TxAddressType::Offline:
+            {
+                LOG_INFO() << "Generating offline address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, offlineCount);
+                return GenerateOfflineAddress(walletAddress, 0, vouchers);
+            }
+        case beam::wallet::TxAddressType::MaxPrivacy:
+            {
+                LOG_INFO() << "Generating max privacy address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                return GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+            }
+        case beam::wallet::TxAddressType::PublicOffline:
+            {
+                LOG_INFO() << "Generating public offline address";
+                return GeneratePublicOfflineAddress(*walletDB);
+            }
+        default:
+            throw std::runtime_error("Unexpected address type");
+        }
     }
 }

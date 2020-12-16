@@ -1133,5 +1133,7 @@ namespace beam::wallet
     std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
     std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::OneDay, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
+
 
 }  // namespace beam::wallet

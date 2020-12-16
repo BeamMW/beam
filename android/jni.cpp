@@ -908,28 +908,50 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *
     jstring rawPaymentInfo)
 {
     string str = JString(env, rawPaymentInfo).value();
-    storage::PaymentInfo paymentInfo;
+    auto buffer = from_hex(str);
+
     try
     {
-        paymentInfo = storage::PaymentInfo::FromByteBuffer(from_hex(str));
-    }
-    catch (...)
-    {
-        paymentInfo.Reset();
-    }
+        storage::PaymentInfo paymentInfo = storage::PaymentInfo::FromByteBuffer(buffer);
 
-    jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
-
-    {
+        jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+        {   
         setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
         setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
         setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
         setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
         setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
         setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+        }
+
+        return jPaymentInfo;
+    }
+    catch (...)
+    {
+        
     }
 
-    return jPaymentInfo;
+    try
+    {
+        auto shieldedPaymentInfo = beam::wallet::storage::ShieldedPaymentInfo::FromByteBuffer(buffer);
+       
+        jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+        {   
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(shieldedPaymentInfo.m_Sender));
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(shieldedPaymentInfo.m_Receiver));
+        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", shieldedPaymentInfo.m_Amount);
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(shieldedPaymentInfo.m_KernelID));
+        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", shieldedPaymentInfo.IsValid());
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+        }
+
+        return jPaymentInfo;
+    }
+    catch (...)
+    {
+    }
+    
+    return nullptr;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinsByTx)(JNIEnv *env, jobject thiz,
@@ -1019,6 +1041,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getExchangeRates)(JNIEnv *env,
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPublicAddress)(JNIEnv *env, jobject thiz)
 {
     walletModel->getAsync()->getPublicAddress();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportTxHistoryToCsv)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->exportTxHistoryToCsv();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JNIEnv *env, jobject thiz, jlong offset)

@@ -171,6 +171,23 @@ namespace
         {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
     };
 
+    WalletAddress::ExpirationStatus MapExpirationStatus(AddressData::Expiration exp)
+    {
+        switch (exp)
+        {
+        case EditAddress::OneDay:
+            return WalletAddress::ExpirationStatus::OneDay;
+
+        case EditAddress::Expired:
+            return WalletAddress::ExpirationStatus::Expired;
+
+        case EditAddress::Never:
+            return WalletAddress::ExpirationStatus::Never;
+        default:
+            return WalletAddress::ExpirationStatus::OneDay;
+        }
+    }
+
 }  // namespace
 
 namespace beam::wallet
@@ -244,18 +261,22 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        WalletAddress address;
         auto walletDB = _walletData.getWalletDBPtr();
 
-        if (!walletDB) {
+        if (!walletDB)
+        {
             return doError(id, ApiError::NotOpenedError);
         }
 
-        walletDB->createAddress(address);
-        FillAddressData(data, address);
+        std::string newAddress = GenerateAddress(walletDB
+            , data.type
+            , data.newStyleRegular
+            , data.comment ? *data.comment : ""
+            , data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay
+            , ""
+            , data.offlinePayments);
 
-        walletDB->saveAddress(address);
-        doResponse(id, CreateAddress::Response{ address.m_walletID });
+        doResponse(id, CreateAddress::Response{ newAddress });
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const DeleteAddress& data)
