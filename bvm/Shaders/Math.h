@@ -230,8 +230,8 @@ namespace MultiPrecision
 		template <uint32_t wa, uint32_t wb>
 		DWordSigned SetSub(const UInt<wa>& a, const UInt<wb>& b)
 		{
-			// *this = a + b
-			DWordSigned carry = Base::SetAdd(a, b);
+			// *this = a - b
+			DWordSigned carry = Base::SetSub(a, b);
 			carry += a.template get_Val<nWords>();
 			carry -= b.template get_Val<nWords>();
 
