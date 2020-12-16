@@ -113,6 +113,10 @@ namespace beam::wallet
             return parameters;
         }
 
+        // if there is no parameter default behaviour is to save address or update it, for historical reasons
+        auto savePeerAddressParam = parameters.GetParameter<bool>(TxParameterID::SavePeerAddress);
+        bool savePeerAddress = !savePeerAddressParam || *savePeerAddressParam == true;
+
         auto receiverAddr = walletDB->getAddress(*peerID);
         if (receiverAddr)
         {
@@ -122,22 +126,25 @@ namespace beam::wallet
                 throw ReceiverAddressExpiredException();
             }
 
-            // update address comment if changed
-            if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
+            if (savePeerAddress)
             {
-                auto messageStr = std::string(message->begin(), message->end());
-                if (messageStr != receiverAddr->m_label)
+                // update address comment if changed
+                if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
                 {
-                    receiverAddr->m_label = messageStr;
-                    walletDB->saveAddress(*receiverAddr);
+                    auto messageStr = std::string(message->begin(), message->end());
+                    if (messageStr != receiverAddr->m_label)
+                    {
+                        receiverAddr->m_label = messageStr;
+                        walletDB->saveAddress(*receiverAddr);
+                    }
                 }
             }
-            
+
             TxParameters temp{ parameters };
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
-        else
+        else if (savePeerAddress)
         {
             WalletAddress address;
             address.m_walletID = *peerID;
@@ -150,9 +157,10 @@ namespace beam::wallet
             {
                 address.m_Identity = *identity;
             }
-            
+
             walletDB->saveAddress(address);
         }
+        
         return parameters;
     }
 
