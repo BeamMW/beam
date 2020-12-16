@@ -1087,8 +1087,9 @@ namespace bvm2 {
 
 			Difficulty::Raw diff;
 			s.m_PoW.m_Difficulty.Unpack(diff);
+			diff.Negate();
 			diff += s.m_ChainWork;
-			verify_test(diff == args.m_ChainWork1);
+			verify_test(diff == args.m_ChainWork0);
 
 			//uint32_t pIndices[32];
 			//IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));

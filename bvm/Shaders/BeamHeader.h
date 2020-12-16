@@ -19,11 +19,21 @@
 #pragma pack (push, 1)
 #pragma pack (pop)
 
-struct BeamHeaderFull
+struct BeamHeaderPrefix
 {
     Height m_Height;
     HashValue m_Prev;
     HashValue m_ChainWork; // not hash, just same size
+
+    template <bool bToShader>
+    void Convert()
+    {
+        ConvertOrd<bToShader>(m_Height);
+    }
+};
+
+struct BeamHeaderSequence
+{
     HashValue m_Kernels;
     HashValue m_Definition;
     Timestamp m_TimeStamp;
@@ -39,9 +49,21 @@ struct BeamHeaderFull
     template <bool bToShader>
     void Convert()
     {
-        ConvertOrd<bToShader>(m_Height);
         ConvertOrd<bToShader>(m_TimeStamp);
         ConvertOrd<bToShader>(m_PoW.m_Difficulty);
+    }
+};
+
+struct BeamHeaderFull
+    :public BeamHeaderPrefix
+    ,public BeamHeaderSequence
+{
+
+    template <bool bToShader>
+    void Convert()
+    {
+        BeamHeaderPrefix::Convert<bToShader>();
+        BeamHeaderSequence::Convert<bToShader>();
     }
 
     void get_Hash(HashValue& out, const HashValue* pRules) const
