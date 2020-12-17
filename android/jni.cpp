@@ -63,6 +63,8 @@ namespace
     static ECC::NoLeak<ECC::uintBig> passwordHash;
     static beam::wallet::TxParameters _txParameters;
 
+    static uint8_t m_mpLockTimeLimit = 0;
+
     void initLogger(const string& appData, const string& appVersion)
     {
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
@@ -1057,6 +1059,24 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JN
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(JNIEnv *env, jobject thiz)
 {
     return walletModel->getCoinConfirmationsOffset();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz, jlong hours)
+{
+    walletModel->getAsync()->setMaxPrivacyLockTimeLimitHours(hours);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHoursAsync)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->getMaxPrivacyLockTimeLimitHours([&] (uint8_t limit)
+    {
+        m_mpLockTimeLimit = limit;
+    });
+}
+
+JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz)
+{
+    return m_mpLockTimeLimit;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
