@@ -40,6 +40,7 @@ using namespace beam::wallet;
 constexpr size_t kCollectorBufferSize = 50;
 constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
+constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -1513,9 +1514,8 @@ namespace beam::wallet
         if (!status.stateID.m_Height || !(status.stateID.m_Height % kShieldedPer24hFilterBlocksForUpdate))
         {
             m_shieldedCountHistoryPart.clear();
-            constexpr auto shieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
 
-            if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * shieldedCountHistoryWindowSize)
+            if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * kShieldedCountHistoryWindowSize)
             {
                 assert(!m_wallet.expired());
                 auto w = m_wallet.lock();
@@ -1524,16 +1524,16 @@ namespace beam::wallet
                     return;
                 }
 
-                m_shieldedCountHistoryPart.reserve(shieldedCountHistoryWindowSize);
+                m_shieldedCountHistoryPart.reserve(kShieldedCountHistoryWindowSize);
 
-                for (uint8_t i = 0; i < shieldedCountHistoryWindowSize; ++i)
+                for (uint8_t i = 0; i < kShieldedCountHistoryWindowSize; ++i)
                 {
                     auto h = status.stateID.m_Height - (kShieldedPer24hFilterBlocksForUpdate * i);
 
-                    w->RequestShieldedOutputsAt(h, [this, shieldedCountHistoryWindowSize](Height h, TxoID count)
+                    w->RequestShieldedOutputsAt(h, [this](Height h, TxoID count)
                     {
                         m_shieldedCountHistoryPart.emplace_back(h, count);
-                        if (m_shieldedCountHistoryPart.size() == shieldedCountHistoryWindowSize)
+                        if (m_shieldedCountHistoryPart.size() == kShieldedCountHistoryWindowSize)
                         {
                             for (uint8_t i = 0; i < kShieldedPer24hFilterSize; ++i)
                             {
