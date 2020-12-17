@@ -735,38 +735,61 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     LOG_DEBUG() << "saveAddress()";
 
     WalletID m_walletID(Zero);
-    m_walletID.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID"));
+    if (m_walletID.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID")))
+    {
+            auto address = walletDB->getAddress(m_walletID); 
+            if (address)  
+            { 
+                LOG_DEBUG() << "address found in database";
 
-    auto address = walletDB->getAddress(m_walletID); 
-    if (address)  
-    { 
-        LOG_DEBUG() << "address found in database";
+                address->m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
+                address->m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
+                address->m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+                address->m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+                walletDB->saveAddress(*address);
+            }
+            else {
+                LOG_DEBUG() << "address not found in database";
 
-        address->m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
-        address->m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
-        address->m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
-        walletDB->saveAddress(*address);
+                WalletAddress addr;
+                addr.m_walletID.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID"));    
+                addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
+                addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
+                addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
+                addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+                addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
+                addr.m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+
+                if(own) 
+                {
+                    bool isValid = false;
+                    auto buf = from_hex(getStringField(env, WalletAddressClass, walletAddrObj, "identity"), &isValid);
+                    PeerID m_Identity = Blob(buf);
+                    addr.m_Identity = m_Identity;
+                }
+
+                walletModel->getAsync()->saveAddress(addr, own);
+            }
     }
-    else {
-        LOG_DEBUG() << "address not found in database";
-
+    else {        
         WalletAddress addr;
-        addr.m_walletID.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID"));    
-        addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
-        addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
-        addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
-        addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+        addr.m_walletID = Zero;
         addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
+        addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+        addr.m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+        addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
+        addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
+        addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
 
-        if(own) 
+        bool isValid = false;
+        auto buf = from_hex(getStringField(env, WalletAddressClass, walletAddrObj, "identity"), &isValid);
+        if(isValid)
         {
-            bool isValid = false;
-            auto buf = from_hex(getStringField(env, WalletAddressClass, walletAddrObj, "identity"), &isValid);
             PeerID m_Identity = Blob(buf);
             addr.m_Identity = m_Identity;
         }
-
-        walletModel->getAsync()->saveAddress(addr, own);
+        
+        walletModel->getAsync()->saveAddress(addr, false);
     }
 }
 
