@@ -323,7 +323,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
     LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
-
     auto address = walletDB->getAddress(JString(env, walletId).value());
     
     uint64_t bAmount = amount;
@@ -670,6 +669,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     {
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, JString(env, receiverAddr).value());
     }
+
+    params.SetParameter(TxParameterID::SavePeerAddress, false);
 
     walletModel->getAsync()->startTransaction(std::move(params));
 }

@@ -54,6 +54,7 @@ namespace
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
         setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
         setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
+        setStringField(env, WalletAddressClass, addr, "address", address.m_Address);
 
         return addr;
     }
@@ -115,6 +116,8 @@ namespace
 
         setStringField(env, TxDescriptionClass, tx, "receiverAddress", getAddressTo(txDescription));
         setStringField(env, TxDescriptionClass, tx, "senderAddress", getAddressFrom(txDescription));
+
+        setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
 
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
