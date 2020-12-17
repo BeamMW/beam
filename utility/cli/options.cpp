@@ -246,16 +246,11 @@ namespace beam
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
-        const char* ETHEREUM_ADDRESS = "ethereum_address";
+        const char* INFURA_PROJECT_ID = "infura_project_id";
         const char* ACCOUNT_INDEX = "account_index";
         const char* SHOULD_CONNECT = "should_connect";
-        const char* ETH_CONTRACT_ADDRESS = "eth_contract_address";
         const char* ETH_GAS_PRICE = "eth_gas_price";
         const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
-        const char* ERC20_CONTRACT_ADDRESS = "erc20_contract_address";
-        const char* DAI_CONTRACT_ADDRESS = "dai_contract_address";
-        const char* TETHER_CONTRACT_ADDRESS = "usdt_contract_address";
-        const char* WBTC_CONTRACT_ADDRESS = "wbtc_contract_address";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -475,16 +470,11 @@ namespace beam
             (cli::SWAP_TX_HISTORY, "print swap transaction history in info command")
             (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap")
             (cli::ETHEREUM_SEED, po::value<string>(), "")
-            (cli::ETHEREUM_ADDRESS, po::value<string>(), "")
+            (cli::INFURA_PROJECT_ID, po::value<string>(), "")
             (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "")
             (cli::SHOULD_CONNECT, po::value<bool>(), "")
-            (cli::ETH_CONTRACT_ADDRESS, po::value<string>(), "swap contract address in blockchain")
             (cli::ETH_GAS_PRICE, po::value<Positive<Amount>>(), "gas price in the gwei")
-            (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums or tokens")
-            (cli::ERC20_CONTRACT_ADDRESS, po::value<string>(), "ERC20 swap contract address in blockchain")
-            (cli::DAI_CONTRACT_ADDRESS, po::value<string>(), "DAI contract address in blockchain")
-            (cli::TETHER_CONTRACT_ADDRESS, po::value<string>(), "TETHER contract address in blockchain")
-            (cli::WBTC_CONTRACT_ADDRESS, po::value<string>(), "WBTC contract address in blockchain");
+            (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums or tokens");
 
         po::options_description wallet_assets_options("Confidential assets");
         wallet_assets_options.add_options()

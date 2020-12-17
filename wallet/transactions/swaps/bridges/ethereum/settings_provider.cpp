@@ -30,20 +30,11 @@ Settings SettingsProvider::GetSettings() const
 void SettingsProvider::SetSettings(const Settings& settings)
 {
     // store to DB
-    WriteToDb(GetAddressName(), settings.m_address);
+    WriteToDb(GetProjectIDName(), settings.m_projectID);
     WriteToDb(GetSecretWordsName(), settings.m_secretWords);
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
-    WriteToDb(GetContractAddressName(), settings.m_swapContractAddress);
-    WriteToDb(GetERC20ContractAddressName(), settings.m_erc20SwapContractAddress);
-    WriteToDb(GetDaiContractAddressName(), settings.m_daiContractAddress);
-    WriteToDb(GetUsdtContractAddressName(), settings.m_usdtContractAddress);
-    WriteToDb(GetWbtcContractAddressName(), settings.m_wbtcContractAddress);
-    WriteToDb(GetShouldConnectToDaiName(), settings.m_shouldConnectToDai);
-    WriteToDb(GetShouldConnectToUsdtName(), settings.m_shouldConnectToUsdt);
-    WriteToDb(GetShouldConnectToWBTCName(), settings.m_shouldConnectToWBTC);
-    WriteToDb(GetHashlockContractAddressName(), settings.m_swapHashlockContractAddress);
-    
+
     // update m_settings
     m_settings = std::make_unique<Settings>(settings);
 }
@@ -53,19 +44,10 @@ void SettingsProvider::Initialize()
     if (!m_settings)
     {
         m_settings = std::make_unique<Settings>(GetEmptySettings());
-        ReadFromDB(GetAddressName(), m_settings->m_address);
+        ReadFromDB(GetProjectIDName(), m_settings->m_projectID);
         ReadFromDB(GetSecretWordsName(), m_settings->m_secretWords);
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
-        ReadFromDB(GetContractAddressName(), m_settings->m_swapContractAddress);
-        ReadFromDB(GetERC20ContractAddressName(), m_settings->m_erc20SwapContractAddress);
-        ReadFromDB(GetWbtcContractAddressName(), m_settings->m_wbtcContractAddress);
-        ReadFromDB(GetDaiContractAddressName(), m_settings->m_daiContractAddress);
-        ReadFromDB(GetUsdtContractAddressName(), m_settings->m_usdtContractAddress);
-        ReadFromDB(GetShouldConnectToDaiName(), m_settings->m_shouldConnectToDai);
-        ReadFromDB(GetShouldConnectToUsdtName(), m_settings->m_shouldConnectToUsdt);
-        ReadFromDB(GetShouldConnectToWBTCName(), m_settings->m_shouldConnectToWBTC);
-        ReadFromDB(GetHashlockContractAddressName(), m_settings->m_swapHashlockContractAddress);
     }
 }
 
@@ -97,9 +79,9 @@ Settings SettingsProvider::GetEmptySettings()
     return Settings{};
 }
 
-std::string SettingsProvider::GetAddressName() const
+std::string SettingsProvider::GetProjectIDName() const
 {
-    return GetSettingsName() + "_Address";
+    return GetSettingsName() + "_ProjectID";
 }
 
 std::string SettingsProvider::GetSecretWordsName() const
@@ -115,50 +97,5 @@ std::string SettingsProvider::GetAccountIndexName() const
 std::string SettingsProvider::GetShouldConnectName() const
 {
     return GetSettingsName() + "_ShouldConnect";
-}
-
-std::string SettingsProvider::GetContractAddressName() const
-{
-    return GetSettingsName() + "_ContractAddress";
-}
-
-std::string SettingsProvider::GetERC20ContractAddressName() const
-{
-    return GetSettingsName() + "_ERC20ContractAddress";
-}
-
-std::string SettingsProvider::GetDaiContractAddressName() const
-{
-    return GetSettingsName() + "_DaiContractAddress";
-}
-
-std::string SettingsProvider::GetWbtcContractAddressName() const
-{
-    return GetSettingsName() + "_WbtcContractAddress";
-}
-
-std::string SettingsProvider::GetUsdtContractAddressName() const
-{
-    return GetSettingsName() + "_UsdtContractAddress";
-}
-
-std::string SettingsProvider::GetShouldConnectToDaiName() const
-{
-    return GetSettingsName() + "_ShouldConnectToDai";
-}
-
-std::string SettingsProvider::GetShouldConnectToUsdtName() const
-{
-    return GetSettingsName() + "_ShouldConnectToUsdt";
-}
-
-std::string SettingsProvider::GetShouldConnectToWBTCName() const
-{
-    return GetSettingsName() + "_ShouldConnectToWBTC";
-}
-
-std::string SettingsProvider::GetHashlockContractAddressName() const
-{
-    return GetSettingsName() + "_HahslockContractAddress";
 }
 } // namespace beam::ethereum

@@ -40,7 +40,7 @@ bool needSsl(const std::string& address)
 namespace beam::ethereum
 {
 EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider)
-    : m_httpClient(reactor, needSsl(settingsProvider.GetSettings().m_address))
+    : m_httpClient(reactor, settingsProvider.GetSettings().NeedSsl())
     , m_settingsProvider(settingsProvider)
     , m_txConfirmationTimer(io::Timer::create(reactor))
     , m_approveTxConfirmationTimer(io::Timer::create(reactor))
@@ -621,40 +621,7 @@ void EthereumBridge::sendRequest(
 {
     const std::string content = (boost::format(R"({"jsonrpc":"2.0","method":"%1%","params":[%2%], "id":1})") % method % params).str();
     auto settings = m_settingsProvider.GetSettings();
-    std::string host;
-    std::string path = "/";
-    std::string url = settings.m_address;
-
-    auto pos = url.find("://");
-
-    // delete scheme
-    if (pos != std::string::npos)
-    {
-        url.erase(0, pos + 3);
-    }
-
-    // get path
-    pos = url.find("/");
-    if (pos != std::string::npos)
-    {
-        path = url.substr(pos);
-        url.erase(pos);
-    }
-
-    // get host
-    pos = url.find(":");
-    if (pos != std::string::npos)
-    {
-        host = url.substr(0, pos);
-    }
-    else
-    {
-        host = url;
-        if (needSsl(settings.m_address))
-        {
-            url += ":443";
-        }
-    }
+    std::string url = settings.GetEthNodeAddress();
 
     io::Address address;
 
@@ -671,12 +638,13 @@ void EthereumBridge::sendRequest(
         return;
     }
 
+    std::string host = settings.GetEthNodeHost();
     std::vector<HeaderPair> headers;
-
     headers.push_back({"Content-Type", "application/json"});
     headers.push_back({ "Host", host.c_str() });
     
     HttpClient::Request request;
+    std::string path = settings.GetPathAndQuery();
 
     request.address(address)
         .connectTimeoutMsec(2000)

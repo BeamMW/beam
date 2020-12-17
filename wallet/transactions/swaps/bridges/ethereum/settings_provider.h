@@ -55,20 +55,11 @@ protected:
     virtual std::string GetSettingsName() const;
     virtual Settings GetEmptySettings();
 
-    std::string GetAddressName() const;
+    std::string GetProjectIDName() const;
     std::string GetSecretWordsName() const;
     std::string GetAccountIndexName() const;
     std::string GetShouldConnectName() const;
-    std::string GetContractAddressName() const;
-    std::string GetERC20ContractAddressName() const;
-    std::string GetDaiContractAddressName() const;
-    std::string GetWbtcContractAddressName() const;
-    std::string GetUsdtContractAddressName() const;
-    std::string GetShouldConnectToDaiName() const;
-    std::string GetShouldConnectToUsdtName() const;
-    std::string GetShouldConnectToWBTCName() const;
-    std::string GetHashlockContractAddressName() const;
-        
+
     template<typename T>
     void ReadFromDB(const std::string& name, T& value)
     {

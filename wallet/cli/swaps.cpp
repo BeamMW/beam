@@ -420,94 +420,15 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
             throw std::runtime_error("ethereum seed should be specified");
         }
 
-        if (!vm.count(cli::ETHEREUM_ADDRESS))
+        if (!vm.count(cli::INFURA_PROJECT_ID))
         {
-            throw std::runtime_error("ethereum address should be specified");
-        }
-
-        if (!vm.count(cli::ETH_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("ethereum contract address should be specified");
+            throw std::runtime_error("infura project id should be specified");
         }
     }
 
-    // TODO roman.strilets need to unit this code
-    if (swapCoin == wallet::AtomicSwapCoin::Dai && !settings.IsTokenInitialized(swapCoin))
+    if (vm.count(cli::INFURA_PROJECT_ID))
     {
-        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("erc20 swap contract address should be specified");
-        }
-
-        if (!vm.count(cli::DAI_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("DAI contract address should be specified");
-        }
-    }
-
-    if (swapCoin == wallet::AtomicSwapCoin::Tether && !settings.IsTokenInitialized(swapCoin))
-    {
-        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("erc20 swap contract address should be specified");
-        }
-
-        if (!vm.count(cli::TETHER_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("usdt contract address should be specified");
-        }
-    }
-
-    if (swapCoin == wallet::AtomicSwapCoin::WBTC && !settings.IsTokenInitialized(swapCoin))
-    {
-        if (!vm.count(cli::ERC20_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("erc20 swap contract address should be specified");
-        }
-
-        if (!vm.count(cli::WBTC_CONTRACT_ADDRESS))
-        {
-            throw std::runtime_error("WBTC contract address should be specified");
-        }
-    }
-
-    if (vm.count(cli::ETHEREUM_ADDRESS))
-    {
-        settings.m_address = vm[cli::ETHEREUM_ADDRESS].as<string>();
-        if (!io::Address().resolve(settings.m_address.c_str()))
-        {
-            throw std::runtime_error("unable to resolve ethereum address: " + settings.m_address);
-        }
-        isChanged = true;
-    }
-
-    if (vm.count(cli::ETH_CONTRACT_ADDRESS))
-    {
-        settings.m_swapContractAddress = vm[cli::ETH_CONTRACT_ADDRESS].as<string>();
-        isChanged = true;
-    }
-
-    if (vm.count(cli::ERC20_CONTRACT_ADDRESS))
-    {
-        settings.m_erc20SwapContractAddress = vm[cli::ERC20_CONTRACT_ADDRESS].as<string>();
-        isChanged = true;
-    }
-
-    if (vm.count(cli::DAI_CONTRACT_ADDRESS))
-    {
-        settings.m_daiContractAddress = vm[cli::DAI_CONTRACT_ADDRESS].as<string>();
-        isChanged = true;
-    }
-
-    if (vm.count(cli::TETHER_CONTRACT_ADDRESS))
-    {
-        settings.m_daiContractAddress = vm[cli::DAI_CONTRACT_ADDRESS].as<string>();
-        isChanged = true;
-    }
-
-    if (vm.count(cli::WBTC_CONTRACT_ADDRESS))
-    {
-        settings.m_wbtcContractAddress = vm[cli::WBTC_CONTRACT_ADDRESS].as<string>();
+        settings.m_projectID = vm[cli::INFURA_PROJECT_ID].as<string>();
         isChanged = true;
     }
 
@@ -539,24 +460,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 
     if (vm.count(cli::SHOULD_CONNECT))
     {
-        switch (swapCoin)
-        {        
-        case beam::wallet::AtomicSwapCoin::Ethereum:
-            settings.m_shouldConnect = vm[cli::SHOULD_CONNECT].as<bool>();
-            break;
-        case beam::wallet::AtomicSwapCoin::Dai:
-            settings.m_shouldConnectToDai = vm[cli::SHOULD_CONNECT].as<bool>();
-            break;
-        case beam::wallet::AtomicSwapCoin::Tether:
-            settings.m_shouldConnectToUsdt = vm[cli::SHOULD_CONNECT].as<bool>();
-            break;
-        case beam::wallet::AtomicSwapCoin::WBTC:
-            settings.m_shouldConnectToWBTC = vm[cli::SHOULD_CONNECT].as<bool>();
-            break;
-        default:
-            assert(false && "unsupported coin");
-            break;
-        }
+        settings.m_shouldConnect = vm[cli::SHOULD_CONNECT].as<bool>();
         isChanged = true;
     }
 
@@ -579,34 +483,10 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         ostringstream stream;
         stream << "\n" << GetCoinName(AtomicSwapCoin::Ethereum) << " settings" << '\n';
 
-        stream << "Ethereum node: " << settings.m_address << '\n';
+        stream << "Infura project ID: " << settings.m_projectID << '\n';
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
-        stream << "Should connect to DAI: " << settings.m_shouldConnectToDai << '\n';
-        stream << "Should connect to USDT: " << settings.m_shouldConnectToUsdt << '\n';
-        stream << "Should connect to WBTC: " << settings.m_shouldConnectToWBTC << '\n';
-        stream << "Swap contract address: " << settings.m_swapContractAddress << '\n';
 
-        if (!settings.m_erc20SwapContractAddress.empty())
-        {
-            stream << "ERC20 swap contract address: " << settings.m_erc20SwapContractAddress << '\n';
-        }
-
-        if (!settings.m_daiContractAddress.empty())
-        {
-            stream << "DAI contract address: " << settings.m_daiContractAddress << '\n';
-        }
-
-        if (!settings.m_usdtContractAddress.empty())
-        {
-            stream << "Tether contract address: " << settings.m_usdtContractAddress << '\n';
-        }
-
-        if (!settings.m_wbtcContractAddress.empty())
-        {
-            stream << "WBTC contract address: " << settings.m_wbtcContractAddress << '\n';
-        }
-        
         LOG_INFO() << stream.str();
         return;
     }

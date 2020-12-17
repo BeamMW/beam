@@ -73,10 +73,7 @@ void SwapEthClient::requestBalance()
 
         for (auto token : beam::wallet::kEthTokens)
         {
-            if (GetSettings().IsTokenActivated(token))
-            {
-                GetAsync()->GetBalance(token);
-            }
+            GetAsync()->GetBalance(token);
         }
     }
 }

@@ -1690,6 +1690,7 @@ void InitEthereum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
+// TODO roman.strilets need to implement new test
 void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
 {
     cout << "\nTesting ethereum atomic swap transaction...\n";
@@ -1726,18 +1727,18 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     ethereum::Settings aliceSettings;
     aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     aliceSettings.m_accountIndex = 6;
-    aliceSettings.m_address = "127.0.0.1:7545";
+    //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
-    aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     bobSettings.m_accountIndex = 5;
-    bobSettings.m_address = "127.0.0.1:7545";
+    //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
-    bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     /*TestSettings bobSettings;
     bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
@@ -1835,6 +1836,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     //WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
 }
 
+// TODO need to implement new test
 void TestSwapEthRefundTransaction()
 {
     cout << "\nAtomic swap: testing ETH refund transaction...\n";
@@ -1858,20 +1860,20 @@ void TestSwapEthRefundTransaction()
     ethereum::Settings aliceSettings;
     aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     aliceSettings.m_accountIndex = 3;
-    aliceSettings.m_address = "127.0.0.1:7545";
+    //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
     aliceSettings.m_txMinConfirmations = 0; // speed-up test
-    aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     bobSettings.m_accountIndex = 4;
-    bobSettings.m_address = "127.0.0.1:7545";
+    //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
     bobSettings.m_txMinConfirmations = 0;   // speed-up test
-    bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
@@ -1934,6 +1936,7 @@ void TestSwapEthRefundTransaction()
     WALLET_CHECK(receiverCoins.size() == 0);
 }
 
+// TODO roman.strilets need to implement new test
 void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
 {
     cout << "\nTesting ERC20 atomic swap transaction...\n";
@@ -1963,22 +1966,22 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
     ethereum::Settings aliceSettings;
     aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     aliceSettings.m_accountIndex = 3;
-    aliceSettings.m_address = "127.0.0.1:7545";
+    //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_txMinConfirmations = 2;
-    aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    /*aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
     aliceSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
-    aliceSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";
+    aliceSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/
 
     ethereum::Settings bobSettings;
     bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
     bobSettings.m_accountIndex = 4;
-    bobSettings.m_address = "127.0.0.1:7545";
+    //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_txMinConfirmations = 2;
-    bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    /*bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
     bobSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
-    bobSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";
+    bobSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
     auto receiverWalletDB = createReceiverWalletDB();
