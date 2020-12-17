@@ -16,6 +16,12 @@
 
 using namespace beam;
 
+namespace
+{
+    const unsigned int kBalanceUpdateInterval = 10 * 1000; // 10 seconds
+    const unsigned int kFeeRateUpdateInterval = 60 * 1000; // 1 minute
+}
+
 SwapClient::SwapClient(
     bitcoin::IBridgeHolder::Ptr bridgeHolder,
     std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
@@ -27,13 +33,12 @@ SwapClient::SwapClient(
 {
     requestBalance();
     requestRecommendedFeeRate();
-    _timer->start(1000, true, [this]()
+    _timer->start(kBalanceUpdateInterval, true, [this]()
     {
         requestBalance();
     });
 
-    // TODO need name for the parameter
-    _feeTimer->start(60 * 1000, true, [this]()
+    _feeTimer->start(kFeeRateUpdateInterval, true, [this]()
     {
         requestRecommendedFeeRate();
     });

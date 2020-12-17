@@ -16,6 +16,12 @@
 
 using namespace beam;
 
+namespace
+{
+    const unsigned int kBalanceUpdateInterval = 10 * 1000; // 10 seconds
+    const unsigned int kPriceGasUpdateInterval = 60 * 1000; // 1 minute
+}
+
 SwapEthClient::SwapEthClient(
     ethereum::IBridgeHolder::Ptr bridgeHolder,
     std::unique_ptr<beam::ethereum::SettingsProvider> settingsProvider,
@@ -27,13 +33,12 @@ SwapEthClient::SwapEthClient(
 {
     requestBalance();
     requestRecommendedFeeRate();
-    _timer->start(1000, true, [this]()
+    _timer->start(kBalanceUpdateInterval, true, [this]()
     {
         requestBalance();
     });
 
-    // TODO need name for the parameter
-    _feeTimer->start(60 * 1000, true, [this]()
+    _feeTimer->start(kPriceGasUpdateInterval, true, [this]()
     {
         requestRecommendedFeeRate();
     });
