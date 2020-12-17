@@ -112,7 +112,6 @@ contract AtomicSwap {
     
     modifier isRedeemable(address hashedSecret) {
         require(msg.sender == swaps[hashedSecret].participant, "invalid msg.sender");
-        require(block.number < swaps[hashedSecret].refundTimeInBlocks, "too late");
         _;
     }
     

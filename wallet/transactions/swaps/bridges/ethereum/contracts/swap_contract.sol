@@ -30,7 +30,6 @@ contract AtomicSwap {
     
     modifier isRedeemable(bytes32 hashedSecret, bytes32 secret) {
         require(msg.sender == swaps[hashedSecret].participant, "invalid msg.sender");
-        require(block.number < swaps[hashedSecret].refundTimeInBlocks, "too late");
         require(sha256(abi.encodePacked(secret)) == hashedSecret, "invalid secret");
         _;
     }
