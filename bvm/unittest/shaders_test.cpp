@@ -1138,12 +1138,22 @@ namespace bvm2 {
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 
+	void CvtHdrSequence(Shaders::BeamHeaderPrefix& bhp, Shaders::BeamHeaderSequence* pSeq, uint32_t n, const Block::SystemState::Full* pS)
+	{
+		CvtHdrPrefix(bhp, pS[0]);
+		for (uint32_t i = 0; i < n; i++)
+			CvtHdrElement(pSeq[i], pS[i]);
+	}
+
 	void MyProcessor::TestSidechain()
 	{
 		Block::SystemState::Full s;
 		ZeroObject(s);
 		s.m_Height = 920000;
 		s.m_ChainWork = 100500U;
+
+		std::vector<Block::SystemState::Full> vChain;
+		vChain.push_back(s);
 
 		{
 			Shaders::Sidechain::Init args;
@@ -1155,23 +1165,50 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Sidechain::Grow<10> args;
+			const uint32_t nSeq = 10;
+
+			Shaders::Sidechain::Grow<nSeq> args;
 			ZeroObject(args);
-			args.m_nSequence = 10;
+			args.m_nSequence = nSeq;
 
-			s.NextPrefix();
-			s.m_ChainWork += s.m_PoW.m_Difficulty;
-
-			CvtHdrPrefix(args.m_Prefix, s);
-
-			for (uint32_t i = 0; i < 10; i++)
+			for (uint32_t i = 0; i < nSeq; i++)
 			{
-				CvtHdrElement(args.m_pSequence[i], s);
 				s.NextPrefix();
 				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				vChain.push_back(s);
 			}
 
+			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
+
 			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // chainwork didn't grow
+
+			args.m_Prefix.m_ChainWork.Inc(); // tamper with chainwork
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+		}
+
+		{
+			vChain.resize(1);
+			s = vChain.back();
+
+			const uint32_t nSeq = 6;
+
+			Shaders::Sidechain::Grow<nSeq> args;
+			ZeroObject(args);
+			args.m_nSequence = nSeq;
+
+			for (uint32_t i = 0; i < nSeq; i++)
+			{
+				s.NextPrefix();
+				s.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				vChain.push_back(s);
+			}
+
+			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
 		}
 	}
 

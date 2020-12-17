@@ -97,6 +97,8 @@ export void Method_2(const Sidechain::Grow<0>& r)
         Env::LoadVar_T(++h, phOld);
         BeamDifficulty::Unpack(cw1, phOld.m_Difficulty);
         cw0 += cw1;
+
+        Env::DelVar_T(h);
     }
 
     Env::Halt_if(
