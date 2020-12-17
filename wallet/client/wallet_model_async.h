@@ -85,7 +85,6 @@ namespace beam::wallet
         virtual void getPublicAddress() = 0;
 
         virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) = 0;
-        virtual void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) = 0;
 
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;

@@ -28,6 +28,8 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #endif // BEAM_LELANTUS_SUPPORT
 
+#include "filter.h"
+
 using namespace std;
 
 namespace
@@ -35,7 +37,9 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-const size_t kCollectorBufferSize = 50;
+constexpr size_t kCollectorBufferSize = 50;
+constexpr size_t kShieldedPer24hFilterSize = 20;
+constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -286,11 +290,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
     }
 
-    void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override
-    {
-        call_async(&IWalletModelAsync::getShieldedCountAt, h, std::move(callback));
-    }
-
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
     {
         call_async(&IWalletModelAsync::setMaxPrivacyLockTimeLimitHours, limit);
@@ -346,6 +345,7 @@ namespace beam::wallet
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
+        , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
     {
     }
 
@@ -386,6 +386,7 @@ namespace beam::wallet
         onPostFunctionToClientContext(move(func));
     }
 
+    /// Methods below should be called from main thread
     Version WalletClient::getLibVersion() const
     {
         // TODO: replace with current wallet library version
@@ -430,7 +431,7 @@ namespace beam::wallet
 
                 wallet->ResumeAllTransactions();
 
-                updateClientState();
+                updateClientState(getStatus());
                 std::vector<io::Address> fallbackAddresses;
                 storage::getBlobVar(*m_walletDB, FallbackPeers, fallbackAddresses);
                 auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr, std::move(fallbackAddresses));
@@ -560,6 +561,7 @@ namespace beam::wallet
 
     std::string WalletClient::exportOwnerKey(const beam::SecString& pass) const
     {
+        // TODO: remove this, it is not thread safe
         Key::IPKdf::Ptr pOwner = m_walletDB->get_OwnerKdf();
 
         KeyString ks;
@@ -595,6 +597,60 @@ namespace beam::wallet
     {
         return m_isConnectionTrusted;
     }
+
+    beam::TxoID WalletClient::getTotalShieldedCount() const
+    {
+        return m_status.shieldedTotalCount;
+    }
+
+    uint8_t WalletClient::getMPLockTimeLimit() const
+    {
+        return m_mpLockTimeLimit;
+    }
+
+    uint32_t WalletClient::getMarurityProgress(const ShieldedCoin& coin) const
+    {
+        ShieldedCoin::UnlinkStatus us(coin, getTotalShieldedCount());
+        const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+        auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+        return mpAnonymitySet ? us.m_Progress * 64 / mpAnonymitySet : us.m_Progress;
+    }
+
+    uint16_t WalletClient::getMaturityHoursLeft(const ShieldedCoin& coin) const
+    {
+        auto& timeLimit = m_mpLockTimeLimit;
+
+        uint16_t hoursLeftByBlocksU = 0;
+        if (timeLimit)
+        {
+            auto& stateID = m_status.stateID;
+            auto hoursLeftByBlocks = (coin.m_confirmHeight + timeLimit * 60 - stateID.m_Height) / 60.;
+            hoursLeftByBlocksU = static_cast<uint16_t>(hoursLeftByBlocks > 1 ? floor(hoursLeftByBlocks) : ceil(hoursLeftByBlocks));
+        }
+
+        auto& shieldedPer24h = m_shieldedPer24h;
+        if (shieldedPer24h)
+        {
+            auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
+            const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+            auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+            auto maxWindowBacklog = mpAnonymitySet ? Rules::get().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : Rules::get().Shielded.MaxWindowBacklog;
+            auto outputsLeftForMP = maxWindowBacklog - outputsAddedAfterMyCoin;
+            auto hoursLeft = outputsLeftForMP / static_cast<double>(shieldedPer24h) * 24;
+            uint16_t hoursLeftU = static_cast<uint16_t>(hoursLeft > 1 ? floor(hoursLeft) : ceil(hoursLeft));
+            if (timeLimit)
+            {
+                hoursLeftU = std::min(hoursLeftU, hoursLeftByBlocksU);
+            }
+            return hoursLeftU;
+        }
+
+        return timeLimit ? hoursLeftByBlocksU : std::numeric_limits<uint16_t>::max();
+    }
+
+
+    /////////////////////////////////////////////
+    /// IWalletClientAsync implementation, these method are called in background thread and could safelly access wallet DB
 
     ByteBuffer WalletClient::generateVouchers(uint64_t ownID, size_t count) const
     {
@@ -653,8 +709,7 @@ namespace beam::wallet
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        onStatus(getStatus());
-        updateClientState();
+        updateStatus();
     }
 
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
@@ -826,9 +881,9 @@ namespace beam::wallet
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        _shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
-        onNeedExtractShieldedCoins(!!_shieldedCoinsSelectionResult.shieldedInputsFee);
-        onShieldedCoinsSelectionCalculated(_shieldedCoinsSelectionResult);
+        m_shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
+        onNeedExtractShieldedCoins(!!m_shieldedCoinsSelectionResult.shieldedInputsFee);
+        onShieldedCoinsSelectionCalculated(m_shieldedCoinsSelectionResult);
     }
 
     void WalletClient::getWalletStatus()
@@ -1313,26 +1368,10 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback)
-    {
-        if (auto w = m_wallet.lock(); w)
-        {
-            auto onRequestComplete = [this, cb = std::move(callback)](Height h, TxoID count)
-            {
-                postFunctionToClientContext([h, count, clientContextCallback = std::move(cb)]()
-                {
-                    clientContextCallback(h, count);
-                });
-            };
-            w->RequestShieldedOutputsAt(h, onRequestComplete);
-        }
-    }
-
     void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
     {
         m_walletDB->set_MaxPrivacyLockTimeLimitHours(limit);
-        onStatus(getStatus());
-        updateClientState();
+        updateStatus();
     }
 
     void WalletClient::getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
@@ -1443,17 +1482,83 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
-    void WalletClient::updateClientState()
+    void WalletClient::updateStatus()
+    {
+        auto status = getStatus();
+        onStatus(status);
+        updateMaxPrivacyStats(status);
+        updateClientState(std::move(status));
+
+    }
+
+    void WalletClient::updateClientState(WalletStatus&& status)
     {
         if (auto w = m_wallet.lock(); w)
         {
-            postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight(), count = w->GetUnsafeActiveTransactionsCount()]()
+            postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight()
+                , count = w->GetUnsafeActiveTransactionsCount()
+                , status = std::move(status)
+                , limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours()]()
             {
+                m_status = std::move(status);
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
+                m_mpLockTimeLimit = limit;
             });
         }
     }
+
+    void WalletClient::updateMaxPrivacyStats(const WalletStatus& status)
+    {
+        if (!status.stateID.m_Height || !(status.stateID.m_Height % kShieldedPer24hFilterBlocksForUpdate))
+        {
+            m_shieldedCountHistoryPart.clear();
+            constexpr auto shieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
+
+            if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * shieldedCountHistoryWindowSize)
+            {
+                assert(!m_wallet.expired());
+                auto w = m_wallet.lock();
+                if (!w)
+                {
+                    return;
+                }
+
+                m_shieldedCountHistoryPart.reserve(shieldedCountHistoryWindowSize);
+
+                for (uint8_t i = 0; i < shieldedCountHistoryWindowSize; ++i)
+                {
+                    auto h = status.stateID.m_Height - (kShieldedPer24hFilterBlocksForUpdate * i);
+
+                    w->RequestShieldedOutputsAt(h, [this, shieldedCountHistoryWindowSize](Height h, TxoID count)
+                    {
+                        m_shieldedCountHistoryPart.emplace_back(h, count);
+                        if (m_shieldedCountHistoryPart.size() == shieldedCountHistoryWindowSize)
+                        {
+                            for (uint8_t i = 0; i < kShieldedPer24hFilterSize; ++i)
+                            {
+                                if (m_shieldedCountHistoryPart[i].second)
+                                {
+                                    double b = static_cast<double>(m_shieldedCountHistoryPart[i].second - m_shieldedCountHistoryPart[i + kShieldedPer24hFilterSize].second);
+                                    m_shieldedPer24hFilter->addSample(b);
+                                }
+                                else
+                                {
+                                    m_shieldedPer24hFilter->addSample(0);
+                                }
+                            }
+                            auto shieldedPer24h = static_cast<TxoID>(floor(m_shieldedPer24hFilter->getAverage() * 10));
+                            postFunctionToClientContext([this, shieldedPer24h]()
+                            {
+                                m_shieldedPer24h = shieldedPer24h;
+                            });
+                        }
+                    });
+                }
+            }
+        }
+    }
+
     void WalletClient::updateClientTxState()
     {
         if (auto w = m_wallet.lock(); w)
