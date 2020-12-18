@@ -1223,15 +1223,19 @@ namespace
         }
     }
 
-    void ShowAssetsInfo(const po::variables_map& vm)
+    void ShowAssetsInfo(const po::variables_map& vm, IWalletDB::Ptr walletDB)
     {
+        if (!walletDB)
+        {
+            walletDB = OpenDataBase(vm);
+        }
+
         auto showAssetId = Asset::s_InvalidID;
         if (vm.count(cli::ASSET_ID))
         {
             showAssetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
         }
 
-        auto walletDB = OpenDataBase(vm);
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totals(*walletDB);
@@ -1239,7 +1243,12 @@ namespace
         const auto displayAsset = [&vm, &walletDB](const storage::Totals::AssetTotals &totals) {
             cout << endl;
             ShowAssetInfo(walletDB, totals);
-            ShowAssetCoins(walletDB, totals.AssetId);
+
+            if (vm.count(cli::UTXO_LIST))
+            {
+                ShowAssetCoins(walletDB, totals.AssetId);
+            }
+
             ShowAssetTxs(vm, walletDB, totals.AssetId);
         };
 
@@ -1318,9 +1327,13 @@ namespace
         }
     }
 
-    void ShowBEAMInfo(const po::variables_map& vm)
+    void ShowBEAMInfo(const po::variables_map& vm, IWalletDB::Ptr walletDB)
     {
-        auto walletDB = OpenDataBase(vm);
+        if (!walletDB)
+        {
+            walletDB = OpenDataBase(vm);
+        }
+
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totalsCalc(*walletDB);
@@ -1477,14 +1490,17 @@ namespace
         // If asset info is requested we show only it
         // Otherwise we display both BEAM & ASSETS
         //
-        const bool showAssets = vm.count(cli::ASSETS) != 0 || vm.count(cli::ASSET_ID) != 0;
-        if (showAssets)
+        const bool assetsOnly = vm.count(cli::ASSET_ID) != 0;
+        IWalletDB::Ptr wdb = OpenDataBase(vm);
+
+        if (assetsOnly)
         {
-            ShowAssetsInfo(vm);
+            ShowAssetsInfo(vm, wdb);
         }
         else
         {
-            ShowBEAMInfo(vm);
+            ShowBEAMInfo(vm, wdb);
+            ShowAssetsInfo(vm, wdb);
         }
 
         return 0;
@@ -2775,8 +2791,8 @@ int main_impl(int argc, char* argv[])
             clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
             Rules::get().UpdateChecksum();
 
-            wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
-
+            // always enabled since beamX
+            wallet::g_AssetsEnabled = true;
 
             {
                 reactor = io::Reactor::create();
