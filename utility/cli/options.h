@@ -201,7 +201,6 @@ namespace beam
         extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_ID;
         extern const char* ASSET_METADATA;
-        extern const char* ASSETS;
         extern const char* WITH_ASSETS;
 
         // broadcaster
