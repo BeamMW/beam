@@ -573,10 +573,38 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<Api>;
 
         struct jsonrpc_exception
+            : public std::runtime_error
         {
-            ApiError code;
-            std::string data;
-            JsonRpcId id;
+            jsonrpc_exception(const ApiError ecode, JsonRpcId reqid, const std::string& msg)
+                : runtime_error(msg)
+                , _ecode(ecode)
+                , _rpcid(std::move(reqid))
+            {
+            }
+
+            [[nodiscard]] ApiError code () const
+            {
+                return _ecode;
+            }
+
+            [[nodiscard]] const JsonRpcId& rpcid() const
+            {
+                return _rpcid;
+            }
+
+            [[nodiscard]] std::string whatstr() const
+            {
+                return std::string(what());
+            }
+
+            [[nodiscard]] bool has_what () const
+            {
+                return what() && strlen(what());
+            }
+
+        private:
+            ApiError _ecode;
+            JsonRpcId _rpcid;
         };
 
         static inline const char JsonRpcHrd[] = "jsonrpc";

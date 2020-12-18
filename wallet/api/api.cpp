@@ -272,19 +272,23 @@ CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
     CoinIDList coins;
 
     if (!params["coins"].is_array() || params["coins"].size() <= 0)
-        throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coins parameter must be an array of strings (coin IDs).", id };
+    {
+        throw WalletApi::jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coins parameter must be an array of strings (coin IDs).");
+    }
 
     for (const auto& cid : params["coins"])
     {
         if (!cid.is_string())
-            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc , "Coin ID in the coins array must be a string.", id };
+        {
+            throw WalletApi::jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coin ID in the coins array must be a string.");
+        }
 
         std::string sCid = cid;
         auto coinId = Coin::FromString(sCid);
         if (!coinId)
         {
             const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
-            throw WalletApi::jsonrpc_exception{ApiError::InvalidParamsJsonRpc, errmsg, id};
+            throw WalletApi::jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, errmsg);
         }
 
         coins.push_back(*coinId);
@@ -742,20 +746,27 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             json msg = json::parse(data, data + size);
 
             if(!msg["id"].is_number_integer() && !msg["id"].is_string())
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, JsonRpcId(), "ID can be integer or string only.");
+            }
 
             JsonRpcId id = msg["id"];
-
-            if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.", id };
+            if (msg[JsonRpcHrd] != JsonRpcVerHrd)
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Invalid JSON-RPC 2.0 header.");
+            }
 
             if (_acl)
             {
-                if (msg["key"] == nullptr) 
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "API key not specified.", id };
+                if (msg["key"] == nullptr)
+                {
+                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, "API key not specified.");
+                }
 
-                if (_acl->count(msg["key"]) == 0) 
-                    throw jsonrpc_exception{ ApiError::UnknownApiKey , msg["key"], id };
+                if (_acl->count(msg["key"]) == 0)
+                {
+                    throw jsonrpc_exception(ApiError::UnknownApiKey, id,msg["key"]);
+                }
             }
 
             checkJsonParam(msg, "method", id);
@@ -764,7 +775,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
             if (_methods.find(method) == _methods.end())
             {
-                throw jsonrpc_exception{ ApiError::NotFoundJsonRpc, method, id };
+                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, id, method);
             }
 
             try
@@ -773,7 +784,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
                 if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
                 {
-                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "User doesn't have permissions to call this method.", id };
+                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, "User doesn't have permissions to call this method.");
                 }
 
                 info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
@@ -800,19 +811,21 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
-                        {"code", e.code},
-                        {"message", getErrorMessage(e.code)},
+                        {"code", e.code()},
+                        {"message", getErrorMessage(e.code())},
                     }
                 }
             };
 
-            if (!e.data.empty())
+            if (e.has_what())
             {
-                msg["error"]["data"] = e.data;
+                msg["error"]["data"] = e.whatstr();
             }
 
-            if (e.id.is_number_integer() || e.id.is_string()) msg["id"] = e.id;
-            else msg.erase("id");
+            if (e.rpcid().is_number_integer() || e.rpcid().is_string())
+            {
+                msg["id"] = e.rpcid();
+            }
 
             _handler.onInvalidJsonRpc(msg);
         }
