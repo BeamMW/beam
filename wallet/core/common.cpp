@@ -879,13 +879,10 @@ namespace beam::wallet
     {
         switch(m_txType)
         {
-        case TxType::Simple: return "simple";
-        case TxType::AssetReg: return "asset register";
-        case TxType::AssetUnreg: return "asset unregister";
-        case TxType::AssetIssue: return "asset issue";
-        case TxType::AssetConsume: return "asset consume";
-        case TxType::AtomicSwap: return "atomic swap";
-        case TxType::AssetInfo: return "asset info";
+#define MACRO(type, index, s) case TxType::type: return s;
+            BEAM_TX_TYPES_MAP(MACRO)
+#undef MACRO
+
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
             return "unknown";
