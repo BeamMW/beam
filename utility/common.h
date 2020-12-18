@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <string.h> // memcmp
 #include <ostream>
+#include <sstream>
 
 #ifdef WIN32
 #	include <winsock2.h>

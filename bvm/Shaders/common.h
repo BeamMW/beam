@@ -306,6 +306,58 @@ namespace std {
     }
 }
 
+namespace Cast
+{
+	template <typename T> inline T& NotConst(const T& x) { return (T&) x; }
+	template <typename T> inline T* NotConst(const T* p) { return (T*) p; }
+
+	template <typename TT, typename T> inline const TT& Up(const T& x)
+	{
+		const TT& ret = (const TT&) x;
+		const T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Up(T& x)
+	{
+		TT& ret = (TT&) x;
+		T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT* Up(T* p)
+	{
+		TT* ret = (TT*) p;
+		T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline const TT* Up(const T* p)
+	{
+		const TT* ret = (const TT*) p;
+		const T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Down(T& x)
+	{
+		return x;
+	}
+
+	template <typename TT, typename T> inline const TT& Down(const T& x)
+	{
+		return x;
+	}
+
+	template <typename TT, typename T> inline TT& Reinterpret(T& x)
+	{
+		// type are unrelated. But must have the same size
+		static_assert(sizeof(TT) == sizeof(T));
+		return (TT&)x;
+	}
+
+} // namespace Cast
+
 struct HashProcessor
 {
     HashObj* m_p;
