@@ -748,6 +748,7 @@ namespace bvm2 {
 				//{
 				//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
 				//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
+				//case 3: Shaders::Sidechain::Method_3(CastArg<Shaders::Sidechain::VerifyProof<0> >(pArgs)); return;
 				//}
 			}
 
@@ -1188,6 +1189,14 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
 		}
 
+		Merkle::FixedMmr fmmr;
+		fmmr.Resize(14);
+
+		for (uint32_t i = 0; i < 14; i++)
+		{
+			fmmr.Append(i);
+		}
+
 		{
 			vChain.resize(1);
 			s = vChain.back();
@@ -1203,12 +1212,37 @@ namespace bvm2 {
 				s.NextPrefix();
 				s.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
 				s.m_ChainWork += s.m_PoW.m_Difficulty;
+
+				if (i)
+					s.m_Kernels = Zero;
+				else
+					fmmr.get_Hash(s.m_Kernels);
+
 				vChain.push_back(s);
 			}
 
 			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
 
 			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
+		}
+
+		{
+			Merkle::Proof vProof;
+			fmmr.get_Proof(vProof, 4);
+
+			Shaders::Sidechain::VerifyProof<20> args;
+			args.m_Height = vChain[1].m_Height;
+			args.m_KernelID = 4U;
+
+			args.m_nProof = static_cast<uint32_t>(vProof.size());
+			for (uint32_t i = 0; i < args.m_nProof; i++)
+			{
+				args.m_pProof[i].m_OnRight = vProof[i].first;
+				args.m_pProof[i].m_Value = vProof[i].second;
+			}
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+
 		}
 	}
 

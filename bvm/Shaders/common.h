@@ -65,6 +65,15 @@ inline void ConvertOrd(T&) {}
 #include "../bvm2_shared.h"
 #include "../bvm2_opcodes.h"
 
+namespace Merkle
+{
+    struct Node
+    {
+        uint8_t m_OnRight;
+        HashValue m_Value;
+    };
+}
+
 namespace Env {
 
     extern "C" {
@@ -411,3 +420,32 @@ struct HashProcessor
         Env::HashGetValue(m_p, &res, sizeof(res));
     }
 };
+
+namespace Merkle
+{
+    inline void Interpret(HashValue& hv, const HashValue& hvL, const HashValue& hvR)
+    {
+        HashProcessor hp;
+        hp.m_p = Env::HashCreateSha256();
+        hp << hvL << hvR >> hv;
+    }
+
+    inline void Interpret(HashValue& hv, const HashValue& hvNew, bool bOnRight)
+    {
+        if (bOnRight)
+            Interpret(hv, hv, hvNew);
+        else
+            Interpret(hv, hvNew, hv);
+    }
+
+    inline void Interpret(HashValue& hv, const Node& n)
+    {
+        Interpret(hv, n.m_Value, n.m_OnRight);
+    }
+
+    inline void Interpret(HashValue& hv, const Node* pN, uint32_t n)
+    {
+        for (uint32_t i = 0; i < n; i++)
+            Interpret(hv, pN[i]);
+    }
+}

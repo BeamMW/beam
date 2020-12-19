@@ -111,3 +111,15 @@ export void Method_2(const Sidechain::Grow<0>& r)
     g.m_Height = s.m_Height;
     Env::SaveVar_T((uint8_t) 0, g);
 }
+
+export void Method_3(const Sidechain::VerifyProof<0>& r)
+{
+    Sidechain::PerHeight ph;
+    Env::Halt_if(!Env::LoadVar_T(r.m_Height, ph));
+
+    HashValue hv;
+    Utils::Copy(hv, r.m_KernelID);
+    Merkle::Interpret(hv, r.m_pProof, r.m_nProof);
+
+    Env::Halt_if(Utils::Cmp(hv, ph.m_Kernels));
+}

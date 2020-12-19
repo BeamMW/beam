@@ -42,6 +42,24 @@ namespace Sidechain
         }
     };
 
+    template <uint32_t nNodes>
+    struct VerifyProof
+    {
+        static const uint32_t s_iMethod = 3;
+
+        Height m_Height;
+        uint32_t m_nProof;
+        HashValue m_KernelID;
+        Merkle::Node m_pProof[nNodes];
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Height);
+            ConvertOrd<bToShader>(m_nProof);
+        }
+    };
+
     struct Global
     {
         HashValue m_Rules;
