@@ -749,6 +749,7 @@ namespace bvm2 {
 				//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
 				//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
 				//case 3: Shaders::Sidechain::Method_3(CastArg<Shaders::Sidechain::VerifyProof<0> >(pArgs)); return;
+				//case 4: Shaders::Sidechain::Method_4(CastArg<Shaders::Sidechain::WithdrawComission>(pArgs)); return;
 				//}
 			}
 
@@ -1159,6 +1160,7 @@ namespace bvm2 {
 		{
 			Shaders::Sidechain::Init args;
 			ZeroObject(args);
+			args.m_ComissionForProof = 400;
 			CvtHdrPrefix(args.m_Hdr0, s);
 			CvtHdrElement(args.m_Hdr0, s);
 			args.m_Rules = Rules::get().pForks[2].m_Hash;
@@ -1206,6 +1208,7 @@ namespace bvm2 {
 			Shaders::Sidechain::Grow<nSeq> args;
 			ZeroObject(args);
 			args.m_nSequence = nSeq;
+			args.m_Contributor.m_X = 116U;
 
 			for (uint32_t i = 0; i < nSeq; i++)
 			{
@@ -1242,7 +1245,18 @@ namespace bvm2 {
 			}
 
 			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // redundant proofs is ok
+		}
 
+		{
+			Shaders::Sidechain::WithdrawComission args;
+			ZeroObject(args);
+			args.m_Contributor.m_X = 116U;
+			args.m_Amount = 400;
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
 		}
 	}
 

@@ -16,10 +16,9 @@ void SetPerHeight(Sidechain::PerHeight& ph, const BeamHeaderFull& s, const Sidec
 export void Ctor(const Sidechain::Init& r)
 {
     Sidechain::Global g;
-    Utils::Copy(g.m_Rules, r.m_Rules);
+    Utils::Copy(Cast::Down<Sidechain::Immutable>(g), Cast::Down<Sidechain::Immutable>(r));
     g.m_Chainwork.FromBE_T(r.m_Hdr0.m_ChainWork);
     g.m_Height = r.m_Hdr0.m_Height;
-    g.m_VerifyPoW = r.m_VerifyPoW;
     Env::SaveVar_T((uint8_t) 0, g);
 
     Sidechain::PerHeight ph;
@@ -112,6 +111,20 @@ export void Method_2(const Sidechain::Grow<0>& r)
     Env::SaveVar_T((uint8_t) 0, g);
 }
 
+Amount ContributorLoad(const PubKey& key)
+{
+    Amount val;
+    return Env::LoadVar_T(key, val) ? val : 0;
+}
+
+void ContributorSave(const PubKey& key, Amount val)
+{
+    if (val)
+        Env::SaveVar_T(key, val);
+    else
+        Env::DelVar_T(key);
+}
+
 export void Method_3(const Sidechain::VerifyProof<0>& r)
 {
     Sidechain::PerHeight ph;
@@ -122,4 +135,28 @@ export void Method_3(const Sidechain::VerifyProof<0>& r)
     Merkle::Interpret(hv, r.m_pProof, r.m_nProof);
 
     Env::Halt_if(Utils::Cmp(hv, ph.m_Kernels));
+
+    Sidechain::Global g;
+    Env::LoadVar_T((uint8_t) 0, g);
+
+    if (g.m_ComissionForProof)
+    {
+        Amount val = ContributorLoad(ph.m_Contributor);
+        Strict::Add(val, g.m_ComissionForProof);
+        ContributorSave(ph.m_Contributor, val);
+
+        Env::FundsLock(0, g.m_ComissionForProof);
+    }
+}
+
+export void Method_4(const Sidechain::WithdrawComission& r)
+{
+    Env::Halt_if(!r.m_Amount);
+
+    Amount val = ContributorLoad(r.m_Contributor);
+    Strict::Sub(val, r.m_Amount);
+    ContributorSave(r.m_Contributor, val);
+
+    Env::FundsUnlock(0, r.m_Amount);
+    Env::AddSig(r.m_Contributor);
 }

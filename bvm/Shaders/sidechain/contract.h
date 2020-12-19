@@ -6,18 +6,25 @@ namespace Sidechain
 {
 #pragma pack (push, 1)
 
+    struct Immutable
+    {
+        HashValue m_Rules; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
+        uint8_t m_VerifyPoW; // for tests
+        Amount m_ComissionForProof;
+    };
+
     struct Init
+        :public Immutable
     {
         static const uint32_t s_iMethod = 0;
 
-        HashValue m_Rules; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
         BeamHeaderFull m_Hdr0;
-        uint8_t m_VerifyPoW;
 
         template <bool bToShader>
         void Convert()
         {
             m_Hdr0.Convert<bToShader>();
+            ConvertOrd<bToShader>(m_ComissionForProof);
         }
     };
 
@@ -60,12 +67,25 @@ namespace Sidechain
         }
     };
 
-    struct Global
+    struct WithdrawComission
     {
-        HashValue m_Rules;
+        static const uint32_t s_iMethod = 4;
+
+        PubKey m_Contributor;
+        Amount m_Amount;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_Amount);
+        }
+    };
+
+    struct Global
+        :public Immutable
+    {
         BeamDifficulty::Raw m_Chainwork;
         Height m_Height;
-        uint8_t m_VerifyPoW;
     };
 
     struct PerHeight
