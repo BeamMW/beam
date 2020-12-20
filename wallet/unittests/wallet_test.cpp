@@ -292,7 +292,7 @@ namespace
             return true;
         });
         WALLET_CHECK(count == Count);
-        WALLET_CHECK(count == storedTx.size());
+        WALLET_CHECK(count == (int)storedTx.size());
         for (auto p : storedTx)
         {
 
