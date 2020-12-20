@@ -958,18 +958,18 @@ namespace bvm2 {
 		};
 	}
 
-	void CvtHdrPrefix(Shaders::BeamHeaderPrefix& bh, const Block::SystemState::Sequence::Prefix& s)
+	void CvtHdrPrefix(Shaders::BlockHeader::Prefix& bh, const Block::SystemState::Sequence::Prefix& s)
 	{
 		bh.m_Prev = s.m_Prev;
 		bh.m_ChainWork = s.m_ChainWork;
 		bh.m_Height = s.m_Height;
 	}
 
-	void CvtHdrElement(Shaders::BeamHeaderSequence& bh, const Block::SystemState::Sequence::Element& s)
+	void CvtHdrElement(Shaders::BlockHeader::Element& bh, const Block::SystemState::Sequence::Element& s)
 	{
 		bh.m_Definition = s.m_Definition;
 		bh.m_Kernels = s.m_Kernels;
-		bh.m_TimeStamp = s.m_TimeStamp;
+		bh.m_Timestamp = s.m_TimeStamp;
 		memcpy(&bh.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
 		memcpy(&bh.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
 		bh.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
@@ -1140,7 +1140,7 @@ namespace bvm2 {
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 
-	void CvtHdrSequence(Shaders::BeamHeaderPrefix& bhp, Shaders::BeamHeaderSequence* pSeq, uint32_t n, const Block::SystemState::Full* pS)
+	void CvtHdrSequence(Shaders::BlockHeader::Prefix& bhp, Shaders::BlockHeader::Element* pSeq, uint32_t n, const Block::SystemState::Full* pS)
 	{
 		CvtHdrPrefix(bhp, pS[0]);
 		for (uint32_t i = 0; i < n; i++)

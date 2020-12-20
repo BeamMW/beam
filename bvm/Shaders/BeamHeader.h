@@ -16,109 +16,56 @@
 #include "BeamDifficulty.h"
 #include "BeamHashIII.h"
 
-#pragma pack (push, 1)
-#pragma pack (pop)
 
-struct BeamHeaderPrefix
+inline void BlockHeader::Full::get_Hash(HashValue& out, const HashValue* pRules) const
 {
-    Height m_Height;
-    HashValue m_Prev;
-    HashValue m_ChainWork; // not hash, just same size
+    get_HashInternal(out, true, pRules);
+}
 
-    template <bool bToShader>
-    void Convert()
-    {
-        ConvertOrd<bToShader>(m_Height);
-    }
-};
-
-struct BeamHeaderSequence
+inline bool BlockHeader::Full::IsValid(const HashValue* pRules) const
 {
-    HashValue m_Kernels;
-    HashValue m_Definition;
-    Timestamp m_TimeStamp;
+    if (!TestDifficulty())
+        return false;
 
-    struct PoW
-    {
-        uint8_t m_pIndices[104];
-        uint8_t m_pNonce[8];
-        uint32_t m_Difficulty;
+    HashValue hv;
+    get_HashInternal(hv, false, pRules);
+    return BeamHashIII::Verify(hv, m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce), m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
+}
 
-    } m_PoW;
-
-    template <bool bToShader>
-    void Convert()
-    {
-        ConvertOrd<bToShader>(m_TimeStamp);
-        ConvertOrd<bToShader>(m_PoW.m_Difficulty);
-    }
-};
-
-struct BeamHeaderFull
-    :public BeamHeaderPrefix
-    ,public BeamHeaderSequence
+inline void BlockHeader::Full::get_HashInternal(HashValue& out, bool bFull, const HashValue* pRules) const
 {
+    HashProcessor hp;
+    hp.m_p = Env::HashCreateSha256();
 
-    template <bool bToShader>
-    void Convert()
+    hp
+        << m_Height
+        << m_Prev
+        << m_ChainWork
+        << m_Kernels
+        << m_Definition
+        << m_Timestamp
+        << m_PoW.m_Difficulty;
+
+    if (pRules)
+        hp << *pRules;
+
+    if (bFull)
     {
-        BeamHeaderPrefix::Convert<bToShader>();
-        BeamHeaderSequence::Convert<bToShader>();
-    }
-
-    void get_Hash(HashValue& out, const HashValue* pRules) const
-    {
-        get_HashInternal(out, true, pRules);
-    }
-
-    bool IsValid(const HashValue* pRules) const
-    {
-        if (!TestDifficulty())
-            return false;
-
-        HashValue hv;
-        get_HashInternal(hv, false, pRules);
-        return BeamHashIII::Verify(hv, m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce), m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
-    }
-
-private:
-
-    void get_HashInternal(HashValue& out, bool bFull, const HashValue* pRules) const
-    {
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
-
-        hp
-            << m_Height
-            << m_Prev
-            << m_ChainWork
-            << m_Kernels
-            << m_Definition
-            << m_TimeStamp
-            << m_PoW.m_Difficulty;
-
-        if (pRules)
-            hp << *pRules;
-
-        if (bFull)
-        {
-            hp.Write(m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
-            hp.Write(m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce));
-        }
-
-        hp >> out;
-    }
-
-    bool TestDifficulty() const
-    {
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
         hp.Write(m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
-
-        HashValue hv;
-        hp >> hv;
-
-        return BeamDifficulty::IsTargetReached(hv, m_PoW.m_Difficulty);
+        hp.Write(m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce));
     }
 
-};
+    hp >> out;
+}
+
+inline bool BlockHeader::Full::TestDifficulty() const
+{
+    HashProcessor hp;
+    hp.m_p = Env::HashCreateSha256();
+    hp.Write(m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
+
+    HashValue hv;
+    hp >> hv;
+
+    return BeamDifficulty::IsTargetReached(hv, m_PoW.m_Difficulty);
+}

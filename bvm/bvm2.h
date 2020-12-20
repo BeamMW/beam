@@ -239,6 +239,8 @@ namespace bvm2 {
 
 		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
 
+		static void CvtHdr(Shaders::BlockHeader::InfoBase&, const Block::SystemState::Full&);
+
 	public:
 
 		enum struct Kind {

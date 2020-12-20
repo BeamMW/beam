@@ -1,6 +1,5 @@
 #pragma once
-#include "../BeamHeader.h"
-#include "../Math.h"
+#include "../BeamDifficulty.h"
 
 namespace Sidechain
 {
@@ -18,7 +17,7 @@ namespace Sidechain
     {
         static const uint32_t s_iMethod = 0;
 
-        BeamHeaderFull m_Hdr0;
+        BlockHeader::Full m_Hdr0;
 
         template <bool bToShader>
         void Convert()
@@ -35,8 +34,8 @@ namespace Sidechain
 
         PubKey m_Contributor;
         uint32_t m_nSequence;
-        BeamHeaderPrefix m_Prefix;
-        BeamHeaderSequence m_pSequence[nHdrs];
+        BlockHeader::Prefix m_Prefix;
+        BlockHeader::Element m_pSequence[nHdrs];
 
         template <bool bToShader>
         void Convert()
@@ -93,7 +92,7 @@ namespace Sidechain
         HashValue m_Hash;
         HashValue m_Kernels;
         //HashValue m_Definition;
-        Timestamp m_TimeStamp;
+        Timestamp m_Timestamp;
         uint32_t m_Difficulty;
         PubKey m_Contributor;
     };

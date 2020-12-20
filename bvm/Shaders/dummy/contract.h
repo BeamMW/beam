@@ -1,5 +1,4 @@
 #pragma once
-#include "../BeamHeader.h"
 
 namespace Dummy
 {
@@ -96,7 +95,7 @@ namespace Dummy
     {
         static const uint32_t s_iMethod = 9;
 
-        BeamHeaderFull m_Hdr;
+        BlockHeader::Full m_Hdr;
 
         HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
         HashValue m_Hash;

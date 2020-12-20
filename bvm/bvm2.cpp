@@ -1248,7 +1248,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_Hdr)
 	{
-		auto& hdr_ = get_AddrAsW<BlockHeader>(hdr); // currently ignore alignment
+		auto& hdr_ = get_AddrAsW<BlockHeader::Info>(hdr); // currently ignore alignment
 		hdr_.Convert<false>();
 		OnHost_get_Hdr(hdr_);
 		hdr_.Convert<true>();
@@ -1259,7 +1259,12 @@ namespace bvm2 {
 		s.m_Height = Wasm::from_wasm(hdr.m_Height);
 		Wasm::Test(get_HdrAt(s));
 
+		CvtHdr(hdr, s);
 		s.get_Hash(hdr.m_Hash);
+	}
+
+	void Processor::CvtHdr(Shaders::BlockHeader::InfoBase& hdr, const Block::SystemState::Full& s)
+	{
 		hdr.m_Timestamp = s.m_TimeStamp;
 		hdr.m_Kernels = s.m_Kernels;
 		hdr.m_Definition = s.m_Definition;

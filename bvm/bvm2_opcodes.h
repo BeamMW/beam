@@ -130,7 +130,7 @@
 #define BVMOp_get_Height(macro, sep)
 
 #define BVMOp_get_Hdr(macro, sep) \
-	macro(BlockHeader&, hdr)
+	macro(BlockHeader::Info&, hdr)
 
 #define BVMOp_VarsEnum(macro, sep) \
 	macro(const void*, pKey0) sep \
