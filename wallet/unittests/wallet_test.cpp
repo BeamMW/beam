@@ -105,11 +105,28 @@ namespace
     struct ApiHandler : beam::wallet::WalletApiHandler
     {
         using beam::wallet::WalletApiHandler::WalletApiHandler;
+        
+        std::vector<json> m_Messages;
         void serializeMsg(const json& msg) override
         {
-
+            m_Messages.push_back(msg);
         }
+
+        void TestTxListResSize(size_t s)
+        {
+            WALLET_CHECK(m_Messages.size() == 1);
+            WALLET_CHECK(m_Messages[0]["result"].size() == s);
+        }
+
+        void TestTxListResHeight(Height h)
+        {
+            WALLET_CHECK(m_Messages.size() == 1);
+            WALLET_CHECK(m_Messages[0]["result"][0]["height"] == h);
+        }
+
     };
+
+    
 
     void TestTxList()
     {
@@ -209,17 +226,65 @@ namespace
         for (int i = 0; i < 100; ++i)
         {
             handler.onMessage(1, message);
+            handler.TestTxListResSize(10);
+            handler.m_Messages.clear();
         }
         sw.stop();
         cout << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
 
+        message.count = 10;
+        message.skip = 0;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(10);
+        handler.m_Messages.clear();
+
+        message.count = 100;
+        message.skip = 0;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(64);
+        handler.m_Messages.clear();
+
+        message.count = 100;
+        message.skip = 10;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(54);
+        handler.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 10;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(10);
+        handler.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 63;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(1);
+        handler.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 64;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(0);
+        handler.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 65;
+        handler.onMessage(1, message);
+        handler.TestTxListResSize(0); 
+        handler.m_Messages.clear();
+
         Timestamp t = std::numeric_limits<Timestamp>::max();
         int count = 0;
-        sender.m_WalletDB->visitTx([](auto t, auto s)
+
+        std::map<TxID, Height> storedTx;
+        sender.m_WalletDB->visitTx([](auto t, auto s, auto assetID, auto h)
         {
             return true;
         }, [&](const auto& tx)
         {
+            const auto height = storage::DeduceTxProofHeight(*sender.m_WalletDB, tx);
+            storedTx.emplace(tx.m_txId, height);
             WALLET_CHECK(tx.m_createTime > 0);
             WALLET_CHECK(tx.m_createTime < t);
             t = tx.m_createTime;
@@ -227,6 +292,23 @@ namespace
             return true;
         });
         WALLET_CHECK(count == Count);
+        WALLET_CHECK(count == storedTx.size());
+        for (auto p : storedTx)
+        {
+
+            TxList message2;
+            message2.count = 0;
+            message2.skip = 0;
+            message2.filter.status = wallet::TxStatus::Completed;
+            message2.withAssets = false;
+            message2.filter.height = p.second;
+
+            handler.onMessage(1, message2);
+            handler.TestTxListResSize(1);
+            handler.TestTxListResHeight(p.second);
+
+            handler.m_Messages.clear();
+        }
     }
 
     void TestEventTypeSerialization()
