@@ -975,7 +975,7 @@ namespace beam::wallet
             res.resultList.reserve(data.count);
             int offset = 0;
             int counter = 0;
-            walletDB->visitTx([&](TxType type, TxStatus status)
+            walletDB->visitTx([&](TxType type, TxStatus status, Asset::ID assetID, Height height)
             {
                 if (type != TxType::Simple
                     && type != TxType::AssetIssue
@@ -985,45 +985,45 @@ namespace beam::wallet
                     return false;
                 }
 
+                if (!data.withAssets && (assetID != Asset::s_InvalidID || type != TxType::Simple))
+                {
+                    return false;
+                }
+
+                if (data.filter.assetId && assetID != *data.filter.assetId)
+                {
+                    return false;
+                }
+
                 if (data.filter.status && status != *data.filter.status)
                 {
                     return false;
                 }
 
-                ++offset;
-                if (offset <= data.skip)
+                if (data.filter.height && height != *data.filter.height)
                 {
                     return false;
                 }
 
-                ++counter;
-                return data.count == 0 || counter <= data.count;
+                return data.count == 0 || counter < data.count;
             }, 
             [&](const auto& tx)
             {
-                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
+                ++offset;
+                if (offset <= data.skip)
                 {
                     return;
                 }
-
-                if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
-                {
-                    return;
-                }
-
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
-                if (data.filter.height && height != *data.filter.height)
-                {
-                    return;
-                }
-
                 Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-            });
 
+                ++counter;
+            });
+            assert(data.count == 0 || res.resultList.size() <= data.count);
             std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
             {
                 return a.tx.m_minHeight > b.tx.m_minHeight;
