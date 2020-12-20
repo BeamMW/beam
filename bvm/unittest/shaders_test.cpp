@@ -60,6 +60,7 @@ namespace Shaders {
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"
 #include "../Shaders/MergeSort.h"
+#include "../Shaders/BeamHeader.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"

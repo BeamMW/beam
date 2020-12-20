@@ -1246,21 +1246,41 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(get_Height)
 
-	BVM_METHOD(get_Hdr)
+	BVM_METHOD(get_HdrInfo)
 	{
 		auto& hdr_ = get_AddrAsW<BlockHeader::Info>(hdr); // currently ignore alignment
-		hdr_.Convert<false>();
-		OnHost_get_Hdr(hdr_);
+		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
+		OnHost_get_HdrInfo(hdr_);
 		hdr_.Convert<true>();
 	}
-	BVM_METHOD_HOST(get_Hdr)
+	BVM_METHOD_HOST(get_HdrInfo)
 	{
 		Block::SystemState::Full s;
-		s.m_Height = Wasm::from_wasm(hdr.m_Height);
+		s.m_Height = hdr.m_Height;
 		Wasm::Test(get_HdrAt(s));
 
 		CvtHdr(hdr, s);
 		s.get_Hash(hdr.m_Hash);
+	}
+
+	BVM_METHOD(get_HdrFull)
+	{
+		auto& hdr_ = get_AddrAsW<BlockHeader::Full>(hdr); // currently ignore alignment
+		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
+		OnHost_get_HdrFull(hdr_);
+		hdr_.Convert<true>();
+	}
+	BVM_METHOD_HOST(get_HdrFull)
+	{
+		Block::SystemState::Full s;
+		s.m_Height = hdr.m_Height;
+		Wasm::Test(get_HdrAt(s));
+
+		CvtHdr(hdr, s);
+		hdr.m_Prev = s.m_Prev;
+		hdr.m_ChainWork = s.m_ChainWork;
+
+		Cast::Reinterpret<Block::PoW>(hdr.m_PoW) = s.m_PoW;
 	}
 
 	void Processor::CvtHdr(Shaders::BlockHeader::InfoBase& hdr, const Block::SystemState::Full& s)

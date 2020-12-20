@@ -76,7 +76,7 @@ export void Method_3(void*) // Bets_off
     // Never play this roulette for real money
     BlockHeader::Info hdr;
     hdr.m_Height = Env::get_Height();
-    Env::get_Hdr(hdr); 
+    Env::get_HdrInfo(hdr); 
 
     // Get first 8 byte of header hash, treat it like integer and extract the winning segment using modulo 36
     uint64_t val;
