@@ -1168,6 +1168,10 @@ namespace bvm2 {
 			verify_test(ContractCreate_T(m_cidSidechain, m_Code.m_Sidechain, args));
 		}
 
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Sidechain);
+		verify_test(sid == Shaders::Sidechain::s_SID);
+
 		{
 			const uint32_t nSeq = 10;
 
