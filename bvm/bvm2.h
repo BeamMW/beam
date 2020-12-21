@@ -52,6 +52,7 @@ namespace bvm2 {
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
 	using Shaders::HashObj;
+	using Shaders::HashValue;
 	using Shaders::BlockHeader;
 
 	struct ErrorSubType

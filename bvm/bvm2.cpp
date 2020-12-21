@@ -1290,6 +1290,19 @@ namespace bvm2 {
 		hdr.m_Definition = s.m_Definition;
 	}
 
+	BVM_METHOD(get_RulesCfg)
+	{
+		auto& res_ = get_AddrAsW<Shaders::HashValue>(res); // currently ignore alignment
+		return OnHost_get_RulesCfg(h, res_);
+	}
+	BVM_METHOD_HOST(get_RulesCfg)
+	{
+		const auto& r = Rules::get();
+		auto iFork = r.FindFork(h);
+		res = r.pForks[iFork].m_Hash;
+		return r.pForks[iFork].m_Height;
+	}
+
 	struct Processor::DataProcessor::Sha256
 		:public Processor::DataProcessor::Base
 	{
