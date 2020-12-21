@@ -309,22 +309,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     LOG_DEBUG() << "generateRegularAddress()";
 
     uint64_t bAmount = amount;
-        
+
     auto address = walletDB->getAddress(JString(env, walletId).value());
+    auto regularAddress = GenerateRegularAddress(*address, bAmount, isPermanentAddress, std::string(BEAM_LIB_VERSION));
     
-    TxParameters params;
-    params.SetParameter(TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
-    if (bAmount > 0) {
-        params.SetParameter(TxParameterID::Amount, bAmount);
-    }
-    params.SetParameter(TxParameterID::PeerID, address->m_walletID);
-    params.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
-    params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanentAddress);
-    params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
-    params.DeleteParameter(TxParameterID::Voucher);
-    
-    auto token = to_string(params);
-    jstring tokenString = env->NewStringUTF(token.c_str());
+    jstring tokenString = env->NewStringUTF(regularAddress.c_str());
     return tokenString;
  }
 
