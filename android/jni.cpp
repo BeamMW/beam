@@ -64,7 +64,7 @@ namespace
     static beam::wallet::TxParameters _txParameters;
 
     static uint8_t m_mpLockTimeLimit = 0;
-    static ByteBuffer lastVouchers;
+    static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
     void initLogger(const string& appData, const string& appVersion)
@@ -274,33 +274,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId)
  {
     LOG_DEBUG() << "generateOfflineAddress()";
-
-    uint64_t bAmount = amount;
-        
-    auto address = walletDB->getAddress(JString(env, walletId).value());
-    
-   // auto vouchers = walletModel->generateVouchers(address->m_OwnID, 10);
+            
     auto id = JString(env, walletId).value();
 
-    if (lastWalledId.compare(id) == 0) {
-        lastWalledId = id;
-        lastVouchers = walletModel->generateVouchers(address->m_OwnID, 10);
-    }
+    auto address = walletDB->getAddress(JString(env, walletId).value());
 
-    TxParameters offlineParameters;
-    offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-    offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
-    offlineParameters.SetParameter(TxParameterID::PeerID, address->m_walletID);
-    offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
-    offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
-    offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
-    if (bAmount > 0)
-    {
-        offlineParameters.SetParameter(TxParameterID::Amount, bAmount);
-    }
+    // if (lastWalledId.compare(id) == 0) {
+    //     lastWalledId = id;
+    // }
 
-    auto token = to_string(offlineParameters);
-    jstring tokenString = env->NewStringUTF(token.c_str());
+    uint64_t bAmount = amount;
+
+    auto v = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
+
+    auto offlineAddress = GenerateOfflineAddress(*address, bAmount, v);
+    
+    jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
+
     return tokenString;
  }
 
@@ -327,7 +317,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
 
     auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
-
 
      if (!vouchers.empty())
       {
