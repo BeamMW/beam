@@ -5322,6 +5322,7 @@ namespace beam::wallet
                 const string SubTransactionId = "SubTransactionId";
                 const string ParameterId = "ParameterId";
                 const string Value = "Value";
+                const string Address = "Address";
             }
             
             bool ImportAddressesFromJson(IWalletDB& db, const json& obj, const string& nodeName)
@@ -5365,6 +5366,10 @@ namespace beam::wallet
                                 {
                                     address.m_Identity = Blob(buf);
                                 }
+                            }
+                            if (auto it = jsonAddress.find(Fields::Address); it != jsonAddress.end())
+                            {
+                                address.m_Address = it->get<std::string>();
                             }
                             db.saveAddress(address);
 
@@ -5509,7 +5514,8 @@ namespace beam::wallet
                             {Fields::Label, address.m_label},
                             {Fields::CreationTime, address.m_createTime},
                             {Fields::Duration, address.m_duration},
-                            {Fields::Category, address.m_category}
+                            {Fields::Category, address.m_category},
+                            {Fields::Address,  address.m_Address}
                         }
                     );
                     if (address.m_Identity != Zero)

@@ -621,6 +621,7 @@ void TestAddresses()
     a.m_OwnID = 44;
     db->get_SbbsWalletID(a.m_walletID, a.m_OwnID);
     WALLET_CHECK(a.m_Identity == Zero);
+    a.m_Address = std::to_string(a.m_walletID);
     db->saveAddress(a);
 
     WalletAddress c = {};
@@ -631,7 +632,6 @@ void TestAddresses()
     c.m_OwnID = 0;
     db->get_SbbsWalletID(c.m_walletID, 32);
     db->get_Identity(c.m_Identity, 32);
-
     db->saveAddress(c);
 
     addresses = db->getAddresses(true);
@@ -642,6 +642,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
+    WALLET_CHECK(addresses[0].m_Address == a.m_Address);
     
     PeerID identity = Zero;
     db->get_Identity(identity, a.m_OwnID);
@@ -656,6 +657,7 @@ void TestAddresses()
     WALLET_CHECK(contacts[0].m_duration == c.m_duration);
     WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
     WALLET_CHECK(contacts[0].m_Identity == c.m_Identity);
+    WALLET_CHECK(contacts[0].m_Address == std::to_string(c.m_walletID));
 
 
     a.m_category = "cat2";
@@ -687,13 +689,16 @@ void TestAddresses()
     WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
+        const auto& refa = *a3;
         WALLET_CHECK(a3.is_initialized());
         WALLET_CHECK(a3->m_category == a.m_category);
         WALLET_CHECK(a3->m_Identity == identity);
+        WALLET_CHECK(refa.m_Address == a.m_Address);
         auto a4 = db->getAddress(c.m_walletID);
         WALLET_CHECK(a4.is_initialized());
         WALLET_CHECK(a4->m_category == c.m_category);
         WALLET_CHECK(a4->m_Identity == c.m_Identity);
+        WALLET_CHECK(a4->m_Address == std::to_string(c.m_walletID));
 
         WALLET_CHECK(addresses == db->getAddresses(true));
         WALLET_CHECK(contacts == db->getAddresses(false));
