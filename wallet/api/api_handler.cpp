@@ -260,8 +260,15 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        auto walletDB = _walletData.getWalletDBPtr();
+        if (!_walletData.getWalletPtr()->IsConnectedToOwnNode() 
+           && (data.type == TxAddressType::MaxPrivacy
+            || data.type == TxAddressType::PublicOffline
+            || data.type == TxAddressType::Offline))
+        {
+            return doError(id, ApiError::NotSupported);
+        }
 
+        auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB)
         {
             return doError(id, ApiError::NotOpenedError);

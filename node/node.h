@@ -210,6 +210,7 @@ struct Node
 	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
 
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
+	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
 private:
 
