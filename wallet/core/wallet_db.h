@@ -554,6 +554,12 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // Events
+        virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
+        virtual void deleteEventsFrom(Height h) = 0;
+        virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+        virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
         TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
 
@@ -711,6 +717,11 @@ namespace beam::wallet
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
+
+        void insertEvent(Height h, const Blob& body, const Blob& key) override;
+        void deleteEventsFrom(Height h) override;
+        void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
+        void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);

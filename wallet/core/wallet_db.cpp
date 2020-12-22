@@ -88,6 +88,7 @@
 #define EXCHANGE_RATES_HISTORY_NAME "exchangeRatesHistory"
 #define VOUCHERS_NAME "vouchers"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
+#define EVENTS_NAME "events"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -205,9 +206,15 @@
     each(Voucher,   Voucher,   BLOB NOT NULL UNIQUE, obj) sep \
     each(Flags,     Flags,     INTEGER, obj)
 
-
-
 #define VOUCHERS_FIELDS ENUM_VOUCHERS_FIELDS(LIST, COMMA, )
+
+
+#define ENUM_EVENTS_FIELDS(each, sep, obj) \
+    each(Height,  Height,  INTEGER NOT NULL, obj) sep \
+    each(Body,    Body,   BLOB NOT NULL, obj) sep \
+    each(Key,     Key,    BLOB NOT NULL, obj)
+
+#define EVENTS_FIELDS ENUM_EVENTS_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -614,6 +621,19 @@ namespace beam::wallet
                 bind(col, m.data(), m.size());
             }
 
+            void bind(int col, const Blob& b)
+            {
+                // According to our convention empty blob is NOT NULL, it should be an empty BLOB field.
+                // During initialization from buffer, if the buffer size is 0 - the x.p is left uninitialized.
+                //
+                // In sqlite code if x.p is NULL - it would treat the field as NULL, rather than an empty blob.
+                // And if the uninitialized x.p is occasionally NULL - we get wrong behavior.
+                //
+                // Hence - we work this around, use `this`, as an arbitrary non-NULL pointer
+                const void* pPtr = b.n ? b.p : this;
+                bind(col, pPtr, b.n);
+            }
+
             template<uint32_t nBytes_>
             void bind(int col, const uintBig_t<nBytes_>& data)
             {
@@ -925,7 +945,8 @@ namespace beam::wallet
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 27;
+        const int DbVersion   = 28;
+        const int DbVersion27 = 27;
         const int DbVersion26 = 26;
         const int DbVersion25 = 25;
         const int DbVersion24 = 24;
@@ -1190,6 +1211,16 @@ namespace beam::wallet
             const char* req = "CREATE TABLE " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;"
                               "CREATE UNIQUE INDEX OwnerIndex ON " ASSETS_NAME "(Owner);"
                               "CREATE INDEX RefreshHeightIndex ON " ASSETS_NAME "(RefreshHeight);";
+            const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateEventsTable(sqlite3* db)
+        {
+            assert(db != nullptr);
+            const char* req = "CREATE TABLE " EVENTS_NAME " (" ENUM_EVENTS_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
+                "CREATE INDEX EventsIndex ON " EVENTS_NAME "(Height, Body);"
+                "CREATE INDEX EventsKeyIndex ON " EVENTS_NAME "(Key);";
             const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1491,6 +1522,7 @@ namespace beam::wallet
         CreateExchangeRatesTable(db);
         CreateVouchersTable(db);
         CreateExchangeRatesHistoryTable(db);
+        CreateEventsTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1982,6 +2014,11 @@ namespace beam::wallet
                 case DbVersion26:
                     LOG_INFO() << "Converting DB from format 26...";
                     MigrateTransactionsFrom25(walletDB.get());
+                    // no break
+
+                case DbVersion27:
+                    LOG_INFO() << "Converting DB from format 27...";
+                    CreateEventsTable(walletDB->_db);
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -4309,6 +4346,53 @@ namespace beam::wallet
             stm.get(0, res);
         }
         return size_t(res);
+    }
+
+    void WalletDB::insertEvent(Height h, const Blob& body, const Blob& key)
+    {
+        sqlite::Statement stm(this, "INSERT INTO " EVENTS_NAME "(" ENUM_EVENTS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EVENTS_FIELDS(BIND_LIST, COMMA, ) ");");
+        stm.bind(1, h);
+        stm.bind(2, body);
+        stm.bind(3, key);
+        stm.step();
+    }
+
+    void WalletDB::deleteEventsFrom(Height h)
+    {
+        sqlite::Statement stm(this, "DELETE FROM " EVENTS_NAME " WHERE Height >= ?1");
+        stm.bind(1, h);
+        stm.step();
+    }
+
+    void WalletDB::visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const
+    {
+        sqlite::Statement stm(this, "SELECT * FROM " EVENTS_NAME " WHERE Height >= ?1 AND Key == ?2");
+        stm.bind(1, min);
+        stm.bind(2, key);
+        while (stm.step())
+        {
+            Height h = 0;
+            ByteBuffer body;
+            stm.get(0, h);
+            stm.get(1, body);
+            if (!func(h, std::move(body)))
+                break;
+        }
+    }
+
+    void WalletDB::visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const
+    {
+        sqlite::Statement stm(this, "SELECT * FROM " EVENTS_NAME " WHERE Height >= ?1");
+        stm.bind(1, min);
+        while (stm.step())
+        {
+            Height h = 0;
+            ByteBuffer body;
+            stm.get(0, h);
+            stm.get(1, body);
+            if (!func(h, std::move(body)))
+                break;
+        }
     }
 
     void WalletDB::Subscribe(IWalletDbObserver* observer)

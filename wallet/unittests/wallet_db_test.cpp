@@ -1491,6 +1491,77 @@ void TestVouchers()
     WALLET_CHECK_NO_THROW(db->saveVoucher(vouchers[3], receiverID));
 }
 
+void TestEvents()
+{
+    cout << "\nWallet database events test\n";
+    auto db = createSqliteWalletDB();
+
+
+    ByteBuffer body = from_hex("123456789");
+    ByteBuffer key = from_hex("987654321");
+    ByteBuffer body2 = from_hex("123489");
+    ByteBuffer key2 = from_hex("2");
+
+    ByteBuffer body3 = from_hex("123456589");
+    ByteBuffer key3 = from_hex("3");
+
+
+    db->insertEvent(12345, Blob(body), Blob(key));
+    db->insertEvent(1, Blob(body2), Blob(key2));
+    db->insertEvent(2, Blob(body3), Blob(key3));
+
+    auto getEvents = [&db](Height h, const ByteBuffer& key)
+    {
+        std::vector<std::pair<Height, ByteBuffer>> events;
+        db->visitEvents(0, Blob(key), [&](auto&& h, auto&& b)
+        {
+            events.push_back({ h, std::move(b) });
+            return true;
+        });
+        return events;
+    };
+
+    {
+        auto events = getEvents(0, key);
+        WALLET_CHECK(events.size() == 1);
+        WALLET_CHECK(events[0].first == 12345);
+        WALLET_CHECK(events[0].second == body);
+    }
+
+    {
+        auto events = getEvents(0, key2);
+        WALLET_CHECK(events.size() == 1);
+        WALLET_CHECK(events[0].first == 1);
+        WALLET_CHECK(events[0].second == body2);
+    }
+
+    {
+        auto events = getEvents(0, key3);
+        WALLET_CHECK(events.size() == 1);
+        WALLET_CHECK(events[0].first == 2);
+        WALLET_CHECK(events[0].second == body3);
+    }
+
+    db->deleteEventsFrom(2);
+
+    {
+        auto events = getEvents(0, key);
+        WALLET_CHECK(events.size() == 0);
+    }
+
+    {
+        auto events = getEvents(0, key2);
+        WALLET_CHECK(events.size() == 1);
+        WALLET_CHECK(events[0].first == 1);
+        WALLET_CHECK(events[0].second == body2);
+    }
+
+    {
+        auto events = getEvents(0, key3);
+        WALLET_CHECK(events.size() == 0);
+    }
+}
+
 }
 
 int main() 
@@ -1505,6 +1576,7 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
+    TestEvents();
     TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
