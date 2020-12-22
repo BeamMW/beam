@@ -1084,6 +1084,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHour
     });
 }
 
+JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaturityHours)(JNIEnv *env, jobject thiz, jlong id)
+{
+    uint64_t _id = id;
+    auto coin = walletModel->shieldedCoins[_id];
+    auto time = walletModel->getMaturityHoursLeft(coin);
+    return time;
+}
+
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz)
 {
     return m_mpLockTimeLimit;

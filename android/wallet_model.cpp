@@ -186,6 +186,7 @@ namespace
             setLongField(env, UtxoClass, utxo, "id", coin.m_spentHeight);
             setStringField(env, UtxoClass, utxo, "stringId", idString);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
+            setLongField(env, UtxoClass, utxo, "txoID", coin.m_TxoID);
 
             switch (coin.m_Status)
             {
@@ -841,6 +842,11 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& wid, const boost::o
 void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) 
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
+
+        for (const auto& coin : items)
+        {
+            shieldedCoins[coin.m_TxoID] = coin;
+        }
 
     JNIEnv* env = Android_JNI_getEnv();
 

@@ -26,6 +26,8 @@ public:
     WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
+    std::map<uint64_t, beam::wallet::ShieldedCoin> shieldedCoins;
+
     void callMyFunction();
     std::function<void()> myFunction;
 
