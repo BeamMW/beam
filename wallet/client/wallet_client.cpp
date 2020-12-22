@@ -433,6 +433,7 @@ namespace beam::wallet
                 wallet->ResumeAllTransactions();
 
                 updateClientState(getStatus());
+
                 std::vector<io::Address> fallbackAddresses;
                 storage::getBlobVar(*m_walletDB, FallbackPeers, fallbackAddresses);
                 auto nodeNetwork = make_shared<NodeNetwork>(*wallet, m_initialNodeAddrStr, std::move(fallbackAddresses));
@@ -446,6 +447,8 @@ namespace beam::wallet
                 m_walletNetwork = walletNetwork;
                 wallet->SetNodeEndpoint(nodeNetwork);
                 wallet->AddMessageEndpoint(walletNetwork);
+
+                updateMaxPrivacyStatsImpl(getStatus());
 
                 auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
@@ -1511,50 +1514,54 @@ namespace beam::wallet
 
     void WalletClient::updateMaxPrivacyStats(const WalletStatus& status)
     {
-        if (!status.stateID.m_Height || !(status.stateID.m_Height % kShieldedPer24hFilterBlocksForUpdate))
+        if (!(status.stateID.m_Height % kShieldedPer24hFilterBlocksForUpdate))
         {
-            m_shieldedCountHistoryPart.clear();
+            updateMaxPrivacyStatsImpl(status);
+        }
+    }
 
-            if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * kShieldedCountHistoryWindowSize)
+    void WalletClient::updateMaxPrivacyStatsImpl(const WalletStatus& status)
+    {
+        m_shieldedCountHistoryPart.clear();
+
+        if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * kShieldedCountHistoryWindowSize)
+        {
+            auto w = m_wallet.lock();
+            if (!w)
             {
-                assert(!m_wallet.expired());
-                auto w = m_wallet.lock();
-                if (!w)
+                return;
+            }
+
+            m_shieldedCountHistoryPart.reserve(kShieldedCountHistoryWindowSize);
+
+            for (uint8_t i = 0; i < kShieldedCountHistoryWindowSize; ++i)
+            {
+                auto h = status.stateID.m_Height - (kShieldedPer24hFilterBlocksForUpdate * i);
+
+                w->RequestShieldedOutputsAt(h, [this](Height h, TxoID count)
                 {
-                    return;
-                }
-
-                m_shieldedCountHistoryPart.reserve(kShieldedCountHistoryWindowSize);
-
-                for (uint8_t i = 0; i < kShieldedCountHistoryWindowSize; ++i)
-                {
-                    auto h = status.stateID.m_Height - (kShieldedPer24hFilterBlocksForUpdate * i);
-
-                    w->RequestShieldedOutputsAt(h, [this](Height h, TxoID count)
+                    m_shieldedCountHistoryPart.emplace_back(h, count);
+                    if (m_shieldedCountHistoryPart.size() == kShieldedCountHistoryWindowSize)
                     {
-                        m_shieldedCountHistoryPart.emplace_back(h, count);
-                        if (m_shieldedCountHistoryPart.size() == kShieldedCountHistoryWindowSize)
+                        for (uint8_t i = 0; i < kShieldedPer24hFilterSize; ++i)
                         {
-                            for (uint8_t i = 0; i < kShieldedPer24hFilterSize; ++i)
+                            if (m_shieldedCountHistoryPart[i].second)
                             {
-                                if (m_shieldedCountHistoryPart[i].second)
-                                {
-                                    double b = static_cast<double>(m_shieldedCountHistoryPart[i].second - m_shieldedCountHistoryPart[i + kShieldedPer24hFilterSize].second);
-                                    m_shieldedPer24hFilter->addSample(b);
-                                }
-                                else
-                                {
-                                    m_shieldedPer24hFilter->addSample(0);
-                                }
+                                double b = static_cast<double>(m_shieldedCountHistoryPart[i].second - m_shieldedCountHistoryPart[i + kShieldedPer24hFilterSize].second);
+                                m_shieldedPer24hFilter->addSample(b);
                             }
-                            auto shieldedPer24h = static_cast<TxoID>(floor(m_shieldedPer24hFilter->getAverage() * 10));
-                            postFunctionToClientContext([this, shieldedPer24h]()
+                            else
                             {
-                                m_shieldedPer24h = shieldedPer24h;
-                            });
+                                m_shieldedPer24hFilter->addSample(0);
+                            }
                         }
-                    });
-                }
+                        auto shieldedPer24h = static_cast<TxoID>(floor(m_shieldedPer24hFilter->getAverage() * 10));
+                        postFunctionToClientContext([this, shieldedPer24h]()
+                        {
+                            m_shieldedPer24h = shieldedPer24h;
+                        });
+                    }
+                });
             }
         }
     }

@@ -253,6 +253,7 @@ namespace beam::wallet
         void updateStatus();
         void updateClientState(WalletStatus&&);
         void updateMaxPrivacyStats(const WalletStatus& status);
+        void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);

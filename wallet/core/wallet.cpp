@@ -234,7 +234,6 @@ namespace beam::wallet
             if (!--m_OwnedNodesOnline)
             {
                 AbortEvents();
-                Rescan();
             }
         }
 
