@@ -239,4 +239,18 @@ content-type: application/json-rpc
     "params": {}
 }
 
+
+######## Explorer node #######################
+###
+
+GET http://127.0.0.1:8888/status HTTP/1.1
+
+###
+
+GET http://127.0.0.1:8888/blocks?height=13600&n=100 HTTP/1.1
+
+###
+
+GET http://127.0.0.1:8888/swap_offers HTTP/1.1
+
 ###
