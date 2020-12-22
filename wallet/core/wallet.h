@@ -159,6 +159,7 @@ namespace beam::wallet
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
+        bool IsConnectedToOwnNode() const;
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
