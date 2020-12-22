@@ -3354,7 +3354,7 @@ namespace beam::wallet
 
         const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm2(this, gtParamReq);
-        sqlite::Statement stm3(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
+        sqlite::Statement stm3(this, "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
         while (!transactions.empty())
         {
@@ -4447,7 +4447,7 @@ namespace beam::wallet
             }
         }
 
-        sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
+        sqlite::Statement stm(this, "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
         return getTxParameterImpl(txID, subTxID, paramID, blob, stm);
     }
 
@@ -4460,10 +4460,7 @@ namespace beam::wallet
 
         if (stm.step())
         {
-            TxParameter parameter = {};
-            int colIdx = 0;
-            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
-            blob = move(parameter.m_value);
+            stm.get(0, blob);
             insertParameterToCache(txID, subTxID, paramID, blob);
             return true;
         }
