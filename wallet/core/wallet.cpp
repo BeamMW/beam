@@ -2034,6 +2034,11 @@ namespace beam::wallet
         PostReqUnique(*pVal);
     }
 
+    bool Wallet::IsConnectedToOwnNode() const
+    {
+        return m_OwnedNodesOnline > 0;
+    }
+
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
