@@ -3241,6 +3241,12 @@ void TestAll()
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().Maturity.Coinbase = 10;
 	beam::Rules::get().pForks[1].m_Height = 16;
+	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().pForks[3].m_Height = 32;
+	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().CA.LockPeriod = 2;
+	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
+	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
@@ -3298,14 +3304,6 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz);
 		beam::DeleteFile(beam::g_sz2);
 	}
-
-	beam::Rules::get().pForks[2].m_Height = 17;
-	beam::Rules::get().pForks[3].m_Height = 32;
-	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
-	beam::Rules::get().CA.LockPeriod = 2;
-	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
-	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
-	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);

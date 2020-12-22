@@ -165,7 +165,8 @@ void InitTestRules()
 {
     Rules::get().pForks[1].m_Height = 1;
     Rules::get().pForks[2].m_Height = 2;
-	Rules::get().FakePoW = true;
+    Rules::get().pForks[3].m_Height = 3;
+    Rules::get().FakePoW = true;
     Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();
 }

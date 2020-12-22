@@ -27,10 +27,10 @@ build_script:
 after_build:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
-- ps: $env:BEAM_TARGET_SUFFIX='-masternet'
-- ps: $env:BEAM_DISPLAY_SUFFIX='Masternet'
-- ps: $env:BEAM_DISPLAY_SUFFIX2='-Masternet'
-- ps: $env:BEAM_DISPLAY_SUFFIX3=' Masternet'
+- ps: $env:BEAM_TARGET_SUFFIX='-beamx'
+- ps: $env:BEAM_DISPLAY_SUFFIX='BeamX'
+- ps: $env:BEAM_DISPLAY_SUFFIX2='-BeamX'
+- ps: $env:BEAM_DISPLAY_SUFFIX3=' BeamX'
 - cmd: >-
     set /p BEAM_VERSION=<beam_version.gen
 

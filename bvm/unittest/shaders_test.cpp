@@ -55,18 +55,19 @@ namespace Shaders {
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
+#define export
+
+#include "../Shaders/common.h"
+#include "../Shaders/Math.h"
+#include "../Shaders/MergeSort.h"
+
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
 #include "../Shaders/dummy/contract.h"
 #include "../Shaders/StableCoin/contract.h"
 #include "../Shaders/faucet/contract.h"
 #include "../Shaders/roulette/contract.h"
-
-#define export
-
-#include "../Shaders/common.h"
-#include "../Shaders/Math.h"
-#include "../Shaders/MergeSort.h"
+#include "../Shaders/sidechain/contract.h"
 
 	namespace Env {
 
@@ -122,6 +123,10 @@ namespace Shaders {
 	}
 	namespace Dummy {
 #include "../Shaders/dummy/contract.cpp"
+	}
+
+	namespace Sidechain {
+#include "../Shaders/sidechain/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -604,6 +609,7 @@ namespace bvm2 {
 			ByteBuffer m_Vault;
 			ByteBuffer m_Oracle;
 			ByteBuffer m_Dummy;
+			ByteBuffer m_Sidechain;
 			ByteBuffer m_StableCoin;
 			ByteBuffer m_Faucet;
 			ByteBuffer m_Roulette;
@@ -616,6 +622,7 @@ namespace bvm2 {
 		ContractID m_cidFaucet;
 		ContractID m_cidRoulette;
 		ContractID m_cidDummy;
+		ContractID m_cidSidechain;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -734,6 +741,16 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidSidechain)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
+				//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -743,6 +760,7 @@ namespace bvm2 {
 		void TestStableCoin();
 		void TestFaucet();
 		void TestRoulette();
+		void TestSidechain();
 
 		void TestAll();
 	};
@@ -767,11 +785,13 @@ namespace bvm2 {
 		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
 		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
+		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
 
 		TestVault();
 		TestFaucet();
 		TestRoulette();
 		TestDummy();
+		TestSidechain();
 		TestOracle();
 		TestStableCoin();
 	}
@@ -936,6 +956,23 @@ namespace bvm2 {
 		};
 	}
 
+	void CvtHdrPrefix(Shaders::BeamHeaderPrefix& bh, const Block::SystemState::Sequence::Prefix& s)
+	{
+		bh.m_Prev = s.m_Prev;
+		bh.m_ChainWork = s.m_ChainWork;
+		bh.m_Height = s.m_Height;
+	}
+
+	void CvtHdrElement(Shaders::BeamHeaderSequence& bh, const Block::SystemState::Sequence::Element& s)
+	{
+		bh.m_Definition = s.m_Definition;
+		bh.m_Kernels = s.m_Kernels;
+		bh.m_TimeStamp = s.m_TimeStamp;
+		memcpy(&bh.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
+		memcpy(&bh.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
+		bh.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
+	}
+
 
 	void MyProcessor::TestDummy()
 	{
@@ -1063,35 +1100,116 @@ namespace bvm2 {
 			verify_test(s.IsValid());
 
 			Shaders::Dummy::VerifyBeamHeader args;
-			args.m_Hdr.m_Height = s.m_Height;
-			args.m_Hdr.m_Prev = s.m_Prev;
-			args.m_Hdr.m_ChainWork = s.m_ChainWork;
-			args.m_Hdr.m_Kernels = s.m_Kernels;
-			args.m_Hdr.m_Definition = s.m_Definition;
-			args.m_Hdr.m_TimeStamp = s.m_TimeStamp;
-			memcpy(&args.m_Hdr.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
-			memcpy(&args.m_Hdr.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
-			args.m_Hdr.m_DifficultyPacked = s.m_PoW.m_Difficulty.m_Packed;
+			CvtHdrPrefix(args.m_Hdr, s);
+			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
+			Dbg dbg = m_Dbg;
+			m_Dbg.m_Instructions = false;
+			m_Dbg.m_Stack = false;
+			m_Dbg.m_ExtCall = false;
+
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			m_Dbg = dbg;
+
 			verify_test(args.m_Hash == hv);
 
-			uint32_t pIndices[32];
-			IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
-			verify_test(!memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
+			Difficulty::Raw diff;
+			s.m_PoW.m_Difficulty.Unpack(diff);
+			diff.Negate();
+			diff += s.m_ChainWork;
+			verify_test(diff == args.m_ChainWork0);
 
-			s.get_HashForPoW(hvExpected);
-			verify_test(args.m_HashForPoW == hvExpected);
+			//uint32_t pIndices[32];
+			//IndexDecoder2::State<25, 0, 25>::Do(pIndices, (const uint32_t*) &s.m_PoW.m_Indices.at(0));
+			//verify_test(!memcmp(pIndices, args.m_pIndices, sizeof(pIndices)));
 
-			Difficulty::Raw diffRaw;
-			s.m_PoW.m_Difficulty.Unpack(diffRaw);
+			//s.get_HashForPoW(hvExpected);
+			//verify_test(args.m_HashForPoW == hvExpected);
 
-			verify_test(diffRaw == args.m_DiffUnpacked);
-			verify_test(args.m_DiffTestOk);
+			//Difficulty::Raw diffRaw;
+			//s.m_PoW.m_Difficulty.Unpack(diffRaw);
+
+			//verify_test(diffRaw == args.m_DiffUnpacked);
+			//verify_test(args.m_DiffTestOk);
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));
+	}
+
+	void CvtHdrSequence(Shaders::BeamHeaderPrefix& bhp, Shaders::BeamHeaderSequence* pSeq, uint32_t n, const Block::SystemState::Full* pS)
+	{
+		CvtHdrPrefix(bhp, pS[0]);
+		for (uint32_t i = 0; i < n; i++)
+			CvtHdrElement(pSeq[i], pS[i]);
+	}
+
+	void MyProcessor::TestSidechain()
+	{
+		Block::SystemState::Full s;
+		ZeroObject(s);
+		s.m_Height = 920000;
+		s.m_ChainWork = 100500U;
+
+		std::vector<Block::SystemState::Full> vChain;
+		vChain.push_back(s);
+
+		{
+			Shaders::Sidechain::Init args;
+			ZeroObject(args);
+			CvtHdrPrefix(args.m_Hdr0, s);
+			CvtHdrElement(args.m_Hdr0, s);
+			args.m_Rules = Rules::get().pForks[2].m_Hash;
+			verify_test(ContractCreate_T(m_cidSidechain, m_Code.m_Sidechain, args));
+		}
+
+		{
+			const uint32_t nSeq = 10;
+
+			Shaders::Sidechain::Grow<nSeq> args;
+			ZeroObject(args);
+			args.m_nSequence = nSeq;
+
+			for (uint32_t i = 0; i < nSeq; i++)
+			{
+				s.NextPrefix();
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				vChain.push_back(s);
+			}
+
+			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // chainwork didn't grow
+
+			args.m_Prefix.m_ChainWork.Inc(); // tamper with chainwork
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+		}
+
+		{
+			vChain.resize(1);
+			s = vChain.back();
+
+			const uint32_t nSeq = 6;
+
+			Shaders::Sidechain::Grow<nSeq> args;
+			ZeroObject(args);
+			args.m_nSequence = nSeq;
+
+			for (uint32_t i = 0; i < nSeq; i++)
+			{
+				s.NextPrefix();
+				s.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				vChain.push_back(s);
+			}
+
+			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
+		}
 	}
 
 	void MyProcessor::TestOracle()

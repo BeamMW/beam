@@ -674,6 +674,7 @@ int main () {
     rules.FakePoW             = true;
     rules.pForks[1].m_Height  = 5;
     rules.pForks[2].m_Height  = 10;
+    rules.pForks[3].m_Height  = 15;
     rules.UpdateChecksum();
 
     TestAssets();

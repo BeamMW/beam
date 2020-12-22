@@ -2,6 +2,7 @@
 #include "../Math.h"
 #include "contract.h"
 #include "../vault/contract.h"
+#include "../BeamHeader.h"
 
 // Demonstration of the inter-shader interaction.
 
@@ -85,206 +86,14 @@ export void Method_8(Dummy::Hash3& r)
     Env::HashFree(pHash);
 }
 
-struct HashProcessor
-{
-    HashObj* m_p;
-
-    HashProcessor()
-        :m_p(nullptr)
-    {
-    }
-
-    ~HashProcessor()
-    {
-        if (m_p)
-            Env::HashFree(m_p);
-    }
-
-    template <typename T>
-    HashProcessor& operator << (const T& x)
-    {
-        Write(x);
-        return *this;
-    }
-
-    void Write(uint8_t x) {
-        Env::HashWrite(m_p, &x, sizeof(x));
-    }
-
-    template <typename T>
-    void Write(T v)
-    {
-        // Must be independent of the endian-ness
-        // Must prevent ambiguities (different inputs should be properly distinguished)
-        // Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
-        static_assert(T(-1) > 0, "must be unsigned");
-
-        for (; v >= 0x80; v >>= 7)
-            Write(uint8_t(uint8_t(v) | 0x80));
-
-        Write(uint8_t(v));
-    }
-
-    void Write(const void* p, uint32_t n)
-    {
-        Env::HashWrite(m_p, p, n);
-    }
-
-    void Write(const HashValue& hv)
-    {
-        Write(&hv, sizeof(hv));
-    }
-
-    template <typename T>
-    void operator >> (T& res)
-    {
-        Env::HashGetValue(m_p, &res, sizeof(res));
-    }
-};
-
-void get_HdrHash(HashValue& out, const Dummy::VerifyBeamHeader::Hdr& hdr, bool bFull, const HashValue* pRules)
-{
-    HashProcessor hp;
-    hp.m_p = Env::HashCreateSha256();
-
-    hp
-        << hdr.m_Height
-        << hdr.m_Prev
-        << hdr.m_ChainWork
-        << hdr.m_Kernels
-        << hdr.m_Definition
-        << hdr.m_TimeStamp
-        << hdr.m_DifficultyPacked;
-
-    if (pRules)
-        hp << *pRules;
-
-    if (bFull)
-    {
-        hp.Write(hdr.m_pIndices, sizeof(hdr.m_pIndices));
-        hp.Write(hdr.m_pNonce, sizeof(hdr.m_pNonce));
-    }
-
-    hp >> out;
-}
-
-template <typename TDst, typename TSrc>
-void BSwap(TDst& dst, const TSrc& src)
-{
-    static_assert(sizeof(dst) == sizeof(src), "");
-    for (uint32_t i = 0; i < sizeof(src); i++)
-        ((uint8_t*) &dst)[i] = ((uint8_t*) &src)[sizeof(src) - 1 - i];
-}
-
-struct Difficulty
-{
-    typedef MultiPrecision::UInt<8> Raw;
-
-    static const uint32_t s_MantissaBits = 24;
-
-    static void Unpack(Raw& res, uint32_t nPacked)
-    {
-        // unpack difficulty
-        const uint32_t nLeadingBit = 1U << s_MantissaBits;
-        uint32_t order = (nPacked >> s_MantissaBits);
-
-        if (order > 231)
-            Utils::SetObject(res, static_cast<uint8_t>(-1)); // inf
-        else
-        {
-            MultiPrecision::UInt<1> mantissa = nLeadingBit | (nPacked & (nLeadingBit - 1));
-            res.Set(mantissa, order);
-        }
-    }
-};
-
-namespace IndexDecoder
-{
-	typedef uint32_t Word;
-	static const uint32_t s_WordBits = sizeof(Word) * 8;
-
-	template <uint32_t nBitsPerIndex, uint32_t nSrcIdx, uint32_t nSrcTotal>
-	struct State
-	{
-		static_assert(nBitsPerIndex <= s_WordBits, "");
-		static_assert(nBitsPerIndex >= s_WordBits/2, "unpack should affect no more than 3 adjacent indices");
-
-		static const Word s_Msk = (((Word) 1) << nBitsPerIndex) - 1;
-
-		static const uint32_t s_BitsDecoded = nSrcIdx * s_WordBits;
-
-		static const uint32_t s_iDst = s_BitsDecoded / nBitsPerIndex;
-		static const uint32_t s_nDstBitsDone = s_BitsDecoded % nBitsPerIndex;
-		static const uint32_t s_nDstBitsRemaining = nBitsPerIndex - s_nDstBitsDone;
-
-		static void Do(Word* pDst, const Word* pSrc)
-		{
-			Word src = Utils::FromLE(pSrc[nSrcIdx]);
-
-			if constexpr (s_nDstBitsDone > 0)
-				pDst[s_iDst] |= (src << s_nDstBitsDone) & s_Msk;
-			else
-				pDst[s_iDst] = src & s_Msk;
-
-			pDst[s_iDst + 1] = (src >> s_nDstBitsRemaining) & s_Msk;
-
-			if constexpr (s_nDstBitsRemaining + nBitsPerIndex < s_WordBits)
-				pDst[s_iDst + 2] = (src >> (s_nDstBitsRemaining + nBitsPerIndex)) & s_Msk;
-
-			if constexpr (nSrcIdx + 1 < nSrcTotal)
-				State<nBitsPerIndex, nSrcIdx + 1, nSrcTotal>::Do(pDst, pSrc);
-		}
-	};
-}
-
-
 export void Method_9(Dummy::VerifyBeamHeader& r)
 {
-    get_HdrHash(r.m_HashForPoW, r.m_Hdr, false, &r.m_RulesCfg);
-    get_HdrHash(r.m_Hash, r.m_Hdr, true, &r.m_RulesCfg);
+    r.m_Hdr.get_Hash(r.m_Hash, &r.m_RulesCfg);
+    Env::Halt_if(!r.m_Hdr.IsValid(&r.m_RulesCfg));
 
-    // test difficulty
-    {
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
-        hp.Write(r.m_Hdr.m_pIndices, sizeof(r.m_Hdr.m_pIndices));
-        hp >> r.m_DiffRes;
-    }
-
-    Difficulty::Raw diff, src;
-    Difficulty::Unpack(diff, r.m_Hdr.m_DifficultyPacked);
-    BSwap(r.m_DiffUnpacked, diff);
-
-    BSwap(src, r.m_DiffRes);
-    auto a = diff * src; // would be 512 bits
-    BSwap(r.m_pDiffMultiplied, a);
-
-    static_assert(!(Difficulty::s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
-    r.m_DiffTestOk = Env::Memis0(r.m_pDiffMultiplied, sizeof(src) - (Difficulty::s_MantissaBits >> 3));
-
-    {
-        HashProcessor hp;
-
-#pragma pack (push, 1)
-        struct Personal {
-            char m_sz[8];
-            uint32_t m_WorkBits;
-            uint32_t m_Rounds;
-        } pers;
-#pragma pack (pop)
-
-        Env::Memcpy(pers.m_sz, "Beam-PoW", sizeof(pers.m_sz));
-        pers.m_WorkBits = 448;
-        pers.m_Rounds = 5;
-
-        hp.m_p = Env::HashCreateBlake2b(&pers, sizeof(pers), 32);
-        hp << r.m_HashForPoW;
-        hp.Write(r.m_Hdr.m_pNonce, sizeof(r.m_Hdr.m_pNonce));
-
-        static_assert(sizeof(r.m_Hdr.m_pIndices) == 104, "");
-        hp.Write(r.m_Hdr.m_pIndices + 100, 4); // last 4 bytes are the extra nonce
-        hp >> r.m_PrePoW;
-    }
-
-    IndexDecoder::State<25, 0, 25>::Do(r.m_pIndices, (const uint32_t*) r.m_Hdr.m_pIndices);
+    BeamDifficulty::Raw w0, w1;
+    BeamDifficulty::Unpack(w1, r.m_Hdr.m_PoW.m_Difficulty);
+    w0.FromBE_T(r.m_Hdr.m_ChainWork);
+    w0 -= w1;
+    w0.ToBE_T(r.m_ChainWork0);
 }

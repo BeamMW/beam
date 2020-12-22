@@ -101,6 +101,32 @@ namespace MultiPrecision
 			operator = (x);
 		}
 
+		void ToBE(Word* p) const
+		{
+			*p = Utils::FromBE(m_Val);
+			Base::ToBE(p + 1);
+		}
+
+		void FromBE(const Word* p)
+		{
+			m_Val = Utils::FromBE(*p);
+			Base::FromBE(p + 1);
+		}
+
+		template <typename T>
+		void ToBE_T(T& arg) const
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			ToBE(reinterpret_cast<Word*>(&arg));
+		}
+
+		template <typename T>
+		void FromBE_T(const T& arg)
+		{
+			static_assert(sizeof(*this) == sizeof(arg), "");
+			FromBE(reinterpret_cast<const Word*>(&arg));
+		}
+
 		void operator = (uint64_t x)
 		{
 			set_Ord<0>(x);
@@ -115,7 +141,17 @@ namespace MultiPrecision
 		template <uint32_t wa>
 		void Set(const UInt<wa>& a, int nLShift)
 		{
-			SetShifted(reinterpret_cast<Word*>(this), nWords, reinterpret_cast<const Word*>(&a), wa, nLShift);
+			SetShifted(get_AsArr(), nWords, a.get_AsArr(), wa, nLShift);
+		}
+
+		const Word* get_AsArr() const
+		{
+			return reinterpret_cast<const Word*>(this);
+		}
+
+		Word* get_AsArr()
+		{
+			return reinterpret_cast<Word*>(this);
 		}
 
 		template <uint32_t wa>
@@ -131,7 +167,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator + (const UInt<wa>& a)
+		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator + (const UInt<wa>& a) const
 		{
 			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
 			if constexpr (nWords <= wa)
@@ -142,7 +178,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const UInt<wa>& a)
+		UInt< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const UInt<wa>& a) const
 		{
 			UInt< 1 + ((nWords >= wa) ? nWords : wa) > ret;
 			ret.SetSub(*this, a);
@@ -150,7 +186,7 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa>
-		UInt<nWords + wa> operator * (const UInt<wa>& a)
+		UInt<nWords + wa> operator * (const UInt<wa>& a) const
 		{
 			UInt<nWords + wa> ret;
 			ret.Set0();
@@ -194,8 +230,8 @@ namespace MultiPrecision
 		template <uint32_t wa, uint32_t wb>
 		DWordSigned SetSub(const UInt<wa>& a, const UInt<wb>& b)
 		{
-			// *this = a + b
-			DWordSigned carry = Base::SetAdd(a, b);
+			// *this = a - b
+			DWordSigned carry = Base::SetSub(a, b);
 			carry += a.template get_Val<nWords>();
 			carry -= b.template get_Val<nWords>();
 
@@ -274,6 +310,14 @@ namespace MultiPrecision
 
 		template <uint32_t nDepth>
 		void set_Val(Word x)
+		{
+		}
+
+		void ToBE(Word* p) const
+		{
+		}
+
+		void FromBE(const Word* p)
 		{
 		}
 
