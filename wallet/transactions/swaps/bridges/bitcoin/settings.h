@@ -140,7 +140,8 @@ namespace beam::bitcoin
         bool IsElectrumActivated() const;
         Amount GetMinFeeRate() const;
         Amount GetMaxFeeRate() const;
-        uint16_t GetTxMinConfirmations() const;
+        uint16_t GetLockTxMinConfirmations() const;
+        uint16_t GetWithdrawTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
         bool IsInitialized() const;
         bool IsActivated() const;
@@ -157,7 +158,8 @@ namespace beam::bitcoin
     protected:
         void SetMinFeeRate(Amount feeRate);
         void SetMaxFeeRate(Amount feeRate);
-        void SetTxMinConfirmations(uint16_t txMinConfirmations);
+        void SetLockTxMinConfirmations(uint16_t txMinConfirmations);
+        void SetWithdrawTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetBlocksPerHour(double beamBlocksPerBlock);
         void SetAddressVersion(uint8_t addressVersion);
@@ -171,7 +173,8 @@ namespace beam::bitcoin
         // They are not stored in DB
         Amount m_minFeeRate = 1000u;
         Amount m_maxFeeRate = 1'000'000u; // COIN / 100
-        uint16_t m_txMinConfirmations = 6;
+        uint16_t m_lockTxMinConfirmations = 1;
+        uint16_t m_withdrawTxMinConfirmations = 1;
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;
         uint8_t m_addressVersion = getAddressVersion();

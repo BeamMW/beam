@@ -81,9 +81,14 @@ namespace beam::bitcoin
         return m_maxFeeRate;
     }
 
-    uint16_t Settings::GetTxMinConfirmations() const
+    uint16_t Settings::GetLockTxMinConfirmations() const
     {
-        return m_txMinConfirmations;
+        return m_lockTxMinConfirmations;
+    }
+
+    uint16_t Settings::GetWithdrawTxMinConfirmations() const
+    {
+        return m_withdrawTxMinConfirmations;
     }
 
     uint32_t Settings::GetLockTimeInBlocks() const
@@ -141,9 +146,14 @@ namespace beam::bitcoin
         m_maxFeeRate = feeRate;
     }
 
-    void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)
+    void Settings::SetLockTxMinConfirmations(uint16_t txMinConfirmations)
     {
-        m_txMinConfirmations = txMinConfirmations;
+        m_lockTxMinConfirmations = txMinConfirmations;
+    }
+
+    void Settings::SetWithdrawTxMinConfirmations(uint16_t txMinConfirmations)
+    {
+        m_withdrawTxMinConfirmations = txMinConfirmations;
     }
 
     void Settings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)

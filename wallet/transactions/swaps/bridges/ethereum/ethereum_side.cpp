@@ -202,12 +202,12 @@ bool EthereumSide::ConfirmLockTx()
         {
             m_SwapLockTxConfirmations = confirmations;
             LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
-                << GetTxMinConfirmations() << " confirmations are received.";
+                << GetTxMinConfirmations(SubTxIndex::LOCK_TX) << " confirmations are received.";
             m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, SubTxIndex::LOCK_TX);
         }
     }
     
-    return m_SwapLockTxConfirmations >= GetTxMinConfirmations();
+    return m_SwapLockTxConfirmations >= GetTxMinConfirmations(SubTxIndex::LOCK_TX);
 }
 
 bool EthereumSide::ConfirmRefundTx()
@@ -226,7 +226,7 @@ bool EthereumSide::ConfirmWithdrawTx(SubTxID subTxID)
     if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, subTxID))
         return false;
 
-    if (m_WithdrawTxConfirmations < GetTxMinConfirmations())
+    if (m_WithdrawTxConfirmations < GetTxMinConfirmations(subTxID))
     {
         GetWithdrawTxConfirmations(subTxID);
         return false;
@@ -266,7 +266,7 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
         {
             m_WithdrawTxConfirmations = confirmations;
             LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "] " << confirmations << "/"
-                << GetTxMinConfirmations() << " confirmations are received.";
+                << GetTxMinConfirmations(subTxID) << " confirmations are received.";
             m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, subTxID);
         }
     }
@@ -684,9 +684,19 @@ void EthereumSide::InitSecret()
     }
 }
 
-uint16_t EthereumSide::GetTxMinConfirmations() const
+uint16_t EthereumSide::GetTxMinConfirmations(SubTxID subTxID) const
 {
-    return m_settingsProvider.GetSettings().GetTxMinConfirmations();
+    switch (subTxID)
+    {
+    case SubTxIndex::LOCK_TX:
+        return m_settingsProvider.GetSettings().GetLockTxMinConfirmations();
+    case SubTxIndex::REDEEM_TX:
+    case SubTxIndex::REFUND_TX:
+        return m_settingsProvider.GetSettings().GetWithdrawTxMinConfirmations();
+    default:
+        assert(false && "unexpected subTxID");
+        return 0;
+    }
 }
 
 uint32_t EthereumSide::GetLockTimeInBlocks() const

@@ -31,7 +31,9 @@ namespace beam::litecoin
             constexpr double kBlocksPerHour = 24;
             constexpr uint32_t kDefaultLockTimeInBlocks = 12 * 24;  // 12h
             constexpr Amount kMinFeeRate = 10'000u;
+            constexpr uint16_t kLockTxMinConfirmations = 6;
 
+            SetLockTxMinConfirmations(kLockTxMinConfirmations);
             SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
             SetMinFeeRate(kMinFeeRate);
             SetBlocksPerHour(kBlocksPerHour);

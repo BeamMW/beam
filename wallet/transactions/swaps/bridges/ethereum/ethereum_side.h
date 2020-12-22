@@ -51,7 +51,7 @@ namespace beam::wallet
         uint64_t GetBlockCount(bool notify = false);
         void InitSecret();
 
-        uint16_t GetTxMinConfirmations() const;
+        uint16_t GetTxMinConfirmations(SubTxID subTxID) const;
         uint32_t GetLockTimeInBlocks() const;
         double GetBlocksPerHour() const;
         uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;

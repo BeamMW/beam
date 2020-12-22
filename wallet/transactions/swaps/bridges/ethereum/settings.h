@@ -28,7 +28,8 @@ struct Settings
     std::vector<std::string> m_secretWords = {};
     uint32_t m_accountIndex = 0;
     bool m_shouldConnect = false;
-    uint16_t m_txMinConfirmations = 12;
+    uint16_t m_lockTxMinConfirmations = 12;
+    uint16_t m_withdrawTxMinConfirmations = 1;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
     // TODO roman.strilets need to investigate
@@ -40,7 +41,8 @@ struct Settings
     bool IsInitialized() const;
     bool IsActivated() const;
 
-    uint16_t GetTxMinConfirmations() const;
+    uint16_t GetLockTxMinConfirmations() const;
+    uint16_t GetWithdrawTxMinConfirmations() const;
     uint32_t GetLockTimeInBlocks() const;
     double GetBlocksPerHour() const;
     Amount GetMinFeeRate() const;

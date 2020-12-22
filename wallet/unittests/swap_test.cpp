@@ -124,7 +124,7 @@ namespace
     public:
         TestSettings()
         {
-            SetTxMinConfirmations(kBtcTxMinConfirmations);
+            SetLockTxMinConfirmations(kBtcTxMinConfirmations);
             SetLockTimeInBlocks(kLockTimeInBlocks);
         }
     };
@@ -1729,7 +1729,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     aliceSettings.m_accountIndex = 6;
     //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
-    aliceSettings.m_txMinConfirmations = 2;
+    aliceSettings.m_lockTxMinConfirmations = 2;
     //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     ethereum::Settings bobSettings;
@@ -1737,7 +1737,7 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
     bobSettings.m_accountIndex = 5;
     //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
-    bobSettings.m_txMinConfirmations = 2;
+    bobSettings.m_lockTxMinConfirmations = 2;
     //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     /*TestSettings bobSettings;
@@ -1863,7 +1863,7 @@ void TestSwapEthRefundTransaction()
     //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
     aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
-    aliceSettings.m_txMinConfirmations = 0; // speed-up test
+    aliceSettings.m_lockTxMinConfirmations = 0; // speed-up test
     //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     ethereum::Settings bobSettings;
@@ -1872,7 +1872,7 @@ void TestSwapEthRefundTransaction()
     //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
     bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
-    bobSettings.m_txMinConfirmations = 0;   // speed-up test
+    bobSettings.m_lockTxMinConfirmations = 0;   // speed-up test
     //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
 
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -1968,7 +1968,7 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
     aliceSettings.m_accountIndex = 3;
     //aliceSettings.m_address = "127.0.0.1:7545";
     aliceSettings.m_shouldConnect = true;
-    aliceSettings.m_txMinConfirmations = 2;
+    aliceSettings.m_lockTxMinConfirmations = 2;
     /*aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
     aliceSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
     aliceSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/
@@ -1978,7 +1978,7 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
     bobSettings.m_accountIndex = 4;
     //bobSettings.m_address = "127.0.0.1:7545";
     bobSettings.m_shouldConnect = true;
-    bobSettings.m_txMinConfirmations = 2;
+    bobSettings.m_lockTxMinConfirmations = 2;
     /*bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
     bobSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
     bobSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/

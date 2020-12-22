@@ -49,9 +49,14 @@ bool Settings::IsActivated() const
     return m_shouldConnect && IsInitialized();
 }
 
-uint16_t Settings::GetTxMinConfirmations() const
+uint16_t Settings::GetLockTxMinConfirmations() const
 {
-    return m_txMinConfirmations;
+    return m_lockTxMinConfirmations;
+}
+
+uint16_t Settings::GetWithdrawTxMinConfirmations() const
+{
+    return m_withdrawTxMinConfirmations;
 }
 
 uint32_t Settings::GetLockTimeInBlocks() const

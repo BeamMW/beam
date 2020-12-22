@@ -57,7 +57,7 @@ namespace beam::wallet
         virtual Amount GetFee(Amount feeRate) const;
 
         Amount GetFeeRate(SubTxID subTxID) const;
-        uint16_t GetTxMinConfirmations() const;
+        uint16_t GetTxMinConfirmations(SubTxID subTxID) const;
         uint32_t GetLockTimeInBlocks() const;
         double GetBlocksPerHour() const;
 
