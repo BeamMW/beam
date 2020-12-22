@@ -291,6 +291,7 @@ namespace beam
 
         // ui
         const char* APPDATA_PATH = "appdata";
+        const char* APPS_REMOTE_DEBUG_PORT = "remote-debugging-port";
 
         // assets
         const char* ASSET_ISSUE       = "issue";
@@ -454,6 +455,10 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
+        po::options_description uidebug("UI debug options");
+        uidebug.add_options()
+            (cli::APPS_REMOTE_DEBUG_PORT, po::value<uint32_t>()->default_value(0), "contracts applications remote debug port");
+
         po::options_description swap_options("Atomic swap");
         swap_options.add_options()
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
@@ -555,6 +560,8 @@ namespace beam
         {
             options.add(uioptions);
             visible_options.add(uioptions);
+            options.add(uidebug);
+            visible_options.add(uidebug);
         }
 
         po::options_description rules_options = createRulesOptionsDescription();

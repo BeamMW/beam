@@ -192,6 +192,7 @@ namespace beam
 
         // ui
         extern const char* APPDATA_PATH;
+        extern const char* APPS_REMOTE_DEBUG_PORT;
 
         // assets
         extern const char* ASSET_ISSUE;
