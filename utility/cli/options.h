@@ -192,6 +192,7 @@ namespace beam
 
         // ui
         extern const char* APPDATA_PATH;
+        extern const char* APPS_REMOTE_DEBUG_PORT;
 
         // assets
         extern const char* ASSET_ISSUE;
@@ -201,7 +202,6 @@ namespace beam
         extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_ID;
         extern const char* ASSET_METADATA;
-        extern const char* ASSETS;
         extern const char* WITH_ASSETS;
 
         // broadcaster
