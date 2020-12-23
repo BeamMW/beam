@@ -518,16 +518,15 @@ namespace beam::wallet
 
     void Wallet::confirm_asset(const TxID& txID, Asset::ID assetId, SubTxID subTxID)
     {
-        if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
-        {
-            MyRequestAsset::Ptr pVal(new MyRequestAsset);
-            pVal->m_TxID = txID;
-            pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
-            pVal->m_Msg.m_AssetID = assetId;
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = txID;
+        pVal->m_SubTxID = subTxID;
+        pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
+        pVal->m_Msg.m_AssetID = assetId;
 
-            if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
         }
     }
 
@@ -960,15 +959,15 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAsset& req)
     {
+        BaseTransaction::Ptr tx;
         const auto it = m_ActiveTransactions.find(req.m_TxID);
-        if (m_ActiveTransactions.end() == it)
+        if (m_ActiveTransactions.end() != it)
         {
-            return;
+           tx = it->second;
         }
 
         Block::SystemState::Full sTip;
         get_tip(sTip);
-        auto tx = it->second;
 
         if (!req.m_Res.m_Proof.empty())
         {
@@ -976,11 +975,28 @@ namespace beam::wallet
             const auto height = m_WalletDB->getCurrentHeight();
             m_WalletDB->saveAsset(info, height);
 
-            tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+            bool isReg = false;
+            if (tx)
+            {
+                tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+                isReg = tx->GetType() == TxType::AssetReg;
+            }
+            else
+            {
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, height, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, info, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, Height(0), true);
 
-            if (tx->GetType() == TxType::AssetReg)
+                TxType txType;
+                if (storage::getTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::TransactionType, txType))
+                {
+                    isReg = txType == TxType::AssetReg;
+                }
+            }
+
+            if (isReg)
             {
                 m_WalletDB->markAssetOwned(info.m_ID);
             }
@@ -995,7 +1011,10 @@ namespace beam::wallet
                 wasset->LogInfo(req.m_TxID, req.m_SubTxID);
             }
 
-            UpdateTransaction(tx);
+            if (tx)
+            {
+                UpdateTransaction(tx);
+            }
         }
         else
         {
@@ -1013,10 +1032,19 @@ namespace beam::wallet
                 }
             }
 
-            tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
-            UpdateTransaction(tx);
+            if (tx)
+            {
+                tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
+                UpdateTransaction(tx);
+            }
+            else
+            {
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, Height(0), true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, Asset::Full(), true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, true);
+            }
         }
     }
 
@@ -1738,15 +1766,29 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
+                .SetParameter(TxParameterID::AddressType, addressType);
+
+            const auto assetId = coin.m_CoinID.m_AssetID;
+            if (assetId != Asset::s_BeamID)
+            {
+                if (const auto oinfo = m_WalletDB->findAsset(assetId))
+                {
+                    params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
+                          .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                }
+                else
+                {
+                    confirm_asset(txID, assetId);
+                }
+            }
 
             if (message->m_MaxPrivacyMinAnonymitySet)
             {
                 params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
             }
-            params.SetParameter(TxParameterID::AddressType, addressType);
 
-            auto packed = params.Pack();
+            const auto packed = params.Pack();
             for (const auto& p : packed)
             {
                 storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
