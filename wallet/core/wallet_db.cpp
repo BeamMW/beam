@@ -31,6 +31,7 @@
 #include "strings_resources.h"
 #include "core/uintBig.h"
 #include <queue>
+#include <unordered_map>
 
 #define NOSEP
 #define COMMA ", "
@@ -3369,47 +3370,98 @@ namespace beam::wallet
     void WalletDB::visitTx(std::function<bool(TxType, TxStatus, Asset::ID, Height)> filter, std::function<void(const TxDescription&)> func) const
     {
         using TxData = std::pair<TxID, Timestamp>;
+
+        struct TxData2
+        {
+            TxType m_Type;
+            TxStatus m_Status;
+            Height m_Height;
+            Asset::ID m_AssetID;
+        };
+
+        std::unordered_map<TxID, TxData2> transactions2;
+
         auto pred = [](const TxData& left, const TxData& right) {return left.second < right.second; };
         std::priority_queue<TxData, std::vector<TxData>, decltype(pred)> transactions(pred);
         {
-            sqlite::Statement stm(this, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2;");
+            sqlite::Statement stm(this, "SELECT txID, paramID, value FROM " TX_PARAMS_NAME " WHERE (paramID=?1 OR paramID=?2 OR paramID=?3 OR paramID=?4 OR paramID=?5 OR paramID=?6) AND subTxID=?7;");
             stm.bind(1, TxParameterID::CreateTime);
-            stm.bind(2, kDefaultSubTxID);
+            stm.bind(2, TxParameterID::TransactionType);
+            stm.bind(3, TxParameterID::Status);
+            stm.bind(4, TxParameterID::AssetID);
+            stm.bind(5, TxParameterID::KernelProofHeight);
+            stm.bind(6, TxParameterID::AssetConfirmedHeight);
+            stm.bind(7, kDefaultSubTxID);
+
             TxID txID;
             ByteBuffer buffer;
-            Timestamp timestamp;
+            int paramIDraw;
             while (stm.step())
             {
                 stm.get(0, txID);
-                stm.get(1, buffer);
-                if (fromByteBuffer<Timestamp>(buffer, timestamp))
+                stm.get(1, paramIDraw);
+                stm.get(2, buffer);
+
+                auto paramID = static_cast<TxParameterID>(paramIDraw);
+                switch (paramID)
                 {
-                    transactions.emplace(txID, timestamp);
+                case TxParameterID::CreateTime:
+                {
+                    Timestamp value;
+                    if (fromByteBuffer<Timestamp>(buffer, value))
+                    {
+                        transactions.emplace(txID, value);
+                    }
+                } break;
+                case TxParameterID::TransactionType:
+                {
+                    TxType value;
+                    if (fromByteBuffer<TxType>(buffer, value))
+                    {
+                        transactions2[txID].m_Type = value;
+                    }
+                } break;
+                case TxParameterID::Status:
+                {
+                    TxStatus value;
+                    if (fromByteBuffer<TxStatus>(buffer, value))
+                    {
+                        transactions2[txID].m_Status = value;
+                    }
+                } break;
+                case TxParameterID::AssetID:
+                {
+                    Asset::ID value;
+                    if (fromByteBuffer<Asset::ID>(buffer, value))
+                    {
+                        transactions2[txID].m_AssetID = value;
+                    }
+                } break;
+                case TxParameterID::AssetConfirmedHeight:
+                case TxParameterID::KernelProofHeight:
+                {
+                    Height value;
+                    if (fromByteBuffer<Height>(buffer, value))
+                    {
+                        transactions2[txID].m_Height = value;
+                    }
+                } break;
+                default:
+                    break;
                 }
             }
         }
 
         const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm2(this, gtParamReq);
-        sqlite::Statement stm3(this, "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
         while (!transactions.empty())
         {
             TxID txID = transactions.top().first;
             transactions.pop();
-            TxType type = TxType::Simple;
-            TxStatus status = TxStatus::Pending;
-
-            if (!getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::TransactionType, type, stm3) ||
-                !getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::Status, status, stm3))
-            {
-                continue;
-            }
-
-            Height h = DeduceTxProofHeightImpl(*this, txID, type);
-            Asset::ID assetID = Asset::s_InvalidID;
-            getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::AssetID, assetID, stm3);
-            if (!filter(type, status, assetID, h))
+            
+            const auto& tx = transactions2[txID];
+            if (!filter(tx.m_Type, tx.m_Status, tx.m_AssetID, tx.m_Height))
             {
                 continue;
             }
