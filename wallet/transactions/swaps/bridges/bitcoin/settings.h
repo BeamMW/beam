@@ -171,7 +171,7 @@ namespace beam::bitcoin
         ElectrumSettings m_electrumConnectionSettings;
         ConnectionType m_connectionType = ConnectionType::None;
         // They are not stored in DB
-        Amount m_minFeeRate = 1000u;
+        Amount m_minFeeRate = 20'000u;
         Amount m_maxFeeRate = 1'000'000u; // COIN / 100
         uint16_t m_lockTxMinConfirmations = 1;
         uint16_t m_withdrawTxMinConfirmations = 1;
