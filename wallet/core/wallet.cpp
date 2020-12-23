@@ -1733,6 +1733,7 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::PeerID, WalletID())
                 .SetParameter(TxParameterID::Status, TxStatus::Completed)
                 .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
+                .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
                 .SetParameter(TxParameterID::IsSender, false)
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
