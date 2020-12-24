@@ -1290,19 +1290,39 @@ namespace beam::wallet
     {
         // In this method we emulate work performed by NodeProcessor::HandleValidatedBlock
         // TODO: improve this
+        std::map<ECC::Point, Coin> coins;
+
+        m_WalletDB->visitCoins([&](const Coin& c)
+        {
+            if (c.m_status != Coin::Status::Available && c.m_status != Coin::Status::Outgoing)
+                return true;
+            
+            ECC::Point comm;
+            if (m_WalletDB->get_CommitmentSafe(comm, c.m_ID))
+            {
+                coins.emplace(comm, c);
+            }
+            if (c.m_ID.IsBb21Possible())
+            {
+                CoinID cid = c.m_ID;
+                cid.set_WorkaroundBb21();
+                if (m_WalletDB->get_CommitmentSafe(comm, cid))
+                {
+                    coins.emplace(comm, c);
+                }
+            }
+            return true;
+        });
+
         for (auto& input : block.m_vInputs)
         {
-            m_WalletDB->visitCoins([&](const Coin& c)
+            auto cit = coins.find(input->m_Commitment);
+            if (cit != coins.end())
             {
-                Coin c2 = c;
-                if (m_WalletDB->IsRecoveredMatch(c2.m_ID, input->m_Commitment))
-                {
-                    input->m_Internal.m_Maturity = c2.m_maturity;
-                    return false;
-                }
-                return true;
-            });
+                input->m_Internal.m_Maturity = cit->second.m_maturity;
+            }
         }
+
         // remove asset kernels, we don't support them
         auto& kernels = block.m_vKernels;
         kernels.erase(std::remove_if(kernels.begin(), kernels.end(), [](const auto& k)
