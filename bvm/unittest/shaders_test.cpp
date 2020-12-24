@@ -60,6 +60,7 @@ namespace Shaders {
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"
 #include "../Shaders/MergeSort.h"
+#include "../Shaders/BeamHeader.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
@@ -748,6 +749,8 @@ namespace bvm2 {
 				//{
 				//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
 				//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
+				//case 3: Shaders::Sidechain::Method_3(CastArg<Shaders::Sidechain::VerifyProof<0> >(pArgs)); return;
+				//case 4: Shaders::Sidechain::Method_4(CastArg<Shaders::Sidechain::WithdrawComission>(pArgs)); return;
 				//}
 			}
 
@@ -956,18 +959,18 @@ namespace bvm2 {
 		};
 	}
 
-	void CvtHdrPrefix(Shaders::BeamHeaderPrefix& bh, const Block::SystemState::Sequence::Prefix& s)
+	void CvtHdrPrefix(Shaders::BlockHeader::Prefix& bh, const Block::SystemState::Sequence::Prefix& s)
 	{
 		bh.m_Prev = s.m_Prev;
 		bh.m_ChainWork = s.m_ChainWork;
 		bh.m_Height = s.m_Height;
 	}
 
-	void CvtHdrElement(Shaders::BeamHeaderSequence& bh, const Block::SystemState::Sequence::Element& s)
+	void CvtHdrElement(Shaders::BlockHeader::Element& bh, const Block::SystemState::Sequence::Element& s)
 	{
 		bh.m_Definition = s.m_Definition;
 		bh.m_Kernels = s.m_Kernels;
-		bh.m_TimeStamp = s.m_TimeStamp;
+		bh.m_Timestamp = s.m_TimeStamp;
 		memcpy(&bh.m_PoW.m_pIndices, &s.m_PoW.m_Indices, s.m_PoW.m_Indices.size());
 		memcpy(&bh.m_PoW.m_pNonce, &s.m_PoW.m_Nonce, s.m_PoW.m_Nonce.nBytes);
 		bh.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
@@ -1138,7 +1141,7 @@ namespace bvm2 {
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 
-	void CvtHdrSequence(Shaders::BeamHeaderPrefix& bhp, Shaders::BeamHeaderSequence* pSeq, uint32_t n, const Block::SystemState::Full* pS)
+	void CvtHdrSequence(Shaders::BlockHeader::Prefix& bhp, Shaders::BlockHeader::Element* pSeq, uint32_t n, const Block::SystemState::Full* pS)
 	{
 		CvtHdrPrefix(bhp, pS[0]);
 		for (uint32_t i = 0; i < n; i++)
@@ -1158,11 +1161,16 @@ namespace bvm2 {
 		{
 			Shaders::Sidechain::Init args;
 			ZeroObject(args);
+			args.m_ComissionForProof = 400;
 			CvtHdrPrefix(args.m_Hdr0, s);
 			CvtHdrElement(args.m_Hdr0, s);
 			args.m_Rules = Rules::get().pForks[2].m_Hash;
 			verify_test(ContractCreate_T(m_cidSidechain, m_Code.m_Sidechain, args));
 		}
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Sidechain);
+		verify_test(sid == Shaders::Sidechain::s_SID);
 
 		{
 			const uint32_t nSeq = 10;
@@ -1188,6 +1196,14 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
 		}
 
+		Merkle::FixedMmr fmmr;
+		fmmr.Resize(14);
+
+		for (uint32_t i = 0; i < 14; i++)
+		{
+			fmmr.Append(i);
+		}
+
 		{
 			vChain.resize(1);
 			s = vChain.back();
@@ -1197,18 +1213,55 @@ namespace bvm2 {
 			Shaders::Sidechain::Grow<nSeq> args;
 			ZeroObject(args);
 			args.m_nSequence = nSeq;
+			args.m_Contributor.m_X = 116U;
 
 			for (uint32_t i = 0; i < nSeq; i++)
 			{
 				s.NextPrefix();
 				s.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
 				s.m_ChainWork += s.m_PoW.m_Difficulty;
+
+				if (i)
+					s.m_Kernels = Zero;
+				else
+					fmmr.get_Hash(s.m_Kernels);
+
 				vChain.push_back(s);
 			}
 
 			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
 
 			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
+		}
+
+		{
+			Merkle::Proof vProof;
+			fmmr.get_Proof(vProof, 4);
+
+			Shaders::Sidechain::VerifyProof<20> args;
+			args.m_Height = vChain[1].m_Height;
+			args.m_KernelID = 4U;
+
+			args.m_nProof = static_cast<uint32_t>(vProof.size());
+			for (uint32_t i = 0; i < args.m_nProof; i++)
+			{
+				args.m_pProof[i].m_OnRight = vProof[i].first;
+				args.m_pProof[i].m_Value = vProof[i].second;
+			}
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // redundant proofs is ok
+		}
+
+		{
+			Shaders::Sidechain::WithdrawComission args;
+			ZeroObject(args);
+			args.m_Contributor.m_X = 116U;
+			args.m_Amount = 400;
+
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
 		}
 	}
 

@@ -52,6 +52,7 @@ namespace bvm2 {
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
 	using Shaders::HashObj;
+	using Shaders::HashValue;
 	using Shaders::BlockHeader;
 
 	struct ErrorSubType
@@ -238,6 +239,8 @@ namespace bvm2 {
 		} m_DataProcessor;
 
 		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
+
+		static void CvtHdr(Shaders::BlockHeader::InfoBase&, const Block::SystemState::Full&);
 
 	public:
 

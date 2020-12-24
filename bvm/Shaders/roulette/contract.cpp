@@ -74,9 +74,9 @@ export void Method_3(void*) // Bets_off
     // IMPORTANT: This is not really a random number, there are no random numbers in a blockchain
     // Dealer can always cheat by matching the block hash to the "winning" number.
     // Never play this roulette for real money
-    BlockHeader hdr;
+    BlockHeader::Info hdr;
     hdr.m_Height = Env::get_Height();
-    Env::get_Hdr(hdr); 
+    Env::get_HdrInfo(hdr); 
 
     // Get first 8 byte of header hash, treat it like integer and extract the winning segment using modulo 36
     uint64_t val;

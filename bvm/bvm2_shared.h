@@ -41,25 +41,89 @@ struct SigRequest
 	uint32_t m_nID;
 };
 
-#pragma pack (pop)
-
 struct HashObj;
 
 struct BlockHeader
 {
-	Height m_Height;
-	HashValue m_Hash;
-	Timestamp m_Timestamp;
-	HashValue m_Kernels;
-	HashValue m_Definition;
-
-	template <bool bToShader>
-	void Convert()
+	struct InfoBase
 	{
-		ConvertOrd<bToShader>(m_Height);
-		ConvertOrd<bToShader>(m_Timestamp);
-	}
+		Timestamp m_Timestamp;
+		HashValue m_Kernels;
+		HashValue m_Definition;
+
+		template <bool bToShader>
+		void Convert()
+		{
+			ConvertOrd<bToShader>(m_Timestamp);
+		}
+	};
+
+	struct Info
+		:public InfoBase
+	{
+		Height m_Height;
+		HashValue m_Hash;
+
+		template <bool bToShader>
+		void Convert()
+		{
+			ConvertOrd<bToShader>(m_Height);
+			InfoBase::Convert<bToShader>();
+		}
+	};
+
+	struct Prefix
+	{
+		Height m_Height;
+		HashValue m_Prev;
+		HashValue m_ChainWork; // not hash, just same size
+
+		template <bool bToShader>
+		void Convert()
+		{
+			ConvertOrd<bToShader>(m_Height);
+		}
+	};
+
+	struct Element
+		:public InfoBase
+	{
+		struct PoW
+		{
+			uint8_t m_pIndices[104];
+			uint8_t m_pNonce[8];
+			uint32_t m_Difficulty;
+
+		} m_PoW;
+
+		template <bool bToShader>
+		void Convert()
+		{
+			InfoBase::Convert<bToShader>();
+			ConvertOrd<bToShader>(m_PoW.m_Difficulty);
+		}
+	};
+
+	struct Full
+		:public Prefix
+		,public Element
+	{
+		template <bool bToShader>
+		void Convert()
+		{
+			Prefix::Convert<bToShader>();
+			Element::Convert<bToShader>();
+		}
+
+		void get_Hash(HashValue& out, const HashValue* pRules) const;
+		bool IsValid(const HashValue* pRules) const;
+
+	protected:
+		void get_HashInternal(HashValue& out, bool bFull, const HashValue* pRules) const;
+		bool TestDifficulty() const;
+	};
 };
+
 
 struct KeyTag
 {
@@ -71,3 +135,5 @@ struct KeyTag
 	// Synthetic tags, not really contract vars
 	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
 };
+
+#pragma pack (pop)

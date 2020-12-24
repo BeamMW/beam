@@ -1945,7 +1945,7 @@ namespace beam
 		oracle
 			<< "fork3"
 			<< pForks[3].m_Height
-			<< (uint32_t) 1 // bvm version
+			<< (uint32_t) 2 // bvm version
 			// TODO: bvm contraints
 			>> pForks[3].m_Hash;
 	}

@@ -129,8 +129,15 @@
 
 #define BVMOp_get_Height(macro, sep)
 
-#define BVMOp_get_Hdr(macro, sep) \
-	macro(BlockHeader&, hdr)
+#define BVMOp_get_HdrInfo(macro, sep) \
+	macro(BlockHeader::Info&, hdr)
+
+#define BVMOp_get_HdrFull(macro, sep) \
+	macro(BlockHeader::Full&, hdr)
+
+#define BVMOp_get_RulesCfg(macro, sep) \
+	macro(Height, h) sep \
+	macro(HashValue&, res)
 
 #define BVMOp_VarsEnum(macro, sep) \
 	macro(const void*, pKey0) sep \
@@ -222,7 +229,9 @@
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
 	macro(0x40, Height   , get_Height) \
-	macro(0x41, void     , get_Hdr) \
+	macro(0x41, void     , get_HdrInfo) \
+	macro(0x42, void     , get_HdrFull) \
+	macro(0x43, Height   , get_RulesCfg) \
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
 	macro(0x4A, HashObj* , HashCreateKeccak256) \
