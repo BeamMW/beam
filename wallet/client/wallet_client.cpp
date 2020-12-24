@@ -632,15 +632,14 @@ namespace beam::wallet
             hoursLeftByBlocksU = static_cast<uint16_t>(hoursLeftByBlocks > 1 ? floor(hoursLeftByBlocks) : ceil(hoursLeftByBlocks));
         }
 
-        auto& shieldedPer24h = m_shieldedPer24h;
-        if (shieldedPer24h)
+        if (m_shieldedPer24h)
         {
             auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
             const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
             auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
             auto maxWindowBacklog = mpAnonymitySet ? Rules::get().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : Rules::get().Shielded.MaxWindowBacklog;
             auto outputsLeftForMP = maxWindowBacklog - outputsAddedAfterMyCoin;
-            auto hoursLeft = outputsLeftForMP / static_cast<double>(shieldedPer24h) * 24;
+            auto hoursLeft = outputsLeftForMP / static_cast<double>(m_shieldedPer24h) * 24;
             uint16_t hoursLeftU = static_cast<uint16_t>(hoursLeft > 1 ? floor(hoursLeft) : ceil(hoursLeft));
             if (timeLimit)
             {
@@ -1556,6 +1555,7 @@ namespace beam::wallet
                             }
                         }
                         auto shieldedPer24h = static_cast<TxoID>(floor(m_shieldedPer24hFilter->getAverage() * 10));
+
                         postFunctionToClientContext([this, shieldedPer24h]()
                         {
                             m_shieldedPer24h = shieldedPer24h;
