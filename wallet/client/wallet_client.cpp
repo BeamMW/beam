@@ -448,6 +448,7 @@ namespace beam::wallet
                 wallet->SetNodeEndpoint(nodeNetwork);
                 wallet->AddMessageEndpoint(walletNetwork);
 
+                LOG_INFO() << "MP_ESTIMATE " << "WalletClient::start";
                 updateMaxPrivacyStatsImpl(getStatus());
 
                 auto wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
@@ -1514,6 +1515,7 @@ namespace beam::wallet
 
     void WalletClient::updateMaxPrivacyStats(const WalletStatus& status)
     {
+        LOG_INFO() << __FUNCTION__;
         if (!(status.stateID.m_Height % kShieldedPer24hFilterBlocksForUpdate))
         {
             updateMaxPrivacyStatsImpl(status);
@@ -1522,6 +1524,7 @@ namespace beam::wallet
 
     void WalletClient::updateMaxPrivacyStatsImpl(const WalletStatus& status)
     {
+        LOG_INFO() << __FUNCTION__;
         m_shieldedCountHistoryPart.clear();
 
         if (status.stateID.m_Height > kShieldedPer24hFilterBlocksForUpdate * kShieldedCountHistoryWindowSize)
@@ -1538,8 +1541,10 @@ namespace beam::wallet
             {
                 auto h = status.stateID.m_Height - (kShieldedPer24hFilterBlocksForUpdate * i);
 
+                LOG_INFO() << "MP_ESTIMATE " << "w->RequestShieldedOutputsAt" << " " << h;
                 w->RequestShieldedOutputsAt(h, [this](Height h, TxoID count)
                 {
+                    LOG_INFO() << "MP_ESTIMATE " << "ON w->RequestShieldedOutputsAt" << " " << h << " count " << count;
                     m_shieldedCountHistoryPart.emplace_back(h, count);
                     if (m_shieldedCountHistoryPart.size() == kShieldedCountHistoryWindowSize)
                     {
