@@ -99,6 +99,15 @@ namespace beam
 			IsValid(pk);
 	}
 
+	bool ShieldedTxo::ID::operator==(const ShieldedTxo::ID& other) const
+	{
+		return
+			m_Value == other.m_Value &&
+			m_Key == other.m_Key &&
+			m_User == other.m_User &&
+			m_AssetID == other.m_AssetID;
+	}
+
 	void ShieldedTxo::ID::get_SkOutPreimage(ECC::Hash::Value& hv, Amount fee) const
 	{
 		// seed should account for meaningful kernel params, i.e. min/max heights, fee, etc.

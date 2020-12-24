@@ -1454,12 +1454,7 @@ namespace beam::wallet
 
             virtual void OnEventType(proto::Event::Utxo& evt) override
             {
-                // filter-out false positives
-                if (!m_This.m_WalletDB->IsRecoveredMatch(evt.m_Cid, evt.m_Commitment))
-                    return;
-
-                bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
-                m_This.ProcessEventUtxo(evt.m_Cid, m_Height, evt.m_Maturity, bAdd, evt.m_User);
+                m_This.ProcessEventUtxo(evt, m_Height);
             }
 
         } p(*this);
@@ -1579,6 +1574,26 @@ namespace beam::wallet
         else
         {
             shieldedCoin->m_spentHeight = std::min(shieldedCoin->m_spentHeight, h);
+        }
+
+        const auto* message = ShieldedTxo::User::ToPackedMessage(shieldedCoin->m_CoinID.m_User);
+        if (!memis0(message->m_TxID.m_pData, sizeof(TxID)))
+        {
+            shieldedCoin->m_createTxId.emplace();
+            std::copy_n(message->m_TxID.m_pData, sizeof(TxID), shieldedCoin->m_createTxId->begin());
+        }
+
+        // Check if this Coin participates in any active transaction
+        for (const auto& [txid, txptr] : m_ActiveTransactions)
+        {
+            std::vector<IPrivateKeyKeeper2::ShieldedInput> inputShielded;
+            txptr->GetParameter(TxParameterID::InputCoinsShielded, inputShielded);
+            if (std::find(inputShielded.begin(), inputShielded.end(), shieldedEvt.m_CoinID) != inputShielded.end())
+            {
+                shieldedCoin->m_Status = ShieldedCoin::Status::Outgoing;;
+                shieldedCoin->m_spentTxId = txid;
+                LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << " marked as Outgoing";
+            }
         }
 
         m_WalletDB->saveShieldedCoin(*shieldedCoin);
