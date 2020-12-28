@@ -1030,7 +1030,7 @@ namespace beam::wallet
 
                 ++counter;
             });
-            assert(data.count == 0 || res.resultList.size() <= data.count);
+            assert(data.count == 0 || (int)res.resultList.size() <= data.count);
             std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
             {
                 return a.tx.m_minHeight > b.tx.m_minHeight;
