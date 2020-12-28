@@ -108,6 +108,20 @@ namespace Dummy
         }
     };
 
+    struct TestFarCallStack
+    {
+        static const uint32_t s_iMethod = 10;
+
+        uint32_t m_iCaller;
+        HashValue m_Cid;
+
+        template <bool bToShader>
+        void Convert()
+        {
+            ConvertOrd<bToShader>(m_iCaller);
+        }
+    };
+
 #pragma pack (pop)
 
 }

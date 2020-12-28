@@ -1138,6 +1138,18 @@ namespace bvm2 {
 			//verify_test(args.m_DiffTestOk);
 		}
 
+		{
+			Shaders::Dummy::TestFarCallStack args;
+			ZeroObject(args);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(args.m_Cid == m_cidDummy);
+
+			args.m_iCaller = 1;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 

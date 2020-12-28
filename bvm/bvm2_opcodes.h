@@ -96,6 +96,12 @@
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs)
 
+#define BVMOp_get_CallDepth(macro, sep)
+
+#define BVMOp_get_CallerCid(macro, sep) \
+	macro(uint32_t, iCaller) sep \
+	macro(ContractID&, cid)
+
 #define BVMOp_Halt(macro, sep)
 
 #define BVMOp_AddSig(macro, sep) \
@@ -240,6 +246,8 @@
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, void     , SaveVar) \
 	macro(0x23, void     , CallFar) \
+	macro(0x24, uint32_t , get_CallDepth) \
+	macro(0x25, void     , get_CallerCid) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \

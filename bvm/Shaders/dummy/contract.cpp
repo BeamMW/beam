@@ -97,3 +97,8 @@ export void Method_9(Dummy::VerifyBeamHeader& r)
     w0 -= w1;
     w0.ToBE_T(r.m_ChainWork0);
 }
+
+export void Method_10(Dummy::TestFarCallStack& r)
+{
+    Env::get_CallerCid(r.m_iCaller, r.m_Cid);
+}

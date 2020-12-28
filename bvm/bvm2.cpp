@@ -1091,6 +1091,34 @@ namespace bvm2 {
 		Wasm::Fail(); // not supported in this form. Proper host code would invoke CallFar_T
 	}
 
+	BVM_METHOD(get_CallDepth)
+	{
+		return OnHost_get_CallDepth();
+	}
+
+	BVM_METHOD_HOST(get_CallDepth)
+	{
+		return static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+	}
+
+	BVM_METHOD(get_CallerCid)
+	{
+		return OnHost_get_CallerCid(iCaller, get_AddrAsW<HashValue>(cid));
+	}
+
+	BVM_METHOD_HOST(get_CallerCid)
+	{
+		for (auto it = m_FarCalls.m_Stack.rbegin(); ; it++)
+		{
+			Wasm::Test(m_FarCalls.m_Stack.rend() != it);
+			if (!iCaller--)
+			{
+				cid = it->m_Cid;
+				break;
+			}
+		}
+	}
+
 	BVM_METHOD(Halt)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint
