@@ -352,6 +352,24 @@ void EthereumBridge::processPendingApproveTx()
     {
         auto pendingTx = m_pendingApprovals.front();
 
+        getTokenBalance(ConvertEthAddressToStr(pendingTx->m_token), [this, weak = this->weak_from_this()](const Error& error, const std::string& result)
+        {
+            if (!weak.expired())
+            {
+                onGotTokenBalance(error, result);
+            }
+        });
+    }
+}
+
+void EthereumBridge::onGotTokenBalance(const Error& error, const std::string& result)
+{
+    auto pendingTx = m_pendingApprovals.front();
+
+    if (error.m_type == IBridge::None)
+    {
+        pendingTx->m_tokenBalance = ConvertStrToUintBig(result);
+
         libbitcoin::data_chunk data;
         data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
         libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kAllowanceHash);
@@ -365,7 +383,15 @@ void EthereumBridge::processPendingApproveTx()
                 onGotAllowance(error, result);
             }
         });
+        return;
     }
+
+    // error
+    pendingTx->m_callback(error, "");
+
+    // process next
+    m_pendingApprovals.pop();
+    processPendingApproveTx();
 }
 
 void EthereumBridge::onGotAllowance(const Error& error, const nlohmann::json& result)
@@ -379,14 +405,57 @@ void EthereumBridge::onGotAllowance(const Error& error, const nlohmann::json& re
         {
             auto allowance = ConvertStrToUintBig(result.get<std::string>());
 
-            allowance += pendingTx->m_value;
+            if (allowance < pendingTx->m_tokenBalance)
+            {
+                // reset allowance
+                // ERC20::approve + spender + 0
+                libbitcoin::data_chunk data;
+                data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
+                libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kApproveHash);
+                ethereum::AddContractABIWordToBuffer(pendingTx->m_spender, data);
+                data.insert(data.end(), ethereum::kEthContractABIWordSize, 0x00);
 
+                send(pendingTx->m_token, data, ECC::Zero, pendingTx->m_gas, pendingTx->m_gasPrice,
+                    [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce)
+                {
+                    if (!weak.expired())
+                    {
+                        onResetAllowance(error, txHash, txNonce);
+                    }
+                });
+
+                return;
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            tmp.m_type = IBridge::InvalidResultFormat;
+            tmp.m_message = ex.what();
+        }
+    }
+
+    pendingTx->m_callback(tmp, "");
+
+    // process next
+    m_pendingApprovals.pop();
+    processPendingApproveTx();
+}
+
+void EthereumBridge::onResetAllowance(const ethereum::IBridge::Error& error, const std::string&, uint64_t)
+{
+    auto pendingTx = m_pendingApprovals.front();
+    Error tmp(error);
+
+    if (tmp.m_type == IBridge::None)
+    {
+        try
+        {
             // ERC20::approve + spender + value
             libbitcoin::data_chunk data;
             data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
             libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kApproveHash);
             ethereum::AddContractABIWordToBuffer(pendingTx->m_spender, data);
-            ethereum::AddContractABIWordToBuffer({ std::begin(allowance.m_pData), std::end(allowance.m_pData) }, data);
+            ethereum::AddContractABIWordToBuffer({ std::begin(pendingTx->m_tokenBalance.m_pData), std::end(pendingTx->m_tokenBalance.m_pData) }, data);
 
             send(pendingTx->m_token, data, ECC::Zero, pendingTx->m_gas, pendingTx->m_gasPrice,
                 [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce)

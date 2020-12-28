@@ -74,7 +74,9 @@ private:
 
     void processPendingApproveTx();
     void onGotAllowance(const Error& error, const nlohmann::json& result);
+    void onGotTokenBalance(const Error& error, const std::string& result);
     void onSentApprove(const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce);
+    void onResetAllowance(const ethereum::IBridge::Error& error, const std::string& txHash, uint64_t txNonce);
     void requestApproveTxConfirmation();
     void onGotApproveTxConfirmation(const Error& error, uint64_t txBlockNumber);
 
@@ -110,6 +112,7 @@ private:
         ECC::uintBig m_gas;
         ECC::uintBig m_gasPrice;
         ECC::uintBig m_value;
+        ECC::uintBig m_tokenBalance;
         ERC20ApproveCallback m_callback;
         std::string m_txHash;
     };
