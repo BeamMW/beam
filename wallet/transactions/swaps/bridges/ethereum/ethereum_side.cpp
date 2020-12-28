@@ -315,8 +315,7 @@ bool EthereumSide::SendLockTx()
                         return;
                     }
 
-                    // temporary used for storing approve tx hash
-                    m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, false, SubTxIndex::LOCK_TX);
+                    m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
                 }
             });
@@ -324,42 +323,9 @@ bool EthereumSide::SendLockTx()
             return false;
         }
 
+        // waiting result of ERC20::approve
         if (swapTxState == SwapTxState::Initial)
         {
-            // waiting result of ERC20::approve
-            std::string txHash;
-            if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, SubTxIndex::LOCK_TX))
-            {
-                return false;
-            }
-
-            m_ethBridge->getTxBlockNumber(txHash, [this, weak = weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
-            {
-                if (weak.expired())
-                {
-                    return;
-                }
-
-                if (error.m_type != ethereum::IBridge::None)
-                {
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to register ERC20::approve!";
-
-                    if (error.m_type == ethereum::IBridge::EthError ||
-                        error.m_type == ethereum::IBridge::InvalidResultFormat)
-                    {
-                        SetTxError(error, SubTxIndex::LOCK_TX);
-                    }
-
-                    m_tx.UpdateOnNextTip();
-                    return;
-                }
-
-                m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
-                // reset TxParameterID::AtomicSwapExternalTxID
-                m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, Zero, static_cast<SubTxID>(SubTxIndex::LOCK_TX));
-                m_tx.UpdateAsync();
-            });
-
             return false;
         }
     }
