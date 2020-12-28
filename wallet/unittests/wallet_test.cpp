@@ -278,10 +278,7 @@ namespace
         int count = 0;
 
         std::map<TxID, Height> storedTx;
-        sender.m_WalletDB->visitTx([](auto t, auto s, auto assetID, auto h)
-        {
-            return true;
-        }, [&](const auto& tx)
+        sender.m_WalletDB->visitTx([&](const auto& tx)
         {
             const auto height = storage::DeduceTxProofHeight(*sender.m_WalletDB, tx);
             storedTx.emplace(tx.m_txId, height);
@@ -290,7 +287,7 @@ namespace
             t = tx.m_createTime;
             ++count;
             return true;
-        });
+        }, {});
         WALLET_CHECK(count == Count);
         WALLET_CHECK(count == (int)storedTx.size());
         for (auto p : storedTx)

@@ -220,6 +220,26 @@ namespace beam::wallet
         ByteBuffer m_Message;
     };
 
+#define BEAM_TX_LIST_HEIGHT_MAP(MACRO) \
+    MACRO(AssetConfirmedHeight, Height) \
+    MACRO(KernelProofHeight, Height)
+
+#define BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO) \
+    MACRO(TransactionType,      TxType) \
+    MACRO(Status,               TxStatus) \
+    MACRO(AssetID,              Asset::ID) 
+
+#define BEAM_TX_LIST_FILTER_MAP(MACRO) \
+    BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO) \
+    BEAM_TX_LIST_HEIGHT_MAP(MACRO) 
+
+    struct TxListFilter
+    {
+#define MACRO(id, type) boost::optional<type> m_##id;
+        BEAM_TX_LIST_FILTER_MAP(MACRO)
+#undef MACRO
+    };
+
     struct IWalletDB;
 
     struct ShieldedCoin
@@ -470,7 +490,7 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
-        virtual void visitTx(std::function<bool(TxType, TxStatus, Asset::ID, Height)> filter, std::function<void(const TxDescription&)> func) const = 0;
+        virtual void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const = 0;
         virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
@@ -636,7 +656,7 @@ namespace beam::wallet
         void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
-        void visitTx(std::function<bool(TxType, TxStatus, Asset::ID, Height)> filter, std::function<void(const TxDescription&)> func) const override;
+        void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const override;
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
@@ -765,6 +785,13 @@ namespace beam::wallet
                 return fromByteBuffer<T>(b, value);
             return false;
         }
+
+        void OnTxSummaryParam(const TxID& txID, SubTxID subTxID, TxParameterID, const ByteBuffer*);
+        template<typename T>
+        void OnTxSummaryParam(const TxID& txID, const char* szName, const ByteBuffer*);
+        void FillTxSummaryTable();
+        template<typename T>
+        void FillTxSummaryTableParam(const char* szField, TxParameterID paramID);
 
     private:
         friend struct sqlite::Statement;

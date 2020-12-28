@@ -18,6 +18,7 @@
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
 #include "utility/logger.h"
+#include "utility/test_helpers.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
@@ -968,7 +969,8 @@ namespace beam::wallet
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
-
+        helpers::StopWatch sw;
+        sw.start();
         TxList::Response res;
 
         {
@@ -982,44 +984,30 @@ namespace beam::wallet
             res.resultList.reserve(data.count);
             int offset = 0;
             int counter = 0;
-            walletDB->visitTx([&](TxType type, TxStatus status, Asset::ID assetID, Height height)
+
+            TxListFilter filter;
+            filter.m_AssetID = data.filter.assetId;
+            filter.m_Status = data.filter.status;
+            filter.m_AssetConfirmedHeight = data.filter.height;
+            filter.m_KernelProofHeight = data.filter.height;
+            walletDB->visitTx(
+                [&](const TxDescription& tx)
             {
-                if (type != TxType::Simple
-                    && type != TxType::AssetIssue
-                    && type != TxType::AssetConsume
-                    && type != TxType::AssetInfo)
+                if (tx.m_txType != TxType::Simple
+                    && tx.m_txType != TxType::AssetIssue
+                    && tx.m_txType != TxType::AssetConsume
+                    && tx.m_txType != TxType::AssetInfo)
+                {
+                    return true;
+                }
+                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
                 {
                     return false;
                 }
-
-                if (!data.withAssets && (assetID != Asset::s_InvalidID || type != TxType::Simple))
-                {
-                    return false;
-                }
-
-                if (data.filter.assetId && assetID != *data.filter.assetId)
-                {
-                    return false;
-                }
-
-                if (data.filter.status && status != *data.filter.status)
-                {
-                    return false;
-                }
-
-                if (data.filter.height && height != *data.filter.height)
-                {
-                    return false;
-                }
-
-                return data.count == 0 || counter < data.count;
-            }, 
-            [&](const auto& tx)
-            {
                 ++offset;
                 if (offset <= data.skip)
                 {
-                    return;
+                    return true;
                 }
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
                 Status::Response& item = res.resultList.emplace_back();
@@ -1029,15 +1017,18 @@ namespace beam::wallet
                 item.confirmations = 0;
 
                 ++counter;
-            });
+                return data.count == 0 || counter < data.count;
+            }, filter);
             assert(data.count == 0 || (int)res.resultList.size() <= data.count);
             std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
             {
                 return a.tx.m_minHeight > b.tx.m_minHeight;
             });
         }
-
+        
         doResponse(id, res);
+        sw.stop();
+        LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
