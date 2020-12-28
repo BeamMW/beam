@@ -275,15 +275,20 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
     LOG_DEBUG() << "generateOfflineAddress()";
             
-      uint64_t bAmount = amount;
+    uint64_t bAmount = amount;
 
     auto id = JString(env, walletId).value();
 
     auto address = walletDB->getAddress(JString(env, walletId).value());
 
     if (lastWalledId.compare(id) != 0) {
+        LOG_DEBUG() << "GenerateVoucherList()";
+
         lastWalledId = id;
         lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
+    }
+    else {
+         LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
     auto offlineAddress = GenerateOfflineAddress(*address, bAmount, lastVouchers);
