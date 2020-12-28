@@ -166,7 +166,6 @@ namespace beam::wallet
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
-        void ResumeTransaction(const TxDescription& tx);
 
         // INegotiatorGateway
         void OnAsyncStarted() override;
