@@ -3320,12 +3320,12 @@ void TestAll()
 			db.ParamIntSet(beam::NodeDB::ParamID::Flags1, beam::NodeDB::Flags1::PendingRebuildNonStd);
 		}
 
-		// test utxo set image rebuilding with shielded in/outs
+		// test mapping image rebuilding with shielded in/outs and contracts
 		beam::io::Reactor::Ptr pReactor(beam::io::Reactor::create());
 		beam::io::Reactor::Scope scope(*pReactor);
 
 		std::string sPath;
-		beam::NodeProcessor::get_UtxoMappingPath(sPath, beam::g_sz);
+		beam::NodeProcessor::get_MappingPath(sPath, beam::g_sz);
 		beam::DeleteFile(sPath.c_str());
 
 		beam::Node node;

@@ -54,7 +54,7 @@ public:
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
-			UtxoStamp,
+			MappingStamp,
 			ShieldedOutputs, // deprecated
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
