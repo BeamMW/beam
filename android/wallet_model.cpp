@@ -90,7 +90,7 @@ namespace
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
-        auto shieldedFee = GetShieldedFee(txDescription) + txDescription.m_fee);
+        auto shieldedFee = GetShieldedFee(txDescription) + txDescription.m_fee;
 
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
