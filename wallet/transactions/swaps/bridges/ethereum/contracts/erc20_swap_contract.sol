@@ -125,7 +125,7 @@ contract AtomicSwap {
         swaps[hashedSecret].initiator = msg.sender;
         swaps[hashedSecret].value = value;
 
-        IERC20(contractAddress).transferFrom(msg.sender, address(this), value);
+        IERC20(contractAddress).safeTransferFrom(msg.sender, address(this), value);
     }
     
     function redeem(bytes32 secret, bytes32 hashedSecret) public
