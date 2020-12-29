@@ -254,6 +254,13 @@ namespace proto {
     macro(ByteBuffer, Result) \
     macro(bool, bMore)
 
+#define BeamNodeMsg_GetContractVar(macro) \
+    macro(ByteBuffer, Key)
+
+#define BeamNodeMsg_ContractVar(macro) \
+    macro(ByteBuffer, Value) \
+    macro(Merkle::Proof, Proof)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x01, Bye) \
@@ -303,6 +310,8 @@ namespace proto {
     macro(0x2b, ShieldedList) \
     macro(0x1f, ContractVarsEnum) \
     macro(0x2d, ContractVars) \
+    macro(0x38, GetContractVar) \
+    macro(0x3c, ContractVar) \
     macro(0x33, EnumHdrs) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \

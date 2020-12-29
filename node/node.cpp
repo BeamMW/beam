@@ -3710,6 +3710,44 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetContractVar&& msg)
+{
+    proto::ContractVar msgOut;
+
+    Blob val;
+    NodeDB::Recordset rs;
+
+    NodeProcessor& p = m_This.m_Processor;
+    if (p.get_DB().ContractDataFind(msg.m_Key, val, rs))
+    {
+        val.Export(msgOut.m_Value);
+
+        Merkle::Hash hv;
+        Block::get_HashContractVar(hv, msg.m_Key, val);
+
+        RadixHashOnlyTree& t = p.get_Contracts();
+        RadixHashOnlyTree::Cursor cu;
+        bool bCreate = false;
+        if (!t.Find(cu, hv, bCreate))
+            NodeProcessor::OnCorrupted();
+
+        t.get_Proof(msgOut.m_Proof, cu);
+
+        struct MyProofBuilder
+            :public NodeProcessor::ProofBuilder
+        {
+            using ProofBuilder::ProofBuilder;
+            virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+        };
+
+        MyProofBuilder pb(p, msgOut.m_Proof);
+        pb.GenerateProof();
+
+    }
+
+    Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)

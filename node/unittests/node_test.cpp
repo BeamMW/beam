@@ -1693,6 +1693,7 @@ namespace beam
 				Height m_pStage[7]; // ctor, list, deposit, print, withdraw, print, dtor
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
+				bool m_VarProof = false;
 
 			} m_Contract;
 
@@ -2057,6 +2058,7 @@ namespace beam
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
+				t.Test(m_Contract.m_VarProof, "Contract variable proof not received");
 
 				return t.m_AllDone;
 			}
@@ -2434,6 +2436,13 @@ namespace beam
 					break;
 
 				case 4: // withdraw
+
+					{
+						proto::GetContractVar msg2;
+						Blob(m_Contract.m_Cid).Export(msg2.m_Key);
+						Send(msg2);
+					}
+
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "withdraw";
 					proc.m_Args["amount"] = "700000";
@@ -2501,6 +2510,15 @@ namespace beam
 			{
 				if (m_pMyNetwork)
 					m_pMyNetwork->OnMsg(std::move(msg));
+			}
+
+			virtual void OnMsg(proto::ContractVar&& msg) override
+			{
+				if (!msg.m_Proof.empty())
+				{
+					verify_test(m_vStates.back().IsValidProofContract(m_Contract.m_Cid, msg.m_Value, msg.m_Proof));
+					m_Contract.m_VarProof = true;
+				}
 			}
 
 			void MaybeAskEvents()
