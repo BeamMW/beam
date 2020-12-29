@@ -70,7 +70,7 @@ void IdleEvt::cancel()
     {
         m_Set = false;
         uv_idle_stop(&m_Handle);
-        uv_close(reinterpret_cast<uv_handle_t*>(&Cast::Down<uv_idle_t>(m_Handle)), nullptr);
+        //uv_close(reinterpret_cast<uv_handle_t*>(&Cast::Down<uv_idle_t>(m_Handle)), nullptr);
     }
 }
 
