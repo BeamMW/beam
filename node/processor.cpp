@@ -4052,6 +4052,9 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		Merkle::Hash hv;
 		Block::get_HashContractVar(hv, key, data);
 
+		if (bAdd)
+		    m_Proc.m_Mapped.m_Contract.EnsureReserve();
+
 		bool bCreate = true;
 		RadixHashOnlyTree::Cursor cu;
 		m_Proc.m_Mapped.m_Contract.Find(cu, hv, bCreate);
@@ -5987,6 +5990,21 @@ intptr_t NodeProcessor::Mapped::Contract::get_Base() const
 	return reinterpret_cast<intptr_t>(get_ParentObj().m_Mapping.get_Base());
 }
 
+void NodeProcessor::Mapped::Contract::EnsureReserve()
+{
+	try
+	{
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashJoint, sizeof(MyJoint), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashLeaf, sizeof(MyLeaf), 1);
+	}
+	catch (const std::exception& e)
+	{
+		// promote it
+		CorruptionException exc;
+		exc.m_sErr = e.what();
+		throw exc;
+	}
+}
 
 RadixTree::Leaf* NodeProcessor::Mapped::Contract::CreateLeaf()
 {
@@ -6000,6 +6018,7 @@ void NodeProcessor::Mapped::Contract::DeleteLeaf(Leaf* p)
 
 RadixTree::Joint* NodeProcessor::Mapped::Contract::CreateJoint()
 {
+    static_assert(sizeof(MyJoint) == sizeof(UtxoTree::MyJoint));
 	return get_ParentObj().Allocate<MyJoint>(Type::HashJoint);
 }
 

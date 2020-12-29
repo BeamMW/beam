@@ -92,6 +92,8 @@ class NodeProcessor
 
 			friend class Mapped;
 
+			void EnsureReserve();
+
 			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
 		} m_Contract;
 
