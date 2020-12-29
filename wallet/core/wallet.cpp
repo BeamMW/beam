@@ -299,6 +299,19 @@ namespace beam::wallet
         UpdateTransaction(tx->GetTxID());
     }
 
+    void Wallet::ResumeTransaction(const TxDescription& tx)
+    {
+        if (tx.canResume() && m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
+        {
+            auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
+            if (t)
+            {
+                MakeTransactionActive(t);
+                UpdateOnSynced(t);
+            }
+        }
+    }
+
     void Wallet::VisitActiveTransaction(const TxVisitor& visitor)
     {
         for(const auto& it: m_ActiveTransactions)
@@ -311,25 +324,10 @@ namespace beam::wallet
     {
         auto func = [this](const auto& tx)
         {
-            if (m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
-            {
-                auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (t)
-                {
-                    MakeTransactionActive(t);
-                    UpdateOnSynced(t);
-                }
-            }
+            ResumeTransaction(tx);
             return true;
         };
         TxListFilter filter;
-        filter.m_Status = TxStatus::Pending;
-        m_WalletDB->visitTx(func, filter);
-
-        filter.m_Status = TxStatus::InProgress;
-        m_WalletDB->visitTx(func, filter);
-
-        filter.m_Status = TxStatus::Registering;
         m_WalletDB->visitTx(func, filter);
     }
 
