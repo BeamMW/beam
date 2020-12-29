@@ -159,6 +159,14 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
+	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
+	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
+	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
+	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
+
+	InitializeMapped(szPath);
+	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
 	if (NodeDB::Flags1::PendingRebuildNonStd & nFlags1)
 	{
@@ -166,16 +174,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
 	}
 
-	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
-	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
-	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
-	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
-
-	InitializeMapped(szPath);
-
 	CommitDB();
-
-	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	m_Horizon.Normalize();
 
@@ -5330,8 +5329,6 @@ bool NodeProcessor::ITxoWalker_Unspent::OnTxo(const NodeDB::WalkerTxo& wlk, Heig
 
 void NodeProcessor::InitializeUtxos()
 {
-	assert(!m_Extra.m_Txos);
-
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
@@ -5606,11 +5603,16 @@ void NodeProcessor::RebuildNonStd()
 	LOG_INFO() << "Rebuilding non-std data...";
 
 	// Delete all asset info, contracts, shielded, and replay everything
+	m_Mapped.m_Contract.Clear();
 	m_DB.ContractDataDelAll();
 	m_DB.ShieldedOutpDelFrom(0);
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+
+	m_Mmr.m_Assets.ResizeTo(0);
+	m_Mmr.m_Shielded.ResizeTo(0);
+	m_Extra.m_ShieldedOutputs = 0;
 
 	static_assert(NodeDB::StreamType::StatesMmr == 0);
 	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
@@ -5659,6 +5661,8 @@ void NodeProcessor::RebuildNonStd()
 	} wlk(*this);
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
+
+	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
