@@ -1178,6 +1178,8 @@ namespace beam
 			struct Helper;
 		};
 
+		static void get_HashContractVar(Merkle::Hash&, const Blob& key, const Blob& val);
+
 		struct SystemState
 		{
 			typedef HeightHash ID;

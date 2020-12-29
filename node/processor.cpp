@@ -2059,6 +2059,8 @@ struct NodeProcessor::BlockInterpretCtx
 		void ContractDataInsert(const Blob& key, const Blob&);
 		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
 		void ContractDataDel(const Blob& key, const Blob& valOld);
+
+		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 	};
 
 	bvm2::Limits::Charge m_ChargePerBlock;
@@ -4017,20 +4019,50 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
 {
+	ContractDataToggleTree(key, data, true);
 	if (!m_Bic.m_Temporary)
 		m_Proc.m_DB.ContractDataInsert(key, data);
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
 {
+	ContractDataToggleTree(key, val, true);
+	ContractDataToggleTree(key, valOld, false);
 	if (!m_Bic.m_Temporary)
 		m_Proc.m_DB.ContractDataUpdate(key, val);
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob& key, const Blob& valOld)
 {
+	ContractDataToggleTree(key, valOld, false);
 	if (!m_Bic.m_Temporary)
 		m_Proc.m_DB.ContractDataDel(key);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
+{
+	if (!m_Bic.m_SkipDefinition)
+	{
+		Merkle::Hash hv;
+		Block::get_HashContractVar(hv, key, data);
+
+		bool bCreate = true;
+		RadixHashOnlyTree::Cursor cu;
+		m_Proc.m_Mapped.m_Contract.Find(cu, hv, bCreate);
+
+		if (!bAdd)
+			m_Proc.m_Mapped.m_Contract.Delete(cu);
+
+		if (bAdd != bCreate)
+		{
+			Wasm::CheckpointTxt cp("SaveVar collision");
+
+			if (!bAdd)
+				OnCorrupted();
+
+			Wasm::Fail();
+		}
+	}
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
@@ -5812,9 +5844,10 @@ struct NodeProcessor::Mapped::Type {
 	enum Enum {
 
 		UtxoLeaf,
-		UtxoJoint,
+		HashJoint,
 		UtxoQueue,
 		UtxoNode,
+		HashLeaf,
 
 		count
 	};
@@ -5842,6 +5875,7 @@ bool NodeProcessor::Mapped::Open(const char* sz, const Stamp& s)
 	if (!h.m_Dirty && (h.m_Stamp == s))
 	{
 		m_Utxo.m_RootOffset = h.m_RootUtxo;
+		m_Contract.m_RootOffset = h.m_RootContract;
 		return true;
 	}
 
@@ -5852,6 +5886,7 @@ bool NodeProcessor::Mapped::Open(const char* sz, const Stamp& s)
 void NodeProcessor::Mapped::Close()
 {
 	m_Utxo.m_RootOffset = 0; // prevent cleanup
+	m_Contract.m_RootOffset = 0;
 	m_Mapping.Close();
 }
 
@@ -5867,6 +5902,7 @@ void NodeProcessor::Mapped::FlushStrict(const Stamp& s)
 
 	h.m_Dirty = 0;
 	h.m_RootUtxo = m_Utxo.m_RootOffset;
+	h.m_RootContract = m_Contract.m_RootOffset;
 	// TODO: flush
 
 	h.m_Stamp = s;
@@ -5877,7 +5913,7 @@ void NodeProcessor::Mapped::Utxo::EnsureReserve()
 	try
 	{
 		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoLeaf, sizeof(MyLeaf), 1);
-		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoJoint, sizeof(MyJoint), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashJoint, sizeof(MyJoint), 1);
 		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoQueue, sizeof(MyLeaf::IDQueue), 1);
 		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoNode, sizeof(MyLeaf::IDNode), 1);
 	}
@@ -5912,12 +5948,12 @@ void NodeProcessor::Mapped::Utxo::DeleteEmptyLeaf(Leaf* p)
 
 RadixTree::Joint* NodeProcessor::Mapped::Utxo::CreateJoint()
 {
-	return get_ParentObj().Allocate<MyJoint>(Type::UtxoJoint);
+	return get_ParentObj().Allocate<MyJoint>(Type::HashJoint);
 }
 
 void NodeProcessor::Mapped::Utxo::DeleteJoint(Joint* p)
 {
-	get_ParentObj().m_Mapping.Free(Type::UtxoJoint, p);
+	get_ParentObj().m_Mapping.Free(Type::HashJoint, p);
 }
 
 UtxoTree::MyLeaf::IDQueue* NodeProcessor::Mapped::Utxo::CreateIDQueue()
@@ -5939,5 +5975,32 @@ void NodeProcessor::Mapped::Utxo::DeleteIDNode(MyLeaf::IDNode* p)
 {
 	get_ParentObj().m_Mapping.Free(Type::UtxoNode, p);
 }
+
+intptr_t NodeProcessor::Mapped::Contract::get_Base() const
+{
+	return reinterpret_cast<intptr_t>(get_ParentObj().m_Mapping.get_Base());
+}
+
+
+RadixTree::Leaf* NodeProcessor::Mapped::Contract::CreateLeaf()
+{
+	return get_ParentObj().Allocate<MyLeaf>(Type::HashLeaf);
+}
+
+void NodeProcessor::Mapped::Contract::DeleteLeaf(Leaf* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::HashLeaf, p);
+}
+
+RadixTree::Joint* NodeProcessor::Mapped::Contract::CreateJoint()
+{
+	return get_ParentObj().Allocate<MyJoint>(Type::HashJoint);
+}
+
+void NodeProcessor::Mapped::Contract::DeleteJoint(Joint* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::HashJoint, p);
+}
+
 
 } // namespace beam

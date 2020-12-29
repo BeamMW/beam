@@ -71,13 +71,29 @@ class NodeProcessor
 
 			friend class Mapped;
 
-		public:
 			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
 
 			void EnsureReserve();
 
 			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Utxo)
 		} m_Utxo;
+
+		struct Contract
+			:public RadixHashOnlyTree
+		{
+			virtual intptr_t get_Base() const override;
+
+			virtual Leaf* CreateLeaf() override;
+			virtual void DeleteLeaf(Leaf* p) override;
+			virtual Joint* CreateJoint() override;
+			virtual void DeleteJoint(Joint*) override;
+
+			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+
+			friend class Mapped;
+
+			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
+		} m_Contract;
 
 		void OnDirty();
 
@@ -97,6 +113,7 @@ class NodeProcessor
 			MappedFile::Offset m_Dirty; // boolean, just aligned
 			Stamp m_Stamp;
 			MappedFile::Offset m_RootUtxo;
+			MappedFile::Offset m_RootContract;
 		};
 #pragma pack(pop)
 

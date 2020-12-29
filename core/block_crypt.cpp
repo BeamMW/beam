@@ -2273,6 +2273,17 @@ namespace beam
 		}
 	};
 
+	void Block::get_HashContractVar(Merkle::Hash& hv, const Blob& key, const Blob& val)
+	{
+		ECC::Hash::Processor()
+			<< "beam.contract.val"
+			<< key.n
+			<< key
+			<< val.n
+			<< val
+			>> hv;
+	}
+
 	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
 		struct MyVerifier
