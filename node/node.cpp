@@ -4484,9 +4484,9 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
 
-        Height h = Rules::get().pForks[2].m_Height;
+        const Rules& r = Rules::get();
 
-        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[2].m_Height)
         {
             MySerializer ser(ctx.m_Writer.m_Stream);
             ser & MaxHeight; // terminator
@@ -4526,7 +4526,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             } wlk(ser);
 
-            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+            m_Processor.EnumKernels(wlk, HeightRange(r.pForks[2].m_Height, m_Processor.m_Cursor.m_ID.m_Height));
 
             ser & MaxHeight; // terminator
 

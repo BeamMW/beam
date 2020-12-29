@@ -2147,7 +2147,8 @@ namespace beam
 	{
 		bool bUtxo = get_Utxos(hv);
 
-		if (m_Height < Rules::get().pForks[2].m_Height)
+		const Rules& r = Rules::get();
+		if (m_Height < r.pForks[2].m_Height)
 			return bUtxo;
 
 		Merkle::Hash hvShielded, hvAssets;

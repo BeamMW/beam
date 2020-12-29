@@ -455,7 +455,8 @@ namespace beam
 		if (!ProceedUtxos())
 			return false;
 
-		if (m_Tip.m_Height >= Rules::get().pForks[2].m_Height)
+		const Rules& r = Rules::get();
+		if (m_Tip.m_Height >= r.pForks[2].m_Height)
 		{
 			if (!ProceedShielded())
 				return false;
