@@ -724,7 +724,7 @@ namespace beam::wallet
     {
         // add virtual transaction for receiver
 #ifdef BEAM_LELANTUS_SUPPORT
-        LOG_INFO() << "I1677 WalletClient::onShieldedCoinsChanged";
+
         m_ShieldedCoinChangesCollector.CollectItems(action, coins);
         m_DeferredBalanceUpdate.start();
 #endif // BEAM_LELANTUS_SUPPORT
@@ -1429,8 +1429,6 @@ namespace beam::wallet
             assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
 
             status.all[totalsPair.first] = assetStatus;
-            LOG_INFO() << "I1677 WalletClient::getStatus() assetStatus.maturingMP" << assetStatus.maturingMP;
-            LOG_INFO() << "I1677 WalletClient::getStatus() assetStatus.shielded" << assetStatus.shielded;
         }
 
         ZeroObject(status.stateID);
