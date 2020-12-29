@@ -5227,6 +5227,7 @@ namespace beam::wallet
             });
 
             walletDB.visitShieldedCoins([getTotalsRef](const ShieldedCoin& c) -> bool {
+                LOG_INFO() << "I1677 visitShieldedCoins";
                 auto& totals = getTotalsRef(c.m_CoinID.m_AssetID);
                 totals.MinCoinHeightShielded = totals.MinCoinHeightShielded == 0 ? c.m_confirmHeight :
                                                std::min(c.m_confirmHeight, totals.MinCoinHeightShielded);
@@ -5243,6 +5244,7 @@ namespace beam::wallet
                     case ShieldedCoin::Status::Maturing:
                         totals.MaturingShielded += value;
                         totals.UnspentShielded += value;
+                        LOG_INFO() << "I1677 visitShieldedCoins ShieldedCoin::Status::Maturing: totals.MaturingShielded " << totals.MaturingShielded;
                         break;
                     case ShieldedCoin::Status::Unavailable:
                         totals.UnavailShielded += value;
