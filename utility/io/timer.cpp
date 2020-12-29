@@ -62,31 +62,57 @@ void Timer::cancel() {
 }
 
 
-
+IdleEvt::~IdleEvt()
+{
+    if (m_pHandle)
+    {
+        m_pHandle->CancelSafe();
+        uv_close(reinterpret_cast<uv_handle_t*>(&Cast::Down<uv_idle_t>(*m_pHandle)), Handle::OnClosed);
+    }
+}
 
 void IdleEvt::cancel()
 {
-    if (m_Set)
-    {
-        m_Set = false;
-        uv_idle_stop(&m_Handle);
-        //uv_close(reinterpret_cast<uv_handle_t*>(&Cast::Down<uv_idle_t>(m_Handle)), nullptr);
-    }
+    if (m_pHandle)
+        m_pHandle->CancelSafe();
 }
 
 void IdleEvt::start()
 {
-    if (!m_Set)
+    if (m_pHandle)
     {
-        m_Set = true;
-        uv_idle_init(&Reactor::get_Current().get_UvLoop(), &m_Handle);
-        uv_idle_start(&m_Handle, Handle::CallbackRaw);
+        if (m_pHandle->m_pThis)
+            return; // already set
+    }
+    else
+    {
+        m_pHandle = new Handle;
+        uv_idle_init(&Reactor::get_Current().get_UvLoop(), m_pHandle);
+    }
+
+    m_pHandle->m_pThis = this;
+    uv_idle_start(m_pHandle, Handle::OnSchedule);
+}
+
+void IdleEvt::Handle::CancelSafe()
+{
+    if (m_pThis)
+    {
+        m_pThis = nullptr;
+        uv_idle_stop(this);
     }
 }
 
-void IdleEvt::Handle::CallbackRaw(uv_idle_t* p)
+void IdleEvt::Handle::OnClosed(uv_handle_t* p)
 {
-    static_cast<Handle*>(p)->get_ParentObj().OnSchedule();
+    delete Cast::Up<Handle>(reinterpret_cast<uv_idle_t*>(p));
+}
+
+void IdleEvt::Handle::OnSchedule(uv_idle_t* p)
+{
+    IdleEvt* pThis = Cast::Up<Handle>(p)->m_pThis;
+    assert(pThis);
+    pThis->OnSchedule();
 }
 
 
