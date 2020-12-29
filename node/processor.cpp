@@ -1911,6 +1911,12 @@ bool NodeProcessor::Evaluator::get_Assets(Merkle::Hash& hv)
 	return true;
 }
 
+bool NodeProcessor::Evaluator::get_Contracts(Merkle::Hash& hv)
+{
+	m_Proc.m_Mapped.m_Contract.get_Hash(hv);
+	return true;
+}
+
 void NodeProcessor::ProofBuilder::OnProof(Merkle::Hash& hv, bool bNewOnRight)
 {
 	m_Proof.emplace_back();

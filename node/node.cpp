@@ -4538,6 +4538,13 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                 ser & ai;
 
             ser & (Asset::s_MaxCount + 1); // terminator
+
+            if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[3].m_Height)
+            {
+                Merkle::Hash hv;
+                m_Processor.get_Contracts().get_Hash(hv);
+                ser & hv;
+            }
         }
 
 	}

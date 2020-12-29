@@ -2154,6 +2154,10 @@ namespace beam
 		Merkle::Hash hvShielded, hvAssets;
 
 		bool bShieldedAndAssets = Interpret(hvShielded, hvShielded, get_Shielded(hvShielded), hvAssets, get_Assets(hvAssets));
+
+		if (m_Height >= r.pForks[3].m_Height)
+			bUtxo = Interpret(hv, hv, bUtxo, hvAssets, get_Contracts(hvAssets));
+
 		return Interpret(hv, hv, bUtxo, hvShielded, bShieldedAndAssets);
 	}
 
@@ -2173,6 +2177,11 @@ namespace beam
 	}
 
 	bool Block::SystemState::Evaluator::get_Assets(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Contracts(Merkle::Hash&)
 	{
 		return OnNotImpl();
 	}
@@ -2340,6 +2349,21 @@ namespace beam
 
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
+		return v.Verify(*this, hv, p);
+	}
+
+	bool Block::SystemState::Full::IsValidProofContract(const Blob& key, const Blob& val, const Merkle::Proof& p) const
+	{
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Contracts(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		Merkle::Hash hv;
+		get_HashContractVar(hv, key, val);
 		return v.Verify(*this, hv, p);
 	}
 

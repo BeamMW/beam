@@ -361,6 +361,7 @@ public:
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Mapped.m_Utxo; }
+	RadixHashOnlyTree& get_Contracts() { return m_Mapped.m_Contract; }
 
 	struct Evaluator
 		:public Block::SystemState::Evaluator
@@ -372,6 +373,7 @@ public:
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
+		virtual bool get_Contracts(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
