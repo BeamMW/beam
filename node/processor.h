@@ -202,7 +202,6 @@ class NodeProcessor
 	void InitCursor(bool bMovingUp);
 	bool InitMapping(const char*, bool bForceReset);
 	void InitializeMapped(const char*);
-	static void OnCorrupted();
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -255,6 +254,8 @@ class NodeProcessor
 	void DeleteBlock(uint64_t);
 
 public:
+
+	static void OnCorrupted();
 
 	struct StartParams {
 		bool m_CheckIntegrity = false;
