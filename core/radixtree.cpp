@@ -167,8 +167,21 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 		uint16_t nThreshold = std::min<uint16_t>(cu.m_nBits + p->get_Bits(), nBits);
 
 		for ( ; cu.m_nBits < nThreshold; cu.m_nBits++, cu.m_nPosInLastNode++)
+		{
+			if (!(7 & cu.m_nBits) && (cu.m_nBits + 7 < nThreshold))
+			{
+				uint32_t nByte = cu.m_nBits >> 3;
+				if (pKey[nByte] == pKeyNode[nByte])
+				{
+					cu.m_nBits += 7;
+					cu.m_nPosInLastNode += 7;
+					continue;
+				}
+			}
+
 			if (1 & (cu.get_BitRaw(pKey) ^ cu.get_BitRaw(pKeyNode)))
 				return false; // no match
+		}
 
 		if (cu.m_nBits == nBits)
 			return true;
