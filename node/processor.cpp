@@ -2055,6 +2055,10 @@ struct NodeProcessor::BlockInterpretCtx
 		bool SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
+
+		void ContractDataInsert(const Blob& key, const Blob&);
+		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
+		void ContractDataDel(const Blob& key, const Blob& valOld);
 	};
 
 	bvm2::Limits::Charge m_ChargePerBlock;
@@ -3984,21 +3988,18 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 			if (bExisted)
 			{
 				nTag = RecoveryTag::Update;
-				if (!m_Bic.m_Temporary)
-					m_Proc.m_DB.ContractDataUpdate(key, data);
+				ContractDataUpdate(key, data, e.m_Data);
 			}
 			else
 			{
 				nTag = RecoveryTag::Delete;
-				if (!m_Bic.m_Temporary)
-					m_Proc.m_DB.ContractDataInsert(key, data);
+				ContractDataInsert(key, data);
 			}
 		}
 		else
 		{
 			assert(bExisted);
-			if (!m_Bic.m_Temporary)
-				m_Proc.m_DB.ContractDataDel(key);
+			ContractDataDel(key, e.m_Data);
 		}
 
 		BlockInterpretCtx::Ser ser(m_Bic);
@@ -4012,6 +4013,24 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	}
 
 	return bExisted;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
+{
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataInsert(key, data);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
+{
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataUpdate(key, val);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob& key, const Blob& valOld)
+{
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataDel(key);
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
@@ -4151,32 +4170,28 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		default:
 			{
 				der & key;
-
-				auto* pE = m_Bic.m_ContractVars.Find(key);
-				auto& data = pE ? pE->m_Data : dummy;
+				auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 
 				if (RecoveryTag::Delete == nTag)
 				{
-					data.clear();
-
-					if (!m_Bic.m_Temporary)
-						m_Proc.m_DB.ContractDataDel(key);
+					ContractDataDel(key, e.m_Data);
+					e.m_Data.clear();
 				}
 				else
 				{
+					ByteBuffer data;
 					der & data;
 
-					if (!m_Bic.m_Temporary)
+					if (RecoveryTag::Insert == nTag)
+						ContractDataInsert(key, data);
+					else
 					{
-						if (RecoveryTag::Insert == nTag)
-							m_Proc.m_DB.ContractDataInsert(key, data);
-						else
-						{
-							if (RecoveryTag::Update != nTag)
-								OnCorrupted();
-							m_Proc.m_DB.ContractDataUpdate(key, data);
-						}
+						if (RecoveryTag::Update != nTag)
+							OnCorrupted();
+						ContractDataUpdate(key, data, e.m_Data);
 					}
+
+					e.m_Data.swap(data);
 				}
 
 			}
