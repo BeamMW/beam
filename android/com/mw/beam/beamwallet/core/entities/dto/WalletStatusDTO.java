@@ -20,10 +20,8 @@ public class WalletStatusDTO
 	public long receiving;
     public long sending;
     public long maturing;
-
-	public long linked;
-    public long unlinked;
     public long shielded;
+    public long maxPrivacy;
 
 	public long updateLastTime;
 	public int updateDone;

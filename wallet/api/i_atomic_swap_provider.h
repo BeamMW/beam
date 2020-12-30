@@ -15,11 +15,11 @@
 #pragma once
 
 #include "wallet/core/common.h"
-#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
+class SwapOffersBoard;
 class IAtomicSwapProvider
 {
 public:

@@ -625,6 +625,19 @@ namespace beam
 			bool m_IsCreatedByViewer;
 			ECC::Scalar m_kSerG;
 
+			bool operator ==(const BaseKey& other) const
+			{
+				return
+					m_kSerG == other.m_kSerG &&
+					m_nIdx == other.m_nIdx &&
+					m_IsCreatedByViewer == other.m_IsCreatedByViewer;
+			}
+			
+			bool operator!=(const BaseKey& other) const
+			{
+				return !operator==(other);
+			}
+
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{
@@ -639,13 +652,25 @@ namespace beam
 		{
 			PeerID m_Sender;
 			ECC::uintBig m_pMessage[2];
+			bool operator == (const User& other) const
+			{
+				return
+					m_Sender == other.m_Sender &&
+					m_pMessage[0] == other.m_pMessage[0] &&
+					m_pMessage[1] == other.m_pMessage[1];
+			}
+
+			bool operator != (const User& other) const
+			{
+				return !operator == (other);
+			}
 
 #pragma pack (push, 1)
 			struct PackedMessage
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
-				uint8_t m_MaxPrivacyMinAnonimitySet;
+				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
 				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
 			};
@@ -675,6 +700,11 @@ namespace beam
 			User m_User;
 			Amount m_Value;
 			Asset::ID m_AssetID = 0;
+			bool operator == (const ID&) const;
+			bool operator != (const ID& other) const
+			{
+				return !operator==(other);
+			}
 
 			template <typename Archive>
 			void serialize(Archive& ar)

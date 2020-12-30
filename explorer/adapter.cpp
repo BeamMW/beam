@@ -257,6 +257,8 @@ public:
             std::make_shared<wallet::OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
         _offersBulletinBoard = std::make_shared<wallet::SwapOffersBoard>(
             *_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
+        _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
+                    static_cast<wallet::IWalletDbObserver*>(_offersBulletinBoard.get()), _walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
@@ -320,7 +322,7 @@ private:
             {
                 NodeDB& db = _nodeBackend.get_DB();
                 auto shieldedByLast24h =
-                    db.GetShieldedCount(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 0);
+                    db.ShieldedOutpGet(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 1);
                 auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
 
                 if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
@@ -925,6 +927,8 @@ private:
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     std::shared_ptr<wallet::OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     wallet::SwapOffersBoard::Ptr _offersBulletinBoard;
+    using WalletDbSubscriber = wallet::ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
+    std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 };
 

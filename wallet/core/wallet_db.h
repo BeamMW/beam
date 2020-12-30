@@ -220,6 +220,26 @@ namespace beam::wallet
         ByteBuffer m_Message;
     };
 
+#define BEAM_TX_LIST_HEIGHT_MAP(MACRO) \
+    MACRO(AssetConfirmedHeight, Height) \
+    MACRO(KernelProofHeight, Height)
+
+#define BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO) \
+    MACRO(TransactionType,      TxType) \
+    MACRO(Status,               TxStatus) \
+    MACRO(AssetID,              Asset::ID) 
+
+#define BEAM_TX_LIST_FILTER_MAP(MACRO) \
+    BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO) \
+    BEAM_TX_LIST_HEIGHT_MAP(MACRO) 
+
+    struct TxListFilter
+    {
+#define MACRO(id, type) boost::optional<type> m_##id;
+        BEAM_TX_LIST_FILTER_MAP(MACRO)
+#undef MACRO
+    };
+
     struct IWalletDB;
 
     struct ShieldedCoin
@@ -397,6 +417,9 @@ namespace beam::wallet
         TxoID get_ShieldedOuts() const;
         void set_ShieldedOuts(TxoID);
 
+        uint8_t get_MaxPrivacyLockTimeLimitHours() const;
+        void set_MaxPrivacyLockTimeLimitHours(uint8_t);
+
 		struct IRecoveryProgress
 		{
 			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery
@@ -467,6 +490,7 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
+        virtual void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const = 0;
         virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
@@ -550,6 +574,12 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // Events
+        virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
+        virtual void deleteEventsFrom(Height h) = 0;
+        virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+        virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
         TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
 
@@ -632,6 +662,7 @@ namespace beam::wallet
         void DeleteShieldedCoin(const ShieldedTxo::BaseKey&) override;
         void rollbackConfirmedShieldedUtxo(Height minHeight) override;
 
+        void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const override;
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
@@ -707,6 +738,11 @@ namespace beam::wallet
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
+        void insertEvent(Height h, const Blob& body, const Blob& key) override;
+        void deleteEventsFrom(Height h) override;
+        void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
+        void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
+
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
 
@@ -750,6 +786,24 @@ namespace beam::wallet
         void onPrepareToModify();
         void MigrateCoins();
         boost::optional<TxDescription> getTxImpl(const TxID& txId, sqlite::Statement& stm) const;
+        bool getTxParameterImpl(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob, sqlite::Statement& stm) const;
+
+        template<typename T>
+        bool getTxParameterImpl(const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value, sqlite::Statement& stm) const
+        {
+            ByteBuffer b;
+            if (getTxParameterImpl(txID, subTxID, paramID, b, stm))
+                return fromByteBuffer<T>(b, value);
+            return false;
+        }
+
+        void OnTxSummaryParam(const TxID& txID, SubTxID subTxID, TxParameterID, const ByteBuffer*);
+        template<typename T>
+        void OnTxSummaryParam(const TxID& txID, const char* szName, const ByteBuffer*);
+        void FillTxSummaryTable();
+        template<typename T>
+        void FillTxSummaryTableParam(const char* szField, TxParameterID paramID);
+
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -1118,5 +1172,7 @@ namespace beam::wallet
     std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
     std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::OneDay, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
+
 
 }  // namespace beam::wallet

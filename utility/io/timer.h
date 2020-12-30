@@ -43,7 +43,7 @@ private:
 
 struct IdleEvt
 {
-    ~IdleEvt() { cancel(); }
+    ~IdleEvt();
 
     void start();
     void cancel();
@@ -55,12 +55,15 @@ private:
     struct Handle
         :public uv_idle_t
     {
-        static void CallbackRaw(uv_idle_t*);
+        IdleEvt* m_pThis;
 
-        IMPLEMENT_GET_PARENT_OBJ(IdleEvt, m_Handle)
-    } m_Handle;
+        void CancelSafe();
 
-    bool m_Set = false;
+        static void OnClosed(uv_handle_t*);
+        static void OnSchedule(uv_idle_t*);
+    };
+
+    Handle* m_pHandle = nullptr;
 };
 
 }} //namespaces

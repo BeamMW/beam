@@ -104,13 +104,19 @@ namespace beam::wallet::lelantus
             OnFailed(TxFailureReason::FeeIsTooSmall);
             return;
         }
+        else if (nRegistered == proto::TxStatus::InvalidInput)
+        {
+            OnFailed(TxFailureReason::InvalidTransaction);
+            return;
+        }
 
         if (!m_OutpHeight)
         {
             m_OutpHeight = MaxHeight;
             GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
-                if (weak.expired())
+                auto thisHolder = weak.lock();
+                if (!thisHolder) // expired
                     return;
 
                 try {

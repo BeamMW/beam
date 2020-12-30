@@ -522,7 +522,7 @@ namespace beam::wallet
 
     bool TxToken::IsValid() const
     {
-        for (const auto p : m_Parameters)
+        for (const auto& p : m_Parameters)
         {
             switch (p.first)
             {
@@ -650,6 +650,7 @@ namespace beam::wallet
                     return false;
                 }
                 params.SetParameter(TxParameterID::Voucher, *voucher);
+                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
             }
             break;
         default:
@@ -660,6 +661,7 @@ namespace beam::wallet
         {
             params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
         }
+        params.SetParameter(TxParameterID::AddressType, type);
 
         ProcessLibraryVersion(receiverParams);
 
@@ -877,13 +879,10 @@ namespace beam::wallet
     {
         switch(m_txType)
         {
-        case TxType::Simple: return "simple";
-        case TxType::AssetReg: return "asset register";
-        case TxType::AssetUnreg: return "asset unregister";
-        case TxType::AssetIssue: return "asset issue";
-        case TxType::AssetConsume: return "asset consume";
-        case TxType::AtomicSwap: return "atomic swap";
-        case TxType::AssetInfo: return "asset info";
+#define MACRO(type, index, s) case TxType::type: return s;
+            BEAM_TX_TYPES_MAP(MACRO)
+#undef MACRO
+
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
             return "unknown";
@@ -1548,16 +1547,7 @@ namespace beam::wallet
 
     TxAddressType GetAddressType(const TxDescription& tx)
     {
-        if (tx.m_txType == TxType::Simple)
-            return TxAddressType::Regular;
-
-        if (tx.m_txType == TxType::AtomicSwap)
-            return TxAddressType::AtomicSwap;
-
-        if (tx.m_txType != TxType::PushTransaction)
-            return TxAddressType::Unknown;
-
-        return GetAddressType(tx.getToken());
+        return GetAddressTypeImpl(tx);
     }
 
     TxAddressType GetAddressType(const std::string& address)

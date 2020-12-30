@@ -27,20 +27,26 @@
 
 namespace beam::wallet
 {
+
+#define BEAM_TX_TYPES_MAP(MACRO) \
+    MACRO(Simple,          0,  "simple") \
+    MACRO(AtomicSwap,      1,  "atomic swap") \
+    MACRO(AssetIssue,      2,  "asset issue") \
+    MACRO(AssetConsume,    3,  "asset consume") \
+    MACRO(AssetReg,        4,  "asset register") \
+    MACRO(AssetUnreg,      5,  "asset unregister") \
+    MACRO(AssetInfo,       6,  "asset info") \
+    MACRO(PushTransaction, 7,  "lelantus mw push") \
+    MACRO(PullTransaction, 8,  "lelantus mw pull") \
+    MACRO(VoucherRequest,  9,  "lelantus voucher request") \
+    MACRO(VoucherResponse, 10, "lelantus voucher response") \
+    MACRO(UnlinkFunds,     11, "unlink") 
+
     enum class TxType : uint8_t
     {
-        Simple,
-        AtomicSwap,
-        AssetIssue,
-        AssetConsume,
-        AssetReg,
-        AssetUnreg,
-        AssetInfo,
-        PushTransaction,
-        PullTransaction,
-        VoucherRequest,
-        VoucherResponse,
-        UnlinkFunds,
+#define MACRO(type, index, s) type = index,
+        BEAM_TX_TYPES_MAP(MACRO)
+#undef MACRO
         ALL
     };
 
@@ -169,7 +175,7 @@ namespace beam::wallet
     MACRO(NoVoucher,                     44, "No voucher, no address to receive it") \
     MACRO(AssetsDisabledFork2,           45, "Asset transactions are not available until fork2") \
     MACRO(KeyKeeperNoSlots,              46, "Key keeper out of slots") \
-    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is to big.") \
+    MACRO(ExtractFeeTooBig,              47, "Cannot extract shielded coin, fee is too big.") \
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
@@ -390,7 +396,8 @@ namespace beam::wallet
         InternalFailureReason = 210,
 
         AddressType = 211,
-    
+        
+        SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
 
         State = 255

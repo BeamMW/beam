@@ -35,17 +35,20 @@ namespace proto {
 	struct FlyClient
 	{
 #define REQUEST_TYPES_All(macro) \
-		macro(Utxo,              GetProofUtxo,         ProofUtxo) \
-		macro(Kernel,            GetProofKernel,       ProofKernel) \
-		macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
-		macro(Events,            GetEvents,            Events) \
-		macro(Transaction,       NewTransaction,       Status) \
-		macro(ShieldedList,      GetShieldedList,      ShieldedList) \
-		macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
-		macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
-		macro(BbsMsg,            BbsMsg,               Pong) \
-		macro(Asset,             GetProofAsset,        ProofAsset) \
-		macro(StateSummary,      GetStateSummary,      StateSummary)
+		macro(Utxo,              GetProofUtxo,          ProofUtxo) \
+		macro(Kernel,            GetProofKernel,        ProofKernel) \
+		macro(Kernel2,           GetProofKernel2,       ProofKernel2) \
+		macro(Events,            GetEvents,             Events) \
+		macro(Transaction,       NewTransaction,        Status) \
+		macro(ShieldedList,      GetShieldedList,       ShieldedList) \
+		macro(ProofShieldedInp,  GetProofShieldedInp,   ProofShieldedInp) \
+		macro(ProofShieldedOutp, GetProofShieldedOutp,  ProofShieldedOutp) \
+		macro(BbsMsg,            BbsMsg,                Pong) \
+		macro(Asset,             GetProofAsset,         ProofAsset) \
+		macro(StateSummary,      GetStateSummary,       StateSummary) \
+		macro(ShieldedOutputsAt, GetShieldedOutputsAt,  ShieldedOutputsAt) \
+		macro(BodyPack,          GetBodyPack,           BodyPack) \
+		macro(Body,              GetBodyPack,           Body)
 
 		class Request
 		{
@@ -233,6 +236,7 @@ namespace proto {
 				virtual void OnMsg(proto::BbsMsg&& msg) override;
 				virtual void OnMsg(proto::EventsSerif&& msg) override;
 				virtual void OnMsg(PeerInfo&& msg) override;
+				virtual void OnMsg(DataMissing&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
 				bool IsSupported(Request##type&); \

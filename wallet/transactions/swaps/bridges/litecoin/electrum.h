@@ -15,8 +15,17 @@
 #pragma once
 
 #include "../bitcoin/electrum.h"
+#include "settings_provider.h"
 
 namespace beam::litecoin
 {
-    using Electrum = bitcoin::Electrum;
+    class Electrum : public bitcoin::Electrum
+    {
+    public:
+        Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
+
+    protected:
+
+        Amount getDust() const override;
+    };
 } // namespace beam::litecoin

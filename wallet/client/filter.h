@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,21 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "../bitcoin/electrum.h"
-#include "settings_provider.h"
+#include <vector>
 
-namespace beam::qtum
+namespace beam::wallet
 {
-    class Electrum : public bitcoin::Electrum
-    {
-    public:
-        Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
 
-    protected:
-
-        Amount getDust() const override;
-    };
-} // namespace beam::qtum
+class Filter
+{
+public:
+    Filter(size_t size = 12);
+    void addSample(double value);
+    double getAverage() const;
+    double getMedian() const;
+private:
+    std::vector<double> _samples;
+    size_t _index;
+    bool _is_poor;
+};
+}  // namespace beamui

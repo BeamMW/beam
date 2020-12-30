@@ -91,7 +91,7 @@ namespace beam::wallet
     macro(Lock,               "lock",                 API_WRITE_ACCESS)   \
     macro(Unlock,             "unlock",               API_WRITE_ACCESS)   \
     macro(TxList,             "tx_list",              API_READ_ACCESS)    \
-    macro(WalletStatus,       "wallet_status",        API_READ_ACCESS)    \
+    macro(GetWalletStatus,    "wallet_status",        API_READ_ACCESS)    \
     macro(GenerateTxId,       "generate_tx_id",       API_READ_ACCESS)    \
     macro(ExportPaymentProof, "export_payment_proof", API_READ_ACCESS)    \
     macro(VerifyPaymentProof, "verify_payment_proof", API_READ_ACCESS)    \
@@ -262,9 +262,12 @@ namespace beam::wallet
 
     struct CreateAddress : AddressData
     {
+        TxAddressType type = TxAddressType::Regular;
+        bool newStyleRegular = false; // by default we generate SBBS addresses for regular type
+        uint32_t offlinePayments = 10;
         struct Response
         {
-            WalletID address;
+            std::string address;
         };
     };
 
@@ -479,7 +482,7 @@ namespace beam::wallet
         };
     };
 
-    struct WalletStatus
+    struct GetWalletStatus
     {
         bool withAssets = false;
         struct Response

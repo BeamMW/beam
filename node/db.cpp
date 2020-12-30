@@ -16,6 +16,12 @@
 #include <algorithm> // sort
 #include "../core/peer_manager.h"
 #include "../utility/logger.h"
+#include <algorithm>
+
+namespace {
+	constexpr uint32_t kBlocksPerSol = 1440;
+	constexpr uint32_t kBlocksPe30Sol = 30 * kBlocksPerSol;
+}  // namespace
 
 namespace beam {
 
@@ -2440,8 +2446,15 @@ void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 	ShieldeIO(pos, p, nCount, false);
 }
 
-void NodeDB::SaveShieldedCount(Height h, uint64_t count)
+void NodeDB::ShieldedOutpSet(Height h, uint64_t count)
 {
+	if (h > kBlocksPe30Sol && !(h % 60))
+	{
+		Recordset rsDel(*this, Query::ShieldedStatisticDel, "DELETE FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "<?");
+		rsDel.put(0, h - kBlocksPe30Sol);
+		rsDel.Step();
+	}
+
 	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT * FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height "=?");
 	rs.put(0, h);
 
@@ -2461,14 +2474,11 @@ void NodeDB::SaveShieldedCount(Height h, uint64_t count)
 
 		rs.Step();
 	}
-	
-
-	TestChanged1Row();
 }
 
-uint64_t NodeDB::GetShieldedCount(Height h)
+uint64_t NodeDB::ShieldedOutpGet(Height h)
 {
-	Recordset rs(*this, Query::ShieldedStatisticSel, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height " <= ? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
+	Recordset rs(*this, Query::ShieldedStatisticGet, "SELECT " TblShieldedStatistic_OutCount " FROM " TblShieldedStatistic " WHERE " TblShieldedStatistic_Height " <= ? ORDER BY " TblShieldedStatistic_Height " DESC LIMIT 1");
 	rs.put(0, h);
 
 	if (!rs.Step())

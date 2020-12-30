@@ -1759,55 +1759,60 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
 {
-	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
-		return false;
+	return Node::DecodeAndCheckHdrsImpl(v, msg, m_Processor.m_ExecutorMT);
+}
 
-	// PoW verification is heavy for big packs. Do it in parallel
-	v.resize(msg.m_vElements.size());
+bool Node::DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg, ExecutorMT& executor)
+{
+    if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+        return false;
 
-	Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
-	Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+    // PoW verification is heavy for big packs. Do it in parallel
+    v.resize(msg.m_vElements.size());
 
-	for (size_t i = 1; i < msg.m_vElements.size(); i++)
-	{
-		Block::SystemState::Full& s0 = v[i - 1];
-		Block::SystemState::Full& s1 = v[i];
+    Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
+    Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
 
-		s0.get_Hash(s1.m_Prev);
-		s1.m_Height = s0.m_Height + 1;
-		Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
-		s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
-	}
+    for (size_t i = 1; i < msg.m_vElements.size(); i++)
+    {
+        Block::SystemState::Full& s0 = v[i - 1];
+        Block::SystemState::Full& s1 = v[i];
 
-	struct MyTask
-		:public Executor::TaskSync
-	{
-		const Block::SystemState::Full* m_pV;
-		uint32_t m_Count;
-		bool m_Valid;
+        s0.get_Hash(s1.m_Prev);
+        s1.m_Height = s0.m_Height + 1;
+        Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
+        s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
+    }
 
-		virtual ~MyTask() {}
+    struct MyTask
+        :public Executor::TaskSync
+    {
+        const Block::SystemState::Full* m_pV;
+        uint32_t m_Count;
+        bool m_Valid;
 
-		virtual void Exec(Executor::Context& ctx) override
-		{
+        virtual ~MyTask() {}
+
+        virtual void Exec(Executor::Context& ctx) override
+        {
             uint32_t i0, nCount;
             ctx.get_Portion(i0, nCount, m_Count);
             nCount += i0;
 
-			for (; i0 < nCount; i0++)
-				if (!m_pV[i0].IsValid())
-					m_Valid = false;
-		}
-	};
+            for (; i0 < nCount; i0++)
+                if (!m_pV[i0].IsValid())
+                    m_Valid = false;
+        }
+    };
 
     MyTask t;
     t.m_pV = &v.front();
     t.m_Count = static_cast<uint32_t>(v.size());
     t.m_Valid = true;
 
-    m_Processor.m_ExecutorMT.ExecAll(t);
+    executor.ExecAll(t);
 
-	return t.m_Valid;
+    return t.m_Valid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
@@ -3671,6 +3676,14 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
     msgOut.m_AssetsMax = static_cast<Asset::ID>(p.m_Mmr.m_Assets.m_Count);
     msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 
+    Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
+{
+    proto::ShieldedOutputsAt msgOut;
+    auto& db = m_This.m_Processor.get_DB();
+    msgOut.m_ShieldedOuts = db.ShieldedOutpGet(msg.m_Height);
     Send(msgOut);
 }
 

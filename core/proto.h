@@ -240,6 +240,12 @@ namespace proto {
     macro(Asset::ID, AssetsMax) \
     macro(Asset::ID, AssetsActive) \
 
+#define BeamNodeMsg_GetShieldedOutputsAt(macro) \
+    macro(Height, Height)
+
+#define BeamNodeMsg_ShieldedOutputsAt(macro) \
+    macro(TxoID, ShieldedOuts)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x00, Login0) \
@@ -312,6 +318,8 @@ namespace proto {
     macro(0x3f, BbsMsg) \
     macro(0x45, GetStateSummary) \
     macro(0x46, StateSummary) \
+    macro(0x47, GetShieldedOutputsAt) \
+    macro(0x48, ShieldedOutputsAt)
 
 
     struct LoginFlags {
@@ -334,9 +342,10 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
+            // 7 - Supports GetShieldedOutputsAt request
 
             static const uint32_t Minimum = 4;
-            static const uint32_t Maximum = 6;
+            static const uint32_t Maximum = 7;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);

@@ -210,6 +210,7 @@ struct Node
 	void RefreshCongestions(); // call explicitly if manual rollback or forbidden state is modified
 
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
+	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
 private:
 
@@ -599,6 +600,7 @@ private:
 		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 		virtual void OnMsg(proto::GetStateSummary&&) override;
+		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

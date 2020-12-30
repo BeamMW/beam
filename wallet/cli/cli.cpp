@@ -35,7 +35,6 @@
 #include "core/treasury.h"
 #include "core/block_rw.h"
 #include <algorithm>
-//#include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
 #include "version.h"
@@ -675,65 +674,41 @@ namespace
     int GetAddress(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
-        std::string newAddress;
+
+        TxAddressType type = TxAddressType::Regular;
+        std::string receiver;
+        uint32_t offlineCount = 10;
+
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            LOG_INFO() << "Generating public offline address";
-            newAddress =  GeneratePublicOfflineAddress(*walletDB);
+            type = TxAddressType::PublicOffline;
         }
         else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
-            LOG_INFO() << "Generating max privacy address";
-            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-            newAddress = GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+            type = TxAddressType::MaxPrivacy;
         }
         else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
         {
-            LOG_INFO() << "Generating offline address";
-            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, it2->second.as<Positive<uint32_t>>().value);
-            newAddress = GenerateOfflineAddress(walletAddress, 0, vouchers);
+            type = TxAddressType::Offline;
+            offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
         else
         {
-            boost::optional<WalletAddress> address;
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
-                auto receiver = it->second.as<string>();
-                bool isValid = true;
-                WalletID walletID;
-                ByteBuffer buffer = from_hex(receiver, &isValid);
-                if (!isValid || !walletID.FromBuf(buffer))
-                {
-                    LOG_ERROR() << "Invalid address";
-                    return -1;
-                }
-                address = walletDB->getAddress(walletID);
-                if (!address)
-                {
-                    LOG_ERROR() << "Cannot get address, there is no SBBS";
-                    return -1;
-                }
-                if (address->isExpired())
-                {
-                    LOG_ERROR() << "Cannot get address, it is expired";
-                    return -1;
-                }
-                if (!address->isPermanent())
-                {
-                    LOG_ERROR() << "The address expiration time must be never.";
-                    return -1;
-                }
+                receiver = it->second.as<string>();
             }
-            else
-            {
-                address = GenerateNewAddress(walletDB, "");
-            }
-            newAddress = GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+        }
+
+        try 
+        {
+            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::OneDay, receiver, offlineCount);
+        }
+        catch (const std::exception& ex)
+        {
+            LOG_ERROR() << ex.what();
         }
         
-        LOG_INFO() << "address: " << newAddress;
         return 0;
     }
 
@@ -2097,11 +2072,6 @@ namespace
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
-                }
-
-                if (auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher); voucher)
-                {
-                    params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
                 }
 
                 Amount feeForShieldedInputs = 0;

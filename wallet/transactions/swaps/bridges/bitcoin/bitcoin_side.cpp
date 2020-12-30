@@ -334,6 +334,8 @@ namespace beam::wallet
 
     uint32_t BitcoinSide::GetWithdrawTxAverageSize() const
     {
+        if (CanUseSegwit())
+            return bitcoin::kBTCWithdrawSegwitTxAverageSize;
         return bitcoin::kBTCWithdrawTxAverageSize;
     }
 
@@ -350,6 +352,7 @@ namespace beam::wallet
 
     Amount BitcoinSide::CalcTotalFee(Amount feeRate)
     {
+        // TODO roman.strilets need to use segwit 
         return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
     }
 

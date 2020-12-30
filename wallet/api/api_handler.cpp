@@ -18,10 +18,12 @@
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
 #include "utility/logger.h"
+#include "utility/test_helpers.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #include <regex>
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
@@ -169,6 +171,23 @@ namespace
         {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
     };
 
+    WalletAddress::ExpirationStatus MapExpirationStatus(AddressData::Expiration exp)
+    {
+        switch (exp)
+        {
+        case EditAddress::OneDay:
+            return WalletAddress::ExpirationStatus::OneDay;
+
+        case EditAddress::Expired:
+            return WalletAddress::ExpirationStatus::Expired;
+
+        case EditAddress::Never:
+            return WalletAddress::ExpirationStatus::Never;
+        default:
+            return WalletAddress::ExpirationStatus::OneDay;
+        }
+    }
+
 }  // namespace
 
 namespace beam::wallet
@@ -242,18 +261,29 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        WalletAddress address;
-        auto walletDB = _walletData.getWalletDBPtr();
+        if (!_walletData.getWalletPtr()->IsConnectedToOwnNode() 
+           && (data.type == TxAddressType::MaxPrivacy
+            || data.type == TxAddressType::PublicOffline
+            || data.type == TxAddressType::Offline))
+        {
+            return doError(id, ApiError::NotSupported);
+        }
 
-        if (!walletDB) {
+        auto walletDB = _walletData.getWalletDBPtr();
+        if (!walletDB)
+        {
             return doError(id, ApiError::NotOpenedError);
         }
 
-        walletDB->createAddress(address);
-        FillAddressData(data, address);
+        std::string newAddress = GenerateAddress(walletDB
+            , data.type
+            , data.newStyleRegular
+            , data.comment ? *data.comment : ""
+            , data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay
+            , ""
+            , data.offlinePayments);
 
-        walletDB->saveAddress(address);
-        doResponse(id, CreateAddress::Response{ address.m_walletID });
+        doResponse(id, CreateAddress::Response{ newAddress });
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const DeleteAddress& data)
@@ -856,11 +886,11 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void WalletApiHandler::onMessage(const JsonRpcId& id, const WalletStatus& data)
+    void WalletApiHandler::onMessage(const JsonRpcId& id, const GetWalletStatus& data)
     {
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-        WalletStatus::Response response;
+        GetWalletStatus::Response response;
         auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB) {
             return doError(id, ApiError::NotOpenedError);
@@ -939,7 +969,8 @@ namespace beam::wallet
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
-
+        helpers::StopWatch sw;
+        sw.start();
         TxList::Response res;
 
         {
@@ -948,60 +979,56 @@ namespace beam::wallet
                 return doError(id, ApiError::NotOpenedError);
             }
 
-            auto txList = walletDB->getTxHistory(TxType::Simple);
-
-            if (data.withAssets)
-            {
-                auto txIssue = walletDB->getTxHistory(TxType::AssetIssue);
-                auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
-                auto txInfo = walletDB->getTxHistory(TxType::AssetInfo);
-
-                txList.insert(txList.end(), txIssue.begin(), txIssue.end());
-                txList.insert(txList.end(), txConsume.begin(), txConsume.end());
-                txList.insert(txList.end(), txInfo.begin(), txInfo.end());
-            }
-
-            std::sort(txList.begin(), txList.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
-                return a.m_minHeight > b.m_minHeight;
-             });
-
             Block::SystemState::ID stateID = {};
-            walletDB->getSystemStateID(stateID);
+            _walletData.getWalletDBPtr()->getSystemStateID(stateID);
+            res.resultList.reserve(data.count);
+            int offset = 0;
+            int counter = 0;
 
-            for (const auto& tx : txList)
+            TxListFilter filter;
+            filter.m_AssetID = data.filter.assetId;
+            filter.m_Status = data.filter.status;
+            filter.m_AssetConfirmedHeight = data.filter.height;
+            filter.m_KernelProofHeight = data.filter.height;
+            walletDB->visitTx(
+                [&](const TxDescription& tx)
             {
-                if (!data.withAssets && tx.m_assetId != Asset::s_InvalidID)
+                if (tx.m_txType != TxType::Simple
+                    && tx.m_txType != TxType::AssetIssue
+                    && tx.m_txType != TxType::AssetConsume
+                    && tx.m_txType != TxType::AssetInfo)
                 {
-                    continue;
+                    return true;
                 }
-
-                if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
+                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
                 {
-                    continue;
+                    return false;
                 }
-
-                if (data.filter.status && tx.m_status != *data.filter.status)
+                ++offset;
+                if (offset <= data.skip)
                 {
-                    continue;
+                    return true;
                 }
-
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
-                if (data.filter.height && height != *data.filter.height)
-                {
-                    continue;
-                }
-
-                Status::Response item;
+                Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-                res.resultList.push_back(item);
-            }
-        }
 
-        doPagination(data.skip, data.count, res.resultList);
+                ++counter;
+                return data.count == 0 || counter < data.count;
+            }, filter);
+            assert(data.count == 0 || (int)res.resultList.size() <= data.count);
+            std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
+            {
+                return a.tx.m_minHeight > b.tx.m_minHeight;
+            });
+        }
+        
         doResponse(id, res);
+        sw.stop();
+        LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
