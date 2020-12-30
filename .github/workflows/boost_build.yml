@@ -1,0 +1,67 @@
+name: Build
+on:
+  push:
+    tags:
+      - boost_prebuild*
+
+jobs:
+  build_ubuntu:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # os: [ubuntu-16.04, ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-18.04, ubuntu-20.04]
+
+    steps:
+      - name: Create Build Environment
+        shell: bash
+        run: |
+          mkdir ${{runner.workspace}}/boost_prebuild
+          sudo apt-get update
+
+      # - name: Create Build Environment [ubuntu 16.04]
+      #   shell: bash
+      #   if: matrix.os == 'ubuntu-16.04'
+      #   run: |
+      #     sudo apt-get install g++-7 gcc-7
+      #     echo "CC=gcc-7" >> $GITHUB_ENV
+      #     echo "CXX=g++-7" >> $GITHUB_ENV
+
+      - name: Download
+        shell: bash
+        run: |
+          wget -q https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
+          tar -xvf boost_1_75_0.tar.gz > /dev/null
+          mv ./boost_1_75_0 ${{runner.workspace}}/boost
+
+      - name: Bootstrap
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./bootstrap.sh
+
+      # - name: Build [ubuntu 16.04]
+      #   shell: bash
+      #   if: matrix.os == 'ubuntu-16.04'
+      #   run: |
+      #     cd ${{runner.workspace}}/boost
+      #     ./b2 --target=static --toolset=gcc-7
+
+      - name: Build [ubuntu 18.04 && ubuntu 20.04]
+        shell: bash
+        if: matrix.os != 'ubuntu-16.04'
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./b2 --target=static
+
+      - name: Install
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: boost_prebuild_${{matrix.os}}
+          path: ${{runner.workspace}}/boost_prebuild
+          if-no-files-found: error

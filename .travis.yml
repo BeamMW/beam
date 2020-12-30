@@ -40,52 +40,52 @@ matrix:
 # OSX Release
 ###############################################################################
 
-    - os: osx
-      language: cpp
-      osx_image: xcode10.2
-      install:
-        - export TZ=GMT-3
-        - sudo systemsetup -gettimezone
-        - brew unlink cmake
-        - brew install cmake
-        - brew link cmake
-        - brew upgrade --ignore-pinned icu4c
-        - brew uninstall --ignore-dependencies sfcgal
-        - brew uninstall --ignore-dependencies cgal
-        - brew uninstall --ignore-dependencies node
-        - brew uninstall --ignore-dependencies postgresql
-        - brew uninstall --ignore-dependencies postgis
-        - brew uninstall --ignore-dependencies boost
-        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
-        - brew install ./boost.rb
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
-        - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
-        - tar xvf macos_cert.tar
-        # create custom keychain
-        - security create-keychain -p travis macos-build.keychain
-        - security default-keychain -s macos-build.keychain
-        - security unlock-keychain -p travis macos-build.keychain
-        - security set-keychain-settings -t 3600 -l ~/Library/Keychains/macos-build.keychain
-        # import certificates
-        - security import distkey.p12 -P $MACOS_DISTRIBUTION_KEY_PASSWORD  -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
-        - security import devapp.cer -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
-        - security set-key-partition-list -S "apple-tool:,apple:" -s -k travis macos-build.keychain
-      env: 
-        - BUILD_TYPE=Release
-        - OS_FOLDER=mac
-      script:
-        - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
-        - make -j$(sysctl -n hw.ncpu)
-        #  - ctest --verbose
-        # extract build version
-        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
-        - echo BEAM_VERSION = $BEAM_VERSION
-        # sign our builds
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/cli/beam-wallet$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
+    # - os: osx
+    #   language: cpp
+    #   osx_image: xcode10.2
+    #   install:
+    #     - export TZ=GMT-3
+    #     - sudo systemsetup -gettimezone
+    #     - brew unlink cmake
+    #     - brew install cmake
+    #     - brew link cmake
+    #     - brew upgrade --ignore-pinned icu4c
+    #     - brew uninstall --ignore-dependencies sfcgal
+    #     - brew uninstall --ignore-dependencies cgal
+    #     - brew uninstall --ignore-dependencies node
+    #     - brew uninstall --ignore-dependencies postgresql
+    #     - brew uninstall --ignore-dependencies postgis
+    #     - brew uninstall --ignore-dependencies boost
+    #     - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
+    #     - brew install ./boost.rb
+    #     - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
+    #     - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
+    #     - tar xvf macos_cert.tar
+    #     # create custom keychain
+    #     - security create-keychain -p travis macos-build.keychain
+    #     - security default-keychain -s macos-build.keychain
+    #     - security unlock-keychain -p travis macos-build.keychain
+    #     - security set-keychain-settings -t 3600 -l ~/Library/Keychains/macos-build.keychain
+    #     # import certificates
+    #     - security import distkey.p12 -P $MACOS_DISTRIBUTION_KEY_PASSWORD  -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+    #     - security import devapp.cer -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+    #     - security set-key-partition-list -S "apple-tool:,apple:" -s -k travis macos-build.keychain
+    #   env: 
+    #     - BUILD_TYPE=Release
+    #     - OS_FOLDER=mac
+    #   script:
+    #     - git apply 3rdparty/protobuf-patch.diff
+    #     - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
+    #     - make -j$(sysctl -n hw.ncpu)
+    #     #  - ctest --verbose
+    #     # extract build version
+    #     - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
+    #     - echo BEAM_VERSION = $BEAM_VERSION
+    #     # sign our builds
+    #     - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
+    #     - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/cli/beam-wallet$BEAM_TARGET_SUFFIX
+    #     - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
+    #     - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
 
 ###############################################################################
 # IOS OS64 SIMULATOR64 COMBINED
@@ -208,46 +208,46 @@ matrix:
 # Linux Release
 ###############################################################################
 
-    - os: linux
-      dist: trusty
-      language: cpp
-      cache: ccache
-      addons:
-        apt:
-          update: true
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-7
-            - libssl-dev
-            - curl
-            - libxi-dev
-            - libcups2-dev
-      install:
-        - export TZ=Etc/GMT-3
-        # install new version cmake
-        - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
-        - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
-        - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
-        - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
-        - mv cmake-3.14.0-Linux-x86_64 cmake-install
-        - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
-        - cd ${TRAVIS_BUILD_DIR}
-        - cmake --version
-        - sudo git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
-        - export BOOST_ROOT="/usr/local/boost_1_69_0"
-        - eval "CC=gcc-7 && CXX=g++-7"
-      env: 
-        - BUILD_TYPE=Release
-        - OS_FOLDER=linux
-      script:
-        - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
-        - make -j$(nproc)
-        - ctest --verbose
-        # extract build version
-        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
-        - echo BEAM_VERSION = $BEAM_VERSION
+    # - os: linux
+    #   dist: trusty
+    #   language: cpp
+    #   cache: ccache
+    #   addons:
+    #     apt:
+    #       update: true
+    #       sources:
+    #         - ubuntu-toolchain-r-test
+    #       packages:
+    #         - g++-7
+    #         - libssl-dev
+    #         - curl
+    #         - libxi-dev
+    #         - libcups2-dev
+    #   install:
+    #     - export TZ=Etc/GMT-3
+    #     # install new version cmake
+    #     - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+    #     - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+    #     - travis_retry wget --no-check-certificate https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Linux-x86_64.tar.gz
+    #     - tar -xvf cmake-3.14.0-Linux-x86_64.tar.gz > /dev/null
+    #     - mv cmake-3.14.0-Linux-x86_64 cmake-install
+    #     - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+    #     - cd ${TRAVIS_BUILD_DIR}
+    #     - cmake --version
+    #     - sudo git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
+    #     - export BOOST_ROOT="/usr/local/boost_1_69_0"
+    #     - eval "CC=gcc-7 && CXX=g++-7"
+    #   env: 
+    #     - BUILD_TYPE=Release
+    #     - OS_FOLDER=linux
+    #   script:
+    #     - git apply 3rdparty/protobuf-patch.diff
+    #     - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_HW_WALLET=Off .
+    #     - make -j$(nproc)
+    #     - ctest --verbose
+    #     # extract build version
+    #     - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
+    #     - echo BEAM_VERSION = $BEAM_VERSION
 
 ###############################################################################
 # Android x86 Release
