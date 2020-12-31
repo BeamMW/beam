@@ -157,6 +157,13 @@
 	macro(const void**, ppVal) sep \
 	macro(uint32_t*, pnVal)
 
+#define BVMOp_VarGetProof(macro, sep) \
+	macro(const void*, pKey) sep \
+	macro(uint32_t, nKey) sep \
+	macro(const void**, ppVal) sep \
+	macro(uint32_t*, pnVal) sep \
+	macro(const Merkle::Node**, ppProof)
+
 #define BVMOp_DerivePk(macro, sep) \
 	macro(PubKey&, pubKey) sep \
 	macro(const void*, pID) sep \
@@ -260,6 +267,7 @@
 #define BVMOpsAll_Manager(macro) \
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
+	macro(0x53, uint32_t , VarGetProof) \
 	macro(0x58, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \
