@@ -209,3 +209,93 @@ jobs:
         name: broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
         path: artifacts/broadcaster*
         if-no-files-found: error
+
+###############################################################################
+# Build IOS OS64 SIMULATOR64 COMBINED
+###############################################################################
+  build_ios:
+    runs-on: macos-10.15
+    # if: ${{false}}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+
+    - name: Create Build Environment
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/boost-ios.git ${{runner.workspace}}/dependencies/boost-ios
+        git clone --depth=1 https://github.com/BeamMW/boost-ios-simulator.git ${{runner.workspace}}/dependencies/boost-ios-simulator
+        git clone --depth=1 https://github.com/BeamMW/openssl-ios.git ${{runner.workspace}}/dependencies/openssl-ios
+        git clone --depth=1 https://github.com/leetal/ios-cmake.git ${{runner.workspace}}/dependencies/toolchain-ios
+        # echo "BUILD_TYPE=Release" >> $GITHUB_ENV
+        echo "OPENSSL_ROOT_DIR=${{runner.workspace}}/dependencies/openssl-ios/" >> $GITHUB_ENV
+        echo "OPENSSL_CRYPTO_LIBRARY=${{runner.workspace}}/dependencies/openssl-ios/lib/libcrypto.a" >> $GITHUB_ENV
+        echo "OPENSSL_INCLUDE_DIR=${{runner.workspace}}/dependencies/openssl-ios/include" >> $GITHUB_ENV
+        echo "OPENSSL_SSL_LIBRARY=${{runner.workspace}}/dependencies/openssl-ios/lib/libssl.a" >> $GITHUB_ENV
+        echo "OPENSSL_LIBRARIES=${{runner.workspace}}/dependencies/openssl-ios/lib" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake && Build
+###############################################################################
+    - name: Configure CMake && Build
+      run: |
+        # git apply 3rdparty/protobuf-patch.diff
+        export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios"
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
+        make -C ./build -j$(sysctl -n hw.ncpu)
+        export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios-simulator"
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build-simulator
+        make -C ./build-simulator -j$(sysctl -n hw.ncpu)
+
+    - name: Save version info
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Collect artifacts
+###############################################################################
+    - name: Collect
+      run: |
+        echo BEAM_VERSION = $BEAM_VERSION
+        mkdir -p ${{runner.workspace}}/results/beam-ios/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios/lib
+        find ./build -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios/lib/ \;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios/include/
+        cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios/include/core/
+        mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/lib
+        find ./build-simulator -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios-simulator/lib/ \;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-simulator/include/
+        cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios-simulator/include/core/
+        mkdir -p ${{runner.workspace}}/results/beam-ios-combined/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios-combined/lib
+        find ${{runner.workspace}}/results/beam-ios/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output ${{runner.workspace}}/results/beam-ios-combined/lib/$(basename "$file") "$file" ${{runner.workspace}}/results/beam-ios-simulator/lib/$(basename "$file"); done;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-combined/include/
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios-simulator${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios-simulator
+        if-no-files-found: error
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios-combined${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios-combined
+        if-no-files-found: error
