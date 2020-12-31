@@ -387,6 +387,7 @@ namespace bvm2 {
 
 		bool m_EnumVars;
 
+		uint8_t* ResizeAux(uint32_t);
 		void FreeAuxAllocGuarded();
 
 		void DocOnNext();

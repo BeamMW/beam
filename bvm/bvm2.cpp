@@ -1625,15 +1625,7 @@ namespace bvm2 {
 		if (!OnHost_VarsMoveNext(&pKey, &nKey, &pVal, &nVal))
 			return 0;
 
-		uint32_t nSizeTotal = nKey + nVal;
-
-		if (m_AuxAlloc.m_Size < nSizeTotal)
-		{
-			FreeAuxAllocGuarded();
-			m_AuxAlloc.m_pPtr = ProcessorPlus::From(*this).OnMethod_Heap_Alloc(nSizeTotal);
-			m_AuxAlloc.m_Size = nSizeTotal;
-		}
-		uint8_t* pDst = get_AddrW(m_AuxAlloc.m_pPtr, nSizeTotal);
+		uint8_t* pDst = ResizeAux(nKey + nVal);
 
 		Wasm::to_wasm(pnKey_, nKey);
 		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
@@ -1682,6 +1674,18 @@ namespace bvm2 {
 			<< "bvm.m.key"
 			<< b
 			>> hv;
+	}
+
+	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
+	{
+		if (m_AuxAlloc.m_Size < nSize)
+		{
+			FreeAuxAllocGuarded();
+			m_AuxAlloc.m_pPtr = ProcessorPlus::From(*this).OnMethod_Heap_Alloc(nSize);
+			m_AuxAlloc.m_Size = nSize;
+		}
+
+		return get_AddrW(m_AuxAlloc.m_pPtr, nSize);
 	}
 
 	void ProcessorManager::FreeAuxAllocGuarded()
