@@ -30,6 +30,10 @@
 
 namespace Shaders {
 
+	namespace Merkle {
+		using namespace beam::Merkle;
+	}
+
 	namespace Env {
 
 		extern "C" {

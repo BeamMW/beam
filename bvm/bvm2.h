@@ -55,6 +55,10 @@ namespace bvm2 {
 	using Shaders::HashValue;
 	using Shaders::BlockHeader;
 
+	namespace Merkle {
+		using namespace Shaders::Merkle;
+	}
+
 	struct ErrorSubType
 	{
 		static const uint32_t NoCharge = 1;
