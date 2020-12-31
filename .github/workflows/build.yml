@@ -299,3 +299,65 @@ jobs:
         name: beam-ios-combined${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
         path: ${{runner.workspace}}/results/beam-ios-combined
         if-no-files-found: error
+
+###############################################################################
+# Build ANDROID
+###############################################################################
+  build_android:
+    runs-on: ubuntu-18.04
+    # if: ${{false}}
+    strategy:
+      matrix:
+        abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
+    env:
+      ANDROID_ABI: ${{matrix.abi}}
+      ANDROID_SDK_VERSION: 23
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+    - name: Create Build Environment
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_68-android
+        git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
+        echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle" >> $GITHUB_ENV
+        echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_68-android" >> $GITHUB_ENV
+        echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake
+###############################################################################
+    - name: Configure CMake
+      run: |
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
+        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+
+###############################################################################
+# Build
+###############################################################################
+    - name: Build
+      run: |
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
+        make wallet-jni -j$(nproc)
+
+    - name: Save version info
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: libwallet-jni${{env.BEAM_TARGET_SUFFIX}}-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
+        path: |
+          android/libwallet-jni.so
+          android/com
+        if-no-files-found: error
