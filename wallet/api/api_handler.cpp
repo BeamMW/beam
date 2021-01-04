@@ -44,7 +44,7 @@ namespace
     {
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetBeamTotals();
-        const auto available = AmountBig::get_Lo(totals.Avail);
+        const auto available = AmountBig::get_Lo(totals.Avail) + AmountBig::get_Lo(totals.AvailShielded);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -914,10 +914,10 @@ namespace beam::wallet
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetBeamTotals();
 
-        response.available = AmountBig::get_Lo(totals.Avail);
-        response.receiving = AmountBig::get_Lo(totals.Incoming);
-        response.sending   = AmountBig::get_Lo(totals.Outgoing);
-        response.maturing  = AmountBig::get_Lo(totals.Maturing);
+        response.available = AmountBig::get_Lo(totals.Avail);    response.available += AmountBig::get_Lo(totals.AvailShielded);
+        response.receiving = AmountBig::get_Lo(totals.Incoming); response.receiving += AmountBig::get_Lo(totals.IncomingShielded);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing); response.sending   += AmountBig::get_Lo(totals.OutgoingShielded);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing); response.maturing  += AmountBig::get_Lo(totals.MaturingShielded);
 
         if (data.withAssets)
         {
@@ -1031,10 +1031,6 @@ namespace beam::wallet
                 return data.count == 0 || counter < data.count;
             }, filter);
             assert(data.count == 0 || (int)res.resultList.size() <= data.count);
-            std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
-            {
-                return a.tx.m_minHeight > b.tx.m_minHeight;
-            });
         }
         
         doResponse(id, res);

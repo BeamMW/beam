@@ -1792,7 +1792,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 resItem.tx,
                 item,
                 resItem.txHeight,
-                resItem.systemHeight);
+                resItem.systemHeight,
+                true);
             msg["result"].push_back(item);
         }
     }
