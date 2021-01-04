@@ -97,7 +97,7 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Dummy::Hash3&) {}
 
 	template <bool bToShader> void Convert(Dummy::VerifyBeamHeader& x) {
-		x.m_Hdr.Convert<bToShader>();
+		x.m_Hdr.template Convert<bToShader>();
 	}
 	template <bool bToShader> void Convert(Dummy::TestFarCallStack& x) {
 		ConvertOrd<bToShader>(x.m_iCaller);
@@ -158,12 +158,12 @@ namespace Shaders {
 	}
 
 	template <bool bToShader> void Convert(Sidechain::Init& x) {
-		x.m_Hdr0.Convert<bToShader>();
+		x.m_Hdr0.template Convert<bToShader>();
 		ConvertOrd<bToShader>(x.m_ComissionForProof);
 	}
 	template <bool bToShader, uint32_t nHdrs> void Convert(Sidechain::Grow<nHdrs>& x) {
 		ConvertOrd<bToShader>(x.m_nSequence);
-		x.m_Prefix.Convert<bToShader>();
+		x.m_Prefix.template Convert<bToShader>();
 
 		for (uint32_t i = 0; i < nHdrs; i++)
 			x.m_pSequence[i].template Convert<bToShader>();
