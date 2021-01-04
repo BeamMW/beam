@@ -9,53 +9,26 @@ namespace Roulette
     struct Params {
         static const uint32_t s_iMethod = 0;
         PubKey m_Dealer; // authorized to start rounds
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct Spin {
         static const uint32_t s_iMethod = 2;
         uint32_t m_PlayingSectors = 0; // for tests, can lower num of sectors
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_PlayingSectors);
-        }
     };
 
     struct BetsOff {
         static const uint32_t s_iMethod = 3;
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct Bid {
         static const uint32_t s_iMethod = 4;
         PubKey m_Player;
         uint32_t m_iSector;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_iSector);
-        }
     };
 
     struct Take {
         static const uint32_t s_iMethod = 5;
         PubKey m_Player;
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct State

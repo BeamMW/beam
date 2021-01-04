@@ -16,6 +16,7 @@
 
 #include "../core/radixtree.h"
 #include "../core/proto.h"
+#include "../core/mapped_file.h"
 #include "../utility/dvector.h"
 #include "../utility/executor.h"
 #include "../utility/containers.h"
@@ -36,7 +37,93 @@ class NodeProcessor
 
 	NodeDB::Transaction m_DbTx;
 
-	UtxoTreeMapped m_Utxos;
+
+	class Mapped
+	{
+		MappedFile m_Mapping;
+
+		struct Type;
+
+	protected:
+
+		template <typename T>
+		T* Allocate(uint32_t iBank)
+		{
+			return (T*) m_Mapping.Allocate(iBank, sizeof(T));
+		}
+
+	public:
+
+		struct Utxo
+			:public UtxoTree
+		{
+			virtual intptr_t get_Base() const override;
+
+			virtual Leaf* CreateLeaf() override;
+			virtual void DeleteEmptyLeaf(Leaf*) override;
+			virtual Joint* CreateJoint() override;
+			virtual void DeleteJoint(Joint*) override;
+
+			virtual MyLeaf::IDQueue* CreateIDQueue() override;
+			virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
+			virtual MyLeaf::IDNode* CreateIDNode() override;
+			virtual void DeleteIDNode(MyLeaf::IDNode*) override;
+
+			friend class Mapped;
+
+			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+
+			void EnsureReserve();
+
+			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Utxo)
+		} m_Utxo;
+
+		struct Contract
+			:public RadixHashOnlyTree
+		{
+			virtual intptr_t get_Base() const override;
+
+			virtual Leaf* CreateLeaf() override;
+			virtual void DeleteLeaf(Leaf* p) override;
+			virtual Joint* CreateJoint() override;
+			virtual void DeleteJoint(Joint*) override;
+
+			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+
+			friend class Mapped;
+
+			void EnsureReserve();
+
+			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
+		} m_Contract;
+
+		void OnDirty();
+
+		typedef Merkle::Hash Stamp;
+
+		~Mapped() { Close(); }
+
+		bool Open(const char* sz, const Stamp&);
+		bool IsOpen() const { return m_Mapping.get_Base() != nullptr; }
+
+		void Close();
+		void FlushStrict(const Stamp&);
+
+#pragma pack(push, 1)
+		struct Hdr
+		{
+			MappedFile::Offset m_Dirty; // boolean, just aligned
+			Stamp m_Stamp;
+			MappedFile::Offset m_RootUtxo;
+			MappedFile::Offset m_RootContract;
+		};
+#pragma pack(pop)
+
+		Hdr& get_Hdr();
+	};
+
+
+	Mapped m_Mapped;
 
 	size_t m_nSizeUtxoComission;
 
@@ -55,7 +142,7 @@ class NodeProcessor
 	void InitializeUtxos();
 	bool TestDefinition();
 	void TestDefinitionStrict();
-	void CommitUtxosAndDB();
+	void CommitMappingAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
@@ -113,9 +200,8 @@ class NodeProcessor
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor(bool bMovingUp);
-	bool InitUtxoMapping(const char*, bool bForceReset);
-	void InitializeUtxos(const char*);
-	static void OnCorrupted();
+	bool InitMapping(const char*, bool bForceReset);
+	void InitializeMapped(const char*);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -169,6 +255,8 @@ class NodeProcessor
 
 public:
 
+	static void OnCorrupted();
+
 	struct StartParams {
 		bool m_CheckIntegrity = false;
 		bool m_Vacuum = false;
@@ -179,7 +267,7 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
-	static void get_UtxoMappingPath(std::string&, const char*);
+	static void get_MappingPath(std::string&, const char*);
 
 	NodeProcessor();
 	virtual ~NodeProcessor();
@@ -275,7 +363,8 @@ public:
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
-	UtxoTree& get_Utxos() { return m_Utxos; }
+	UtxoTree& get_Utxos() { return m_Mapped.m_Utxo; }
+	RadixHashOnlyTree& get_Contracts() { return m_Mapped.m_Contract; }
 
 	struct Evaluator
 		:public Block::SystemState::Evaluator
@@ -287,6 +376,7 @@ public:
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
+		virtual bool get_Contracts(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder

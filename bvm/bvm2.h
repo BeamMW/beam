@@ -55,6 +55,10 @@ namespace bvm2 {
 	using Shaders::HashValue;
 	using Shaders::BlockHeader;
 
+	namespace Merkle {
+		using namespace Shaders::Merkle;
+	}
+
 	struct ErrorSubType
 	{
 		static const uint32_t NoCharge = 1;
@@ -383,6 +387,7 @@ namespace bvm2 {
 
 		bool m_EnumVars;
 
+		uint8_t* ResizeAux(uint32_t);
 		void FreeAuxAllocGuarded();
 
 		void DocOnNext();
@@ -393,6 +398,8 @@ namespace bvm2 {
 
 		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 
+		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
+
 		virtual void InvokeExt(uint32_t) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
@@ -400,6 +407,7 @@ namespace bvm2 {
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
+		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount fee) {}
 

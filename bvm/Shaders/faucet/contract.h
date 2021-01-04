@@ -11,26 +11,12 @@ namespace Faucet
 
         Height m_BacklogPeriod;
         Amount m_MaxWithdraw;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_BacklogPeriod);
-            ConvertOrd<bToShader>(m_MaxWithdraw);
-        }
     };
 
     struct Deposit {
         static const uint32_t s_iMethod = 2;
         AssetID m_Aid;
         Amount m_Amount;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Aid);
-            ConvertOrd<bToShader>(m_Amount);
-        }
     };
 
     struct Key {
@@ -42,13 +28,6 @@ namespace Faucet
         static const uint32_t s_iMethod = 3;
         Key m_Key;
         Amount m_Amount;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Key.m_Aid);
-            ConvertOrd<bToShader>(m_Amount);
-        }
     };
 
     struct AccountData {

@@ -65,15 +65,6 @@ inline void ConvertOrd(T&) {}
 #include "../bvm2_shared.h"
 #include "../bvm2_opcodes.h"
 
-namespace Merkle
-{
-    struct Node
-    {
-        uint8_t m_OnRight;
-        HashValue m_Value;
-    };
-}
-
 namespace Env {
 
     extern "C" {

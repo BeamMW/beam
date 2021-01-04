@@ -30,6 +30,10 @@
 
 namespace Shaders {
 
+	namespace Merkle {
+		using namespace beam::Merkle;
+	}
+
 	namespace Env {
 
 		extern "C" {
@@ -70,6 +74,108 @@ namespace Shaders {
 #include "../Shaders/roulette/contract.h"
 #include "../Shaders/sidechain/contract.h"
 
+	template <bool bToShader> void Convert(Vault::Request& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(Dummy::MathTest1& x) {
+		ConvertOrd<bToShader>(x.m_Value);
+		ConvertOrd<bToShader>(x.m_Rate);
+		ConvertOrd<bToShader>(x.m_Factor);
+		ConvertOrd<bToShader>(x.m_Try);
+		ConvertOrd<bToShader>(x.m_IsOk);
+	}
+	template <bool bToShader> void Convert(Dummy::DivTest1& x) {
+		ConvertOrd<bToShader>(x.m_Nom);
+		ConvertOrd<bToShader>(x.m_Denom);
+	}
+	template <bool bToShader> void Convert(Dummy::InfCycle& x) {
+		ConvertOrd<bToShader>(x.m_Val);
+	}
+	template <bool bToShader> void Convert(Dummy::Hash1&) {}
+	template <bool bToShader> void Convert(Dummy::Hash2&) {}
+	template <bool bToShader> void Convert(Dummy::Hash3&) {}
+
+	template <bool bToShader> void Convert(Dummy::VerifyBeamHeader& x) {
+		x.m_Hdr.template Convert<bToShader>();
+	}
+	template <bool bToShader> void Convert(Dummy::TestFarCallStack& x) {
+		ConvertOrd<bToShader>(x.m_iCaller);
+	}
+
+	template <bool bToShader> void Convert(Roulette::Params& x) {
+	}
+	template <bool bToShader> void Convert(Roulette::Spin& x) {
+		ConvertOrd<bToShader>(x.m_PlayingSectors);
+	}
+	template <bool bToShader> void Convert(Roulette::BetsOff& x) {
+	}
+	template <bool bToShader> void Convert(Roulette::Bid& x) {
+		ConvertOrd<bToShader>(x.m_iSector);
+	}
+	template <bool bToShader> void Convert(Roulette::Take& x) {
+	}
+
+	template <bool bToShader> void Convert(Faucet::Params& x) {
+		ConvertOrd<bToShader>(x.m_BacklogPeriod);
+		ConvertOrd<bToShader>(x.m_MaxWithdraw);
+	}
+	template <bool bToShader> void Convert(Faucet::Deposit& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(Faucet::Withdraw& x) {
+		ConvertOrd<bToShader>(x.m_Key.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader, uint32_t nMeta> void Convert(StableCoin::Create<nMeta>& x) {
+		ConvertOrd<bToShader>(x.m_CollateralizationRatio);
+		ConvertOrd<bToShader>(x.m_BiddingDuration);
+		ConvertOrd<bToShader>(x.m_nMetaData);
+	}
+	template <bool bToShader> void Convert(StableCoin::Balance& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_Asset);
+	}
+	template <bool bToShader> void Convert(StableCoin::UpdatePosition& x) {
+		Convert<bToShader>(x.m_Change);
+	}
+	template <bool bToShader> void Convert(StableCoin::PlaceBid& x) {
+		Convert<bToShader>(x.m_Bid);
+	}
+
+	template <bool bToShader, uint32_t nProvs> void Convert(Oracle::Create<nProvs>& x) {
+		ConvertOrd<bToShader>(x.m_Providers);
+		ConvertOrd<bToShader>(x.m_InitialValue);
+	}
+	template <bool bToShader> void Convert(Oracle::Set& x) {
+		ConvertOrd<bToShader>(x.m_iProvider);
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+	template <bool bToShader> void Convert(Oracle::Get& x) {
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+
+	template <bool bToShader> void Convert(Sidechain::Init& x) {
+		x.m_Hdr0.template Convert<bToShader>();
+		ConvertOrd<bToShader>(x.m_ComissionForProof);
+	}
+	template <bool bToShader, uint32_t nHdrs> void Convert(Sidechain::Grow<nHdrs>& x) {
+		ConvertOrd<bToShader>(x.m_nSequence);
+		x.m_Prefix.template Convert<bToShader>();
+
+		for (uint32_t i = 0; i < nHdrs; i++)
+			x.m_pSequence[i].template Convert<bToShader>();
+	}
+	template <bool bToShader, uint32_t nNodes> void Convert(Sidechain::VerifyProof<nNodes>& x) {
+		ConvertOrd<bToShader>(x.m_Height);
+		ConvertOrd<bToShader>(x.m_nProof);
+	}
+	template <bool bToShader> void Convert(Sidechain::WithdrawComission& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
 	namespace Env {
 
 
@@ -100,9 +206,9 @@ namespace Shaders {
 		template <typename T>
 		void CallFar_T(const ContractID& cid, T& args)
 		{
-			args.template Convert<true>();
+			Convert<true>(args);
 			CallFarN(cid, args.s_iMethod, &args, sizeof(args));
-			args.template Convert<false>();
+			Convert<false>(args);
 		}
 
 	} // namespace Env
@@ -573,7 +679,7 @@ namespace bvm2 {
 		{
 			Converter(T& arg)
 			{
-				arg.template Convert<true>();
+				Shaders::Convert<true>(arg);
 				p = &arg;
 				n = static_cast<uint32_t>(sizeof(arg));
 			}
@@ -581,7 +687,7 @@ namespace bvm2 {
 			~Converter()
 			{
 				T& arg = Cast::NotConst(*reinterpret_cast<const T*>(p));
-				arg.template Convert<false>();
+				Shaders::Convert<false>(arg);
 			}
 		};
 
@@ -1137,6 +1243,18 @@ namespace bvm2 {
 			//verify_test(diffRaw == args.m_DiffUnpacked);
 			//verify_test(args.m_DiffTestOk);
 		}
+
+		{
+			Shaders::Dummy::TestFarCallStack args;
+			ZeroObject(args);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(args.m_Cid == m_cidDummy);
+
+			args.m_iCaller = 1;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}

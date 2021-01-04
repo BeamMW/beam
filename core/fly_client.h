@@ -54,6 +54,7 @@ namespace proto {
 		macro(StateSummary,      GetStateSummary,      StateSummary) \
 		macro(EnumHdrs,          EnumHdrs,             HdrPack) \
 		macro(ContractVars,      ContractVarsEnum,     ContractVars) \
+		macro(ContractVar,       GetContractVar,       ContractVar) \
 		macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt)
 
 		class Request
