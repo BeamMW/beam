@@ -988,7 +988,10 @@ namespace beam::wallet
             TxListFilter filter;
             filter.m_AssetID = data.filter.assetId;
             filter.m_Status = data.filter.status;
-            filter.m_AssetConfirmedHeight = data.filter.height;
+            if (data.withAssets)
+            {
+                filter.m_AssetConfirmedHeight = data.filter.height;
+            }
             filter.m_KernelProofHeight = data.filter.height;
             walletDB->visitTx(
                 [&](const TxDescription& tx)
