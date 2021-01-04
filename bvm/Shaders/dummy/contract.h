@@ -13,16 +13,6 @@ namespace Dummy
 
         uint64_t m_Try;
         uint8_t m_IsOk; // m_Try <(?)= m_Value * m_Rate * m_Factor / 2^64
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Value);
-            ConvertOrd<bToShader>(m_Rate);
-            ConvertOrd<bToShader>(m_Factor);
-            ConvertOrd<bToShader>(m_Try);
-            ConvertOrd<bToShader>(m_IsOk);
-        }
     };
 
     struct DivTest1
@@ -30,26 +20,12 @@ namespace Dummy
         static const uint32_t s_iMethod = 4;
         uint64_t m_Nom;
         uint64_t m_Denom;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Nom);
-            ConvertOrd<bToShader>(m_Denom);
-        }
     };
 
     struct InfCycle
     {
         static const uint32_t s_iMethod = 5;
-
         uint32_t m_Val;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Val);
-        }
     };
 
     struct Hash1
@@ -58,11 +34,6 @@ namespace Dummy
 
         uint8_t m_pInp[10];
         uint8_t m_pRes[32];
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct Hash2
@@ -71,11 +42,6 @@ namespace Dummy
 
         uint8_t m_pInp[12];
         uint8_t m_pRes[64];
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct Hash3
@@ -84,11 +50,6 @@ namespace Dummy
 
         uint8_t m_pInp[15];
         uint8_t m_pRes[32];
-
-        template <bool bToShader>
-        void Convert()
-        {
-        }
     };
 
     struct VerifyBeamHeader
@@ -100,12 +61,6 @@ namespace Dummy
         HashValue m_RulesCfg; // host determines it w.r.t. header height. Make it a param, to make contract more flexible
         HashValue m_Hash;
         HashValue m_ChainWork0;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            m_Hdr.Convert<bToShader>();
-        }
     };
 
     struct TestFarCallStack
@@ -114,12 +69,6 @@ namespace Dummy
 
         uint32_t m_iCaller;
         HashValue m_Cid;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_iCaller);
-        }
     };
 
 #pragma pack (pop)

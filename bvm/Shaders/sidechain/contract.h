@@ -20,13 +20,6 @@ namespace Sidechain
         static const uint32_t s_iMethod = 0;
 
         BlockHeader::Full m_Hdr0;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            m_Hdr0.Convert<bToShader>();
-            ConvertOrd<bToShader>(m_ComissionForProof);
-        }
     };
 
     template <uint32_t nHdrs>
@@ -38,16 +31,6 @@ namespace Sidechain
         uint32_t m_nSequence;
         BlockHeader::Prefix m_Prefix;
         BlockHeader::Element m_pSequence[nHdrs];
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_nSequence);
-            m_Prefix.Convert<bToShader>();
-
-            for (uint32_t i = 0; i < nHdrs; i++)
-                m_pSequence[i].template Convert<bToShader>();
-        }
     };
 
     template <uint32_t nNodes>
@@ -59,13 +42,6 @@ namespace Sidechain
         uint32_t m_nProof;
         HashValue m_KernelID;
         Merkle::Node m_pProof[nNodes];
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Height);
-            ConvertOrd<bToShader>(m_nProof);
-        }
     };
 
     struct WithdrawComission
@@ -74,12 +50,6 @@ namespace Sidechain
 
         PubKey m_Contributor;
         Amount m_Amount;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Amount);
-        }
     };
 
     struct Global
