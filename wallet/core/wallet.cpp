@@ -2107,6 +2107,7 @@ namespace beam::wallet
         if (tx)
         {
             storage::setTxParameter(*m_WalletDB, txID, TxParameterID::AddressType, addressType, true);
+            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
             return;
         }
         else
@@ -2132,7 +2133,8 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                 .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                 .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
+                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
+                .SetParameter(TxParameterID::KernelProofHeight, coin.m_confirmHeight);
 
             if (message->m_MaxPrivacyMinAnonymitySet)
             {
