@@ -605,6 +605,8 @@ namespace beam::wallet
         [[nodiscard]] std::string getSenderIdentity() const;
         [[nodiscard]] std::string getReceiverIdentity() const;
         [[nodiscard]] std::string getIdentity(bool isSender) const;
+        [[nodiscard]] std::string getAddressFrom() const;
+        [[nodiscard]] std::string getAddressTo() const;
 
 #define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
         macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \

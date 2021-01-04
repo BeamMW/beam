@@ -146,6 +146,10 @@ void GetStatusResponseJson(const TxDescription& tx,
         };
         statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
     }
+    else if (tx.m_txType == TxType::PushTransaction)
+    {
+        statusInterpreter = std::make_unique<MaxPrivacyTxStatusInterpreter>(tx);
+    }
     else if (tx.m_txType == TxType::AtomicSwap)
     {
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -157,8 +161,8 @@ void GetStatusResponseJson(const TxDescription& tx,
         {"txId", TxIDToString(tx.m_txId)},
         {"status", tx.m_status},
         {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
-        {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-        {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
+        {"sender", tx.getAddressFrom()},
+        {"receiver", tx.getAddressTo()},
         {"value", tx.m_amount},
         {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
         {"create_time", tx.m_createTime},
