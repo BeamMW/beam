@@ -1125,9 +1125,9 @@ namespace beam::wallet
             id,
             OffersList::Response
             {
-                std::move(walletDB->getAddresses(true)),
+                walletDB->getAddresses(true),
                 walletDB->getCurrentHeight(),
-                std::move(offers),
+                offers,
             });
     }
 
@@ -1154,9 +1154,9 @@ namespace beam::wallet
             id,
             OffersBoard::Response
             {
-                std::move(walletDB->getAddresses(true)),
+                walletDB->getAddresses(true),
                 walletDB->getCurrentHeight(),
-                std::move(offers),
+                offers,
             });
     }
 
@@ -1250,7 +1250,7 @@ namespace beam::wallet
                 id,
                 CreateOffer::Response
                 {
-                    std::move(walletDB->getAddresses(true)),
+                    walletDB->getAddresses(true),
                     currentHeight,
                     token,
                     txId
@@ -1306,7 +1306,7 @@ namespace beam::wallet
 
                 doResponse(id, PublishOffer::Response
                     {
-                        std::move(walletDB->getAddresses(true)),
+                        walletDB->getAddresses(true),
                         walletDB->getCurrentHeight(),
                         offer
                     });
@@ -1457,7 +1457,7 @@ namespace beam::wallet
                 id,
                 AcceptOffer::Response
                 {
-                    std::move(myAddresses),
+                    myAddresses,
                     walletDB->getCurrentHeight(),
                     offer
                 });
