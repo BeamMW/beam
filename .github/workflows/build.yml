@@ -361,3 +361,58 @@ jobs:
           android/libwallet-jni.so
           android/com
         if-no-files-found: error
+
+###############################################################################
+# Build Key Keeper Web Assembly
+###############################################################################
+  build_key_keeper:
+    runs-on: ubuntu-18.04
+    # if: ${{false}}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+    - name: Download and install emscripten
+      shell: bash
+      run: |
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        git pull
+        ./emsdk install latest
+        ./emsdk activate latest
+
+    - name: Download boost
+      shell: bash
+      run: |
+        git clone https://github.com/BeamMW/boost-linux.git ${{runner.workspace}}/boost_prebuild
+        echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuild" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake
+###############################################################################
+    - name: Configure CMake
+      run: |
+        source ./emsdk/emsdk_env.sh
+        emcmake cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE keykeeper
+
+###############################################################################
+# Build
+###############################################################################
+    - name: Build
+      run: |
+        make -j$(nproc)
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: wasm-key-keeper
+        path: |
+          wasm-key-keeper.*
+        if-no-files-found: error
