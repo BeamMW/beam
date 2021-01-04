@@ -988,22 +988,33 @@ namespace beam::wallet
             TxListFilter filter;
             filter.m_AssetID = data.filter.assetId;
             filter.m_Status = data.filter.status;
-            filter.m_AssetConfirmedHeight = data.filter.height;
+            if (data.withAssets)
+            {
+                filter.m_AssetConfirmedHeight = data.filter.height;
+            }
             filter.m_KernelProofHeight = data.filter.height;
             walletDB->visitTx(
                 [&](const TxDescription& tx)
             {
+                // filter supported tx types
+                // TODO: remove this in future, this condition was added to preserve existing behavior
                 if (tx.m_txType != TxType::Simple
+                    && tx.m_txType != TxType::PushTransaction
                     && tx.m_txType != TxType::AssetIssue
                     && tx.m_txType != TxType::AssetConsume
                     && tx.m_txType != TxType::AssetInfo)
                 {
                     return true;
                 }
-                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
+
+                if (!data.withAssets && (tx.m_txType == TxType::AssetIssue
+                    || tx.m_txType == TxType::AssetConsume
+                    || tx.m_txType == TxType::AssetInfo
+                    || tx.m_assetId != Asset::s_InvalidID))
                 {
-                    return false;
+                    return true;
                 }
+
                 ++offset;
                 if (offset <= data.skip)
                 {
@@ -1114,9 +1125,9 @@ namespace beam::wallet
             id,
             OffersList::Response
             {
-                walletDB->getAddresses(true),
+                std::move(walletDB->getAddresses(true)),
                 walletDB->getCurrentHeight(),
-                offers,
+                std::move(offers),
             });
     }
 
@@ -1143,9 +1154,9 @@ namespace beam::wallet
             id,
             OffersBoard::Response
             {
-                walletDB->getAddresses(true),
+                std::move(walletDB->getAddresses(true)),
                 walletDB->getCurrentHeight(),
-                offers,
+                std::move(offers),
             });
     }
 
@@ -1239,7 +1250,7 @@ namespace beam::wallet
                 id,
                 CreateOffer::Response
                 {
-                    walletDB->getAddresses(true),
+                    std::move(walletDB->getAddresses(true)),
                     currentHeight,
                     token,
                     txId
@@ -1295,7 +1306,7 @@ namespace beam::wallet
 
                 doResponse(id, PublishOffer::Response
                     {
-                        walletDB->getAddresses(true),
+                        std::move(walletDB->getAddresses(true)),
                         walletDB->getCurrentHeight(),
                         offer
                     });
@@ -1446,7 +1457,7 @@ namespace beam::wallet
                 id,
                 AcceptOffer::Response
                 {
-                    myAddresses,
+                    std::move(myAddresses),
                     walletDB->getCurrentHeight(),
                     offer
                 });

@@ -221,8 +221,8 @@ namespace beam::wallet
     };
 
 #define BEAM_TX_LIST_HEIGHT_MAP(MACRO) \
-    MACRO(AssetConfirmedHeight, Height) \
-    MACRO(KernelProofHeight, Height)
+    MACRO(KernelProofHeight, Height) \
+    MACRO(AssetConfirmedHeight, Height)
 
 #define BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO) \
     MACRO(TransactionType,      TxType) \
