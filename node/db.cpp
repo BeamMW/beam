@@ -2881,6 +2881,11 @@ void NodeDB::ContractDataEnum(WalkerContractData& wlk, const Blob& keyMin, const
 	wlk.m_Rs.put(1, keyMax);
 }
 
+void NodeDB::ContractDataEnum(WalkerContractData& wlk)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractDataEnumAll, "SELECT " TblContracts_Key "," TblContracts_Value " FROM " TblContracts " ORDER BY " TblContracts_Key);
+}
+
 bool NodeDB::WalkerContractData::MoveNext()
 {
 	if (!m_Rs.Step())

@@ -188,6 +188,7 @@ public:
 			ContractDataUpdate,
 			ContractDataDel,
 			ContractDataEnum,
+			ContractDataEnumAll,
 			ContractDataDelAll,
 
 			ShieldedStatisticSel,
@@ -655,6 +656,7 @@ public:
 	};
 
 	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
+	void ContractDataEnum(WalkerContractData&);
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 

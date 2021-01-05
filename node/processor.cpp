@@ -211,6 +211,10 @@ void NodeProcessor::InitializeMapped(const char* sz)
 	LOG_INFO() << "Rebuilding mapped image...";
 	InitializeUtxos();
 
+	NodeDB::WalkerContractData wlk;
+	for (m_DB.ContractDataEnum(wlk); wlk.MoveNext(); )
+		m_Mapped.m_Contract.Toggle(wlk.m_Key, wlk.m_Val, true);
+
 	TestDefinitionStrict();
 }
 
@@ -4045,33 +4049,36 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob&
 		m_Proc.m_DB.ContractDataDel(key);
 }
 
+void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, bool bAdd)
+{
+	Merkle::Hash hv;
+	Block::get_HashContractVar(hv, key, data);
+
+	if (bAdd)
+		EnsureReserve();
+
+	bool bCreate = true;
+	RadixHashOnlyTree::Cursor cu;
+	Find(cu, hv, bCreate);
+
+	if (!bAdd)
+		Delete(cu);
+
+	if (bAdd != bCreate)
+	{
+		Wasm::CheckpointTxt cp("SaveVar collision");
+
+		if (!bAdd)
+			OnCorrupted();
+
+		Wasm::Fail();
+	}
+}
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
 {
 	if (!m_Bic.m_SkipDefinition)
-	{
-		Merkle::Hash hv;
-		Block::get_HashContractVar(hv, key, data);
-
-		if (bAdd)
-		    m_Proc.m_Mapped.m_Contract.EnsureReserve();
-
-		bool bCreate = true;
-		RadixHashOnlyTree::Cursor cu;
-		m_Proc.m_Mapped.m_Contract.Find(cu, hv, bCreate);
-
-		if (!bAdd)
-			m_Proc.m_Mapped.m_Contract.Delete(cu);
-
-		if (bAdd != bCreate)
-		{
-			Wasm::CheckpointTxt cp("SaveVar collision");
-
-			if (!bAdd)
-				OnCorrupted();
-
-			Wasm::Fail();
-		}
-	}
+		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()

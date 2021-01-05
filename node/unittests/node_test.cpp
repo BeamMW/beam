@@ -1690,7 +1690,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[7]; // ctor, list, deposit, print, withdraw, print, dtor
+				Height m_pStage[8]; // ctor, list, deposit, proof, print, withdraw, print, dtor
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 				bool m_VarProof = false;
@@ -2338,6 +2338,19 @@ namespace beam
 						//m_This.m_pMan.reset();
 					}
 				}
+
+				struct DelayedStart
+					:public io::IdleEvt
+				{
+					void OnSchedule() override
+					{
+						cancel();
+						get_ParentObj().StartRun(1);
+					}
+
+					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
+
+				} m_DelayedStart;
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
@@ -2356,12 +2369,28 @@ namespace beam
 
 				virtual void PostRequestInternal(proto::FlyClient::Request& r) override
 				{
-					assert(proto::FlyClient::Request::Type::ContractVars == r.get_Type());
+					switch (r.get_Type())
+					{
+					case proto::FlyClient::Request::Type::ContractVars:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVars>(r).m_Msg);
+						break;
+
+					case proto::FlyClient::Request::Type::ContractVar:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVar>(r).m_Msg);
+						break;
+
+					default:
+						return;
+					}
+
 					m_pReq = &r;
+				}
 
-					auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(r);
-
-					m_This.Send(x.m_Msg);
+				void OnComplete2()
+				{
+					auto pHandler = m_pReq->m_pTrg;
+					m_pReq->m_pTrg = nullptr;
+					pHandler->OnComplete(*m_pReq);
 				}
 
 				void OnMsg(proto::ContractVars&& msg)
@@ -2370,11 +2399,17 @@ namespace beam
 					{
 						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
 						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
 
-						auto pHandler = m_pReq->m_pTrg;
-						m_pReq->m_pTrg = nullptr;
-
-						pHandler->OnComplete(x);
+				void OnMsg(proto::ContractVar&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
 					}
 				}
 			};
@@ -2383,26 +2418,56 @@ namespace beam
 
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
-				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
-					return false;
-
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
 				if (m_pMan)
 				{
-					if (!m_pMan->m_Done)
+					auto& proc = *m_pMan;
+					if (!proc.m_Done)
 						return false; // pending
+
+					if (!proc.m_vInvokeData.empty())
+					{
+						bvm2::FundsMap fm;
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							const auto& cdata = proc.m_vInvokeData[i];
+							fm += cdata.m_Spend;
+							fm.AddSpend(0, cdata.m_Fee);
+						}
+
+						AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
+						if (valSpend > static_cast<AmountSigned>(val))
+							return false; // not enough funds
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							HeightRange hr;
+							hr.m_Min = s.m_Height + 1;
+
+							const auto& x = proc.m_vInvokeData[i];
+							x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr);
+						}
+
+						val -= valSpend;
+
+						printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
+					}
 
 					m_pMan.reset();
 				}
 
-				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
+				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
 					return false;
 
-				auto pMan = std::make_unique<MyManager>(*this);
-				MyManager& proc = *pMan;
+				if (m_Contract.m_Done && (s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4))
+					return false;
+
+				m_pMan = std::make_unique<MyManager>(*this);
+				MyManager& proc = *m_pMan;
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
 
@@ -2435,20 +2500,18 @@ namespace beam
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 4: // withdraw
+				case 4:
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "get_proof";
+					break;
 
-					{
-						proto::GetContractVar msg2;
-						Blob(m_Contract.m_Cid).Export(msg2.m_Key);
-						Send(msg2);
-					}
-
+				case 5: // withdraw
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "withdraw";
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 6: // dtor
+				case 7: // dtor
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "destroy";
 					break;
@@ -2461,47 +2524,9 @@ namespace beam
 
 				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
 
-				proc.StartRun(1);
+				printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
+				proc.m_DelayedStart.start();
 
-				if (!proc.m_Done)
-				{
-					printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
-
-					m_pMan = std::move(pMan);
-					return false;
-				}
-
-				if (proc.m_vInvokeData.empty())
-					return false; //?!
-
-				bvm2::FundsMap fm;
-
-				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
-				{
-					const auto& cdata = proc.m_vInvokeData[i];
-					fm += cdata.m_Spend;
-					fm.AddSpend(0, cdata.m_Fee);
-				}
-
-				AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
-				if (valSpend > static_cast<AmountSigned>(val))
-				{
-					m_Contract.m_Done--;
-					return false; // not enough funds
-				}
-
-				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
-				{
-					HeightRange hr;
-					hr.m_Min = s.m_Height + 1;
-
-					const auto& x = proc.m_vInvokeData[i];
-					x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr);
-				}
-
-				val -= valSpend;
-
-				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
 				return true;
 			}
@@ -2514,10 +2539,17 @@ namespace beam
 
 			virtual void OnMsg(proto::ContractVar&& msg) override
 			{
-				if (!msg.m_Proof.empty())
+				if (m_pMyNetwork)
 				{
-					verify_test(m_vStates.back().IsValidProofContract(m_Contract.m_Cid, msg.m_Value, msg.m_Proof));
-					m_Contract.m_VarProof = true;
+					if (!msg.m_Proof.empty() && m_pMyNetwork->m_pReq && (proto::FlyClient::Request::ContractVar == m_pMyNetwork->m_pReq->get_Type()))
+					{
+						auto& r = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pMyNetwork->m_pReq);
+						verify_test(m_vStates.back().IsValidProofContract(r.m_Msg.m_Key, msg.m_Value, msg.m_Proof));
+
+						m_Contract.m_VarProof = true;
+					}
+
+					m_pMyNetwork->OnMsg(std::move(msg));
 				}
 			}
 
