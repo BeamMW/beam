@@ -2338,6 +2338,19 @@ namespace beam
 						//m_This.m_pMan.reset();
 					}
 				}
+
+				struct DelayedStart
+					:public io::IdleEvt
+				{
+					void OnSchedule() override
+					{
+						cancel();
+						get_ParentObj().StartRun(1);
+					}
+
+					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
+
+				} m_DelayedStart;
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
@@ -2383,26 +2396,56 @@ namespace beam
 
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
-				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
-					return false;
-
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
 					return false;
 
 				if (m_pMan)
 				{
-					if (!m_pMan->m_Done)
+					auto& proc = *m_pMan;
+					if (!proc.m_Done)
 						return false; // pending
+
+					if (!proc.m_vInvokeData.empty())
+					{
+						bvm2::FundsMap fm;
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							const auto& cdata = proc.m_vInvokeData[i];
+							fm += cdata.m_Spend;
+							fm.AddSpend(0, cdata.m_Fee);
+						}
+
+						AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
+						if (valSpend > static_cast<AmountSigned>(val))
+							return false; // not enough funds
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							HeightRange hr;
+							hr.m_Min = s.m_Height + 1;
+
+							const auto& x = proc.m_vInvokeData[i];
+							x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr);
+						}
+
+						val -= valSpend;
+
+						printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
+					}
 
 					m_pMan.reset();
 				}
 
-				if (m_Contract.m_Done && s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4)
+				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
 					return false;
 
-				auto pMan = std::make_unique<MyManager>(*this);
-				MyManager& proc = *pMan;
+				if (m_Contract.m_Done && (s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4))
+					return false;
+
+				m_pMan = std::make_unique<MyManager>(*this);
+				MyManager& proc = *m_pMan;
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
 
@@ -2461,47 +2504,9 @@ namespace beam
 
 				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
 
-				proc.StartRun(1);
+				printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
+				proc.m_DelayedStart.start();
 
-				if (!proc.m_Done)
-				{
-					printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
-
-					m_pMan = std::move(pMan);
-					return false;
-				}
-
-				if (proc.m_vInvokeData.empty())
-					return false; //?!
-
-				bvm2::FundsMap fm;
-
-				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
-				{
-					const auto& cdata = proc.m_vInvokeData[i];
-					fm += cdata.m_Spend;
-					fm.AddSpend(0, cdata.m_Fee);
-				}
-
-				AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
-				if (valSpend > static_cast<AmountSigned>(val))
-				{
-					m_Contract.m_Done--;
-					return false; // not enough funds
-				}
-
-				for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
-				{
-					HeightRange hr;
-					hr.m_Min = s.m_Height + 1;
-
-					const auto& x = proc.m_vInvokeData[i];
-					x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr);
-				}
-
-				val -= valSpend;
-
-				printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
 
 				return true;
 			}
