@@ -247,6 +247,7 @@ namespace beam::wallet
         void FailTxWaitingForVouchers(const WalletID& peerID);
         void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
         void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
+        void SetTreasuryHandled(bool);
 
     private:
 
@@ -428,5 +429,6 @@ namespace beam::wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
         NodeProcessor::Extra m_Extra = { 0 };
+        bool m_IsTreasuryHandled = false;
     };
 }

@@ -169,7 +169,7 @@ namespace beam::wallet
     namespace
     {
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
-        constexpr char s_szShieldedOutputs[] = "ShildedOutputs";
+        constexpr char s_szIsTreasuryHandled[] = "IsTreasuryHandled";
     }
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
@@ -182,7 +182,8 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
-        storage::getVar(*m_WalletDB, s_szShieldedOutputs, m_Extra.m_ShieldedOutputs);
+        m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
+        storage::getVar(*m_WalletDB, s_szIsTreasuryHandled, m_IsTreasuryHandled);
     }
 
     Wallet::~Wallet()
@@ -295,8 +296,7 @@ namespace beam::wallet
 
         storage::setVar(*m_WalletDB, s_szNextEvt, 0);
         m_WalletDB->deleteEventsFrom(Rules::HeightGenesis - 1);
-        m_Extra.m_ShieldedOutputs = 0;
-        storage::setVar(*m_WalletDB, s_szShieldedOutputs, 0);
+        SetTreasuryHandled(false);
         RequestTreasury();
         RequestEvents();
     }
@@ -1147,7 +1147,6 @@ namespace beam::wallet
             {
                 auto event = Cast::Up<const proto::Event::Shielded&>(evt);
                 m_Wallet.ProcessEventShieldedUtxo(event, h);
-                storage::setVar(*m_Wallet.m_WalletDB, s_szShieldedOutputs, m_Wallet.m_Extra.m_ShieldedOutputs);
             }break;
             default:
                 break;
@@ -1245,16 +1244,21 @@ namespace beam::wallet
         {
             if (r.m_Height == 0)
             {
-                // handle treasury
-                const Blob& blob = r.m_Res.m_Body.m_Eternal;
-                Treasury::Data td;
-                if (!NodeProcessor::ExtractTreasury(blob, td))
-                    return;
-
-                for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+                if (!r.m_Res.m_Body.m_Eternal.empty())
                 {
-                    recognizer.Recognize(td.m_vGroups[iG].m_Data, r.m_Height, 0, false);
+                    // handle treasury
+                    const Blob& blob = r.m_Res.m_Body.m_Eternal;
+                    Treasury::Data td;
+                    if (!NodeProcessor::ExtractTreasury(blob, td))
+                        return;
+
+                    for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+                    {
+                        recognizer.Recognize(td.m_vGroups[iG].m_Data, r.m_Height, 0, false);
+                    }
                 }
+
+                SetTreasuryHandled(true);
                 RequestBodies(0, Rules::get().HeightGenesis);
                 return;
             }
@@ -1285,7 +1289,6 @@ namespace beam::wallet
         PreprocessBlock(block);
         recognizer.Recognize(block, h, 0, false);
         SetEventsHeight(h);
-        storage::setVar(*m_WalletDB, s_szShieldedOutputs, m_Extra.m_ShieldedOutputs);
     }
 
     void Wallet::PreprocessBlock(TxVectors::Full& block)
@@ -1343,14 +1346,26 @@ namespace beam::wallet
 
     void Wallet::RequestBodies()
     {
-        Height currentHeight = m_WalletDB->getCurrentHeight();
-        RequestBodies(currentHeight, currentHeight + 1);
+        if (m_OwnedNodesOnline)
+            return;
+
+        if (!m_IsTreasuryHandled)
+        {
+            RequestTreasury();
+        }
+        else
+        {
+            Height currentHeight = m_WalletDB->getCurrentHeight();
+            RequestBodies(currentHeight, currentHeight + 1);
+        }
     }
 
     void Wallet::RequestTreasury()
     {
         if (m_OwnedNodesOnline)
             return;
+
+        m_Extra.m_ShieldedOutputs = 0;
 
         MyRequestBody::Ptr pReq(new MyRequestBody);
 
@@ -1364,52 +1379,50 @@ namespace beam::wallet
 
     void Wallet::RequestBodies(Height currentHeight, Height startHeight)
     {
-        if (!m_OwnedNodesOnline)
-        {
-            if (!m_PendingBodyPack.empty() || !m_PendingBody.empty())
-                return;
-
-            Block::SystemState::Full newTip;
-            m_WalletDB->get_History().get_Tip(newTip);
-
-            if (startHeight > newTip.m_Height)
-                return;
-
-            Height hCountExtra = newTip.m_Height - startHeight;
-            if (hCountExtra)
-            {
-                MyRequestBodyPack::Ptr pReq(new MyRequestBodyPack);
-
-                pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
-                pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
-
-                newTip.get_ID(pReq->m_Msg.m_Top);
-
-                Height r = Rules::get().MaxRollback;
-                Height count = std::min(newTip.m_Height - currentHeight, r * 2);
-                pReq->m_StartHeight = startHeight;
-                pReq->m_Msg.m_CountExtra = hCountExtra;
-                pReq->m_Msg.m_Height0 = currentHeight;
-                pReq->m_Msg.m_HorizonLo1 = newTip.m_Height - count;
-                pReq->m_Msg.m_HorizonHi1 = newTip.m_Height;
-
-                PostReqUnique(*pReq);
-            }
-            else
-            {
-                MyRequestBody::Ptr pReq(new MyRequestBody);
-
-                pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
-                pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
-
-                newTip.get_ID(pReq->m_Msg.m_Top);
-                pReq->m_Height = pReq->m_Msg.m_Top.m_Height;
-                pReq->m_Msg.m_CountExtra = hCountExtra;
-
-                PostReqUnique(*pReq);
-            }
-
+        if (m_OwnedNodesOnline)
             return;
+
+        if (!m_PendingBodyPack.empty() || !m_PendingBody.empty())
+            return;
+
+        Block::SystemState::Full newTip;
+        m_WalletDB->get_History().get_Tip(newTip);
+
+        if (startHeight > newTip.m_Height)
+            return;
+
+        Height hCountExtra = newTip.m_Height - startHeight;
+        if (hCountExtra)
+        {
+            MyRequestBodyPack::Ptr pReq(new MyRequestBodyPack);
+
+            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
+            pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
+
+            newTip.get_ID(pReq->m_Msg.m_Top);
+
+            Height r = Rules::get().MaxRollback;
+            Height count = std::min(newTip.m_Height - currentHeight, r * 2);
+            pReq->m_StartHeight = startHeight;
+            pReq->m_Msg.m_CountExtra = hCountExtra;
+            pReq->m_Msg.m_Height0 = currentHeight;
+            pReq->m_Msg.m_HorizonLo1 = newTip.m_Height - count;
+            pReq->m_Msg.m_HorizonHi1 = newTip.m_Height;
+
+            PostReqUnique(*pReq);
+        }
+        else
+        {
+            MyRequestBody::Ptr pReq(new MyRequestBody);
+
+            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
+            pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
+
+            newTip.get_ID(pReq->m_Msg.m_Top);
+            pReq->m_Height = pReq->m_Msg.m_Top.m_Height;
+            pReq->m_Msg.m_CountExtra = hCountExtra;
+
+            PostReqUnique(*pReq);
         }
     }
 
@@ -1489,6 +1502,8 @@ namespace beam::wallet
             m_WalletDB->get_History().get_Tip(sTip);
 
             SetEventsHeight(sTip.m_Height);
+            if (!m_IsTreasuryHandled)
+                SetTreasuryHandled(true); // to be able to switch to unsafe node
         }
         else
         {
@@ -1841,6 +1856,8 @@ namespace beam::wallet
                     pTx->Update();
             }
         }
+        LOG_DEBUG() << TRACE(m_OwnedNodesOnline) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
+        assert(m_OwnedNodesOnline || m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
     }
 
     void Wallet::NotifySyncProgress()
@@ -2148,5 +2165,11 @@ namespace beam::wallet
                 storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
             }
         }
+    }
+
+    void Wallet::SetTreasuryHandled(bool value)
+    {
+        m_IsTreasuryHandled = value;
+        storage::setVar(*m_WalletDB, s_szIsTreasuryHandled, value);
     }
 }
