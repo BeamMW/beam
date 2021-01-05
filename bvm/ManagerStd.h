@@ -104,6 +104,7 @@ namespace bvm2 {
 		} m_VarsRead;
 
 		void RunSync();
+		bool PerformRequestSync(proto::FlyClient::Request&);
 
 	protected:
 		Height get_Height() override;

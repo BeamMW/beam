@@ -139,6 +139,35 @@ namespace bvm2 {
 		return s.m_Height;
 	}
 
+	bool ManagerStd::PerformRequestSync(proto::FlyClient::Request& r)
+	{
+		Wasm::Test(m_pNetwork != nullptr);
+
+		struct MyHandler
+			:public proto::FlyClient::Request::IHandler
+		{
+			proto::FlyClient::Request* m_pReq = nullptr;
+
+			~MyHandler() {
+				m_pReq->m_pTrg = nullptr;
+			}
+
+			virtual void OnComplete(proto::FlyClient::Request&) override
+			{
+				m_pReq->m_pTrg = nullptr;
+				io::Reactor::get_Current().stop();
+			}
+
+		} myHandler;
+
+		myHandler.m_pReq = &r;
+		m_pNetwork->PostRequest(r, myHandler);
+
+		io::Reactor::get_Current().run();
+
+		return !r.m_pTrg;
+	}
+
 	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
 	{
 		Wasm::Test(m_pHist);
@@ -147,38 +176,11 @@ namespace bvm2 {
 		if (m_pHist->get_At(s, h))
 			return true;
 
-		// Fetch it synchronously. Awkward, but ok for now
-		Wasm::Test(m_pNetwork != nullptr);
-
-		struct MyHandler
-			:public proto::FlyClient::Request::IHandler
-		{
-			proto::FlyClient::RequestEnumHdrs::Ptr m_pReq;
-			bool m_Pending = false;
-
-			~MyHandler() {
-				if (m_Pending)
-					m_pReq->m_pTrg = nullptr;
-			}
-
-			virtual void OnComplete(proto::FlyClient::Request&) override
-			{
-				m_Pending = false;
-				io::Reactor::get_Current().stop();
-			}
-
-		} myHandler;
-
-		myHandler.m_pReq = new proto::FlyClient::RequestEnumHdrs;
-		auto& r = *myHandler.m_pReq;
+		proto::FlyClient::RequestEnumHdrs::Ptr pReq(new proto::FlyClient::RequestEnumHdrs);
+		auto& r = *pReq;
 		r.m_Msg.m_Height = h;
 
-		myHandler.m_Pending = true;
-		m_pNetwork->PostRequest(r, myHandler);
-
-		io::Reactor::get_Current().run();
-
-		if (myHandler.m_Pending)
+		if (!PerformRequestSync(r))
 			return false;
 
 		if (1 != r.m_vStates.size())
