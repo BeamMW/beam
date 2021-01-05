@@ -1690,7 +1690,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[7]; // ctor, list, deposit, print, withdraw, print, dtor
+				Height m_pStage[8]; // ctor, list, deposit, proof, print, withdraw, print, dtor
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 				bool m_VarProof = false;
@@ -2369,12 +2369,28 @@ namespace beam
 
 				virtual void PostRequestInternal(proto::FlyClient::Request& r) override
 				{
-					assert(proto::FlyClient::Request::Type::ContractVars == r.get_Type());
+					switch (r.get_Type())
+					{
+					case proto::FlyClient::Request::Type::ContractVars:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVars>(r).m_Msg);
+						break;
+
+					case proto::FlyClient::Request::Type::ContractVar:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVar>(r).m_Msg);
+						break;
+
+					default:
+						return;
+					}
+
 					m_pReq = &r;
+				}
 
-					auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(r);
-
-					m_This.Send(x.m_Msg);
+				void OnComplete2()
+				{
+					auto pHandler = m_pReq->m_pTrg;
+					m_pReq->m_pTrg = nullptr;
+					pHandler->OnComplete(*m_pReq);
 				}
 
 				void OnMsg(proto::ContractVars&& msg)
@@ -2383,11 +2399,17 @@ namespace beam
 					{
 						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
 						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
 
-						auto pHandler = m_pReq->m_pTrg;
-						m_pReq->m_pTrg = nullptr;
-
-						pHandler->OnComplete(x);
+				void OnMsg(proto::ContractVar&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
 					}
 				}
 			};
@@ -2478,20 +2500,18 @@ namespace beam
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 4: // withdraw
+				case 4:
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "get_proof";
+					break;
 
-					{
-						proto::GetContractVar msg2;
-						Blob(m_Contract.m_Cid).Export(msg2.m_Key);
-						Send(msg2);
-					}
-
+				case 5: // withdraw
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "withdraw";
 					proc.m_Args["amount"] = "700000";
 					break;
 
-				case 6: // dtor
+				case 7: // dtor
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "destroy";
 					break;
@@ -2519,10 +2539,17 @@ namespace beam
 
 			virtual void OnMsg(proto::ContractVar&& msg) override
 			{
-				if (!msg.m_Proof.empty())
+				if (m_pMyNetwork)
 				{
-					verify_test(m_vStates.back().IsValidProofContract(m_Contract.m_Cid, msg.m_Value, msg.m_Proof));
-					m_Contract.m_VarProof = true;
+					if (!msg.m_Proof.empty() && m_pMyNetwork->m_pReq && (proto::FlyClient::Request::ContractVar == m_pMyNetwork->m_pReq->get_Type()))
+					{
+						auto& r = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pMyNetwork->m_pReq);
+						verify_test(m_vStates.back().IsValidProofContract(r.m_Msg.m_Key, msg.m_Value, msg.m_Proof));
+
+						m_Contract.m_VarProof = true;
+					}
+
+					m_pMyNetwork->OnMsg(std::move(msg));
 				}
 			}
 
