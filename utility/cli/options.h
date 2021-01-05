@@ -220,6 +220,7 @@ namespace beam
         extern const char* MAX_PRIVACY_ADDRESS;
         extern const char* OFFLINE_ADDRESS;
         extern const char* PUBLIC_OFFLINE;
+        extern const char* ENABLE_LELANTUS;
     }
 
     enum OptionsFlag : int

@@ -19,6 +19,7 @@
 #include "sqlite/sqlite3.h"
 #include "core/block_rw.h"
 #include "wallet/core/common.h"
+#include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -29,7 +30,10 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
+#include "utility/test_helpers.h"
 #include <queue>
+#include <unordered_map>
+#include <boost/algorithm/string.hpp>
 
 #define NOSEP
 #define COMMA ", "
@@ -87,6 +91,7 @@
 #define EXCHANGE_RATES_HISTORY_NAME "exchangeRatesHistory"
 #define VOUCHERS_NAME "vouchers"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
+#define TX_SUMMARY_NAME "tx_summary"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -204,9 +209,11 @@
     each(Voucher,   Voucher,   BLOB NOT NULL UNIQUE, obj) sep \
     each(Flags,     Flags,     INTEGER, obj)
 
-
-
 #define VOUCHERS_FIELDS ENUM_VOUCHERS_FIELDS(LIST, COMMA, )
+
+#define ENUM_TX_SUMMARY_FIELDS(each) \
+    each(CreateTime, Timestamp) \
+    BEAM_TX_LIST_FILTER_MAP(each)
 
 namespace std
 {
@@ -860,6 +867,11 @@ namespace beam::wallet
                 return sqlite3_expanded_sql(_stm);
             }
 
+            bool IsNull(int col)
+            {
+                return SQLITE_NULL == sqlite3_column_type(_stm, col);
+            }
+
             ~Statement()
             {
                 sqlite3_finalize(_stm);
@@ -924,7 +936,8 @@ namespace beam::wallet
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 27;
+        const int DbVersion   = 28;
+        const int DbVersion27 = 27;
         const int DbVersion26 = 26;
         const int DbVersion25 = 25;
         const int DbVersion24 = 24;
@@ -1149,8 +1162,7 @@ namespace beam::wallet
 
         void CreateTxParamsIndex(sqlite3* db)
         {
-            const char* req = "CREATE INDEX IF NOT EXISTS TxParamsIndex ON " TX_PARAMS_NAME " (txID,subTxID,paramID);"
-                              "CREATE INDEX IF NOT EXISTS TxParamsValueIndex ON " TX_PARAMS_NAME " (paramID,subTxID,value);";
+            const char* req = "CREATE INDEX IF NOT EXISTS TxParamsIndex ON " TX_PARAMS_NAME " (txID,subTxID,paramID);";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1189,6 +1201,23 @@ namespace beam::wallet
             const char* req = "CREATE TABLE " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;"
                               "CREATE UNIQUE INDEX OwnerIndex ON " ASSETS_NAME "(Owner);"
                               "CREATE INDEX RefreshHeightIndex ON " ASSETS_NAME "(RefreshHeight);";
+            const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateTxSummaryTable(sqlite3* db)
+        {
+            assert(db != nullptr);
+#define MACRO(id, type) "," #id " INTEGER" 
+            const char* req = "CREATE TABLE " TX_SUMMARY_NAME " (TxID BLOB NOT NULL PRIMARY KEY " ENUM_TX_SUMMARY_FIELDS(MACRO) ") WITHOUT ROWID;"
+#undef MACRO
+
+#define STR(s) #s 
+#define MACRO(id, type) "CREATE INDEX " STR(id##Index) " ON " TX_SUMMARY_NAME "(" #id ");"
+            ENUM_TX_SUMMARY_FIELDS(MACRO)
+#undef MACRO
+#undef STR
+                ;
             const auto ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1490,6 +1519,7 @@ namespace beam::wallet
         CreateExchangeRatesTable(db);
         CreateVouchersTable(db);
         CreateExchangeRatesHistoryTable(db);
+        CreateTxSummaryTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -1517,7 +1547,7 @@ namespace beam::wallet
 
         enterKey(db, password);
         auto walletDB = make_shared<WalletDB>(db, sdb);
-
+        walletDB->onPrepareToModify();
         createTables(walletDB->_db, walletDB->m_PrivateDB);
 
         storage::setVar(*walletDB, Version, DbVersion);
@@ -1981,6 +2011,13 @@ namespace beam::wallet
                 case DbVersion26:
                     LOG_INFO() << "Converting DB from format 26...";
                     MigrateTransactionsFrom25(walletDB.get());
+                    // no break
+
+                case DbVersion27:
+                    LOG_INFO() << "Converting DB from format 27...";
+                    CreateTxSummaryTable(walletDB->_db);
+                    walletDB->FillTxSummaryTable();
+                    // no break
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
@@ -3328,60 +3365,74 @@ namespace beam::wallet
         notifyShieldedCoinsChanged(ChangeAction::Updated, v);
     }
 
-    void WalletDB::visitTx(std::function<bool(TxType, TxStatus, Asset::ID, Height)> filter, std::function<void(const TxDescription&)> func) const
+
+    void WalletDB::visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const
     {
-        using TxData = std::pair<TxID, Timestamp>;
-        auto pred = [](const TxData& left, const TxData& right) {return left.second < right.second; };
-        std::priority_queue<TxData, std::vector<TxData>, decltype(pred)> transactions(pred);
+        helpers::StopWatch sw;
+        sw.start();
+
+        std::string query = "SELECT TxID FROM " TX_SUMMARY_NAME;
+        std::vector<std::string> parts;
+        std::string whereParams;
+
+#define MACRO(id, type) \
+        if (filter.m_##id) \
+        { \
+            std::string q(#id "="); \
+            q.append(std::to_string((int)*filter.m_##id)); \
+            parts.push_back(std::move(q)); \
+        } 
+        BEAM_TX_LIST_NORMAL_PARAM_MAP(MACRO)
+        
+        if (!parts.empty())
         {
-            sqlite::Statement stm(this, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2;");
-            stm.bind(1, TxParameterID::CreateTime);
-            stm.bind(2, kDefaultSubTxID);
-            TxID txID;
-            ByteBuffer buffer;
-            Timestamp timestamp;
-            while (stm.step())
-            {
-                stm.get(0, txID);
-                stm.get(1, buffer);
-                if (fromByteBuffer<Timestamp>(buffer, timestamp))
-                {
-                    transactions.emplace(txID, timestamp);
-                }
-            }
+            whereParams.append(boost::join(parts, " AND "));
+            parts.clear();
         }
 
-        const char* gtParamReq = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
-        sqlite::Statement stm2(this, gtParamReq);
-        sqlite::Statement stm3(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
-
-        while (!transactions.empty())
+        BEAM_TX_LIST_HEIGHT_MAP(MACRO)
+#undef MACRO
+        if (!parts.empty())
         {
-            TxID txID = transactions.top().first;
-            transactions.pop();
-            TxType type = TxType::Simple;
-            TxStatus status = TxStatus::Pending;
-
-            if (!getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::TransactionType, type, stm3) ||
-                !getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::Status, status, stm3))
+            if (whereParams.empty())
             {
-                continue;
+                whereParams.append(" (");
             }
-
-            Height h = DeduceTxProofHeightImpl(*this, txID, type);
-            Asset::ID assetID = Asset::s_InvalidID;
-            getTxParameterImpl(txID, kDefaultSubTxID, TxParameterID::AssetID, assetID, stm3);
-            if (!filter(type, status, assetID, h))
+            else
             {
-                continue;
+                whereParams.append(" AND (");
             }
+            whereParams.append(boost::join(parts, " OR "))
+                       .append(")");
+        }
+
+        if (!whereParams.empty())
+        {
+            query.append(" WHERE ");
+            query.append(whereParams);
+        }
+        
+        query.append(" ORDER BY CreateTime DESC");
+
+        sqlite::Statement stm(this, query.c_str());
+        sqlite::Statement stm2(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;");
+        TxID txID;
+        while (stm.step())
+        {
+            stm.get(0, txID);
 
             auto t = getTxImpl(txID, stm2);
             if (t.is_initialized())
             {
-                func(*t);
+                if (!func(*t))
+                {
+                    break;
+                }
             }
         }
+
+        sw.stop();
+        LOG_DEBUG() << "visitTx  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -3536,6 +3587,12 @@ namespace beam::wallet
             stm.step();
             deleteParametersFromCache(txId);
             notifyTransactionChanged(ChangeAction::Removed, { *tx });
+        }
+
+        {
+            sqlite::Statement stm(this, "DELETE FROM " TX_SUMMARY_NAME " WHERE txID=?1;");
+            stm.bind(1, txId);
+            stm.step();
         }
     }
 
@@ -4378,7 +4435,9 @@ namespace beam::wallet
                         notifyTransactionChanged(ChangeAction::Updated, { *tx });
                     }
                 }
+
                 insertParameterToCache(txID, subTxID, paramID, blob);
+                OnTxSummaryParam(txID, subTxID, paramID, &blob);
                 return true;
             }
         }
@@ -4400,8 +4459,97 @@ namespace beam::wallet
                 notifyTransactionChanged(hasTx ? ChangeAction::Updated : ChangeAction::Added, { *tx });
             }
         }
+
         insertParameterToCache(txID, subTxID, paramID, blob);
+        OnTxSummaryParam(txID, subTxID, paramID, &blob);
         return true;
+    }
+
+    template<typename T>
+    void WalletDB::FillTxSummaryTableParam(const char* szField, TxParameterID paramID)
+    {
+        sqlite::Statement stm(this, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1 AND subTxID=?2;");
+        stm.bind(1, paramID);
+        stm.bind(2, kDefaultSubTxID);
+
+        ByteBuffer buf;
+
+        while (stm.step())
+        {
+            TxID txID;
+            stm.get(0, txID);
+            stm.get(1, buf);
+
+            OnTxSummaryParam<T>(txID, szField, &buf);
+            buf.clear();
+        }
+    }
+
+    void WalletDB::FillTxSummaryTable()
+    {
+        int ret = sqlite3_exec(_db, "CREATE INDEX IF NOT EXISTS TxParamsValueIndex ON " TX_PARAMS_NAME " (paramID,subTxID);", nullptr, nullptr, nullptr);
+        throwIfError(ret, _db);
+
+#define THE_MACRO(id, type) FillTxSummaryTableParam<type>(#id, TxParameterID::id);
+        ENUM_TX_SUMMARY_FIELDS(THE_MACRO)
+#undef THE_MACRO
+
+        ret = sqlite3_exec(_db, "DROP INDEX TxParamsValueIndex", nullptr, nullptr, nullptr);
+        throwIfError(ret, _db);
+    }
+
+
+    void WalletDB::OnTxSummaryParam(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer* pBlob)
+    {
+        if (kDefaultSubTxID != subTxID)
+            return;
+
+        switch (paramID)
+        {
+#define THE_MACRO(id, type) case TxParameterID::id: OnTxSummaryParam<type>(txID, #id, pBlob); break;
+        ENUM_TX_SUMMARY_FIELDS(THE_MACRO)
+
+        default:
+            // suppress warning
+            break;
+#undef THE_MACRO
+        }
+    }
+
+    template<typename T>
+    void WalletDB::OnTxSummaryParam(const TxID& txID, const char* szName, const ByteBuffer* pBlob)
+    {
+        char szQuery[0x100];
+        snprintf(szQuery, _countof(szQuery), "UPDATE " TX_SUMMARY_NAME " SET %s=?1 WHERE TxID=?2", szName);
+
+        T val = {};
+        {
+            sqlite::Statement stm(this, szQuery);
+            stm.bind(2, txID);
+
+            if (pBlob)
+            {
+                fromByteBuffer(*pBlob, val);
+                stm.bind(1, val);
+            }
+            else
+            {
+                stm.bind(1, nullptr);
+            }
+
+            stm.step();
+        }
+        
+        if (!sqlite3_changes(_db) && pBlob)
+        {
+            snprintf(szQuery, _countof(szQuery), "INSERT INTO " TX_SUMMARY_NAME " (TxID,%s) VALUES(?1,?2)", szName);
+
+            sqlite::Statement stm(this, szQuery);
+            stm.bind(1, txID);
+            stm.bind(2, val);
+
+            stm.step();
+        }
     }
 
     bool WalletDB::delTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID)
@@ -4425,6 +4573,8 @@ namespace beam::wallet
 
         stm.step();
 
+        OnTxSummaryParam(txID, subTxID, paramID, nullptr);
+
         return true;
     }
 
@@ -4446,7 +4596,7 @@ namespace beam::wallet
             }
         }
 
-        sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
+        sqlite::Statement stm(this, "SELECT value FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
         return getTxParameterImpl(txID, subTxID, paramID, blob, stm);
     }
 
@@ -4459,10 +4609,7 @@ namespace beam::wallet
 
         if (stm.step())
         {
-            TxParameter parameter = {};
-            int colIdx = 0;
-            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
-            blob = move(parameter.m_value);
+            stm.get(0, blob);
             insertParameterToCache(txID, subTxID, paramID, blob);
             return true;
         }
@@ -4541,7 +4688,7 @@ namespace beam::wallet
     {
         if (!m_Initialized) // wallet db is opening or initializing, there could be no reactor to run timer
         {
-            onFlushTimer();
+            //onFlushTimer();
         }
         else if (!m_IsFlushPending)
         {
@@ -6275,5 +6422,79 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
         return std::to_string(params);
+    }
+
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular, const string& label, WalletAddress::ExpirationStatus expiration, const std::string& existingSBBS, uint32_t offlineCount)
+    {
+        switch (type)
+        {
+        case beam::wallet::TxAddressType::Unknown:
+            throw std::runtime_error("Unknown address type");
+
+        case beam::wallet::TxAddressType::Regular:
+            {
+                boost::optional<WalletAddress> address;
+                if (!existingSBBS.empty())
+                {
+                    auto receiver = existingSBBS;
+                    bool isValid = true;
+                    WalletID walletID;
+                    ByteBuffer buffer = from_hex(receiver, &isValid);
+                    if (!isValid || !walletID.FromBuf(buffer))
+                    {
+                        throw std::runtime_error("Invalid address");
+                    }
+                    address = walletDB->getAddress(walletID);
+                    if (!address)
+                    {
+                        throw std::runtime_error("Cannot get address, there is no SBBS");
+                    }
+                    if (address->isExpired())
+                    {
+                        throw std::runtime_error("Cannot get address, it is expired");
+                    }
+                    if (!address->isPermanent())
+                    {
+                        throw std::runtime_error("The address expiration time must be never.");
+                    }
+                }
+                else
+                {
+                    address = GenerateNewAddress(walletDB, label, expiration);
+                }
+                if (newStyleRegular)
+                {
+                    return GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+                }
+                else
+                {
+                    return std::to_string(address->m_walletID);
+                }
+            }
+        case beam::wallet::TxAddressType::AtomicSwap:
+            throw std::runtime_error("Unsupported address type");
+
+        case beam::wallet::TxAddressType::Offline:
+            {
+                LOG_INFO() << "Generating offline address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, offlineCount);
+                return GenerateOfflineAddress(walletAddress, 0, vouchers);
+            }
+        case beam::wallet::TxAddressType::MaxPrivacy:
+            {
+                LOG_INFO() << "Generating max privacy address";
+                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                return GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+            }
+        case beam::wallet::TxAddressType::PublicOffline:
+            {
+                LOG_INFO() << "Generating public offline address";
+                return GeneratePublicOfflineAddress(*walletDB);
+            }
+        default:
+            throw std::runtime_error("Unexpected address type");
+        }
     }
 }

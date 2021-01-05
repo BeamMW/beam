@@ -278,10 +278,7 @@ namespace
         int count = 0;
 
         std::map<TxID, Height> storedTx;
-        sender.m_WalletDB->visitTx([](auto t, auto s, auto assetID, auto h)
-        {
-            return true;
-        }, [&](const auto& tx)
+        sender.m_WalletDB->visitTx([&](const auto& tx)
         {
             const auto height = storage::DeduceTxProofHeight(*sender.m_WalletDB, tx);
             storedTx.emplace(tx.m_txId, height);
@@ -290,7 +287,7 @@ namespace
             t = tx.m_createTime;
             ++count;
             return true;
-        });
+        }, {});
         WALLET_CHECK(count == Count);
         WALLET_CHECK(count == (int)storedTx.size());
         for (auto p : storedTx)
@@ -2955,6 +2952,41 @@ void TestVouchers()
     WALLET_CHECK(!sender.m_Vouchers.empty());
 }
 
+void TestAddressGeneration()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto db = createSenderWalletDB();
+    auto a1 = GenerateAddress(db, TxAddressType::Regular, false, "test", WalletAddress::ExpirationStatus::Never);
+    WalletID w1;
+    WALLET_CHECK(w1.FromHex(a1));
+    auto wa1 = db->getAddress(a1);
+    WALLET_CHECK(wa1);
+    WALLET_CHECK(wa1->m_label == "test");
+    WALLET_CHECK(wa1->isPermanent());
+    WALLET_CHECK(GetAddressType(a1) == TxAddressType::Regular);
+    
+    auto a2 = GenerateAddress(db, TxAddressType::Regular, true, "test2", WalletAddress::ExpirationStatus::Never, a1);
+    WALLET_CHECK(GetAddressType(a2) == TxAddressType::Regular);
+    auto p2 = ParseParameters(a2);
+    WALLET_CHECK(p2);
+    auto peerID2= p2->GetParameter<WalletID>(TxParameterID::PeerID);
+    WALLET_CHECK(peerID2);
+    auto& ww1 = *peerID2;
+    WALLET_CHECK(ww1.cmp(w1) == 0);
+
+
+    auto a3 = GenerateAddress(db, TxAddressType::Offline, true, "test2", WalletAddress::ExpirationStatus::Never, "", 10);
+    WALLET_CHECK(GetAddressType(a3) == TxAddressType::Offline);
+
+    auto a4 = GenerateAddress(db, TxAddressType::MaxPrivacy);
+    WALLET_CHECK(GetAddressType(a4) == TxAddressType::MaxPrivacy);
+
+    auto a5 = GenerateAddress(db, TxAddressType::PublicOffline);
+    WALLET_CHECK(GetAddressType(a5) == TxAddressType::PublicOffline);
+
+}
+
 #if defined(BEAM_HW_WALLET)
 
 //IWalletDB::Ptr createSqliteWalletDB()
@@ -3207,6 +3239,7 @@ int main()
 
     TestVouchers();
 
+    TestAddressGeneration();
 
     //TestBbsDecrypt();
 
