@@ -190,6 +190,23 @@ namespace bvm2 {
 		return true;
 	}
 
+	bool ManagerStd::VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof& proof)
+	{
+		proto::FlyClient::RequestContractVar::Ptr pReq(new proto::FlyClient::RequestContractVar);
+		auto& r = *pReq;
+		key.Export(r.m_Msg.m_Key);
+
+		if (!PerformRequestSync(r))
+			return false;
+
+		if (r.m_Res.m_Proof.empty())
+			return false;
+
+		r.m_Res.m_Value.swap(val);
+		r.m_Res.m_Proof.swap(proof);
+		return true;
+	}
+
 	void ManagerStd::StartRun(uint32_t iMethod)
 	{
 		InitMem();
