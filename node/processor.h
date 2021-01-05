@@ -94,6 +94,8 @@ class NodeProcessor
 
 			void EnsureReserve();
 
+			void Toggle(const Blob& key, const Blob& data, bool bAdd);
+
 			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
 		} m_Contract;
 
