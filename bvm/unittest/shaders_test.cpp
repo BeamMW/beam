@@ -73,6 +73,7 @@ namespace Shaders {
 #include "../Shaders/faucet/contract.h"
 #include "../Shaders/roulette/contract.h"
 #include "../Shaders/sidechain/contract.h"
+#include "../Shaders/perpetual/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -176,6 +177,15 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(Perpetual::Create& x) {
+		ConvertOrd<bToShader>(x.m_MarginRequirement_mp);
+	}
+	template <bool bToShader> void Convert(Perpetual::CreateOffer& x) {
+		ConvertOrd<bToShader>(x.m_AmountBeam);
+		ConvertOrd<bToShader>(x.m_AmountToken);
+		ConvertOrd<bToShader>(x.m_TotalBeams);
+	}
+
 	namespace Env {
 
 
@@ -231,7 +241,9 @@ namespace Shaders {
 	namespace Dummy {
 #include "../Shaders/dummy/contract.cpp"
 	}
-
+	namespace Perpetual {
+#include "../Shaders/perpetual/contract.cpp"
+	}
 	namespace Sidechain {
 #include "../Shaders/sidechain/contract.cpp"
 	}
@@ -720,6 +732,7 @@ namespace bvm2 {
 			ByteBuffer m_StableCoin;
 			ByteBuffer m_Faucet;
 			ByteBuffer m_Roulette;
+			ByteBuffer m_Perpetual;
 
 		} m_Code;
 
@@ -730,6 +743,7 @@ namespace bvm2 {
 		ContractID m_cidRoulette;
 		ContractID m_cidDummy;
 		ContractID m_cidSidechain;
+		ContractID m_cidPerpetual;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -860,6 +874,17 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidPerpetual)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Perpetual::Ctor(CastArg<Shaders::Perpetual::Create>(pArgs)); return;
+				//case 2: Shaders::Perpetual::Method_2(CastArg<Shaders::Perpetual::CreateOffer>(pArgs)); return;
+				//case 3: Shaders::Perpetual::Method_3(CastArg<Shaders::Perpetual::CancelOffer>(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -870,6 +895,7 @@ namespace bvm2 {
 		void TestFaucet();
 		void TestRoulette();
 		void TestSidechain();
+		void TestPerpetual();
 
 		void TestAll();
 	};
@@ -895,6 +921,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
 		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
+		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -903,6 +930,7 @@ namespace bvm2 {
 		TestSidechain();
 		TestOracle();
 		TestStableCoin();
+		TestPerpetual();
 	}
 
 	void MyProcessor::TestVault()
@@ -1546,7 +1574,33 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(!ContractDestroy_T(m_cidStableCoin, zero)); // asset was not fully burned
 
-		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
+		//verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
+	}
+
+	void MyProcessor::TestPerpetual()
+	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Perpetual);
+		verify_test(sid == Shaders::Perpetual::s_SID);
+
+		{
+			Shaders::Perpetual::Create arg;
+			arg.m_Oracle =  m_cidOracle;
+			arg.m_MarginRequirement_mp = 15 * 1000;
+			verify_test(ContractCreate_T(m_cidPerpetual, m_Code.m_Perpetual, arg));
+		}
+
+		{
+			Shaders::Perpetual::CreateOffer arg;
+			ZeroObject(arg.m_Account);
+			arg.m_AmountBeam = 1000;
+			arg.m_AmountToken = 140;
+			arg.m_TotalBeams = 1149;
+			verify_test(!RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg)); // less than 15% collateral
+
+			arg.m_TotalBeams = 1150;
+			verify_test(RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg));
+		}
 	}
 
 	void MyProcessor::TestFaucet()
