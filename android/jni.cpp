@@ -1060,6 +1060,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPublicAddress)(JNIEnv *env,
     walletModel->getAsync()->getPublicAddress();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(rescan)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->rescan();
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportTxHistoryToCsv)(JNIEnv *env, jobject thiz)
 {
     walletModel->getAsync()->exportTxHistoryToCsv();
