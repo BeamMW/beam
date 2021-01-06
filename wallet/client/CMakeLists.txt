@@ -20,6 +20,8 @@ target_sources(wallet_client
         extensions/notifications/notification_center.cpp
         extensions/shaders/shaders_manager.h
         extensions/shaders/shaders_manager.cpp
+        extensions/dex_board/dex_order.cpp
+        extensions/dex_board/dex_board.cpp
 )
 
 target_link_libraries(wallet_client 

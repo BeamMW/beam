@@ -29,9 +29,11 @@
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 #include "extensions/shaders/shaders_manager.h"
+#include "extensions/dex_board/dex_board.h"
+#include "extensions/dex_board/dex_order.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
-#include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "extensions/offers_board/swap_offers_observer.h"
+#include "extensions/offers_board/swap_offer.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
@@ -89,6 +91,7 @@ namespace beam::wallet
         , private IExchangeRateObserver
         , private INotificationsObserver
         , private ShadersManager::IDone
+        , private DexBoard::IObserver
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
@@ -155,12 +158,13 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
+        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const std::vector<ExchangeRate>&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
-        
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
@@ -192,6 +196,9 @@ namespace beam::wallet
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        void getDexOrders() override;
+        void publishDexOrder(const DexOrder&) override;
+        void acceptDexOrder(const DexOrderID&) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -253,6 +260,11 @@ namespace beam::wallet
         bool isConnected() const;
 
     private:
+        //
+        // Dex
+        //
+        std::weak_ptr<DexBoard> _dex;
+
         //
         // Shaders support
         //
