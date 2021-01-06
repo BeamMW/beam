@@ -24,7 +24,8 @@ const std::vector<BbsChannel> BroadcastRouter::m_incomingBbsChannels =
     proto::Bbs::s_BtcSwapOffersChannel,     // can be renamed to s_SwapOffersChannel after fork 2
     proto::Bbs::s_LtcSwapOffersChannel,     // TODO: dh remove after 2 fork.
     proto::Bbs::s_QtumSwapOffersChannel,    // TODO: dh remove after 2 fork.
-    proto::Bbs::s_BroadcastChannel
+    proto::Bbs::s_BroadcastChannel,
+    proto::Bbs::s_DexOffersChannel
 };
 
 const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsChannelsMap =
@@ -32,15 +33,17 @@ const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsC
     { BroadcastContentType::SwapOffers, proto::Bbs::s_BtcSwapOffersChannel },
     { BroadcastContentType::SoftwareUpdates, proto::Bbs::s_BroadcastChannel },
     { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel },
-    { BroadcastContentType::WalletUpdates, proto::Bbs::s_BroadcastChannel }
+    { BroadcastContentType::WalletUpdates, proto::Bbs::s_BroadcastChannel },
+    { BroadcastContentType::DexOffers, proto::Bbs::s_DexOffersChannel },
 };
 
 const std::map<BroadcastContentType, MsgType> BroadcastRouter::m_messageTypeMap =
 {
-    { BroadcastContentType::SwapOffers, MsgType(0) },
-    { BroadcastContentType::SoftwareUpdates, MsgType(1) },
-    { BroadcastContentType::ExchangeRates, MsgType(2) },
-    { BroadcastContentType::WalletUpdates, MsgType(3) }
+    { BroadcastContentType::SwapOffers,     MsgType(0) },
+    { BroadcastContentType::SoftwareUpdates,MsgType(1) },
+    { BroadcastContentType::ExchangeRates,  MsgType(2) },
+    { BroadcastContentType::WalletUpdates,  MsgType(3) },
+    { BroadcastContentType::DexOffers,      MsgType(4) },
 };
 
 /**
