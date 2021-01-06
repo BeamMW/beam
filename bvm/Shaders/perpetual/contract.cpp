@@ -1,5 +1,3 @@
-////////////////////////
-// Simple 'vault' shader
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
