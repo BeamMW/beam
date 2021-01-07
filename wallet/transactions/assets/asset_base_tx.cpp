@@ -15,8 +15,8 @@
 
 // TODO:ASSETS move what you can to base class
 namespace beam::wallet {
-    AssetTransaction::AssetTransaction(const TxContext& context)
-        : BaseTransaction(context)
+    AssetTransaction::AssetTransaction(const TxType txType, const TxContext& context)
+        : BaseTransaction(txType, context)
     {
     }
 

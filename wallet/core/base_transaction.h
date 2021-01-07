@@ -132,7 +132,7 @@ namespace beam::wallet
             virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
         };
 
-        BaseTransaction(const TxContext& context);
+        BaseTransaction(const TxType type, const TxContext& context);
         virtual ~BaseTransaction() = default;
 
         const TxID& GetTxID() const;
@@ -221,9 +221,28 @@ namespace beam::wallet
         }
 
         template <typename T>
+        T GetState(SubTxID subTxId) const
+        {
+            T state = T(0);
+            GetParameter(TxParameterID::State, state, subTxId);
+            return state;
+        }
+
+        template <typename T>
+        T GetState() const
+        {
+            return GetState<T>(m_Context.GetSubTxID());
+        }
+
+        template <typename T>
         void SetState(T state)
         {
             SetParameter(TxParameterID::State, state, true, m_Context.GetSubTxID());
+        }
+
+        TxType GetType() const override
+        {
+            return m_txType;
         }
 
         IWalletDB::Ptr GetWalletDB() const;
@@ -253,7 +272,26 @@ namespace beam::wallet
         }
 
     protected:
+        //
+        // Assets support stuff. Since it is needed in many places,
+        // moved from SimpleTx to the base class
+        //
+        enum AssetCheckState {
+            ACInitial,
+            ACConfirmation,
+            ACCheck,
+        };
 
+        enum AssetCheckResult {
+            Fail,
+            Async,
+            OK,
+        };
+
+        AssetCheckResult CheckAsset(Asset::ID);
+        AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
+
+    protected:
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
@@ -261,18 +299,20 @@ namespace beam::wallet
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
+        bool IsSelfTx() const;
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
 
         void SetCompletedTxCoinStatuses(Height proofHeight);
         void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
+
     protected:
+        TxType m_txType;
         TxContext m_Context;
         mutable boost::optional<bool> m_IsInitiator;
         io::AsyncEvent::Ptr m_EventToUpdate;
     };
-
 }
 
 namespace beam

@@ -36,7 +36,6 @@ namespace beam::wallet
 
     private:
         AssetInfoTransaction(const TxContext& context);
-        TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
@@ -50,7 +49,6 @@ namespace beam::wallet
             Finalzing
         };
 
-        State GetState() const;
         Asset::ID GetAssetID() const;
         PeerID GetAssetOwnerID() const;
     };
