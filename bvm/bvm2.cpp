@@ -1683,7 +1683,7 @@ namespace bvm2 {
 		auto* pProofDst = reinterpret_cast<Merkle::Node*>(pDst + nSizeVal);
 		pProof = m_AuxAlloc.m_pPtr + nSizeVal;
 		if (nProof)
-			memcpy(pProofDst, &proof.front(), nSizeProof);
+			memcpy((void*)pProofDst, &proof.front(), nSizeProof);
 
 		return nProof;
 	}
