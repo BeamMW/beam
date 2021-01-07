@@ -75,7 +75,7 @@ namespace beam::wallet
     };
 
     AssetUnregisterTransaction::AssetUnregisterTransaction(const TxContext& context)
-        : AssetTransaction(context)
+        : AssetTransaction(TxType::AssetUnreg, context)
     {
     }
 
@@ -90,7 +90,7 @@ namespace beam::wallet
             _builder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
         auto& builder = *_builder;
 
-        if (GetState() == State::Initial)
+        if (GetState<State>() == State::Initial)
         {
             LOG_INFO()
                 << GetTxID()
@@ -183,21 +183,9 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    TxType AssetUnregisterTransaction::GetType() const
-    {
-        return TxType::AssetUnreg;
-    }
-
-    AssetUnregisterTransaction::State AssetUnregisterTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
     bool AssetUnregisterTransaction::IsInSafety() const
     {
-        State txState = GetState();
-        return txState >= State::KernelConfirmation;
+        const auto state = GetState<State>();
+        return state >= State::KernelConfirmation;
     }
 }

@@ -40,13 +40,8 @@ namespace beam::wallet::lelantus
     }
 
     PushTransaction::PushTransaction(const TxContext& context)
-        : BaseTransaction(context)
+        : BaseTransaction(TxType::PushTransaction, context)
     {
-    }
-
-    TxType PushTransaction::GetType() const
-    {
-        return TxType::PushTransaction;
     }
 
     bool PushTransaction::IsInSafety() const

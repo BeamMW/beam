@@ -57,7 +57,7 @@ namespace beam::wallet
     }
 
     AssetInfoTransaction::AssetInfoTransaction(const TxContext& context)
-        : AssetTransaction(context)
+        : AssetTransaction(TxType::AssetInfo, context)
     {
     }
 
@@ -68,7 +68,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::Initial)
+        if (GetState<State>() == State::Initial)
         {
             UpdateTxDescription(TxStatus::InProgress);
             SetState(State::AssetConfirmation);
@@ -76,7 +76,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::AssetConfirmation)
+        if (GetState<State>() == State::AssetConfirmation)
         {
             Height auHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
@@ -97,7 +97,7 @@ namespace beam::wallet
             SetState(State::AssetCheck);
         }
 
-        if (GetState() == State::AssetCheck)
+        if (GetState<State>() == State::AssetCheck)
         {
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
@@ -172,22 +172,10 @@ namespace beam::wallet
         throw TransactionFailedException(true, TxFailureReason::NoAssetId);
     }
 
-    TxType AssetInfoTransaction::GetType() const
-    {
-        return TxType::AssetInfo;
-    }
-
-    AssetInfoTransaction::State AssetInfoTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
     bool AssetInfoTransaction::IsInSafety() const
     {
-        State txState = GetState();
-        return txState >= State::AssetCheck;
+        auto state = GetState<State>();
+        return state >= State::AssetCheck;
     }
 
     Asset::ID AssetInfoTransaction::GetAssetID() const

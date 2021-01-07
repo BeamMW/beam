@@ -22,7 +22,8 @@ namespace beam::wallet {
     class AssetTransaction : public BaseTransaction
     {
     protected:
-        AssetTransaction(const TxContext& context);
+        AssetTransaction(const TxType txType, const TxContext& context);
+
         bool Rollback(Height height) override;
         bool BaseUpdate();
         bool IsLoopbackTransaction() const;

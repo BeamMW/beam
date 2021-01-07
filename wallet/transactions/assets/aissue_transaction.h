@@ -38,9 +38,7 @@ namespace beam::wallet
 
     private:
         AssetIssueTransaction(bool issue, const TxContext& context);
-        TxType GetType() const override;
         bool IsInSafety() const override;
-
         void UpdateImpl() override;
 
         enum State : uint8_t
@@ -50,7 +48,6 @@ namespace beam::wallet
             Making,
             KernelConfirmation,
         };
-        State GetState() const;
 
     private:
         struct MyBuilder;

@@ -122,14 +122,9 @@ namespace beam::wallet::lelantus
     }
 
     UnlinkFundsTransaction::UnlinkFundsTransaction(const TxContext& context)
-        : BaseTransaction(context)
+        : BaseTransaction(TxType::UnlinkFunds, context)
     {
 
-    }
-
-    TxType UnlinkFundsTransaction::GetType() const
-    {
-        return TxType::UnlinkFunds;
     }
 
     bool UnlinkFundsTransaction::Rollback(Height height)
@@ -144,7 +139,7 @@ namespace beam::wallet::lelantus
     void UnlinkFundsTransaction::Cancel() 
     {
         LOG_INFO() << "Canceling unlink transaction";
-        auto state = GetState();
+        const auto state = GetState<State>();
         switch (state)
         {
         case State::Initial:
@@ -169,7 +164,6 @@ namespace beam::wallet::lelantus
             UpdateAsync();
             break;
         }
-        
     }
 
     bool UnlinkFundsTransaction::IsInSafety() const
@@ -179,12 +173,11 @@ namespace beam::wallet::lelantus
 
     void UnlinkFundsTransaction::RollbackTx()
     {
-
     }
 
     void UnlinkFundsTransaction::UpdateImpl()
     {
-        auto state = GetState();
+        const auto state = GetState<State>();
         switch(state)
         {
         case State::Initial:
@@ -225,13 +218,6 @@ namespace beam::wallet::lelantus
             break;
         }
     }
-    
-    UnlinkFundsTransaction::State UnlinkFundsTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
 
     void UnlinkFundsTransaction::UpdateActiveTransactions()
     {
@@ -251,7 +237,7 @@ namespace beam::wallet::lelantus
             using UnlinkTxBaseGateway::UnlinkTxBaseGateway;
             void on_tx_completed(const TxID&) override
             {
-                State state = m_Root.GetState();
+                const auto state = m_Root.GetState<State>();
                 switch (state)
                 {
                 case State::Insertion:
