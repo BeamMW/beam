@@ -956,6 +956,7 @@ namespace beam::wallet
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
+        constexpr char kIsTreasuryHandled[] = "IsTreasuryHandled";
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
         const int DbVersion   = 29;
@@ -2375,6 +2376,7 @@ namespace beam::wallet
         {
             IWalletDB& m_This;
             IRecoveryProgress& m_Progr;
+            TxoID m_ShieldedOuts = 0;
 
             MyParser(IWalletDB& db, IRecoveryProgress& progr)
                 :m_This(db)
@@ -2462,12 +2464,25 @@ namespace beam::wallet
                 return true;
             }
 
+            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg) override
+            {
+                m_ShieldedOuts++;
+                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg);
+            }
+
+
         };
 
         MyParser p(*this, prog);
         p.Init(get_OwnerKdf());
 
-        return p.Proceed(path.c_str());
+        if (p.Proceed(path.c_str()))
+        {
+            storage::setTreasuryHandled(*this, true);
+            set_ShieldedOuts(p.m_ShieldedOuts);
+            return true;
+        }
+        return false;
 	}
 
     void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
@@ -5449,6 +5464,18 @@ namespace beam::wallet
                 }
             }
             return height;
+        }
+
+        bool isTreasuryHandled(const IWalletDB& db)
+        {
+            bool res = false;
+            storage::getVar(db, kIsTreasuryHandled, res);
+            return res;
+        }
+
+        void setTreasuryHandled(IWalletDB& db,  bool value)
+        {
+            storage::setVar(db, kIsTreasuryHandled, value);
         }
 
         using nlohmann::json;

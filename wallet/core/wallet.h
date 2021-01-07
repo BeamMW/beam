@@ -248,6 +248,9 @@ namespace beam::wallet
         void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
         void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
         void SetTreasuryHandled(bool);
+        void CacheCommitments();
+        void CacheCommitment(const ECC::Point& comm, Height maturity, bool add);
+        void ResetCommitmentsCache();
 
     private:
 
@@ -430,5 +433,8 @@ namespace beam::wallet
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
         NodeProcessor::Extra m_Extra = { 0 };
         bool m_IsTreasuryHandled = false;
+
+        std::map<ECC::Point, Height> m_Commitments;
+        bool m_IsCommitmentsCached = false;
     };
 }
