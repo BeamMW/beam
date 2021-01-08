@@ -23,6 +23,7 @@
 #include <algorithm>
 #include "wallet/client/extensions/news_channels/version_info.h"
 #include "wallet/core/exchange_rate.h"
+#include "wallet/core/dex.h"
 #include "utility/std_extension.h"
 
 namespace beam::wallet
@@ -42,6 +43,7 @@ namespace beam::wallet
         VoucherResponse,
         UnlinkFunds,
         Contract,
+        DexSimpleSwap,
         ALL
     };
 
@@ -319,7 +321,8 @@ namespace beam::wallet
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
     MACRO(PeerLockImage,                   115, Hash::Value) \
-    MACRO(AssetMetadata,                   116, std::string) \
+    MACRO(AssetMetadata,                   116, std::string)\
+    MACRO(DexOrderID,                      117, DexOrderID) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -389,15 +392,10 @@ namespace beam::wallet
         AtomicSwapPrivateKey = 205,
         AtomicSwapWithdrawAddress = 206,
         AtomicSwapExternalHeight = 207,
-
         InternalFailureReason = 210,
-
         AddressType = 211,
-    
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
-
         State = 255
-
     };
 
     using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;

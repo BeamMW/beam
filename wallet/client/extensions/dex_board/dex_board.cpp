@@ -14,12 +14,14 @@
 #include "dex_board.h"
 #include "utility/logger.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
+#include "wallet/client/wallet_client.h"
 
 namespace beam::wallet {
 
-    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb)
-        : _wdb(wdb)
-        , _gateway(gateway)
+    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb)
+        : _gateway(gateway)
+        , _wallet(std::move(wallet))
+        , _wdb(wdb)
     {
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
@@ -37,7 +39,17 @@ namespace beam::wallet {
         return result;
     }
 
-    void DexBoard::acceptOrder(const DexOrderID &id)
+    boost::optional<DexOrder> DexBoard::getOrder(const DexOrderID& orderId) const
+    {
+        const auto it = _orders.find(orderId);
+        if (it != _orders.end())
+        {
+            return it->second;
+        }
+        return boost::none;
+    }
+
+    /*void DexBoard::acceptOrder(const DexOrderID &id)
     {
         auto order = _orders.find(id);
         if (order == _orders.end())
@@ -46,8 +58,9 @@ namespace beam::wallet {
             return;
         }
 
-
-    }
+        auto params = CreateDexTransactionParams();
+        _wallet->startTransaction(std::move(params));
+    }*/
 
     void DexBoard::publishOrder(const DexOrder &offer)
     {

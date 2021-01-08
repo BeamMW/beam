@@ -302,7 +302,7 @@ namespace beam::wallet
 
     TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        TestSenderAddress(parameters, m_walletDB);
+        CheckSenderAddress(parameters, m_walletDB);
 
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (peerID)

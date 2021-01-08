@@ -11,26 +11,38 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "common.h"
-#include "wallet_db.h"
-#include "base_transaction.h"
+#include "wallet/core/common.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/core/base_transaction.h"
+#include "wallet/core/base_tx_builder.h"
 
-#include <boost/optional.hpp>
+namespace beam::wallet {
+    TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId = boost::none);
 
-namespace beam::wallet
-{
-    TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
-
-    class SimpleTxBuilder;
-
-    class SimpleTransaction : public BaseTransaction
+    class DexTxBuilder;
+    class DexTransaction
+        : public BaseTransaction
     {
     public:
-        enum State : uint8_t
+        class Creator
+            : public BaseTransaction::Creator
+        {
+        public:
+            explicit Creator(IWalletDB::Ptr);
+
+        private:
+            BaseTransaction::Ptr Create(const TxContext& context) override;
+            TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
+
+        private:
+            IWalletDB::Ptr _wdb;
+        };
+
+    private:
+        explicit DexTransaction(const TxContext& context);
+        enum class State : uint8_t
         {
             Initial,
             Invitation,
@@ -38,31 +50,13 @@ namespace beam::wallet
             InvitationConfirmation,
             Registration,
             KernelConfirmation,
-            OutputsConfirmation,
         };
-
-        class Creator : public BaseTransaction::Creator
-        {
-        public:
-            explicit Creator(IWalletDB::Ptr walletDB);
-
-        private:
-            BaseTransaction::Ptr Create(const TxContext& context) override;
-            TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-
-        private:
-            IWalletDB::Ptr m_WalletDB;
-        };
-
-    private:
-        explicit SimpleTransaction(const TxContext& context);
 
         bool IsInSafety() const override;
-        void UpdateImpl() override;
         bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;
+        void UpdateImpl() override;
 
     private:
-        struct MyBuilder;
-        std::shared_ptr<SimpleTxBuilder> m_TxBuilder;
+        std::shared_ptr<DexTxBuilder> _builder;
     };
 }

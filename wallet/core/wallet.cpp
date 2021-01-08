@@ -88,7 +88,7 @@ namespace beam::wallet
         return !!p;
     }
 
-    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
     {
         const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
         if (!myID)

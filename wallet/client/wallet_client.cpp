@@ -14,6 +14,7 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/transactions/dex/dex_tx.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
@@ -23,7 +24,6 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
 #endif // BEAM_LELANTUS_SUPPORT
@@ -544,7 +544,7 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *m_walletDB);
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
@@ -936,6 +936,15 @@ namespace beam::wallet
     {
         if (auto dex = _dex.lock())
         {
+            if (auto order = dex->getOrder(orderId))
+            {
+                auto params = CreateDexTransactionParams(order->sbbsID, orderId);
+                startTransaction(std::move(params));
+            }
+        }
+
+        /*if (auto dex = _dex.lock())
+        {
             try
             {
                 dex->acceptOrder(orderId);
@@ -944,7 +953,7 @@ namespace beam::wallet
             {
                 LOG_ERROR() << e.what();
             }
-        }
+        }*/
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

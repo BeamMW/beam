@@ -54,8 +54,7 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        TestSenderAddress(parameters, m_WalletDB);
-
+        CheckSenderAddress(parameters, m_WalletDB);
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
@@ -137,7 +136,6 @@ namespace beam::wallet
         m_Tx.SendTxParametersStrict(move(msg));
     }
 
-
     bool SimpleTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
     {
         if (kDefaultSubTxID != subTxID)
@@ -165,20 +163,16 @@ namespace beam::wallet
         case TxParameterID::PeerOffset:
         case TxParameterID::FailureReason: // to be able to cancel transaction until we haven't sent any response
             return true;
-
         default:
             return false;
         }
-
     }
 
     void SimpleTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
         {
-            m_IsSelfTx = IsSelfTx();
-
-            m_TxBuilder = m_IsSelfTx ?
+            m_TxBuilder = IsSelfTx() ?
                 make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID) :
                 make_shared<MyBuilder>(*this, kDefaultSubTxID);
         }
@@ -186,7 +180,7 @@ namespace beam::wallet
         auto sharedBuilder = m_TxBuilder; // extra ref?
 
         SimpleTxBuilder& builder = *m_TxBuilder;
-        MyBuilder* pMutualBuilder = m_IsSelfTx ? nullptr : &Cast::Up<MyBuilder>(builder);
+        MyBuilder* pMutualBuilder = IsSelfTx() ? nullptr : &Cast::Up<MyBuilder>(builder);
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -336,13 +330,5 @@ namespace beam::wallet
 
         SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
-    }
-
-    void SimpleTransaction::NotifyTransactionRegistered()
-    {
-        SetTxParameter msg;
-		uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
-        msg.AddParameter(TxParameterID::TransactionRegistered, nCode);
-        SendTxParameters(move(msg));
     }
 }
