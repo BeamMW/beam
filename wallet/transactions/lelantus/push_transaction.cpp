@@ -116,16 +116,17 @@ namespace beam::wallet::lelantus
             GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
                 auto thisHolder = weak.lock();
-                if (!thisHolder) // expired
-                    return;
-
-                try {
-                    m_OutpHeight = 0;
-                    OnOutpProof(proof);
+                if (thisHolder) // not expired
+                {
+                    try {
+                        m_OutpHeight = 0;
+                        OnOutpProof(proof);
+                    }
+                    catch (const TransactionFailedException& ex) {
+                        OnFailed(ex.GetReason(), ex.ShouldNofify());
+                    }
                 }
-                catch (const TransactionFailedException& ex) {
-                    OnFailed(ex.GetReason(), ex.ShouldNofify());
-                }
+                LOG_DEBUG() << "get_proof_shielded_output exit";
             });
         }
 

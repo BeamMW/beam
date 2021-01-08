@@ -177,6 +177,7 @@ namespace beam::wallet
             }
             OnFailed(TxFailureReason::Unknown);
         }
+        LOG_DEBUG() << "Update exit";
     }
 
     bool BaseTransaction::CanCancel() const
