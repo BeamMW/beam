@@ -931,6 +931,8 @@ namespace beam::wallet
 
         bool isTreasuryHandled(const IWalletDB&);
         void setTreasuryHandled(IWalletDB&, bool value);
+        void updateCurrentStateWithTip(IWalletDB& db);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
 
         // Used in statistics
         struct Totals

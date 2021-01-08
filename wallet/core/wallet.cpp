@@ -64,22 +64,6 @@ namespace beam::wallet
             }
             return txChanged;
         }
-
-        Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)
-        {
-            Timestamp ts = tip.m_TimeStamp;
-            if (tip.m_Height > confirmHeight)
-            {
-                auto delta = (tip.m_Height - confirmHeight);
-                ts -= delta * Rules::get().DA.Target_s;
-            }
-            else if (tip.m_Height < confirmHeight)
-            {
-                auto delta = confirmHeight - tip.m_Height;
-                ts += delta * Rules::get().DA.Target_s;
-            }
-            return ts;
-        }
     }
 
     // @param SBBS address as string
@@ -181,7 +165,6 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
-        m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
         m_IsTreasuryHandled = storage::isTreasuryHandled(*m_WalletDB);
     }
 
@@ -1225,16 +1208,15 @@ namespace beam::wallet
         try 
         {
             Height startHeight = r.m_StartHeight;
+            if (!r.m_Res.m_Bodies.empty())
+            {
+                RequestBodies(r.m_Msg.m_Height0, startHeight + r.m_Res.m_Bodies.size());
+            }
             for (const auto& b : r.m_Res.m_Bodies)
             {
                 ProcessBody(b, startHeight, recognizer);
 
                 ++startHeight;
-            }
-            
-            if (!r.m_Res.m_Bodies.empty())
-            {
-                RequestBodies(r.m_Msg.m_Height0, startHeight);
             }
         }
         catch (const std::exception&)
@@ -1744,6 +1726,11 @@ namespace beam::wallet
         sTip.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
 
+        if (!SyncRemains())
+        {
+            m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
+        }
+
         RequestBodies();
         RequestEvents();
         RequestStateSummary();
@@ -2079,76 +2066,7 @@ namespace beam::wallet
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
-        beam::Block::SystemState::Full tip;
-        m_WalletDB->get_History().get_Tip(tip);
-        storage::DeduceStatus(*m_WalletDB, coin, tip.m_Height);
-
-        if (coin.m_Status != ShieldedCoin::Status::Available &&
-            coin.m_Status != ShieldedCoin::Status::Maturing &&
-            coin.m_Status != ShieldedCoin::Status::Spent)
-        {
-            return;
-        }
-
-        const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-        TxID txID;
-        std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
-
-        TxAddressType addressType = TxAddressType::Offline;
-        if (message->m_MaxPrivacyMinAnonymitySet)
-        {
-            addressType = TxAddressType::MaxPrivacy;
-        }
-        else if (!coin.m_CoinID.m_Key.m_IsCreatedByViewer)
-        {
-            addressType = TxAddressType::PublicOffline;
-        }
-
-        auto tx = m_WalletDB->getTx(txID);
-        if (tx)
-        {
-            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::AddressType, addressType, true);
-            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
-            return;
-        }
-        else
-        {
-            WalletAddress receiverAddress;
-            if (message->m_ReceiverOwnID)
-            {
-                m_WalletDB->get_SbbsWalletID(receiverAddress.m_walletID, message->m_ReceiverOwnID);
-                m_WalletDB->get_Identity(receiverAddress.m_Identity, message->m_ReceiverOwnID);
-            }
-            else
-            {
-                // fake address
-                m_WalletDB->createAddress(receiverAddress);
-            }
-
-            auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                .SetParameter(TxParameterID::MyID, receiverAddress.m_walletID)
-                .SetParameter(TxParameterID::PeerID, WalletID())
-                .SetParameter(TxParameterID::Status, TxStatus::Completed)
-                .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
-                .SetParameter(TxParameterID::IsSender, false)
-                .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
-                .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
-                .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                .SetParameter(TxParameterID::KernelProofHeight, coin.m_confirmHeight);
-
-            if (message->m_MaxPrivacyMinAnonymitySet)
-            {
-                params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
-            }
-            params.SetParameter(TxParameterID::AddressType, addressType);
-
-            auto packed = params.Pack();
-            for (const auto& p : packed)
-            {
-                storage::setTxParameter(*m_WalletDB, *params.GetTxID(), p.first, p.second, true);
-            }
-        }
+        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin);
     }
 
     void Wallet::SetTreasuryHandled(bool value)
