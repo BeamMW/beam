@@ -37,6 +37,7 @@ endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     target_link_libraries(wallet_client PUBLIC assets)
+    target_link_libraries(wallet_client PUBLIC dex)
 endif()
 
 if(BEAM_LELANTUS_SUPPORT)

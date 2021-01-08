@@ -1227,6 +1227,15 @@ namespace beam::wallet
             return v.FromHex(s.get<string>());
         }
 
+        bool FromJson(const json& s, DexOrderID& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            return v.FromHex(s.get<string>());
+        }
+
         template<typename T>
         bool FromJson(const json& s, T& v)
         {

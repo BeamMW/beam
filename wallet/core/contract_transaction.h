@@ -46,7 +46,6 @@ namespace beam::wallet
     private:
         bool IsInSafety() const override;
         void UpdateImpl() override;
-       // State GetState() const;
 
     private:
         struct MyBuilder;

@@ -12,29 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-
 #include "wallet/core/common.h"
 
-namespace beam::wallet {
-
-    struct DexOrderID: std::array<uint8_t, 16>
-    {
-        [[nodiscard]] std::string to_string() const;
-        static DexOrderID generate();
-
-        DexOrderID() = default;
-
-        // this can throw!
-        explicit DexOrderID(const std::string& hex);
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            auto& arr = *static_cast<std::array<uint8_t, 16>*>(this);
-            ar & arr;
-        }
-    };
-
+namespace beam::wallet
+{
     class DexOrder
     {
     public:

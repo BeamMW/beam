@@ -261,7 +261,5 @@ namespace beam::wallet
         virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
         virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
         void FillUserData(Output::User::Packed* user) override;
-
     };
-
 }

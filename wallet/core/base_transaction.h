@@ -223,6 +223,8 @@ namespace beam::wallet
         template <typename T>
         T GetState(SubTxID subTxId) const
         {
+            static_assert(std::is_enum<T>::value, "State must be an enum");
+
             T state = T(0);
             GetParameter(TxParameterID::State, state, subTxId);
             return state;

@@ -16,8 +16,10 @@
 #include "dex_order.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/core/wallet.h"
+#include "wallet/client/wallet_model_async.h"
 
 namespace beam::wallet {
+    class WalletClient;
     class DexBoard
        : public IBroadcastListener
        , public IWalletDbObserver
@@ -28,11 +30,13 @@ namespace beam::wallet {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
         };
 
-        DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb);
+        DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
 
-        std::vector<DexOrder> getOrders() const;
+        [[nodiscard]] std::vector<DexOrder> getOrders() const;
+        [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
+
         void publishOrder(const DexOrder&);
-        void acceptOrder(const DexOrderID& id);
+        //void acceptOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
         {
@@ -66,8 +70,9 @@ namespace beam::wallet {
         void notifyObservers(ChangeAction action, const std::vector<DexOrder>&) const;
         std::vector<IObserver*> _observers;
 
-        IWalletDB& _wdb;
         IBroadcastMsgGateway& _gateway;
+        IWalletModelAsync::Ptr _wallet;
+        IWalletDB& _wdb;
         std::map<DexOrderID, DexOrder> _orders;
     };
 }
