@@ -152,6 +152,9 @@ namespace
         case BroadcastContentType::WalletUpdates:
             header.type = 3;
             break;
+        case BroadcastContentType::DexOffers:
+            header.type = 4;
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());

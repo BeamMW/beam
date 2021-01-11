@@ -21,7 +21,7 @@
 
 namespace beam::wallet
 {
-    struct DexOrder;
+    class DexOrder;
     struct DexOrderID;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
