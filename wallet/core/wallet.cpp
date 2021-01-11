@@ -383,7 +383,7 @@ namespace beam::wallet
         // Make sure we either copy the txID, or prolong the lifetime of the tx.
         TxID txID = id; // copy
         BaseTransaction::Ptr pGuard;
-        LOG_DEBUG() << txID << " on completed or failed";
+
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
         {
@@ -398,7 +398,6 @@ namespace beam::wallet
         {
             m_TxCompletedAction(txID);
         }
-        LOG_DEBUG() << txID << " completed or failed";
     }
 
     void Wallet::on_tx_failed(const TxID& txID)
@@ -468,40 +467,28 @@ namespace beam::wallet
 
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
-        try
-        {
-            uint32_t n = get_ParentObj().SyncRemains();
-            LOG_DEBUG() << "request completed: " << r.get_Type();
-            switch (r.get_Type())
-            {
-#define THE_MACRO(type, msgOut, msgIn) \
-        case Request::Type::type: \
-            { \
-                MyRequest##type& x = static_cast<MyRequest##type&>(r); \
-                get_ParentObj().DeleteReq(x); \
-                get_ParentObj().OnRequestComplete(x); \
-            } \
-            break;
+        uint32_t n = get_ParentObj().SyncRemains();
 
-                REQUEST_TYPES_All(THE_MACRO)
+        switch (r.get_Type())
+        {
+#define THE_MACRO(type, msgOut, msgIn) \
+    case Request::Type::type: \
+        { \
+            MyRequest##type& x = static_cast<MyRequest##type&>(r); \
+            get_ParentObj().DeleteReq(x); \
+            get_ParentObj().OnRequestComplete(x); \
+        } \
+        break;
+
+            REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-            default:
-                assert(false);
-            }
+        default:
+            assert(false);
+        }
 
-            if (n)
-                get_ParentObj().CheckSyncDone();
-            LOG_DEBUG() << "request completed: " << r.get_Type() << " exit";
-        }
-        catch (const std::exception& ex)
-        {
-            LOG_ERROR() << __FUNCTION__ << " " << ex.what();
-        }
-        catch (...)
-        {
-            LOG_ERROR() << __FUNCTION__ << "unknown exception";
-        }
+        if (n)
+            get_ParentObj().CheckSyncDone();
     }
 
     // Implementation of the INegotiatorGateway::confirm_kernel

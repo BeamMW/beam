@@ -126,7 +126,6 @@ namespace beam::wallet::lelantus
                         OnFailed(ex.GetReason(), ex.ShouldNofify());
                     }
                 }
-                LOG_DEBUG() << "get_proof_shielded_output exit";
             });
         }
 
