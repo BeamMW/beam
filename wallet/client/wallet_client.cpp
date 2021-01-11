@@ -540,9 +540,9 @@ namespace beam::wallet
             {
                 LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
             }
-            catch (...) {
+            /*catch (...) {
                 LOG_UNHANDLED_EXCEPTION();
-            }
+            }*/
         });
     }
 
