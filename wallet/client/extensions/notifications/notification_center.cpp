@@ -196,18 +196,34 @@ namespace beam::wallet
                     continue;
                 }
 
-                Asset::ID assetId = Asset::s_InvalidID;
-                if (item.GetParameter(TxParameterID::AssetID, assetId))
+                if (item.m_txType == TxType::AssetConsume)
                 {
-                    if (assetId != Asset::s_BeamID)
-                    {
-                        // GUI wallet doesn't support asset transactions at the moment
-                        // So we just block all asset-related notifications.
-                        // The only way to get asset-based tx in GUI when somebody
-                        // sends asset. Such transactions would automatically fail
-                        // and we do not want notifications about them
-                        continue;
-                    }
+                    // no notifications for consume txs
+                    continue;
+                }
+
+                if (item.m_txType == TxType::AssetIssue)
+                {
+                    // no notifications for issue
+                    continue;
+                }
+
+                if (item.m_txType == TxType::AssetReg)
+                {
+                    // no notifications for register
+                    continue;
+                }
+
+                if (item.m_txType == TxType::AssetUnreg)
+                {
+                    // no notifications for unregister
+                    continue;
+                }
+
+                if (item.m_txType == TxType::AssetInfo)
+                {
+                    // no notifications for info
+                    continue;
                 }
 
                 bool failed = (item.m_status == TxStatus::Failed || item.m_status == TxStatus::Canceled);
@@ -215,6 +231,7 @@ namespace beam::wallet
                 {
                     continue;
                 }
+
                 const auto& id = item.GetTxID();
                 ECC::Hash::Value hv;
                 ECC::Hash::Processor() << Blob(id->data(), static_cast<uint32_t>(id->size())) << uint32_t(item.m_status) >> hv;
