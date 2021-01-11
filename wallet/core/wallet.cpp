@@ -468,10 +468,12 @@ namespace beam::wallet
 
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
-        uint32_t n = get_ParentObj().SyncRemains();
-
-        switch (r.get_Type())
+        try
         {
+            uint32_t n = get_ParentObj().SyncRemains();
+            LOG_DEBUG() << "request completed: " << r.get_Type();
+            switch (r.get_Type())
+            {
 #define THE_MACRO(type, msgOut, msgIn) \
         case Request::Type::type: \
             { \
@@ -481,15 +483,25 @@ namespace beam::wallet
             } \
             break;
 
-            REQUEST_TYPES_All(THE_MACRO)
+                REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-        default:
-            assert(false);
-        }
+            default:
+                assert(false);
+            }
 
-        if (n)
-            get_ParentObj().CheckSyncDone();
+            if (n)
+                get_ParentObj().CheckSyncDone();
+            LOG_DEBUG() << "request completed: " << r.get_Type() << " exit";
+        }
+        catch (const std::exception& ex)
+        {
+            LOG_ERROR() << __FUNCTION__ << " " << ex.what();
+        }
+        catch (...)
+        {
+            LOG_ERROR() << __FUNCTION__ << "unknown exception";
+        }
     }
 
     // Implementation of the INegotiatorGateway::confirm_kernel
