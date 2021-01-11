@@ -42,14 +42,12 @@ namespace beam::wallet
 
     private:
         ContractTransaction(const TxContext& context);
+
     private:
-        TxType GetType() const override;
         bool IsInSafety() const override;
         void UpdateImpl() override;
-        State GetState() const;
 
     private:
-
         struct MyBuilder;
         std::shared_ptr<MyBuilder> m_TxBuilder;
     };

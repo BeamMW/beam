@@ -31,18 +31,13 @@ namespace beam::wallet
     }
 
     ContractTransaction::ContractTransaction(const TxContext& context)
-        : BaseTransaction{ context }
+        : BaseTransaction (TxType::Contract, context)
     {
-    }
-
-    TxType ContractTransaction::GetType() const
-    {
-        return TxType::Contract;
     }
 
     bool ContractTransaction::IsInSafety() const
     {
-        State txState = GetState();
+        const auto txState = GetState<State>();
         return txState == State::KernelConfirmation;
     }
 
@@ -76,7 +71,7 @@ namespace beam::wallet
 
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
-        State s = GetState();
+        auto s = GetState<State>();
         if (State::Initial == s)
         {
             UpdateTxDescription(TxStatus::InProgress);
@@ -165,12 +160,4 @@ namespace beam::wallet
         SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
     }
-
-    ContractTransaction::State ContractTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
 }

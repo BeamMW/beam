@@ -17,14 +17,6 @@ namespace Vault
     {
         PubKey m_Account;
         AssetID m_Aid;
-
-        // Convert from native format to little endian or from little endian to native depending on bToShader parameter
-        // It is only required if called from C++ code (currently only from shader test used for debugging.
-        template <bool bToShader>
-        void Convert()
-        {
-            ConvertOrd<bToShader>(m_Aid);
-        }
     };
 
     // Base Request structure used for deposit and withdraw methods
@@ -32,13 +24,6 @@ namespace Vault
         :public Key
     {
         Amount m_Amount;
-
-        template <bool bToShader>
-        void Convert()
-        {
-            Key::Convert<bToShader>();
-            ConvertOrd<bToShader>(m_Amount);
-        }
     };
 
     struct Deposit :public Request {

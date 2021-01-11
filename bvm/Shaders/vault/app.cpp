@@ -19,6 +19,9 @@
     macro(manager, view_account)
 
 #define Vault_my_account_view(macro) macro(ContractID, cid)
+#define Vault_my_account_get_proof(macro) \
+    macro(ContractID, cid) \
+    macro(AssetID, aid)
 
 #define Vault_my_account_deposit(macro) \
     macro(ContractID, cid) \
@@ -33,6 +36,7 @@
 
 #define VaultRole_my_account(macro) \
     macro(my_account, view) \
+    macro(my_account, get_proof) \
     macro(my_account, deposit) \
     macro(my_account, withdraw)
 
@@ -195,6 +199,25 @@ ON_METHOD(my_account, view)
     PubKey pubKey;
     DeriveMyPk(pubKey, cid);
     DumpAccount(pubKey, cid);
+}
+
+ON_METHOD(my_account, get_proof)
+{
+    KeyAccount key;
+    Utils::Copy(key.m_Prefix.m_Cid, cid);
+    DeriveMyPk(key.m_KeyInContract.m_Account, cid);
+    key.m_KeyInContract.m_Aid = aid;
+
+    Amount* pAmount;
+    uint32_t nSizeVal;
+    const Merkle::Node* pProof;
+    uint32_t nProof = Env::VarGetProof(&key, sizeof(key), (const void**) &pAmount, &nSizeVal, &pProof);
+
+    if (nProof && sizeof(*pAmount) == nSizeVal)
+    {
+        Env::DocAddNum("Amount", *pAmount);
+        Env::DocAddBlob("proof", pProof, sizeof(*pProof) * nProof);
+    }
 }
 
 #undef ON_METHOD

@@ -30,6 +30,10 @@
 
 namespace Shaders {
 
+	namespace Merkle {
+		using namespace beam::Merkle;
+	}
+
 	namespace Env {
 
 		extern "C" {
@@ -69,6 +73,118 @@ namespace Shaders {
 #include "../Shaders/faucet/contract.h"
 #include "../Shaders/roulette/contract.h"
 #include "../Shaders/sidechain/contract.h"
+#include "../Shaders/perpetual/contract.h"
+
+	template <bool bToShader> void Convert(Vault::Request& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(Dummy::MathTest1& x) {
+		ConvertOrd<bToShader>(x.m_Value);
+		ConvertOrd<bToShader>(x.m_Rate);
+		ConvertOrd<bToShader>(x.m_Factor);
+		ConvertOrd<bToShader>(x.m_Try);
+		ConvertOrd<bToShader>(x.m_IsOk);
+	}
+	template <bool bToShader> void Convert(Dummy::DivTest1& x) {
+		ConvertOrd<bToShader>(x.m_Nom);
+		ConvertOrd<bToShader>(x.m_Denom);
+	}
+	template <bool bToShader> void Convert(Dummy::InfCycle& x) {
+		ConvertOrd<bToShader>(x.m_Val);
+	}
+	template <bool bToShader> void Convert(Dummy::Hash1&) {}
+	template <bool bToShader> void Convert(Dummy::Hash2&) {}
+	template <bool bToShader> void Convert(Dummy::Hash3&) {}
+
+	template <bool bToShader> void Convert(Dummy::VerifyBeamHeader& x) {
+		x.m_Hdr.template Convert<bToShader>();
+	}
+	template <bool bToShader> void Convert(Dummy::TestFarCallStack& x) {
+		ConvertOrd<bToShader>(x.m_iCaller);
+	}
+
+	template <bool bToShader> void Convert(Roulette::Params& x) {
+	}
+	template <bool bToShader> void Convert(Roulette::Spin& x) {
+		ConvertOrd<bToShader>(x.m_PlayingSectors);
+	}
+	template <bool bToShader> void Convert(Roulette::BetsOff& x) {
+	}
+	template <bool bToShader> void Convert(Roulette::Bid& x) {
+		ConvertOrd<bToShader>(x.m_iSector);
+	}
+	template <bool bToShader> void Convert(Roulette::Take& x) {
+	}
+
+	template <bool bToShader> void Convert(Faucet::Params& x) {
+		ConvertOrd<bToShader>(x.m_BacklogPeriod);
+		ConvertOrd<bToShader>(x.m_MaxWithdraw);
+	}
+	template <bool bToShader> void Convert(Faucet::Deposit& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(Faucet::Withdraw& x) {
+		ConvertOrd<bToShader>(x.m_Key.m_Aid);
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader, uint32_t nMeta> void Convert(StableCoin::Create<nMeta>& x) {
+		ConvertOrd<bToShader>(x.m_CollateralizationRatio);
+		ConvertOrd<bToShader>(x.m_BiddingDuration);
+		ConvertOrd<bToShader>(x.m_nMetaData);
+	}
+	template <bool bToShader> void Convert(StableCoin::Balance& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_Asset);
+	}
+	template <bool bToShader> void Convert(StableCoin::UpdatePosition& x) {
+		Convert<bToShader>(x.m_Change);
+	}
+	template <bool bToShader> void Convert(StableCoin::PlaceBid& x) {
+		Convert<bToShader>(x.m_Bid);
+	}
+
+	template <bool bToShader, uint32_t nProvs> void Convert(Oracle::Create<nProvs>& x) {
+		ConvertOrd<bToShader>(x.m_Providers);
+		ConvertOrd<bToShader>(x.m_InitialValue);
+	}
+	template <bool bToShader> void Convert(Oracle::Set& x) {
+		ConvertOrd<bToShader>(x.m_iProvider);
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+	template <bool bToShader> void Convert(Oracle::Get& x) {
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+
+	template <bool bToShader> void Convert(Sidechain::Init& x) {
+		x.m_Hdr0.template Convert<bToShader>();
+		ConvertOrd<bToShader>(x.m_ComissionForProof);
+	}
+	template <bool bToShader, uint32_t nHdrs> void Convert(Sidechain::Grow<nHdrs>& x) {
+		ConvertOrd<bToShader>(x.m_nSequence);
+		x.m_Prefix.template Convert<bToShader>();
+
+		for (uint32_t i = 0; i < nHdrs; i++)
+			x.m_pSequence[i].template Convert<bToShader>();
+	}
+	template <bool bToShader, uint32_t nNodes> void Convert(Sidechain::VerifyProof<nNodes>& x) {
+		ConvertOrd<bToShader>(x.m_Height);
+		ConvertOrd<bToShader>(x.m_nProof);
+	}
+	template <bool bToShader> void Convert(Sidechain::WithdrawComission& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader> void Convert(Perpetual::Create& x) {
+		ConvertOrd<bToShader>(x.m_MarginRequirement_mp);
+	}
+	template <bool bToShader> void Convert(Perpetual::CreateOffer& x) {
+		ConvertOrd<bToShader>(x.m_AmountBeam);
+		ConvertOrd<bToShader>(x.m_AmountToken);
+		ConvertOrd<bToShader>(x.m_TotalBeams);
+	}
 
 	namespace Env {
 
@@ -100,9 +216,9 @@ namespace Shaders {
 		template <typename T>
 		void CallFar_T(const ContractID& cid, T& args)
 		{
-			args.template Convert<true>();
+			Convert<true>(args);
 			CallFarN(cid, args.s_iMethod, &args, sizeof(args));
-			args.template Convert<false>();
+			Convert<false>(args);
 		}
 
 	} // namespace Env
@@ -125,7 +241,9 @@ namespace Shaders {
 	namespace Dummy {
 #include "../Shaders/dummy/contract.cpp"
 	}
-
+	namespace Perpetual {
+#include "../Shaders/perpetual/contract.cpp"
+	}
 	namespace Sidechain {
 #include "../Shaders/sidechain/contract.cpp"
 	}
@@ -573,7 +691,7 @@ namespace bvm2 {
 		{
 			Converter(T& arg)
 			{
-				arg.template Convert<true>();
+				Shaders::Convert<true>(arg);
 				p = &arg;
 				n = static_cast<uint32_t>(sizeof(arg));
 			}
@@ -581,7 +699,7 @@ namespace bvm2 {
 			~Converter()
 			{
 				T& arg = Cast::NotConst(*reinterpret_cast<const T*>(p));
-				arg.template Convert<false>();
+				Shaders::Convert<false>(arg);
 			}
 		};
 
@@ -614,6 +732,7 @@ namespace bvm2 {
 			ByteBuffer m_StableCoin;
 			ByteBuffer m_Faucet;
 			ByteBuffer m_Roulette;
+			ByteBuffer m_Perpetual;
 
 		} m_Code;
 
@@ -624,6 +743,7 @@ namespace bvm2 {
 		ContractID m_cidRoulette;
 		ContractID m_cidDummy;
 		ContractID m_cidSidechain;
+		ContractID m_cidPerpetual;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -754,6 +874,17 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidPerpetual)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Perpetual::Ctor(CastArg<Shaders::Perpetual::Create>(pArgs)); return;
+				//case 2: Shaders::Perpetual::Method_2(CastArg<Shaders::Perpetual::CreateOffer>(pArgs)); return;
+				//case 3: Shaders::Perpetual::Method_3(CastArg<Shaders::Perpetual::CancelOffer>(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -764,6 +895,7 @@ namespace bvm2 {
 		void TestFaucet();
 		void TestRoulette();
 		void TestSidechain();
+		void TestPerpetual();
 
 		void TestAll();
 	};
@@ -789,6 +921,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
 		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
+		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -797,6 +930,7 @@ namespace bvm2 {
 		TestSidechain();
 		TestOracle();
 		TestStableCoin();
+		TestPerpetual();
 	}
 
 	void MyProcessor::TestVault()
@@ -1138,6 +1272,18 @@ namespace bvm2 {
 			//verify_test(args.m_DiffTestOk);
 		}
 
+		{
+			Shaders::Dummy::TestFarCallStack args;
+			ZeroObject(args);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(args.m_Cid == m_cidDummy);
+
+			args.m_iCaller = 1;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+
 		verify_test(ContractDestroy_T(cid, zero));
 	}
 
@@ -1428,7 +1574,33 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(!ContractDestroy_T(m_cidStableCoin, zero)); // asset was not fully burned
 
-		verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
+		//verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
+	}
+
+	void MyProcessor::TestPerpetual()
+	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Perpetual);
+		verify_test(sid == Shaders::Perpetual::s_SID);
+
+		{
+			Shaders::Perpetual::Create arg;
+			arg.m_Oracle =  m_cidOracle;
+			arg.m_MarginRequirement_mp = 15 * 1000;
+			verify_test(ContractCreate_T(m_cidPerpetual, m_Code.m_Perpetual, arg));
+		}
+
+		{
+			Shaders::Perpetual::CreateOffer arg;
+			ZeroObject(arg.m_Account);
+			arg.m_AmountBeam = 1000;
+			arg.m_AmountToken = 140;
+			arg.m_TotalBeams = 1149;
+			verify_test(!RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg)); // less than 15% collateral
+
+			arg.m_TotalBeams = 1150;
+			verify_test(RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg));
+		}
 	}
 
 	void MyProcessor::TestFaucet()

@@ -95,8 +95,9 @@ namespace beam::wallet
 
     const uint32_t BaseTransaction::s_ProtoVersion = 4;
 
-    BaseTransaction::BaseTransaction(const TxContext& context)
-        : m_Context{ context }
+    BaseTransaction::BaseTransaction(const TxType txType, const TxContext& context)
+        : m_txType(txType)
+        , m_Context{ context }
     {
         assert(context.GetWalletDB());
     }
@@ -512,5 +513,139 @@ namespace beam::wallet
     void BaseTransaction::LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const
     {
         LOG_ERROR() << GetTxID() << "[" << subTxID << "] Failed to get parameter: " << (int)paramID;
+    }
+
+    BaseTransaction::AssetCheckResult BaseTransaction::CheckAsset(Asset::ID assetId)
+    {
+        if (assetId == Asset::s_InvalidID)
+        {
+            // No asset - no error
+            return AssetCheckResult::OK;
+        }
+
+        const auto confirmAsset = [&]() {
+            m_assetCheckState = ACConfirmation;
+            SetParameter(TxParameterID::AssetInfoFull, Asset::Full());
+            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
+            SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
+            GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
+        };
+
+        bool printInfo = true;
+        if (m_assetCheckState == ACInitial)
+        {
+            if (const auto oinfo = GetWalletDB()->findAsset(assetId))
+            {
+                SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo));
+                SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                m_assetCheckState = ACCheck;
+            }
+            else
+            {
+                confirmAsset();
+                return AssetCheckResult::Async;
+            }
+        }
+
+        if (m_assetCheckState == ACConfirmation)
+        {
+            Height auHeight = 0;
+            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
+            if (auHeight)
+            {
+                OnFailed(TxFailureReason::AssetConfirmFailed, true);
+                return AssetCheckResult::Fail;
+            }
+
+            Height acHeight = 0;
+            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
+            if (!acHeight)
+            {
+                GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
+                return AssetCheckResult::Async;
+            }
+
+            m_assetCheckState = ACCheck;
+            printInfo = false;
+        }
+
+        if (m_assetCheckState == ACCheck)
+        {
+            Asset::Full infoFull;
+            if (!GetParameter(TxParameterID::AssetInfoFull, infoFull) || !infoFull.IsValid())
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return AssetCheckResult::Fail;
+            }
+
+            Height acHeight = 0;
+            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || !acHeight)
+            {
+                OnFailed(TxFailureReason::NoAssetInfo, true);
+                return AssetCheckResult::Fail;
+            }
+
+            const auto currHeight = GetWalletDB()->getCurrentHeight();
+            WalletAsset info(infoFull, acHeight);
+
+            if (info.CanRollback(currHeight))
+            {
+                OnFailed(TxFailureReason::AssetLocked, true);
+                return AssetCheckResult::Fail;
+            }
+
+            const auto getRange = [](WalletAsset& info) -> auto {
+                HeightRange result;
+                result.m_Min = info.m_LockHeight;
+                result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
+                result.m_Max += Rules::get().CA.LockPeriod;
+                return result;
+            };
+
+            HeightRange hrange = getRange(info);
+            if (info.m_Value > AmountBig::Type(0U))
+            {
+                GetWalletDB()->visitCoins([&](const Coin& coin) -> bool {
+                    if (coin.m_ID.m_AssetID != assetId) return true;
+                    if (coin.m_confirmHeight > hrange.m_Max) return true;
+                    if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                    const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
+                    if (info.m_RefreshHeight < h1)
+                    {
+                        info.m_RefreshHeight = h1;
+                        hrange = getRange(info);
+                    }
+                    return true;
+                });
+            }
+
+            if (!hrange.IsInRange(currHeight) || hrange.m_Max < currHeight)
+            {
+                confirmAsset();
+                return AssetCheckResult::Async;
+            }
+
+            if (printInfo)
+            {
+                if (const auto& asset = GetWalletDB()->findAsset(assetId))
+                {
+                    asset->LogInfo(GetTxID(), GetSubTxID());
+                }
+            }
+
+            return AssetCheckResult::OK;
+        }
+
+        assert(!"Wrong logic in SimpleTransaction::CheckAsset");
+        OnFailed(TxFailureReason::Unknown, true);
+        return AssetCheckResult::Fail;
+    }
+
+    bool BaseTransaction::IsSelfTx() const
+    {
+        const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
+        const auto address = GetWalletDB()->getAddress(peerID);
+        return address.is_initialized() && address->isOwn();
     }
 }

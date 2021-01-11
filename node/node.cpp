@@ -3710,6 +3710,44 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetContractVar&& msg)
+{
+    proto::ContractVar msgOut;
+
+    Blob val;
+    NodeDB::Recordset rs;
+
+    NodeProcessor& p = m_This.m_Processor;
+    if (p.get_DB().ContractDataFind(msg.m_Key, val, rs))
+    {
+        val.Export(msgOut.m_Value);
+
+        Merkle::Hash hv;
+        Block::get_HashContractVar(hv, msg.m_Key, val);
+
+        RadixHashOnlyTree& t = p.get_Contracts();
+        RadixHashOnlyTree::Cursor cu;
+        bool bCreate = false;
+        if (!t.Find(cu, hv, bCreate))
+            NodeProcessor::OnCorrupted();
+
+        t.get_Proof(msgOut.m_Proof, cu);
+
+        struct MyProofBuilder
+            :public NodeProcessor::ProofBuilder
+        {
+            using ProofBuilder::ProofBuilder;
+            virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+        };
+
+        MyProofBuilder pb(p, msgOut.m_Proof);
+        pb.GenerateProof();
+
+    }
+
+    Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)
@@ -4484,9 +4522,9 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
 
-        Height h = Rules::get().pForks[2].m_Height;
+        const Rules& r = Rules::get();
 
-        if (m_Processor.m_Cursor.m_ID.m_Height >= h)
+        if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[2].m_Height)
         {
             MySerializer ser(ctx.m_Writer.m_Stream);
             ser & MaxHeight; // terminator
@@ -4526,7 +4564,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             } wlk(ser);
 
-            m_Processor.EnumKernels(wlk, HeightRange(h, m_Processor.m_Cursor.m_ID.m_Height));
+            m_Processor.EnumKernels(wlk, HeightRange(r.pForks[2].m_Height, m_Processor.m_Cursor.m_ID.m_Height));
 
             ser & MaxHeight; // terminator
 
@@ -4538,6 +4576,13 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                 ser & ai;
 
             ser & (Asset::s_MaxCount + 1); // terminator
+
+            if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[3].m_Height)
+            {
+                Merkle::Hash hv;
+                m_Processor.get_Contracts().get_Hash(hv);
+                ser & hv;
+            }
         }
 
 	}

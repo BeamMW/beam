@@ -21,6 +21,7 @@ target_sources(wallet
         version.cpp
         exchange_rate.cpp
         assets_utils.cpp
+        dex.cpp
     PUBLIC
         common.h
         default_peers.h

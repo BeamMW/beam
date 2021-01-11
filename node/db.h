@@ -54,7 +54,7 @@ public:
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
-			UtxoStamp,
+			MappingStamp,
 			ShieldedOutputs, // deprecated
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
@@ -188,6 +188,7 @@ public:
 			ContractDataUpdate,
 			ContractDataDel,
 			ContractDataEnum,
+			ContractDataEnumAll,
 			ContractDataDelAll,
 
 			ShieldedStatisticSel,
@@ -655,6 +656,7 @@ public:
 	};
 
 	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
+	void ContractDataEnum(WalkerContractData&);
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 

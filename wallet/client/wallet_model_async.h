@@ -21,7 +21,8 @@
 
 namespace beam::wallet
 {
-
+    class DexOrder;
+    struct DexOrderID;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -51,6 +52,13 @@ namespace beam::wallet
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+        virtual void getDexOrders() = 0;
+        virtual void publishDexOrder(const DexOrder&) = 0;
+
+        // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
+        virtual void acceptDexOrder(const DexOrderID&) = 0;
+
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void deleteAddress(const std::string& addr) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;

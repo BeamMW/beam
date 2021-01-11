@@ -166,9 +166,25 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 
 		uint16_t nThreshold = std::min<uint16_t>(cu.m_nBits + p->get_Bits(), nBits);
 
-		for ( ; cu.m_nBits < nThreshold; cu.m_nBits++, cu.m_nPosInLastNode++)
+		while (cu.m_nBits < nThreshold)
+		{
+			if (!(7 & cu.m_nBits) && (cu.m_nBits + 7 < nThreshold))
+			{
+				uint32_t nByte = cu.m_nBits >> 3;
+				if (pKey[nByte] == pKeyNode[nByte])
+				{
+					cu.m_nBits += 8;
+					cu.m_nPosInLastNode += 8;
+					continue;
+				}
+			}
+
 			if (1 & (cu.get_BitRaw(pKey) ^ cu.get_BitRaw(pKeyNode)))
 				return false; // no match
+
+			cu.m_nBits++;
+			cu.m_nPosInLastNode++;
+		}
 
 		if (cu.m_nBits == nBits)
 			return true;
@@ -844,128 +860,6 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 			<< n1.m_Hash
 			>> n0.m_Hash;
 	}
-}
-
-/////////////////////////////
-// UtxoTreeMapped
-bool UtxoTreeMapped::Open(const char* sz, const Stamp& s)
-{
-	// change this when format changes
-	static const uint8_t s_pSig[] = {
-		0x44, 0x98, 0xFF, 0xD5,
-		0xDD, 0x1A, 0x46, 0xF8,
-		0xA1, 0xCD, 0x14, 0xEA,
-		0xFE, 0x35, 0xD7, 0x0FA
-	};
-
-	MappedFile::Defs d;
-	d.m_pSig = s_pSig;
-	d.m_nSizeSig = sizeof(s_pSig);
-	d.m_nBanks = Type::count;
-	d.m_nFixedHdr = sizeof(Hdr);
-
-	m_Mapping.Open(sz, d);
-
-	Hdr& h = get_Hdr();
-	if (!h.m_Dirty && (h.m_Stamp == s))
-	{
-		m_RootOffset = h.m_Root;
-		return true;
-	}
-
-	m_Mapping.Open(sz, d, true); // reset
-	return false;
-}
-
-void UtxoTreeMapped::Close()
-{
-	m_RootOffset = 0; // prevent cleanup
-	m_Mapping.Close();
-}
-
-UtxoTreeMapped::Hdr& UtxoTreeMapped::get_Hdr()
-{
-	return *static_cast<Hdr*>(m_Mapping.get_FixedHdr());
-}
-
-void UtxoTreeMapped::FlushStrict(const Stamp& s)
-{
-	Hdr& h = get_Hdr();
-	assert(h.m_Dirty);
-
-	h.m_Dirty = 0;
-	h.m_Root = m_RootOffset;
-	// TODO: flush
-
-	h.m_Stamp = s;
-}
-
-void UtxoTreeMapped::EnsureReserve()
-{
-	try
-	{
-		m_Mapping.EnsureReserve(Type::Leaf, sizeof(MyLeaf), 1);
-		m_Mapping.EnsureReserve(Type::Joint, sizeof(MyJoint), 1);
-		m_Mapping.EnsureReserve(Type::Queue, sizeof(MyLeaf::IDQueue), 1);
-		m_Mapping.EnsureReserve(Type::Node, sizeof(MyLeaf::IDNode), 1);
-	}
-	catch (const std::exception& e)
-	{
-		// promote it
-		CorruptionException exc;
-		exc.m_sErr = e.what();
-		throw exc;
-	}
-}
-
-void UtxoTreeMapped::OnDirty()
-{
-	get_Hdr().m_Dirty = 1;
-}
-
-intptr_t UtxoTreeMapped::get_Base() const
-{
-	return reinterpret_cast<intptr_t>(m_Mapping.get_Base());
-}
-
-RadixTree::Leaf* UtxoTreeMapped::CreateLeaf()
-{
-	return Allocate<MyLeaf>(Type::Leaf);
-}
-
-void UtxoTreeMapped::DeleteEmptyLeaf(Leaf* p)
-{
-	m_Mapping.Free(Type::Leaf, p);
-}
-
-RadixTree::Joint* UtxoTreeMapped::CreateJoint()
-{
-	return Allocate<MyJoint>(Type::Joint);
-}
-
-void UtxoTreeMapped::DeleteJoint(Joint* p)
-{
-	m_Mapping.Free(Type::Joint, p);
-}
-
-UtxoTree::MyLeaf::IDQueue* UtxoTreeMapped::CreateIDQueue()
-{
-	return Allocate<MyLeaf::IDQueue>(Type::Queue);
-}
-
-void UtxoTreeMapped::DeleteIDQueue(MyLeaf::IDQueue* p)
-{
-	m_Mapping.Free(Type::Queue, p);
-}
-
-UtxoTree::MyLeaf::IDNode* UtxoTreeMapped::CreateIDNode()
-{
-	return Allocate<MyLeaf::IDNode>(Type::Node);
-}
-
-void UtxoTreeMapped::DeleteIDNode(MyLeaf::IDNode* p)
-{
-	m_Mapping.Free(Type::Node, p);
 }
 
 } // namespace beam

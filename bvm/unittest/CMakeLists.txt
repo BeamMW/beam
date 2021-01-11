@@ -8,3 +8,4 @@ configure_file("../Shaders/StableCoin/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR
 configure_file("../Shaders/faucet/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/faucet/contract.wasm" COPYONLY)
 configure_file("../Shaders/roulette/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/roulette/contract.wasm" COPYONLY)
 configure_file("../Shaders/sidechain/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/sidechain/contract.wasm" COPYONLY)
+configure_file("../Shaders/perpetual/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/perpetual/contract.wasm" COPYONLY)

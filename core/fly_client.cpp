@@ -911,6 +911,17 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
+{
+    if (req.m_Res.m_Proof.empty() && !m_Tip.IsValidProofContract(req.m_Msg.m_Key, req.m_Res.m_Value, req.m_Res.m_Proof))
+        ThrowUnexpected();
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
 {
     return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);

@@ -1178,6 +1178,8 @@ namespace beam
 			struct Helper;
 		};
 
+		static void get_HashContractVar(Merkle::Hash&, const Blob& key, const Blob& val);
+
 		struct SystemState
 		{
 			typedef HeightHash ID;
@@ -1189,7 +1191,8 @@ namespace beam
 
 				// The state Definition is defined as Hash[ History | Live ]
 				// Before Fork2: Live = Utxos
-				// Past Fork2: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
+				// Before Fork3: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
+				// Past Fork3: Live = Hash[ Hash[Utxos | Contracts] | Hash[Shielded | Assets] ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
@@ -1199,6 +1202,7 @@ namespace beam
 				virtual bool get_Utxos(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
 				virtual bool get_Assets(Merkle::Hash&);
+				virtual bool get_Contracts(Merkle::Hash&);
 			};
 
 			struct Sequence
@@ -1246,6 +1250,7 @@ namespace beam
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
 				bool IsValidProofAsset(const Asset::Full&, const Merkle::Proof&) const;
+				bool IsValidProofContract(const Blob& key, const Blob& val, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP

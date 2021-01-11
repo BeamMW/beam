@@ -54,14 +54,12 @@ namespace beam::wallet::lelantus
             static constexpr SubTxID PULL_TX = 3;
         };
 
-        TxType GetType() const override;
         bool Rollback(Height height) override;
         void Cancel() override;
         bool IsInSafety() const override;
         void RollbackTx() override;
         void UpdateImpl() override;
 
-        State GetState() const;
         void UpdateActiveTransactions();
         void CreateInsertTransaction();
         bool CheckAnonymitySet() const;

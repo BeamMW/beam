@@ -136,4 +136,13 @@ struct KeyTag
 	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
 };
 
+namespace Merkle
+{
+	struct Node
+	{
+		uint8_t m_OnRight;
+		HashValue m_Value;
+	};
+}
+
 #pragma pack (pop)

@@ -37,13 +37,8 @@ namespace beam::wallet::lelantus
     }
 
     PullTransaction::PullTransaction(const TxContext& context)
-        : BaseTransaction(context)
+        : BaseTransaction(TxType::PullTransaction, context)
     {
-    }
-
-    TxType PullTransaction::GetType() const
-    {
-        return TxType::PullTransaction;
     }
 
     bool PullTransaction::IsInSafety() const

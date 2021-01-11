@@ -1091,6 +1091,34 @@ namespace bvm2 {
 		Wasm::Fail(); // not supported in this form. Proper host code would invoke CallFar_T
 	}
 
+	BVM_METHOD(get_CallDepth)
+	{
+		return OnHost_get_CallDepth();
+	}
+
+	BVM_METHOD_HOST(get_CallDepth)
+	{
+		return static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+	}
+
+	BVM_METHOD(get_CallerCid)
+	{
+		return OnHost_get_CallerCid(iCaller, get_AddrAsW<HashValue>(cid));
+	}
+
+	BVM_METHOD_HOST(get_CallerCid)
+	{
+		for (auto it = m_FarCalls.m_Stack.rbegin(); ; it++)
+		{
+			Wasm::Test(m_FarCalls.m_Stack.rend() != it);
+			if (!iCaller--)
+			{
+				cid = it->m_Cid;
+				break;
+			}
+		}
+	}
+
 	BVM_METHOD(Halt)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint
@@ -1597,15 +1625,7 @@ namespace bvm2 {
 		if (!OnHost_VarsMoveNext(&pKey, &nKey, &pVal, &nVal))
 			return 0;
 
-		uint32_t nSizeTotal = nKey + nVal;
-
-		if (m_AuxAlloc.m_Size < nSizeTotal)
-		{
-			FreeAuxAllocGuarded();
-			m_AuxAlloc.m_pPtr = ProcessorPlus::From(*this).OnMethod_Heap_Alloc(nSizeTotal);
-			m_AuxAlloc.m_Size = nSizeTotal;
-		}
-		uint8_t* pDst = get_AddrW(m_AuxAlloc.m_pPtr, nSizeTotal);
+		uint8_t* pDst = ResizeAux(nKey + nVal);
 
 		Wasm::to_wasm(pnKey_, nKey);
 		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
@@ -1637,6 +1657,67 @@ namespace bvm2 {
 		return 1;
 	}
 
+	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
+	{
+		ByteBuffer val;
+		beam::Merkle::Proof proof;
+
+		Blob key(pKey, nKey);
+		if (!VarGetProof(key, val, proof))
+		{
+			FreeAuxAllocGuarded();
+			return 0;
+		}
+
+		uint32_t nSizeVal = static_cast<uint32_t>(val.size());
+		uint32_t nProof = static_cast<uint32_t>(proof.size());
+		uint32_t nSizeProof = nProof * static_cast<uint32_t>(sizeof(proof[0]));
+
+		uint8_t* pDst = ResizeAux(nSizeVal + nSizeProof);
+
+		nVal = nSizeVal;
+		pVal = m_AuxAlloc.m_pPtr;
+		if (nSizeVal)
+			memcpy(pDst, &val.front(), nSizeVal);
+
+		auto* pProofDst = reinterpret_cast<Merkle::Node*>(pDst + nSizeVal);
+		pProof = m_AuxAlloc.m_pPtr + nSizeVal;
+		if (nProof)
+			memcpy((void*)pProofDst, &proof.front(), nSizeProof);
+
+		return nProof;
+	}
+
+	BVM_METHOD(VarGetProof)
+	{
+		Wasm::Word pVal, nVal, pProof;
+		uint32_t nRet = VarGetProofInternal(get_AddrR(pKey, nKey), nKey, pVal, nVal, pProof);
+
+		if (nRet)
+		{
+			Wasm::to_wasm(get_AddrW(pnVal, sizeof(Wasm::Word)), nVal);
+			Wasm::to_wasm(get_AddrW(ppVal, sizeof(Wasm::Word)), pVal);
+			Wasm::to_wasm(get_AddrW(ppProof, sizeof(Wasm::Word)), pProof);
+		}
+
+		return nRet;
+	}
+
+	BVM_METHOD_HOST(VarGetProof)
+	{
+		Wasm::Word pVal, pProof;
+		uint32_t nRet = VarGetProofInternal(pKey, nKey, pVal, *pnVal, pProof);
+
+		if (nRet)
+		{
+			const uint8_t* p = get_AddrR(m_AuxAlloc.m_pPtr, 1);
+			*ppVal = p + pVal;
+			*ppProof = reinterpret_cast<const Merkle::Node*>(p + pProof);
+		}
+
+		return nRet;
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
@@ -1654,6 +1735,18 @@ namespace bvm2 {
 			<< "bvm.m.key"
 			<< b
 			>> hv;
+	}
+
+	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
+	{
+		if (m_AuxAlloc.m_Size < nSize)
+		{
+			FreeAuxAllocGuarded();
+			m_AuxAlloc.m_pPtr = ProcessorPlus::From(*this).OnMethod_Heap_Alloc(nSize);
+			m_AuxAlloc.m_Size = nSize;
+		}
+
+		return get_AddrW(m_AuxAlloc.m_pPtr, nSize);
 	}
 
 	void ProcessorManager::FreeAuxAllocGuarded()

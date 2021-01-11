@@ -302,7 +302,7 @@ namespace beam::wallet
 
     TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        TestSenderAddress(parameters, m_walletDB);
+        CheckSenderAddress(parameters, m_walletDB);
 
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (peerID)
@@ -319,15 +319,14 @@ namespace beam::wallet
 
     AtomicSwapTransaction::AtomicSwapTransaction(const TxContext& context
                                                , ISecondSideProvider& secondSideProvider)
-        : BaseTransaction(context)
+        : BaseTransaction(TxType::AtomicSwap, context)
         , m_secondSide(secondSideProvider, *this)
     {
     }
 
     bool AtomicSwapTransaction::CanCancel() const
     {
-        State state = GetState(kDefaultSubTxID);
-
+        const auto state = GetState<State>(kDefaultSubTxID);
         switch (state)
         {
         case State::HandlingContractTX:
@@ -357,7 +356,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState(kDefaultSubTxID));
+        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState<State>(kDefaultSubTxID));
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)
@@ -454,11 +453,6 @@ namespace beam::wallet
         UpdateAsync();
     }
 
-    TxType AtomicSwapTransaction::GetType() const
-    {
-        return TxType::AtomicSwap;
-    }
-
     bool AtomicSwapTransaction::IsInSafety() const
     {
         auto isRegistered = [this](SubTxID beamSubTxID, SubTxID coinSubTxID)
@@ -472,7 +466,7 @@ namespace beam::wallet
             return false;
         };
 
-        State state = GetState(kDefaultSubTxID);
+        const auto state = GetState<State>(kDefaultSubTxID);
         switch (state)
         {
         case State::Initial:
@@ -492,20 +486,6 @@ namespace beam::wallet
         }
     }
 
-    AtomicSwapTransaction::State AtomicSwapTransaction::GetState(SubTxID subTxID) const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state, subTxID);
-        return state;
-    }
-
-    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::GetSubTxState(SubTxID subTxID) const
-    {
-        SubTxState state = SubTxState::Initial;
-        GetParameter(TxParameterID::State, state, subTxID);
-        return state;
-    }
-
     Amount AtomicSwapTransaction::GetWithdrawFee() const
     {
         // TODO(alex.starun): implement fee calculation
@@ -518,7 +498,7 @@ namespace beam::wallet
         {
             CheckSubTxFailures();
 
-            State state = GetState(kDefaultSubTxID);
+            const auto state = GetState<State>(kDefaultSubTxID);
             bool isBeamOwner = IsBeamSide();
 
             switch (state)
@@ -875,8 +855,7 @@ namespace beam::wallet
 
         if (IsBeamSide())
         {
-            State state = GetState(kDefaultSubTxID);
-
+            const auto state = GetState<State>(kDefaultSubTxID);
             switch (state)
             {
             case State::BuildingBeamLockTX:
@@ -918,7 +897,7 @@ namespace beam::wallet
 
         SetParameter(TxParameterID::InternalFailureReason, reason, false);
 
-        State state = GetState(kDefaultSubTxID);
+        const auto state = GetState<State>(kDefaultSubTxID);
         bool isBeamSide = IsBeamSide();
 
         switch (state)
@@ -1046,8 +1025,7 @@ namespace beam::wallet
         TxFailureReason reason = TxFailureReason::Unknown;
         if (GetParameter(TxParameterID::FailureReason, reason))
         {
-            State state = GetState(kDefaultSubTxID);
-
+            const auto state = GetState<State>(kDefaultSubTxID);
             switch (state)
             {
             case State::Initial:
@@ -1483,7 +1461,7 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::CheckSubTxFailures()
     {
-        State state = GetState(kDefaultSubTxID);
+        const auto state = GetState<State>(kDefaultSubTxID);
         TxFailureReason reason = TxFailureReason::Unknown;
 
         if ((state == State::Initial ||
@@ -1496,9 +1474,8 @@ namespace beam::wallet
     void AtomicSwapTransaction::ExtractSecretPrivateKey()
     {
         auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
-        TxKernelStd::Ptr pKrn = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, subTxID);
-
-        ECC::Scalar k = GetMandatoryParameter<ECC::Scalar>(TxParameterID::AggregateSignature, subTxID); // should contain the swap secret key
+        auto pKrn = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, subTxID);
+        auto k = GetMandatoryParameter<ECC::Scalar>(TxParameterID::AggregateSignature, subTxID); // should contain the swap secret key
 
         ECC::Scalar::Native sk(k);
         sk -= pKrn->m_Signature.m_k;

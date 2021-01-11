@@ -159,6 +159,14 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
+	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
+	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
+	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
+	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
+
+	InitializeMapped(szPath);
+	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
 	if (NodeDB::Flags1::PendingRebuildNonStd & nFlags1)
 	{
@@ -166,16 +174,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
 	}
 
-	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
-	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
-	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
-	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
-
-	InitializeUtxos(szPath);
-
 	CommitDB();
-
-	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	m_Horizon.Normalize();
 
@@ -196,21 +195,25 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	TryGoUp();
 }
 
-void NodeProcessor::InitializeUtxos(const char* sz)
+void NodeProcessor::InitializeMapped(const char* sz)
 {
-	if (InitUtxoMapping(sz, false))
+	if (InitMapping(sz, false))
 	{
-		LOG_INFO() << "UTXO image found";
+		LOG_INFO() << "Mapping image found";
 		if (TestDefinition())
 			return; // ok
 
-		LOG_WARNING() << "Definition mismatch, discarding UTXO image";
-		m_Utxos.Close();
-		InitUtxoMapping(sz, true);
+		LOG_WARNING() << "Definition mismatch, discarding mapped image";
+		m_Mapped.Close();
+		InitMapping(sz, true);
 	}
 
-	LOG_INFO() << "Rebuilding UTXO image...";
+	LOG_INFO() << "Rebuilding mapped image...";
 	InitializeUtxos();
+
+	NodeDB::WalkerContractData wlk;
+	for (m_DB.ContractDataEnum(wlk); wlk.MoveNext(); )
+		m_Mapped.m_Contract.Toggle(wlk.m_Key, wlk.m_Val, true);
 
 	TestDefinitionStrict();
 }
@@ -255,9 +258,9 @@ int My_strcmpi(const char* sz1, const char* sz2)
 	return 0;
 }
 
-void NodeProcessor::get_UtxoMappingPath(std::string& sPath, const char* sz)
+void NodeProcessor::get_MappingPath(std::string& sPath, const char* sz)
 {
-	// derive UTXO path from db path
+	// derive mapping path from db path
 	sPath = sz;
 
 	static const char szSufix[] = ".db";
@@ -269,23 +272,23 @@ void NodeProcessor::get_UtxoMappingPath(std::string& sPath, const char* sz)
 	sPath += "-utxo-image.bin";
 }
 
-bool NodeProcessor::InitUtxoMapping(const char* sz, bool bForceReset)
+bool NodeProcessor::InitMapping(const char* sz, bool bForceReset)
 {
-	// derive UTXO path from db path
+	// derive mapping path from db path
 	std::string sPath;
-	get_UtxoMappingPath(sPath, sz);
+	get_MappingPath(sPath, sz);
 
-	UtxoTreeMapped::Stamp us;
+	Mapped::Stamp us;
 	Blob blob(us);
 
 	// don't use the saved image if no height: we may contain treasury UTXOs, but no way to verify the contents
-	if (bForceReset || (m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
+	if (bForceReset || (m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::MappingStamp, nullptr, &blob))
 	{
 		us = 1U;
 		us.Negate();
 	}
 
-	return m_Utxos.Open(sPath.c_str(), us);
+	return m_Mapped.Open(sPath.c_str(), us);
 }
 
 void NodeProcessor::LogSyncData()
@@ -335,36 +338,36 @@ NodeProcessor::~NodeProcessor()
 	if (m_DbTx.IsInProgress())
 	{
 		try {
-			CommitUtxosAndDB();
+			CommitMappingAndDB();
 		} catch (const CorruptionException& e) {
 			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
 	}
 }
 
-void NodeProcessor::CommitUtxosAndDB()
+void NodeProcessor::CommitMappingAndDB()
 {
-	UtxoTreeMapped::Stamp us;
+	Mapped::Stamp us;
 
-	bool bFlushUtxos = (m_Utxos.IsOpen() && m_Utxos.get_Hdr().m_Dirty);
+	bool bFlushMapping = (m_Mapped.IsOpen() && m_Mapped.get_Hdr().m_Dirty);
 
-	if (bFlushUtxos)
+	if (bFlushMapping)
 	{
 		Blob blob(us);
 
-		if (m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob)) {
+		if (m_DB.ParamGet(NodeDB::ParamID::MappingStamp, nullptr, &blob)) {
 			ECC::Hash::Processor() << us >> us;
 		} else {
 			ECC::GenRandom(us);
 		}
 
-		m_DB.ParamSet(NodeDB::ParamID::UtxoStamp, nullptr, &blob);
+		m_DB.ParamSet(NodeDB::ParamID::MappingStamp, nullptr, &blob);
 	}
 
 	m_DbTx.Commit();
 
-	if (bFlushUtxos)
-		m_Utxos.FlushStrict(us);
+	if (bFlushMapping)
+		m_Mapped.FlushStrict(us);
 }
 
 void NodeProcessor::Vacuum()
@@ -383,7 +386,7 @@ void NodeProcessor::CommitDB()
 {
 	if (m_DbTx.IsInProgress())
 	{
-		CommitUtxosAndDB();
+		CommitMappingAndDB();
 		m_DbTx.Start(m_DB);
 	}
 }
@@ -1896,7 +1899,7 @@ bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
 
 bool NodeProcessor::Evaluator::get_Utxos(Merkle::Hash& hv)
 {
-	m_Proc.m_Utxos.get_Hash(hv);
+	m_Proc.m_Mapped.m_Utxo.get_Hash(hv);
 	return true;
 }
 
@@ -1909,6 +1912,12 @@ bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
 bool NodeProcessor::Evaluator::get_Assets(Merkle::Hash& hv)
 {
 	m_Proc.m_Mmr.m_Assets.get_Hash(hv);
+	return true;
+}
+
+bool NodeProcessor::Evaluator::get_Contracts(Merkle::Hash& hv)
+{
+	m_Proc.m_Mapped.m_Contract.get_Hash(hv);
 	return true;
 }
 
@@ -2056,6 +2065,12 @@ struct NodeProcessor::BlockInterpretCtx
 		bool SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
+
+		void ContractDataInsert(const Blob& key, const Blob&);
+		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
+		void ContractDataDel(const Blob& key, const Blob& valOld);
+
+		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 	};
 
 	bvm2::Limits::Charge m_ChargePerBlock;
@@ -3502,7 +3517,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-		if (m_Utxos.Traverse(t))
+		if (m_Mapped.m_Utxo.Traverse(t))
 			return false;
 
 		p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
@@ -3514,12 +3529,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		TxoID nID = p->m_ID;
 
 		if (!p->IsExt())
-			m_Utxos.Delete(cu);
+			m_Mapped.m_Utxo.Delete(cu);
 		else
 		{
-			nID = m_Utxos.PopID(*p);
+			nID = m_Mapped.m_Utxo.PopID(*p);
 			cu.InvalidateElement();
-			m_Utxos.OnDirty();
+			m_Mapped.m_Utxo.OnDirty();
 		}
 
 		Cast::NotConst(v).m_Internal.m_Maturity = d.m_Maturity;
@@ -3533,17 +3548,17 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		UtxoTree::Key key;
 		key = d;
 
-		m_Utxos.EnsureReserve();
+		m_Mapped.m_Utxo.EnsureReserve();
 
-		p = m_Utxos.Find(cu, key, bCreate);
+		p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
 
 		if (bCreate)
 			p->m_ID = v.m_Internal.m_ID;
 		else
 		{
-			m_Utxos.PushID(v.m_Internal.m_ID, *p);
+			m_Mapped.m_Utxo.PushID(v.m_Internal.m_ID, *p);
 			cu.InvalidateElement();
-			m_Utxos.OnDirty();
+			m_Mapped.m_Utxo.OnDirty();
 		}
 	}
 
@@ -3559,14 +3574,14 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 	UtxoTree::Key key;
 	key = d;
 
-	m_Utxos.EnsureReserve();
+	m_Mapped.m_Utxo.EnsureReserve();
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
 
 	cu.InvalidateElement();
-	m_Utxos.OnDirty();
+	m_Mapped.m_Utxo.OnDirty();
 
 	if (bic.m_Fwd)
 	{
@@ -3584,7 +3599,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 			if (!nCountInc)
 				return false;
 
-			m_Utxos.PushID(nID, *p);
+			m_Mapped.m_Utxo.PushID(nID, *p);
 		}
 
 		m_Extra.m_Txos++;
@@ -3595,9 +3610,9 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 		m_Extra.m_Txos--;
 
 		if (!p->IsExt())
-			m_Utxos.Delete(cu);
+			m_Mapped.m_Utxo.Delete(cu);
 		else
-			m_Utxos.PopID(*p);
+			m_Mapped.m_Utxo.PopID(*p);
 	}
 
 	return true;
@@ -3985,21 +4000,18 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 			if (bExisted)
 			{
 				nTag = RecoveryTag::Update;
-				if (!m_Bic.m_Temporary)
-					m_Proc.m_DB.ContractDataUpdate(key, data);
+				ContractDataUpdate(key, data, e.m_Data);
 			}
 			else
 			{
 				nTag = RecoveryTag::Delete;
-				if (!m_Bic.m_Temporary)
-					m_Proc.m_DB.ContractDataInsert(key, data);
+				ContractDataInsert(key, data);
 			}
 		}
 		else
 		{
 			assert(bExisted);
-			if (!m_Bic.m_Temporary)
-				m_Proc.m_DB.ContractDataDel(key);
+			ContractDataDel(key, e.m_Data);
 		}
 
 		BlockInterpretCtx::Ser ser(m_Bic);
@@ -4013,6 +4025,60 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 	}
 
 	return bExisted;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
+{
+	ContractDataToggleTree(key, data, true);
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataInsert(key, data);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
+{
+	ContractDataToggleTree(key, val, true);
+	ContractDataToggleTree(key, valOld, false);
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataUpdate(key, val);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob& key, const Blob& valOld)
+{
+	ContractDataToggleTree(key, valOld, false);
+	if (!m_Bic.m_Temporary)
+		m_Proc.m_DB.ContractDataDel(key);
+}
+
+void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, bool bAdd)
+{
+	Merkle::Hash hv;
+	Block::get_HashContractVar(hv, key, data);
+
+	if (bAdd)
+		EnsureReserve();
+
+	bool bCreate = true;
+	RadixHashOnlyTree::Cursor cu;
+	Find(cu, hv, bCreate);
+
+	if (!bAdd)
+		Delete(cu);
+
+	if (bAdd != bCreate)
+	{
+		Wasm::CheckpointTxt cp("SaveVar collision");
+
+		if (!bAdd)
+			OnCorrupted();
+
+		Wasm::Fail();
+	}
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
+{
+	if (!m_Bic.m_SkipDefinition)
+		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
@@ -4152,32 +4218,28 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		default:
 			{
 				der & key;
-
-				auto* pE = m_Bic.m_ContractVars.Find(key);
-				auto& data = pE ? pE->m_Data : dummy;
+				auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 
 				if (RecoveryTag::Delete == nTag)
 				{
-					data.clear();
-
-					if (!m_Bic.m_Temporary)
-						m_Proc.m_DB.ContractDataDel(key);
+					ContractDataDel(key, e.m_Data);
+					e.m_Data.clear();
 				}
 				else
 				{
+					ByteBuffer data;
 					der & data;
 
-					if (!m_Bic.m_Temporary)
+					if (RecoveryTag::Insert == nTag)
+						ContractDataInsert(key, data);
+					else
 					{
-						if (RecoveryTag::Insert == nTag)
-							m_Proc.m_DB.ContractDataInsert(key, data);
-						else
-						{
-							if (RecoveryTag::Update != nTag)
-								OnCorrupted();
-							m_Proc.m_DB.ContractDataUpdate(key, data);
-						}
+						if (RecoveryTag::Update != nTag)
+							OnCorrupted();
+						ContractDataUpdate(key, data, e.m_Data);
 					}
+
+					e.m_Data.swap(data);
 				}
 
 			}
@@ -4793,7 +4855,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	t.m_pBound[0] = kMin.V.m_pData;
 	t.m_pBound[1] = kMax.V.m_pData;
 
-	return !m_Utxos.Traverse(t);
+	return !m_Mapped.m_Utxo.Traverse(t);
 }
 
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
@@ -5330,8 +5392,6 @@ bool NodeProcessor::ITxoWalker_Unspent::OnTxo(const NodeDB::WalkerTxo& wlk, Heig
 
 void NodeProcessor::InitializeUtxos()
 {
-	assert(!m_Extra.m_Txos);
-
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
@@ -5606,11 +5666,16 @@ void NodeProcessor::RebuildNonStd()
 	LOG_INFO() << "Rebuilding non-std data...";
 
 	// Delete all asset info, contracts, shielded, and replay everything
+	m_Mapped.m_Contract.Clear();
 	m_DB.ContractDataDelAll();
 	m_DB.ShieldedOutpDelFrom(0);
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+
+	m_Mmr.m_Assets.ResizeTo(0);
+	m_Mmr.m_Shielded.ResizeTo(0);
+	m_Extra.m_ShieldedOutputs = 0;
 
 	static_assert(NodeDB::StreamType::StatesMmr == 0);
 	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
@@ -5659,6 +5724,8 @@ void NodeProcessor::RebuildNonStd()
 	} wlk(*this);
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
+
+	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
@@ -5786,5 +5853,186 @@ void NodeProcessor::ValidatedCache::MoveInto(ValidatedCache& dst)
 		dst.InsertRaw(x);
 	}
 }
+
+/////////////////////////////
+// Mapped
+struct NodeProcessor::Mapped::Type {
+	enum Enum {
+
+		UtxoLeaf,
+		HashJoint,
+		UtxoQueue,
+		UtxoNode,
+		HashLeaf,
+
+		count
+	};
+};
+
+bool NodeProcessor::Mapped::Open(const char* sz, const Stamp& s)
+{
+	// change this when format changes
+	static const uint8_t s_pSig[] = {
+		0xFB, 0x6A, 0x15, 0x54,
+		0x41, 0x7C, 0x4C, 0x3D,
+		0x81, 0xD5, 0x9C, 0xD9,
+		0x17, 0xCE, 0xA4, 0x92
+	};
+
+	MappedFile::Defs d;
+	d.m_pSig = s_pSig;
+	d.m_nSizeSig = sizeof(s_pSig);
+	d.m_nBanks = Type::count;
+	d.m_nFixedHdr = sizeof(Hdr);
+
+	m_Mapping.Open(sz, d);
+
+	Hdr& h = get_Hdr();
+	if (!h.m_Dirty && (h.m_Stamp == s))
+	{
+		m_Utxo.m_RootOffset = h.m_RootUtxo;
+		m_Contract.m_RootOffset = h.m_RootContract;
+		return true;
+	}
+
+	m_Mapping.Open(sz, d, true); // reset
+	return false;
+}
+
+void NodeProcessor::Mapped::Close()
+{
+	m_Utxo.m_RootOffset = 0; // prevent cleanup
+	m_Contract.m_RootOffset = 0;
+	m_Mapping.Close();
+}
+
+NodeProcessor::Mapped::Hdr& NodeProcessor::Mapped::get_Hdr()
+{
+	return *static_cast<Hdr*>(m_Mapping.get_FixedHdr());
+}
+
+void NodeProcessor::Mapped::FlushStrict(const Stamp& s)
+{
+	Hdr& h = get_Hdr();
+	assert(h.m_Dirty);
+
+	h.m_Dirty = 0;
+	h.m_RootUtxo = m_Utxo.m_RootOffset;
+	h.m_RootContract = m_Contract.m_RootOffset;
+	// TODO: flush
+
+	h.m_Stamp = s;
+}
+
+void NodeProcessor::Mapped::Utxo::EnsureReserve()
+{
+	try
+	{
+		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoLeaf, sizeof(MyLeaf), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashJoint, sizeof(MyJoint), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoQueue, sizeof(MyLeaf::IDQueue), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::UtxoNode, sizeof(MyLeaf::IDNode), 1);
+	}
+	catch (const std::exception& e)
+	{
+		// promote it
+		CorruptionException exc;
+		exc.m_sErr = e.what();
+		throw exc;
+	}
+}
+
+void NodeProcessor::Mapped::OnDirty()
+{
+	get_Hdr().m_Dirty = 1;
+}
+
+intptr_t NodeProcessor::Mapped::Utxo::get_Base() const
+{
+	return reinterpret_cast<intptr_t>(get_ParentObj().m_Mapping.get_Base());
+}
+
+RadixTree::Leaf* NodeProcessor::Mapped::Utxo::CreateLeaf()
+{
+	return get_ParentObj().Allocate<MyLeaf>(Type::UtxoLeaf);
+}
+
+void NodeProcessor::Mapped::Utxo::DeleteEmptyLeaf(Leaf* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::UtxoLeaf, p);
+}
+
+RadixTree::Joint* NodeProcessor::Mapped::Utxo::CreateJoint()
+{
+	return get_ParentObj().Allocate<MyJoint>(Type::HashJoint);
+}
+
+void NodeProcessor::Mapped::Utxo::DeleteJoint(Joint* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::HashJoint, p);
+}
+
+UtxoTree::MyLeaf::IDQueue* NodeProcessor::Mapped::Utxo::CreateIDQueue()
+{
+	return get_ParentObj().Allocate<MyLeaf::IDQueue>(Type::UtxoQueue);
+}
+
+void NodeProcessor::Mapped::Utxo::DeleteIDQueue(MyLeaf::IDQueue* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::UtxoQueue, p);
+}
+
+UtxoTree::MyLeaf::IDNode* NodeProcessor::Mapped::Utxo::CreateIDNode()
+{
+	return get_ParentObj().Allocate<MyLeaf::IDNode>(Type::UtxoNode);
+}
+
+void NodeProcessor::Mapped::Utxo::DeleteIDNode(MyLeaf::IDNode* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::UtxoNode, p);
+}
+
+intptr_t NodeProcessor::Mapped::Contract::get_Base() const
+{
+	return reinterpret_cast<intptr_t>(get_ParentObj().m_Mapping.get_Base());
+}
+
+void NodeProcessor::Mapped::Contract::EnsureReserve()
+{
+	try
+	{
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashJoint, sizeof(MyJoint), 1);
+		get_ParentObj().m_Mapping.EnsureReserve(Type::HashLeaf, sizeof(MyLeaf), 1);
+	}
+	catch (const std::exception& e)
+	{
+		// promote it
+		CorruptionException exc;
+		exc.m_sErr = e.what();
+		throw exc;
+	}
+}
+
+RadixTree::Leaf* NodeProcessor::Mapped::Contract::CreateLeaf()
+{
+	return get_ParentObj().Allocate<MyLeaf>(Type::HashLeaf);
+}
+
+void NodeProcessor::Mapped::Contract::DeleteLeaf(Leaf* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::HashLeaf, p);
+}
+
+RadixTree::Joint* NodeProcessor::Mapped::Contract::CreateJoint()
+{
+    static_assert(sizeof(MyJoint) == sizeof(UtxoTree::MyJoint));
+	return get_ParentObj().Allocate<MyJoint>(Type::HashJoint);
+}
+
+void NodeProcessor::Mapped::Contract::DeleteJoint(Joint* p)
+{
+	get_ParentObj().m_Mapping.Free(Type::HashJoint, p);
+}
+
 
 } // namespace beam

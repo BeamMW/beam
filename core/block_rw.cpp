@@ -344,6 +344,7 @@ namespace beam
 		UtxoTree::Compact m_UtxoTree;
 		Merkle::CompactMmr m_Shielded;
 		Merkle::CompactMmr m_Assets;
+		Merkle::Hash m_hvContracts;
 
 		Context(IParser& p)
 			:m_Parser(p)
@@ -426,6 +427,12 @@ namespace beam
 				m_This.m_Assets.get_Hash(hv);
 				return true;
 			}
+
+			virtual bool get_Contracts(Merkle::Hash& hv) override
+			{
+				hv = m_This.m_hvContracts;
+				return true;
+			}
 		};
 
 		Verifier v(*this);
@@ -455,13 +462,17 @@ namespace beam
 		if (!ProceedUtxos())
 			return false;
 
-		if (m_Tip.m_Height >= Rules::get().pForks[2].m_Height)
+		const Rules& r = Rules::get();
+		if (m_Tip.m_Height >= r.pForks[2].m_Height)
 		{
 			if (!ProceedShielded())
 				return false;
 
 			if (!ProceedAssets())
 				return false;
+
+			if (m_Tip.m_Height >= r.pForks[3].m_Height)
+				m_Der & m_hvContracts;
 		}
 
 		Finalyze();

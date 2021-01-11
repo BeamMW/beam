@@ -96,6 +96,12 @@
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs)
 
+#define BVMOp_get_CallDepth(macro, sep)
+
+#define BVMOp_get_CallerCid(macro, sep) \
+	macro(uint32_t, iCaller) sep \
+	macro(ContractID&, cid)
+
 #define BVMOp_Halt(macro, sep)
 
 #define BVMOp_AddSig(macro, sep) \
@@ -150,6 +156,13 @@
 	macro(uint32_t*, pnKey) sep \
 	macro(const void**, ppVal) sep \
 	macro(uint32_t*, pnVal)
+
+#define BVMOp_VarGetProof(macro, sep) \
+	macro(const void*, pKey) sep \
+	macro(uint32_t, nKey) sep \
+	macro(const void**, ppVal) sep \
+	macro(uint32_t*, pnVal) sep \
+	macro(const Merkle::Node**, ppProof)
 
 #define BVMOp_DerivePk(macro, sep) \
 	macro(PubKey&, pubKey) sep \
@@ -240,6 +253,8 @@
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, void     , SaveVar) \
 	macro(0x23, void     , CallFar) \
+	macro(0x24, uint32_t , get_CallDepth) \
+	macro(0x25, void     , get_CallerCid) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \
@@ -252,6 +267,7 @@
 #define BVMOpsAll_Manager(macro) \
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
+	macro(0x53, uint32_t , VarGetProof) \
 	macro(0x58, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \

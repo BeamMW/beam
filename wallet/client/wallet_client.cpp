@@ -14,6 +14,7 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/transactions/dex/dex_tx.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
@@ -23,7 +24,6 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
 #endif // BEAM_LELANTUS_SUPPORT
@@ -94,7 +94,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getAddresses, own);
     }
-    
+
+     void getDexOrders() override
+     {
+        call_async(&IWalletModelAsync::getDexOrders);
+     }
+
+     void publishDexOrder(const DexOrder& order) override
+     {
+        call_async(&IWalletModelAsync::publishDexOrder, order);
+     }
+
+     void acceptDexOrder(const DexOrderID& orderId) override
+     {
+        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
+     }
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -527,7 +541,20 @@ namespace beam::wallet
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
                     static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
 
-                // shaders
+                //
+                // DEX
+                //
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
+                auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
+
+                using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
+                auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
+
+                _dex = dexBoard;
+
+                //
+                // Shaders
+                //
                 auto shadersManager = std::make_shared<ShadersManager>(m_walletDB, nodeNetwork, *static_cast<ShadersManager::IDone*>(this));
                 _smgr = shadersManager;
 
@@ -880,6 +907,53 @@ namespace beam::wallet
     void WalletClient::getAddresses(bool own)
     {
         onAddresses(own, m_walletDB->getAddresses(own));
+    }
+
+    void WalletClient::getDexOrders()
+    {
+        if (auto dex = _dex.lock())
+        {
+            onDexOrdersChanged(ChangeAction::Reset, dex->getOrders());
+        }
+    }
+
+    void WalletClient::publishDexOrder(const DexOrder& offer)
+    {
+        if (auto dex = _dex.lock())
+        {
+            try
+            {
+                dex->publishOrder(offer);
+            }
+            catch (const std::runtime_error& e)
+            {
+                LOG_ERROR() << e.what();
+            }
+        }
+    }
+
+    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            if (auto order = dex->getOrder(orderId))
+            {
+                auto params = CreateDexTransactionParams(order->sbbsID, orderId);
+                startTransaction(std::move(params));
+            }
+        }
+
+        /*if (auto dex = _dex.lock())
+        {
+            try
+            {
+                dex->acceptOrder(orderId);
+            }
+            catch (const std::runtime_error& e)
+            {
+                LOG_ERROR() << e.what();
+            }
+        }*/
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

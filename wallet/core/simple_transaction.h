@@ -35,10 +35,8 @@ namespace beam::wallet
             Initial,
             Invitation,
             PeerConfirmation,
-            
             InvitationConfirmation,
             Registration,
-
             KernelConfirmation,
             OutputsConfirmation,
         };
@@ -46,42 +44,25 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(IWalletDB::Ptr walletDB);
+            explicit Creator(IWalletDB::Ptr walletDB);
+
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
+
         private:
             IWalletDB::Ptr m_WalletDB;
         };
+
     private:
-        SimpleTransaction(const TxContext& context);
-    private:
-        TxType GetType() const override;
+        explicit SimpleTransaction(const TxContext& context);
+
         bool IsInSafety() const override;
         void UpdateImpl() override;
         bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;
-        void NotifyTransactionRegistered();
-        bool IsSelfTx() const;
-        State GetState() const;
 
     private:
-        enum AssetCheckState {
-            ACInitial,
-            ACConfirmation,
-            ACCheck,
-        };
-
-        enum AssetCheckResult {
-            Fail,
-            Async,
-            OK,
-        };
-
-        AssetCheckResult CheckAsset(Asset::ID);
-        AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
-
         struct MyBuilder;
         std::shared_ptr<SimpleTxBuilder> m_TxBuilder;
-        bool m_IsSelfTx;
     };
 }

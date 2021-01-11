@@ -14,6 +14,7 @@ endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     add_subdirectory(transactions/assets)
+    add_subdirectory(transactions/dex)
 endif()
 
 if (NOT ANDROID AND NOT IOS)
@@ -30,5 +31,3 @@ if (NOT ANDROID AND NOT IOS)
         endif()
     endif()
 endif()
-
-
