@@ -26,9 +26,15 @@ namespace Pipe
         Cfg m_Cfg;
     };
 
-    struct PushLocal0
+    struct SetRemote
     {
         static const uint32_t s_iMethod = 2;
+        ContractID m_cid;
+    };
+
+    struct PushLocal0
+    {
+        static const uint32_t s_iMethod = 3;
 
         ContractID m_Receiver;
         uint32_t m_MsgSize;
@@ -37,7 +43,7 @@ namespace Pipe
 
     struct PushRemote0
     {
-        static const uint32_t s_iMethod = 3;
+        static const uint32_t s_iMethod = 4;
 
         PubKey m_User;
 

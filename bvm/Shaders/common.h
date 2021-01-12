@@ -240,6 +240,11 @@ namespace Utils {
         SetObject(x, 0);
     }
 
+    template <typename T>
+    inline uint8_t IsZero(const T& x) {
+        return Env::Memis0(&x, sizeof(x));
+    }
+
     template <typename TDst, typename TSrc>
     inline void Copy(TDst& dst, const TSrc& src)
     {
@@ -380,6 +385,13 @@ struct HashProcessor
     void Write(uint8_t x) {
         Env::HashWrite(m_p, &x, sizeof(x));
     }
+
+    template <uint32_t n>
+    void Write(const char(&sz)[n])
+    {
+        Write(sz, n);
+    }
+
 
     template <typename T>
     void Write(T v)

@@ -23,14 +23,24 @@ export void Dtor(void*)
 	Env::Halt(); // not supported
 }
 
+export void Method_2(const Pipe::SetRemote& r)
+{
+	Pipe::StateIn si;
+	Pipe::StateIn::Key ki;
+	Env::LoadVar_T(ki, si);
+
+	Env::Halt_if(!Utils::IsZero(si.m_cidRemote) || Utils::IsZero(r.m_cid));
+
+	Utils::Copy(si.m_cidRemote, r.m_cid);
+	Env::SaveVar_T(ki, si);
+
+}
+
 void get_MsgHash(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
 {
 	HashProcessor hp;
 	hp.m_p = Env::HashCreateSha256();
-
-	static const char szSeed[] = "b.msg";
-	hp.Write(szSeed, sizeof(szSeed)); // including null-term
-
+	hp << "b.msg";
 	hp.Write(pMsg, nMsg);
 	hp >> res;
 }
@@ -39,11 +49,8 @@ void UpdateState(HashValue& res, const HashValue& hvMsg)
 {
 	HashProcessor hp;
 	hp.m_p = Env::HashCreateSha256();
-
-	static const char szSeed[] = "b.pipe";
-	hp.Write(szSeed, sizeof(szSeed)); // including null-term
-
 	hp
+		<< "b.pipe"
 		<< res
 		<< hvMsg
 		>> res;
@@ -56,13 +63,7 @@ void UpdateState(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
 	UpdateState(res, hvMsg);
 }
 
-void UpdateState(HashValue& res, const HashValue* pMsgs, uint32_t nCount)
-{
-	for (uint32_t i = 0; i < nCount; i++)
-		UpdateState(res, pMsgs[i]);
-}
-
-export void Method_2(const Pipe::PushLocal0& r)
+export void Method_3(const Pipe::PushLocal0& r)
 {
 	Height h = Env::get_Height();
 
@@ -105,7 +106,7 @@ export void Method_2(const Pipe::PushLocal0& r)
 	Env::SaveVar_T(ko, so);
 }
 
-export void Method_3(const Pipe::PushRemote0& r)
+export void Method_4(const Pipe::PushRemote0& r)
 {
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
