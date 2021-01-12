@@ -533,8 +533,8 @@ namespace beam::wallet
         virtual void markAssetOwned(const Asset::ID assetId) = 0;
         virtual void dropAsset(const Asset::ID assetId) = 0;
         virtual void dropAsset(const PeerID& ownerId) = 0;
-        virtual boost::optional<WalletAsset> findAsset(Asset::ID) = 0;
-        virtual boost::optional<WalletAsset> findAsset(const PeerID&) = 0;
+        virtual boost::optional<WalletAsset> findAsset(Asset::ID) const = 0;
+        virtual boost::optional<WalletAsset> findAsset(const PeerID&) const = 0;
 
         // Notifications management
         virtual std::vector<Notification> getNotifications() const = 0;
@@ -695,8 +695,8 @@ namespace beam::wallet
         void markAssetOwned(const Asset::ID assetId) override;
         void dropAsset(const Asset::ID assetId) override;
         void dropAsset(const PeerID& ownerId) override;
-        boost::optional<WalletAsset> findAsset(Asset::ID) override;
-        boost::optional<WalletAsset> findAsset(const PeerID&) override;
+        boost::optional<WalletAsset> findAsset(Asset::ID) const override;
+        boost::optional<WalletAsset> findAsset(const PeerID&) const override;
 
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;
@@ -942,7 +942,6 @@ namespace beam::wallet
             Amount m_Amount;
             Merkle::Hash m_KernelID;
             ECC::Signature m_Signature;
-
             PaymentInfo();
 
             template <typename Archive>
@@ -1018,7 +1017,7 @@ namespace beam::wallet
 
             bool IsValid() const;
             
-            std::string to_string() const;
+            std::string to_string(const IWalletDB& wdb) const;
             void Reset();
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
@@ -1110,7 +1109,7 @@ namespace beam::wallet
             Merkle::Hash            m_KernelID = Zero;
 
             bool IsValid() const;
-            std::string to_string() const;
+            std::string to_string(const IWalletDB& wdb) const;
             static ShieldedPaymentInfo FromByteBuffer(const ByteBuffer& data);
             void RestoreKernelID();
         };
@@ -1120,7 +1119,7 @@ namespace beam::wallet
 
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
-        bool VerifyPaymentProof(const ByteBuffer& data);
+        bool VerifyPaymentProof(const ByteBuffer& data, const IWalletDB& db);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
         void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
