@@ -3,49 +3,113 @@
 
 export void Ctor(const Pipe::Create& r)
 {
-	Pipe::Global g;
-	Utils::Copy(g.m_Cfg, r.m_Cfg);
+	Pipe::StateOut so;
+	Utils::ZeroObject(so);
+	Utils::Copy(so.m_Cfg, r.m_Cfg.m_Out);
 	
-	uint8_t key = 0;
-	Env::SaveVar_T(key, g);
+	Pipe::StateOut::Key ko;
+	Env::SaveVar_T(ko, so);
+
+	Pipe::StateIn si;
+	Utils::ZeroObject(si);
+	Utils::Copy(si.m_Cfg, r.m_Cfg.m_In);
+
+	Pipe::StateOut::Key ki;
+	Env::SaveVar_T(ki, si);
 }
 
 export void Dtor(void*)
 {
+	Env::Halt(); // not supported
 }
 
-void UpdateState(HashValue& res, const void* pMsg, uint32_t nMsg)
+void get_MsgHash(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
+{
+	HashProcessor hp;
+	hp.m_p = Env::HashCreateSha256();
+
+	static const char szSeed[] = "b.msg";
+	hp.Write(szSeed, sizeof(szSeed)); // including null-term
+
+	hp.Write(pMsg, nMsg);
+	hp >> res;
+}
+
+void UpdateState(HashValue& res, const HashValue& hvMsg)
 {
 	HashProcessor hp;
 	hp.m_p = Env::HashCreateSha256();
 
 	static const char szSeed[] = "b.pipe";
 	hp.Write(szSeed, sizeof(szSeed)); // including null-term
-	hp << nMsg;
-	hp.Write(pMsg, nMsg);
+
 	hp
 		<< res
+		<< hvMsg
 		>> res;
+}
+
+void UpdateState(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
+{
+	HashValue hvMsg;
+	get_MsgHash(hvMsg, pMsg, nMsg);
+	UpdateState(res, hvMsg);
+}
+
+void UpdateState(HashValue& res, const HashValue* pMsgs, uint32_t nCount)
+{
+	for (uint32_t i = 0; i < nCount; i++)
+		UpdateState(res, pMsgs[i]);
 }
 
 export void Method_2(const Pipe::PushLocal0& r)
 {
-	Pipe::OutState os;
-	uint8_t key = 1;
+	Height h = Env::get_Height();
 
-	if (!Env::LoadVar_T(key, os))
-		Utils::ZeroObject(os);
+	uint32_t nSize = r.m_MsgSize + sizeof(Pipe::MsgHdr);
+	auto* pMsg = (Pipe::MsgHdr*)Env::StackAlloc(nSize);
 
-	uint32_t nSize = r.m_MsgSize + sizeof(ContractID);
-	ContractID* pMsg = (ContractID*) Env::StackAlloc(nSize);
-	Env::get_CallerCid(1, *pMsg); // caller
+	Env::get_CallerCid(1, pMsg->m_Sender);
+	Utils::Copy(pMsg->m_Receiver, r.m_Receiver);
+	pMsg->m_Height = h;
 	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
 
-	Env::SaveVar(&os.m_Count, sizeof(os.m_Count), pMsg, nSize);
+	Pipe::StateOut so;
+	Pipe::StateOut::Key ko;
+	Env::LoadVar_T(ko, so);
 
-	UpdateState(os.m_Checksum, pMsg, nSize);
-	os.m_Count++;
+	Pipe::MsgHdr::Key km;
+	km.m_iCheckpoint_BE = Utils::FromBE(so.m_iCheckpoint);
+	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
+	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
 
-	Env::SaveVar_T(key, os);
+	UpdateState(so.m_Checkpoint.m_hv, pMsg, nSize);
+	so.m_Checkpoint.m_iMsg++;
+
+	if (1 == so.m_Checkpoint.m_iMsg)
+		so.m_Checkpoint.m_h0 = h;
+	else
+	{
+		if ((so.m_Checkpoint.m_iMsg >= so.m_Cfg.m_CheckpointMaxMsgs) || (h - so.m_Checkpoint.m_h0 >= so.m_Cfg.m_CheckpointMaxDH))
+		{
+			Pipe::OutCheckpoint::Key cpk;
+			cpk.m_iCheckpoint_BE = Utils::FromBE(so.m_iCheckpoint);
+
+			Env::SaveVar_T(cpk, so.m_Checkpoint.m_hv);
+
+			Utils::ZeroObject(so.m_Checkpoint);
+			so.m_iCheckpoint++;
+		}
+	}
+
+	Env::SaveVar_T(ko, so);
 }
 
+export void Method_3(const Pipe::PushRemote0& r)
+{
+	Pipe::StateIn si;
+	Pipe::StateIn::Key ki;
+	Env::LoadVar_T(ki, si);
+
+	// TODO
+}
