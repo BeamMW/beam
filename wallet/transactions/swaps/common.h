@@ -53,12 +53,12 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Dash,
     Ethereum,
     Dai,
-    Tether,
+    Usdt,
     WBTC,
     Unknown
 };
 
-const AtomicSwapCoin kEthTokens[] = { AtomicSwapCoin::Dai, AtomicSwapCoin::Tether, AtomicSwapCoin::WBTC };
+const AtomicSwapCoin kEthTokens[] = { AtomicSwapCoin::Dai, AtomicSwapCoin::Usdt, AtomicSwapCoin::WBTC };
 
 bool IsEthToken(AtomicSwapCoin swapCoin);
 

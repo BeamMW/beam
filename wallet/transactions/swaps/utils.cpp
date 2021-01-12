@@ -212,7 +212,7 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Ethereum, ethFactory);
     // register ERC20 tokens
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dai, ethFactory);
-    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Tether, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Usdt, ethFactory);
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::WBTC, ethFactory);
 }
 
@@ -238,7 +238,7 @@ bool IsLockTxAmountValid(
     // For ethereum based coins receiver pays fee
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
         return true;
     default:

@@ -488,7 +488,7 @@ bool EthereumSide::IsERC20Token() const
     switch (swapCoin)
     {
         case beam::wallet::AtomicSwapCoin::Dai:
-        case beam::wallet::AtomicSwapCoin::Tether:
+        case beam::wallet::AtomicSwapCoin::Usdt:
         case beam::wallet::AtomicSwapCoin::WBTC:
             return true;
         case beam::wallet::AtomicSwapCoin::Ethereum:

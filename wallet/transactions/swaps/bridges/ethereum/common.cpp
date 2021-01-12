@@ -148,7 +148,7 @@ uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
     case beam::wallet::AtomicSwapCoin::Ethereum:
     case beam::wallet::AtomicSwapCoin::Dai:
         return 1'000'000'000u;
-    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::Usdt:
     case beam::wallet::AtomicSwapCoin::WBTC:
         return 1u;
     default:
@@ -163,7 +163,7 @@ bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin)
     {
     case beam::wallet::AtomicSwapCoin::Ethereum:
     case beam::wallet::AtomicSwapCoin::Dai:
-    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::Usdt:
     case beam::wallet::AtomicSwapCoin::WBTC:
         return true;
     default:

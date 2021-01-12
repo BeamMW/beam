@@ -703,7 +703,7 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     }
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
     {
         return GetMinSwapFeeRate<ethereum::SettingsProvider>(walletDB);
@@ -748,7 +748,7 @@ Amount GetMaxSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     }
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
     {
         return GetMaxSwapFeeRate<ethereum::SettingsProvider>(walletDB);
@@ -1170,7 +1170,7 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
     }
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
     {
         return SetEthSettings(vm, walletDB, swapCoin);
@@ -1220,7 +1220,7 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     }
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
     {
         ShowEthSettings(walletDB);

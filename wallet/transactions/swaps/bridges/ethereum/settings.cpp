@@ -95,7 +95,7 @@ std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapC
     {
     case beam::wallet::AtomicSwapCoin::Dai:
         return kDaiContractAddress;
-    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::Usdt:
         return kUsdtContractAddress;
     case beam::wallet::AtomicSwapCoin::WBTC:
         return kWBTCContractAddress;

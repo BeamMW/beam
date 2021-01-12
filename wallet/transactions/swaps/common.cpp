@@ -42,8 +42,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Ethereum;
     else if (value == "dai")
         return AtomicSwapCoin::Dai;
-    else if (value == "tether")
-        return AtomicSwapCoin::Tether;
+    else if (value == "usdt")
+        return AtomicSwapCoin::Usdt;
     else if (value == "wbtc")
         return AtomicSwapCoin::WBTC;
 
@@ -67,7 +67,7 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
         return 1'000'000'000u;
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
         return 1'000'000u;
     default:
     {
@@ -115,9 +115,9 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     {
         return "Dai";
     }
-    case AtomicSwapCoin::Tether:
+    case AtomicSwapCoin::Usdt:
     {
-        return "Tether";
+        return "Usdt";
     }
     case AtomicSwapCoin::WBTC:
     {
@@ -193,7 +193,7 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "ETH";
     case beam::wallet::AtomicSwapCoin::Dai:
         return "DAI";
-    case beam::wallet::AtomicSwapCoin::Tether:
+    case beam::wallet::AtomicSwapCoin::Usdt:
         return "USDT";
     case beam::wallet::AtomicSwapCoin::WBTC:
         return "WBTC";
