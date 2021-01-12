@@ -451,4 +451,24 @@ namespace Merkle
         for (uint32_t i = 0; i < n; i++)
             Interpret(hv, pN[i]);
     }
+
+    inline void get_ContractVarHash(HashValue& hv, const ContractID& cid, uint8_t nKeyTag, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal)
+    {
+        HashProcessor hp;
+        hp.m_p = Env::HashCreateSha256();
+
+        uint32_t nSizeKey = sizeof(cid) + 1 + nKey;
+
+        hp
+            << "beam.contract.val"
+            << nSizeKey;
+
+        hp.Write(cid);
+        hp.Write(nKeyTag);
+        hp.Write(pKey, nKey);
+        hp.Write(nVal);
+        hp.Write(pVal, nVal);
+
+        hp >> hv;
+    }
 }

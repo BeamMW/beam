@@ -1,5 +1,6 @@
 #include "../common.h"
 #include "contract.h"
+#include "../BeamHeader.h"
 
 export void Ctor(const Pipe::Create& r)
 {
@@ -106,11 +107,129 @@ export void Method_3(const Pipe::PushLocal0& r)
 	Env::SaveVar_T(ko, so);
 }
 
+struct MyParser
+{
+	const uint8_t* m_pPtr;
+	MyParser(const void* p) :m_pPtr((const uint8_t*) p) {}
+
+	const uint8_t* Read(uint32_t n)
+	{
+		auto pVal = m_pPtr;
+		m_pPtr += n;
+		return pVal;
+	}
+
+	template <typename T>
+	const T& Read_As()
+	{
+		return *reinterpret_cast<const T*>(Read(sizeof(T)));
+	}
+};
+
+void OnUserHdr(const PubKey& pk, const BlockHeader::Full& hdr, const Pipe::StateIn& si)
+{
+	Env::Halt_if(!hdr.m_Height); // for more safety
+
+	if (!si.m_Cfg.m_FakePoW)
+		Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
+
+	// TODO: save
+}
+
 export void Method_4(const Pipe::PushRemote0& r)
 {
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
-	// TODO
+	Env::Halt_if(!Utils::Cmp(r.m_User, si.m_Dispute.m_Winner));
+
+	Pipe::UserInfo ui;
+	Pipe::UserInfo::Key kui;
+	Utils::Copy(kui.m_Pk, r.m_User);
+
+	bool bNew = true;
+	if (!Env::LoadVar_T(kui, ui))
+		Utils::ZeroObject(ui);
+	else
+	{
+		bNew = (ui.m_Dispute.m_iIdx != si.m_Dispute.m_iIdx);
+		if (bNew)
+			Utils::ZeroObject(ui.m_Dispute);
+	}
+
+	if (bNew)
+	{
+		ui.m_Dispute.m_iIdx = si.m_Dispute.m_iIdx;
+		Env::FundsLock(0, si.m_Cfg.m_StakeForRemote);
+	}
+	Env::AddSig(r.m_User);
+
+	bool bHasMsgs = !!(Pipe::PushRemote0::Flags::Msgs & r.m_Flags);
+	Env::Halt_if(bHasMsgs != bNew);
+
+	MyParser p(&r + 1);
+
+	const HashValue* pMsgs = nullptr;
+	uint32_t nMsgs = 0;
+
+	kui.m_Type = Pipe::KeyType::UserMsgs;
+
+	if (bNew)
+	{
+		nMsgs = p.Read_As<uint32_t>();
+		Env::Halt_if(!nMsgs);
+
+		uint32_t nSize = sizeof(HashValue) * nMsgs;
+		pMsgs = (const HashValue*) p.Read(nSize);
+
+		Env::SaveVar(&kui, sizeof(kui), pMsgs, nSize);
+	}
+
+	bool bHdr0 = !!(Pipe::PushRemote0::Flags::Hdr0 & r.m_Flags);
+	bool bShouldHaveHdr0 = si.m_Dispute.m_Stake && !ui.m_Dispute.m_hMin;
+	Env::Halt_if(bHdr0 != bShouldHaveHdr0);
+
+	if (bHdr0)
+	{
+		const auto& hdr = p.Read_As<BlockHeader::Full>();
+		OnUserHdr(r.m_User, hdr, si);
+
+		ui.m_Dispute.m_hMin = hdr.m_Height;
+		ui.m_Dispute.m_hMax = hdr.m_Height;
+		BeamDifficulty::Unpack(ui.m_Dispute.m_Work, hdr.m_PoW.m_Difficulty);
+
+		if (!bNew)
+		{
+			// load messages
+			nMsgs = Env::LoadVar(&kui, sizeof(kui), nullptr, 0);
+
+			pMsgs = (const HashValue*) Env::StackAlloc(nMsgs);
+			nMsgs /= sizeof(HashValue);
+
+			Env::LoadVar(&kui, sizeof(kui), (void*) pMsgs, nMsgs);
+		}
+
+		HashValue hv;
+		Utils::ZeroObject(hv);
+
+		for (uint32_t i = 0; i < nMsgs; i++)
+			UpdateState(hv, pMsgs[i]);
+
+		Pipe::OutCheckpoint::Key cpk;
+		cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
+
+		Merkle::get_ContractVarHash(hv, si.m_cidRemote, KeyTag::Internal, &cpk, sizeof(cpk), &hv, sizeof(hv));
+
+		auto n = p.Read_As<uint32_t>();
+		while (n--)
+			Merkle::Interpret(hv, p.Read_As<Merkle::Node>());
+
+		Env::Halt_if(Utils::Cmp(hv, hdr.m_Definition));
+	}
+
+
+
+	kui.m_Type = Pipe::KeyType::UserInfo;
+	Env::SaveVar_T(kui, ui);
 }

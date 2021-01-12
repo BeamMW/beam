@@ -1,4 +1,5 @@
 #pragma once
+#include "../BeamDifficulty.h"
 
 namespace Pipe
 {
@@ -54,6 +55,8 @@ namespace Pipe
             static const uint8_t HdrsDown = 8; // has new headers below hdr0
         };
 
+        uint8_t m_Flags;
+
         // followed by message variable data
     };
 
@@ -63,6 +66,7 @@ namespace Pipe
         static const uint8_t OutMsg = 1;
         static const uint8_t OutCheckpoint = 2;
         static const uint8_t UserInfo = 3;
+        static const uint8_t UserMsgs = 4;
     };
 
 
@@ -119,6 +123,35 @@ namespace Pipe
         };
 
         Cfg::In m_Cfg;
+        ContractID m_cidRemote;
+
+        struct Dispute
+        {
+            uint32_t m_iIdx;
+            Height m_Height;
+            Amount m_Stake;
+            PubKey m_Winner;
+        } m_Dispute;
+    };
+
+    struct UserInfo
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::UserInfo;
+            PubKey m_Pk;
+        };
+
+        Amount m_Balance;
+
+        struct Dispute
+        {
+            uint32_t m_iIdx;
+            Height m_hMin;
+            Height m_hMax;
+            BeamDifficulty::Raw m_Work;
+        } m_Dispute;
+
     };
 
 #pragma pack (pop)
