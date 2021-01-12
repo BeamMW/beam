@@ -67,6 +67,7 @@ namespace Pipe
         static const uint8_t OutCheckpoint = 2;
         static const uint8_t UserInfo = 3;
         static const uint8_t UserMsgs = 4;
+        static const uint8_t UserHdr = 5;
     };
 
 
@@ -151,6 +152,20 @@ namespace Pipe
             Height m_hMax;
             BeamDifficulty::Raw m_Work;
         } m_Dispute;
+
+    };
+
+    struct UserHdr
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::UserHdr;
+            PubKey m_Pk;
+            Height m_Height;
+        };
+
+        HashValue m_hv;
+        BeamDifficulty::Raw m_ChainWork;
 
     };
 
