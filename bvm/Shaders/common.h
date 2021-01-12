@@ -240,6 +240,11 @@ namespace Utils {
         SetObject(x, 0);
     }
 
+    template <typename T>
+    inline uint8_t IsZero(const T& x) {
+        return Env::Memis0(&x, sizeof(x));
+    }
+
     template <typename TDst, typename TSrc>
     inline void Copy(TDst& dst, const TSrc& src)
     {
@@ -381,6 +386,13 @@ struct HashProcessor
         Env::HashWrite(m_p, &x, sizeof(x));
     }
 
+    template <uint32_t n>
+    void Write(const char(&sz)[n])
+    {
+        Write(sz, n);
+    }
+
+
     template <typename T>
     void Write(T v)
     {
@@ -438,5 +450,25 @@ namespace Merkle
     {
         for (uint32_t i = 0; i < n; i++)
             Interpret(hv, pN[i]);
+    }
+
+    inline void get_ContractVarHash(HashValue& hv, const ContractID& cid, uint8_t nKeyTag, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal)
+    {
+        HashProcessor hp;
+        hp.m_p = Env::HashCreateSha256();
+
+        uint32_t nSizeKey = sizeof(cid) + 1 + nKey;
+
+        hp
+            << "beam.contract.val"
+            << nSizeKey;
+
+        hp.Write(cid);
+        hp.Write(nKeyTag);
+        hp.Write(pKey, nKey);
+        hp.Write(nVal);
+        hp.Write(pVal, nVal);
+
+        hp >> hv;
     }
 }
