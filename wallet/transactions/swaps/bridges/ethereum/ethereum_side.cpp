@@ -175,11 +175,6 @@ bool EthereumSide::ConfirmLockTx()
                     m_tx.UpdateAsync();
                     return;
                 }
-
-                if (!txInfo["blockNumber"].is_null())
-                {
-                    m_SwapLockTxBlockNumber = std::stoull(txInfo["blockNumber"].get<std::string>(), nullptr, 16);
-                }
             }
             catch (const std::exception& ex)
             {
@@ -188,8 +183,37 @@ bool EthereumSide::ConfirmLockTx()
                 m_tx.UpdateAsync();
                 return;
             }
-
         });
+
+        // get block number of transaction and check status of transaction
+        m_ethBridge->getTxBlockNumber(txHash, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            switch (error.m_type)
+            {
+            case ethereum::IBridge::ErrorType::None:
+                break;
+            case ethereum::IBridge::ErrorType::EthError:
+            {
+                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
+                m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidTransaction, false, SubTxIndex::LOCK_TX);
+                m_tx.UpdateAsync();
+                return;
+            }
+            default:
+            {
+                m_tx.UpdateOnNextTip();
+                return;
+            }
+            }
+
+            m_SwapLockTxBlockNumber = txBlockNumber;
+        });
+
         return false;
     }
 
@@ -277,9 +301,43 @@ bool EthereumSide::SendLockTx()
     SwapTxState swapTxState = SwapTxState::Initial;
     bool stateExist = m_tx.GetParameter(TxParameterID::State, swapTxState, SubTxIndex::LOCK_TX);
 
-    std::string txID;
-    if (swapTxState == SwapTxState::Constructed && m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+    if (swapTxState == SwapTxState::Constructed)
         return true;
+
+    std::string txID;
+    if (m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+    {
+        // check status of transaction
+        m_ethBridge->getTxBlockNumber(txID, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            switch (error.m_type)
+            {
+            case ethereum::IBridge::ErrorType::None:
+                break;
+            case ethereum::IBridge::ErrorType::EthError:
+            {
+                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
+                m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidTransaction, false, SubTxIndex::LOCK_TX);
+                m_tx.UpdateAsync();
+                return;
+            }
+            default:
+            {
+                m_tx.UpdateOnNextTip();
+                return;
+            }
+            }
+
+            m_tx.SetState(SwapTxState::Constructed, SubTxIndex::LOCK_TX);
+            m_tx.UpdateAsync();
+        });
+        return false;
+    }
 
     if (IsERC20Token())
     {
@@ -356,7 +414,6 @@ bool EthereumSide::SendLockTx()
                 m_tx.UpdateAsync();
             }
         });
-        m_tx.SetState(SwapTxState::Constructed, SubTxIndex::LOCK_TX);
     }
     return false;
 }
