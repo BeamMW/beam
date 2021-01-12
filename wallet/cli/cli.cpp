@@ -1619,10 +1619,11 @@ namespace
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
         bool isValid = false;
+        auto walletDB = OpenDataBase(vm);
 
         try
         {
-            isValid = storage::VerifyPaymentProof(buf);
+            isValid = storage::VerifyPaymentProof(buf, *walletDB);
         }
         catch (const std::runtime_error & e)
         {

@@ -3861,7 +3861,7 @@ namespace beam::wallet
         }
     }
 
-    boost::optional<WalletAsset> WalletDB::findAsset(Asset::ID assetId)
+    boost::optional<WalletAsset> WalletDB::findAsset(Asset::ID assetId) const
     {
         const char* find = "SELECT * FROM " ASSETS_NAME " WHERE ID=?1;";
         sqlite::Statement stmFind(this, find);
@@ -3888,7 +3888,7 @@ namespace beam::wallet
         return asset;
     }
 
-    boost::optional<WalletAsset> WalletDB::findAsset(const PeerID& ownerID)
+    boost::optional<WalletAsset> WalletDB::findAsset(const PeerID& ownerID) const
     {
         const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE Owner=?1;";
         sqlite::Statement stmFind(this, find);
@@ -5494,6 +5494,29 @@ namespace beam::wallet
             return false;
         }
 
+        std::pair<std::string, std::string> getAssetNames(beam::Asset::ID assetID, const IWalletDB& wdb)
+        {
+            std::string uname, nthname;
+
+            if (assetID)
+            {
+                uname = kAmountASSET;
+                nthname = kAmountAGROTH;
+
+                if (auto asset = wdb.findAsset(assetID))
+                {
+                    WalletAssetMeta meta(*asset);
+                    if (meta.isStd())
+                    {
+                        uname = meta.GetUnitName();
+                        nthname = meta.GetNthUnitName();
+                    }
+                }
+            }
+
+            return std::make_pair(uname, nthname);
+        }
+
         PaymentInfo::PaymentInfo()
         {
             Reset();
@@ -5510,13 +5533,15 @@ namespace beam::wallet
             return pc.IsValid(m_Receiver.m_Pk);
         }
 
-        std::string PaymentInfo::to_string() const
+        std::string PaymentInfo::to_string(const IWalletDB& wdb) const
         {
+            const auto names = getAssetNames(m_AssetID, wdb);
+
             std::ostringstream s;
             s
                 << "Sender:   " << std::to_string(m_Sender) << std::endl
                 << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, m_AssetID ? kAmountASSET : "", m_AssetID ? kAmountAGROTH : "") << std::endl
+                << "Amount:   " << PrintableAmount(m_Amount, false, names.first, names.second) << std::endl
                 << "KernelID: " << std::to_string(m_KernelID) << std::endl;
 
             return s.str();
@@ -5558,13 +5583,15 @@ namespace beam::wallet
             return true;
         }
 
-        std::string ShieldedPaymentInfo::to_string() const
+        std::string ShieldedPaymentInfo::to_string(const IWalletDB& wdb) const
         {
+            const auto names = getAssetNames(m_AssetID, wdb);
+
             std::ostringstream s;
             s
                 << "Sender:   " << std::to_string(m_Sender) << std::endl
                 << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, m_AssetID ? kAmountASSET : "", m_AssetID ? kAmountAGROTH : "") << std::endl
+                << "Amount:   " << PrintableAmount(m_Amount, false, names.first, names.second) << std::endl
                 << "KernelID: " << std::to_string(m_KernelID) << std::endl;
 
             return s.str();
@@ -5701,7 +5728,7 @@ namespace beam::wallet
 
                 if (bSuccess)
                 {
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(walletDB);
                     LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
 
                     Serializer ser;
@@ -5759,7 +5786,7 @@ namespace beam::wallet
                     }
                     pi.m_HideAssetAlways = ((pi.m_AssetID == Asset::s_InvalidID) && nestedKernel.m_Txo.m_pAsset);
                     pi.RestoreKernelID();
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(walletDB);
 
                     Serializer ser;
                     ser& pi;
@@ -5776,7 +5803,7 @@ namespace beam::wallet
             }
 
             template<typename T>
-            bool VerifyPaymentProofImpl(const ByteBuffer& data)
+            bool VerifyPaymentProofImpl(const ByteBuffer& data, const IWalletDB& wdb)
             {
                 try
                 {
@@ -5787,7 +5814,7 @@ namespace beam::wallet
                         return false;
                     }
 
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
+                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(wdb) << "Verified.";
 
                     return true;
                 }
@@ -5820,10 +5847,10 @@ namespace beam::wallet
             return ByteBuffer();
         }
 
-        bool VerifyPaymentProof(const ByteBuffer& data)
+        bool VerifyPaymentProof(const ByteBuffer& data, const IWalletDB& wdb)
         {
-            return VerifyPaymentProofImpl<PaymentInfo>(data)
-                || VerifyPaymentProofImpl<ShieldedPaymentInfo>(data);
+            return VerifyPaymentProofImpl<PaymentInfo>(data, wdb)
+                || VerifyPaymentProofImpl<ShieldedPaymentInfo>(data, wdb);
         }
 
         std::string getIdentity(const TxParameters& txParams, bool isSender)
