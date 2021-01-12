@@ -166,6 +166,7 @@ namespace beam::wallet
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
         m_IsTreasuryHandled = storage::isTreasuryHandled(*m_WalletDB);
+        m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
     }
 
     Wallet::~Wallet()
@@ -277,7 +278,7 @@ namespace beam::wallet
             m_WalletDB->saveShieldedCoin(sc);
         }
 
-        storage::setVar(*m_WalletDB, s_szNextEvt, 0);
+        storage::setVar(*m_WalletDB, s_szNextEvt, uintBigFor<Height>::Type(0UL));
         m_WalletDB->deleteEventsFrom(Rules::HeightGenesis - 1);
         ResetCommitmentsCache();
         SetTreasuryHandled(false);
@@ -1217,6 +1218,9 @@ namespace beam::wallet
 
                 ++startHeight;
             }
+            assert(GetEventsHeightNext() == startHeight);
+
+            m_WalletDB->set_ShieldedOuts(m_Extra.m_ShieldedOutputs);
         }
         catch (const std::exception&)
         {
@@ -1311,7 +1315,7 @@ namespace beam::wallet
 
     void Wallet::RequestBodies()
     {
-        if (m_OwnedNodesOnline)
+        if (!IsMobileNodeEnabled())
             return;
 
         if (!storage::isTreasuryHandled(*m_WalletDB))
@@ -1320,17 +1324,25 @@ namespace beam::wallet
         }
         else
         {
-            Height currentHeight = m_WalletDB->getCurrentHeight();
-            RequestBodies(currentHeight, currentHeight + 1);
+            Height nextEvent = GetEventsHeightNext();
+            if (nextEvent) 
+            {
+                RequestBodies(nextEvent - 1, nextEvent);
+            }
+            else
+            {
+                RequestBodies(nextEvent, nextEvent + 1);
+            }
         }
     }
 
     void Wallet::RequestTreasury()
     {
-        if (m_OwnedNodesOnline)
+        if (!IsMobileNodeEnabled())
             return;
 
         m_Extra.m_ShieldedOutputs = 0;
+        m_WalletDB->set_ShieldedOuts(0);
 
         MyRequestBody::Ptr pReq(new MyRequestBody);
 
@@ -1344,7 +1356,7 @@ namespace beam::wallet
 
     void Wallet::RequestBodies(Height currentHeight, Height startHeight)
     {
-        if (m_OwnedNodesOnline)
+        if (!IsMobileNodeEnabled())
             return;
 
         if (!m_PendingBodyPack.empty() || !m_PendingBody.empty())
@@ -1613,6 +1625,7 @@ namespace beam::wallet
         sTip.get_ID(id);
         LOG_INFO() << "Rolled back to " << id;
 
+        m_WalletDB->setSystemStateID(id);
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
         m_WalletDB->rollbackConfirmedShieldedUtxo(sTip.m_Height);
@@ -1749,6 +1762,8 @@ namespace beam::wallet
     {
         LOG_INFO() << "Tip has not been changed";
 
+        RequestBodies();
+
         CheckSyncDone();
 
         ProcessStoredMessages();
@@ -1826,8 +1841,8 @@ namespace beam::wallet
                     pTx->Update();
             }
         }
-        LOG_DEBUG() << TRACE(m_OwnedNodesOnline) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
-        assert(m_OwnedNodesOnline || m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
+        LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
+        assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
     }
 
     void Wallet::NotifySyncProgress()
@@ -2081,7 +2096,9 @@ namespace beam::wallet
 
         m_WalletDB->visitCoins([&](const Coin& c)
         {
-            if (c.m_status != Coin::Status::Available && c.m_status != Coin::Status::Outgoing)
+            if (c.m_status != Coin::Status::Available &&
+                c.m_status != Coin::Status::Outgoing && 
+                c.m_status != Coin::Status::Maturing)
                 return true;
 
             ECC::Point comm;
@@ -2105,7 +2122,7 @@ namespace beam::wallet
 
     void Wallet::CacheCommitment(const ECC::Point& comm, Height maturity, bool add)
     {
-        if (m_OwnedNodesOnline)
+        if (!IsMobileNodeEnabled())
             return;
 
         if (add)
@@ -2122,5 +2139,10 @@ namespace beam::wallet
     {
         m_Commitments.clear();
         m_IsCommitmentsCached = false;
+    }
+
+    bool Wallet::IsMobileNodeEnabled() const
+    {
+        return m_OwnedNodesOnline == 0 && m_IsMobileNodeEnabled;
     }
 }
