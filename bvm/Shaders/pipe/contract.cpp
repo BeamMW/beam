@@ -69,9 +69,13 @@ export void Method_3(const Pipe::PushLocal0& r)
 	Height h = Env::get_Height();
 
 	uint32_t nSize = r.m_MsgSize + sizeof(Pipe::MsgHdr);
-	auto* pMsg = (Pipe::MsgHdr*)Env::StackAlloc(nSize);
+	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
 
-	Env::get_CallerCid(1, pMsg->m_Sender);
+	if (Env::get_CallDepth() > 1)
+		Env::get_CallerCid(1, pMsg->m_Sender);
+	else
+		Utils::ZeroObject(pMsg->m_Sender);
+
 	Utils::Copy(pMsg->m_Receiver, r.m_Receiver);
 	pMsg->m_Height = h;
 	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
@@ -247,7 +251,7 @@ export void Method_4(const Pipe::PushRemote0& r)
 		Pipe::UserInfo ui2;
 		Env::LoadVar_T(kui2, ui2);
 
-		// TODO:
+		Env::Halt_if(ui.m_Dispute.m_Work <= ui2.m_Dispute.m_Work);
 	}
 
 	if (bNew)
@@ -266,4 +270,85 @@ export void Method_4(const Pipe::PushRemote0& r)
 	Utils::Copy(si.m_Dispute.m_Winner, r.m_User);
 
 	Env::SaveVar_T(ki, si);
+}
+
+export void Method_5(const Pipe::FinalyzeRemote& r)
+{
+	Pipe::StateIn si;
+	Pipe::StateIn::Key ki;
+	Env::LoadVar_T(ki, si);
+
+	Env::Halt_if(!si.m_Dispute.m_Stake || (si.m_Dispute.m_Height - Env::get_Height() < si.m_Cfg.m_hDisputePeriod));
+
+	Pipe::UserInfo::Key kui;
+	kui.m_Type = Pipe::KeyType::UserInfo;
+	Utils::Copy(kui.m_Pk, si.m_Dispute.m_Winner);
+
+	uint32_t nSize = Env::LoadVar(&kui, sizeof(kui), nullptr, 0);
+	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(sizeof(Pipe::InpCheckpointHdr) + nSize);
+	Utils::Copy(pInpCp->m_User, si.m_Dispute.m_Winner);
+
+	Env::LoadVar(&kui, sizeof(kui), pInpCp + 1, nSize);
+	Env::DelVar_T(kui);
+
+	Pipe::InpCheckpointHdr::Key cpk;
+	cpk.m_iCheckpoint = si.m_Dispute.m_iIdx;
+	Env::SaveVar(&cpk, sizeof(cpk), pInpCp, sizeof(Pipe::InpCheckpointHdr) + nSize);
+
+	Env::FundsUnlock(0, si.m_Dispute.m_Stake);
+	Env::AddSig(si.m_Dispute.m_Winner);
+
+	Utils::ZeroObject(si.m_Dispute);
+	si.m_Dispute.m_iIdx = cpk.m_iCheckpoint + 1;
+	Env::SaveVar_T(ki, si);
+}
+
+export void Method_6(const Pipe::VerifyRemote0& r)
+{
+	uint32_t nSize = r.m_MsgSize + sizeof(Pipe::MsgHdr);
+	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
+
+	if (r.m_Public)
+		Utils::ZeroObject(pMsg->m_Receiver);
+	else
+		Env::get_CallerCid(1, pMsg->m_Receiver);
+
+	Utils::Copy(pMsg->m_Sender, r.m_Sender);
+	pMsg->m_Height = r.m_Height;
+
+	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
+
+	HashValue hv;
+	get_MsgHash(hv, pMsg, nSize);
+
+	Env::StackFree(nSize);
+
+	nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1);
+	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
+
+	Pipe::InpCheckpointHdr::Key cpk;
+	cpk.m_iCheckpoint = r.m_iCheckpoint;
+
+	auto nSizeActual = Env::LoadVar(&cpk, sizeof(cpk), pInpCp, nSize);
+	Env::Halt_if(nSizeActual < nSize);
+
+	auto* pHash = (const HashValue*) (pInpCp + 1);
+	Env::Halt_if(Utils::Cmp(hv, pHash[r.m_iMsg]));
+
+	// message verified
+	Pipe::StateIn si;
+	Pipe::StateIn::Key ki;
+	Env::LoadVar_T(ki, si);
+
+	Env::FundsLock(0, si.m_Cfg.m_ComissionPerMsg);
+
+	Pipe::UserInfo ui;
+	Pipe::UserInfo::Key kui;
+	Utils::Copy(kui.m_Pk, pInpCp->m_User);
+
+	if (!Env::LoadVar_T(kui, ui))
+		Utils::ZeroObject(ui);
+
+	Strict::Add(ui.m_Balance, si.m_Cfg.m_ComissionPerMsg);
+	Env::SaveVar_T(kui, ui);
 }
