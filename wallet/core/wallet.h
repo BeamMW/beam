@@ -434,7 +434,7 @@ namespace beam::wallet
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
 
         // data for mobile node support
-        bool m_IsMobileNodeEnabled = true; // simple way to enable/disable mobile node in code
+        bool m_IsMobileNodeEnabled = false; // simple way to enable/disable mobile node in code
         NodeProcessor::Extra m_Extra = { 0 };
         bool m_IsTreasuryHandled = false;
         std::map<ECC::Point, Height> m_Commitments;
