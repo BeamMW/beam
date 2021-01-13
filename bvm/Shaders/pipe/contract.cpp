@@ -15,7 +15,7 @@ export void Ctor(const Pipe::Create& r)
 	Utils::ZeroObject(si);
 	Utils::Copy(si.m_Cfg, r.m_Cfg.m_In);
 
-	Pipe::StateOut::Key ki;
+	Pipe::StateIn::Key ki;
 	Env::SaveVar_T(ki, si);
 }
 
@@ -84,30 +84,40 @@ export void Method_3(const Pipe::PushLocal0& r)
 	Pipe::StateOut::Key ko;
 	Env::LoadVar_T(ko, so);
 
-	Pipe::MsgHdr::Key km;
-	km.m_iCheckpoint_BE = Utils::FromBE(so.m_iCheckpoint);
-	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
-	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
-
-	UpdateState(so.m_Checkpoint.m_hv, pMsg, nSize);
-	so.m_Checkpoint.m_iMsg++;
-
-	if (1 == so.m_Checkpoint.m_iMsg)
-		so.m_Checkpoint.m_h0 = h;
+	bool bNewCheckpoint = false;
+	if (!so.m_Checkpoint.m_iMsg)
+		bNewCheckpoint = true; // the very 1st message
 	else
 	{
-		if ((so.m_Checkpoint.m_iMsg >= so.m_Cfg.m_CheckpointMaxMsgs) || (h - so.m_Checkpoint.m_h0 >= so.m_Cfg.m_CheckpointMaxDH))
+		if ((so.m_Checkpoint.m_iMsg == so.m_Cfg.m_CheckpointMaxMsgs) || (h - so.m_Checkpoint.m_h0 >= so.m_Cfg.m_CheckpointMaxDH))
 		{
-			Pipe::OutCheckpoint::Key cpk;
-			cpk.m_iCheckpoint_BE = Utils::FromBE(so.m_iCheckpoint);
-
-			Env::SaveVar_T(cpk, so.m_Checkpoint.m_hv);
-
-			Utils::ZeroObject(so.m_Checkpoint);
-			so.m_iCheckpoint++;
+			bNewCheckpoint = true;
+			so.m_Checkpoint.m_iIdx++;
+			so.m_Checkpoint.m_iMsg = 0;
 		}
 	}
 
+	Pipe::OutCheckpoint::Key cpk;
+	cpk.m_iCheckpoint_BE = Utils::FromBE(so.m_Checkpoint.m_iIdx);
+
+	HashValue hv;
+	if (bNewCheckpoint)
+	{
+		so.m_Checkpoint.m_h0 = h;
+		Utils::ZeroObject(hv);
+	}
+	else
+		Env::LoadVar_T(cpk, hv);
+
+	Pipe::MsgHdr::Key km;
+	km.m_iCheckpoint_BE = cpk.m_iCheckpoint_BE;
+	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
+	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
+
+	UpdateState(hv, pMsg, nSize);
+	Env::SaveVar_T(cpk, hv);
+
+	so.m_Checkpoint.m_iMsg++;
 	Env::SaveVar_T(ko, so);
 }
 

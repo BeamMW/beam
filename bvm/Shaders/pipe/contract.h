@@ -138,12 +138,11 @@ namespace Pipe
         };
 
         Cfg::Out m_Cfg;
-        uint32_t m_iCheckpoint;
 
         struct Checkpoint {
-            Height m_h0;
+            uint32_t m_iIdx;
             uint32_t m_iMsg;
-            HashValue m_hv;
+            Height m_h0;
         } m_Checkpoint;
     };
 
