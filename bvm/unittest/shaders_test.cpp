@@ -74,6 +74,7 @@ namespace Shaders {
 #include "../Shaders/roulette/contract.h"
 #include "../Shaders/sidechain/contract.h"
 #include "../Shaders/perpetual/contract.h"
+#include "../Shaders/pipe/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -186,6 +187,19 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_TotalBeams);
 	}
 
+	template <bool bToShader> void Convert(Pipe::Create& x) {
+		ConvertOrd<bToShader>(x.m_Cfg.m_In.m_ComissionPerMsg);
+		ConvertOrd<bToShader>(x.m_Cfg.m_In.m_hDisputePeriod);
+		ConvertOrd<bToShader>(x.m_Cfg.m_In.m_StakeForRemote);
+		ConvertOrd<bToShader>(x.m_Cfg.m_Out.m_CheckpointMaxDH);
+		ConvertOrd<bToShader>(x.m_Cfg.m_Out.m_CheckpointMaxMsgs);
+	}
+	template <bool bToShader> void Convert(Pipe::SetRemote& x) {
+	}
+	template <bool bToShader> void Convert(Pipe::PushLocal0& x) {
+		ConvertOrd<bToShader>(x.m_MsgSize);
+	}
+
 	namespace Env {
 
 
@@ -246,6 +260,9 @@ namespace Shaders {
 	}
 	namespace Sidechain {
 #include "../Shaders/sidechain/contract.cpp"
+	}
+	namespace Pipe {
+#include "../Shaders/pipe/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -733,6 +750,7 @@ namespace bvm2 {
 			ByteBuffer m_Faucet;
 			ByteBuffer m_Roulette;
 			ByteBuffer m_Perpetual;
+			ByteBuffer m_Pipe;
 
 		} m_Code;
 
@@ -744,6 +762,7 @@ namespace bvm2 {
 		ContractID m_cidDummy;
 		ContractID m_cidSidechain;
 		ContractID m_cidPerpetual;
+		ContractID m_cidPipe;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -885,6 +904,17 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidPipe)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Pipe::Ctor(CastArg<Shaders::Pipe::Create>(pArgs)); return;
+				//case 2: Shaders::Pipe::Method_2(CastArg<Shaders::Pipe::SetRemote>(pArgs)); return;
+				//case 3: Shaders::Pipe::Method_3(CastArg<Shaders::Pipe::PushLocal0>(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -896,6 +926,7 @@ namespace bvm2 {
 		void TestRoulette();
 		void TestSidechain();
 		void TestPerpetual();
+		void TestPipe();
 
 		void TestAll();
 	};
@@ -922,6 +953,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
 		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
 		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
+		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -931,6 +963,7 @@ namespace bvm2 {
 		TestOracle();
 		TestStableCoin();
 		TestPerpetual();
+		TestPipe();
 	}
 
 	void MyProcessor::TestVault()
@@ -1600,6 +1633,35 @@ namespace bvm2 {
 
 			arg.m_TotalBeams = 1150;
 			verify_test(RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg));
+		}
+	}
+
+	void MyProcessor::TestPipe()
+	{
+		{
+			Shaders::Pipe::Create arg;
+			ZeroObject(arg);
+			arg.m_Cfg.m_Out.m_CheckpointMaxDH = 5;
+			arg.m_Cfg.m_Out.m_CheckpointMaxMsgs = 3;
+
+			verify_test(ContractCreate_T(m_cidPipe, m_Code.m_Pipe, arg));
+		}
+
+		{
+			Shaders::Pipe::SetRemote arg;
+			ZeroObject(arg);
+			verify_test(!RunGuarded_T(m_cidPipe, arg.s_iMethod, arg)); // less than 15% collateral
+
+			arg.m_cid.Inc();
+			verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
+		}
+
+		{
+			Shaders::Pipe::PushLocal0 arg;
+			ZeroObject(arg);
+
+			for (uint32_t i = 0; i < 10; i++)
+				verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg)); // less than 15% collateral
 		}
 	}
 
