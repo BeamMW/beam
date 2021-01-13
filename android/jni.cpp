@@ -1065,6 +1065,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(rescan)(JNIEnv *env, jobject t
     walletModel->getAsync()->rescan();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(enableBodyRequests)(JNIEnv *env, jobject thiz, jboolean enable)
+{
+    walletModel->getAsync()->enableBodyRequests(enable);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportTxHistoryToCsv)(JNIEnv *env, jobject thiz)
 {
     walletModel->getAsync()->exportTxHistoryToCsv();
