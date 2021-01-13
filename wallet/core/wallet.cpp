@@ -150,10 +150,6 @@ namespace beam::wallet
         
         return parameters;
     }
-    namespace
-    {
-        constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
-    }
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
@@ -278,11 +274,15 @@ namespace beam::wallet
             m_WalletDB->saveShieldedCoin(sc);
         }
 
-        storage::setVar(*m_WalletDB, s_szNextEvt, uintBigFor<Height>::Type(0UL));
+        storage::setNextEventHeight(*m_WalletDB, 0);
         m_WalletDB->deleteEventsFrom(Rules::HeightGenesis - 1);
+        if (!m_OwnedNodesOnline)
+        {
+            storage::setNeedToRequestBodies(*m_WalletDB, true); // temporarilly enable bodies requests
+        }
         ResetCommitmentsCache();
         SetTreasuryHandled(false);
-        RequestTreasury();
+        RequestBodies();
         RequestEvents();
     }
 
@@ -1087,7 +1087,7 @@ namespace beam::wallet
     {
         // TODO: save full response?
         m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
-        if (m_OwnedNodesOnline)
+        if (!IsMobileNodeEnabled())
         {
             m_Extra.m_ShieldedOutputs = r.m_Res.m_ShieldedOuts;
         }
@@ -1491,20 +1491,12 @@ namespace beam::wallet
 
     void Wallet::SetEventsHeight(Height h)
     {
-        uintBigFor<Height>::Type var;
-        var = h + 1; // we're actually saving the next
-        storage::setVar(*m_WalletDB, s_szNextEvt, var);
+        storage::setNextEventHeight(*m_WalletDB, h + 1); // we're actually saving the next
     }
 
     Height Wallet::GetEventsHeightNext()
     {
-        uintBigFor<Height>::Type var;
-        if (!storage::getVar(*m_WalletDB, s_szNextEvt, var))
-            return 0;
-
-        Height h;
-        var.Export(h);
-        return h;
+        return storage::getNextEventHeight(*m_WalletDB);
     }
 
     void Wallet::ProcessEventUtxo(const proto::Event::Utxo& evt, Height h)
@@ -1843,6 +1835,7 @@ namespace beam::wallet
         }
         LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
         assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
+        storage::setNeedToRequestBodies(*m_WalletDB, false); // disable bodies requests after importing recovery or rescan
     }
 
     void Wallet::NotifySyncProgress()
@@ -2077,6 +2070,11 @@ namespace beam::wallet
         return m_OwnedNodesOnline > 0;
     }
 
+    void Wallet::EnableBodyRequests(bool value)
+    {
+        m_IsBodyRequestsEnabled = value;
+    }
+
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
@@ -2143,6 +2141,6 @@ namespace beam::wallet
 
     bool Wallet::IsMobileNodeEnabled() const
     {
-        return m_OwnedNodesOnline == 0 && m_IsMobileNodeEnabled;
+        return m_OwnedNodesOnline == 0 && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
     }
 }

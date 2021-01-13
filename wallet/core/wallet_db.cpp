@@ -960,6 +960,8 @@ namespace beam::wallet
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
         constexpr char kIsTreasuryHandled[] = "IsTreasuryHandled";
+        constexpr char kNeedToRequestBodies[] = "NeedToRequestBodies";
+        constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
         const int DbVersion   = 29;
@@ -2501,7 +2503,10 @@ namespace beam::wallet
         {
             storage::setTreasuryHandled(*this, true);
             set_ShieldedOuts(p.m_ShieldedOuts);
-            storage::updateCurrentStateWithTip(*this);
+            Block::SystemState::Full sTip;
+            get_History().get_Tip(sTip);
+            storage::setNextEventHeight(*this, sTip.m_Height + 1); // next
+            storage::setNeedToRequestBodies(*this, true); // temporarilly enable body requests, to solve lag in blocks
             return true;
         }
         return false;
@@ -5498,6 +5503,34 @@ namespace beam::wallet
         void setTreasuryHandled(IWalletDB& db,  bool value)
         {
             storage::setVar(db, kIsTreasuryHandled, value);
+        }
+
+        bool needToRequestBodies(const IWalletDB& db)
+        {
+            bool res = false;
+            storage::getVar(db, kNeedToRequestBodies, res);
+            return res;
+        }
+
+        void setNeedToRequestBodies(IWalletDB& db, bool value)
+        {
+            storage::setVar(db, kNeedToRequestBodies, value);
+        }
+
+        Height getNextEventHeight(const IWalletDB& db)
+        {
+            uintBigFor<Height>::Type var;
+            if (!storage::getVar(db, s_szNextEvt, var))
+                return 0;
+
+            Height h;
+            var.Export(h);
+            return h;
+        }
+
+        void setNextEventHeight(IWalletDB& db, Height value)
+        {
+            storage::setVar(db, s_szNextEvt, uintBigFor<Height>::Type(value));
         }
 
         void updateCurrentStateWithTip(IWalletDB& db)

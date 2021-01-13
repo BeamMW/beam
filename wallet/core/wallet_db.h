@@ -931,7 +931,10 @@ namespace beam::wallet
 
         bool isTreasuryHandled(const IWalletDB&);
         void setTreasuryHandled(IWalletDB&, bool value);
-        void updateCurrentStateWithTip(IWalletDB& db);
+        bool needToRequestBodies(const IWalletDB& db);
+        void setNeedToRequestBodies(IWalletDB& db, bool value);
+        Height getNextEventHeight(const IWalletDB& db);
+        void setNextEventHeight(IWalletDB& db, Height value);
         void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
 
         // Used in statistics
