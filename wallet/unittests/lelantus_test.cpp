@@ -593,6 +593,7 @@ void TestDirectAnonymousPayment()
     sender.m_Wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
 
     receiver.m_Wallet.RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+    receiver.m_Wallet.EnableBodyRequests(true);
 
     auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), receiver.m_OwnID, 2);
     WALLET_CHECK(IsValidVoucherList(vouchers, receiver.m_SecureWalletID));
