@@ -197,6 +197,7 @@ bool EthereumSide::ConfirmLockTx()
             {
             case ethereum::IBridge::ErrorType::None:
                 break;
+            case ethereum::IBridge::ErrorType::InvalidResultFormat:
             case ethereum::IBridge::ErrorType::EthError:
             {
                 LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
@@ -319,6 +320,7 @@ bool EthereumSide::SendLockTx()
             {
             case ethereum::IBridge::ErrorType::None:
                 break;
+            case ethereum::IBridge::ErrorType::InvalidResultFormat:
             case ethereum::IBridge::ErrorType::EthError:
             {
                 LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
