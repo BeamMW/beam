@@ -845,6 +845,24 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& 
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBodyPack& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBodyPack& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBody& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBody& req)
+{
+}
+
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
 	Send(req.m_Msg);
@@ -940,6 +958,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(EventsSerif&& msg)
 void FlyClient::NetworkStd::Connection::OnMsg(PeerInfo&& msg)
 {
     m_This.m_Client.OnNewPeer(msg.m_ID, msg.m_LastAddr);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
+{
+    OnMsg(BodyPack{});
 }
 
 } // namespace proto

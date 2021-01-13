@@ -54,42 +54,16 @@ namespace
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
         setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
         setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
+        setStringField(env, WalletAddressClass, addr, "address", address.m_Address);
 
         return addr;
-    }
-
-    std::string getAddressFrom(TxDescription m_tx)
-    {
-        if (m_tx.m_txType == wallet::TxType::PushTransaction && !m_tx.m_sender){
-            return m_tx.getSenderIdentity();
-        }
-        return to_string(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
-    }
-
-    std::string getAddressTo(TxDescription m_tx)
-    {
-        if (m_tx.m_sender)
-        {
-            auto token = m_tx.getToken();
-            if (token.length() == 0) {
-                return to_string(m_tx.m_myId);
-            }
-            auto params = beam::wallet::ParseParameters(token);
-            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
-            {
-                auto s = std::to_string(*peerIdentity);
-                return s;
-            }
-            return token;
-        }
-        return to_string(m_tx.m_myId);
     }
 
     jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
-        auto shieldedFee = GetShieldedFee(txDescription);
+        auto shieldedFee = GetShieldedFee(txDescription) + txDescription.m_fee;
 
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
@@ -113,8 +87,10 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
         setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
 
-        setStringField(env, TxDescriptionClass, tx, "receiverAddress", getAddressTo(txDescription));
-        setStringField(env, TxDescriptionClass, tx, "senderAddress", getAddressFrom(txDescription));
+        setStringField(env, TxDescriptionClass, tx, "receiverAddress", txDescription.getAddressTo());
+        setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());
+
+        setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
 
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
@@ -178,6 +154,7 @@ namespace
             setLongField(env, UtxoClass, utxo, "id", coin.m_spentHeight);
             setStringField(env, UtxoClass, utxo, "stringId", idString);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
+            setLongField(env, UtxoClass, utxo, "txoID", coin.m_TxoID);
 
             switch (coin.m_Status)
             {
@@ -833,6 +810,11 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& wid, const boost::o
 void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) 
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
+
+        for (const auto& coin : items)
+        {
+            shieldedCoins[coin.m_TxoID] = coin;
+        }
 
     JNIEnv* env = Android_JNI_getEnv();
 

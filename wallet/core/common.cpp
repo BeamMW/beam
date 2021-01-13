@@ -90,6 +90,9 @@ namespace std
 {
     string to_string(const beam::wallet::WalletID& id)
     {
+        if (id == Zero)
+            return {};
+
         static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
         return EncodeToHex(id);
     }
@@ -879,13 +882,10 @@ namespace beam::wallet
     {
         switch(m_txType)
         {
-        case TxType::Simple: return "simple";
-        case TxType::AssetReg: return "asset register";
-        case TxType::AssetUnreg: return "asset unregister";
-        case TxType::AssetIssue: return "asset issue";
-        case TxType::AssetConsume: return "asset consume";
-        case TxType::AtomicSwap: return "atomic swap";
-        case TxType::AssetInfo: return "asset info";
+#define MACRO(type, index, s) case TxType::type: return s;
+            BEAM_TX_TYPES_MAP(MACRO)
+#undef MACRO
+
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
             return "unknown";
@@ -954,6 +954,28 @@ namespace beam::wallet
             return std::to_string(*v);
         }
         return {};
+    }
+
+    std::string TxDescription::getAddressFrom() const
+    {
+        if (m_txType == wallet::TxType::PushTransaction && !m_sender)
+        {
+            return getSenderIdentity();
+        }
+        return std::to_string(m_sender ? m_myId : m_peerId);
+    }
+
+    std::string TxDescription::getAddressTo() const
+    {
+        if (m_sender)
+        {
+            auto token = getToken();
+            if (token.empty())
+                return std::to_string(m_peerId);
+
+            return token;
+        }
+        return std::to_string(m_myId);
     }
 
     uint64_t get_RandomID()

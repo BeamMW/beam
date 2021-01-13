@@ -18,6 +18,7 @@
 #include "wallet/core/strings_resources.h"
 #include "wallet/transactions/assets/assets_kdf_utils.h"
 #include "utility/logger.h"
+#include "utility/test_helpers.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
@@ -44,7 +45,7 @@ namespace
     {
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetBeamTotals();
-        const auto available = AmountBig::get_Lo(totals.Avail);
+        const auto available = AmountBig::get_Lo(totals.Avail) + AmountBig::get_Lo(totals.AvailShielded);
         if (beamAmount + beamFee > available)
         {
             throw NotEnoughtBeams();
@@ -261,8 +262,15 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        auto walletDB = _walletData.getWalletDBPtr();
+        if (!_walletData.getWalletPtr()->IsConnectedToOwnNode() 
+           && (data.type == TxAddressType::MaxPrivacy
+            || data.type == TxAddressType::PublicOffline
+            || data.type == TxAddressType::Offline))
+        {
+            return doError(id, ApiError::NotSupported);
+        }
 
+        auto walletDB = _walletData.getWalletDBPtr();
         if (!walletDB)
         {
             return doError(id, ApiError::NotOpenedError);
@@ -907,10 +915,10 @@ namespace beam::wallet
         storage::Totals allTotals(*walletDB);
         const auto& totals = allTotals.GetBeamTotals();
 
-        response.available = AmountBig::get_Lo(totals.Avail);
-        response.receiving = AmountBig::get_Lo(totals.Incoming);
-        response.sending   = AmountBig::get_Lo(totals.Outgoing);
-        response.maturing  = AmountBig::get_Lo(totals.Maturing);
+        response.available = AmountBig::get_Lo(totals.Avail);    response.available += AmountBig::get_Lo(totals.AvailShielded);
+        response.receiving = AmountBig::get_Lo(totals.Incoming); response.receiving += AmountBig::get_Lo(totals.IncomingShielded);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing); response.sending   += AmountBig::get_Lo(totals.OutgoingShielded);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing); response.maturing  += AmountBig::get_Lo(totals.MaturingShielded);
 
         if (data.withAssets)
         {
@@ -962,7 +970,8 @@ namespace beam::wallet
     void WalletApiHandler::onMessage(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
-
+        helpers::StopWatch sw;
+        sw.start();
         TxList::Response res;
 
         {
@@ -976,62 +985,58 @@ namespace beam::wallet
             res.resultList.reserve(data.count);
             int offset = 0;
             int counter = 0;
-            walletDB->visitTx([&](TxType type, TxStatus status)
+
+            TxListFilter filter;
+            filter.m_AssetID = data.filter.assetId;
+            filter.m_Status = data.filter.status;
+            if (data.withAssets)
             {
-                if (type != TxType::Simple
-                    && type != TxType::AssetIssue
-                    && type != TxType::AssetConsume
-                    && type != TxType::AssetInfo)
+                filter.m_AssetConfirmedHeight = data.filter.height;
+            }
+            filter.m_KernelProofHeight = data.filter.height;
+            walletDB->visitTx(
+                [&](const TxDescription& tx)
+            {
+                // filter supported tx types
+                // TODO: remove this in future, this condition was added to preserve existing behavior
+                if (tx.m_txType != TxType::Simple
+                    && tx.m_txType != TxType::PushTransaction
+                    && tx.m_txType != TxType::AssetIssue
+                    && tx.m_txType != TxType::AssetConsume
+                    && tx.m_txType != TxType::AssetInfo)
                 {
-                    return false;
+                    return true;
                 }
 
-                if (data.filter.status && status != *data.filter.status)
+                if (!data.withAssets && (tx.m_txType == TxType::AssetIssue
+                    || tx.m_txType == TxType::AssetConsume
+                    || tx.m_txType == TxType::AssetInfo
+                    || tx.m_assetId != Asset::s_InvalidID))
                 {
-                    return false;
+                    return true;
                 }
 
                 ++offset;
                 if (offset <= data.skip)
                 {
-                    return false;
+                    return true;
                 }
-
-                ++counter;
-                return data.count == 0 || counter <= data.count;
-            }, 
-            [&](const auto& tx)
-            {
-                if (!data.withAssets && (tx.m_assetId != Asset::s_InvalidID || tx.m_txType != TxType::Simple))
-                {
-                    return;
-                }
-
-                if (data.filter.assetId && tx.m_assetId != *data.filter.assetId)
-                {
-                    return;
-                }
-
                 const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
-                if (data.filter.height && height != *data.filter.height)
-                {
-                    return;
-                }
-
                 Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
                 item.confirmations = 0;
-            });
 
-            std::sort(res.resultList.begin(), res.resultList.end(), [](const auto& a, const auto& b)
-            {
-                return a.tx.m_minHeight > b.tx.m_minHeight;
-            });
+                ++counter;
+                return data.count == 0 || counter < data.count;
+            }, filter);
+            assert(data.count == 0 || (int)res.resultList.size() <= data.count);
         }
-
+        
         doResponse(id, res);
+        sw.stop();
+        LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
     void WalletApiHandler::onMessage(const JsonRpcId& id, const ExportPaymentProof& data)
