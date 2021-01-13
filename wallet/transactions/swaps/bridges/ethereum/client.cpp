@@ -172,6 +172,11 @@ void Client::EstimateGasPrice()
             // convert from wei to gwei
             Amount result = gasPrice / ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
 
+            if (GetSettings().GetMinFeeRate() > result)
+            {
+                result = 0;
+            }
+
             OnEstimatedGasPrice(result);
         }
     });
