@@ -32,8 +32,7 @@ struct Settings
     uint16_t m_withdrawTxMinConfirmations = 1;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
-    // TODO roman.strilets need to investigate
-    Amount m_minFeeRate = 1u;
+    Amount m_minFeeRate = 15u;
     Amount m_maxFeeRate = 1'000'000'000u;
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
     uint64_t m_withdrawTxGasLimit = kWithdrawTxGasLimit;
