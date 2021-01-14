@@ -76,7 +76,16 @@ namespace Pipe
         uint32_t m_MsgSize;
         Height m_Height;
         uint8_t m_Public; // original receiver was set to zero
+        uint8_t m_Wipe; // wipe the message after verification. Allowed only for private messages (i.e. sent specifically to the caller contract)
         // followed by the message
+    };
+
+    struct Withdraw
+    {
+        static const uint32_t s_iMethod = 7;
+
+        PubKey m_User;
+        Amount m_Amount;
     };
 
     struct KeyType

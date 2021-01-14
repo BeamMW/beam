@@ -347,7 +347,10 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
 
 	if (r.m_Public)
+	{
+		Env::Halt_if(r.m_Wipe); // only designated messages can be wiped
 		Utils::ZeroObject(pMsg->m_Receiver);
+	}
 	else
 		Env::get_CallerCid(1, pMsg->m_Receiver);
 
@@ -361,17 +364,28 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 
 	Env::StackFree(nSize);
 
-	nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1);
-	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
-
 	Pipe::InpCheckpointHdr::Key cpk;
 	cpk.m_iCheckpoint = r.m_iCheckpoint;
+
+	if (r.m_Wipe)
+		// must read all the messages anyway
+		nSize = Env::LoadVar(&cpk, sizeof(cpk), nullptr, 0);
+	else
+		nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1); // read up to including the message
+
+	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
 
 	auto nSizeActual = Env::LoadVar(&cpk, sizeof(cpk), pInpCp, nSize);
 	Env::Halt_if(nSizeActual < nSize);
 
-	auto* pHash = (const HashValue*) (pInpCp + 1);
-	Env::Halt_if(Utils::Cmp(hv, pHash[r.m_iMsg]));
+	auto& hv2 = ((HashValue*) (pInpCp + 1))[r.m_iMsg];
+	Env::Halt_if(Utils::Cmp(hv, hv2));
+
+	if (r.m_Wipe)
+	{
+		Utils::ZeroObject(hv2);
+		Env::SaveVar(&cpk, sizeof(cpk), pInpCp, nSize);
+	}
 
 	// message verified
 	Pipe::StateIn si;
@@ -389,4 +403,24 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 
 	Strict::Add(ui.m_Balance, si.m_Cfg.m_ComissionPerMsg);
 	Env::SaveVar_T(kui, ui);
+}
+
+export void Method_7(const Pipe::Withdraw& r)
+{
+	Pipe::UserInfo ui;
+	Pipe::UserInfo::Key kui;
+	Utils::Copy(kui.m_Pk, r.m_User);
+
+	if (!Env::LoadVar_T(kui, ui))
+		Utils::ZeroObject(ui);
+
+	Strict::Sub(ui.m_Balance, r.m_Amount);
+
+	if (ui.m_Balance)
+		Env::SaveVar_T(kui, ui);
+	else
+		Env::DelVar_T(kui);
+
+	Env::FundsUnlock(0, r.m_Amount);
+	Env::AddSig(r.m_User);
 }
