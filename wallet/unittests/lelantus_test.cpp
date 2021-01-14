@@ -614,7 +614,7 @@ void TestDirectAnonymousPayment()
             WALLET_CHECK(txHistory[0].getReceiverIdentity() == std::to_string(receiver.m_SecureWalletID));
             ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
 
-            WALLET_CHECK(storage::VerifyPaymentProof(b));
+            WALLET_CHECK(storage::VerifyPaymentProof(b, *sender.m_WalletDB));
 
             auto pi2 = storage::ShieldedPaymentInfo::FromByteBuffer(b);
 

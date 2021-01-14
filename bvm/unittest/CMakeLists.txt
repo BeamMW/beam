@@ -9,3 +9,4 @@ configure_file("../Shaders/faucet/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/fa
 configure_file("../Shaders/roulette/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/roulette/contract.wasm" COPYONLY)
 configure_file("../Shaders/sidechain/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/sidechain/contract.wasm" COPYONLY)
 configure_file("../Shaders/perpetual/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/perpetual/contract.wasm" COPYONLY)
+configure_file("../Shaders/pipe/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pipe/contract.wasm" COPYONLY)

@@ -60,6 +60,24 @@ namespace Pipe
         // followed by message variable data
     };
 
+    struct FinalyzeRemote
+    {
+        static const uint32_t s_iMethod = 5;
+    };
+
+    struct VerifyRemote0
+    {
+        static const uint32_t s_iMethod = 6;
+
+        uint32_t m_iCheckpoint;
+        uint32_t m_iMsg;
+        ContractID m_Sender;
+        uint32_t m_MsgSize;
+        Height m_Height;
+        uint8_t m_Public; // original receiver was set to zero
+        // followed by the message
+    };
+
     struct KeyType
     {
         static const uint8_t Global = 0;
@@ -67,6 +85,8 @@ namespace Pipe
         static const uint8_t OutCheckpoint = 2;
         static const uint8_t UserInfo = 3;
         static const uint8_t UserMsgs = 4;
+        static const uint8_t UserHdr = 5;
+        static const uint8_t InpCheckpoint = 6;
     };
 
 
@@ -84,6 +104,19 @@ namespace Pipe
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
         Height m_Height;
     };
+
+    struct InpCheckpointHdr
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::InpCheckpoint;
+            uint32_t m_iCheckpoint;
+        };
+
+        PubKey m_User;
+        // followed by hashes
+    };
+
 
     struct OutCheckpoint
     {
@@ -105,12 +138,11 @@ namespace Pipe
         };
 
         Cfg::Out m_Cfg;
-        uint32_t m_iCheckpoint;
 
         struct Checkpoint {
-            Height m_h0;
+            uint32_t m_iIdx;
             uint32_t m_iMsg;
-            HashValue m_hv;
+            Height m_h0;
         } m_Checkpoint;
     };
 
@@ -151,6 +183,20 @@ namespace Pipe
             Height m_hMax;
             BeamDifficulty::Raw m_Work;
         } m_Dispute;
+
+    };
+
+    struct UserHdr
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::UserHdr;
+            PubKey m_Pk;
+            Height m_Height;
+        };
+
+        HashValue m_hv;
+        BeamDifficulty::Raw m_ChainWork;
 
     };
 
