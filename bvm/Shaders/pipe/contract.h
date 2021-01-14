@@ -17,6 +17,7 @@ namespace Pipe
             Amount m_ComissionPerMsg;
             Amount m_StakeForRemote;
             Height m_hDisputePeriod;
+            Height m_hContenderWaitPeriod;
             uint8_t m_FakePoW; // for tests
         } m_In;
     };
@@ -80,13 +81,14 @@ namespace Pipe
 
     struct KeyType
     {
-        static const uint8_t Global = 0;
         static const uint8_t OutMsg = 1;
         static const uint8_t OutCheckpoint = 2;
         static const uint8_t UserInfo = 3;
-        static const uint8_t UserMsgs = 4;
-        static const uint8_t UserHdr = 5;
+        static const uint8_t VariantHdr = 5;
         static const uint8_t InpCheckpoint = 6;
+        static const uint8_t Variant = 7;
+        static const uint8_t StateIn = 8;
+        static const uint8_t StateOut = 9;
     };
 
 
@@ -133,8 +135,7 @@ namespace Pipe
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::Global;
-            uint8_t m_SubType = 0;
+            uint8_t m_Type = KeyType::StateOut;
         };
 
         Cfg::Out m_Cfg;
@@ -150,8 +151,7 @@ namespace Pipe
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::Global;
-            uint8_t m_SubType = 1;
+            uint8_t m_Type = KeyType::StateIn;
         };
 
         Cfg::In m_Cfg;
@@ -162,8 +162,28 @@ namespace Pipe
             uint32_t m_iIdx;
             Height m_Height;
             Amount m_Stake;
-            PubKey m_Winner;
+            HashValue m_hvBestVariant;
+            uint32_t m_Variants;
         } m_Dispute;
+    };
+
+    struct Variant
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::Variant;
+            HashValue m_hv;
+        };
+
+        Height m_hLastLoose;
+        Height m_hMin;
+        Height m_hMax;
+        BeamDifficulty::Raw m_Work;
+
+        uint32_t m_iDispute;
+
+        InpCheckpointHdr m_Cp;
+        // followed by msgs
     };
 
     struct UserInfo
@@ -175,23 +195,14 @@ namespace Pipe
         };
 
         Amount m_Balance;
-
-        struct Dispute
-        {
-            uint32_t m_iIdx;
-            Height m_hMin;
-            Height m_hMax;
-            BeamDifficulty::Raw m_Work;
-        } m_Dispute;
-
     };
 
-    struct UserHdr
+    struct VariantHdr
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::UserHdr;
-            PubKey m_Pk;
+            uint8_t m_Type = KeyType::VariantHdr;
+            HashValue m_hv;
             Height m_Height;
         };
 
