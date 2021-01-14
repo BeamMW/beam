@@ -158,7 +158,7 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
-        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) {}
+        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
