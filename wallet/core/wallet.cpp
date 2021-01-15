@@ -707,7 +707,8 @@ namespace beam::wallet
         case TxType::VoucherRequest:
             {
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
-                if (!pKeyKeeper)             // We can generate the ticket with OwnerKey, but can't sign it.
+                if (!pKeyKeeper             // We can generate the ticket with OwnerKey, but can't sign it.
+                 || (!m_OwnedNodesOnline && !IsMobileNodeEnabled()))    // The wallet has no ability to recognoize received shielded coin
                 {
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
@@ -2141,6 +2142,6 @@ namespace beam::wallet
 
     bool Wallet::IsMobileNodeEnabled() const
     {
-        return m_OwnedNodesOnline == 0 && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
+        return !m_OwnedNodesOnline && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
     }
 }
