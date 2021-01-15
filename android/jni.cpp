@@ -1082,7 +1082,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(J
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz, jlong hours)
 {
-    walletModel->getAsync()->setMaxPrivacyLockTimeLimitHours(hours);
+    walletModel->getAsync()->setMaxPrivacyLockTimeLimitHours(static_cast<uint8_t>(hours));
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHoursAsync)(JNIEnv *env, jobject thiz)
