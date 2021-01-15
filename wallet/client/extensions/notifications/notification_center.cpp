@@ -190,12 +190,6 @@ namespace beam::wallet
         {
             for (const auto& item : items)
             {
-                if (item.m_txType == TxType::Contract)
-                {
-                    // no notifications for contracts at the moment
-                    continue;
-                }
-
                 if (item.m_txType == TxType::AssetConsume)
                 {
                     // no notifications for consume txs
