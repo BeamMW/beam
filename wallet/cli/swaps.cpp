@@ -68,7 +68,7 @@ Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin)
     try
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
-
+         
         preciseAmount *= UnitsPerCoin(swapCoin);
 
         return preciseAmount.convert_to<Amount>();
@@ -859,6 +859,11 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
         swapAmount = ReadEthSwapAmount(vm, swapCoin);
         swapFeeRate = ReadGasPrice(vm);
+
+        if (!swapAmount)
+        {
+            throw std::runtime_error("eth_swap_amount is too small.");
+        }
 
         // TODO need to unite with InitSwap
         Amount estimatedFeeRate = EstimateSwapFeerate(swapCoin, walletDB);
