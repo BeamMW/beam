@@ -181,18 +181,25 @@ namespace Pipe
         struct Key
         {
             uint8_t m_Type = KeyType::Variant;
-            HashValue m_hv;
+            HashValue m_hvVariant;
         };
 
         Height m_hLastLoose;
-        Height m_hMin;
-        Height m_hMax;
-        BeamDifficulty::Raw m_Work;
+
+        struct Top {
+            Height m_Height;
+        } m_Top;
+
+        struct Bottom {
+            Height m_Height;
+            uint32_t m_Difficulty;
+            HashValue m_hvPrev;
+        } m_Bottom;
 
         uint32_t m_iDispute;
 
         InpCheckpointHdr m_Cp;
-        // followed by msgs
+        // followed by hashes
     };
 
     struct UserInfo
@@ -211,11 +218,11 @@ namespace Pipe
         struct Key
         {
             uint8_t m_Type = KeyType::VariantHdr;
-            HashValue m_hv;
+            HashValue m_hvVariant;
             Height m_Height;
         };
 
-        HashValue m_hv;
+        HashValue m_hvHeader;
         BeamDifficulty::Raw m_ChainWork;
 
     };

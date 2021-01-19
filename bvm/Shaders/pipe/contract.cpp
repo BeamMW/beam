@@ -140,31 +140,86 @@ struct MyParser
 	}
 };
 
-void OnHdr(Pipe::VariantHdr::Key& vhk, const BlockHeader::Full& hdr, const Pipe::StateIn& si)
+struct VariantWrap
 {
-	Env::Halt_if(!hdr.m_Height); // for more safety
+	Pipe::Variant::Key m_Key;
+	Pipe::Variant* m_pVar = nullptr;
+	uint32_t m_VarSize;
 
-	if (!si.m_Cfg.m_FakePoW)
-		Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
+	~VariantWrap()
+	{
+		if (m_pVar)
+			Env::Heap_Free(m_pVar);
+	}
 
-	Pipe::VariantHdr vh;
-	hdr.get_Hash(vh.m_hv, &si.m_Cfg.m_RulesRemote);
-	vh.m_ChainWork.FromBE_T(hdr.m_ChainWork);
+	void Alloc()
+	{
+		Env::Halt_if(m_VarSize < sizeof(*m_pVar));
+		m_pVar = (Pipe::Variant*) Env::Heap_Alloc(m_VarSize);
+	}
 
-	vhk.m_Height = hdr.m_Height;
+	void Evaluate()
+	{
+		uint32_t nMsgs = (m_VarSize - sizeof(*m_pVar)) / sizeof(HashValue);
+		auto* pMsgs = (const HashValue*) (m_pVar + 1);
 
-	Env::SaveVar_T(vhk, vh);
-}
+		for (uint32_t i = 0; i < nMsgs; i++)
+			UpdateState(m_Key.m_hvVariant, pMsgs[i]);
+	}
 
-void EvaluateVariant(Pipe::Variant::Key& k, const Pipe::Variant& v, uint32_t nSize)
+	void Load()
+	{
+		m_VarSize = Env::LoadVar(&m_Key, sizeof(m_Key), nullptr, 0);
+		Alloc();
+		Env::LoadVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+	}
+
+	void Save()
+	{
+		Env::SaveVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+	}
+
+	void Del()
+	{
+		Env::DelVar_T(m_Key);
+	}
+
+	void SetBottom(const BlockHeader::Full& hdr)
+	{
+		m_pVar->m_Bottom.m_Height = hdr.m_Height;
+		m_pVar->m_Bottom.m_Difficulty = hdr.m_PoW.m_Difficulty;
+		Utils::Copy(m_pVar->m_Bottom.m_hvPrev, hdr.m_Prev);
+	}
+
+	bool HasHdrs() const
+	{
+		return !!m_pVar->m_Top.m_Height;
+	}
+};
+
+struct HdrWrap
 {
-	uint32_t nMsgs = (nSize - sizeof(v)) / sizeof(HashValue);
-	auto* pMsgs = (const HashValue*) (&v + 1);
+	Pipe::VariantHdr::Key m_Key;
+	Pipe::VariantHdr m_Data;
 
-	for (uint32_t i = 0; i < nMsgs; i++)
-		UpdateState(k.m_hv, pMsgs[i]);
+	HdrWrap(const VariantWrap& vw)
+	{
+		Utils::Copy(m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
+	}
 
-}
+	void OnHdr(const BlockHeader::Full& hdr, const Pipe::StateIn& si)
+	{
+		Env::Halt_if(!hdr.m_Height); // for more safety, we use m_Top.m_Height as indicator
+
+		if (!si.m_Cfg.m_FakePoW)
+			Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
+
+		hdr.get_Hash(m_Data.m_hvHeader, &si.m_Cfg.m_RulesRemote);
+		m_Key.m_Height = hdr.m_Height;
+
+		Env::SaveVar_T(m_Key, m_Data);
+	}
+};
 
 export void Method_4(const Pipe::PushRemote0& r)
 {
@@ -175,12 +230,9 @@ export void Method_4(const Pipe::PushRemote0& r)
 	Height h = Env::get_Height();
 	MyParser p(&r + 1);
 
-	Pipe::Variant::Key kVar;
-	Pipe::Variant* pVar;
-	uint32_t nSizeVar;
+	VariantWrap vw;
 
 	bool bNewVariant = !!(Pipe::PushRemote0::Flags::Msgs & r.m_Flags);
-
 	if (bNewVariant)
 	{
 		// new variant
@@ -188,87 +240,74 @@ export void Method_4(const Pipe::PushRemote0& r)
 		Env::Halt_if(!nMsgs);
 
 		uint32_t nSizeMsgs = sizeof(HashValue) * nMsgs;
-		nSizeVar = sizeof(*pVar) + nSizeMsgs;
+		vw.m_VarSize = sizeof(*vw.m_pVar) + nSizeMsgs;
 
-		pVar = (Pipe::Variant*) Env::StackAlloc(nSizeVar);
-		Utils::ZeroObject(*pVar);
+		vw.Alloc();
+		Utils::ZeroObject(*vw.m_pVar);
 
-		pVar->m_iDispute = si.m_Dispute.m_iIdx;
-		Utils::Copy(pVar->m_Cp.m_User, r.m_User);
+		vw.m_pVar->m_iDispute = si.m_Dispute.m_iIdx;
+		Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
 
-		Env::Memcpy(pVar + 1, p.Read(nSizeMsgs), nSizeMsgs);
-
-		Utils::ZeroObject(kVar.m_hv);
+		Env::Memcpy(vw.m_pVar + 1, p.Read(nSizeMsgs), nSizeMsgs);
 	}
 	else
 	{
 		// load
-		Utils::Copy(kVar.m_hv, p.Read_As<HashValue>());
+		Utils::Copy(vw.m_Key.m_hvVariant, p.Read_As<HashValue>());
+		vw.Load();
 
-		nSizeVar = Env::LoadVar(&kVar, sizeof(kVar), nullptr, 0);
-		Env::Halt_if(nSizeVar < sizeof(*pVar));
+		Env::Halt_if(vw.m_pVar->m_iDispute != si.m_Dispute.m_iIdx);
 
-		pVar = (Pipe::Variant*) Env::StackAlloc(nSizeVar);
-		Env::LoadVar(&kVar, sizeof(kVar), pVar, nSizeVar);
-
-		Env::Halt_if(pVar->m_iDispute != si.m_Dispute.m_iIdx);
-
-		if (Utils::Cmp(pVar->m_Cp.m_User, r.m_User))
+		if (Utils::Cmp(vw.m_pVar->m_Cp.m_User, r.m_User))
 		{
-			Env::Halt_if(h - pVar->m_hLastLoose <= si.m_Cfg.m_hContenderWaitPeriod);
+			Env::Halt_if(h - vw.m_pVar->m_hLastLoose <= si.m_Cfg.m_hContenderWaitPeriod);
 			// replace the contender user for this variant
-			Utils::Copy(pVar->m_Cp.m_User, r.m_User);
+			Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
 		}
 	}
 
 	if (!si.m_Dispute.m_Variants)
 	{
 		// I'm the 1st
-		Utils::ZeroObject(kVar.m_hv);
+		Utils::ZeroObject(vw.m_Key.m_hvVariant);
 	}
 	else
 	{
 		// load the rival variant
-		Pipe::Variant::Key kRival;
-		Utils::Copy(kRival.m_hv, si.m_Dispute.m_hvBestVariant);
-
-		uint32_t nSizeRival = Env::LoadVar(&kRival, sizeof(kRival), nullptr, 0);
-		Pipe::Variant* pRival = (Pipe::Variant*) Env::StackAlloc(nSizeRival);
-		Env::LoadVar(&kRival, sizeof(kRival), pRival, nSizeRival);
+		VariantWrap vwRival;
+		Utils::Copy(vwRival.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+		vwRival.Load();
 
 		if (1 == si.m_Dispute.m_Variants)
 		{
-			Env::DelVar_T(kRival);
-			EvaluateVariant(kRival, *pRival, nSizeRival);
-			Env::SaveVar(&kRival, sizeof(kRival), pRival, nSizeRival);
+			vwRival.Del();
+			vwRival.Evaluate();
 		}
 
 		if (bNewVariant)
-			EvaluateVariant(kVar, *pVar, nSizeVar);
+			vw.Evaluate();
 
-		Env::Halt_if(!Utils::Cmp(kVar.m_hv, kRival.m_hv));
+		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
 
-		Pipe::VariantHdr::Key vhk;
-		Utils::Copy(vhk.m_hv, kVar.m_hv);
-		
+		HdrWrap hw(vw);
 
-		bool bMustBringHdr0 = !pVar->m_hMax;
+		bool bMustBringHdr0 = !vw.HasHdrs();
 		Env::Halt_if(bMustBringHdr0 == !(Pipe::PushRemote0::Flags::Hdr0 & r.m_Flags));
 
 		if (bMustBringHdr0)
 		{
 			const auto& hdr = p.Read_As<BlockHeader::Full>();
-			OnHdr(vhk, hdr, si);
+			hw.m_Data.m_ChainWork.FromBE_T(hdr.m_ChainWork);
+			hw.OnHdr(hdr, si);
 
-			pVar->m_hMin = hdr.m_Height;
-			pVar->m_hMax = hdr.m_Height;
-			BeamDifficulty::Unpack(pVar->m_Work, hdr.m_PoW.m_Difficulty);
+			vw.m_pVar->m_Top.m_Height = hdr.m_Height;
+			vw.SetBottom(hdr);
 
 			Pipe::OutCheckpoint::Key cpk;
 			cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
 
 			HashValue hv;
-			Merkle::get_ContractVarHash(hv, si.m_cidRemote, KeyTag::Internal, &cpk, sizeof(cpk), &kVar.m_hv, sizeof(kVar.m_hv));
+			Merkle::get_ContractVarHash(hv, si.m_cidRemote, KeyTag::Internal, &cpk, sizeof(cpk), &vw.m_Key.m_hvVariant, sizeof(vw.m_Key.m_hvVariant));
 
 			auto n = p.Read_As<uint32_t>();
 			while (n--)
@@ -279,23 +318,88 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (Pipe::PushRemote0::Flags::HdrsDown & r.m_Flags)
 		{
-			// TODO
+			BlockHeader::Full hdr;
+			Utils::Copy(hdr, p.Read_As<BlockHeader::Full>());
+
+			Pipe::Variant::Bottom vb;
+			Utils::Copy(vb, vw.m_pVar->m_Bottom);
+
+			Env::Halt_if(hdr.m_Height >= vb.m_Height);
+			vw.SetBottom(hdr);
+
+			hw.m_Data.m_ChainWork.FromBE_T(hdr.m_ChainWork);
+
+			while (true)
+			{
+				hw.OnHdr(hdr, si);
+
+				if (++hdr.m_Height == vb.m_Height)
+				{
+					Env::Halt_if(Utils::Cmp(hw.m_Data.m_hvHeader, vb.m_hvPrev));
+
+					BeamDifficulty::Add(hw.m_Data.m_ChainWork, vb.m_Difficulty);
+
+					hw.m_Key.m_Height = vb.m_Height;
+					Pipe::VariantHdr vh2;
+					Env::LoadVar_T(hw.m_Key, vh2);
+					Env::Halt_if(Utils::Cmp(hw.m_Data.m_ChainWork, vh2.m_ChainWork));
+				}
+
+				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+
+				BeamDifficulty::Add(hw.m_Data.m_ChainWork, hdr.m_PoW.m_Difficulty);
+				hw.m_Data.m_ChainWork.ToBE_T(hdr.m_ChainWork);
+
+				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+			}
 		}
 
 		if (Pipe::PushRemote0::Flags::HdrsUp & r.m_Flags)
 		{
-			// TODO
+			hw.m_Key.m_Height = vw.m_pVar->m_Top.m_Height;
+			Env::LoadVar_T(hw.m_Key, hw.m_Data);
+
+			BlockHeader::Full hdr;
+			hdr.m_Height = hw.m_Key.m_Height;
+
+			for (auto n = p.Read_As<uint32_t>(); ; )
+			{
+				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+
+				hdr.m_Height++;
+				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+
+				BeamDifficulty::Add(hw.m_Data.m_ChainWork, hdr.m_PoW.m_Difficulty);
+				hw.m_Data.m_ChainWork.ToBE_T(hdr.m_ChainWork);
+
+				hw.OnHdr(hdr, si);
+
+				if (!n--)
+					break;
+			}
+
+			vw.m_pVar->m_Top.m_Height = hdr.m_Height;
+
 		}
 
-		Env::Halt_if(pRival->m_Work >= pVar->m_Work); // TODO: compensate for shared part
+		if (vwRival.HasHdrs())
+		{
+			// Compare the variants. First check if they succeed each other (i.e. one of them contains the preliminary checkpoint)
+			
+			//if (vwRival.
 
-		pRival->m_hLastLoose = h;
-		Env::SaveVar(&kRival, sizeof(kRival), pRival, nSizeRival);
+		}
 
-		Utils::Copy(si.m_Dispute.m_hvBestVariant, kVar.m_hv);
+
+		//Env::Halt_if(pRival->m_Work >= pVar->m_Work); // TODO: compensate for shared part
+
+		vwRival.m_pVar->m_hLastLoose = h;
+		vwRival.Save();
+
+		Utils::Copy(si.m_Dispute.m_hvBestVariant, vw.m_Key.m_hvVariant);
 	}
 
-	Env::SaveVar(&kVar, sizeof(kVar), pVar, nSizeVar);
+	vw.Save();
 
 	si.m_Dispute.m_Height = h;
 
@@ -319,22 +423,19 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 
 	Env::Halt_if(!si.m_Dispute.m_Variants || (si.m_Dispute.m_Height - Env::get_Height() < si.m_Cfg.m_hDisputePeriod));
 
-	Pipe::Variant::Key kVar;
-	Utils::Copy(kVar.m_hv, si.m_Dispute.m_hvBestVariant);
-
-	uint32_t nSizeVar = Env::LoadVar(&kVar, sizeof(kVar), nullptr, 0);
-	Pipe::Variant* pVar = (Pipe::Variant*) Env::StackAlloc(nSizeVar);
-	Env::LoadVar(&kVar, sizeof(kVar), pVar, nSizeVar);
-	Env::DelVar_T(kVar);
+	VariantWrap vw;
+	Utils::Copy(vw.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+	vw.Load();
+	vw.Del();
 
 	Env::FundsUnlock(0, si.m_Dispute.m_Stake);
-	Env::AddSig(pVar->m_Cp.m_User);
+	Env::AddSig(vw.m_pVar->m_Cp.m_User);
 
 	Pipe::InpCheckpointHdr::Key cpk;
 	cpk.m_iCheckpoint = si.m_Dispute.m_iIdx;
 
 	const uint32_t nSizeDelta = sizeof(Pipe::Variant) - sizeof(Pipe::InpCheckpointHdr);
-	Env::SaveVar(&cpk, sizeof(cpk), &pVar->m_Cp, nSizeVar - nSizeDelta);
+	Env::SaveVar(&cpk, sizeof(cpk), &vw.m_pVar->m_Cp, vw.m_VarSize - nSizeDelta);
 
 	Utils::ZeroObject(si.m_Dispute);
 	si.m_Dispute.m_iIdx = cpk.m_iCheckpoint + 1;
