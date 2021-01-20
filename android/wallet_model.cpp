@@ -519,11 +519,6 @@ void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectio
     env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
 }
 
-void WalletModel::onNeedExtractShieldedCoins(bool val)
-{
-    LOG_DEBUG() << "onNeedExtractShieldedCoins(" << val <<")";
-}
-
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
     LOG_DEBUG() << "onAllUtxoChanged()";
