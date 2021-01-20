@@ -146,6 +146,13 @@ struct VariantWrap
 	Pipe::Variant* m_pVar = nullptr;
 	uint32_t m_VarSize;
 
+	struct Hdr
+	{
+		Pipe::VariantHdr::Key m_Key;
+		Pipe::VariantHdr m_Data;
+
+	} m_Hdr;
+
 	~VariantWrap()
 	{
 		if (m_pVar)
@@ -188,17 +195,6 @@ struct VariantWrap
 	{
 		return !!m_pVar->m_Begin.m_Height;
 	}
-};
-
-struct HdrWrap
-{
-	Pipe::VariantHdr::Key m_Key;
-	Pipe::VariantHdr m_Data;
-
-	HdrWrap(const VariantWrap& vw)
-	{
-		Utils::Copy(m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
-	}
 
 	void OnHdr(const BlockHeader::Full& hdr, const Pipe::StateIn& si)
 	{
@@ -207,15 +203,16 @@ struct HdrWrap
 		if (!si.m_Cfg.m_FakePoW)
 			Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
 
-		hdr.get_Hash(m_Data.m_hvHeader, &si.m_Cfg.m_RulesRemote);
-		m_Key.m_Height = hdr.m_Height;
+		hdr.get_Hash(m_Hdr.m_Data.m_hvHeader, &si.m_Cfg.m_RulesRemote);
+		m_Hdr.m_Key.m_Height = hdr.m_Height;
 
-		Env::SaveVar_T(m_Key, m_Data);
+		Env::SaveVar_T(m_Hdr.m_Key, m_Hdr.m_Data);
 	}
 
-	void SetBegin(Pipe::Variant::Ending& x, const BlockHeader::Full& hdr, const BeamDifficulty::Raw& wrk)
+	void SetBegin(const BlockHeader::Full& hdr, const BeamDifficulty::Raw& wrk)
 	{
-		x.m_Height = m_Key.m_Height;
+		auto& x = m_pVar->m_Begin;
+		x.m_Height = m_Hdr.m_Key.m_Height;
 		Utils::Copy(x.m_hvPrev, hdr.m_Prev);
 
 		BeamDifficulty::Raw d;
@@ -223,11 +220,65 @@ struct HdrWrap
 		x.m_Work = wrk - d;
 	}
 
-	void SetEnd(Pipe::Variant::Ending& x, const BeamDifficulty::Raw& wrk)
+	void SetEnd()
 	{
-		x.m_Height = m_Key.m_Height + 1;
-		Utils::Copy(x.m_hvPrev, m_Data.m_hvHeader);
-		Utils::Copy(x.m_Work, wrk);
+		auto& x = m_pVar->m_End;
+		x.m_Height = m_Hdr.m_Key.m_Height + 1;
+		Utils::Copy(x.m_hvPrev, m_Hdr.m_Data.m_hvHeader);
+	}
+
+	void SetEnd(const BeamDifficulty::Raw& wrk)
+	{
+		SetEnd();
+		Utils::Copy(m_pVar->m_End.m_Work, wrk);
+	}
+
+	void LoadHdr(Height h)
+	{
+		m_Hdr.m_Key.m_Height = h;
+		Env::LoadVar_T(m_Hdr.m_Key, m_Hdr.m_Data);
+	}
+
+	void EnsureBetter(VariantWrap& vw2)
+	{
+		const auto& v = *m_pVar;
+		const auto& v2 = *vw2.m_pVar;
+
+		bool bIntersect =
+			(v.m_End.m_Height > v2.m_Begin.m_Height) &&
+			(v2.m_End.m_Height > v.m_Begin.m_Height);
+
+		if (bIntersect)
+		{
+			// Is there a collusion on top?
+			Height h = std::min(v.m_End.m_Height, v.m_End.m_Height) - 1;
+
+			LoadHdr(h);
+			vw2.LoadHdr(h);
+
+			if (!Utils::Cmp(m_Hdr.m_Data.m_hvHeader, vw2.m_Hdr.m_Data.m_hvHeader))
+			{
+				// yes! No need to compare work. The winner is the bigger variant.
+				Env::Halt_if(m_VarSize <= vw2.m_VarSize);
+				return;
+			}
+
+			// Is there a collusion on bottom?
+			h = std::max(v.m_Begin.m_Height, v2.m_Begin.m_Height);
+
+			LoadHdr(h);
+			vw2.LoadHdr(h);
+
+			if (!Utils::Cmp(m_Hdr.m_Data.m_hvHeader, vw2.m_Hdr.m_Data.m_hvHeader))
+			{
+				// yes! Compare only the top chainwork
+				Env::Halt_if(v.m_End.m_Work <= v2.m_End.m_Work);
+				return;
+			}
+		}
+
+		// standard case. Compare the net proven work
+		Env::Halt_if(v.m_End.m_Work - v.m_Begin.m_Work <= v2.m_End.m_Work - v2.m_Begin.m_Work);
 	}
 };
 
@@ -296,13 +347,12 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (bNewVariant)
 			vw.Evaluate();
+		Utils::Copy(vw.m_Hdr.m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
 
 		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
 
 		if (Pipe::PushRemote0::Flags::Reset & r.m_Flags)
 			vw.m_pVar->m_Begin.m_Height = 0;
-
-		HdrWrap hw(vw);
 
 		bool bMustBringHdr0 = !vw.HasHdrs();
 		Env::Halt_if(bMustBringHdr0 == !(Pipe::PushRemote0::Flags::Hdr0 & r.m_Flags));
@@ -310,13 +360,13 @@ export void Method_4(const Pipe::PushRemote0& r)
 		if (bMustBringHdr0)
 		{
 			const auto& hdr = p.Read_As<BlockHeader::Full>();
-			hw.OnHdr(hdr, si);
+			vw.OnHdr(hdr, si);
 
 			BeamDifficulty::Raw wrk;
 			wrk.FromBE_T(hdr.m_ChainWork);
 
-			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
-			hw.SetEnd(vw.m_pVar->m_End, wrk);
+			vw.SetBegin(hdr, wrk);
+			vw.SetEnd(wrk);
 
 			Pipe::OutCheckpoint::Key cpk;
 			cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
@@ -343,22 +393,22 @@ export void Method_4(const Pipe::PushRemote0& r)
 			Utils::Copy(vb, vw.m_pVar->m_Begin);
 			Env::Halt_if(hdr.m_Height >= vb.m_Height);
 
-			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
+			vw.SetBegin(hdr, wrk);
 
 			while (true)
 			{
-				hw.OnHdr(hdr, si);
+				vw.OnHdr(hdr, si);
 
 				if (++hdr.m_Height == vb.m_Height)
 				{
 					Env::Halt_if(
-						Utils::Cmp(hw.m_Data.m_hvHeader, vb.m_hvPrev) ||
+						Utils::Cmp(vw.m_Hdr.m_Data.m_hvHeader, vb.m_hvPrev) ||
 						Utils::Cmp(wrk, vb.m_Work));
 
 					break;
 				}
 
-				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+				Utils::Copy(hdr.m_Prev, vw.m_Hdr.m_Data.m_hvHeader);
 
 				BeamDifficulty::Add(wrk, hdr.m_PoW.m_Difficulty);
 				wrk.ToBE_T(hdr.m_ChainWork);
@@ -369,44 +419,36 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (Pipe::PushRemote0::Flags::HdrsUp & r.m_Flags)
 		{
-			auto& e = vw.m_pVar->m_End;
-
 			BlockHeader::Full hdr;
-			hdr.m_Height = e.m_Height;
-			Utils::Copy(hdr.m_Prev, e.m_hvPrev);
+			hdr.m_Height = vw.m_pVar->m_End.m_Height;
+			Utils::Copy(hdr.m_Prev, vw.m_pVar->m_End.m_hvPrev);
 
 			for (auto n = p.Read_As<uint32_t>(); ; )
 			{
 				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
 
-				hdr.m_Height++;
+				BeamDifficulty::Add(vw.m_pVar->m_End.m_Work, hdr.m_PoW.m_Difficulty);
+				vw.m_pVar->m_End.m_Work.ToBE_T(hdr.m_ChainWork);
 
-				BeamDifficulty::Add(e.m_Work, hdr.m_PoW.m_Difficulty);
-				e.m_Work.ToBE_T(hdr.m_ChainWork);
-
-				hw.OnHdr(hdr, si);
+				vw.OnHdr(hdr, si);
 
 				if (! --n)
 					break;
 
-				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+				Utils::Copy(hdr.m_Prev, vw.m_Hdr.m_Data.m_hvHeader);
+				hdr.m_Height++;
 			}
 
-			e.m_Height = hdr.m_Height;
-			e.m_hvPrev = hw.m_Data.m_hvHeader;
-
+			vw.SetEnd();
 		}
 
 		if (vwRival.HasHdrs())
 		{
-			// Compare the variants. First check if they succeed each other (i.e. one of them contains the preliminary checkpoint)
-			
-			//if (vwRival.
+			// Compare the variants.
+			Utils::Copy(vwRival.m_Hdr.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant);
 
+			vw.EnsureBetter(vwRival);
 		}
-
-
-		//Env::Halt_if(pRival->m_Work >= pVar->m_Work); // TODO: compensate for shared part
 
 		vwRival.m_pVar->m_hLastLoose = h;
 		vwRival.Save();
