@@ -140,23 +140,96 @@ struct MyParser
 	}
 };
 
-void OnUserHdr(const PubKey& pk, const BlockHeader::Full& hdr, const Pipe::StateIn& si)
+struct VariantWrap
 {
-	Env::Halt_if(!hdr.m_Height); // for more safety
+	Pipe::Variant::Key m_Key;
+	Pipe::Variant* m_pVar = nullptr;
+	uint32_t m_VarSize;
 
-	if (!si.m_Cfg.m_FakePoW)
-		Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
+	~VariantWrap()
+	{
+		if (m_pVar)
+			Env::Heap_Free(m_pVar);
+	}
 
-	Pipe::UserHdr uh;
-	hdr.get_Hash(uh.m_hv, &si.m_Cfg.m_RulesRemote);
-	Utils::Copy(uh.m_ChainWork, hdr.m_ChainWork);
+	void Alloc()
+	{
+		Env::Halt_if(m_VarSize < sizeof(*m_pVar));
+		m_pVar = (Pipe::Variant*) Env::Heap_Alloc(m_VarSize);
+	}
 
-	Pipe::UserHdr::Key uhk;
-	Utils::Copy(uhk.m_Pk, pk);
-	uhk.m_Height = hdr.m_Height;
+	void Evaluate()
+	{
+		uint32_t nMsgs = (m_VarSize - sizeof(*m_pVar)) / sizeof(HashValue);
+		auto* pMsgs = (const HashValue*) (m_pVar + 1);
 
-	Env::SaveVar_T(uhk, uh);
-}
+		for (uint32_t i = 0; i < nMsgs; i++)
+			UpdateState(m_Key.m_hvVariant, pMsgs[i]);
+	}
+
+	void Load()
+	{
+		m_VarSize = Env::LoadVar(&m_Key, sizeof(m_Key), nullptr, 0);
+		Alloc();
+		Env::LoadVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+	}
+
+	void Save()
+	{
+		Env::SaveVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+	}
+
+	void Del()
+	{
+		Env::DelVar_T(m_Key);
+	}
+
+	bool HasHdrs() const
+	{
+		return !!m_pVar->m_Begin.m_Height;
+	}
+};
+
+struct HdrWrap
+{
+	Pipe::VariantHdr::Key m_Key;
+	Pipe::VariantHdr m_Data;
+
+	HdrWrap(const VariantWrap& vw)
+	{
+		Utils::Copy(m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
+	}
+
+	void OnHdr(const BlockHeader::Full& hdr, const Pipe::StateIn& si)
+	{
+		Env::Halt_if(!hdr.m_Height); // for more safety, we use m_Top.m_Height as indicator
+
+		if (!si.m_Cfg.m_FakePoW)
+			Env::Halt_if(!hdr.IsValid(&si.m_Cfg.m_RulesRemote));
+
+		hdr.get_Hash(m_Data.m_hvHeader, &si.m_Cfg.m_RulesRemote);
+		m_Key.m_Height = hdr.m_Height;
+
+		Env::SaveVar_T(m_Key, m_Data);
+	}
+
+	void SetBegin(Pipe::Variant::Ending& x, const BlockHeader::Full& hdr, const BeamDifficulty::Raw& wrk)
+	{
+		x.m_Height = m_Key.m_Height;
+		Utils::Copy(x.m_hvPrev, hdr.m_Prev);
+
+		BeamDifficulty::Raw d;
+		BeamDifficulty::Unpack(d, hdr.m_PoW.m_Difficulty);
+		x.m_Work = wrk - d;
+	}
+
+	void SetEnd(Pipe::Variant::Ending& x, const BeamDifficulty::Raw& wrk)
+	{
+		x.m_Height = m_Key.m_Height + 1;
+		Utils::Copy(x.m_hvPrev, m_Data.m_hvHeader);
+		Utils::Copy(x.m_Work, wrk);
+	}
+};
 
 export void Method_4(const Pipe::PushRemote0& r)
 {
@@ -164,122 +237,197 @@ export void Method_4(const Pipe::PushRemote0& r)
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
-	Env::Halt_if(!Utils::Cmp(r.m_User, si.m_Dispute.m_Winner)); // already winning
-
-	Pipe::UserInfo ui;
-	Pipe::UserInfo::Key kui;
-	Utils::Copy(kui.m_Pk, r.m_User);
-
-	bool bNew = true;
-	if (!Env::LoadVar_T(kui, ui))
-		Utils::ZeroObject(ui);
-	else
-	{
-		bNew = (ui.m_Dispute.m_iIdx != si.m_Dispute.m_iIdx);
-		if (bNew)
-			Utils::ZeroObject(ui.m_Dispute);
-	}
-
-	Env::Halt_if(bNew == !(Pipe::PushRemote0::Flags::Msgs & r.m_Flags)); // new contender - must bring messages
-
+	Height h = Env::get_Height();
 	MyParser p(&r + 1);
 
-	const HashValue* pMsgs = nullptr;
-	uint32_t nMsgs = 0;
+	VariantWrap vw;
 
-	kui.m_Type = Pipe::KeyType::UserMsgs;
-
-	if (bNew)
+	bool bNewVariant = !!(Pipe::PushRemote0::Flags::Msgs & r.m_Flags);
+	if (bNewVariant)
 	{
-		nMsgs = p.Read_As<uint32_t>();
+		// new variant
+		auto nMsgs = p.Read_As<uint32_t>();
 		Env::Halt_if(!nMsgs);
 
-		uint32_t nSize = sizeof(HashValue) * nMsgs;
-		pMsgs = (const HashValue*) p.Read(nSize);
+		uint32_t nSizeMsgs = sizeof(HashValue) * nMsgs;
+		vw.m_VarSize = sizeof(*vw.m_pVar) + nSizeMsgs;
 
-		Env::SaveVar(&kui, sizeof(kui), pMsgs, nSize);
+		vw.Alloc();
+		Utils::ZeroObject(*vw.m_pVar);
+
+		vw.m_pVar->m_iDispute = si.m_Dispute.m_iIdx;
+		Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
+
+		Env::Memcpy(vw.m_pVar + 1, p.Read(nSizeMsgs), nSizeMsgs);
+	}
+	else
+	{
+		// load
+		Utils::Copy(vw.m_Key.m_hvVariant, p.Read_As<HashValue>());
+		vw.Load();
+
+		Env::Halt_if(vw.m_pVar->m_iDispute != si.m_Dispute.m_iIdx);
+
+		if (Utils::Cmp(vw.m_pVar->m_Cp.m_User, r.m_User))
+		{
+			Env::Halt_if(h - vw.m_pVar->m_hLastLoose <= si.m_Cfg.m_hContenderWaitPeriod);
+			// replace the contender user for this variant
+			Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
+		}
 	}
 
-	bool bHdr0 = !!(Pipe::PushRemote0::Flags::Hdr0 & r.m_Flags);
-	Env::Halt_if(bHdr0 != (si.m_Dispute.m_Stake && !ui.m_Dispute.m_hMin)); // dispute started (something at stake already) - must bring hdr0, unless brought
-
-	if (bHdr0)
+	if (!si.m_Dispute.m_Variants)
 	{
-		const auto& hdr = p.Read_As<BlockHeader::Full>();
-		OnUserHdr(r.m_User, hdr, si);
+		// I'm the 1st
+		Utils::ZeroObject(vw.m_Key.m_hvVariant);
+	}
+	else
+	{
+		// load the rival variant
+		VariantWrap vwRival;
+		Utils::Copy(vwRival.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+		vwRival.Load();
 
-		ui.m_Dispute.m_hMin = hdr.m_Height;
-		ui.m_Dispute.m_hMax = hdr.m_Height;
-		BeamDifficulty::Unpack(ui.m_Dispute.m_Work, hdr.m_PoW.m_Difficulty);
-
-		if (!bNew)
+		if (1 == si.m_Dispute.m_Variants)
 		{
-			// load messages, that were saved previously
-			nMsgs = Env::LoadVar(&kui, sizeof(kui), nullptr, 0);
-
-			pMsgs = (const HashValue*) Env::StackAlloc(nMsgs);
-			nMsgs /= sizeof(HashValue);
-
-			Env::LoadVar(&kui, sizeof(kui), (void*) pMsgs, nMsgs);
+			vwRival.Del();
+			vwRival.Evaluate();
 		}
 
-		HashValue hv;
-		Utils::ZeroObject(hv);
+		if (bNewVariant)
+			vw.Evaluate();
 
-		for (uint32_t i = 0; i < nMsgs; i++)
-			UpdateState(hv, pMsgs[i]);
+		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
 
-		Pipe::OutCheckpoint::Key cpk;
-		cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
+		if (Pipe::PushRemote0::Flags::Reset & r.m_Flags)
+			vw.m_pVar->m_Begin.m_Height = 0;
 
-		Merkle::get_ContractVarHash(hv, si.m_cidRemote, KeyTag::Internal, &cpk, sizeof(cpk), &hv, sizeof(hv));
+		HdrWrap hw(vw);
 
-		auto n = p.Read_As<uint32_t>();
-		while (n--)
-			Merkle::Interpret(hv, p.Read_As<Merkle::Node>());
+		bool bMustBringHdr0 = !vw.HasHdrs();
+		Env::Halt_if(bMustBringHdr0 == !(Pipe::PushRemote0::Flags::Hdr0 & r.m_Flags));
 
-		Env::Halt_if(Utils::Cmp(hv, hdr.m_Definition));
+		if (bMustBringHdr0)
+		{
+			const auto& hdr = p.Read_As<BlockHeader::Full>();
+			hw.OnHdr(hdr, si);
+
+			BeamDifficulty::Raw wrk;
+			wrk.FromBE_T(hdr.m_ChainWork);
+
+			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
+			hw.SetEnd(vw.m_pVar->m_End, wrk);
+
+			Pipe::OutCheckpoint::Key cpk;
+			cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
+
+			HashValue hv;
+			Merkle::get_ContractVarHash(hv, si.m_cidRemote, KeyTag::Internal, &cpk, sizeof(cpk), &vw.m_Key.m_hvVariant, sizeof(vw.m_Key.m_hvVariant));
+
+			auto n = p.Read_As<uint32_t>();
+			while (n--)
+				Merkle::Interpret(hv, p.Read_As<Merkle::Node>());
+
+			Env::Halt_if(Utils::Cmp(hv, hdr.m_Definition));
+		}
+
+		if (Pipe::PushRemote0::Flags::HdrsDown & r.m_Flags)
+		{
+			BlockHeader::Full hdr;
+			Utils::Copy(hdr, p.Read_As<BlockHeader::Full>());
+
+			BeamDifficulty::Raw wrk;
+			wrk.FromBE_T(hdr.m_ChainWork);
+
+			Pipe::Variant::Ending vb;
+			Utils::Copy(vb, vw.m_pVar->m_Begin);
+			Env::Halt_if(hdr.m_Height >= vb.m_Height);
+
+			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
+
+			while (true)
+			{
+				hw.OnHdr(hdr, si);
+
+				if (++hdr.m_Height == vb.m_Height)
+				{
+					Env::Halt_if(
+						Utils::Cmp(hw.m_Data.m_hvHeader, vb.m_hvPrev) ||
+						Utils::Cmp(wrk, vb.m_Work));
+
+					break;
+				}
+
+				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+
+				BeamDifficulty::Add(wrk, hdr.m_PoW.m_Difficulty);
+				wrk.ToBE_T(hdr.m_ChainWork);
+
+				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+			}
+		}
+
+		if (Pipe::PushRemote0::Flags::HdrsUp & r.m_Flags)
+		{
+			auto& e = vw.m_pVar->m_End;
+
+			BlockHeader::Full hdr;
+			hdr.m_Height = e.m_Height;
+			Utils::Copy(hdr.m_Prev, e.m_hvPrev);
+
+			for (auto n = p.Read_As<uint32_t>(); ; )
+			{
+				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+
+				hdr.m_Height++;
+
+				BeamDifficulty::Add(e.m_Work, hdr.m_PoW.m_Difficulty);
+				e.m_Work.ToBE_T(hdr.m_ChainWork);
+
+				hw.OnHdr(hdr, si);
+
+				if (! --n)
+					break;
+
+				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
+			}
+
+			e.m_Height = hdr.m_Height;
+			e.m_hvPrev = hw.m_Data.m_hvHeader;
+
+		}
+
+		if (vwRival.HasHdrs())
+		{
+			// Compare the variants. First check if they succeed each other (i.e. one of them contains the preliminary checkpoint)
+			
+			//if (vwRival.
+
+		}
+
+
+		//Env::Halt_if(pRival->m_Work >= pVar->m_Work); // TODO: compensate for shared part
+
+		vwRival.m_pVar->m_hLastLoose = h;
+		vwRival.Save();
+
+		Utils::Copy(si.m_Dispute.m_hvBestVariant, vw.m_Key.m_hvVariant);
 	}
 
-	if (Pipe::PushRemote0::Flags::HdrsUp & r.m_Flags)
+	vw.Save();
+
+	si.m_Dispute.m_Height = h;
+
+	if (bNewVariant)
 	{
-		Env::Halt_if(!si.m_Dispute.m_Stake);
-
-	}
-
-	if (Pipe::PushRemote0::Flags::HdrsDown & r.m_Flags)
-	{
-		Env::Halt_if(!si.m_Dispute.m_Stake);
-
-	}
-
-	if (si.m_Dispute.m_Stake)
-	{
-		Pipe::UserInfo::Key kui2;
-		Utils::Copy(kui2.m_Pk, si.m_Dispute.m_Winner);
-
-		Pipe::UserInfo ui2;
-		Env::LoadVar_T(kui2, ui2);
-
-		Env::Halt_if(ui.m_Dispute.m_Work <= ui2.m_Dispute.m_Work);
-	}
-
-	if (bNew)
-	{
-		ui.m_Dispute.m_iIdx = si.m_Dispute.m_iIdx;
-
+		si.m_Dispute.m_Variants++;
+		si.m_Dispute.m_Stake += si.m_Cfg.m_StakeForRemote; // no need to Strict::Add
 		Env::FundsLock(0, si.m_Cfg.m_StakeForRemote);
-		Strict::Add(si.m_Dispute.m_Stake, si.m_Cfg.m_StakeForRemote);
 	}
-	Env::AddSig(r.m_User);
-
-	kui.m_Type = Pipe::KeyType::UserInfo;
-	Env::SaveVar_T(kui, ui);
-
-	si.m_Dispute.m_Height = Env::get_Height();
-	Utils::Copy(si.m_Dispute.m_Winner, r.m_User);
 
 	Env::SaveVar_T(ki, si);
+
+	Env::AddSig(r.m_User);
 }
 
 export void Method_5(const Pipe::FinalyzeRemote& r)
@@ -288,25 +436,21 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
-	Env::Halt_if(!si.m_Dispute.m_Stake || (si.m_Dispute.m_Height - Env::get_Height() < si.m_Cfg.m_hDisputePeriod));
+	Env::Halt_if(!si.m_Dispute.m_Variants || (si.m_Dispute.m_Height - Env::get_Height() < si.m_Cfg.m_hDisputePeriod));
 
-	Pipe::UserInfo::Key kui;
-	kui.m_Type = Pipe::KeyType::UserInfo;
-	Utils::Copy(kui.m_Pk, si.m_Dispute.m_Winner);
+	VariantWrap vw;
+	Utils::Copy(vw.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+	vw.Load();
+	vw.Del();
 
-	uint32_t nSize = Env::LoadVar(&kui, sizeof(kui), nullptr, 0);
-	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(sizeof(Pipe::InpCheckpointHdr) + nSize);
-	Utils::Copy(pInpCp->m_User, si.m_Dispute.m_Winner);
-
-	Env::LoadVar(&kui, sizeof(kui), pInpCp + 1, nSize);
-	Env::DelVar_T(kui);
+	Env::FundsUnlock(0, si.m_Dispute.m_Stake);
+	Env::AddSig(vw.m_pVar->m_Cp.m_User);
 
 	Pipe::InpCheckpointHdr::Key cpk;
 	cpk.m_iCheckpoint = si.m_Dispute.m_iIdx;
-	Env::SaveVar(&cpk, sizeof(cpk), pInpCp, sizeof(Pipe::InpCheckpointHdr) + nSize);
 
-	Env::FundsUnlock(0, si.m_Dispute.m_Stake);
-	Env::AddSig(si.m_Dispute.m_Winner);
+	const uint32_t nSizeDelta = sizeof(Pipe::Variant) - sizeof(Pipe::InpCheckpointHdr);
+	Env::SaveVar(&cpk, sizeof(cpk), &vw.m_pVar->m_Cp, vw.m_VarSize - nSizeDelta);
 
 	Utils::ZeroObject(si.m_Dispute);
 	si.m_Dispute.m_iIdx = cpk.m_iCheckpoint + 1;
@@ -319,7 +463,10 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
 
 	if (r.m_Public)
+	{
+		Env::Halt_if(r.m_Wipe); // only designated messages can be wiped
 		Utils::ZeroObject(pMsg->m_Receiver);
+	}
 	else
 		Env::get_CallerCid(1, pMsg->m_Receiver);
 
@@ -333,17 +480,28 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 
 	Env::StackFree(nSize);
 
-	nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1);
-	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
-
 	Pipe::InpCheckpointHdr::Key cpk;
 	cpk.m_iCheckpoint = r.m_iCheckpoint;
+
+	if (r.m_Wipe)
+		// must read all the messages anyway
+		nSize = Env::LoadVar(&cpk, sizeof(cpk), nullptr, 0);
+	else
+		nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1); // read up to including the message
+
+	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
 
 	auto nSizeActual = Env::LoadVar(&cpk, sizeof(cpk), pInpCp, nSize);
 	Env::Halt_if(nSizeActual < nSize);
 
-	auto* pHash = (const HashValue*) (pInpCp + 1);
-	Env::Halt_if(Utils::Cmp(hv, pHash[r.m_iMsg]));
+	auto& hv2 = ((HashValue*) (pInpCp + 1))[r.m_iMsg];
+	Env::Halt_if(Utils::Cmp(hv, hv2));
+
+	if (r.m_Wipe)
+	{
+		Utils::ZeroObject(hv2);
+		Env::SaveVar(&cpk, sizeof(cpk), pInpCp, nSize);
+	}
 
 	// message verified
 	Pipe::StateIn si;
@@ -361,4 +519,24 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 
 	Strict::Add(ui.m_Balance, si.m_Cfg.m_ComissionPerMsg);
 	Env::SaveVar_T(kui, ui);
+}
+
+export void Method_7(const Pipe::Withdraw& r)
+{
+	Pipe::UserInfo ui;
+	Pipe::UserInfo::Key kui;
+	Utils::Copy(kui.m_Pk, r.m_User);
+
+	if (!Env::LoadVar_T(kui, ui))
+		Utils::ZeroObject(ui);
+
+	Strict::Sub(ui.m_Balance, r.m_Amount);
+
+	if (ui.m_Balance)
+		Env::SaveVar_T(kui, ui);
+	else
+		Env::DelVar_T(kui);
+
+	Env::FundsUnlock(0, r.m_Amount);
+	Env::AddSig(r.m_User);
 }

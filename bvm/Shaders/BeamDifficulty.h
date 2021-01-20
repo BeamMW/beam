@@ -55,6 +55,13 @@ struct BeamDifficulty
 
     }
 
+    static void Add(Raw& res, uint32_t nPacked)
+    {
+        Raw delta;
+        Unpack(delta, nPacked);
+        res += delta;
+    }
+
     static uint32_t Unpack(Short& res, uint32_t nPacked)
     {
         const uint32_t nWordBits = sizeof(MultiPrecision::Word) * 8;

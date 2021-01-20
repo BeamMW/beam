@@ -17,6 +17,7 @@ namespace Pipe
             Amount m_ComissionPerMsg;
             Amount m_StakeForRemote;
             Height m_hDisputePeriod;
+            Height m_hContenderWaitPeriod;
             uint8_t m_FakePoW; // for tests
         } m_In;
     };
@@ -53,6 +54,7 @@ namespace Pipe
             static const uint8_t Hdr0 = 2; // has root header and proof of the checkpoint
             static const uint8_t HdrsUp = 4; // has new headers above hdr0
             static const uint8_t HdrsDown = 8; // has new headers below hdr0
+            static const uint8_t Reset = 0x10; // drop all the current headers. Needed if attacker deliberately added fake header on top of the honest chain
         };
 
         uint8_t m_Flags;
@@ -75,18 +77,28 @@ namespace Pipe
         uint32_t m_MsgSize;
         Height m_Height;
         uint8_t m_Public; // original receiver was set to zero
+        uint8_t m_Wipe; // wipe the message after verification. Allowed only for private messages (i.e. sent specifically to the caller contract)
         // followed by the message
+    };
+
+    struct Withdraw
+    {
+        static const uint32_t s_iMethod = 7;
+
+        PubKey m_User;
+        Amount m_Amount;
     };
 
     struct KeyType
     {
-        static const uint8_t Global = 0;
         static const uint8_t OutMsg = 1;
         static const uint8_t OutCheckpoint = 2;
         static const uint8_t UserInfo = 3;
-        static const uint8_t UserMsgs = 4;
-        static const uint8_t UserHdr = 5;
+        static const uint8_t VariantHdr = 5;
         static const uint8_t InpCheckpoint = 6;
+        static const uint8_t Variant = 7;
+        static const uint8_t StateIn = 8;
+        static const uint8_t StateOut = 9;
     };
 
 
@@ -133,8 +145,7 @@ namespace Pipe
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::Global;
-            uint8_t m_SubType = 0;
+            uint8_t m_Type = KeyType::StateOut;
         };
 
         Cfg::Out m_Cfg;
@@ -150,8 +161,7 @@ namespace Pipe
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::Global;
-            uint8_t m_SubType = 1;
+            uint8_t m_Type = KeyType::StateIn;
         };
 
         Cfg::In m_Cfg;
@@ -162,8 +172,33 @@ namespace Pipe
             uint32_t m_iIdx;
             Height m_Height;
             Amount m_Stake;
-            PubKey m_Winner;
+            HashValue m_hvBestVariant;
+            uint32_t m_Variants;
         } m_Dispute;
+    };
+
+    struct Variant
+    {
+        struct Key
+        {
+            uint8_t m_Type = KeyType::Variant;
+            HashValue m_hvVariant;
+        };
+
+        Height m_hLastLoose;
+        uint32_t m_iDispute;
+
+        struct Ending {
+            Height m_Height;
+            BeamDifficulty::Raw m_Work;
+            HashValue m_hvPrev;
+        };
+
+        Ending m_Begin;
+        Ending m_End;
+
+        InpCheckpointHdr m_Cp;
+        // followed by hashes
     };
 
     struct UserInfo
@@ -175,29 +210,18 @@ namespace Pipe
         };
 
         Amount m_Balance;
-
-        struct Dispute
-        {
-            uint32_t m_iIdx;
-            Height m_hMin;
-            Height m_hMax;
-            BeamDifficulty::Raw m_Work;
-        } m_Dispute;
-
     };
 
-    struct UserHdr
+    struct VariantHdr
     {
         struct Key
         {
-            uint8_t m_Type = KeyType::UserHdr;
-            PubKey m_Pk;
+            uint8_t m_Type = KeyType::VariantHdr;
+            HashValue m_hvVariant;
             Height m_Height;
         };
 
-        HashValue m_hv;
-        BeamDifficulty::Raw m_ChainWork;
-
+        HashValue m_hvHeader;
     };
 
 #pragma pack (pop)
