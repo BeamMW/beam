@@ -54,6 +54,7 @@ namespace Pipe
             static const uint8_t Hdr0 = 2; // has root header and proof of the checkpoint
             static const uint8_t HdrsUp = 4; // has new headers above hdr0
             static const uint8_t HdrsDown = 8; // has new headers below hdr0
+            static const uint8_t Reset = 0x10; // drop all the current headers. Needed if attacker deliberately added fake header on top of the honest chain
         };
 
         uint8_t m_Flags;
@@ -185,18 +186,16 @@ namespace Pipe
         };
 
         Height m_hLastLoose;
-
-        struct Top {
-            Height m_Height;
-        } m_Top;
-
-        struct Bottom {
-            Height m_Height;
-            uint32_t m_Difficulty;
-            HashValue m_hvPrev;
-        } m_Bottom;
-
         uint32_t m_iDispute;
+
+        struct Ending {
+            Height m_Height;
+            BeamDifficulty::Raw m_Work;
+            HashValue m_hvPrev;
+        };
+
+        Ending m_Begin;
+        Ending m_End;
 
         InpCheckpointHdr m_Cp;
         // followed by hashes
@@ -223,8 +222,6 @@ namespace Pipe
         };
 
         HashValue m_hvHeader;
-        BeamDifficulty::Raw m_ChainWork;
-
     };
 
 #pragma pack (pop)

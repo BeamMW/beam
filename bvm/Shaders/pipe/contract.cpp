@@ -184,16 +184,9 @@ struct VariantWrap
 		Env::DelVar_T(m_Key);
 	}
 
-	void SetBottom(const BlockHeader::Full& hdr)
-	{
-		m_pVar->m_Bottom.m_Height = hdr.m_Height;
-		m_pVar->m_Bottom.m_Difficulty = hdr.m_PoW.m_Difficulty;
-		Utils::Copy(m_pVar->m_Bottom.m_hvPrev, hdr.m_Prev);
-	}
-
 	bool HasHdrs() const
 	{
-		return !!m_pVar->m_Top.m_Height;
+		return !!m_pVar->m_Begin.m_Height;
 	}
 };
 
@@ -218,6 +211,23 @@ struct HdrWrap
 		m_Key.m_Height = hdr.m_Height;
 
 		Env::SaveVar_T(m_Key, m_Data);
+	}
+
+	void SetBegin(Pipe::Variant::Ending& x, const BlockHeader::Full& hdr, const BeamDifficulty::Raw& wrk)
+	{
+		x.m_Height = m_Key.m_Height;
+		Utils::Copy(x.m_hvPrev, hdr.m_Prev);
+
+		BeamDifficulty::Raw d;
+		BeamDifficulty::Unpack(d, hdr.m_PoW.m_Difficulty);
+		x.m_Work = wrk - d;
+	}
+
+	void SetEnd(Pipe::Variant::Ending& x, const BeamDifficulty::Raw& wrk)
+	{
+		x.m_Height = m_Key.m_Height + 1;
+		Utils::Copy(x.m_hvPrev, m_Data.m_hvHeader);
+		Utils::Copy(x.m_Work, wrk);
 	}
 };
 
@@ -289,6 +299,9 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
 
+		if (Pipe::PushRemote0::Flags::Reset & r.m_Flags)
+			vw.m_pVar->m_Begin.m_Height = 0;
+
 		HdrWrap hw(vw);
 
 		bool bMustBringHdr0 = !vw.HasHdrs();
@@ -297,11 +310,13 @@ export void Method_4(const Pipe::PushRemote0& r)
 		if (bMustBringHdr0)
 		{
 			const auto& hdr = p.Read_As<BlockHeader::Full>();
-			hw.m_Data.m_ChainWork.FromBE_T(hdr.m_ChainWork);
 			hw.OnHdr(hdr, si);
 
-			vw.m_pVar->m_Top.m_Height = hdr.m_Height;
-			vw.SetBottom(hdr);
+			BeamDifficulty::Raw wrk;
+			wrk.FromBE_T(hdr.m_ChainWork);
+
+			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
+			hw.SetEnd(vw.m_pVar->m_End, wrk);
 
 			Pipe::OutCheckpoint::Key cpk;
 			cpk.m_iCheckpoint_BE = Utils::FromBE(si.m_Dispute.m_iIdx);
@@ -321,13 +336,14 @@ export void Method_4(const Pipe::PushRemote0& r)
 			BlockHeader::Full hdr;
 			Utils::Copy(hdr, p.Read_As<BlockHeader::Full>());
 
-			Pipe::Variant::Bottom vb;
-			Utils::Copy(vb, vw.m_pVar->m_Bottom);
+			BeamDifficulty::Raw wrk;
+			wrk.FromBE_T(hdr.m_ChainWork);
 
+			Pipe::Variant::Ending vb;
+			Utils::Copy(vb, vw.m_pVar->m_Begin);
 			Env::Halt_if(hdr.m_Height >= vb.m_Height);
-			vw.SetBottom(hdr);
 
-			hw.m_Data.m_ChainWork.FromBE_T(hdr.m_ChainWork);
+			hw.SetBegin(vw.m_pVar->m_Begin, hdr, wrk);
 
 			while (true)
 			{
@@ -335,20 +351,17 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 				if (++hdr.m_Height == vb.m_Height)
 				{
-					Env::Halt_if(Utils::Cmp(hw.m_Data.m_hvHeader, vb.m_hvPrev));
+					Env::Halt_if(
+						Utils::Cmp(hw.m_Data.m_hvHeader, vb.m_hvPrev) ||
+						Utils::Cmp(wrk, vb.m_Work));
 
-					BeamDifficulty::Add(hw.m_Data.m_ChainWork, vb.m_Difficulty);
-
-					hw.m_Key.m_Height = vb.m_Height;
-					Pipe::VariantHdr vh2;
-					Env::LoadVar_T(hw.m_Key, vh2);
-					Env::Halt_if(Utils::Cmp(hw.m_Data.m_ChainWork, vh2.m_ChainWork));
+					break;
 				}
 
 				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
 
-				BeamDifficulty::Add(hw.m_Data.m_ChainWork, hdr.m_PoW.m_Difficulty);
-				hw.m_Data.m_ChainWork.ToBE_T(hdr.m_ChainWork);
+				BeamDifficulty::Add(wrk, hdr.m_PoW.m_Difficulty);
+				wrk.ToBE_T(hdr.m_ChainWork);
 
 				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
 			}
@@ -356,29 +369,31 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (Pipe::PushRemote0::Flags::HdrsUp & r.m_Flags)
 		{
-			hw.m_Key.m_Height = vw.m_pVar->m_Top.m_Height;
-			Env::LoadVar_T(hw.m_Key, hw.m_Data);
+			auto& e = vw.m_pVar->m_End;
 
 			BlockHeader::Full hdr;
-			hdr.m_Height = hw.m_Key.m_Height;
+			hdr.m_Height = e.m_Height;
+			Utils::Copy(hdr.m_Prev, e.m_hvPrev);
 
 			for (auto n = p.Read_As<uint32_t>(); ; )
 			{
 				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
 
 				hdr.m_Height++;
-				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
 
-				BeamDifficulty::Add(hw.m_Data.m_ChainWork, hdr.m_PoW.m_Difficulty);
-				hw.m_Data.m_ChainWork.ToBE_T(hdr.m_ChainWork);
+				BeamDifficulty::Add(e.m_Work, hdr.m_PoW.m_Difficulty);
+				e.m_Work.ToBE_T(hdr.m_ChainWork);
 
 				hw.OnHdr(hdr, si);
 
-				if (!n--)
+				if (! --n)
 					break;
+
+				Utils::Copy(hdr.m_Prev, hw.m_Data.m_hvHeader);
 			}
 
-			vw.m_pVar->m_Top.m_Height = hdr.m_Height;
+			e.m_Height = hdr.m_Height;
+			e.m_hvPrev = hw.m_Data.m_hvHeader;
 
 		}
 
