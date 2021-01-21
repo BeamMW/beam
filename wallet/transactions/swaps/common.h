@@ -84,3 +84,15 @@ namespace std
     string to_string(beam::wallet::AtomicSwapCoin value);
     string to_string(beam::wallet::SwapOfferStatus status);  
 }  // namespace std
+
+namespace beam::electrum
+{
+std::vector<std::string> generateReceivingAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
+std::vector<std::string> generateChangeAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
+
+bool validateMnemonic(const std::vector<std::string>& words, bool isSegwitType = false);
+std::vector<std::string> createMnemonic(const std::vector<uint8_t>& entropy);
+bool isAllowedWord(const std::string& word);
+}  // namespace beam::electrum

@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "wallet/transactions/swaps/common.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/common.h"
+#include "wallet/transactions/swaps/bridges/qtum/common.h"
 #include "bitcoin/bitcoin.hpp"
 
 namespace beam::wallet
@@ -201,4 +203,66 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "";
     }
 }
-}  // namespace std 
+}  // namespace std
+
+namespace beam::electrum
+{
+std::vector<std::string> generateReceivingAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
+{
+    std::vector<std::string> addresses;
+    libbitcoin::wallet::hd_private masterKey;
+    if (swapCoin == wallet::AtomicSwapCoin::Qtum)
+    {
+        masterKey = qtum::generateElectrumMasterPrivateKeys(words).first;
+    }
+    else
+    {
+        masterKey = bitcoin::generateElectrumMasterPrivateKeys(words).first;
+    }
+
+
+    for (uint32_t index = 0; index < amount; index++)
+    {
+        addresses.push_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
+    }
+    return addresses;
+}
+
+std::vector<std::string> generateChangeAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
+{
+    std::vector<std::string> addresses;
+    libbitcoin::wallet::hd_private masterKey;
+    if (swapCoin == wallet::AtomicSwapCoin::Qtum)
+    {
+        masterKey = qtum::generateElectrumMasterPrivateKeys(words).second;
+    }
+    else
+    {
+        masterKey = bitcoin::generateElectrumMasterPrivateKeys(words).second;
+    }
+
+    for (uint32_t index = 0; index < amount; index++)
+    {
+        addresses.push_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
+    }
+    return addresses;
+}
+
+bool validateMnemonic(const std::vector<std::string>& words, bool isSegwitType)
+{
+    auto seedType = isSegwitType ? libbitcoin::wallet::electrum::seed::witness : libbitcoin::wallet::electrum::seed::standard;
+    return libbitcoin::wallet::electrum::validate_mnemonic(words, seedType);
+}
+
+std::vector<std::string> createMnemonic(const std::vector<uint8_t>& entropy)
+{
+    return libbitcoin::wallet::electrum::create_mnemonic(entropy);
+}
+
+bool isAllowedWord(const std::string& word)
+{
+    return std::binary_search(libbitcoin::wallet::language::electrum::en.begin(), libbitcoin::wallet::language::electrum::en.end(), word);
+}
+}  // namespace beam::electrum

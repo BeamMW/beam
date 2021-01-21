@@ -119,7 +119,7 @@ namespace beam::bitcoin
                     unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
                 }
 
-                auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
+                auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
                 while (true)
                 {
                     int changePosition = -1;
@@ -269,7 +269,7 @@ namespace beam::bitcoin
         LOG_DEBUG() << "getRawChangeAddress command";
 
         Error error{ None, "" };
-        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
+        auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
         std::srand(static_cast<unsigned int>(std::time(0)));
         uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_receivingAddressAmount);
 
@@ -810,7 +810,7 @@ namespace beam::bitcoin
     {
         std::vector<ec_private> result;
         auto settings = m_settingsProvider.GetSettings().GetElectrumConnectionOptions();
-        auto privateKeys = generateElectrumMasterPrivateKeys(settings.m_secretWords);
+        auto privateKeys = generateMasterPrivateKeys(settings.m_secretWords);
         auto addressVersion = m_settingsProvider.GetSettings().GetAddressVersion();
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
 
@@ -900,6 +900,11 @@ namespace beam::bitcoin
     Amount Electrum::getDust() const
     {
         return kDustThreshold;
+    }
+
+    std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> Electrum::generateMasterPrivateKeys(const std::vector<std::string>& words) const
+    {
+        return generateElectrumMasterPrivateKeys(words);
     }
 
     transaction Electrum::signRawTx(const transaction& tx1, const std::vector<Utxo>& coins)

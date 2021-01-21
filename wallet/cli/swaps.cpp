@@ -176,9 +176,9 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
             electrumSettings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
-            if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
+            if (!electrum::validateMnemonic(electrumSettings.m_secretWords))
             {
-                if (bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords, true))
+                if (electrum::validateMnemonic(electrumSettings.m_secretWords, true))
                 {
                     throw std::runtime_error("Segwit seed phrase is not supported yet.");
                 }
@@ -187,7 +187,7 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
         }
         else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
-            electrumSettings.m_secretWords = bitcoin::createElectrumMnemonic(getEntropy());
+            electrumSettings.m_secretWords = electrum::createMnemonic(getEntropy());
 
             // TODO roman.strilets need to check words
             auto strSeed = std::accumulate(

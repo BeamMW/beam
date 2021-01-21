@@ -37,15 +37,10 @@ namespace beam::bitcoin
     uint64_t btc_to_satoshi(double btc);
     uint8_t getAddressVersion();
     std::vector<std::string> getGenesisBlockHashes();
-    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType = false);
-    std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy);
 
     // the first key is receiving master private key
     // the second key is changing master private key
     std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words);
     // return the indexth address for private key
     std::string getElectrumAddress(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, uint8_t addressVersion);
-    std::vector<std::string> generateReceivingAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
-    std::vector<std::string> generateChangeAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
-    bool isAllowedWord(const std::string& word);
 } // namespace beam::bitcoin
