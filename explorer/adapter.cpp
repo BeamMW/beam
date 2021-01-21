@@ -854,6 +854,7 @@ private:
                 {"time_created", format_timestamp(wallet::kTimeStampFormat3x3, offer.timeCreated() * 1000, false)},
                 {"min_height", offer.minHeight()},
                 {"height_expired", offer.minHeight() + offer.peerResponseHeight()},
+                {"is_beam_side", offer.isBeamSide()},
             });
         }
 
