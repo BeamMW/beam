@@ -1638,6 +1638,10 @@ namespace bvm2 {
 
 	void MyProcessor::TestPipe()
 	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Pipe);
+		verify_test(sid == Shaders::Pipe::s_SID);
+
 		{
 			Shaders::Pipe::Create arg;
 			ZeroObject(arg);
@@ -1650,7 +1654,7 @@ namespace bvm2 {
 		{
 			Shaders::Pipe::SetRemote arg;
 			ZeroObject(arg);
-			verify_test(!RunGuarded_T(m_cidPipe, arg.s_iMethod, arg)); // less than 15% collateral
+			verify_test(!RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
 
 			arg.m_cid.Inc();
 			verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
@@ -1661,7 +1665,7 @@ namespace bvm2 {
 			ZeroObject(arg);
 
 			for (uint32_t i = 0; i < 10; i++)
-				verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg)); // less than 15% collateral
+				verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
 		}
 	}
 
