@@ -81,18 +81,31 @@ Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount bea
         amountAsset += beamFee;
     }
 
-    if (amountAsset)
+    if (amountAsset > 0)
     {
         auto coins = walletDB->selectCoins(amountAsset, assetId);
-        const auto assetAvailable = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c)
+        const auto assetAvailable = accumulate(coins.begin(), coins.end(), AmountBig::Type(Zero), [] (const AmountBig::Type& sum, const Coin& c)
         {
-            return sum + c.m_ID.m_Value;
+            auto result = sum;
+            result += AmountBig::Type(c.m_ID.m_Value);
+            return result;
         });
 
-        result.changeAsset = assetAvailable <= amountAsset ? 0 : assetAvailable - amountAsset;
+        {
+            // Do not use bigAmountAsset outside of this block, it is negated below
+            AmountBig::Type bigAmountAsset(amountAsset);
+            if (assetAvailable > bigAmountAsset)
+            {
+                result.changeAsset = assetAvailable;
+                bigAmountAsset.Negate();
+                result.changeAsset += bigAmountAsset;
+            }
+        }
+
         if (isBeamTx)
         {
-            result.changeBeam = result.changeAsset;
+            assert(AmountBig::get_Hi(result.changeAsset) == 0);
+            result.changeBeam = AmountBig::get_Lo(result.changeAsset);
         }
     }
 

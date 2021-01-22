@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "core/block_crypt.h"
 #include "wallet/core/common.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
@@ -52,14 +53,14 @@ namespace beam::wallet
     {
         struct AssetStatus
         {
-            Amount available = 0;
-            Amount receiving = 0;
-            Amount receivingIncoming = 0;
-            Amount receivingChange = 0;
-            Amount sending = 0;
-            Amount maturing = 0;
-            Amount maturingMP = 0;
-            Amount shielded = 0;
+            AmountBig::Type available = 0U;
+            AmountBig::Type receiving = 0U;
+            AmountBig::Type receivingIncoming = 0U;
+            AmountBig::Type receivingChange = 0U;
+            AmountBig::Type sending    = 0U;
+            AmountBig::Type maturing   = 0U;
+            AmountBig::Type maturingMP = 0U;
+            AmountBig::Type shielded   = 0U;
         };
 
         bool HasStatus(Asset::ID assetId) const;
@@ -132,7 +133,7 @@ namespace beam::wallet
         virtual void onStatus(const WalletStatus& status) {}
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
-        virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
+        virtual void onChangeCalculated(beam::AmountBig::Type changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
         virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}

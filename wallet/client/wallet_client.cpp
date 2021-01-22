@@ -1491,14 +1491,16 @@ namespace beam::wallet
             const auto& info = totalsPair.second;
             WalletStatus::AssetStatus assetStatus;
 
-            assetStatus.available         = AmountBig::get_Lo(info.Avail);
-            assetStatus.receivingIncoming = AmountBig::get_Lo(info.ReceivingIncoming) + AmountBig::get_Lo(info.IncomingShielded);
-            assetStatus.receivingChange   = AmountBig::get_Lo(info.ReceivingChange);
-            assetStatus.receiving         = AmountBig::get_Lo(info.Incoming);
-            assetStatus.sending           = AmountBig::get_Lo(info.Outgoing) + AmountBig::get_Lo(info.OutgoingShielded);
-            assetStatus.maturing          = AmountBig::get_Lo(info.Maturing);
-            assetStatus.maturingMP        = AmountBig::get_Lo(info.MaturingShielded);
-            assetStatus.shielded          = AmountBig::get_Lo(info.AvailShielded);
+            assetStatus.available         =  info.Avail;
+            assetStatus.receivingIncoming =  info.ReceivingIncoming;
+            assetStatus.receivingIncoming += info.IncomingShielded;
+            assetStatus.receivingChange   =  info.ReceivingChange;
+            assetStatus.receiving         =  info.Incoming;
+            assetStatus.sending           =  info.Outgoing;
+            assetStatus.sending           += info.OutgoingShielded;
+            assetStatus.maturing          =  info.Maturing;
+            assetStatus.maturingMP        =  info.MaturingShielded;
+            assetStatus.shielded          =  info.AvailShielded;
 
             status.all[totalsPair.first] = assetStatus;
         }
