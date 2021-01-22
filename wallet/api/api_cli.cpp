@@ -674,7 +674,6 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
 
@@ -682,6 +681,7 @@ int main(int argc, char* argv[])
             po::options_description desc("Wallet API general options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
+                (cli::VERSION_FULL, "print project version")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
@@ -723,6 +723,12 @@ int main(int argc, char* argv[])
             if (vm.count(cli::HELP))
             {
                 std::cout << desc << std::endl;
+                return 0;
+            }
+
+            if (vm.count(cli::VERSION))
+            {
+                std::cout << PROJECT_VERSION << std::endl;
                 return 0;
             }
 
@@ -816,6 +822,7 @@ int main(int argc, char* argv[])
             options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
+        io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
