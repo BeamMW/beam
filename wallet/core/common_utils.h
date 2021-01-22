@@ -30,9 +30,9 @@ namespace beam::wallet
         //
         // if assetId is BEAM then changeAsset == changeBeam
         //
-        Amount    changeBeam  = 0;
-        Amount    changeAsset = 0;
-        Asset::ID assetId     = Asset::s_BeamID;
+        Amount changeBeam = 0U;
+        AmountBig::Type changeAsset = 0U;
+        Asset::ID assetId = Asset::s_BeamID;
     };
 
     Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId);
@@ -40,16 +40,17 @@ namespace beam::wallet
 
     struct ShieldedCoinsSelectionInfo
     {
-        Amount requestedSum = 0;
-        Amount selectedSumBeam = 0;
-        Amount selectedSumAsset = 0; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
-        Amount requestedFee = 0;
-        Amount selectedFee = 0;
-        Amount minimalFee = 0;
-        Amount shieldedInputsFee = 0;
-        Amount shieldedOutputsFee = 0;
-        Amount changeBeam = 0;
-        Amount changeAsset = 0; // if assetId is BEAM then changeAsset == changeBeam
+        AmountBig::Type requestedSum = 0U;
+        AmountBig::Type selectedSumAsset = 0U; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
+        Amount selectedSumBeam = 0U;
+        Amount requestedFee = 0U;
+        Amount selectedFee = 0U;
+        Amount minimalFee = 0U;
+        Amount shieldedInputsFee = 0U;
+        Amount shieldedOutputsFee = 0U;
+        AmountBig::Type changeBeam = 0U;
+        AmountBig::Type changeAsset = 0U; // if assetId is BEAM then changeAsset == changeBeam
+
         Asset::ID assetID = Asset::s_BeamID;
         bool isEnought = true;
     };

@@ -160,24 +160,31 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
 bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
 {
     Transaction::FeeSettings fs;
-    Amount shieldedOutputsFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+    Amount shieldedFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
 
-    auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-        walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
-    feeForShieldedInputs = coinSelectionRes.shieldedInputsFee;
+    const auto selection = CalcShieldedCoinSelectionInfo(walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
+    shieldedFee = coinSelectionRes.shieldedInputsFee;
 
-    bool isBeam = assetId == Asset::s_BeamID;
-    if (isBeam && (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - coinSelectionRes.changeBeam) < amount)
+    const auto isBeam = assetId == Asset::s_BeamID;
+    if (isBeam)
     {
-        LOG_ERROR() << kErrorNotEnoughtCoins;
-        return false;
+        // TODO: possible underflow
+        if (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - beam::AmountBig::get_Lo(coinSelectionRes.changeBeam)) < amount)
+        {
+            LOG_ERROR() << kErrorNotEnoughtCoins;
+            return false;
+        }
     }
 
-    if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
+    if (!isBeam)
     {
-        // TODO: enough beam & asset
-        LOG_ERROR() << kErrorNotEnoughtCoins;
-        return false;
+        // TODO: possible underflow
+        if (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount)
+        {
+            // TODO: enough beam & asset
+            LOG_ERROR() << kErrorNotEnoughtCoins;
+            return false;
+        }
     }
 
     if (coinSelectionRes.minimalFee > fee)
