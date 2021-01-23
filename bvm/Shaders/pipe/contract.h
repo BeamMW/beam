@@ -5,7 +5,7 @@ namespace Pipe
 {
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
-    static const ShaderID s_SID = { 0x5c,0xeb,0x74,0x94,0xe6,0x3b,0x5b,0x6a,0x55,0x82,0xf1,0x66,0x3a,0x33,0xfb,0x97,0x70,0x55,0xf0,0x6a,0x8d,0x19,0xb8,0x0c,0xaa,0xb9,0xd0,0x43,0x01,0x6f,0xbc,0xfc };
+    static const ShaderID s_SID = { 0x69,0xca,0xe7,0xd1,0xb7,0x6e,0x27,0xd8,0x4c,0x7a,0xf8,0x98,0x39,0xd1,0x1f,0x40,0xb9,0x3a,0xdf,0x2c,0x5f,0x59,0x53,0x68,0x68,0xc3,0x93,0x3a,0xc9,0xc6,0x3e,0x29 };
 
     struct Cfg
     {
@@ -117,6 +117,15 @@ namespace Pipe
         ContractID m_Sender;
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
         Height m_Height;
+
+        void get_Hash(HashValue& res, uint32_t nMsg) const
+        {
+            HashProcessor hp;
+            hp.m_p = Env::HashCreateSha256();
+            hp << "b.msg";
+            hp.Write(this, nMsg);
+            hp >> res;
+        }
     };
 
     struct InpCheckpointHdr
@@ -157,6 +166,11 @@ namespace Pipe
             uint32_t m_iMsg;
             Height m_h0;
         } m_Checkpoint;
+
+        bool IsCheckpointClosed(Height h) const
+        {
+            return (m_Checkpoint.m_iMsg == m_Cfg.m_CheckpointMaxMsgs) || (h - m_Checkpoint.m_h0 >= m_Cfg.m_CheckpointMaxDH);
+        }
     };
 
     struct StateIn

@@ -37,15 +37,6 @@ export void Method_2(const Pipe::SetRemote& r)
 
 }
 
-void get_MsgHash(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
-{
-	HashProcessor hp;
-	hp.m_p = Env::HashCreateSha256();
-	hp << "b.msg";
-	hp.Write(pMsg, nMsg);
-	hp >> res;
-}
-
 void UpdateState(HashValue& res, const HashValue& hvMsg)
 {
 	HashProcessor hp;
@@ -60,7 +51,7 @@ void UpdateState(HashValue& res, const HashValue& hvMsg)
 void UpdateState(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
 {
 	HashValue hvMsg;
-	get_MsgHash(hvMsg, pMsg, nMsg);
+	pMsg->get_Hash(hvMsg, nMsg);
 	UpdateState(res, hvMsg);
 }
 
@@ -89,7 +80,7 @@ export void Method_3(const Pipe::PushLocal0& r)
 		bNewCheckpoint = true; // the very 1st message
 	else
 	{
-		if ((so.m_Checkpoint.m_iMsg == so.m_Cfg.m_CheckpointMaxMsgs) || (h - so.m_Checkpoint.m_h0 >= so.m_Cfg.m_CheckpointMaxDH))
+		if (so.IsCheckpointClosed(h))
 		{
 			bNewCheckpoint = true;
 			so.m_Checkpoint.m_iIdx++;
@@ -518,7 +509,7 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
 
 	HashValue hv;
-	get_MsgHash(hv, pMsg, nSize);
+	pMsg->get_Hash(hv, nSize);
 
 	Env::StackFree(nSize);
 

@@ -18,10 +18,23 @@
     macro(ContractID, cid) \
     macro(ContractID, cidRemote)
 
+#define Pipe_manager_get_NumOutCheckpoints(macro) \
+    macro(ContractID, cid) \
+
+#define Pipe_manager_get_OutCheckpoint(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, iIdx) \
+    macro(uint32_t, bMsgs) \
+    macro(uint32_t, bProof) \
+
+
 #define PipeRole_manager(macro) \
     macro(manager, view) \
     macro(manager, create) \
-    macro(manager, set_remote)
+    macro(manager, set_remote) \
+    macro(manager, get_NumOutCheckpoints) \
+    macro(manager, get_OutCheckpoint) \
+
 
 #define PipeRoles_All(macro) \
     macro(manager) \
@@ -80,6 +93,90 @@ ON_METHOD(manager, set_remote)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Pipe contract 2nd-stage init", 1000000U);
 }
 
+ON_METHOD(manager, get_NumOutCheckpoints)
+{
+    Env::Key_T<Pipe::StateOut::Key> key;
+    key.m_Prefix.m_Cid = cid;
+
+    auto* pState = Env::VarRead_T<Pipe::StateOut>(key);
+    if (!pState)
+    {
+        OnError("no out state");
+        return;
+    }
+
+    uint32_t res = pState->m_Checkpoint.m_iIdx;
+    if (pState->IsCheckpointClosed(Env::get_Height() + 1))
+        res++;
+
+    Env::DocAddNum("count", res);
+}
+
+ON_METHOD(manager, get_OutCheckpoint)
+{
+    {
+        Env::Key_T<Pipe::OutCheckpoint::Key> key;
+        key.m_Prefix.m_Cid = cid;
+        key.m_KeyInContract.m_iCheckpoint_BE = Utils::FromBE(iIdx);
+
+        const Pipe::OutCheckpoint::ValueType* pCp;
+        const Merkle::Node* pProof;
+        uint32_t nVal;
+        uint32_t nProof = Env::VarGetProof(&key, sizeof(key), (const void**) &pCp, &nVal, &pProof);
+
+        if (!nProof)
+        {
+            OnError("no such a checkpoint");
+            return;
+        }
+
+        Env::DocAddBlob_T("Hash", *pCp);
+
+        if (bProof)
+        {
+            Env::DocGroup root("Proof");
+
+            Env::DocAddNum("count", nProof);
+            Env::DocAddBlob("nodes", pProof, sizeof(*pProof) * nProof);
+        }
+    }
+
+    if (bMsgs)
+    {
+        Env::DocArray gr("msgs");
+
+        Env::Key_T<Pipe::MsgHdr::Key> key1;
+        key1.m_Prefix.m_Cid = cid;
+        key1.m_KeyInContract.m_iCheckpoint_BE = Utils::FromBE(iIdx);
+        key1.m_KeyInContract.m_iMsg_BE = 0;
+
+        Env::Key_T<Pipe::MsgHdr::Key> key2 = key1;
+        key1.m_KeyInContract.m_iMsg_BE = static_cast<uint32_t>(-1);
+
+        Env::VarsEnum_T(key1, key2);
+
+        while (true)
+        {
+            const void* pKey;
+            const Pipe::MsgHdr* pHdr;
+            uint32_t nKey, nVal;
+            if (!Env::VarsMoveNext(&pKey, &nKey, (const void**) &pHdr, &nVal))
+                break;
+
+            if (nVal < sizeof(*pHdr))
+                continue;
+
+            Env::DocGroup gr("");
+            Env::DocAddBlob_T("Sender", pHdr->m_Sender);
+            Env::DocAddBlob_T("Receiver", pHdr->m_Receiver);
+            Env::DocAddBlob_T("Height", pHdr->m_Height);
+
+            HashValue hv;
+            pHdr->get_Hash(hv, nVal);
+            Env::DocAddBlob_T("Hash", hv);
+        }
+    }
+}
 
 #undef ON_METHOD
 #undef THE_FIELD
