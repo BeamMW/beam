@@ -463,6 +463,26 @@ export void Method_4(const Pipe::PushRemote0& r)
 	Env::AddSig(r.m_User);
 }
 
+void HandleUserAccount(const PubKey& pk, Amount val, bool bAdd)
+{
+	Pipe::UserInfo ui;
+	Pipe::UserInfo::Key kui;
+	Utils::Copy(kui.m_Pk, pk);
+
+	if (!Env::LoadVar_T(kui, ui))
+		ui.m_Balance = 0;
+
+	if (bAdd)
+		Strict::Add(ui.m_Balance, val);
+	else
+		Strict::Sub(ui.m_Balance, val);
+
+	if (ui.m_Balance)
+		Env::SaveVar_T(kui, ui);
+	else
+		Env::DelVar_T(kui);
+}
+
 export void Method_5(const Pipe::FinalyzeRemote& r)
 {
 	Pipe::StateIn si;
@@ -476,8 +496,13 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	vw.Load();
 	vw.Del();
 
-	Env::FundsUnlock(0, si.m_Dispute.m_Stake);
-	Env::AddSig(vw.m_pVar->m_Cp.m_User);
+	if (r.m_DepositStake)
+		HandleUserAccount(vw.m_pVar->m_Cp.m_User, si.m_Dispute.m_Stake, true);
+	else
+	{
+		Env::FundsUnlock(0, si.m_Dispute.m_Stake);
+		Env::AddSig(vw.m_pVar->m_Cp.m_User);
+	}
 
 	Pipe::InpCheckpointHdr::Key cpk;
 	cpk.m_iCheckpoint = si.m_Dispute.m_iIdx;
@@ -543,33 +568,12 @@ export void Method_6(const Pipe::VerifyRemote0& r)
 
 	Env::FundsLock(0, si.m_Cfg.m_ComissionPerMsg);
 
-	Pipe::UserInfo ui;
-	Pipe::UserInfo::Key kui;
-	Utils::Copy(kui.m_Pk, pInpCp->m_User);
-
-	if (!Env::LoadVar_T(kui, ui))
-		Utils::ZeroObject(ui);
-
-	Strict::Add(ui.m_Balance, si.m_Cfg.m_ComissionPerMsg);
-	Env::SaveVar_T(kui, ui);
+	HandleUserAccount(pInpCp->m_User, si.m_Cfg.m_ComissionPerMsg, true);
 }
 
 export void Method_7(const Pipe::Withdraw& r)
 {
-	Pipe::UserInfo ui;
-	Pipe::UserInfo::Key kui;
-	Utils::Copy(kui.m_Pk, r.m_User);
-
-	if (!Env::LoadVar_T(kui, ui))
-		Utils::ZeroObject(ui);
-
-	Strict::Sub(ui.m_Balance, r.m_Amount);
-
-	if (ui.m_Balance)
-		Env::SaveVar_T(kui, ui);
-	else
-		Env::DelVar_T(kui);
-
+	HandleUserAccount(r.m_User, r.m_Amount, false);
 	Env::FundsUnlock(0, r.m_Amount);
 	Env::AddSig(r.m_User);
 }
