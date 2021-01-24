@@ -37,24 +37,6 @@ export void Method_2(const Pipe::SetRemote& r)
 
 }
 
-void UpdateState(HashValue& res, const HashValue& hvMsg)
-{
-	HashProcessor hp;
-	hp.m_p = Env::HashCreateSha256();
-	hp
-		<< "b.pipe"
-		<< res
-		<< hvMsg
-		>> res;
-}
-
-void UpdateState(HashValue& res, const Pipe::MsgHdr* pMsg, uint32_t nMsg)
-{
-	HashValue hvMsg;
-	pMsg->get_Hash(hvMsg, nMsg);
-	UpdateState(res, hvMsg);
-}
-
 export void Method_3(const Pipe::PushLocal0& r)
 {
 	Height h = Env::get_Height();
@@ -105,7 +87,7 @@ export void Method_3(const Pipe::PushLocal0& r)
 	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
 	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
 
-	UpdateState(hv, pMsg, nSize);
+	pMsg->UpdateState(hv, nSize);
 	Env::SaveVar_T(cpk, hv);
 
 	so.m_Checkpoint.m_iMsg++;
@@ -158,11 +140,7 @@ struct VariantWrap
 
 	void Evaluate()
 	{
-		uint32_t nMsgs = (m_VarSize - sizeof(*m_pVar)) / sizeof(HashValue);
-		auto* pMsgs = (const HashValue*) (m_pVar + 1);
-
-		for (uint32_t i = 0; i < nMsgs; i++)
-			UpdateState(m_Key.m_hvVariant, pMsgs[i]);
+		m_pVar->Evaluate(m_Key.m_hvVariant, m_VarSize);
 	}
 
 	void Load()

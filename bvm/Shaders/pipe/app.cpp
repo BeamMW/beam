@@ -27,6 +27,8 @@
     macro(uint32_t, bMsgs) \
     macro(uint32_t, bProof) \
 
+#define Pipe_manager_get_InCheckpointDispute(macro) \
+    macro(ContractID, cid) \
 
 #define PipeRole_manager(macro) \
     macro(manager, view) \
@@ -34,6 +36,7 @@
     macro(manager, set_remote) \
     macro(manager, get_NumOutCheckpoints) \
     macro(manager, get_OutCheckpoint) \
+    macro(manager, get_InCheckpointDispute) \
 
 
 #define PipeRoles_All(macro) \
@@ -175,6 +178,53 @@ ON_METHOD(manager, get_OutCheckpoint)
             pHdr->get_Hash(hv, nVal);
             Env::DocAddBlob_T("Hash", hv);
         }
+    }
+}
+
+void DerivePk(PubKey& pk, const ContractID& cid)
+{
+    Env::DerivePk(pk, &cid, sizeof(cid));
+}
+
+ON_METHOD(manager, get_InCheckpointDispute)
+{
+    Env::Key_T<Pipe::StateIn::Key> key;
+    key.m_Prefix.m_Cid = cid;
+
+    auto* pState = Env::VarRead_T<Pipe::StateIn>(key);
+    if (!pState)
+    {
+        OnError("no in state");
+        return;
+    }
+
+    Env::DocAddNum("num", pState->m_Dispute.m_iIdx);
+
+    if (pState->m_Dispute.m_Variants)
+    {
+        Env::DocAddNum("stake", pState->m_Dispute.m_Stake);
+        Env::DocAddNum("Height", pState->m_Dispute.m_Height);
+
+        PubKey pk;
+        DerivePk(pk, cid);
+
+        Env::Key_T<Pipe::Variant::Key> vk;
+        vk.m_Prefix.m_Cid = cid;
+        vk.m_KeyInContract.m_hvVariant = pState->m_Dispute.m_hvBestVariant;
+        Env::VarsEnum_T(vk, vk);
+
+        uint32_t nKey, nVar;
+        const void* pKey;
+        const Pipe::Variant* pVar;
+
+        Env::VarsMoveNext(&pKey, &nKey, (const void**) &pVar, &nVar);
+
+        Env::DocAddNum("is_my", (uint32_t) !Utils::Cmp(pk, pVar->m_Cp.m_User));
+
+        if (Utils::IsZero(vk.m_KeyInContract.m_hvVariant))
+            pVar->Evaluate(vk.m_KeyInContract.m_hvVariant, nVar);
+
+        Env::DocAddBlob_T("hash", vk.m_KeyInContract.m_hvVariant);
     }
 }
 

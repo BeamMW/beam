@@ -5,7 +5,7 @@ namespace Pipe
 {
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
-    static const ShaderID s_SID = { 0x3b,0x91,0xdc,0xd4,0xb6,0x92,0xaa,0x0e,0x05,0x17,0xc7,0x70,0xae,0xe8,0x10,0x89,0x9a,0xd2,0x25,0x3e,0xba,0x7d,0x79,0xfe,0xe0,0xfb,0x9a,0xad,0xc7,0x84,0xcc,0x7c };
+    static const ShaderID s_SID = { 0xbc,0xf7,0xb8,0xa1,0xf5,0xc1,0xa8,0x8c,0xb1,0x1f,0xd8,0x8e,0x9d,0xd1,0xa0,0x09,0x2f,0x73,0x7d,0x5f,0xea,0x25,0x36,0xd9,0x6a,0x11,0x00,0x87,0xe7,0xd9,0xc3,0x31 };
 
     struct Cfg
     {
@@ -127,6 +127,24 @@ namespace Pipe
             hp.Write(this, nMsg);
             hp >> res;
         }
+
+        static void UpdateState(HashValue& res, const HashValue& hvMsg)
+        {
+            HashProcessor hp;
+            hp.m_p = Env::HashCreateSha256();
+            hp
+                << "b.pipe"
+                << res
+                << hvMsg
+                >> res;
+        }
+
+        void UpdateState(HashValue& res, uint32_t nMsg) const
+        {
+            HashValue hvMsg;
+            get_Hash(hvMsg, nMsg);
+            UpdateState(res, hvMsg);
+        }
     };
 
     struct InpCheckpointHdr
@@ -216,6 +234,15 @@ namespace Pipe
 
         InpCheckpointHdr m_Cp;
         // followed by hashes
+
+        void Evaluate(HashValue& res, uint32_t nSize) const
+        {
+            uint32_t nMsgs = (nSize - sizeof(*this)) / sizeof(HashValue);
+            auto* pMsgs = (const HashValue*) (this + 1);
+
+            for (uint32_t i = 0; i < nMsgs; i++)
+                MsgHdr::UpdateState(res, pMsgs[i]);
+        }
     };
 
     struct UserInfo
