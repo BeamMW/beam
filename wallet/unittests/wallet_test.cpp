@@ -2165,39 +2165,39 @@ namespace
         Amount beforehandFee = 1000100;
 
         auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 6000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(6000000 > selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
+        WALLET_CHECK(6000000 > selectionRes.selectedSumBeam - selectionRes.selectedFee - AmountBig::get_Lo(selectionRes.changeBeam));
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam == 0);
+        WALLET_CHECK(selectionRes.changeBeam == Zero);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
+        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - AmountBig::get_Lo(selectionRes.changeBeam));
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(selectionRes.changeBeam != Zero);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 4000000,100, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
+        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - AmountBig::get_Lo(selectionRes.changeBeam));
         WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee > 100);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(selectionRes.changeBeam != Zero);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 500000, beforehandFee,  Asset::s_BeamID);
-        WALLET_CHECK(500000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
+        WALLET_CHECK(500000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - AmountBig::get_Lo(selectionRes.changeBeam));
         WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
         WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(selectionRes.changeBeam != Zero);
 
         selectionRes = wallet::CalcShieldedCoinSelectionInfo(walletDB, 3000000, beforehandFee, Asset::s_BeamID, true);
-        WALLET_CHECK(3000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
+        WALLET_CHECK(3000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - AmountBig::get_Lo(selectionRes.changeBeam));
         WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee * 3);
         WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
         WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(selectionRes.changeBeam != Zero);
 
         cout << "\nShielded coins selection tested\n";
     }
