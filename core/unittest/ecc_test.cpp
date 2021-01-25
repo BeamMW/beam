@@ -1926,7 +1926,7 @@ void TestLelantus(bool bWithAsset, bool bMpc)
 
 	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
 	{
-		beam::ExecutorMT ex;
+		beam::ExecutorMT_R ex;
 		ex.set_Threads(1 << iCycle);
 
 		beam::Executor::Scope scope(ex);
@@ -2761,9 +2761,12 @@ int main()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().pForks[1].m_Height = g_hFork;
-	beam::Rules::get().pForks[2].m_Height = g_hFork;
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
+	r.CA.Enabled = true;
+	r.pForks[1].m_Height = g_hFork;
+	r.pForks[2].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

@@ -40,7 +40,9 @@ int main()
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
 
-    InitTestRules();
+    Rules r;
+    Rules::Scope scopeRules(r);
+    InitTestRules(r);
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -140,7 +142,7 @@ int main()
     });
     auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
     InitNodeToTest(
-        node, binaryTreasury, &observer, kDefaultTestNodePort,
+        node, r, binaryTreasury, &observer, kDefaultTestNodePort,
         kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
     ConfigureNetwork(*laserFirst, *laserSecond);
 

@@ -25,14 +25,14 @@
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 
-void InitTestNode(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer,
+void InitTestNode(Node& node, Rules& r, const ByteBuffer& binaryTreasury, Node::IObserver* observer,
                   Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 200,
                   const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {},
                   bool miningNode = true)
 {
     node.m_Keys.m_pOwner = ownerKey;
     node.m_Cfg.m_Treasury = binaryTreasury;
-    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
 
     boost::filesystem::remove(path);
     node.m_Cfg.m_sPathLocal = path;
@@ -45,16 +45,16 @@ void InitTestNode(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver*
 
     node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
     node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
-    //Rules::get().Maturity.Coinbase = 1;
-    Rules::get().FakePoW = true;
+    //r.Maturity.Coinbase = 1;
+    r.FakePoW = true;
 
     node.m_Cfg.m_Observer = observer;
-    Rules::get().UpdateChecksum();
+    r.UpdateChecksum();
     node.Initialize();
     node.m_PostStartSynced = true;
 }
 
-void TestAssets() {
+void TestAssets(Rules& r) {
     //
     // Assets issue
     //
@@ -102,7 +102,7 @@ void TestAssets() {
         }
     });
 
-    InitTestNode(node, receiverTreasury, &observer, receiverDB->get_MasterKdf());
+    InitTestNode(node, r, receiverTreasury, &observer, receiverDB->get_MasterKdf());
     TestWalletRig receiver(receiverDB, stopReactor, TestWalletRig::RegularWithoutPoWBbs);
 
     auto ownerDB = createSqliteWalletDB("owner_wallet.db", false, true);
@@ -664,7 +664,9 @@ int main () {
     const auto logger = beam::Logger::create(logLevel, logLevel);
     LOG_INFO() << "Assets test - starting";
 
-    auto& rules = beam::Rules::get();
+    Rules rules;
+    Rules::Scope scopeRules(rules);
+
     WALLET_CHECK(rules.CA.LockPeriod == rules.MaxRollback);
 
     rules.CA.Enabled          = true;
@@ -676,7 +678,7 @@ int main () {
     rules.pForks[2].m_Height  = 10;
     rules.UpdateChecksum();
 
-    TestAssets();
+    TestAssets(rules);
 
     LOG_INFO() << "Assets test - completed";
     assert(g_failureCount == 0);

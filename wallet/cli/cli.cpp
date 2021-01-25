@@ -2675,6 +2675,10 @@ static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 int main_impl(int argc, char* argv[])
 {
     beam::Crash::InstallHandler(NULL);
+
+    Rules r;
+    Rules::Scope scopeRules(r);
+
     const Command commands[] =
     {
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
@@ -2731,7 +2735,7 @@ int main_impl(int argc, char* argv[])
         po::variables_map vm;
         try
         {
-            vm = getOptions(argc, argv, kDefaultConfigFile, options, true);
+            vm = getOptions(argc, argv, kDefaultConfigFile, options, r, true);
         }
         catch (const po::invalid_option_value& e)
         {
@@ -2790,7 +2794,7 @@ int main_impl(int argc, char* argv[])
 
             unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
             clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
-            Rules::get().UpdateChecksum();
+            r.UpdateChecksum();
 
             // always enabled since beamX
             wallet::g_AssetsEnabled = true;

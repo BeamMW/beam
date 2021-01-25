@@ -1732,12 +1732,23 @@ namespace beam
 
 
 	/////////////
-	// Block
+	// Rules
 
-	Rules g_Rules; // refactor this to enable more flexible acess for current rules (via TLS or etc.)
-	Rules& Rules::get()
+	thread_local const Rules* g_pRules = nullptr;
+
+	const Rules& Rules::get()
 	{
-		return g_Rules;
+		assert(g_pRules);
+		return *g_pRules;
+	}
+
+	Rules::Scope::Scope(const Rules& r) {
+		m_pPrev = g_pRules;
+		g_pRules = &r;
+	}
+
+	Rules::Scope::~Scope() {
+		g_pRules = m_pPrev;
 	}
 
 	const Height Rules::HeightGenesis	= 1;
@@ -2024,6 +2035,27 @@ namespace beam
 		CMP_MEMBER_EX(m_Hash)
 		return 0;
 	}
+
+	void ExecutorMT_R::StartThread(std::thread& t, uint32_t iThread)
+	{
+		t = std::thread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());
+	}
+
+	void ExecutorMT_R::RunThreadInternal(uint32_t iThread, const Rules& r)
+	{
+		Rules::Scope scopeRules(r);
+		RunThread(iThread);
+	}
+
+	void ExecutorMT_R::RunThread(uint32_t iThread)
+	{
+		Context ctx;
+		ctx.m_iThread = iThread;
+		RunThreadCtx(ctx);
+	}
+
+	/////////////
+	// Block
 
 	int Block::SystemState::Full::cmp(const Full& v) const
 	{

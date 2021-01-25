@@ -304,7 +304,7 @@ namespace beam::wallet
         x.m_pKernel->UpdateMsg();
         x.get_SkOut(prover.m_Witness.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
 
-        ExecutorMT exec;
+        ExecutorMT_R exec;
         Executor::Scope scope(exec);
         x.m_pKernel->Sign(prover, x.m_AssetID);
 

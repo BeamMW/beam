@@ -423,7 +423,7 @@ struct Context
 
     } m_Cfg;
 
-    beam::ExecutorMT m_Exec;
+    beam::ExecutorMT_R m_Exec;
 
 
     void OnRolledBack()
@@ -914,6 +914,9 @@ int main_Guarded(int argc, char* argv[])
 {
     using namespace beam;
 
+    Rules r;
+    Rules::Scope scopeRules(r);
+
     io::Reactor::Ptr pReactor(io::Reactor::create());
     io::Reactor::Scope scope(*pReactor);
     io::Reactor::GracefulIntHandler gih(*pReactor);
@@ -938,7 +941,7 @@ int main_Guarded(int argc, char* argv[])
         
         ;
 
-    po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
+    po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, r, true);
 
     bool bLocalMode = vm[szLocalMode].as<bool>();
 
@@ -1012,14 +1015,14 @@ int main_Guarded(int argc, char* argv[])
 
         ser.swap_buf(node.m_Cfg.m_Treasury);
 
-        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
-        Rules::get().FakePoW = true;
-        Rules::get().MaxRollback = 10;
-        Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
-        Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
-        Rules::get().Shielded.MaxWindowBacklog = 200;
-        Rules::get().pForks[1].m_Height = 1;
-        Rules::get().pForks[2].m_Height = 2;
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
+        r.FakePoW = true;
+        r.MaxRollback = 10;
+        r.Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
+        r.Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
+        r.Shielded.MaxWindowBacklog = 200;
+        r.pForks[1].m_Height = 1;
+        r.pForks[2].m_Height = 2;
 
         node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 3000;
         node.m_Cfg.m_MiningThreads = 1;
@@ -1027,7 +1030,7 @@ int main_Guarded(int argc, char* argv[])
         beam::DeleteFile(node.m_Cfg.m_sPathLocal.c_str());
     }
 
-    Rules::get().UpdateChecksum();
+    r.UpdateChecksum();
 
     node.m_Cfg.m_Listen.port(g_LocalNodePort);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);

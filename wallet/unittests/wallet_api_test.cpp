@@ -1348,16 +1348,19 @@ void TestAssetsAPI()
     //
     // EXPLICITLY ENABLE Confidential assets to perform tests
     //
-    Rules::get().CA.Enabled = true;
-    Rules::get().UpdateChecksum();
+    Rules r;
+    Rules::Scope scopeRules(r);
+
+    r.CA.Enabled = true;
+    r.UpdateChecksum();
 
     TestICTx<Issue>("tx_asset_issue");
     TestICTx<Consume>("tx_asset_consume");
     TestAITx();
     TestGetAssetInfo();
 
-    Rules::get().CA.Enabled = false;
-    Rules::get().UpdateChecksum();
+    r.CA.Enabled = false;
+    r.UpdateChecksum();
 }
 
 int main()

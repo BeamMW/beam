@@ -36,8 +36,10 @@ void BbsMiner::Stop()
     }
 }
 
-void BbsMiner::Thread(uint32_t iThread)
+void BbsMiner::Thread(uint32_t iThread, const Rules& r)
 {
+    Rules::Scope scopeRules(r);
+
     proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
 
     while (true)

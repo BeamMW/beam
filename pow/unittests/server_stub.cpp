@@ -103,6 +103,9 @@ void run_with_node() {
     boost::filesystem::remove_all("xxxxx");
     boost::filesystem::remove_all("yyyyy");
 
+    Rules r;
+    Rules::Scope scopeRules(r);
+
     io::Address listenTo = io::Address().port(20000);
     io::Reactor::Ptr reactor = io::Reactor::create();
     io::Reactor::Scope scope(*reactor);
@@ -112,8 +115,8 @@ void run_with_node() {
     find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo, 5);
 
-    Rules::get().DA.Difficulty0 = 0;
-    Rules::get().UpdateChecksum();
+    r.DA.Difficulty0 = 0;
+    r.UpdateChecksum();
     LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     Node node;

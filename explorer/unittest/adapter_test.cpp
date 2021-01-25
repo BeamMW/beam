@@ -120,8 +120,11 @@ int main(int argc, char* argv[]) {
         }
     );
     ECC::InitializeContext();
-    Rules::get().DA.Target_s = 1; // 1 minute
-    Rules::get().DA.Difficulty0 = 1;
+
+    Rules r;
+    Rules::Scope scopeRules(r);
+    r.DA.Target_s = 1; // 1 minute
+    r.DA.Difficulty0 = 1;
 
     int seconds = 0;
     if (argc > 1) {
@@ -129,7 +132,7 @@ int main(int argc, char* argv[]) {
     }
     if (seconds == 0) {
         seconds = 4;
-        Rules::get().FakePoW = true;
+        r.FakePoW = true;
     }
 
     int ret = test_adapter(seconds);

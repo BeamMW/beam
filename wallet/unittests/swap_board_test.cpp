@@ -901,11 +901,12 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     
-    auto& rules = beam::Rules::get();
+    Rules rules;
+    Rules::Scope scopeRules(rules);
     rules.FakePoW = true;
-    rules.UpdateChecksum();
     rules.pForks[1].m_Height = Fork1Height;
     rules.pForks[2].m_Height = Fork2Height;
+    rules.UpdateChecksum();
 
     TestProtocolHandlerSignature();
     TestProtocolHandlerIntegration();

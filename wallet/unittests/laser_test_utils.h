@@ -161,13 +161,13 @@ ByteBuffer MakeTreasury(
     return result;
 }
 
-void InitTestRules()
+void InitTestRules(Rules& r)
 {
-    Rules::get().pForks[1].m_Height = 1;
-    Rules::get().pForks[2].m_Height = 2;
-	Rules::get().FakePoW = true;
-    Rules::get().MaxRollback = 5;
-	Rules::get().UpdateChecksum();
+    r.pForks[1].m_Height = 1;
+    r.pForks[2].m_Height = 2;
+	r.FakePoW = true;
+    r.MaxRollback = 5;
+	r.UpdateChecksum();
 }
 
 constexpr bool is_path_sep(char c)

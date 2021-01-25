@@ -140,6 +140,9 @@ int main_impl(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
 
+	Rules r;
+	Rules::Scope scopeRules(r);
+
 	try
 	{
 		auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS);
@@ -147,7 +150,7 @@ int main_impl(int argc, char* argv[])
 		po::variables_map vm;
 		try
 		{
-			vm = getOptions(argc, argv, "beam-node.cfg", options);
+			vm = getOptions(argc, argv, "beam-node.cfg", options, r);
 		}
 		catch (const po::error& e)
 		{
@@ -193,7 +196,7 @@ int main_impl(int argc, char* argv[])
 
 			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
-			Rules::get().UpdateChecksum();
+			r.UpdateChecksum();
             LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
 			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
