@@ -168,8 +168,7 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, con
     const auto isBeam = assetId == Asset::s_BeamID;
     if (isBeam)
     {
-        // TODO: possible underflow
-        if (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - beam::AmountBig::get_Lo(coinSelectionRes.changeBeam) < amount)
+        if (coinSelectionRes.selectedSumBeam  < amount + coinSelectionRes.selectedFee + coinSelectionRes.changeBeam)
         {
             LOG_ERROR() << kErrorNotEnoughtCoins;
             return false;
@@ -178,10 +177,10 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, con
 
     if (!isBeam)
     {
-        // TODO: possible underflow
-        AmountBig::Type val(amount);
-        val += coinSelectionRes.changeAsset;
-        if (coinSelectionRes.selectedSumAsset < val)
+        AmountBig::Type value(amount);
+        value += AmountBig::Type(coinSelectionRes.changeAsset);
+
+        if (AmountBig::Type(coinSelectionRes.selectedSumAsset) < value)
         {
             // TODO: enough beam & asset
             LOG_ERROR() << kErrorNotEnoughtCoins;

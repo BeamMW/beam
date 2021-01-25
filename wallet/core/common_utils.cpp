@@ -96,15 +96,17 @@ Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount bea
             AmountBig::Type bigAmountAsset(amountAsset);
             if (assetAvailable > bigAmountAsset)
             {
-                result.changeAsset = assetAvailable;
+                AmountBig::Type changeAsset = assetAvailable;
                 bigAmountAsset.Negate();
-                result.changeAsset += bigAmountAsset;
+                changeAsset += bigAmountAsset;
+
+                assert(AmountBig::get_Hi(result.changeAsset) == 0);
+                result.changeAsset = AmountBig::get_Lo(changeAsset);
             }
         }
 
         if (isBeamTx)
         {
-            assert(AmountBig::get_Hi(result.changeAsset) == 0);
             result.changeBeam = AmountBig::get_Lo(result.changeAsset);
         }
     }
