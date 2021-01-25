@@ -346,7 +346,7 @@ namespace beam
             return x.m_Packed;
         }
 
-        static std::string get(ECC::uintBig& x) {
+        static std::string get(const ECC::uintBig& x) {
             return x.str();
         }
 

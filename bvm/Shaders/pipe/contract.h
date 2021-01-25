@@ -5,6 +5,8 @@ namespace Pipe
 {
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
+    static const ShaderID s_SID = { 0xbc,0xf7,0xb8,0xa1,0xf5,0xc1,0xa8,0x8c,0xb1,0x1f,0xd8,0x8e,0x9d,0xd1,0xa0,0x09,0x2f,0x73,0x7d,0x5f,0xea,0x25,0x36,0xd9,0x6a,0x11,0x00,0x87,0xe7,0xd9,0xc3,0x31 };
+
     struct Cfg
     {
         struct Out {
@@ -65,6 +67,7 @@ namespace Pipe
     struct FinalyzeRemote
     {
         static const uint32_t s_iMethod = 5;
+        uint8_t m_DepositStake; // instead of immediate withdraw. Can be used by other user to enforce checkpoint finalization
     };
 
     struct VerifyRemote0
@@ -115,6 +118,33 @@ namespace Pipe
         ContractID m_Sender;
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
         Height m_Height;
+
+        void get_Hash(HashValue& res, uint32_t nMsg) const
+        {
+            HashProcessor hp;
+            hp.m_p = Env::HashCreateSha256();
+            hp << "b.msg";
+            hp.Write(this, nMsg);
+            hp >> res;
+        }
+
+        static void UpdateState(HashValue& res, const HashValue& hvMsg)
+        {
+            HashProcessor hp;
+            hp.m_p = Env::HashCreateSha256();
+            hp
+                << "b.pipe"
+                << res
+                << hvMsg
+                >> res;
+        }
+
+        void UpdateState(HashValue& res, uint32_t nMsg) const
+        {
+            HashValue hvMsg;
+            get_Hash(hvMsg, nMsg);
+            UpdateState(res, hvMsg);
+        }
     };
 
     struct InpCheckpointHdr
@@ -155,6 +185,11 @@ namespace Pipe
             uint32_t m_iMsg;
             Height m_h0;
         } m_Checkpoint;
+
+        bool IsCheckpointClosed(Height h) const
+        {
+            return (m_Checkpoint.m_iMsg == m_Cfg.m_CheckpointMaxMsgs) || (h - m_Checkpoint.m_h0 >= m_Cfg.m_CheckpointMaxDH);
+        }
     };
 
     struct StateIn
@@ -199,6 +234,15 @@ namespace Pipe
 
         InpCheckpointHdr m_Cp;
         // followed by hashes
+
+        void Evaluate(HashValue& res, uint32_t nSize) const
+        {
+            uint32_t nMsgs = (nSize - sizeof(*this)) / sizeof(HashValue);
+            auto* pMsgs = (const HashValue*) (this + 1);
+
+            for (uint32_t i = 0; i < nMsgs; i++)
+                MsgHdr::UpdateState(res, pMsgs[i]);
+        }
     };
 
     struct UserInfo

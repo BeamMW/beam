@@ -167,7 +167,7 @@ namespace beam
 		m_vThreads.resize(nThreads);
 
 		for (uint32_t i = 0; i < nThreads; i++)
-			m_vThreads[i] = std::thread(&ExecutorMT::RunThread, this, i);
+			StartThread(m_vThreads[i], i);
 	}
 
 	void ExecutorMT::Push(TaskAsync::Ptr&& pTask)
@@ -242,13 +242,6 @@ namespace beam
 			TaskAsync::Ptr pGuard(&m_queTasks.front());
 			m_queTasks.pop_front();
 		}
-	}
-
-	void ExecutorMT::RunThread(uint32_t iThread)
-	{
-		Context ctx;
-		ctx.m_iThread = iThread;
-		RunThreadCtx(ctx);
 	}
 
 	void ExecutorMT::RunThreadCtx(Context& ctx)

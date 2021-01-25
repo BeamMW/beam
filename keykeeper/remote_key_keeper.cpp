@@ -828,7 +828,7 @@ namespace beam::wallet
             Setup();
 
             {
-                ExecutorMT exec;
+                ExecutorMT_R exec;
                 Executor::Scope scope(exec);
 
                 // proof phase1 generation (the most computationally expensive)
