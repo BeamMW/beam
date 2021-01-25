@@ -423,7 +423,7 @@ struct Context
 
     } m_Cfg;
 
-    beam::ExecutorMT m_Exec;
+    beam::ExecutorMT_R m_Exec;
 
 
     void OnRolledBack()

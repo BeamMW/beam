@@ -231,7 +231,7 @@ private:
 		void Stop();
 
 		struct MyExecutorMT
-			:public ExecutorMT
+			:public ExecutorMT_R
 		{
 			virtual void RunThread(uint32_t) override;
 
@@ -663,6 +663,8 @@ private:
 	{
 		std::vector<PerThread> m_vThreads;
 		io::AsyncEvent::Ptr m_pEvtMined;
+
+		void RunMinerThread(const io::Reactor::Ptr&, const Rules&);
 
 		struct Task
 			:public NodeProcessor::GeneratedBlock

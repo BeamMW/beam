@@ -1926,7 +1926,7 @@ void TestLelantus(bool bWithAsset, bool bMpc)
 
 	for (uint32_t iCycle = 0; iCycle < 3; iCycle++)
 	{
-		beam::ExecutorMT ex;
+		beam::ExecutorMT_R ex;
 		ex.set_Threads(1 << iCycle);
 
 		beam::Executor::Scope scope(ex);
