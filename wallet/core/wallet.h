@@ -175,6 +175,7 @@ namespace beam::wallet
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
+        void confirm_asset(const Asset::ID assetId);
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
