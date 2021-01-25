@@ -57,4 +57,6 @@ namespace beam::wallet {
         Height  m_RefreshHeight = 0;
         int32_t m_IsOwned = 0;
     };
+
+    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& meta);
 }

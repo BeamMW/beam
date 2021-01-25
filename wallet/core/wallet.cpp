@@ -530,6 +530,18 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::confirm_asset(const Asset::ID assetId)
+    {
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
+        pVal->m_Msg.m_AssetID = assetId;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << "Get proof for asset with id: " << assetId;
+        }
+    }
+
     // Implementation of the INegotiatorGateway::get_kernel
     // @param txID : TxID - transaction id
     // @param kernelID : Merkle::Hash& - kernel id
@@ -969,42 +981,36 @@ namespace beam::wallet
         Block::SystemState::Full sTip;
         get_tip(sTip);
 
+        std::string msgPrefix;
+        if (req.m_TxID.end() != std::find(req.m_TxID.begin(), req.m_TxID.end(), true)) // any non-zero val in array
+        {
+            stringstream ss;
+            ss << req.m_TxID << "[" << req.m_SubTxID << "] ";
+            msgPrefix = ss.str();
+        }
+
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info  = req.m_Res.m_Info;
             const auto height = m_WalletDB->getCurrentHeight();
-            m_WalletDB->saveAsset(info, height);
 
-            bool isReg = false;
-            if (tx)
+            m_WalletDB->saveAsset(info, height);
+            LOG_INFO() << msgPrefix << "Received proof for Asset with ID " << info.m_ID;
+
+            if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
             {
-                tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
-                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
-                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
-                isReg = tx->GetType() == TxType::AssetReg;
+                std::string strMeta;
+                fromByteBuffer(info.m_Metadata.m_Value, strMeta);
+
+                if (beam::wallet::GetAssetOwnerID(maserKdf, strMeta) == info.m_Owner)
+                {
+                    m_WalletDB->markAssetOwned(info.m_ID);
+                }
             }
             else
             {
-                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, height, true);
-                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, info, true);
-                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, Height(0), true);
-
-                TxType txType;
-                if (storage::getTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::TransactionType, txType))
-                {
-                    isReg = txType == TxType::AssetReg;
-                }
+                LOG_WARNING() << msgPrefix << "Unable to get master key. Asset's " << req.m_Res.m_Info.m_ID << " ownership won't be checked.";
             }
-
-            if (isReg)
-            {
-                m_WalletDB->markAssetOwned(info.m_ID);
-            }
-
-            stringstream ss;
-            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
-            const auto prefix = ss.str();
-            LOG_INFO() << prefix << " Received proof for Asset with ID " << info.m_ID;
 
             if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
@@ -1013,7 +1019,16 @@ namespace beam::wallet
 
             if (tx)
             {
+                tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
                 UpdateTransaction(tx);
+            }
+            else
+            {
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, height, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, info, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, Height(0), true);
             }
         }
         else
@@ -1466,6 +1481,7 @@ namespace beam::wallet
             // we are not ready to process transactions
             return;
         }
+
         std::unordered_set<BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
@@ -1478,6 +1494,24 @@ namespace beam::wallet
                 if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
                     pTx->Update();
             }
+        }
+
+        std::set<beam::Asset::ID> assets;
+        m_WalletDB->visitCoins([&assets] (const Coin& c) -> bool {
+            if (c.m_ID.m_AssetID) {
+                assets.insert(c.m_ID.m_AssetID);
+            }
+            return true;
+        });
+
+        m_WalletDB->visitAssets([&assets] (const WalletAsset& asset) -> bool {
+           assets.erase(asset.m_ID);
+           return true;
+        });
+
+        for (auto assetId: assets)
+        {
+            confirm_asset(assetId);
         }
     }
 

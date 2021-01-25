@@ -16,7 +16,7 @@
 #include "wallet/core/common_utils.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/strings_resources.h"
-#include "wallet/transactions/assets/assets_kdf_utils.h"
+#include "wallet/core/assets_utils.h"
 #include "utility/logger.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

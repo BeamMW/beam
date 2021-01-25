@@ -222,4 +222,16 @@ namespace beam::wallet {
         const auto prefix = ss.str();
         LogInfo(prefix);
     }
+
+    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& strMeta)
+    {
+        Asset::Metadata meta;
+        meta.m_Value = toByteBuffer(strMeta);
+        meta.UpdateHash();
+
+        PeerID ownerID = 0UL;
+        meta.get_Owner(ownerID, *masterKdf);
+
+        return ownerID;
+    }
 }

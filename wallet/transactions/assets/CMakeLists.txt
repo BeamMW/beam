@@ -8,7 +8,6 @@ target_sources(assets
         aunregister_transaction.cpp
         ainfo_transaction.cpp
         assets_reg_creators.cpp
-        assets_kdf_utils.cpp
         asset_base_tx.cpp
 )
 target_compile_definitions(assets PUBLIC BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
