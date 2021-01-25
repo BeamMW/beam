@@ -88,8 +88,7 @@ namespace beam
 
 		uint32_t m_Threads; // set at c'tor to num of cores.
 
-		virtual void StartThread(std::thread&, uint32_t iThread) = 0;
-
+		virtual void RunThread(uint32_t); // optionally override this, create the appropriate context, and call the next
 		void RunThreadCtx(Context&);
 
 	private:
@@ -108,6 +107,5 @@ namespace beam
 
 		void InitSafe();
 		void FlushLocked(std::unique_lock<std::mutex>&, uint32_t nMaxTasks);
-		void RunThreadInternal(uint32_t);
 	};
 }

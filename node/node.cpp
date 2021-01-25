@@ -3774,19 +3774,13 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
             PerThread &pt = m_vThreads[i];
             pt.m_pReactor = io::Reactor::create();
             pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
-            pt.m_Thread = std::thread(&Miner::RunMinerThread, this, pt.m_pReactor, Rules::get());
+            pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
         }
     }
 
 	m_External.m_pSolver = externalPOW;
 
     SetTimer(0, true); // async start mining
-}
-
-void Node::Miner::RunMinerThread(const io::Reactor::Ptr& pReactor, const Rules& r)
-{
-    Rules::Scope scopeRules(r);
-    pReactor->run();
 }
 
 void Node::Miner::OnFinalizerChanged(Peer* p)

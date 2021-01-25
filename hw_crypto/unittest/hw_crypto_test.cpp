@@ -1454,11 +1454,9 @@ void TestKeyKeeperTxs()
 
 int main()
 {
-	Rules r;
-	Rules::Scope scopeRules(r);
-	r.CA.Enabled = true;
-	r.pForks[1].m_Height = g_hFork;
-	r.pForks[2].m_Height = g_hFork;
+	Rules::get().CA.Enabled = true;
+	Rules::get().pForks[1].m_Height = g_hFork;
+	Rules::get().pForks[2].m_Height = g_hFork;
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);

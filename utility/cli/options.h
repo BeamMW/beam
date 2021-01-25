@@ -20,8 +20,6 @@
 
 namespace beam
 {
-    struct Rules;
-
     namespace po = boost::program_options;
     namespace cli
     {
@@ -247,9 +245,9 @@ namespace beam
 
     po::options_description createRulesOptionsDescription();
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, Rules&, bool walletOptions = false);
+    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions = false);
 
-    void getRulesOptions(po::variables_map& vm, Rules&);
+    void getRulesOptions(po::variables_map& vm);
 
     bool ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
     bool ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);

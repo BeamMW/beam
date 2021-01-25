@@ -36,16 +36,12 @@ struct Options {
     uint32_t logCleanupPeriod;
 };
 
-static bool parse_cmdline(int argc, char* argv[], Options& o, Rules&);
+static bool parse_cmdline(int argc, char* argv[], Options& o);
 static void setup_node(Node& node, const Options& o);
 
 int main(int argc, char* argv[]) {
-
-    Rules r;
-    Rules::Scope scopeRules(r);
-
     Options options;
-    if (!parse_cmdline(argc, argv, options, r)) {
+    if (!parse_cmdline(argc, argv, options)) {
         return 1;
     }
 
@@ -53,8 +49,6 @@ int main(int argc, char* argv[]) {
     auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
 
     clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, options.logCleanupPeriod);
-
-    r.UpdateChecksum();
 
     int retCode = 0;
     try {
@@ -87,7 +81,7 @@ int main(int argc, char* argv[]) {
     return retCode;
 }
 
-bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
+bool parse_cmdline(int argc, char* argv[], Options& o) {
     
     po::options_description cliOptions("Node explorer options");
     cliOptions.add_options()
@@ -181,7 +175,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
             }
         }
 
-        getRulesOptions(vm, r);
+        getRulesOptions(vm);
 
         return true;
     }
@@ -199,6 +193,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
 }
 
 void setup_node(Node& node, const Options& o) {
+    Rules::get().UpdateChecksum();
     LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
     LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 

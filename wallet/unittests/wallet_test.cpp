@@ -917,16 +917,14 @@ namespace
             ForkHolder(Height h)
                 : m_PrevValue{ Rules::get().pForks[1].m_Height }
             {
-                auto& r = Cast::NotConst(Rules::get());
-                r.pForks[1].m_Height = h;
-                r.UpdateChecksum();
+                Rules::get().pForks[1].m_Height = h;
+                Rules::get().UpdateChecksum();
             }
 
             ~ForkHolder()
             {
-                auto& r = Cast::NotConst(Rules::get());
-                r.pForks[1].m_Height = m_PrevValue;
-                r.UpdateChecksum();
+                Rules::get().pForks[1].m_Height = m_PrevValue;
+                Rules::get().UpdateChecksum();
             }
 
             Height m_PrevValue;
@@ -1532,7 +1530,7 @@ namespace
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {})->io::Address
         {
-            InitNodeToTest(node, Cast::NotConst(Rules::get()), treasury, nullptr, port, 10000, path, peers);
+            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1585,7 +1583,7 @@ namespace
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, Cast::NotConst(Rules::get()), treasury, nullptr, port, 10000, path, peers, miningNode);
+            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -3136,13 +3134,11 @@ int main()
     ECC::PseudoRandomGenerator prg;
     prg.m_hv = 125U;
 
-    Rules r;
-    Rules::Scope scopeRules(r);
 
-    r.FakePoW = true;
-	r.pForks[1].m_Height = 100500; // needed for lightning network to work
-    //r.DA.MaxAhead_s = 90;// 60 * 1;
-    r.UpdateChecksum();
+    Rules::get().FakePoW = true;
+	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
+    //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
+    Rules::get().UpdateChecksum();
 
     wallet::g_AssetsEnabled = true;
 
@@ -3200,10 +3196,10 @@ int main()
     //TestBbsMessages();
     //TestBbsMessages2();
 
-    r.pForks[1].m_Height = 20;
-    r.pForks[2].m_Height = 20;
-    r.pForks[3].m_Height = 20;
-    r.UpdateChecksum();
+    Rules::get().pForks[1].m_Height = 20;
+    Rules::get().pForks[2].m_Height = 20;
+    Rules::get().pForks[3].m_Height = 20;
+    Rules::get().UpdateChecksum();
 
     TestSendingShielded();
     TestCalculateShieldedCoinsSelection();

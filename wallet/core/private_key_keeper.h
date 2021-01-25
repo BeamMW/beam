@@ -274,7 +274,7 @@ namespace beam::wallet
 		TaskList m_queIn;
 
         void PushIn(Task::Ptr& p);
-        void Thread(const Rules&);
+        void Thread();
 
     public:
 

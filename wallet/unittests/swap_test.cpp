@@ -251,7 +251,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
         }
     });
 
-    InitNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, 32125, 200);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
 
     mainReactor->run();
 
@@ -358,7 +358,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
             }
         });
 
-    InitNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, 32125, 200);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
 
     mainReactor->run();
 
@@ -982,7 +982,7 @@ void TestSwapBeamAndBTCRefundTransaction()
         }
     });
 
-    InitNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, 32125, 500);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 500);
 
 
     eventToUpdate->post();
@@ -1121,7 +1121,7 @@ void TestSwapBTCRedeemAfterExpired()
         }
     });
 
-    InitNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, 32125, 500);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 500);
 
 
     eventToUpdate->post();
@@ -1500,7 +1500,7 @@ void TestExpireByLifeTime()
             }
         });
 
-    InitNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, 32125, 200);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
 
     mainReactor->run();
 
@@ -1656,14 +1656,10 @@ int main()
 {
     int logLevel = LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
-
-    Rules r;
-    Rules::Scope scopeRules(r);
-
-    r.FakePoW = true;
+    Rules::get().FakePoW = true;
+    Rules::get().UpdateChecksum();
     beam::Height fork1Height = 10;
-    r.pForks[1].m_Height = fork1Height;
-    r.UpdateChecksum();
+    Rules::get().pForks[1].m_Height = fork1Height;
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);

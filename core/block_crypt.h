@@ -18,7 +18,6 @@
 #include "lelantus.h"
 #include "merkle.h"
 #include "difficulty.h"
-#include "../utility/executor.h"
 
 namespace beam
 {
@@ -206,17 +205,10 @@ namespace beam
 			static const ECC::Point::Compact& get_H();
 		};
 	};
-
 	struct Rules
 	{
 		Rules();
-		static const Rules& get();
-
-		struct Scope {
-			const Rules* m_pPrev;
-			Scope(const Rules&);
-			~Scope();
-		};
+		static Rules& get();
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
@@ -310,15 +302,6 @@ namespace beam
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 		bool IsForkHeightsConsistent() const;
-	};
-
-	class ExecutorMT_R
-		:public ExecutorMT
-	{
-		virtual void StartThread(std::thread&, uint32_t iThread) override;
-		void RunThreadInternal(uint32_t iThread, const Rules&);
-		virtual void RunThread(uint32_t iThread);
-
 	};
 
 	struct CoinID

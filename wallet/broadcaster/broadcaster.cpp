@@ -388,9 +388,6 @@ int main_impl(int argc, char* argv[])
     const auto path = boost::filesystem::system_complete("./logs");
     auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "broadcast_", path.string());
 
-    Rules r;
-    Rules::Scope scopeRules(r);
-
     try
     {
         Options options;
@@ -436,7 +433,7 @@ int main_impl(int argc, char* argv[])
         }
 
         vm.notify();
-        getRulesOptions(vm, r);
+        getRulesOptions(vm);
 
         reactor = io::Reactor::create();
         io::Reactor::Scope scope(*reactor);
@@ -444,7 +441,7 @@ int main_impl(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        r.UpdateChecksum();
+        Rules::get().UpdateChecksum();
         LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 

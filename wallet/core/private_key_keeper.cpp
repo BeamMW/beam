@@ -194,10 +194,8 @@ namespace beam::wallet
 			m_NewIn.notify_one();
 	}
 
-	void ThreadedPrivateKeyKeeper::Thread(const Rules& r)
+	void ThreadedPrivateKeyKeeper::Thread()
 	{
-		Rules::Scope scopeRules(r);
-
 		while (true)
 		{
 			Task::Ptr pTask;
@@ -230,7 +228,7 @@ namespace beam::wallet
 		:m_pKeyKeeper(p)
 	{
 		EnsureEvtOut();
-		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this, Rules::get());
+		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this);
 	}
 
 	ThreadedPrivateKeyKeeper::~ThreadedPrivateKeyKeeper()

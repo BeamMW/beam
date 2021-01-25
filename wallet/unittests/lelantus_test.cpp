@@ -41,11 +41,27 @@ namespace
 {
     const AmountList kDefaultTestAmounts = { 50000000, 20000000, 10000000, 90000000 };
 
-    void InitOwnNodeToTest(Node& node, Rules& r, const ByteBuffer& binaryTreasury, Node::IObserver* observer, Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
+    class ScopedGlobalRules
+    {
+    public:
+        ScopedGlobalRules()
+        {
+            m_rules = Rules::get();
+        }
+
+        ~ScopedGlobalRules()
+        {
+            Rules::get() = m_rules;
+        }
+    private:
+        Rules m_rules;
+    };
+
+    void InitOwnNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
     {
         node.m_Keys.m_pOwner = ownerKey;
         node.m_Cfg.m_Treasury = binaryTreasury;
-        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
 
         boost::filesystem::remove(path);
         node.m_Cfg.m_sPathLocal = path;
@@ -58,11 +74,11 @@ namespace
 
         node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
         node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
-        //r.Maturity.Coinbase = 1;
-        r.FakePoW = true;
+        //Rules::get().Maturity.Coinbase = 1;
+        Rules::get().FakePoW = true;
 
         node.m_Cfg.m_Observer = observer;
-        r.UpdateChecksum();
+        Rules::get().UpdateChecksum();
         node.Initialize();
         node.m_PostStartSynced = true;
     }
@@ -75,10 +91,9 @@ void TestUnlinkTx()
     io::Reactor::Scope scope(*mainReactor);
 
     // save defaults
-    Rules r = Rules::get();
-    Rules::Scope scopeRules(r);
-    r.Shielded.m_ProofMax = { 2, 6 }; // 64
-    r.Shielded.m_ProofMin = { 2, 4 }; // 16
+    ScopedGlobalRules rules;
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
 
     const int PushTxCount = 64;
     int completedCount = PushTxCount + 1;
@@ -132,7 +147,7 @@ void TestUnlinkTx()
             }
         });
 
-    InitOwnNodeToTest(node, r, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -156,10 +171,9 @@ void TestCancelUnlinkTx()
     io::Reactor::Scope scope(*mainReactor);
 
     // save defaults
-    Rules r = Rules::get();
-    Rules::Scope scopeRules(r);
-    r.Shielded.m_ProofMax = { 2, 6 }; // 64
-    r.Shielded.m_ProofMin = { 2, 4 }; // 16
+    ScopedGlobalRules rules;
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
 
     int completedCount = 1;
     auto completeAction = [&mainReactor, &completedCount](auto)
@@ -202,7 +216,7 @@ void TestCancelUnlinkTx()
             }
         });
 
-    InitOwnNodeToTest(node, r, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -288,7 +302,7 @@ void TestSimpleTx()
         }
     });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -364,7 +378,7 @@ void TestMaxPrivacyTx()
         }
     });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -450,7 +464,7 @@ void TestPublicAddressTx()
         }
     });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -567,7 +581,7 @@ void TestDirectAnonymousPayment()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -769,7 +783,7 @@ void TestManyTransactons()
         }
     });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 }
@@ -777,11 +791,11 @@ void TestManyTransactons()
 void TestShortWindow()
 {
     // save defaults
-    Rules r = Rules::get();
-    Rules::Scope scopeRules(r);
-    r.Shielded.m_ProofMax = { 2, 6 }; // 64
-    r.Shielded.m_ProofMin = { 2, 4 }; // 16
-    r.Shielded.MaxWindowBacklog = 64;
+    ScopedGlobalRules rules;
+
+    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
+    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
+    Rules::get().Shielded.MaxWindowBacklog = 64;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -891,7 +905,7 @@ void TestShortWindow()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -907,11 +921,11 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     cout << "\nTest " << txCount << " pushTx's and " << txCount << " pullTx's, Cfg: n = " << cfg.n << " M = " << cfg.M << " , minCfg: n = " << minCfg.n << " M = " << minCfg.M << "\n";
 
     // save defaults
-    Rules r = Rules::get();
-    Rules::Scope scopeRules(r);
-    r.Shielded.m_ProofMax = cfg;
-    r.Shielded.m_ProofMin = minCfg;
-    r.Shielded.MaxWindowBacklog = cfg.get_N() + 200;
+    ScopedGlobalRules rules;
+
+    Rules::get().Shielded.m_ProofMax = cfg;
+    Rules::get().Shielded.m_ProofMin = minCfg;
+    Rules::get().Shielded.MaxWindowBacklog = cfg.get_N() + 200;
     //uint32_t minBlocksToCompletePullTxs = txCount / Rules::get().Shielded.MaxIns + 5;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -1016,7 +1030,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
             mainReactor->stop();
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
     
@@ -1100,7 +1114,7 @@ void TestPushTxRollbackByLowFee()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -1165,7 +1179,7 @@ void TestPullTxRollbackByLowFee()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -1258,7 +1272,7 @@ void TestExpiredTxs()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -1341,7 +1355,7 @@ void TestReextract()
             }
         });
 
-    InitOwnNodeToTest(node, Cast::NotConst(Rules::get()), binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
 
     mainReactor->run();
 
@@ -1357,16 +1371,12 @@ int main()
 {
     int logLevel = LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
-
-    Rules r;
-    Rules::Scope scopeRules(r);
-
-    r.FakePoW = true;
-    r.UpdateChecksum();
+    Rules::get().FakePoW = true;
+    Rules::get().UpdateChecksum();
     Height fork1Height = 6;
     Height fork2Height = 12;
-    r.pForks[1].m_Height = fork1Height;
-    r.pForks[2].m_Height = fork2Height;
+    Rules::get().pForks[1].m_Height = fork1Height;
+    Rules::get().pForks[2].m_Height = fork2Height;
 
 
     //TestUnlinkTx();

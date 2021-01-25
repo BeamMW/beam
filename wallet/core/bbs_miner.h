@@ -55,7 +55,7 @@ struct BbsMiner
     ~BbsMiner() { Stop(); }
 
     void Stop();
-    void Thread(uint32_t, const Rules&);
+    void Thread(uint32_t);
 
 };
 }  // namespace beam::wallet

@@ -586,7 +586,7 @@ void TestDirector::MakeTreasury()
 
 	ser.swap_buf(m_Node.m_Cfg.m_Treasury);
 
-	ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> Cast::NotConst(Rules::get()).TreasuryChecksum;
+	ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
 }
 
 void TestDirector::Run()
@@ -635,14 +635,12 @@ void TestDirector::Run()
 void Test()
 {
 	//	auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-	Rules r;
-	Rules::Scope scopeRules(r);
 
-	r.pForks[1].m_Height = 1;
-	r.pForks[2].m_Height = 1;
-	r.FakePoW = true;
-	r.MaxRollback = 5;
-	r.UpdateChecksum();
+	Rules::get().pForks[1].m_Height = 1;
+	Rules::get().pForks[2].m_Height = 1;
+	Rules::get().FakePoW = true;
+	Rules::get().MaxRollback = 5;
+	Rules::get().UpdateChecksum();
 
 	{
 		struct Test1 :public TestDirector

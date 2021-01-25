@@ -691,9 +691,6 @@ int main(int argc, char* argv[])
     const auto path = boost::filesystem::system_complete("./logs");
     auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
 
-    Rules r;
-    Rules::Scope scopeRules(r);
-
     try
     {
         struct
@@ -772,9 +769,9 @@ int main(int argc, char* argv[])
 
             vm.notify();
 
-            getRulesOptions(vm, r);
+            getRulesOptions(vm);
 
-            r.UpdateChecksum();
+            Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             

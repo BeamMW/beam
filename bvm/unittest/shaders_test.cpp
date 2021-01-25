@@ -1241,6 +1241,18 @@ namespace bvm2 {
 		}
 
 		{
+			// set mainnet rules
+			auto& r = Rules::get();
+			r.pForks[0].m_Height = 0;
+			r.pForks[0].m_Hash.Scan("ed91a717313c6eb0e3f082411584d0da8f0c8af2a4ac01e5af1959e0ec4338bc");
+			r.pForks[1].m_Height = 321321;
+			r.pForks[1].m_Hash.Scan("622e615cfd29d0f8cdd9bdd76d3ca0b769c8661b29d7ba9c45856c96bc2ec5bc");
+			r.pForks[2].m_Height = 777777;
+			r.pForks[2].m_Hash.Scan("1ce8f721bf0c9fa7473795a97e365ad38bbc539aab821d6912d86f24e67720fc");
+
+			r.pForks[3].m_Height = 999999999;
+			r.pForks[3].m_Hash = Zero;
+
 			beam::Block::SystemState::Full s;
 			s.m_Height = 903720;
 			s.m_Prev.Scan("62020e8ee408de5fdbd4c815e47ea098f5e30b84c788be566ac9425e9b07804d");
@@ -1260,7 +1272,7 @@ namespace bvm2 {
 			Shaders::Dummy::VerifyBeamHeader args;
 			CvtHdrPrefix(args.m_Hdr, s);
 			CvtHdrElement(args.m_Hdr, s);
-			args.m_RulesCfg = Rules::get().pForks[2].m_Hash;
+			args.m_RulesCfg = r.pForks[2].m_Hash;
 
 			Dbg dbg = m_Dbg;
 			m_Dbg.m_Instructions = false;
@@ -1889,20 +1901,6 @@ int main()
 
 		using namespace beam;
 		using namespace beam::bvm2;
-
-		Rules r;
-		Rules::Scope scopeRules(r);
-
-		// set mainnet rules
-		r.pForks[0].m_Height = 0;
-		r.pForks[0].m_Hash.Scan("ed91a717313c6eb0e3f082411584d0da8f0c8af2a4ac01e5af1959e0ec4338bc");
-		r.pForks[1].m_Height = 321321;
-		r.pForks[1].m_Hash.Scan("622e615cfd29d0f8cdd9bdd76d3ca0b769c8661b29d7ba9c45856c96bc2ec5bc");
-		r.pForks[2].m_Height = 777777;
-		r.pForks[2].m_Hash.Scan("1ce8f721bf0c9fa7473795a97e365ad38bbc539aab821d6912d86f24e67720fc");
-
-		r.pForks[3].m_Height = 999999999;
-		r.pForks[3].m_Hash = Zero;
 
 		TestMergeSort();
 

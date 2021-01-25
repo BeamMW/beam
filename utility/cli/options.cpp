@@ -346,7 +346,7 @@ namespace beam
             return x.m_Packed;
         }
 
-        static std::string get(const ECC::uintBig& x) {
+        static std::string get(ECC::uintBig& x) {
             return x.str();
         }
 
@@ -640,7 +640,7 @@ namespace beam
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, Rules& r, bool walletOptions)
+    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
         po::positional_options_description positional;
@@ -657,14 +657,14 @@ namespace beam
         ReadCfgFromFileCommon(vm, options);
         ReadCfgFromFile(vm, options, configFile);
 
-        getRulesOptions(vm, r);
+        getRulesOptions(vm);
 
         return vm;
     }
 
-    void getRulesOptions(po::variables_map& vm, Rules& r)
+    void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(r.name, vm[#name].as<type>());
+        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
     }

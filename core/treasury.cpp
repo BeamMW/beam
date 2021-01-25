@@ -80,10 +80,8 @@ namespace beam
 		{
 			virtual void Do(size_t iTask) = 0;
 
-			void DoRange(const Rules& r, size_t i0, size_t i1)
+			void DoRange(size_t i0, size_t i1)
 			{
-				Rules::Scope scopeRules(r);
-
 				for (; i0 < i1; i0++)
 					Do(i0);
 			}
@@ -131,7 +129,7 @@ namespace beam
 				size_t iTask1 = nTasks * (i + 1) / numCores;
 				assert(iTask1 > iTask0); // otherwise it means that redundant threads were created
 
-				m_vThreads[i] = std::thread(&Context::DoRange, &ctx, Rules::get(), iTask0, iTask1);
+				m_vThreads[i] = std::thread(&Context::DoRange, &ctx, iTask0, iTask1);
 
 				iTask0 = iTask1;
 			}
