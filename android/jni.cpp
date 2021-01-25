@@ -64,26 +64,23 @@ namespace
     static ECC::NoLeak<ECC::uintBig> passwordHash;
     static beam::wallet::TxParameters _txParameters;
 
-    static Rules g_Rules;
-    static Rules:::Scope g_ScopeRules(g_Rules);
-
     void initLogger(const string& appData, const string& appVersion)
     {
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
-        g_Rules.pForks[1].m_Height = 10;
-        g_Rules.pForks[2].m_Height = 20;
-        g_Rules.MaxRollback = 10;
-        g_Rules.CA.LockPeriod = 10;
-        g_Rules.Shielded.m_ProofMax.n = 4;
-        g_Rules.Shielded.m_ProofMax.M = 3;
-        g_Rules.Shielded.m_ProofMin.n = 4;
-        g_Rules.Shielded.m_ProofMin.M = 2;
-        g_Rules.Shielded.MaxWindowBacklog = 150;
-        g_Rules.UpdateChecksum();
+        Rules::get().pForks[1].m_Height = 10;
+        Rules::get().pForks[2].m_Height = 20;
+        Rules::get().MaxRollback = 10;
+        Rules::get().CA.LockPeriod = 10;
+        Rules::get().Shielded.m_ProofMax.n = 4;
+        Rules::get().Shielded.m_ProofMax.M = 3;
+        Rules::get().Shielded.m_ProofMin.n = 4;
+        Rules::get().Shielded.m_ProofMin.M = 2;
+        Rules::get().Shielded.MaxWindowBacklog = 150;
+        Rules::get().UpdateChecksum();
         
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
-        LOG_INFO() << "Rules signature: " << g_Rules.get_SignatureStr();
+        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
 
     std::map<Notification::Type,bool> initNotifications(bool initialValue)
