@@ -162,14 +162,13 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, con
     Transaction::FeeSettings fs;
     Amount shieldedFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
 
-    const auto selection = CalcShieldedCoinSelectionInfo(walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
+    const auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, (isPushTx && fee > shieldedFee) ? fee - shieldedFee : fee, assetId, isPushTx);
     shieldedFee = coinSelectionRes.shieldedInputsFee;
 
     const auto isBeam = assetId == Asset::s_BeamID;
     if (isBeam)
     {
-        // TODO: possible underflow
-        if (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - beam::AmountBig::get_Lo(coinSelectionRes.changeBeam)) < amount)
+        if (coinSelectionRes.selectedSumBeam  < amount + coinSelectionRes.selectedFee + coinSelectionRes.changeBeam)
         {
             LOG_ERROR() << kErrorNotEnoughtCoins;
             return false;
@@ -178,8 +177,10 @@ bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, con
 
     if (!isBeam)
     {
-        // TODO: possible underflow
-        if (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount)
+        AmountBig::Type value(amount);
+        value += AmountBig::Type(coinSelectionRes.changeAsset);
+
+        if (AmountBig::Type(coinSelectionRes.selectedSumAsset) < value)
         {
             // TODO: enough beam & asset
             LOG_ERROR() << kErrorNotEnoughtCoins;
