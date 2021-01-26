@@ -60,6 +60,7 @@ struct Manager
     struct PerChain
     {
         Rules m_Rules;
+        Key::IKdf::Ptr m_pKdf;
         io::Reactor::Ptr m_pReactor;
         io::AsyncEvent::Ptr m_pEvent;
         std::thread m_Thread;
@@ -70,6 +71,7 @@ struct Manager
         Event m_Event;
     };
 
+    bool m_DemoMode = false;
     bool m_Stop = false;
     bool m_Freeze = false;
 
@@ -96,6 +98,7 @@ struct Manager
     void RunInThread(uint32_t);
     void RunInThread2(uint32_t);
     void OnEvent(uint32_t);
+    void OnStateChanged(uint32_t);
 };
 
 
@@ -171,8 +174,6 @@ bool Manager::Start()
             if (!ctx.Wait())
                 return false;
         }
-
-
     }
 
     return true;
@@ -197,8 +198,6 @@ void Manager::Stop()
 
 void Manager::RunInThread(uint32_t i)
 {
-//    CHECKPOINT("Pipe", i);
-
     auto& c = m_pC[i];
 
     Rules::Scope scopeRules(c.m_Rules);
@@ -227,8 +226,6 @@ void Manager::RunInThread2(uint32_t i)
     Node node;
     node.m_Cfg = c.m_Cfg; // copy
 
-    //Key::IKdf::Ptr pKdf;
-
     node.m_Cfg.m_VerificationThreads = -1;
     node.m_Cfg.m_sPathLocal = "node_" + std::to_string(i) + ".db";
 
@@ -236,43 +233,55 @@ void Manager::RunInThread2(uint32_t i)
     node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
     node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
-    //node.m_Keys.SetSingleKey(pKdf);
+    node.m_Keys.SetSingleKey(c.m_pKdf);
     node.m_Cfg.m_Horizon.SetStdFastSync();
     node.Initialize();
 
-    if (!node.m_PostStartSynced)
+    struct MyObserver :public Node::IObserver
     {
-        struct MyObserver :public Node::IObserver
+        Manager& m_Manager;
+        Node& m_Node;
+        uint32_t m_iThread;
+        bool m_InitSyncReported = false;
+
+        MyObserver(Manager& m, Node& n)
+            :m_Manager(m)
+            ,m_Node(n)
+        {}
+
+        void OnInitSync()
         {
-            Node& m_Node;
-            MyObserver(Node& n) :m_Node(n) {}
+            assert(!m_InitSyncReported);
 
-            virtual void OnSyncProgress() override
-            {
-                if (m_Node.m_PostStartSynced)
-                    io::Reactor::get_Current().stop();
-            }
-        };
+            std::cout << "Pipe" << m_iThread << " sync complete" << std::endl;
 
-        MyObserver obs(node);
-        Node::IObserver* pObs = &obs;
-        TemporarySwap<Node::IObserver*> tsObs(pObs, node.m_Cfg.m_Observer);
+            auto& c = m_Manager.m_pC[m_iThread];
+            Event::Context ctx(c.m_Event);
+            c.m_pNode = &m_Node;
+            ctx.Fire();
+        }
 
-        io::Reactor::get_Current().run();
+        virtual void OnSyncProgress() override
+        {
+            if (m_Node.m_PostStartSynced && !m_InitSyncReported)
+                OnInitSync();
+        }
 
-        if (!node.m_PostStartSynced)
-            return;
-    }
+        virtual void OnStateChanged() override
+        {
+            m_Manager.OnStateChanged(m_iThread);
+        }
+    };
 
-    {
-        std::cout << "Pipe" << i << " sync complete" << std::endl;
+    MyObserver obs(*this, node);
+    obs.m_iThread = i;
+    Node::IObserver* pObs = &obs;
+    TemporarySwap<Node::IObserver*> tsObs(pObs, node.m_Cfg.m_Observer);
 
-        Event::Context ctx(c.m_Event);
-        c.m_pNode = &node;
-        ctx.Fire();
-    }
+    if (m_DemoMode)
+        obs.OnInitSync();
 
-    c.m_pReactor->run();
+    io::Reactor::get_Current().run();
 }
 
 Manager::Freezer::Freezer(Manager& m)
@@ -326,6 +335,15 @@ void Manager::OnEvent(uint32_t i)
         io::Reactor::get_Current().stop();
 }
 
+void Manager::OnStateChanged(uint32_t i)
+{
+    auto& c = m_pC[i];
+
+    std::cout << "Pipe" << i << " Height=" << c.m_pNode->get_Processor().m_Cursor.m_Full.m_Height << std::endl;
+
+    // TODO
+}
+
 } // namespace beam
 
 
@@ -337,9 +355,10 @@ int main_Guarded(int argc, char* argv[])
     io::Reactor::Scope scope(*pReactor);
     io::Reactor::GracefulIntHandler gih(*pReactor);
 
-    auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
+    //auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
     Manager man;
+    man.m_DemoMode = true;
 
     for (uint32_t i = 0; i < _countof(man.m_pC); i++)
     {
@@ -357,7 +376,26 @@ int main_Guarded(int argc, char* argv[])
         std::string sCfgPath = std::string("pipe_") + std::to_string(i) + ".cfg";
         po::variables_map vm = getOptions(argc, argv, sCfgPath.c_str(), options);
 
-        c.m_Rules.TreasuryChecksum = i;
+        if (man.m_DemoMode)
+        {
+            c.m_Rules.TreasuryChecksum = Zero;
+            c.m_Rules.Prehistoric = i;
+
+            c.m_Rules.pForks[1].m_Height = 1;
+            c.m_Rules.pForks[2].m_Height = 1;
+            c.m_Rules.pForks[3].m_Height = 1;
+
+            c.m_Rules.FakePoW = true;
+
+            auto pKdf = std::make_shared<ECC::HKdf>();
+            pKdf->Generate(c.m_Rules.Prehistoric);
+
+            c.m_pKdf = std::move(pKdf);
+
+            c.m_Cfg.m_MiningThreads = 1;
+            c.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 2000;
+        }
+
         c.m_Rules.UpdateChecksum();
 
         std::cout << "Pipe" << i << ", " << c.m_Rules.get_SignatureStr() << std::endl;
@@ -379,15 +417,15 @@ int main_Guarded(int argc, char* argv[])
 
     std::cout << "Initial sync complete" << std::endl;
 
-    {
-        Manager::Freezer f(man);
-    }
+    //{
+    //    Manager::Freezer f(man);
+    //}
 
-    {
-        Manager::Freezer f(man);
-    }
+    //{
+    //    Manager::Freezer f(man);
+    //}
 
-    //io::Reactor::get_Current().run();
+    io::Reactor::get_Current().run();
 
     return 0;
 }
