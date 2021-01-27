@@ -223,6 +223,20 @@ namespace beam::wallet {
                 }
                 return true;
             });
+
+            wdb.visitShieldedCoins([&](const ShieldedCoin& coin) -> bool {
+                if (coin.m_CoinID.m_AssetID != m_ID) return true;
+                if (coin.m_confirmHeight > hrange.m_Max) return true;
+                if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
+                if (m_RefreshHeight < h1)
+                {
+                    m_RefreshHeight = h1;
+                    hrange = getRange(*this);
+                }
+                return true;
+            });
         }
 
         return !hrange.IsInRange(currHeight) || hrange.m_Max < currHeight;
