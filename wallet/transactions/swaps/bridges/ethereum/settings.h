@@ -37,7 +37,7 @@ struct Settings
 #else // MASTERNET and TESTNET
     Amount m_minFeeRate = 1u;
 #endif
-    Amount m_maxFeeRate = 1'000'000'000u;
+    Amount m_maxFeeRate = 2'000u;
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
     uint64_t m_withdrawTxGasLimit = kWithdrawTxGasLimit;
 
