@@ -1651,6 +1651,11 @@ namespace beam::wallet
             {
                 onAssetInfo(assetId, *oasset);
             }
+            else
+            {
+                WalletAsset invalid;
+                onAssetInfo(assetId, invalid);
+            }
         }
     }
 
