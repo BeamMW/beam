@@ -594,33 +594,7 @@ namespace beam::wallet
                 return AssetCheckResult::Fail;
             }
 
-            const auto getRange = [](WalletAsset& info) -> auto {
-                HeightRange result;
-                result.m_Min = info.m_LockHeight;
-                result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
-                result.m_Max += Rules::get().CA.LockPeriod;
-                return result;
-            };
-
-            HeightRange hrange = getRange(info);
-            if (info.m_Value > AmountBig::Type(0U))
-            {
-                GetWalletDB()->visitCoins([&](const Coin& coin) -> bool {
-                    if (coin.m_ID.m_AssetID != assetId) return true;
-                    if (coin.m_confirmHeight > hrange.m_Max) return true;
-                    if (coin.m_confirmHeight < hrange.m_Min) return true;
-
-                    const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
-                    if (info.m_RefreshHeight < h1)
-                    {
-                        info.m_RefreshHeight = h1;
-                        hrange = getRange(info);
-                    }
-                    return true;
-                });
-            }
-
-            if (!hrange.IsInRange(currHeight) || hrange.m_Max < currHeight)
+            if (info.IsExpired(*GetWalletDB()))
             {
                 confirmAsset();
                 return AssetCheckResult::Async;

@@ -515,16 +515,15 @@ namespace beam::wallet
 
     void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
-        if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
-        {
-            MyRequestAsset::Ptr pVal(new MyRequestAsset);
-            pVal->m_TxID = txID;
-            pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = ownerID;
-            pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = txID;
+        pVal->m_SubTxID = subTxID;
+        pVal->m_Msg.m_Owner = ownerID;
+        pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
 
-            if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
+        if (PostReqUnique(*pVal))
+        {
+           LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
         }
     }
 
@@ -1820,8 +1819,16 @@ namespace beam::wallet
             {
                 if (const auto oinfo = m_WalletDB->findAsset(assetId))
                 {
-                    params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
-                          .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                    WalletAsset info(*oinfo);
+                    if (info.IsExpired(*m_WalletDB))
+                    {
+                        confirm_asset(txID, assetId);
+                    }
+                    else
+                    {
+                        params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
+                                .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                    }
                 }
                 else
                 {

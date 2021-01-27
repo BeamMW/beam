@@ -43,6 +43,7 @@ namespace beam::wallet {
         std::string _meta;
     };
 
+    struct IWalletDB;
     class WalletAsset: public Asset::Full
     {
     public:
@@ -51,6 +52,7 @@ namespace beam::wallet {
         ~WalletAsset() = default;
 
         bool CanRollback(Height from) const;
+        bool IsExpired(IWalletDB& wdb);
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;
 
