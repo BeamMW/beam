@@ -390,7 +390,7 @@ bool EthereumSide::SendLockTx()
         }
     }
 
-    if (swapTxState != SwapTxState::Constructed)
+    if (swapTxState != SwapTxState::SigningTx)
     {
         libbitcoin::data_chunk data = BuildLockTxData();
         uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
@@ -416,6 +416,7 @@ bool EthereumSide::SendLockTx()
                 m_tx.UpdateAsync();
             }
         });
+        m_tx.SetState(SwapTxState::SigningTx, SubTxIndex::LOCK_TX);
     }
     return false;
 }
