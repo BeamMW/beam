@@ -156,6 +156,7 @@ struct Manager
     struct Freezer
     {
         Manager& m_This;
+        std::unique_lock<std::mutex> m_Lock;
 
         Freezer(Manager&);
         ~Freezer();
@@ -357,6 +358,7 @@ void Manager::LocalContext::NodeObserver::OnRolledBack(const Block::SystemState:
 
 Manager::Freezer::Freezer(Manager& m)
     :m_This(m)
+    ,m_Lock(m.m_CtlMutex)
 {
     Do(true);
 }
@@ -368,7 +370,6 @@ Manager::Freezer::~Freezer()
 
 void Manager::Freezer::Do(bool b)
 {
-    std::unique_lock<std::mutex> lock(m_This.m_CtlMutex);
     m_This.m_Freeze = b;
 
     m_This.m_CtlVar.notify_all();
@@ -376,11 +377,16 @@ void Manager::Freezer::Do(bool b)
     for (uint32_t i = 0; i < _countof(m_This.m_pC); i++)
     {
         auto& c = m_This.m_pC[i];
-        if (b)
-            c.m_pEvent->post();
+        if (&io::Reactor::get_Current() == c.m_pReactor.get())
+            c.m_Frozen = b;
+        else
+        {
+            if (b)
+                c.m_pEvent->post();
 
-        while ((c.m_Frozen != b) && c.m_pLocal)
-            m_This.m_CtlVar.wait(lock);
+            while ((c.m_Frozen != b) && c.m_pLocal)
+                m_This.m_CtlVar.wait(m_Lock);
+        }
     }
 }
 
@@ -399,11 +405,12 @@ void Manager::OnEvent(uint32_t i)
             m_CtlVar.wait(lock);
 
         c.m_Frozen = false;
-        m_CtlVar.notify_all();
     }
 
     if (m_Stop)
         io::Reactor::get_Current().stop();
+
+    m_CtlVar.notify_all();
 }
 
 void Manager::LocalContext::SyncCoins()
@@ -449,7 +456,8 @@ void Manager::LocalContext::SyncCoins()
 
 void Manager::LocalContext::OnStateChanged()
 {
-    std::cout << "Pipe" << m_iThread << " Height=" << m_Node.get_Processor().m_Cursor.m_Full.m_Height << std::endl;
+    const auto& s = m_Node.get_Processor().m_Cursor.m_Full;;
+    std::cout << "Pipe" << m_iThread << " Height=" << s.m_Height << std::endl;
 
     SyncCoins();
 
@@ -462,7 +470,7 @@ void Manager::LocalContext::OnStateChanged()
             std::cout << "last tx confirmed" << std::endl;
         } else
         {
-            if (proc.m_Cursor.m_Full.m_Height < m_hCurrentTxH1)
+            if (s.m_Height < m_hCurrentTxH1)
                 return;
 
             std::cout << "last tx timed-out" << std::endl;
@@ -472,30 +480,7 @@ void Manager::LocalContext::OnStateChanged()
     }
 
     bvm2::ContractID cid;
-    if (FindPipeCid(cid))
-    {
-        Shaders::Pipe::StateIn::Key sik;
-        Shaders::Pipe::StateIn si;
-        if (!ReadContract(cid, sik, si))
-            return;
-
-        if (si.m_cidRemote == Zero)
-        {
-            // TODO
-            return;
-        }
-
-        Shaders::Pipe::StateOut::Key sok;
-        Shaders::Pipe::StateOut so;
-        if (!ReadContract(cid, sok, so))
-            return;
-
-        uint32_t nCps = so.m_Checkpoint.m_iIdx;
-        if (so.m_Checkpoint.m_iMsg && so.IsCheckpointClosed(proc.m_Cursor.m_Full.m_Height))
-            nCps++;
-
-    }
-    else
+    if (!FindPipeCid(cid))
     {
         const Rules& rRemote = m_Manager.m_pC[!m_iThread].m_Rules;
 
@@ -516,6 +501,76 @@ void Manager::LocalContext::OnStateChanged()
         ECC::Scalar::Native sk;
         SendContractTx(std::move(pKrn), "create pipe", 0, true, &sk, 1);
     }
+
+    Shaders::Pipe::StateIn::Key sik;
+    Shaders::Pipe::StateIn si;
+    if (!ReadContract(cid, sik, si))
+        return;
+
+    Freezer fr(m_Manager);
+
+    auto& cr = m_Manager.m_pC[!m_iThread]; // remote
+    if (!cr.m_pLocal)
+        return;
+    auto& ctxr = *cr.m_pLocal;
+
+    bvm2::ContractID cid2;
+    if (!ctxr.FindPipeCid(cid2))
+        return;
+
+    if (si.m_cidRemote != cid2)
+    {
+        if (si.m_cidRemote == Zero)
+        {
+            Shaders::Pipe::SetRemote arg;
+            arg.m_cid = cid2;
+            TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+            pKrn->m_Cid = cid;
+            pKrn->m_iMethod = arg.s_iMethod;
+            Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+
+            ECC::Scalar::Native sk;
+            SendContractTx(std::move(pKrn), "set remote endpoint", 0, true, &sk, 1);
+        }
+
+        return;
+    }
+
+    if (m_Manager.m_DemoMode && !(s.m_Height % 8))
+    {
+        struct ArgPlus
+        {
+            Shaders::Pipe::PushLocal0 m_Arg;
+            uint8_t m_pMsg[4];
+        } arg;
+
+        ZeroObject(arg.m_pMsg);
+        arg.m_Arg.m_MsgSize = sizeof(arg.m_pMsg);
+        arg.m_Arg.m_Receiver = Zero;
+        TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+        pKrn->m_Cid = cid;
+        pKrn->m_iMethod = arg.m_Arg.s_iMethod;
+        Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+
+        ECC::Scalar::Native sk;
+        SendContractTx(std::move(pKrn), "push dummy msg", 0, true, &sk, 1);
+        return;
+    }
+
+    Shaders::Pipe::StateOut::Key sok;
+    Shaders::Pipe::StateOut so2;
+    if (!ctxr.ReadContract(cid2, sok, so2))
+        return;
+
+    uint32_t nCps = so2.m_Checkpoint.m_iIdx;
+    if (so2.m_Checkpoint.m_iMsg && so2.IsCheckpointClosed(s.m_Height))
+        nCps++;
+
+    if (si.m_Dispute.m_iIdx >= nCps)
+        return; // up-to-date
+
+    int nn = 12;
+    nn++;
 }
 
 bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractControl>&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs)
