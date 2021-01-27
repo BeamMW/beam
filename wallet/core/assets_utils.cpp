@@ -15,6 +15,7 @@
 #include "wallet/core/common.h"
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
+#include "wallet_db.h"
 #include <regex>
 #include <set>
 
@@ -193,6 +194,38 @@ namespace beam::wallet {
     {
         const auto maxRollback = Rules::get().MaxRollback;
         return m_LockHeight + maxRollback > from;
+    }
+
+    bool WalletAsset::IsExpired(IWalletDB& wdb)
+    {
+        const auto getRange = [](const WalletAsset& info) -> auto {
+            HeightRange result;
+            result.m_Min = info.m_LockHeight;
+            result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
+            result.m_Max += Rules::get().CA.LockPeriod;
+            return result;
+        };
+
+        const auto currHeight = wdb.getCurrentHeight();
+        HeightRange hrange = getRange(*this);
+        if (m_Value > AmountBig::Type(0U))
+        {
+            wdb.visitCoins([&](const Coin& coin) -> bool {
+                if (coin.m_ID.m_AssetID != m_ID) return true;
+                if (coin.m_confirmHeight > hrange.m_Max) return true;
+                if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
+                if (m_RefreshHeight < h1)
+                {
+                    m_RefreshHeight = h1;
+                    hrange = getRange(*this);
+                }
+                return true;
+            });
+        }
+
+        return !hrange.IsInRange(currHeight) || hrange.m_Max < currHeight;
     }
 
     void WalletAsset::LogInfo(const std::string& pref) const
