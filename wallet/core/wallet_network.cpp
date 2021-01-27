@@ -277,7 +277,7 @@ namespace beam::wallet {
 
         pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
 
-        if (m_MineOutgoing)
+        if (m_MineOutgoing && !Rules::get().FakePoW)
         {
             proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
