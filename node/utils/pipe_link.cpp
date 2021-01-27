@@ -26,24 +26,6 @@ namespace Shaders {
 #define HOST_BUILD
 #include "../../bvm/Shaders/common.h"
 #include "../../bvm/Shaders/pipe/contract.h"
-
-#pragma pack (push, 1)
-namespace Key {
-    struct Prefix
-    {
-        ContractID m_Cid;
-        uint8_t m_Tag;
-    };
-
-    struct SidCid
-    {
-        Prefix m_Prefix;
-        ShaderID m_Sid;
-        ContractID m_Cid;
-    };
-} // namespace Key
-#pragma pack (pop)
-
 } // namespace Shaders
 
 #define LOG_VERBOSE_ENABLED 0
@@ -117,6 +99,37 @@ struct Manager
         CoinMaturityMap m_Coins;
         Height m_hCoinsEvtNext = 0;
         void SyncCoins();
+
+        template <typename TValue, typename TKey>
+        TValue* ReadContractEx(const Shaders::ContractID& cid, const TKey& key, NodeDB::Recordset& rs, uint32_t* pExtra = nullptr)
+        {
+            Shaders::Env::Key_T<TKey> keyEx;
+            keyEx.m_Prefix.m_Cid = cid;
+            keyEx.m_KeyInContract = key;
+
+            Blob data;
+            if (!m_Node.get_Processor().get_DB().ContractDataFind(Blob(&keyEx, sizeof(keyEx)), data, rs))
+                return nullptr;
+            if (data.n < sizeof(TValue))
+                return nullptr;
+
+            if (pExtra)
+                *pExtra = data.n - sizeof(TValue);
+
+            return (TValue*) data.p;
+        }
+
+        template <typename TValue, typename TKey>
+        bool ReadContract(const Shaders::ContractID& cid, const TKey& key, TValue& val)
+        {
+            NodeDB::Recordset rs;
+            auto* pVal = ReadContractEx<TValue>(cid, key, rs);
+            if (!pVal)
+                return false;
+
+            val = *pVal; // copy
+            return true;
+        }
     };
 
     struct PerChain
@@ -461,6 +474,26 @@ void Manager::LocalContext::OnStateChanged()
     bvm2::ContractID cid;
     if (FindPipeCid(cid))
     {
+        Shaders::Pipe::StateIn::Key sik;
+        Shaders::Pipe::StateIn si;
+        if (!ReadContract(cid, sik, si))
+            return;
+
+        if (si.m_cidRemote == Zero)
+        {
+            // TODO
+            return;
+        }
+
+        Shaders::Pipe::StateOut::Key sok;
+        Shaders::Pipe::StateOut so;
+        if (!ReadContract(cid, sok, so))
+            return;
+
+        uint32_t nCps = so.m_Checkpoint.m_iIdx;
+        if (so.m_Checkpoint.m_iMsg && so.IsCheckpointClosed(proc.m_Cursor.m_Full.m_Height))
+            nCps++;
+
     }
     else
     {
@@ -607,13 +640,23 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
 
 bool Manager::LocalContext::FindPipeCid(bvm2::ContractID& cid)
 {
-    Shaders::Key::SidCid sck;
+#pragma pack (push, 1)
+    struct SidCid
+    {
+        Shaders::ShaderID m_Sid;
+        Shaders::ContractID m_Cid;
+    };
+#pragma pack (pop)
+
+    typedef Shaders::Env::Key_T<SidCid> Key;
+
+    Key sck;
     ZeroObject(sck);
     sck.m_Prefix.m_Tag = Shaders::KeyTag::SidCid;
-    sck.m_Sid = m_Manager.m_sidPipe;
+    sck.m_KeyInContract.m_Sid = m_Manager.m_sidPipe;
 
-    Shaders::Key::SidCid sck2 = sck;
-    sck2.m_Cid.Inv();
+    Key sck2 = sck;
+    sck2.m_KeyInContract.m_Cid.Inv();
 
     NodeDB::WalkerContractData wlk;
     m_Node.get_Processor().get_DB().ContractDataEnum(wlk, Blob(&sck, sizeof(sck)), Blob(&sck2, sizeof(sck2)));
@@ -622,7 +665,7 @@ bool Manager::LocalContext::FindPipeCid(bvm2::ContractID& cid)
     {
         if (wlk.m_Key.n == sizeof(sck))
         {
-            cid = ((Shaders::Key::SidCid*) wlk.m_Key.p)->m_Cid;
+            cid = ((Key*) wlk.m_Key.p)->m_KeyInContract.m_Cid;
             return true;
         }
     }
