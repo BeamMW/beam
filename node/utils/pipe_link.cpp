@@ -97,6 +97,7 @@ struct Manager
 
             virtual void OnSyncProgress() override;
             virtual void OnStateChanged() override;
+            virtual void OnRolledBack(const Block::SystemState::ID&) override;
 
             IMPLEMENT_GET_PARENT_OBJ(LocalContext, m_NodeObserver)
         } m_NodeObserver;
@@ -110,6 +111,12 @@ struct Manager
         bool FindPipeCid(bvm2::ContractID&);
         bool SendContractTx(std::unique_ptr<TxKernelContractControl>&&, const char*, Amount, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs);
         bool SendTx(TxKernel::Ptr&&, const char*, Amount, bool bSpend, ECC::Scalar::Native& skKrn);
+
+        typedef std::map<CoinID, Height> CoinMaturityMap;
+
+        CoinMaturityMap m_Coins;
+        Height m_hCoinsEvtNext = 0;
+        void SyncCoins();
     };
 
     struct PerChain
@@ -329,6 +336,12 @@ void Manager::LocalContext::NodeObserver::OnStateChanged()
     get_ParentObj().OnStateChanged();
 }
 
+void Manager::LocalContext::NodeObserver::OnRolledBack(const Block::SystemState::ID&)
+{
+    get_ParentObj().m_Coins.clear();
+    get_ParentObj().m_hCoinsEvtNext = 0;
+}
+
 Manager::Freezer::Freezer(Manager& m)
     :m_This(m)
 {
@@ -380,11 +393,52 @@ void Manager::OnEvent(uint32_t i)
         io::Reactor::get_Current().stop();
 }
 
+void Manager::LocalContext::SyncCoins()
+{
+    auto& proc = m_Node.get_Processor();
+    if (m_hCoinsEvtNext > proc.m_Cursor.m_Full.m_Height)
+        return;
+
+    struct MyParser
+        :public proto::Event::IGroupParser
+    {
+        LocalContext* m_pThis;
+
+        virtual void OnEventType(proto::Event::Utxo& evt) override
+        {
+            auto& x = m_pThis->m_Coins;
+
+            if (proto::Event::Flags::Add & evt.m_Flags)
+                x[evt.m_Cid] = evt.m_Maturity;
+            else
+            {
+                auto it = x.find(evt.m_Cid);
+                if (x.end() != it)
+                    x.erase(it);
+            }
+
+        }
+
+    } parser;
+    parser.m_pThis = this;
+
+    NodeDB::WalkerEvent wlk;
+    for (proc.get_DB().EnumEvents(wlk, m_hCoinsEvtNext); wlk.MoveNext(); )
+    {
+        parser.m_Height = wlk.m_Height;
+        parser.ProceedOnce(wlk.m_Body);
+    }
+
+
+
+    m_hCoinsEvtNext = proc.m_Cursor.m_Full.m_Height + 1;
+}
+
 void Manager::LocalContext::OnStateChanged()
 {
-//    auto& c = m_pC[i];
-
     std::cout << "Pipe" << m_iThread << " Height=" << m_Node.get_Processor().m_Cursor.m_Full.m_Height << std::endl;
+
+    SyncCoins();
 
     auto& proc = m_Node.get_Processor();
     auto& db = proc.get_DB();
@@ -454,13 +508,18 @@ bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractContr
 
 bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native& skKrn)
 {
+    Key::Type outType = Key::Type::Change;
+
     const Amount& fee = pKrn->m_Fee;
     if (bSpend)
         val += fee;
     else
     {
         if (val >= fee)
+        {
             val -= fee;
+            outType = Key::Type::Regular;
+        }
         else
         {
             val = fee - val;
@@ -468,13 +527,67 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
         }
     }
 
-    ECC::Hash::Value hv = pKrn->m_Internal.m_ID;
+    m_hvCurrentTx = pKrn->m_Internal.m_ID;
     Height h1 = pKrn->m_Height.m_Max;
 
     Transaction::Ptr pTx = std::make_shared<Transaction>();
     pTx->m_vKernels.push_back(std::move(pKrn));
 
-    // TODO: select coins
+    Key::IKdf::Ptr& pKdf = m_Manager.m_pC[m_iThread].m_pKdf;
+
+    if (bSpend)
+    {
+        skKrn = -skKrn;
+
+        for (auto it = m_Coins.begin(); val; it++)
+        {
+            if (m_Coins.end() == it)
+            {
+                std::cout << "Send tx failed (" << sz << "), Insuffucient funds, missing " << val << std::endl;
+                return false;
+            }
+
+            auto& cid = it->first;
+            if (cid.m_AssetID || !cid.m_Value)
+                continue;
+
+            auto& pInp = pTx->m_vInputs.emplace_back();
+            pInp.reset(new Input);
+
+
+            ECC::Scalar::Native sk;
+            CoinID::Worker(cid).Create(sk, pInp->m_Commitment, *pKdf);
+            skKrn += sk;
+
+            if (val <= cid.m_Value)
+            {
+                val = cid.m_Value - val;
+                break;
+            }
+
+            val -= cid.m_Value;
+        }
+
+        skKrn = -skKrn;
+    }
+
+    if (val)
+    {
+        auto& pOutp = pTx->m_vOutputs.emplace_back();
+        pOutp.reset(new Output);
+
+        CoinID cid(Zero);
+        cid.m_Value = val;
+        ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+        cid.m_Type = outType;
+
+        ECC::Scalar::Native sk;
+        pOutp->Create(h1, sk, *cid.get_ChildKdf(pKdf), cid, *pKdf);
+
+        skKrn += sk;
+    }
+
+    pTx->m_Offset = -skKrn;
 
     pTx->Normalize();
 
@@ -488,7 +601,6 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
 
     std::cout << "Sent tx: (" << sz << ")" << std::endl;
 
-    m_hvCurrentTx = hv;
     m_hCurrentTxH1 = h1;
     return true;
 }
