@@ -1127,6 +1127,11 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetProofAsset&& msg) override
+        {
+            proto::ProofAsset msgOut;
+            Send(msgOut);
+        }
 
 
         void OnDisconnect(const DisconnectReason& r) override
