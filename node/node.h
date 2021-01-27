@@ -211,6 +211,8 @@ struct Node
 
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
+	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
+
 private:
 
 	struct Processor
@@ -381,7 +383,6 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
 	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
 	uint8_t OnTransactionStem(Transaction::Ptr&&);
 	uint8_t OnTransactionFluff(Transaction::Ptr&&, const PeerID*, Dandelion::Element*);
