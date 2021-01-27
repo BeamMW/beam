@@ -427,7 +427,19 @@ namespace beam::wallet
 
     bool Wallet::MyRequestAsset::operator < (const MyRequestAsset& x) const
     {
-        return m_TxID < x.m_TxID;
+        if (m_TxID < x.m_TxID) {
+            return true;
+        }
+
+        if (m_Msg.m_AssetID < x.m_Msg.m_AssetID) {
+            return true;
+        }
+
+        if (m_Msg.m_Owner < x.m_Msg.m_Owner) {
+            return true;
+        }
+
+        return false;
     }
 
     bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
