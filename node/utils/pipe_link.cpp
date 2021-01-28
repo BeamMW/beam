@@ -20,6 +20,13 @@
 #include "../../core/serialization_adapters.h"
 #include <boost/core/ignore_unused.hpp>
 #include "../../utility/logger_checkpoints.h"
+#include "../../bvm/bvm2.h"
+
+namespace Shaders {
+#define HOST_BUILD
+#include "../../bvm/Shaders/common.h"
+#include "../../bvm/Shaders/pipe/contract.h"
+} // namespace Shaders
 
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
@@ -57,6 +64,74 @@ struct Manager
         void RemoveStrict(Client&);
     };
 
+    struct LocalContext
+    {
+        Manager& m_Manager;
+        uint32_t m_iThread;
+
+        LocalContext(Manager& m) :m_Manager(m) {}
+
+        Node m_Node;
+
+        struct NodeObserver :public Node::IObserver
+        {
+            bool m_InitSyncReported = false;
+
+            virtual void OnSyncProgress() override;
+            virtual void OnStateChanged() override;
+            virtual void OnRolledBack(const Block::SystemState::ID&) override;
+
+            IMPLEMENT_GET_PARENT_OBJ(LocalContext, m_NodeObserver)
+        } m_NodeObserver;
+
+        void OnInitSync();
+        void OnStateChanged();
+
+        ECC::Hash::Value m_hvCurrentTx = Zero;
+        Height m_hCurrentTxH1 = 0;
+
+        bool FindPipeCid(bvm2::ContractID&);
+        bool SendContractTx(std::unique_ptr<TxKernelContractControl>&&, const char*, Amount, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs);
+        bool SendTx(TxKernel::Ptr&&, const char*, Amount, bool bSpend, ECC::Scalar::Native& skKrn);
+
+        typedef std::map<CoinID, Height> CoinMaturityMap;
+
+        CoinMaturityMap m_Coins;
+        Height m_hCoinsEvtNext = 0;
+        void SyncCoins();
+
+        template <typename TValue, typename TKey>
+        TValue* ReadContractEx(const Shaders::ContractID& cid, const TKey& key, NodeDB::Recordset& rs, uint32_t* pExtra = nullptr)
+        {
+            Shaders::Env::Key_T<TKey> keyEx;
+            keyEx.m_Prefix.m_Cid = cid;
+            keyEx.m_KeyInContract = key;
+
+            Blob data;
+            if (!m_Node.get_Processor().get_DB().ContractDataFind(Blob(&keyEx, sizeof(keyEx)), data, rs))
+                return nullptr;
+            if (data.n < sizeof(TValue))
+                return nullptr;
+
+            if (pExtra)
+                *pExtra = data.n - sizeof(TValue);
+
+            return (TValue*) data.p;
+        }
+
+        template <typename TValue, typename TKey>
+        bool ReadContract(const Shaders::ContractID& cid, const TKey& key, TValue& val)
+        {
+            NodeDB::Recordset rs;
+            auto* pVal = ReadContractEx<TValue>(cid, key, rs);
+            if (!pVal)
+                return false;
+
+            val = *pVal; // copy
+            return true;
+        }
+    };
+
     struct PerChain
     {
         Rules m_Rules;
@@ -65,7 +140,7 @@ struct Manager
         io::AsyncEvent::Ptr m_pEvent;
         std::thread m_Thread;
         Node::Config m_Cfg;
-        Node* m_pNode = nullptr;
+        LocalContext* m_pLocal = nullptr;
         bool m_Stopped = false;
         bool m_Frozen = false;
         Event m_Event;
@@ -81,6 +156,7 @@ struct Manager
     struct Freezer
     {
         Manager& m_This;
+        std::unique_lock<std::mutex> m_Lock;
 
         Freezer(Manager&);
         ~Freezer();
@@ -90,6 +166,9 @@ struct Manager
 
     PerChain m_pC[2];
 
+    ByteBuffer m_shaderPipe;
+    bvm2::ShaderID m_sidPipe;
+
     ~Manager() { Stop(); }
 
     bool Start();
@@ -98,7 +177,6 @@ struct Manager
     void RunInThread(uint32_t);
     void RunInThread2(uint32_t);
     void OnEvent(uint32_t);
-    void OnStateChanged(uint32_t);
 };
 
 
@@ -168,7 +246,7 @@ bool Manager::Start()
             if (c.m_Stopped)
                 return false;
 
-            if (c.m_pNode)
+            if (c.m_pLocal)
                 break;
 
             if (!ctx.Wait())
@@ -215,7 +293,7 @@ void Manager::RunInThread(uint32_t i)
 
     Event::Context ctx(c.m_Event);
     c.m_Stopped = true;
-    c.m_pNode = nullptr;
+    c.m_pLocal = nullptr;
     ctx.Fire();
 }
 
@@ -223,69 +301,64 @@ void Manager::RunInThread2(uint32_t i)
 {
     auto& c = m_pC[i];
 
-    Node node;
-    node.m_Cfg = c.m_Cfg; // copy
+    LocalContext lc(*this);
+    lc.m_iThread = i;
 
-    node.m_Cfg.m_VerificationThreads = -1;
-    node.m_Cfg.m_sPathLocal = "node_" + std::to_string(i) + ".db";
+    lc.m_Node.m_Cfg = c.m_Cfg; // copy
+
+    lc.m_Node.m_Cfg.m_VerificationThreads = -1;
+    lc.m_Node.m_Cfg.m_sPathLocal = "node_" + std::to_string(i) + ".db";
 
     // disable dandelion (faster tx propagation)
-    node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
-    node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
+    lc.m_Node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+    lc.m_Node.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
 
-    node.m_Keys.SetSingleKey(c.m_pKdf);
-    node.m_Cfg.m_Horizon.SetStdFastSync();
-    node.Initialize();
+    lc.m_Node.m_Keys.SetSingleKey(c.m_pKdf);
+    lc.m_Node.m_Cfg.m_Horizon.SetStdFastSync();
+    lc.m_Node.Initialize();
 
-    struct MyObserver :public Node::IObserver
-    {
-        Manager& m_Manager;
-        Node& m_Node;
-        uint32_t m_iThread;
-        bool m_InitSyncReported = false;
-
-        MyObserver(Manager& m, Node& n)
-            :m_Manager(m)
-            ,m_Node(n)
-        {}
-
-        void OnInitSync()
-        {
-            assert(!m_InitSyncReported);
-
-            std::cout << "Pipe" << m_iThread << " sync complete" << std::endl;
-
-            auto& c = m_Manager.m_pC[m_iThread];
-            Event::Context ctx(c.m_Event);
-            c.m_pNode = &m_Node;
-            ctx.Fire();
-        }
-
-        virtual void OnSyncProgress() override
-        {
-            if (m_Node.m_PostStartSynced && !m_InitSyncReported)
-                OnInitSync();
-        }
-
-        virtual void OnStateChanged() override
-        {
-            m_Manager.OnStateChanged(m_iThread);
-        }
-    };
-
-    MyObserver obs(*this, node);
-    obs.m_iThread = i;
-    Node::IObserver* pObs = &obs;
-    TemporarySwap<Node::IObserver*> tsObs(pObs, node.m_Cfg.m_Observer);
+    Node::IObserver* pObs = &lc.m_NodeObserver;
+    TemporarySwap<Node::IObserver*> tsObs(pObs, lc.m_Node.m_Cfg.m_Observer);
 
     if (m_DemoMode)
-        obs.OnInitSync();
+        lc.OnInitSync();
 
     io::Reactor::get_Current().run();
 }
 
+void Manager::LocalContext::OnInitSync()
+{
+    assert(!m_NodeObserver.m_InitSyncReported);
+    m_NodeObserver.m_InitSyncReported = true;
+
+    std::cout << "Pipe" << m_iThread << " sync complete" << std::endl;
+
+    auto& c = m_Manager.m_pC[m_iThread];
+    Event::Context ctx(c.m_Event);
+    c.m_pLocal = this;
+    ctx.Fire();
+}
+
+void Manager::LocalContext::NodeObserver::OnSyncProgress()
+{
+    if (get_ParentObj().m_Node.m_PostStartSynced && !m_InitSyncReported)
+        get_ParentObj().OnInitSync();
+}
+
+void Manager::LocalContext::NodeObserver::OnStateChanged()
+{
+    get_ParentObj().OnStateChanged();
+}
+
+void Manager::LocalContext::NodeObserver::OnRolledBack(const Block::SystemState::ID&)
+{
+    get_ParentObj().m_Coins.clear();
+    get_ParentObj().m_hCoinsEvtNext = 0;
+}
+
 Manager::Freezer::Freezer(Manager& m)
     :m_This(m)
+    ,m_Lock(m.m_CtlMutex)
 {
     Do(true);
 }
@@ -297,7 +370,6 @@ Manager::Freezer::~Freezer()
 
 void Manager::Freezer::Do(bool b)
 {
-    std::unique_lock<std::mutex> lock(m_This.m_CtlMutex);
     m_This.m_Freeze = b;
 
     m_This.m_CtlVar.notify_all();
@@ -305,11 +377,16 @@ void Manager::Freezer::Do(bool b)
     for (uint32_t i = 0; i < _countof(m_This.m_pC); i++)
     {
         auto& c = m_This.m_pC[i];
-        if (b)
-            c.m_pEvent->post();
+        if (&io::Reactor::get_Current() == c.m_pReactor.get())
+            c.m_Frozen = b;
+        else
+        {
+            if (b)
+                c.m_pEvent->post();
 
-        while ((c.m_Frozen != b) && c.m_pNode)
-            m_This.m_CtlVar.wait(lock);
+            while ((c.m_Frozen != b) && c.m_pLocal)
+                m_This.m_CtlVar.wait(m_Lock);
+        }
     }
 }
 
@@ -328,20 +405,327 @@ void Manager::OnEvent(uint32_t i)
             m_CtlVar.wait(lock);
 
         c.m_Frozen = false;
-        m_CtlVar.notify_all();
     }
 
     if (m_Stop)
         io::Reactor::get_Current().stop();
+
+    m_CtlVar.notify_all();
 }
 
-void Manager::OnStateChanged(uint32_t i)
+void Manager::LocalContext::SyncCoins()
 {
-    auto& c = m_pC[i];
+    auto& proc = m_Node.get_Processor();
+    if (m_hCoinsEvtNext > proc.m_Cursor.m_Full.m_Height)
+        return;
 
-    std::cout << "Pipe" << i << " Height=" << c.m_pNode->get_Processor().m_Cursor.m_Full.m_Height << std::endl;
+    struct MyParser
+        :public proto::Event::IGroupParser
+    {
+        LocalContext* m_pThis;
 
-    // TODO
+        virtual void OnEventType(proto::Event::Utxo& evt) override
+        {
+            auto& x = m_pThis->m_Coins;
+
+            if (proto::Event::Flags::Add & evt.m_Flags)
+                x[evt.m_Cid] = evt.m_Maturity;
+            else
+            {
+                auto it = x.find(evt.m_Cid);
+                if (x.end() != it)
+                    x.erase(it);
+            }
+
+        }
+
+    } parser;
+    parser.m_pThis = this;
+
+    NodeDB::WalkerEvent wlk;
+    for (proc.get_DB().EnumEvents(wlk, m_hCoinsEvtNext); wlk.MoveNext(); )
+    {
+        parser.m_Height = wlk.m_Height;
+        parser.ProceedOnce(wlk.m_Body);
+    }
+
+
+
+    m_hCoinsEvtNext = proc.m_Cursor.m_Full.m_Height + 1;
+}
+
+void Manager::LocalContext::OnStateChanged()
+{
+    const auto& s = m_Node.get_Processor().m_Cursor.m_Full;;
+    std::cout << "Pipe" << m_iThread << " Height=" << s.m_Height << std::endl;
+
+    SyncCoins();
+
+    auto& proc = m_Node.get_Processor();
+    auto& db = proc.get_DB();
+
+    if (m_hCurrentTxH1)
+    {
+        if (db.FindKernel(m_hvCurrentTx) >= Rules::HeightGenesis) {
+            std::cout << "last tx confirmed" << std::endl;
+        } else
+        {
+            if (s.m_Height < m_hCurrentTxH1)
+                return;
+
+            std::cout << "last tx timed-out" << std::endl;
+        }
+
+        m_hCurrentTxH1 = 0;
+    }
+
+    bvm2::ContractID cid;
+    if (!FindPipeCid(cid))
+    {
+        const Rules& rRemote = m_Manager.m_pC[!m_iThread].m_Rules;
+
+        Shaders::Pipe::Create arg;
+        arg.m_Cfg.m_In.m_FakePoW = rRemote.FakePoW;
+        arg.m_Cfg.m_In.m_RulesRemote = rRemote.get_LastFork().m_Hash;
+        arg.m_Cfg.m_In.m_ComissionPerMsg = Rules::Coin; // 1 beam
+        arg.m_Cfg.m_In.m_StakeForRemote = Rules::Coin * 100;
+        arg.m_Cfg.m_In.m_hDisputePeriod = 10;
+        arg.m_Cfg.m_In.m_hContenderWaitPeriod = 5;
+        arg.m_Cfg.m_Out.m_CheckpointMaxDH = 10;
+        arg.m_Cfg.m_Out.m_CheckpointMaxMsgs = 64;
+
+        TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
+        pKrn->m_Data = m_Manager.m_shaderPipe;
+        Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+
+        ECC::Scalar::Native sk;
+        SendContractTx(std::move(pKrn), "create pipe", 0, true, &sk, 1);
+    }
+
+    Shaders::Pipe::StateIn::Key sik;
+    Shaders::Pipe::StateIn si;
+    if (!ReadContract(cid, sik, si))
+        return;
+
+    Freezer fr(m_Manager);
+
+    auto& cr = m_Manager.m_pC[!m_iThread]; // remote
+    if (!cr.m_pLocal)
+        return;
+    auto& ctxr = *cr.m_pLocal;
+
+    bvm2::ContractID cid2;
+    if (!ctxr.FindPipeCid(cid2))
+        return;
+
+    if (si.m_cidRemote != cid2)
+    {
+        if (si.m_cidRemote == Zero)
+        {
+            Shaders::Pipe::SetRemote arg;
+            arg.m_cid = cid2;
+            TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+            pKrn->m_Cid = cid;
+            pKrn->m_iMethod = arg.s_iMethod;
+            Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+
+            ECC::Scalar::Native sk;
+            SendContractTx(std::move(pKrn), "set remote endpoint", 0, true, &sk, 1);
+        }
+
+        return;
+    }
+
+    if (m_Manager.m_DemoMode && !(s.m_Height % 8))
+    {
+        struct ArgPlus
+        {
+            Shaders::Pipe::PushLocal0 m_Arg;
+            uint8_t m_pMsg[4];
+        } arg;
+
+        ZeroObject(arg.m_pMsg);
+        arg.m_Arg.m_MsgSize = sizeof(arg.m_pMsg);
+        arg.m_Arg.m_Receiver = Zero;
+        TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+        pKrn->m_Cid = cid;
+        pKrn->m_iMethod = arg.m_Arg.s_iMethod;
+        Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+
+        ECC::Scalar::Native sk;
+        SendContractTx(std::move(pKrn), "push dummy msg", 0, true, &sk, 1);
+        return;
+    }
+
+    Shaders::Pipe::StateOut::Key sok;
+    Shaders::Pipe::StateOut so2;
+    if (!ctxr.ReadContract(cid2, sok, so2))
+        return;
+
+    uint32_t nCps = so2.m_Checkpoint.m_iIdx;
+    if (so2.m_Checkpoint.m_iMsg && so2.IsCheckpointClosed(s.m_Height))
+        nCps++;
+
+    if (si.m_Dispute.m_iIdx >= nCps)
+        return; // up-to-date
+
+    int nn = 12;
+    nn++;
+}
+
+bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractControl>&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs)
+{
+    pKrn->m_Fee = Rules::Coin / 50; // 2 cents
+    pKrn->m_Height.m_Min = m_Node.get_Processor().m_Cursor.m_Full.m_Height;
+    pKrn->m_Height.m_Max = pKrn->m_Height.m_Min + 10;
+
+    auto& skKrn = pKs[nKs - 1];
+    skKrn.GenRandomNnz();
+
+    ECC::Point::Native ptFunds;
+    if (val)
+    {
+        ptFunds = ECC::Context::get().H * val;
+        if (!bSpend)
+            ptFunds = -ptFunds;
+    }
+
+    pKrn->Sign(pKs, nKs, ptFunds);
+    return SendTx(std::move(pKrn), sz, val, bSpend, skKrn);
+}
+
+bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native& skKrn)
+{
+    Key::Type outType = Key::Type::Change;
+
+    const Amount& fee = pKrn->m_Fee;
+    if (bSpend)
+        val += fee;
+    else
+    {
+        if (val >= fee)
+        {
+            val -= fee;
+            outType = Key::Type::Regular;
+        }
+        else
+        {
+            val = fee - val;
+            bSpend = true;
+        }
+    }
+
+    m_hvCurrentTx = pKrn->m_Internal.m_ID;
+    Height h1 = pKrn->m_Height.m_Max;
+
+    Transaction::Ptr pTx = std::make_shared<Transaction>();
+    pTx->m_vKernels.push_back(std::move(pKrn));
+
+    Key::IKdf::Ptr& pKdf = m_Manager.m_pC[m_iThread].m_pKdf;
+
+    if (bSpend)
+    {
+        skKrn = -skKrn;
+
+        for (auto it = m_Coins.begin(); val; it++)
+        {
+            if (m_Coins.end() == it)
+            {
+                std::cout << "Send tx failed (" << sz << "), Insuffucient funds, missing " << val << std::endl;
+                return false;
+            }
+
+            auto& cid = it->first;
+            if (cid.m_AssetID || !cid.m_Value)
+                continue;
+
+            auto& pInp = pTx->m_vInputs.emplace_back();
+            pInp.reset(new Input);
+
+
+            ECC::Scalar::Native sk;
+            CoinID::Worker(cid).Create(sk, pInp->m_Commitment, *pKdf);
+            skKrn += sk;
+
+            if (val <= cid.m_Value)
+            {
+                val = cid.m_Value - val;
+                break;
+            }
+
+            val -= cid.m_Value;
+        }
+
+        skKrn = -skKrn;
+    }
+
+    if (val)
+    {
+        auto& pOutp = pTx->m_vOutputs.emplace_back();
+        pOutp.reset(new Output);
+
+        CoinID cid(Zero);
+        cid.m_Value = val;
+        ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+        cid.m_Type = outType;
+
+        ECC::Scalar::Native sk;
+        pOutp->Create(h1, sk, *cid.get_ChildKdf(pKdf), cid, *pKdf);
+
+        skKrn += sk;
+    }
+
+    pTx->m_Offset = -skKrn;
+
+    pTx->Normalize();
+
+    uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, true);
+    if (proto::TxStatus::Ok != nCode)
+    {
+        std::cout << "Send tx failed (" << sz << "), Status=" << static_cast<uint32_t>(nCode) << std::endl;
+        return false;
+    }
+
+
+    std::cout << "Sent tx: (" << sz << ")" << std::endl;
+
+    m_hCurrentTxH1 = h1;
+    return true;
+}
+
+bool Manager::LocalContext::FindPipeCid(bvm2::ContractID& cid)
+{
+#pragma pack (push, 1)
+    struct SidCid
+    {
+        Shaders::ShaderID m_Sid;
+        Shaders::ContractID m_Cid;
+    };
+#pragma pack (pop)
+
+    typedef Shaders::Env::Key_T<SidCid> Key;
+
+    Key sck;
+    ZeroObject(sck);
+    sck.m_Prefix.m_Tag = Shaders::KeyTag::SidCid;
+    sck.m_KeyInContract.m_Sid = m_Manager.m_sidPipe;
+
+    Key sck2 = sck;
+    sck2.m_KeyInContract.m_Cid.Inv();
+
+    NodeDB::WalkerContractData wlk;
+    m_Node.get_Processor().get_DB().ContractDataEnum(wlk, Blob(&sck, sizeof(sck)), Blob(&sck2, sizeof(sck2)));
+
+    while (wlk.MoveNext())
+    {
+        if (wlk.m_Key.n == sizeof(sck))
+        {
+            cid = ((Key*) wlk.m_Key.p)->m_KeyInContract.m_Cid;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 } // namespace beam
@@ -359,6 +743,19 @@ int main_Guarded(int argc, char* argv[])
 
     Manager man;
     man.m_DemoMode = true;
+
+    {
+        std::FStream fs;
+        fs.Open("pipe/contract.wasm", true, true);
+
+        man.m_shaderPipe.resize(static_cast<size_t>(fs.get_Remaining()));
+        if (!man.m_shaderPipe.empty())
+            fs.read(&man.m_shaderPipe.front(), man.m_shaderPipe.size());
+
+        bvm2::Processor::Compile(man.m_shaderPipe, man.m_shaderPipe, bvm2::Processor::Kind::Contract);
+        bvm2::get_ShaderID(man.m_sidPipe, man.m_shaderPipe);
+    }
+
 
     for (uint32_t i = 0; i < _countof(man.m_pC); i++)
     {

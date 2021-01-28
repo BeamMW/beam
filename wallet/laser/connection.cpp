@@ -55,7 +55,7 @@ void Connection::PostRequestInternal(FlyClient::Request& r)
     if (FlyClient::Request::Type::BbsMsg == r.get_Type())
     {
         LOG_DEBUG()  << "### Bbs mesage out ###";
-        if (m_MineOutgoing)
+        if (m_MineOutgoing && !Rules::get().FakePoW)
         {
             try
             {
