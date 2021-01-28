@@ -571,7 +571,6 @@ namespace ECC
 	{
 		bool m_bInitialized;
 
-		void Write(const void*, uint32_t);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
@@ -614,6 +613,8 @@ namespace ECC
 		Processor& Serialize(const T&);
 
 		void operator >> (Value& hv) { Finalize(hv); }
+
+		void Write(const void*, uint32_t);
 	};
 
 	class Hash::Mac
