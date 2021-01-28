@@ -22,9 +22,9 @@ namespace
     const std::string kWBTCContractAddress = "";
 #else // MASTERNET and TESTNET
     // TODO roman.strilets need to fill in they
-    const std::string kSwapContractAddress = "0x660b7fd446478050adf62afde5ca525c7860bad9";
+    const std::string kSwapContractAddress = "0x85c06a7c34fbbe198feb7bcc6fbfdb225cd87d21";
     const std::string kSwapHashlockContractAddress = "";
-    const std::string kErc20SwapContractAddress = "0x756454581913350F759bE51afcA802aCD5405C59";
+    const std::string kErc20SwapContractAddress = "0x5208a570e85a80c1712d29d613932f56c8634f13";
     const std::string kErc20SwapHashlockContractAddress = "";
     const std::string kDaiContractAddress = "0xd4a05ed1b15666c459bba178490ea53b9e5061ec";
     const std::string kUsdtContractAddress = "0x0b3dec250a07d3a7f411db9bd986feab29c52fbc";
