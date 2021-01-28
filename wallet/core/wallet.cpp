@@ -388,6 +388,29 @@ namespace beam::wallet
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
         {
+            if (!IsConnectedToOwnNode() && !m_IsBodyRequestsEnabled)
+            {
+                std::vector<IPrivateKeyKeeper2::ShieldedInput> inputShielded;
+                it->second->GetParameter(TxParameterID::InputCoinsShielded, inputShielded);
+                if (!inputShielded.empty())
+                {
+                    Block::SystemState::Full sTip;
+                    get_tip(sTip);
+
+                    for(const auto& coin : inputShielded)
+                    {
+                        auto shieldedCoin = m_WalletDB->getShieldedCoin(coin.m_Key);
+                        if (shieldedCoin)
+                        {
+                            shieldedCoin->m_spentTxId = txID;
+                            shieldedCoin->m_spentHeight = sTip.m_Height;
+                            shieldedCoin->m_Status = ShieldedCoin::Status::Spent;
+                            m_WalletDB->saveShieldedCoin(*shieldedCoin);
+                        }
+                    }
+                }
+            }
+
             pGuard.swap(it->second);
             m_ActiveTransactions.erase(it);
             m_NextTipTransactionToUpdate.erase(pGuard);
@@ -1532,6 +1555,7 @@ namespace beam::wallet
         {
             std::setmin(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
+
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
             for (const auto& [txid, txptr] : m_ActiveTransactions)
@@ -1593,6 +1617,7 @@ namespace beam::wallet
         // Check if this Coin participates in any active transaction
         for (const auto& [txid, txptr] : m_ActiveTransactions)
         {
+
             std::vector<IPrivateKeyKeeper2::ShieldedInput> inputShielded;
             txptr->GetParameter(TxParameterID::InputCoinsShielded, inputShielded);
             if (std::find(inputShielded.begin(), inputShielded.end(), shieldedEvt.m_CoinID) != inputShielded.end())
