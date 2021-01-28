@@ -428,12 +428,12 @@ void WalletModel::onStatus(const WalletStatus& status)
     jobject walletStatus = env->AllocObject(WalletStatusClass);
 
     const auto& beamStatus = status.GetStatus(beam::Asset::s_BeamID);
-    setLongField(env, WalletStatusClass, walletStatus, "available", beamStatus.available);
-    setLongField(env, WalletStatusClass, walletStatus, "receiving", beamStatus.receiving);
-    setLongField(env, WalletStatusClass, walletStatus, "sending",   beamStatus.sending);
-    setLongField(env, WalletStatusClass, walletStatus, "maturing",  beamStatus.maturing);
-    setLongField(env, WalletStatusClass, walletStatus, "shielded",  beamStatus.shielded);
-    setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", beamStatus.maturingMP);
+    setLongField(env, WalletStatusClass, walletStatus, "available", AmountBig::get_Lo(beamStatus.available));
+    setLongField(env, WalletStatusClass, walletStatus, "receiving", AmountBig::get_Lo(beamStatus.receiving));
+    setLongField(env, WalletStatusClass, walletStatus, "sending",   AmountBig::get_Lo(beamStatus.sending));
+    setLongField(env, WalletStatusClass, walletStatus, "maturing",  AmountBig::get_Lo(beamStatus.maturing));
+    setLongField(env, WalletStatusClass, walletStatus, "shielded",  AmountBig::get_Lo(beamStatus.shielded));
+    setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", AmountBig::get_Lo(beamStatus.maturingMP));
 
     {
         jobject systemState = env->AllocObject(SystemStateClass);
