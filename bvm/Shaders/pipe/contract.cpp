@@ -467,7 +467,7 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
-	Env::Halt_if(!si.m_Dispute.m_Variants || (si.m_Dispute.m_Height - Env::get_Height() < si.m_Cfg.m_hDisputePeriod));
+	Env::Halt_if(!si.m_Dispute.m_Variants || !si.CanFinalyze(Env::get_Height()));
 
 	VariantWrap vw;
 	Utils::Copy(vw.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
