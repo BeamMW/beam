@@ -605,7 +605,8 @@ void Manager::LocalContext::OnStateChanged()
 
     ECC::Scalar::Native pSk[2];
     m_Manager.m_pC[m_iThread].m_pKdf->DeriveKey(pSk[0], cid);
-    ECC::Point ptUser = ECC::Context::get().G * pSk[0];
+    ECC::Point::Native ptN = ECC::Context::get().G * pSk[0];
+    ECC::Point ptUser(ptN);
 
     if (si.m_Dispute.m_Variants)
     {
