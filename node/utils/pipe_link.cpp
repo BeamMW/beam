@@ -378,7 +378,10 @@ void Manager::Freezer::Do(bool b)
     {
         auto& c = m_This.m_pC[i];
         if (&io::Reactor::get_Current() == c.m_pReactor.get())
+        {
             c.m_Frozen = b;
+            m_This.m_CtlVar.notify_all();
+        }
         else
         {
             if (b)
@@ -569,8 +572,114 @@ void Manager::LocalContext::OnStateChanged()
     if (si.m_Dispute.m_iIdx >= nCps)
         return; // up-to-date
 
-    int nn = 12;
-    nn++;
+    // read the checkpoint details
+    std::vector<ECC::Hash::Value> vHashes;
+
+    {
+        Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::Key> mhk;
+        mhk.m_Prefix.m_Cid = cid2;
+        mhk.m_KeyInContract.m_iCheckpoint_BE = ByteOrder::to_be(si.m_Dispute.m_iIdx);
+        mhk.m_KeyInContract.m_iMsg_BE = 0;
+
+        auto mhk2 = mhk;
+        mhk2.m_KeyInContract.m_iMsg_BE--;
+
+        NodeDB::WalkerContractData wlk;
+        ctxr.m_Node.get_Processor().get_DB().ContractDataEnum(wlk, Blob(&mhk, sizeof(mhk)), Blob(&mhk2, sizeof(mhk2)));
+        while (wlk.MoveNext())
+        {
+            if (wlk.m_Val.n < sizeof(Shaders::Pipe::MsgHdr))
+                continue; // ?!
+
+            const auto& msg = *(Shaders::Pipe::MsgHdr*) wlk.m_Val.p;
+            ECC::Hash::Processor hp;
+            msg.get_HashEx(hp, wlk.m_Val.n);
+            hp >> vHashes.emplace_back();
+        }
+    }
+
+    if (vHashes.empty())
+        return; // ?!
+
+    bool bNewVariant = true;
+
+    ECC::Scalar::Native pSk[2];
+    m_Manager.m_pC[m_iThread].m_pKdf->DeriveKey(pSk[0], cid);
+    ECC::Point ptUser = ECC::Context::get().G * pSk[0];
+
+    if (si.m_Dispute.m_Variants)
+    {
+        // load current win variant
+        Shaders::Pipe::Variant::Key vk;
+        vk.m_hvVariant = si.m_Dispute.m_hvBestVariant;
+        NodeDB::Recordset rs;
+        uint32_t nSize;
+        auto* pWin = ReadContractEx<Shaders::Pipe::Variant>(cid, vk, rs, &nSize);
+        if (!pWin)
+            return;
+
+        if (pWin->m_Cp.m_User == ptUser)
+        {
+            // already winning
+            if (si.CanFinalyze(s.m_Height))
+            {
+                Shaders::Pipe::FinalyzeRemote arg;
+                arg.m_DepositStake = 0;
+
+                TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+                Blob(&arg, sizeof(arg)).Export(pKrn->m_Args);
+                pKrn->m_Cid = cid;
+                pKrn->m_iMethod = arg.s_iMethod;
+
+                rs.Reset();
+                SendContractTx(std::move(pKrn), "finalyze checkpoint", si.m_Dispute.m_Stake, false, pSk, (uint32_t) _countof(pSk));
+
+            }
+
+            return;
+        }
+
+        if (1 == si.m_Dispute.m_Variants)
+        {
+            // TODO: evaluate
+        }
+    }
+
+    ByteBuffer bufArg;
+    uint32_t nSizeArg = sizeof(Shaders::Pipe::PushRemote0);
+    uint32_t nMsgs = static_cast<uint32_t>(vHashes.size());
+    uint32_t nSizeMsgs = static_cast<uint32_t>(nMsgs * sizeof(ECC::Hash::Value));
+    if (bNewVariant)
+        nSizeArg += sizeof(uint32_t) + nSizeMsgs;
+    else
+        nSizeArg += sizeof(ECC::Hash::Value); // existing variant ID
+
+    bufArg.resize(nSizeArg);
+    auto& arg = *reinterpret_cast<Shaders::Pipe::PushRemote0*>(&bufArg.front());
+    arg.m_User = ptUser;
+    arg.m_Flags = 0;
+
+    auto* pBuf = &bufArg.front() + sizeof(arg);
+
+    if (bNewVariant)
+    {
+        arg.m_Flags |= Shaders::Pipe::PushRemote0::Flags::Msgs;
+        memcpy(pBuf, &nMsgs, sizeof(nMsgs));
+        pBuf += sizeof(nMsgs);
+
+        if (nMsgs)
+        {
+            memcpy(pBuf, &vHashes.front(), nSizeMsgs);
+            pBuf += nSizeMsgs;
+        }
+    }
+
+    TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+    pKrn->m_Cid = cid;
+    pKrn->m_iMethod = arg.s_iMethod;
+    pKrn->m_Args.swap(bufArg);
+
+    SendContractTx(std::move(pKrn), "present checkpoint", bNewVariant ? si.m_Cfg.m_StakeForRemote : 0, true, pSk, (uint32_t)_countof(pSk));
 }
 
 bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractControl>&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs)

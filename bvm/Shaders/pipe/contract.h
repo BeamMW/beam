@@ -119,12 +119,18 @@ namespace Pipe
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
         Height m_Height;
 
+        template <typename THashProcessor>
+        void get_HashEx(THashProcessor& hp, uint32_t nMsg) const
+        {
+            hp << "b.msg";
+            hp.Write(this, nMsg);
+        }
+
         void get_Hash(HashValue& res, uint32_t nMsg) const
         {
             HashProcessor hp;
             hp.m_p = Env::HashCreateSha256();
-            hp << "b.msg";
-            hp.Write(this, nMsg);
+            get_HashEx(hp, nMsg);
             hp >> res;
         }
 
