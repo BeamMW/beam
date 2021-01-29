@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
 
-
-add_library(wallet_api_proto STATIC api.cpp)
+add_library(wallet_api_proto STATIC
+    api_base.cpp
+    api.cpp
+)
 
 target_link_libraries(wallet_api_proto
     PUBLIC 

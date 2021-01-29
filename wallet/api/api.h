@@ -15,46 +15,16 @@
 #pragma once
 
 #include <boost/optional.hpp>
-
 #include "wallet/core/wallet.h"
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "api_base.h"
+#include "api_errors.h"
+
+#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/client/extensions/offers_board/swap_offer.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-#include "nlohmann/json.hpp"
+#endif
 
 namespace beam::wallet
 {
-    using json = nlohmann::json;
-    using JsonRpcId = json;
-
-#define JSON_RPC_ERRORS(macro) \
-    macro(-32600, InvalidJsonRpc,            "Invalid JSON-RPC.")                \
-    macro(-32601, NotFoundJsonRpc,           "Procedure not found.")             \
-    macro(-32602, InvalidParamsJsonRpc,      "Invalid parameters.")              \
-    macro(-32603, InternalErrorJsonRpc,      "Internal JSON-RPC error.")         \
-    macro(-32001, InvalidTxStatus,           "Invalid TX status.")               \
-    macro(-32002, UnknownApiKey,             "Unknown API key.")                 \
-    macro(-32003, InvalidAddress,            "Invalid address.")                 \
-    macro(-32004, InvalidTxId,               "Invalid transaction ID.")          \
-    macro(-32005, NotSupported,              "Feature is not supported")         \
-    macro(-32006, InvalidPaymentProof,       "Invalid payment proof provided")   \
-    macro(-32007, PaymentProofExportError,   "Cannot export payment proof")      \
-    macro(-32008, SwapFailToParseToken,      "Invalid swap token.")              \
-    macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")     \
-    macro(-32010, SwapNotEnoughtBeams,       "Not enought beams.")               \
-    macro(-32011, SwapFailToConnect,         "Doesn't have active connection.")  \
-    macro(-32012, DatabaseError,             "Database error")                   \
-    macro(-32013, DatabaseNotFound,          "Database not found")               \
-    macro(-32014, ThrottleError,             "Requests limit exceeded")          \
-    macro(-32015, NotOpenedError,            "Wallet not opened")
-
-    enum ApiError
-    {
-#define ERROR_ITEM(code, item, _) item = code,
-        JSON_RPC_ERRORS(ERROR_ITEM)
-#undef ERROR_ITEM
-    };
-
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
 
@@ -108,30 +78,6 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-
-    class FailToParseToken : public std::runtime_error
-    {
-    public:
-        FailToParseToken() : std::runtime_error("Parse Parameters from 'token' failed.") {}
-    };
-
-    class FailToAcceptOwnOffer : public std::runtime_error
-    {
-    public:
-        FailToAcceptOwnOffer() : std::runtime_error("You can't accept own offer.") {}
-    };
-
-    class NotEnoughtBeams : public std::runtime_error
-    {
-    public:
-        NotEnoughtBeams() : std::runtime_error("Not enought beams") {}
-    };
-
-    class FailToConnectSwap : public std::runtime_error
-    {
-    public:
-        FailToConnectSwap(const std::string& coin) : std::runtime_error(std::string("There is not connection with ") + coin + " wallet") {}
-    };
 
     struct OfferInput
     {
@@ -549,13 +495,7 @@ namespace beam::wallet
         };
     };
 
-    class IApiHandler
-    {
-    public:
-        virtual void onInvalidJsonRpc(const json& msg) = 0;
-    };
-
-    class IWalletApiHandler : public IApiHandler
+    class IWalletApiHandler : public IApiBaseHandler
     {
     public:
 #define MESSAGE_FUNC(api, name, _) \
@@ -566,87 +506,8 @@ namespace beam::wallet
 #undef MESSAGE_FUNC
     };
 
-    class Api
-    {
-    public:
 
-        using Ptr = std::shared_ptr<Api>;
-
-        struct jsonrpc_exception
-            : public std::runtime_error
-        {
-            jsonrpc_exception(const ApiError ecode, JsonRpcId reqid, const std::string& msg)
-                : runtime_error(msg)
-                , _ecode(ecode)
-                , _rpcid(std::move(reqid))
-            {
-            }
-
-            [[nodiscard]] ApiError code () const
-            {
-                return _ecode;
-            }
-
-            [[nodiscard]] const JsonRpcId& rpcid() const
-            {
-                return _rpcid;
-            }
-
-            [[nodiscard]] std::string whatstr() const
-            {
-                return std::string(what());
-            }
-
-            [[nodiscard]] bool has_what () const
-            {
-                return what() && strlen(what());
-            }
-
-        private:
-            ApiError _ecode;
-            JsonRpcId _rpcid;
-        };
-
-        static inline const char JsonRpcHrd[] = "jsonrpc";
-        static inline const char JsonRpcVerHrd[] = "2.0";
-
-        // user api key and read/write access
-        using ACL = boost::optional<std::map<std::string, bool>>;
-
-        Api(IApiHandler& handler, ACL acl = boost::none);
-
-        bool parse(const char* data, size_t size);
-
-        static const char* getErrorMessage(ApiError code);
-        static bool existsJsonParam(const json& params, const std::string& name);
-        static void checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id);
-        static void throwParameterAbsence(const JsonRpcId& id, const std::string& name);
-
-        class ParameterReader
-        {
-        public:
-            ParameterReader(const JsonRpcId& id, const json& params);
-            Amount readAmount(const std::string& name, bool isMandatory = true, Amount defaultValue = 0);
-            boost::optional<TxID> readTxId(const std::string& name = "txId", bool isMandatory = true);
-        private:
-            const JsonRpcId& m_id;
-            const json& m_params;
-        };
-
-    protected:
-        IApiHandler& _handler;
-
-        struct FuncInfo
-        {
-            std::function<void(const JsonRpcId & id, const json & msg)> func;
-            bool writeAccess;
-        };
-
-        std::unordered_map<std::string, FuncInfo> _methods;
-        ACL _acl;
-    };
-
-    class WalletApi : public Api
+    class WalletApi : public ApiBase
     {
     public:
         WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);

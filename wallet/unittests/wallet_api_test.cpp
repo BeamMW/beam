@@ -75,7 +75,7 @@ namespace
 
     class WalletApiHandlerBase : public wallet::IWalletApiHandler
     {
-        void onInvalidJsonRpc(const json& msg) override {}
+        void onRPCError(const json& msg) override {}
         
 #define MESSAGE_FUNC(strct, name, _) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
@@ -89,7 +89,7 @@ namespace
         public:
             jsonFunc func;
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 cout << msg << endl;
                 func(msg);
@@ -97,10 +97,10 @@ namespace
         };
 
         WalletApiHandler handler;
-        handler.func = func;
+        handler.func = std::move(func);
 
         WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
     void testCreateAddressJsonRpc(const std::string& msg)
@@ -108,11 +108,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid create_address api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -125,7 +123,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             std::string addr = "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67";
@@ -154,11 +152,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid get_utxo api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -172,7 +168,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -213,18 +209,15 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid send api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
             void onMessage(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(id > 0);
-
                 WALLET_CHECK(data.session && *data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
@@ -240,7 +233,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -270,7 +263,7 @@ namespace
             WalletApiHandler(TestErrorFunc onError, std::function<void(const JsonRpcId& id, const T& data)> onSuccess) 
                 : _onError(onError), _onSuccess(onSuccess) {}
 
-            void onInvalidJsonRpc(const json& msg) override { _onError(msg); }
+            void onRPCError(const json& msg) override { _onError(msg); }
             void onMessage(const JsonRpcId& id, const T& data) override { _onSuccess(id, data); }
 
             TestErrorFunc _onError;
@@ -280,7 +273,7 @@ namespace
         WalletApiHandler handler(onError, onSuccess);
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -299,8 +292,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -314,7 +306,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -323,7 +315,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -336,7 +328,7 @@ namespace
 
         WalletApiHandler handler;
         WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -345,7 +337,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid issue/consume api json!!!");
                 cout << msg["error"] << endl;
@@ -361,7 +353,7 @@ namespace
 
         WalletApiHandler handler;
         WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -379,7 +371,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid asset info api json!!!");
                 cout << msg["error"] << endl;
@@ -394,7 +386,7 @@ namespace
 
         WalletApiHandler handler;
         WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -412,7 +404,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid GetAssetInfo api json!!!");
                 cout << msg["error"] << endl;
@@ -439,7 +431,7 @@ namespace
 
         WalletApiHandler handler;
         WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -457,11 +449,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid status api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -475,7 +465,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -493,8 +483,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid split api json!!!");
                 cout << msg["error"] << endl;
@@ -517,7 +506,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -536,8 +525,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -552,7 +540,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
     void testTxListJsonRpc(const std::string& msg)
@@ -560,8 +548,7 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -578,7 +565,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -596,11 +583,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -616,7 +601,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
     void testValidateAddressJsonRpc(const std::string& msg, bool valid)
@@ -627,10 +612,9 @@ namespace
             WalletApiHandler(bool valid_) : _valid(valid_)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid validate_address api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -646,7 +630,7 @@ namespace
         WalletApiHandler handler(valid);
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -669,11 +653,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -686,7 +668,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -708,11 +690,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -723,10 +703,9 @@ namespace
         };
 
         WalletApiHandler handler;
-
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -749,11 +728,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -765,9 +742,8 @@ namespace
 
         WalletApiHandler handler;
         WalletApi api(handler);
-        
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -795,10 +771,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
             WalletApiHandler(const T& value) : _value(value) {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid api json!!!");
                 cout << msg["error"] << endl;
@@ -815,7 +790,7 @@ namespace
         WalletApiHandler handler(value);
         WalletApi api(handler);
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -824,11 +799,9 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -842,8 +815,7 @@ namespace
         WalletApiHandler handler;
         WalletApi api(handler);
 
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -872,10 +844,9 @@ namespace
                 : _value(value)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -892,8 +863,7 @@ namespace
         WalletApiHandler handler(kToken);
         WalletApi api(handler);
 
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;
@@ -931,15 +901,13 @@ namespace
         class WalletApiHandler : public WalletApiHandlerBase
         {
         public:
-
             WalletApiHandler(const std::string& value)
                 : _value(value)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onRPCError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
@@ -956,8 +924,7 @@ namespace
         WalletApiHandler handler(kTxId);
         WalletApi api(handler);
 
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
             json res;

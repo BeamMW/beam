@@ -517,7 +517,7 @@ private:
 
         bool on_raw_message(void* data, size_t size)
         {
-            return _api.parse(static_cast<const char*>(data), size);
+            return _api.parseJSON(static_cast<const char*>(data), size);
         }
 
         bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
@@ -609,7 +609,7 @@ private:
                 size_t size = 0;
                 auto data = msg.msg->get_body(size);
 
-                _api.parse((char*)data, size);
+                _api.parseJSON((char*)data, size);
             }
 
             if (!_keepalive)
