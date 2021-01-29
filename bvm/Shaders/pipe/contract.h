@@ -5,7 +5,7 @@ namespace Pipe
 {
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
-    static const ShaderID s_SID = { 0xbc,0xf7,0xb8,0xa1,0xf5,0xc1,0xa8,0x8c,0xb1,0x1f,0xd8,0x8e,0x9d,0xd1,0xa0,0x09,0x2f,0x73,0x7d,0x5f,0xea,0x25,0x36,0xd9,0x6a,0x11,0x00,0x87,0xe7,0xd9,0xc3,0x31 };
+    static const ShaderID s_SID = { 0xc5,0x9d,0x05,0xb5,0xad,0x83,0x4d,0x91,0x8b,0xa4,0x34,0x3d,0xc2,0x4f,0x82,0x73,0x72,0x6a,0x9d,0xc7,0x6b,0xae,0xe7,0xda,0x30,0x18,0x0c,0x3e,0x97,0x56,0x26,0xf1 };
 
     struct Cfg
     {
@@ -119,12 +119,18 @@ namespace Pipe
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
         Height m_Height;
 
+        template <typename THashProcessor>
+        void get_HashEx(THashProcessor& hp, uint32_t nMsg) const
+        {
+            hp << "b.msg";
+            hp.Write(this, nMsg);
+        }
+
         void get_Hash(HashValue& res, uint32_t nMsg) const
         {
             HashProcessor hp;
             hp.m_p = Env::HashCreateSha256();
-            hp << "b.msg";
-            hp.Write(this, nMsg);
+            get_HashEx(hp, nMsg);
             hp >> res;
         }
 
@@ -210,6 +216,11 @@ namespace Pipe
             HashValue m_hvBestVariant;
             uint32_t m_Variants;
         } m_Dispute;
+
+        bool CanFinalyze(Height h) const
+        {
+            return h - m_Dispute.m_Height >= m_Cfg.m_hDisputePeriod;
+        }
     };
 
     struct Variant
