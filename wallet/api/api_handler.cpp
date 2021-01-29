@@ -205,10 +205,9 @@ namespace beam::wallet
         }
     }
 
-    void WalletApiHandler::onInvalidJsonRpc(const json& msg)
+    void WalletApiHandler::onRPCError(const json& msg)
     {
         LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
-
         serializeMsg(msg);
     }
 

@@ -24,7 +24,7 @@
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-#include <regex>
+
 
 namespace beam::wallet {
     namespace {
@@ -251,7 +251,7 @@ json getNotImplError(const JsonRpcId& id)
 {
     return json
     {
-        {Api::JsonRpcHrd, Api::JsonRpcVerHrd},
+        {ApiBase::JsonRpcHeader, ApiBase::JsonRpcVersion},
         {"id", id},
         {"error",
             {
@@ -262,25 +262,20 @@ json getNotImplError(const JsonRpcId& id)
     };
 }
 
-std::string getJsonString(const char* data, size_t size)
-{
-    return std::string(data, data + (size > 1024 ? 1024 : size));
-}
-
 CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
 {
     CoinIDList coins;
 
     if (!params["coins"].is_array() || params["coins"].size() <= 0)
     {
-        throw WalletApi::jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coins parameter must be an array of strings (coin IDs).");
+        throw jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coins parameter must be an array of strings (coin IDs).");
     }
 
     for (const auto& cid : params["coins"])
     {
         if (!cid.is_string())
         {
-            throw WalletApi::jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coin ID in the coins array must be a string.");
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Coin ID in the coins array must be a string.");
         }
 
         std::string sCid = cid;
@@ -288,7 +283,7 @@ CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
         if (!coinId)
         {
             const auto errmsg = std::string("Invalid 'coin ID' parameter: ") + std::string(sCid);
-            throw WalletApi::jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, errmsg);
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, errmsg);
         }
 
         coins.push_back(*coinId);
@@ -305,7 +300,7 @@ uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
     {
         session = params["session"];
     }
-    else throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
+    else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
     return session;
 
@@ -313,16 +308,16 @@ uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
 
 boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
 {
-    return Api::ParameterReader(id, params).readTxId("txId", false);
+    return ApiBase::ParameterReader(id, params).readTxId("txId", false);
 }
 
 boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json& params)
 {
-    if(Api::existsJsonParam(params, "asset_id"))
+    if(ApiBase::existsJsonParam(params, "asset_id"))
     {
         if (!params["asset_id"].is_number_unsigned())
         {
-            throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be 64bit unsigned integer",id};
+            throw jsonrpc_exception{ApiError::InvalidJsonRpc, "asset_id must be 64bit unsigned integer",id};
         }
         return params["asset_id"].get<uint32_t>();
     }
@@ -331,7 +326,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
 bool readAssetsParameter(const JsonRpcId& id, const json& params)
 {
-    if (Api::existsJsonParam(params, "assets"))
+    if (ApiBase::existsJsonParam(params, "assets"))
     {
         if (params["assets"].is_boolean())
         {
@@ -339,7 +334,7 @@ bool readAssetsParameter(const JsonRpcId& id, const json& params)
         }
         else
         {
-            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "assets parameter must be boolean", id };
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "assets parameter must be boolean", id };
         }
     }
     return false;
@@ -350,14 +345,14 @@ Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
     const std::string& paramName = "fee",
     Amount minimumFee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth)) // receivers's output + change
 {
-    Api::ParameterReader reader{ id, params };
+    ApiBase::ParameterReader reader{ id, params };
     Amount fee = reader.readAmount(paramName, false);
 
     if (fee > 0 && fee < minimumFee)
     {
         std::stringstream ss;
         ss << "Failed to initiate the operation. The minimum fee is " << minimumFee << " GROTH.";
-        throw WalletApi::jsonrpc_exception{ ApiError::InternalErrorJsonRpc, ss.str(), id };
+        throw jsonrpc_exception{ ApiError::InternalErrorJsonRpc, ss.str(), id };
     }
 
     return fee;
@@ -365,7 +360,7 @@ Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
 
 Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
 {
-    Api::ParameterReader reader{ id, params };
+    ApiBase::ParameterReader reader{ id, params };
     return reader.readAmount("fee_rate", true);
 }
 
@@ -390,7 +385,7 @@ static void FillAddressData(const JsonRpcId& id, const json& params, AddressData
         };
 
         if(Items.count(expiration) == 0)
-            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
 
         data.expiration = Items[expiration];
     }
@@ -399,7 +394,7 @@ static void FillAddressData(const JsonRpcId& id, const json& params, AddressData
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
-    throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
+    throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "wrong currency message here.", id };
 }
 
 json OfferToJson(const SwapOffer& offer,
@@ -526,49 +521,29 @@ json TokenToJson(const SwapOffer& offer, bool isMyOffer = false, bool isPublic =
 OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 {
     OfferInput data;
-    Api::ParameterReader reader{ id, params };
+    ApiBase::ParameterReader reader{ id, params };
     Amount sendAmount = reader.readAmount("send_amount");
-        
-    AtomicSwapCoin sendCoin = AtomicSwapCoin::Unknown;
-    WalletApi::checkJsonParam(params, "send_currency", id);
-    if (params["send_currency"].is_string())
-    {
-        sendCoin = from_string(params["send_currency"]);
-    }
-    else
-    {
-        throwIncorrectCurrencyError("send_currency", id);
-    }
 
-    if (sendCoin == AtomicSwapCoin::Unknown &&
-        params["send_currency"] != "beam")
+    const auto send_currency = WalletApi::getMandatoryParam<std::string>(params, "send_currency", id);
+    const AtomicSwapCoin sendCoin = from_string(send_currency);
+    if (sendCoin == AtomicSwapCoin::Unknown && send_currency != "beam")
     {
         throwIncorrectCurrencyError("send_currency", id);
     }
 
     Amount receiveAmount = reader.readAmount("receive_amount");
 
-    AtomicSwapCoin receiveCoin = AtomicSwapCoin::Unknown;
-    WalletApi::checkJsonParam(params, "receive_currency", id);
-    if (params["receive_currency"].is_string())
-    {
-        receiveCoin = from_string(params["receive_currency"]);
-    }
-    else
+    const auto receive_currency = WalletApi::getMandatoryParam<std::string>(params, "receive_currency", id);
+    AtomicSwapCoin receiveCoin = from_string(receive_currency);
+
+    if (receiveCoin == AtomicSwapCoin::Unknown && receive_currency != "beam")
     {
         throwIncorrectCurrencyError("receive_currency", id);
     }
 
-    if (receiveCoin == AtomicSwapCoin::Unknown &&
-        params["receive_currency"] != "beam")
+    if (receive_currency != "beam" && send_currency != "beam")
     {
-        throwIncorrectCurrencyError("receive_currency", id);
-    }
-
-    if (params["receive_currency"] != "beam" &&
-        params["send_currency"] != "beam")
-    {
-        throw WalletApi::jsonrpc_exception
+        throw jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'receive_currency\' or \'send_currency\' must be 'beam'.",
@@ -578,7 +553,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     if (sendCoin == receiveCoin)
     {
-        throw WalletApi::jsonrpc_exception
+        throw jsonrpc_exception
         {
             ApiError::InvalidJsonRpc,
             "\'receive_currency\' and \'send_currency\' must be not same.",
@@ -597,7 +572,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         if (data.isBeamSide && data.beamAmount < data.beamFee)
         {
-            throw WalletApi::jsonrpc_exception
+            throw jsonrpc_exception
             {
                 ApiError::InvalidParamsJsonRpc,
                 "beam swap amount is less than fee.",
@@ -616,7 +591,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         if (!params["offer_expires"].is_number_unsigned() ||
             params["offer_expires"] == 0)
         {
-            throw WalletApi::jsonrpc_exception
+            throw jsonrpc_exception
             {
                 ApiError::InvalidParamsJsonRpc,
                 "\'offer_expires\' must be non zero 64bit unsigned integer.",
@@ -638,45 +613,35 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
 }  // namespace
 
-    Api::Api(IApiHandler& handler, ACL acl)
-        : _handler(handler)
-        , _acl(acl)
-    {
 
-    }
 
     // static
-    bool Api::existsJsonParam(const json& params, const std::string& name)
+    bool ApiBase::existsJsonParam(const json& params, const std::string& name)
     {
         return params.find(name) != params.end();
     }
 
-    // static
-    void Api::checkJsonParam(const json& params, const std::string& name, const JsonRpcId& id)
-    {
-        if (!existsJsonParam(params, name))
-            throwParameterAbsence(id, name);
-    }
+
 
     // static
-    void Api::throwParameterAbsence(const JsonRpcId& id, const std::string& name)
+    void ApiBase::throwParameterAbsence(const JsonRpcId& id, const std::string& name)
     {
         throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
     }
 
-    Api::ParameterReader::ParameterReader(const JsonRpcId& id, const json& params)
+    ApiBase::ParameterReader::ParameterReader(const JsonRpcId& id, const json& params)
         : m_id{id}
         , m_params{ params }
     {
     }
 
-    Amount Api::ParameterReader::readAmount(const std::string& name, bool isMandatory, Amount defaultValue)
+    Amount ApiBase::ParameterReader::readAmount(const std::string& name, bool isMandatory, Amount defaultValue)
     {
         auto it = m_params.find(name);
         if (it == m_params.end())
         {
             if (isMandatory)
-                Api::throwParameterAbsence(m_id, name);
+                ApiBase::throwParameterAbsence(m_id, name);
 
             return defaultValue;
         }
@@ -685,171 +650,41 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             std::stringstream ss;
             ss << "\"" << name << "\" " << "must be non zero 64bit unsigned integer."; 
-            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, ss.str(), m_id }; // TODO: InvalidParamsJsonRpc should be used here
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, ss.str(), m_id }; // TODO: InvalidParamsJsonRpc should be used here
         }
         return value;
     }
 
-    boost::optional<TxID> Api::ParameterReader::readTxId(const std::string& name, bool isMandatory)
+    boost::optional<TxID> ApiBase::ParameterReader::readTxId(const std::string& name, bool isMandatory)
     {
         auto it = m_params.find(name);
         if (it == m_params.end())
         {
             if (isMandatory)
-                Api::throwParameterAbsence(m_id, name);
+                ApiBase::throwParameterAbsence(m_id, name);
 
             return {};
         }
         const json& value = *it;
 
         if (!value.is_string()) // TODO: InvalidParamsJsonRpc should be used here
-            throw WalletApi::jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", m_id };
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.", m_id };
 
         bool isValid = true;
         auto txIdSrc = from_hex(value, &isValid);
 
         if (!isValid || txIdSrc.size() != TxID().size()) // TODO: InvalidParamsJsonRpc should be used here
-            throw WalletApi::jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", m_id };
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", m_id };
 
         TxID txIdDst;
         std::copy_n(txIdSrc.begin(), TxID().size(), txIdDst.begin());
         return txIdDst;
     }
 
-    bool Api::parse(const char* data, size_t size)
-    {
-        {
-            std::string s(data, size);
-            static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
-            LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
-        }
 
-        if (size == 0)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InvalidJsonRpc},
-                        {"message", "Empty JSON request."},
-                    }
-                }
-            };
-
-            _handler.onInvalidJsonRpc(msg);
-            return false;
-        }
-
-        try
-        {
-            json msg = json::parse(data, data + size);
-
-            if(!msg["id"].is_number_integer() && !msg["id"].is_string())
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, JsonRpcId(), "ID can be integer or string only.");
-            }
-
-            JsonRpcId id = msg["id"];
-            if (msg[JsonRpcHrd] != JsonRpcVerHrd)
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, id, "Invalid JSON-RPC 2.0 header.");
-            }
-
-            if (_acl)
-            {
-                if (msg["key"] == nullptr)
-                {
-                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, "API key not specified.");
-                }
-
-                if (_acl->count(msg["key"]) == 0)
-                {
-                    throw jsonrpc_exception(ApiError::UnknownApiKey, id,msg["key"]);
-                }
-            }
-
-            checkJsonParam(msg, "method", id);
-
-            JsonRpcId method = msg["method"];
-
-            if (_methods.find(method) == _methods.end())
-            {
-                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, id, method);
-            }
-
-            try
-            {
-                auto& info = _methods[method];
-
-                if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
-                {
-                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, id, "User doesn't have permissions to call this method.");
-                }
-
-                info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
-            }
-            catch (const nlohmann::detail::exception& e)
-            {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
-            }
-            catch (const jsonrpc_exception&)
-            {
-                throw;
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << "error while calling " << method << ": " << e.what();
-                throw jsonrpc_exception{ApiError::InternalErrorJsonRpc, e.what(), id};
-            }
-        }
-        catch (const jsonrpc_exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", e.code()},
-                        {"message", getErrorMessage(e.code())},
-                    }
-                }
-            };
-
-            if (e.has_what())
-            {
-                msg["error"]["data"] = e.whatstr();
-            }
-
-            if (e.rpcid().is_number_integer() || e.rpcid().is_string())
-            {
-                msg["id"] = e.rpcid();
-            }
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-        catch (const std::exception& e)
-        {
-            json msg
-            {
-                {JsonRpcHrd, JsonRpcVerHrd},
-                {"error",
-                    {
-                        {"code", ApiError::InternalErrorJsonRpc},
-                        {"message", e.what()},
-                    }
-                }
-            };
-
-            _handler.onInvalidJsonRpc(msg);
-        }
-
-        return true;
-    }
 
     // static
-    const char* Api::getErrorMessage(ApiError code)
+    const char* ApiBase::getErrorMessage(ApiError code)
     {
 #define ERROR_ITEM(_, item, info) case item: return info;
         switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }
@@ -860,7 +695,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     }
 
     WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
-        : Api(handler, acl)
+        : ApiBase(handler, acl)
     {
         #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
@@ -888,23 +723,23 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onDeleteAddressMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "address", id);
+        const auto address = getMandatoryParam<std::string>(params, "address", id);
 
         DeleteAddress deleteAddress;
-        deleteAddress.address.FromHex(params["address"]);
+        deleteAddress.address.FromHex(address);
 
         getHandler().onMessage(id, deleteAddress);
     }
 
     void WalletApi::onEditAddressMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "address", id);
+        const auto address = getMandatoryParam<std::string>(params, "address", id);
 
         if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "expiration"))
             throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Comment or Expiration parameter must be specified.", id };
 
         EditAddress editAddress;
-        editAddress.address.FromHex(params["address"]);
+        editAddress.address.FromHex(address);
 
         FillAddressData(id, params, editAddress);
         getHandler().onMessage(id, editAddress);
@@ -912,36 +747,39 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onAddrListMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "own", id);
+        const auto own = getMandatoryParam<bool>(params, "own", id);
 
-        AddrList addrList;
-        addrList.own = params["own"];
+        AddrList addrList = {};
+        addrList.own = own;
 
         getHandler().onMessage(id, addrList);
     }
 
     void WalletApi::onValidateAddressMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "address", id);
-
-        if (params["address"].empty())
-            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
+        const auto address = getMandatoryParam<std::string>(params, "address", id);
 
         ValidateAddress validateAddress;
-        validateAddress.address = params["address"].get<std::string>();
+        validateAddress.address = address;
 
         getHandler().onMessage(id, validateAddress);
     }
 
     void WalletApi::onSendMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "address", id);
-        ParameterReader reader{ id, params };
-
-        if (params["address"].empty())
-            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
-
         Send send;
+
+        const auto addressOrToken = getMandatoryParam<std::string>(params, "address", id);
+        if(auto txParams = ParseParameters(addressOrToken))
+        {
+            send.txParameters = *txParams;
+        }
+        else
+        {
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
+        }
+
+        ParameterReader reader{ id, params };
         send.value = reader.readAmount("value");
         send.assetId = readAssetIdParameter(id, params);
 
@@ -958,14 +796,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             send.session = readSessionParameter(id, params);
         }
-
-        std::string addressOrToken = params["address"];
-        auto txParams = ParseParameters(addressOrToken);
-        if (!txParams)
-        {
-            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address or token.", id };
-        }
-        send.txParameters = *txParams;
 
         if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
         {
@@ -1017,11 +847,6 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onSplitMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "coins", id);
-
-        if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a non-empty array.", id };
-
         Split split;
         split.assetId = readAssetIdParameter(id, params);
         if (split.assetId && *split.assetId != Asset::s_InvalidID)
@@ -1029,7 +854,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             checkCAEnabled(id);
         }
 
-        for (const auto& amount : params["coins"])
+        const json coins = getMandatoryParam<JsonArray>(params, "coins", id);
+        for (const auto& amount: coins)
         {
             if(!amount.is_number_unsigned() || amount == 0)
                 throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be non zero 64bit unsigned integer.", id };
@@ -1070,21 +896,21 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     template<typename T>
     void ReadAssetParams(const JsonRpcId& id, const json& params, T& data)
     {
-        if (Api::existsJsonParam(params, "asset_meta"))
+        if (ApiBase::existsJsonParam(params, "asset_meta"))
         {
             if (!params["asset_meta"].is_string() || params["asset_meta"].get<std::string>().empty())
             {
-                throw Api::jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
+                throw jsonrpc_exception{ApiError::InvalidJsonRpc, "meta should be non-empty string", id};
             }
             data.assetMeta = params["asset_meta"].get<std::string>();
         }
-        else if(Api::existsJsonParam(params, "asset_id"))
+        else if(ApiBase::existsJsonParam(params, "asset_id"))
         {
             data.assetId = readAssetIdParameter(id, params);
         }
         else
         {
-            throw Api::jsonrpc_exception{ ApiError::InvalidJsonRpc, "asset_id or meta is required", id };
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "asset_id or meta is required", id };
         }
     }
 
@@ -1102,7 +928,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
         if (TxFailureReason::Count != res)
-            throw WalletApi::jsonrpc_exception{ApiError::NotSupported, GetFailureMessage(res), id};
+            throw jsonrpc_exception{ApiError::NotSupported, GetFailureMessage(res), id};
     }
 
     template<typename T>
@@ -1110,14 +936,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         checkCAEnabled(id);
 
-        checkJsonParam(params, "value", id);
-        if (!params["value"].is_number_unsigned() || params["value"] == 0)
-        {
-            throw jsonrpc_exception{ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id};
-        }
-
         T data;
-        data.value = params["value"];
+        data.value = getMandatoryParam<PositiveUnit64>(params, "value", id);
 
         if (existsJsonParam(params, "coins"))
         {
@@ -1153,17 +973,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     void WalletApi::onSetConfirmationsCountMessage(const JsonRpcId& id, const json& params)
     {
         SetConfirmationsCount data;
-        checkJsonParam(params, "count", id);
-
-        if (params["count"] >= 0)
-        {
-            data.count = params["count"];
-        }
-        else
-        {
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id};
-        }
-
+        data.count = getMandatoryParam<uint32_t>(params, "count", id);
         getHandler().onMessage(id, data);
     }
 
@@ -1241,11 +1051,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onLockMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "coins", id);
-        checkJsonParam(params, "session", id);
-
         Lock lock;
-
         lock.session = readSessionParameter(id, params);
         lock.coins = readCoinsParameter(id, params);
 
@@ -1254,10 +1060,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onUnlockMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "session", id);
-
         Unlock unlock;
-
         unlock.session = readSessionParameter(id, params);
 
         getHandler().onMessage(id, unlock);
@@ -1324,15 +1127,16 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         ParameterReader reader{ id, params };
         ExportPaymentProof data;
         data.txId = *reader.readTxId();
+
         getHandler().onMessage(id, data);
     }
 
     void WalletApi::onVerifyPaymentProofMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "payment_proof", id);
-
         VerifyPaymentProof data;
-        data.paymentProof = from_hex(params["payment_proof"]);
+
+        const auto proof = getMandatoryParam<std::string>(params, "payment_proof", id);
+        data.paymentProof = from_hex(proof);
 
         getHandler().onMessage(id, data);
     }
@@ -1391,8 +1195,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "token", id);
-        const auto& token = params["token"];
+        const auto token = getMandatoryParam<std::string>(params, "token", id);
 
         if (!SwapOfferToken::isValid(token))
             throw jsonrpc_exception
@@ -1408,8 +1211,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "token", id);
-        const auto& token = params["token"].get<std::string>();
+        const auto token = getMandatoryParam<std::string>(params, "token", id);
 
         if (!SwapOfferToken::isValid(token))
             throw jsonrpc_exception
@@ -1450,8 +1252,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onDecodeTokenMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "token", id);
-        const auto& token = params["token"];
+        const auto token = getMandatoryParam<std::string>(params, "token", id);
 
         if (!SwapOfferToken::isValid(token))
         {
@@ -1469,12 +1270,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onGetBalanceMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "coin", id);
-        AtomicSwapCoin coin = AtomicSwapCoin::Unknown;
-        if (params["coin"].is_string())
-        {
-            coin = from_string(params["coin"]);
-        }
+        const auto coinName = getMandatoryParam<std::string>(params, "coin", id);
+        const auto coin = from_string(coinName);
 
         if (coin == AtomicSwapCoin::Unknown)
         {
@@ -1492,12 +1289,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onRecommendedFeeRateMessage(const JsonRpcId& id, const json& params)
     {
-        checkJsonParam(params, "coin", id);
-        AtomicSwapCoin coin = AtomicSwapCoin::Unknown;
-        if (params["coin"].is_string())
-        {
-            coin = from_string(params["coin"]);
-        }
+        const auto coinName = getMandatoryParam<std::string>(params, "coin", id);
+        AtomicSwapCoin coin = from_string(coinName);
 
         if (coin == AtomicSwapCoin::Unknown)
         {
@@ -1518,7 +1311,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", std::to_string(res.address)}
         };
@@ -1528,7 +1321,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", "done"}
         };
@@ -1538,7 +1331,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", "done"}
         };
@@ -1548,7 +1341,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", json::array()}
         };
@@ -1578,7 +1371,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
                 {
@@ -1593,7 +1386,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", json::array()}
         };
@@ -1623,7 +1416,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
                 {
@@ -1637,7 +1430,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1651,7 +1444,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1668,7 +1461,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1693,7 +1486,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1707,7 +1500,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1721,7 +1514,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1735,7 +1528,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", {}}
         };
@@ -1747,7 +1540,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
                 {
@@ -1761,7 +1554,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", res.result}
         };
@@ -1771,7 +1564,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", res.result}
         };
@@ -1781,7 +1574,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", json::array()}
         };
@@ -1804,7 +1597,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             msg = json
             {
-                {JsonRpcHrd, JsonRpcVerHrd},
+                {JsonRpcHeader, JsonRpcVersion},
                 {"id", id},
                 {"result",
                     {
@@ -1851,7 +1644,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             msg = json
             {
-                {JsonRpcHrd, JsonRpcVerHrd},
+                {JsonRpcHeader, JsonRpcVersion},
                 {"id", id},
                 {"result",
                     {
@@ -1873,7 +1666,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", TxIDToString(res.txId)}
         };
@@ -1883,7 +1676,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", res.result}
         };        
@@ -1893,7 +1686,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", res.result}
         };
@@ -1903,7 +1696,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
                 {
@@ -1917,7 +1710,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
                 {
@@ -1940,7 +1733,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = 
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", json::array()}
         };
@@ -1956,7 +1749,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg =
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", json::array()}
         };
@@ -1971,7 +1764,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = json
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
             {
@@ -1985,7 +1778,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = 
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
         };
@@ -1995,7 +1788,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = 
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", OfferToJson(res.offer, res.addrList, res.systemHeight)}
         };
@@ -2005,7 +1798,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg = 
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", OfferStatusToJson(res.offer, res.systemHeight)}
         };
@@ -2015,7 +1808,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg =
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", TokenToJson(res.offer, res.isMyOffer, res.isPublic)}
         };
@@ -2025,7 +1818,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg =
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
             {
@@ -2038,7 +1831,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         msg =
         {
-            {JsonRpcHrd, JsonRpcVerHrd},
+            {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result",
             {

@@ -57,7 +57,7 @@ public:
     }
 
     void getError(const JsonRpcId& id, ApiError code, const std::string& data, json& error);
-    void onInvalidJsonRpc(const json& msg) override;
+    void onRPCError(const json& msg) override;
     void FillAddressData(const AddressData& data, WalletAddress& address);
 
 #define MESSAGE_FUNC(api, name, _) \
