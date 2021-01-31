@@ -656,6 +656,8 @@ namespace bvm2 {
 
 			InitStack(0xcd);
 
+			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
+
 			m_Charge = Limits::Charge(); // default
 			uint32_t nUnitsMax = m_Charge.m_Units;
 

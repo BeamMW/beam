@@ -832,21 +832,28 @@ namespace bvm2 {
 
 		uint32_t nHeapMax = get_HeapLimit();
 		if (nHeapMax < nSizeNew)
-			return 0;
+			return false;
 
 		// grow
 		std::setmax(nSizeNew, 0x1000U); // 4K 
 		std::setmax(nSizeNew, static_cast<uint32_t>(m_vHeap.size()) * 2);
 		std::setmin(nSizeNew, nHeapMax);
 
-		m_vHeap.resize(nSizeNew, 0); // zero-init new mem
-
-
-		m_LinearMem.p = &m_vHeap.front();
-		m_LinearMem.n = nSizeNew;
-		m_Heap.OnGrow(nSizeOld, nSizeNew);
+		HeapReserveStrict(nSizeNew);
 
 		return m_Heap.Alloc(res, size);
+	}
+
+	void Processor::HeapReserveStrict(uint32_t n)
+	{
+		uint32_t nOld = m_LinearMem.n;
+		assert(nOld < n);
+
+		m_vHeap.resize(n, 0); // zero-init new mem
+
+		m_LinearMem.p = &m_vHeap.front();
+		m_LinearMem.n = n;
+		m_Heap.OnGrow(nOld, n);
 	}
 
 	void Processor::HeapFreeEx(uint32_t res)
@@ -868,7 +875,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Heap_Alloc)
 	{
 		uint32_t val;
-		if (HeapAllocEx(val, size))
+		if (!HeapAllocEx(val, size))
 			return nullptr;
 
 		return reinterpret_cast<uint8_t*>(Cast::NotConst(m_LinearMem.p)) + val;
