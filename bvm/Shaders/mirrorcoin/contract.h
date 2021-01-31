@@ -28,13 +28,12 @@ namespace MirrorCoin
         static const uint32_t s_iMethod = 3;
     };
 
-    struct Receive :public Message
+    struct Receive
     {
         static const uint32_t s_iMethod = 4;
 
         uint32_t m_iCheckpoint;
         uint32_t m_iMsg;
-        Height m_Height;
     };
 
     struct Global

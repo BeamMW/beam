@@ -88,7 +88,7 @@ export void Method_4(const MirrorCoin::Receive& r)
 
 #pragma pack (push, 1)
     struct Arg
-        :public Pipe::VerifyRemote0
+        :public Pipe::ReadRemote0
     {
         MirrorCoin::Message m_Msg;
     };
@@ -97,20 +97,19 @@ export void Method_4(const MirrorCoin::Receive& r)
     Arg arg;
     arg.m_iCheckpoint = r.m_iCheckpoint;
     arg.m_iMsg = r.m_iMsg;
-    Utils::Copy(arg.m_Sender, g.m_Remote);
-    arg.m_Height = r.m_Height;
-    arg.m_Public = 0;
-    arg.m_Wipe = 1;
-
     arg.m_MsgSize = sizeof(arg.m_Msg);
-    Utils::Copy(arg.m_Msg, Cast::Down<MirrorCoin::Message>(r));
-
+    arg.m_Wipe = 1;
     Env::CallFar_T(g.m_PipeID, arg);
 
-    if (g.m_IsMirror)
-        Env::AssetEmit(g.m_Aid, r.m_Amount, 1);
+    Env::Halt_if(
+        Utils::Cmp(arg.m_Sender, g.m_Remote) ||
+        (sizeof(arg.m_Msg) != arg.m_MsgSize)
+    );
 
-    Env::FundsUnlock(g.m_Aid, r.m_Amount);
-    Env::AddSig(r.m_User);
+    if (g.m_IsMirror)
+        Env::AssetEmit(g.m_Aid, arg.m_Msg.m_Amount, 1);
+
+    Env::FundsUnlock(g.m_Aid, arg.m_Msg.m_Amount);
+    Env::AddSig(arg.m_Msg.m_User);
 }
 
