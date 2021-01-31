@@ -1835,21 +1835,22 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(DocGetText)
 	{
-		if (!nLen)
-			return 0;
-
 		auto pVal = FindArg(szID);
 		if (!pVal)
 		{
-			szRes[0] = 0;
+			if (nLen)
+				szRes[0] = 0;
 			return 0;
 		}
 
 		uint32_t n = static_cast<uint32_t>(pVal->size()) + 1;
-		std::setmin(nLen, n);
-		
-		memcpy(szRes, pVal->c_str(), nLen - 1);
-		szRes[nLen - 1] = 0;
+		if (nLen)
+		{
+			std::setmin(nLen, n);
+
+			memcpy(szRes, pVal->c_str(), nLen - 1);
+			szRes[nLen - 1] = 0;
+		}
 		return n;
 	}
 
@@ -1859,8 +1860,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(DocGetBlob)
 	{
-		if (!nLen)
-			return 0;
+		//if (!nLen)
+		//	return 0;
 
 		auto pVal = FindArg(szID);
 		if (!pVal)
