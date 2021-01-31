@@ -5,7 +5,7 @@ namespace Pipe
 {
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
-    static const ShaderID s_SID = { 0xc5,0x9d,0x05,0xb5,0xad,0x83,0x4d,0x91,0x8b,0xa4,0x34,0x3d,0xc2,0x4f,0x82,0x73,0x72,0x6a,0x9d,0xc7,0x6b,0xae,0xe7,0xda,0x30,0x18,0x0c,0x3e,0x97,0x56,0x26,0xf1 };
+    static const ShaderID s_SID = { 0xd8,0xf4,0xd4,0xa1,0x53,0xa8,0x37,0xe5,0x98,0x3d,0xdd,0x4c,0x2f,0xd5,0x40,0x81,0x22,0x71,0xbc,0x21,0xc4,0x05,0x07,0xd4,0x5c,0xb6,0xee,0x1e,0x88,0x51,0xe0,0x0b };
 
     struct Cfg
     {
@@ -70,18 +70,18 @@ namespace Pipe
         uint8_t m_DepositStake; // instead of immediate withdraw. Can be used by other user to enforce checkpoint finalization
     };
 
-    struct VerifyRemote0
+    struct ReadRemote0
     {
         static const uint32_t s_iMethod = 6;
 
         uint32_t m_iCheckpoint;
         uint32_t m_iMsg;
-        ContractID m_Sender;
-        uint32_t m_MsgSize;
-        Height m_Height;
-        uint8_t m_Public; // original receiver was set to zero
+        uint32_t m_MsgSize; // on input: buf size, on output: actual msg size. The msg would be truncated if necessary
         uint8_t m_Wipe; // wipe the message after verification. Allowed only for private messages (i.e. sent specifically to the caller contract)
-        // followed by the message
+        // out
+        uint8_t m_IsPrivate;
+        ContractID m_Sender;
+        // followed by the message bufer
     };
 
     struct Withdraw
@@ -102,67 +102,60 @@ namespace Pipe
         static const uint8_t Variant = 7;
         static const uint8_t StateIn = 8;
         static const uint8_t StateOut = 9;
+        static const uint8_t InMsg = 10;
     };
 
 
     struct MsgHdr
     {
-        struct Key
-        {
-            uint8_t m_Type = KeyType::OutMsg;
+        struct KeyBase {
+            uint8_t m_Type;
             // big-endian, for simpler enumeration by app shader
             uint32_t m_iCheckpoint_BE;
             uint32_t m_iMsg_BE;
         };
 
+        struct KeyOut :public KeyBase {
+            KeyOut() { m_Type = KeyType::OutMsg; }
+        };
+
+        struct KeyIn :public KeyBase {
+            KeyIn() { m_Type = KeyType::InMsg; }
+        };
+
         ContractID m_Sender;
         ContractID m_Receiver; // zero if no sender, would be visible for everyone
-        Height m_Height;
 
         template <typename THashProcessor>
-        void get_HashEx(THashProcessor& hp, uint32_t nMsg) const
+        void UpdateStateEx(THashProcessor& hp, HashValue& res, uint32_t nMsg) const
         {
-            hp << "b.msg";
-            hp.Write(this, nMsg);
-        }
-
-        void get_Hash(HashValue& res, uint32_t nMsg) const
-        {
-            HashProcessor hp;
-            hp.m_p = Env::HashCreateSha256();
-            get_HashEx(hp, nMsg);
-            hp >> res;
-        }
-
-        static void UpdateState(HashValue& res, const HashValue& hvMsg)
-        {
-            HashProcessor hp;
-            hp.m_p = Env::HashCreateSha256();
             hp
-                << "b.pipe"
+                << "b.msg"
                 << res
-                << hvMsg
-                >> res;
+                << nMsg;
+
+            hp.Write(this, nMsg);
+
+            hp >> res;
         }
 
         void UpdateState(HashValue& res, uint32_t nMsg) const
         {
-            HashValue hvMsg;
-            get_Hash(hvMsg, nMsg);
-            UpdateState(res, hvMsg);
+            HashProcessor hp;
+            hp.m_p = Env::HashCreateSha256();
+            UpdateStateEx(hp, res, nMsg);
         }
     };
 
-    struct InpCheckpointHdr
+    struct InpCheckpoint
     {
         struct Key
         {
             uint8_t m_Type = KeyType::InpCheckpoint;
-            uint32_t m_iCheckpoint;
+            uint32_t m_iCheckpoint_BE;
         };
 
         PubKey m_User;
-        // followed by hashes
     };
 
 
@@ -243,17 +236,7 @@ namespace Pipe
         Ending m_Begin;
         Ending m_End;
 
-        InpCheckpointHdr m_Cp;
-        // followed by hashes
-
-        void Evaluate(HashValue& res, uint32_t nSize) const
-        {
-            uint32_t nMsgs = (nSize - sizeof(*this)) / sizeof(HashValue);
-            auto* pMsgs = (const HashValue*) (this + 1);
-
-            for (uint32_t i = 0; i < nMsgs; i++)
-                MsgHdr::UpdateState(res, pMsgs[i]);
-        }
+        PubKey m_User;
     };
 
     struct UserInfo
