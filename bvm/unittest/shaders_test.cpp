@@ -75,6 +75,7 @@ namespace Shaders {
 #include "../Shaders/sidechain/contract.h"
 #include "../Shaders/perpetual/contract.h"
 #include "../Shaders/pipe/contract.h"
+#include "../Shaders/mirrorcoin/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -199,6 +200,11 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Pipe::PushLocal0& x) {
 		ConvertOrd<bToShader>(x.m_MsgSize);
 	}
+	template <bool bToShader> void Convert(Pipe::ReadRemote0& x) {
+		ConvertOrd<bToShader>(x.m_iCheckpoint);
+		ConvertOrd<bToShader>(x.m_iMsg);
+		ConvertOrd<bToShader>(x.m_MsgSize);
+	}
 
 	namespace Env {
 
@@ -263,6 +269,9 @@ namespace Shaders {
 	}
 	namespace Pipe {
 #include "../Shaders/pipe/contract.cpp"
+	}
+	namespace MirrorCoin {
+#include "../Shaders/mirrorcoin/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -753,6 +762,7 @@ namespace bvm2 {
 			ByteBuffer m_Roulette;
 			ByteBuffer m_Perpetual;
 			ByteBuffer m_Pipe;
+			ByteBuffer m_MirrorCoin;
 
 		} m_Code;
 
@@ -765,6 +775,8 @@ namespace bvm2 {
 		ContractID m_cidSidechain;
 		ContractID m_cidPerpetual;
 		ContractID m_cidPipe;
+		ContractID m_cidMirrorCoin1;
+		ContractID m_cidMirrorCoin2;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -921,6 +933,14 @@ namespace bvm2 {
 				//}
 			}
 
+			if ((cid == m_cidMirrorCoin1) || (cid == m_cidMirrorCoin2))
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -933,6 +953,7 @@ namespace bvm2 {
 		void TestSidechain();
 		void TestPerpetual();
 		void TestPipe();
+		void TestMirrorCoin();
 
 		void TestAll();
 	};
@@ -960,6 +981,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
 		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
+		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -970,6 +992,7 @@ namespace bvm2 {
 		TestStableCoin();
 		TestPerpetual();
 		TestPipe();
+		TestMirrorCoin();
 	}
 
 	void MyProcessor::TestVault()
@@ -1766,6 +1789,13 @@ namespace bvm2 {
 			for (uint32_t i = 0; i < arg.m_Read.m_MsgSize; i++)
 				verify_test(arg.m_pMsg[i] == '2');
 		}
+	}
+
+	void MyProcessor::TestMirrorCoin()
+	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
+		verify_test(sid == Shaders::MirrorCoin::s_SID);
 	}
 
 	void MyProcessor::TestFaucet()
