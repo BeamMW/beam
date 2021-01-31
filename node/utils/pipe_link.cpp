@@ -573,10 +573,10 @@ void Manager::LocalContext::OnStateChanged()
         return; // up-to-date
 
     // read the checkpoint details
-    std::vector<ECC::Hash::Value> vHashes;
+    Serializer ser;
 
     {
-        Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::Key> mhk;
+        Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::KeyOut> mhk;
         mhk.m_Prefix.m_Cid = cid2;
         mhk.m_KeyInContract.m_iCheckpoint_BE = ByteOrder::to_be(si.m_Dispute.m_iIdx);
         mhk.m_KeyInContract.m_iMsg_BE = 0;
@@ -591,14 +591,13 @@ void Manager::LocalContext::OnStateChanged()
             if (wlk.m_Val.n < sizeof(Shaders::Pipe::MsgHdr))
                 continue; // ?!
 
-            const auto& msg = *(Shaders::Pipe::MsgHdr*) wlk.m_Val.p;
-            ECC::Hash::Processor hp;
-            msg.get_HashEx(hp, wlk.m_Val.n);
-            hp >> vHashes.emplace_back();
+            uint32_t nSize = ByteOrder::to_le(wlk.m_Val.n - (uint32_t) sizeof(Shaders::Pipe::MsgHdr));
+            ser.WriteRaw(&nSize, sizeof(nSize));
+            ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
         }
     }
 
-    if (vHashes.empty())
+    if (!ser.buffer().second)
         return; // ?!
 
     bool bNewVariant = true;
@@ -619,7 +618,7 @@ void Manager::LocalContext::OnStateChanged()
         if (!pWin)
             return;
 
-        if (pWin->m_Cp.m_User == ptUser)
+        if (pWin->m_User == ptUser)
         {
             // already winning
             if (si.CanFinalyze(s.m_Height))
@@ -648,10 +647,8 @@ void Manager::LocalContext::OnStateChanged()
 
     ByteBuffer bufArg;
     uint32_t nSizeArg = sizeof(Shaders::Pipe::PushRemote0);
-    uint32_t nMsgs = static_cast<uint32_t>(vHashes.size());
-    uint32_t nSizeMsgs = static_cast<uint32_t>(nMsgs * sizeof(ECC::Hash::Value));
     if (bNewVariant)
-        nSizeArg += sizeof(uint32_t) + nSizeMsgs;
+        nSizeArg += sizeof(uint32_t) + (uint32_t) ser.buffer().second;
     else
         nSizeArg += sizeof(ECC::Hash::Value); // existing variant ID
 
@@ -665,14 +662,14 @@ void Manager::LocalContext::OnStateChanged()
     if (bNewVariant)
     {
         arg.m_Flags |= Shaders::Pipe::PushRemote0::Flags::Msgs;
-        memcpy(pBuf, &nMsgs, sizeof(nMsgs));
-        pBuf += sizeof(nMsgs);
 
-        if (nMsgs)
-        {
-            memcpy(pBuf, &vHashes.front(), nSizeMsgs);
-            pBuf += nSizeMsgs;
-        }
+        uint32_t nSizeMsgs = ByteOrder::to_le((uint32_t) ser.buffer().second);
+
+        memcpy(pBuf, &nSizeMsgs, sizeof(nSizeMsgs));
+        pBuf += sizeof(nSizeMsgs);
+
+        memcpy(pBuf, ser.buffer().first, nSizeMsgs);
+        pBuf += nSizeMsgs;
     }
 
     TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
