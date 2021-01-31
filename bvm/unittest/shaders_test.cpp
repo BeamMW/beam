@@ -206,6 +206,20 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_MsgSize);
 	}
 
+	template <bool bToShader> void Convert(MirrorCoin::Create0& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_MetadataSize);
+	}
+	template <bool bToShader> void Convert(MirrorCoin::SetRemote& x) {
+	}
+	template <bool bToShader> void Convert(MirrorCoin::Send& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(MirrorCoin::Receive& x) {
+		ConvertOrd<bToShader>(x.m_iCheckpoint);
+		ConvertOrd<bToShader>(x.m_iMsg);
+	}
+
 	namespace Env {
 
 
@@ -938,6 +952,10 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 0: Shaders::MirrorCoin::Ctor(CastArg<Shaders::MirrorCoin::Create0>(pArgs)); return;
+				//case 2: Shaders::MirrorCoin::Method_2(CastArg<Shaders::MirrorCoin::SetRemote>(pArgs)); return;
+				//case 3: Shaders::MirrorCoin::Method_3(CastArg<Shaders::MirrorCoin::Send>(pArgs)); return;
+				//case 4: Shaders::MirrorCoin::Method_4(CastArg<Shaders::MirrorCoin::Receive>(pArgs)); return;
 				//}
 			}
 
@@ -1796,6 +1814,78 @@ namespace bvm2 {
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
 		verify_test(sid == Shaders::MirrorCoin::s_SID);
+
+		{
+			Shaders::MirrorCoin::Create0 arg;
+			arg.m_Aid = 0;
+			arg.m_MetadataSize = 0;
+			arg.m_PipeID = m_cidPipe;
+
+			verify_test(ContractCreate_T(m_cidMirrorCoin1, m_Code.m_MirrorCoin, arg));
+		}
+
+		{
+#pragma pack (push, 1)
+			struct Arg :public Shaders::MirrorCoin::Create0 {
+				char m_chMeta = 'x';
+			} arg;
+			arg.m_Aid = 0;
+			arg.m_MetadataSize = sizeof(arg.m_chMeta);
+			arg.m_PipeID = m_cidPipe;
+
+			verify_test(ContractCreate_T(m_cidMirrorCoin2, m_Code.m_MirrorCoin, arg));
+		}
+
+		{
+			Shaders::MirrorCoin::SetRemote arg;
+			arg.m_Cid = m_cidMirrorCoin2;
+			verify_test(RunGuarded_T(m_cidMirrorCoin1, arg.s_iMethod, arg));
+			arg.m_Cid = m_cidMirrorCoin1;
+			verify_test(RunGuarded_T(m_cidMirrorCoin2, arg.s_iMethod, arg));
+		}
+
+#pragma pack (push, 1)
+		struct MirrorMsg
+			:public Shaders::Pipe::MsgHdr
+			,public Shaders::MirrorCoin::Message
+		{
+		};
+#pragma pack (pop)
+
+		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+		{
+			const ContractID& cidSrc = iCycle ? m_cidMirrorCoin2 : m_cidMirrorCoin1;
+			const ContractID& cidDst = iCycle ? m_cidMirrorCoin1 : m_cidMirrorCoin2;
+
+			Shaders::MirrorCoin::Send argS;
+			argS.m_Amount = 450;
+			ECC::SetRandom(argS.m_User.m_X);
+			argS.m_User.m_Y = 0;
+			
+			verify_test(RunGuarded_T(cidSrc, argS.s_iMethod, argS));
+
+			// simulate message passed
+			Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::KeyIn> key;
+			key.m_Prefix.m_Cid = m_cidPipe;
+			key.m_KeyInContract.m_iCheckpoint_BE = 0;
+			key.m_KeyInContract.m_iMsg_BE = ByteOrder::to_be(1U);
+
+			MirrorMsg msg;
+			msg.m_Sender = cidSrc;
+			msg.m_Receiver = cidDst;
+			msg.m_User = argS.m_User;
+			msg.m_Amount = argS.m_Amount;
+
+			SaveVar(Blob(&key, sizeof(key)), (uint8_t*) &msg, sizeof(msg));
+
+			Shaders::MirrorCoin::Receive argR;
+			argR.m_iCheckpoint = 0;
+			argR.m_iMsg = 1;
+
+			verify_test(RunGuarded_T(cidDst, argR.s_iMethod, argR));
+			verify_test(!RunGuarded_T(cidDst, argR.s_iMethod, argR)); // double-spend should not be possible
+		}
+
 	}
 
 	void MyProcessor::TestFaucet()
