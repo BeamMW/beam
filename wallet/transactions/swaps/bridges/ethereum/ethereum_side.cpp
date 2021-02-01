@@ -25,6 +25,8 @@ namespace
 {
     // TODO: check
     constexpr uint32_t kExternalHeightMaxDifference = 10;
+
+    const std::string kEthSignPrefix = std::string("\x19") + "Ethereum Signed Message:\n32";
 }
 
 namespace beam::wallet
@@ -508,7 +510,12 @@ beam::ByteBuffer EthereumSide::BuildRedeemTxData()
             hashData.insert(hashData.end(), tokenContractAddress.cbegin(), tokenContractAddress.cend());
         }
 
-        auto hash = ethash::keccak256(&hashData[0], hashData.size());
+        auto msgHash = ethash::keccak256(&hashData[0], hashData.size());
+
+        libbitcoin::data_chunk msgWithPrefixData(kEthSignPrefix.begin(), kEthSignPrefix.end());
+        msgWithPrefixData.insert(std::end(msgWithPrefixData), std::begin(msgHash.bytes), std::end(msgHash.bytes));
+
+        auto hash = ethash::keccak256(&msgWithPrefixData[0], msgWithPrefixData.size());
 
         libbitcoin::hash_digest hashDigest;
         std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
