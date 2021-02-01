@@ -277,6 +277,7 @@ namespace Wasm {
 	macro(0xf9, global_set_imp) \
 
 #define WasmInstructions_NotPorted(macro) \
+	macro(0x00, unreachable) \
 	macro(0x01, nop) \
 	macro(0x02, block) \
 	macro(0x03, loop) \
@@ -943,6 +944,10 @@ namespace Wasm {
 		}
 
 		void On_nop() {
+			m_p0 = nullptr;
+		}
+
+		void On_unreachable() {
 			m_p0 = nullptr;
 		}
 
