@@ -11,22 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
-
 #include "wallet/core/common.h"
 #include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
-class SwapOffersBoard;
-class IAtomicSwapProvider
-{
-public:
-    virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
-    virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
-    virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
-    virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
-    virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
-};
-}  // namespace beam::wallet
+    class SwapOffersBoard;
+    class IAtomicSwapProvider
+    {
+    public:
+        virtual ~IAtomicSwapProvider() = default;
+        typedef std::shared_ptr<IAtomicSwapProvider> Ptr;
+
+        [[nodiscard]] virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
+        [[nodiscard]] virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
+        [[nodiscard]] virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
+        [[nodiscard]] virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
+        [[nodiscard]] virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
+    };
+}

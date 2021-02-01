@@ -57,7 +57,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/api_handler.h"
+#include "wallet/api/wallet_api.h"
 
 namespace
 {
@@ -71,9 +71,9 @@ namespace
         bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
 
-    struct WalletData : WalletApiHandler::IWalletData
+    struct WalletData : IWalletApiData
     {
-        WalletData(IWalletDB::Ptr walletDB, Wallet& wallet, IAtomicSwapProvider& atomicSwapProvider)
+        WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider::Ptr atomicSwapProvider)
             : m_walletDB(walletDB)
             , m_wallet(wallet)
             , m_atomicSwapProvider(atomicSwapProvider)
@@ -81,34 +81,33 @@ namespace
 
         virtual ~WalletData() {}
 
-        IWalletDB::Ptr getWalletDBPtr() override
+        IWalletDB::Ptr getWalletDBPtr() const override
         {
             return m_walletDB;
         }
 
-        Wallet::Ptr getWalletPtr() override
+        Wallet::Ptr getWalletPtr() const override
         {
             throw std::runtime_error("not impl");
         }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        const IAtomicSwapProvider& getAtomicSwapProvider() const override
+        IAtomicSwapProvider::Ptr getAtomicSwapProvider() const override
         {
             return m_atomicSwapProvider;
         }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
         IWalletDB::Ptr m_walletDB;
-        Wallet& m_wallet;
-        IAtomicSwapProvider& m_atomicSwapProvider;
+        Wallet::Ptr m_wallet;
+        IAtomicSwapProvider::Ptr m_atomicSwapProvider;
     };
 
-    struct ApiHandler : beam::wallet::WalletApiHandler
+    struct ApiTest: beam::wallet::WalletApi
     {
-        using beam::wallet::WalletApiHandler::WalletApiHandler;
-        void serializeMsg(const json& msg) override
+        using beam::wallet::WalletApi::WalletApi;
+        void sendMessage(const json& msg) override
         {
-
         }
     };
 
@@ -118,32 +117,32 @@ namespace
 
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(0, 0, v);
+            WalletApi::doPagination(0, 0, v);
             WALLET_CHECK(v.empty()); 
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(0, 3, v);
+            WalletApi::doPagination(0, 3, v);
             WALLET_CHECK(v == std::vector<int>({1,2,3}));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(1, 3, v);
+            WalletApi::doPagination(1, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(2, 3, v);
+            WalletApi::doPagination(2, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(1, 2, v);
+            WalletApi::doPagination(1, 2, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApiHandler::doPagination(4, 3, v);
+            WalletApi::doPagination(4, 3, v);
             WALLET_CHECK(v.empty());
         }
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -169,7 +168,7 @@ namespace
 
         for (int i = 0; i < Count; ++i)
         {
-            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(1))
@@ -194,10 +193,10 @@ namespace
         auto rh = receiver.m_WalletDB->getTxHistory();
         WALLET_CHECK(rh.size() == Count);
 
-        AtomicSwapProvider asp;
+        auto asp = std::make_shared<AtomicSwapProvider>();
         WalletData wd(sender.m_WalletDB, sender.m_Wallet, asp);
         WalletApi::ACL acl;
-        ApiHandler handler(wd, acl);
+        ApiTest api(wd, acl);
         TxList message;
         message.count = 10;
         message.skip = 30;
@@ -205,7 +204,7 @@ namespace
         message.withAssets = false;
         for (int i = 0; i < 100; ++i)
         {
-            handler.onMessage(1, message);
+            api.onMessage(1, message);
         }
     }
 
@@ -336,7 +335,7 @@ namespace
 
         sw.start();
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                     .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::PeerID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, Amount(24))
@@ -410,7 +409,7 @@ namespace
         helpers::StopWatch sw;
         sw.start();
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
@@ -476,7 +475,7 @@ namespace
 
             receiver.m_WalletDB->get_History().DeleteFrom(sTip.m_Height); // delete latest block
 
-            proto::FlyClient& flyClient = receiver.m_Wallet;
+            proto::FlyClient& flyClient = *receiver.m_Wallet;
             //imitate rollback
             flyClient.OnRolledBack();
             receiver.m_WalletDB->get_History().AddStates(&sTip, 1);
@@ -510,7 +509,7 @@ namespace
         
 
         cout << "An attempt to send from invalid address\n";
-        WALLET_CHECK_THROW(txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        WALLET_CHECK_THROW(txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(6))
@@ -520,7 +519,7 @@ namespace
 
         sw.start();
 
-        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(6))
@@ -592,7 +591,7 @@ namespace
         sw.start();
         completedCount = 1;// only one wallet takes part in tx
 
-        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(6))
@@ -652,7 +651,7 @@ namespace
             TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
             TestWalletRig receiver(createReceiverWalletDB(), f);
 
-            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
@@ -666,7 +665,7 @@ namespace
             sender.m_WalletDB->get_History().get_Tip(tip);
             sender.m_WalletDB->get_History().DeleteFrom(tip.m_Height);
 
-            proto::FlyClient& client = sender.m_Wallet;
+            proto::FlyClient& client = *sender.m_Wallet;
             client.OnRolledBack();
             // emulating what FlyClient does on rollback
             sender.m_WalletDB->get_History().AddStates(&tip, 1);
@@ -861,7 +860,7 @@ namespace
 
         sw.start();
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(2))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
 
@@ -954,7 +953,7 @@ namespace
         TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
 
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
            .SetParameter(TxParameterID::Fee, Amount(2))
            .SetParameter(TxParameterID::Lifetime, Height(200)));
 
@@ -971,7 +970,7 @@ namespace
         }
         
 
-        txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(42))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
@@ -988,7 +987,7 @@ namespace
         }
 
         // another attempt
-        txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(50))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
@@ -1053,11 +1052,11 @@ namespace
         {
             if (height == 200)
             {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(receiver.m_Wallet);
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*receiver.m_Wallet);
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
                 nodeEndpoint->Connect();
-                receiver.m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB));
-                receiver.m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                receiver.m_Wallet->AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(*receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB));
+                receiver.m_Wallet->SetNodeEndpoint(nodeEndpoint);
             }
         };
 
@@ -1069,7 +1068,7 @@ namespace
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
@@ -1097,7 +1096,7 @@ namespace
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
-        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
@@ -1164,7 +1163,7 @@ namespace
             WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
             WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
-            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
@@ -1599,19 +1598,19 @@ namespace
         TestWalletRig sender(db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
         TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
 
-        sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList(Count, Amount(5)))
+        sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList(Count, Amount(5)))
             .SetParameter(TxParameterID::Fee, Amount(0))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
 
         mainReactor->run();
 
-        sender.m_Wallet.SetBufferSize(10);
+        sender.m_Wallet->SetBufferSize(10);
 
         completedCount = 2 * Count;
 
         for (int i = 0; i < Count; ++i)
         {
-            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
@@ -1963,7 +1962,7 @@ namespace
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
         //completedCount = 1;
-        //auto txId1 = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        //auto txId1 = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
         //    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
         //    .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
         //    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
@@ -1981,7 +1980,7 @@ namespace
         //
         //WALLET_CHECK(stx1->m_status == wallet::TxStatus::Failed);
 
-        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
@@ -2118,7 +2117,7 @@ namespace
         Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
         StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
 
-        auto txId  = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        auto txId  = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
@@ -2247,7 +2246,7 @@ namespace
         for (auto& w : wallets)
         {
             auto& sender = *w;
-            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                 .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
@@ -2323,7 +2322,7 @@ namespace
         cdata.m_vSig.emplace_back() = 2330U;
         cdata.m_Fee = 600;
 
-        auto txId  = sender.m_Wallet.StartTransaction(
+        auto txId  = sender.m_Wallet->StartTransaction(
             CreateTransactionParameters(TxType::Contract)
             .SetParameter(TxParameterID::ContractDataPacked, vData)
             .SetParameter(TxParameterID::Fee, Amount(cdata.m_Fee)));

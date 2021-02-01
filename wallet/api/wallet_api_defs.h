@@ -11,17 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include <boost/optional.hpp>
 #include "wallet/core/wallet.h"
 #include "api_base.h"
 #include "api_errors.h"
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/client/extensions/offers_board/swap_offer.h"
-#endif
+#include "wallet/api/i_atomic_swap_provider.h"
 
 namespace beam::wallet
 {
@@ -140,7 +137,7 @@ namespace beam::wallet
         {
             std::vector<WalletAddress> addrList;
             Height systemHeight;
-            SwapOffer offer;    
+            SwapOffer offer;
         };
     };
 
@@ -370,12 +367,12 @@ namespace beam::wallet
             boost::optional<Asset::ID> assetId;
         } filter;
 
-        struct 
+        struct
         {
             std::string field = "default";
             bool desc = false;
         } sort;
-        
+
 
         struct Response
         {
@@ -450,7 +447,7 @@ namespace beam::wallet
         };
     };
 
-    struct ExportPaymentProof 
+    struct ExportPaymentProof
     {
         TxID txId;
 
@@ -493,44 +490,5 @@ namespace beam::wallet
         {
             uint32_t count;
         };
-    };
-
-    class IWalletApiHandler : public IApiBaseHandler
-    {
-    public:
-#define MESSAGE_FUNC(api, name, _) \
-        virtual void onMessage(const JsonRpcId& id, const api& data) = 0;
-
-        WALLET_API_METHODS(MESSAGE_FUNC)
-
-#undef MESSAGE_FUNC
-    };
-
-
-    class WalletApi : public ApiBase
-    {
-    public:
-        WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
-
-#define RESPONSE_FUNC(api, name, _) \
-        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
-
-        WALLET_API_METHODS(RESPONSE_FUNC)
-
-#undef RESPONSE_FUNC
-
-    private:
-        IWalletApiHandler& getHandler() const;
-
-#define MESSAGE_FUNC(api, name, _) \
-        void on##api##Message(const JsonRpcId& id, const json& msg);
-
-        WALLET_API_METHODS(MESSAGE_FUNC)
-
-#undef MESSAGE_FUNC
-
-        template<typename T>
-        void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
-        void checkCAEnabled(const JsonRpcId& id);
     };
 }  // namespace beam::wallet

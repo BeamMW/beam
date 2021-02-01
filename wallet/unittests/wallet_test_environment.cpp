@@ -425,9 +425,9 @@ struct TestWalletRig
 
     TestWalletRig(IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
-        , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
-    {
 
+    {
+        m_Wallet = std::make_shared<TestWallet>(m_WalletDB, move(action), Wallet::UpdateCompletedAction());
         if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
             WalletAddress wa;
@@ -447,48 +447,48 @@ struct TestWalletRig
             m_OwnID = addresses[0].m_OwnID;
         }
 
-        m_Wallet.ResumeAllTransactions();
+        m_Wallet->ResumeAllTransactions();
 
         switch (type)
         {
         case Type::Regular:
             {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(*m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 else
                 {
-                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(*m_Wallet, nodeEndpoint, m_WalletDB);
                 }
-                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                m_Wallet->SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::RegularWithoutPoWBbs:
             {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(*m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 else
                 {
-                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    auto tmp = make_shared<WalletNetworkViaBbs>(*m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
-                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                m_Wallet->SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::Offline:
@@ -497,7 +497,7 @@ struct TestWalletRig
 
         if (m_messageEndpoint)
         {
-            m_Wallet.AddMessageEndpoint(m_messageEndpoint);
+            m_Wallet->AddMessageEndpoint(m_messageEndpoint);
         }
     }
 
@@ -517,7 +517,7 @@ struct TestWalletRig
     PeerID m_SecureWalletID;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
-    TestWallet m_Wallet;
+    std::shared_ptr<TestWallet> m_Wallet;
     IWalletMessageEndpoint::Ptr m_messageEndpoint;
 };
 
@@ -1279,7 +1279,7 @@ public:
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                         .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                         .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                         .SetParameter(TxParameterID::Amount, Amount(5))
