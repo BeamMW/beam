@@ -28,6 +28,7 @@ inline constexpr uint8_t kEthContractABIWordSize = 32;
 inline constexpr uint8_t kEthContractMethodHashSize = 4;
 
 const uint64_t kLockTxGasLimit = 200'000u;
+const uint64_t kApproveTxGasLimit = 60'000u;
 const uint64_t kWithdrawTxGasLimit = 200'000u;
 
 std::string ConvertEthAddressToStr(const libbitcoin::short_hash& addr);

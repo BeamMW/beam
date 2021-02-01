@@ -62,7 +62,8 @@ namespace beam::wallet
         ECC::uintBig GetSecret() const;
         ByteBuffer GetSecretHash() const;
 
-        ECC::uintBig GetGas(SubTxID subTxID) const;
+        ECC::uintBig GetGasLimit(SubTxID subTxID) const;
+        ECC::uintBig GetApproveTxGasLimit() const;
         ECC::uintBig GetGasPrice(SubTxID subTxID) const;
 
         libbitcoin::short_hash GetContractAddress() const;

@@ -39,6 +39,7 @@ struct Settings
 #endif
     Amount m_maxFeeRate = 2'000u;
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
+    uint64_t m_approveTxGasLimit = kApproveTxGasLimit;
     uint64_t m_withdrawTxGasLimit = kWithdrawTxGasLimit;
 
     bool IsInitialized() const;

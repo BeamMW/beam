@@ -358,8 +358,7 @@ bool EthereumSide::SendLockTx()
             auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
             const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
 
-            // TODO(alex.starun): use different gaslimit
-            m_ethBridge->erc20Approve(tokenContractAddress, GetContractAddress(), swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
+            m_ethBridge->erc20Approve(tokenContractAddress, GetContractAddress(), swapAmount, GetApproveTxGasLimit(), GetGasPrice(SubTxIndex::LOCK_TX),
                 [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
             {
                 if (!weak.expired())
@@ -397,7 +396,7 @@ bool EthereumSide::SendLockTx()
         libbitcoin::data_chunk data = BuildLockTxData();
         uintBig swapAmount = IsERC20Token() ? ECC::Zero : GetSwapAmount();
 
-        m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGas(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
+        m_ethBridge->send(GetContractAddress(), data, swapAmount, GetGasLimit(SubTxIndex::LOCK_TX), GetGasPrice(SubTxIndex::LOCK_TX),
             [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
         {
             if (!weak.expired())
@@ -443,7 +442,7 @@ bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
     {
         auto data = BuildWithdrawTxData(subTxID);
 
-        m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGas(subTxID), GetGasPrice(subTxID),
+        m_ethBridge->send(GetContractAddress(), data, ECC::Zero, GetGasLimit(subTxID), GetGasPrice(subTxID),
             [this, weak = this->weak_from_this(), subTxID](const ethereum::IBridge::Error& error, std::string txHash, uint64_t txNonce)
         {
             if (!weak.expired())
@@ -666,9 +665,16 @@ bool EthereumSide::IsQuickRefundAvailable()
     return false;
 }
 
-Amount EthereumSide::CalcLockTxFee(Amount priceGas, AtomicSwapCoin /*swapCoin*/)
+Amount EthereumSide::CalcLockTxFee(Amount priceGas, AtomicSwapCoin swapCoin)
 {
-    return priceGas * ethereum::kLockTxGasLimit;
+    Amount result = priceGas * ethereum::kLockTxGasLimit;
+
+    if (IsEthToken(swapCoin))
+    {
+        result += 2 * priceGas * ethereum::kApproveTxGasLimit; // sometimes need 2 appove
+    }
+
+    return result;
 }
 
 Amount EthereumSide::CalcWithdrawTxFee(Amount priceGas, AtomicSwapCoin swapCoin)
@@ -804,7 +810,7 @@ ByteBuffer EthereumSide::GetSecretHash() const
     }
 }
 
-ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
+ECC::uintBig EthereumSide::GetGasLimit(SubTxID subTxID) const
 {
     if (subTxID == SubTxIndex::LOCK_TX)
     {
@@ -812,6 +818,11 @@ ECC::uintBig EthereumSide::GetGas(SubTxID subTxID) const
     }
 
     return m_settingsProvider.GetSettings().m_withdrawTxGasLimit;
+}
+
+ECC::uintBig EthereumSide::GetApproveTxGasLimit() const
+{
+    return m_settingsProvider.GetSettings().m_approveTxGasLimit;
 }
 
 ECC::uintBig EthereumSide::GetGasPrice(SubTxID subTxID) const
