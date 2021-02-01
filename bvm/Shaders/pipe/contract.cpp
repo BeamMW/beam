@@ -50,7 +50,6 @@ export void Method_3(const Pipe::PushLocal0& r)
 		Utils::ZeroObject(pMsg->m_Sender);
 
 	Utils::Copy(pMsg->m_Receiver, r.m_Receiver);
-	pMsg->m_Height = h;
 	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
 
 	Pipe::StateOut so;
@@ -82,7 +81,7 @@ export void Method_3(const Pipe::PushLocal0& r)
 	else
 		Env::LoadVar_T(cpk, hv);
 
-	Pipe::MsgHdr::Key km;
+	Pipe::MsgHdr::KeyOut km;
 	km.m_iCheckpoint_BE = cpk.m_iCheckpoint_BE;
 	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
 	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
@@ -138,9 +137,53 @@ struct VariantWrap
 		m_pVar = (Pipe::Variant*) Env::Heap_Alloc(m_VarSize);
 	}
 
+	struct MsgParser
+	{
+		MyParser m_Pos;
+		const uint8_t* m_pEnd;
+
+		const Pipe::MsgHdr* m_pMsg;
+		uint32_t m_MsgSize;
+
+		static void TestSizeIsSane(uint32_t nSize)
+		{
+			const uint32_t nThreshold = 0x10000000;
+			Env::Halt_if(nSize >= nThreshold);
+		}
+
+		MsgParser(const VariantWrap& vw)
+			:m_Pos(vw.m_pVar + 1)
+		{
+			m_pEnd = m_Pos.m_pPtr + (vw.m_VarSize - sizeof(*vw.m_pVar));
+		}
+
+		bool MoveNext()
+		{
+			if (m_Pos.m_pPtr == m_pEnd)
+				return false;
+
+			m_MsgSize = m_Pos.Read_As<uint32_t>();
+			TestSizeIsSane(m_MsgSize);
+
+			m_pMsg = &m_Pos.Read_As<Pipe::MsgHdr>();
+			m_Pos.Read(m_MsgSize);
+
+			Env::Halt_if(m_Pos.m_pPtr > m_pEnd);
+
+			return true;
+		}
+
+		void Evaluate(HashValue& res)
+		{
+			while (MoveNext())
+				m_pMsg->UpdateState(res, sizeof(*m_pMsg) + m_MsgSize);
+		}
+	};
+
 	void Evaluate()
 	{
-		m_pVar->Evaluate(m_Key.m_hvVariant, m_VarSize);
+		MsgParser p(*this);
+		p.Evaluate(m_Key.m_hvVariant);
 	}
 
 	void Load()
@@ -266,19 +309,21 @@ export void Method_4(const Pipe::PushRemote0& r)
 	if (bNewVariant)
 	{
 		// new variant
-		auto nMsgs = p.Read_As<uint32_t>();
-		Env::Halt_if(!nMsgs);
+		auto nSizeMsgs = p.Read_As<uint32_t>();
+		VariantWrap::MsgParser::TestSizeIsSane(nSizeMsgs);
 
-		uint32_t nSizeMsgs = sizeof(HashValue) * nMsgs;
 		vw.m_VarSize = sizeof(*vw.m_pVar) + nSizeMsgs;
 
 		vw.Alloc();
 		Utils::ZeroObject(*vw.m_pVar);
 
 		vw.m_pVar->m_iDispute = si.m_Dispute.m_iIdx;
-		Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
+		Utils::Copy(vw.m_pVar->m_User, r.m_User);
 
 		Env::Memcpy(vw.m_pVar + 1, p.Read(nSizeMsgs), nSizeMsgs);
+
+		Utils::ZeroObject(vw.m_Key.m_hvVariant);
+
 	}
 	else
 	{
@@ -288,18 +333,21 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		Env::Halt_if(vw.m_pVar->m_iDispute != si.m_Dispute.m_iIdx);
 
-		if (Utils::Cmp(vw.m_pVar->m_Cp.m_User, r.m_User))
+		if (Utils::Cmp(vw.m_pVar->m_User, r.m_User))
 		{
 			Env::Halt_if(h - vw.m_pVar->m_hLastLoose <= si.m_Cfg.m_hContenderWaitPeriod);
 			// replace the contender user for this variant
-			Utils::Copy(vw.m_pVar->m_Cp.m_User, r.m_User);
+			Utils::Copy(vw.m_pVar->m_User, r.m_User);
 		}
 	}
 
 	if (!si.m_Dispute.m_Variants)
 	{
 		// I'm the 1st
-		Utils::ZeroObject(vw.m_Key.m_hvVariant);
+		// no need to evaluate variant, just ensure sanity
+		VariantWrap::MsgParser mp(vw);
+		while (mp.MoveNext())
+			;
 	}
 	else
 	{
@@ -316,9 +364,9 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (bNewVariant)
 			vw.Evaluate();
-		Utils::Copy(vw.m_Hdr.m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
-
 		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
+
+		Utils::Copy(vw.m_Hdr.m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
 
 		if (Pipe::PushRemote0::Flags::Reset & r.m_Flags)
 			vw.m_pVar->m_Begin.m_Height = 0;
@@ -474,79 +522,83 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	vw.Load();
 	vw.Del();
 
+	Pipe::InpCheckpoint cp;
+	Utils::Copy(cp.m_User, vw.m_pVar->m_User);
+
 	if (r.m_DepositStake)
-		HandleUserAccount(vw.m_pVar->m_Cp.m_User, si.m_Dispute.m_Stake, true);
+		HandleUserAccount(cp.m_User, si.m_Dispute.m_Stake, true);
 	else
 	{
 		Env::FundsUnlock(0, si.m_Dispute.m_Stake);
-		Env::AddSig(vw.m_pVar->m_Cp.m_User);
+		Env::AddSig(cp.m_User);
 	}
 
-	Pipe::InpCheckpointHdr::Key cpk;
-	cpk.m_iCheckpoint = si.m_Dispute.m_iIdx;
+	uint32_t iIdx = si.m_Dispute.m_iIdx;
+	Pipe::InpCheckpoint::Key cpk;
+	cpk.m_iCheckpoint_BE = Utils::FromBE(iIdx);
+	Env::SaveVar_T(cpk, cp);
 
-	const uint32_t nSizeDelta = sizeof(Pipe::Variant) - sizeof(Pipe::InpCheckpointHdr);
-	Env::SaveVar(&cpk, sizeof(cpk), &vw.m_pVar->m_Cp, vw.m_VarSize - nSizeDelta);
+	Pipe::MsgHdr::KeyIn mki;
+	mki.m_iCheckpoint_BE = cpk.m_iCheckpoint_BE;
+
+	VariantWrap::MsgParser p(vw);
+	for (uint32_t iMsg = 0; p.MoveNext(); iMsg++)
+	{
+		mki.m_iMsg_BE = Utils::FromBE(iMsg);
+		Env::SaveVar(&mki, sizeof(mki), p.m_pMsg, sizeof(*p.m_pMsg) + p.m_MsgSize);
+	}
 
 	Utils::ZeroObject(si.m_Dispute);
-	si.m_Dispute.m_iIdx = cpk.m_iCheckpoint + 1;
+	si.m_Dispute.m_iIdx = iIdx + 1;
 	Env::SaveVar_T(ki, si);
 }
 
-export void Method_6(const Pipe::VerifyRemote0& r)
+export void Method_6(Pipe::ReadRemote0& r)
 {
-	uint32_t nSize = r.m_MsgSize + sizeof(Pipe::MsgHdr);
+	Pipe::MsgHdr::KeyIn mki;
+	mki.m_iCheckpoint_BE = Utils::FromBE(r.m_iCheckpoint);
+	mki.m_iMsg_BE = Utils::FromBE(r.m_iMsg);
+
+	uint32_t nSize = Env::LoadVar(&mki, sizeof(mki), nullptr, 0);
+	Env::Halt_if(nSize < sizeof(Pipe::MsgHdr));
+
 	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
+	Env::LoadVar(&mki, sizeof(mki), pMsg, nSize);
 
-	if (r.m_Public)
+	r.m_IsPrivate = !Utils::IsZero(pMsg->m_Receiver);
+
+	if (r.m_IsPrivate)
 	{
+		// check the recipient
+		ContractID cid;
+		Env::get_CallerCid(1, cid);
+		Env::Halt_if(Utils::Cmp(cid, pMsg->m_Receiver));
+
+		if (r.m_Wipe)
+			Env::DelVar_T(mki);
+	}
+	else
 		Env::Halt_if(r.m_Wipe); // only designated messages can be wiped
-		Utils::ZeroObject(pMsg->m_Receiver);
-	}
-	else
-		Env::get_CallerCid(1, pMsg->m_Receiver);
 
-	Utils::Copy(pMsg->m_Sender, r.m_Sender);
-	pMsg->m_Height = r.m_Height;
+	nSize -= sizeof(Pipe::MsgHdr);
 
-	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
+	Utils::Copy(r.m_Sender, pMsg->m_Sender);
+	Env::Memcpy(&r + 1, pMsg + 1, std::min(nSize, r.m_MsgSize));
+	r.m_MsgSize = nSize;
 
-	HashValue hv;
-	pMsg->get_Hash(hv, nSize);
+	Pipe::InpCheckpoint::Key cpk;
+	cpk.m_iCheckpoint_BE = mki.m_iCheckpoint_BE;
 
-	Env::StackFree(nSize);
+	Pipe::InpCheckpoint cp;
+	Env::LoadVar_T(cpk, cp);
 
-	Pipe::InpCheckpointHdr::Key cpk;
-	cpk.m_iCheckpoint = r.m_iCheckpoint;
-
-	if (r.m_Wipe)
-		// must read all the messages anyway
-		nSize = Env::LoadVar(&cpk, sizeof(cpk), nullptr, 0);
-	else
-		nSize = sizeof(Pipe::InpCheckpointHdr) + sizeof(HashValue) * (r.m_iMsg + 1); // read up to including the message
-
-	auto pInpCp = (Pipe::InpCheckpointHdr*) Env::StackAlloc(nSize);
-
-	auto nSizeActual = Env::LoadVar(&cpk, sizeof(cpk), pInpCp, nSize);
-	Env::Halt_if(nSizeActual < nSize);
-
-	auto& hv2 = ((HashValue*) (pInpCp + 1))[r.m_iMsg];
-	Env::Halt_if(Utils::Cmp(hv, hv2));
-
-	if (r.m_Wipe)
-	{
-		Utils::ZeroObject(hv2);
-		Env::SaveVar(&cpk, sizeof(cpk), pInpCp, nSize);
-	}
-
-	// message verified
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
 	Env::FundsLock(0, si.m_Cfg.m_ComissionPerMsg);
 
-	HandleUserAccount(pInpCp->m_User, si.m_Cfg.m_ComissionPerMsg, true);
+	HandleUserAccount(cp.m_User, si.m_Cfg.m_ComissionPerMsg, true);
 }
 
 export void Method_7(const Pipe::Withdraw& r)

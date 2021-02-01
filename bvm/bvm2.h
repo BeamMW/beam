@@ -179,6 +179,7 @@ namespace bvm2 {
 
 		bool HeapAllocEx(uint32_t&, uint32_t size);
 		void HeapFreeEx(uint32_t);
+		void HeapReserveStrict(uint32_t);
 
 		struct VarKey
 		{

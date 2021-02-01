@@ -75,6 +75,7 @@ namespace Shaders {
 #include "../Shaders/sidechain/contract.h"
 #include "../Shaders/perpetual/contract.h"
 #include "../Shaders/pipe/contract.h"
+#include "../Shaders/mirrorcoin/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -199,6 +200,25 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Pipe::PushLocal0& x) {
 		ConvertOrd<bToShader>(x.m_MsgSize);
 	}
+	template <bool bToShader> void Convert(Pipe::ReadRemote0& x) {
+		ConvertOrd<bToShader>(x.m_iCheckpoint);
+		ConvertOrd<bToShader>(x.m_iMsg);
+		ConvertOrd<bToShader>(x.m_MsgSize);
+	}
+
+	template <bool bToShader> void Convert(MirrorCoin::Create0& x) {
+		ConvertOrd<bToShader>(x.m_Aid);
+		ConvertOrd<bToShader>(x.m_MetadataSize);
+	}
+	template <bool bToShader> void Convert(MirrorCoin::SetRemote& x) {
+	}
+	template <bool bToShader> void Convert(MirrorCoin::Send& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(MirrorCoin::Receive& x) {
+		ConvertOrd<bToShader>(x.m_iCheckpoint);
+		ConvertOrd<bToShader>(x.m_iMsg);
+	}
 
 	namespace Env {
 
@@ -263,6 +283,9 @@ namespace Shaders {
 	}
 	namespace Pipe {
 #include "../Shaders/pipe/contract.cpp"
+	}
+	namespace MirrorCoin {
+#include "../Shaders/mirrorcoin/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -656,6 +679,8 @@ namespace bvm2 {
 
 			InitStack(0xcd);
 
+			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
+
 			m_Charge = Limits::Charge(); // default
 			uint32_t nUnitsMax = m_Charge.m_Units;
 
@@ -751,6 +776,7 @@ namespace bvm2 {
 			ByteBuffer m_Roulette;
 			ByteBuffer m_Perpetual;
 			ByteBuffer m_Pipe;
+			ByteBuffer m_MirrorCoin;
 
 		} m_Code;
 
@@ -763,6 +789,8 @@ namespace bvm2 {
 		ContractID m_cidSidechain;
 		ContractID m_cidPerpetual;
 		ContractID m_cidPipe;
+		ContractID m_cidMirrorCoin1;
+		ContractID m_cidMirrorCoin2;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -912,6 +940,22 @@ namespace bvm2 {
 				//case 0: Shaders::Pipe::Ctor(CastArg<Shaders::Pipe::Create>(pArgs)); return;
 				//case 2: Shaders::Pipe::Method_2(CastArg<Shaders::Pipe::SetRemote>(pArgs)); return;
 				//case 3: Shaders::Pipe::Method_3(CastArg<Shaders::Pipe::PushLocal0>(pArgs)); return;
+				//case 4: Shaders::Pipe::Method_4(CastArg<Shaders::Pipe::PushRemote0>(pArgs)); return;
+				//case 5: Shaders::Pipe::Method_5(CastArg<Shaders::Pipe::FinalyzeRemote>(pArgs)); return;
+				//case 6: Shaders::Pipe::Method_6(CastArg<Shaders::Pipe::ReadRemote0>(pArgs)); return;
+				//case 7: Shaders::Pipe::Method_7(CastArg<Shaders::Pipe::Withdraw>(pArgs)); return;
+				//}
+			}
+
+			if ((cid == m_cidMirrorCoin1) || (cid == m_cidMirrorCoin2))
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::MirrorCoin::Ctor(CastArg<Shaders::MirrorCoin::Create0>(pArgs)); return;
+				//case 2: Shaders::MirrorCoin::Method_2(CastArg<Shaders::MirrorCoin::SetRemote>(pArgs)); return;
+				//case 3: Shaders::MirrorCoin::Method_3(CastArg<Shaders::MirrorCoin::Send>(pArgs)); return;
+				//case 4: Shaders::MirrorCoin::Method_4(CastArg<Shaders::MirrorCoin::Receive>(pArgs)); return;
 				//}
 			}
 
@@ -927,6 +971,7 @@ namespace bvm2 {
 		void TestSidechain();
 		void TestPerpetual();
 		void TestPipe();
+		void TestMirrorCoin();
 
 		void TestAll();
 	};
@@ -954,6 +999,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
 		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
+		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -964,6 +1010,7 @@ namespace bvm2 {
 		TestStableCoin();
 		TestPerpetual();
 		TestPipe();
+		TestMirrorCoin();
 	}
 
 	void MyProcessor::TestVault()
@@ -1648,6 +1695,14 @@ namespace bvm2 {
 			arg.m_Cfg.m_Out.m_CheckpointMaxDH = 5;
 			arg.m_Cfg.m_Out.m_CheckpointMaxMsgs = 3;
 
+			arg.m_Cfg.m_In.m_ComissionPerMsg = Rules::Coin;
+			arg.m_Cfg.m_In.m_StakeForRemote = Rules::Coin * 100;
+			arg.m_Cfg.m_In.m_hContenderWaitPeriod = 10;
+			arg.m_Cfg.m_In.m_hDisputePeriod = 20;
+			ZeroObject(arg.m_Cfg.m_In.m_RulesRemote);
+			arg.m_Cfg.m_In.m_FakePoW = true;
+
+
 			verify_test(ContractCreate_T(m_cidPipe, m_Code.m_Pipe, arg));
 		}
 
@@ -1660,13 +1715,177 @@ namespace bvm2 {
 			verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
 		}
 
-		{
-			Shaders::Pipe::PushLocal0 arg;
-			ZeroObject(arg);
+		ByteBuffer bufMsgs;
 
-			for (uint32_t i = 0; i < 10; i++)
-				verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			struct Arg {
+				Shaders::Pipe::PushLocal0 m_Push;
+				uint8_t m_pMsg[128];
+			} arg;
+
+			if (1 & i)
+				ECC::SetRandom(arg.m_Push.m_Receiver);
+			else
+				arg.m_Push.m_Receiver = Zero;
+
+			arg.m_Push.m_MsgSize = (uint32_t) sizeof(arg.m_pMsg) - i;
+			memset(arg.m_pMsg, '0' + i, arg.m_Push.m_MsgSize);
+
+			verify_test(RunGuarded(m_cidPipe, arg.m_Push.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
+
+			size_t iPos = bufMsgs.size();
+			bufMsgs.resize(bufMsgs.size() + sizeof(Shaders::Pipe::MsgHdr) + sizeof(uint32_t) + arg.m_Push.m_MsgSize);
+
+			auto* pPtr = &bufMsgs.front() + iPos;
+
+			Shaders::Pipe::MsgHdr hdr;
+			hdr.m_Sender = Zero;
+			hdr.m_Receiver = arg.m_Push.m_Receiver;
+
+			memcpy(pPtr, &arg.m_Push.m_MsgSize, sizeof(arg.m_Push.m_MsgSize));
+			pPtr += sizeof(arg.m_Push.m_MsgSize);
+
+			memcpy(pPtr, &hdr, sizeof(hdr));
+			pPtr += sizeof(hdr);
+
+			memcpy(pPtr, arg.m_pMsg, arg.m_Push.m_MsgSize);
 		}
+
+		{
+			ByteBuffer bufArg;
+			bufArg.resize(sizeof(Shaders::Pipe::PushRemote0) + sizeof(uint32_t) + bufMsgs.size());
+			auto* pArg = reinterpret_cast<Shaders::Pipe::PushRemote0*>(&bufArg.front());
+
+			ECC::SetRandom(pArg->m_User.m_X);
+			pArg->m_User.m_Y = 0;
+
+			pArg->m_Flags = Shaders::Pipe::PushRemote0::Flags::Msgs;
+
+			uint32_t nSize = static_cast<uint32_t>(bufMsgs.size());
+			memcpy(pArg + 1, &nSize, sizeof(nSize));
+
+			memcpy(&bufArg.front() + sizeof(Shaders::Pipe::PushRemote0) + sizeof(uint32_t), &bufMsgs.front(), nSize);
+
+			verify_test(RunGuarded(m_cidPipe, pArg->s_iMethod, bufArg, nullptr)); // should be ok
+
+			verify_test(!RunGuarded(m_cidPipe, pArg->s_iMethod, bufArg, nullptr)); // should evaluate both variants, and notice they're same
+		}
+
+		{
+			Shaders::Pipe::FinalyzeRemote arg;
+			arg.m_DepositStake = 0;
+			verify_test(!RunGuarded(m_cidPipe, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // too early
+
+			m_Height += 40;
+			verify_test(RunGuarded(m_cidPipe, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
+		}
+
+		{
+#pragma pack (push, 1)
+			struct Arg {
+				Shaders::Pipe::ReadRemote0 m_Read;
+				uint8_t m_pMsg[140];
+			} arg;
+#pragma pack (pop)
+
+			arg.m_Read.m_iCheckpoint = 0;
+			arg.m_Read.m_iMsg = 1;
+			arg.m_Read.m_Wipe = 1;
+			arg.m_Read.m_MsgSize = sizeof(arg.m_pMsg);
+
+			verify_test(!RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // private msg, we can't read it
+
+			arg.m_Read.m_iMsg = 2;
+			verify_test(!RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // public, can't wipe
+
+			arg.m_Read.m_Wipe = 0;
+			verify_test(RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok
+			verify_test(RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok, msg is not wiped
+
+			verify_test(arg.m_Read.m_MsgSize == 126);
+			for (uint32_t i = 0; i < arg.m_Read.m_MsgSize; i++)
+				verify_test(arg.m_pMsg[i] == '2');
+		}
+	}
+
+	void MyProcessor::TestMirrorCoin()
+	{
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
+		verify_test(sid == Shaders::MirrorCoin::s_SID);
+
+		{
+			Shaders::MirrorCoin::Create0 arg;
+			arg.m_Aid = 0;
+			arg.m_MetadataSize = 0;
+			arg.m_PipeID = m_cidPipe;
+
+			verify_test(ContractCreate_T(m_cidMirrorCoin1, m_Code.m_MirrorCoin, arg));
+		}
+
+		{
+#pragma pack (push, 1)
+			struct Arg :public Shaders::MirrorCoin::Create0 {
+				char m_chMeta = 'x';
+			} arg;
+			arg.m_Aid = 0;
+			arg.m_MetadataSize = sizeof(arg.m_chMeta);
+			arg.m_PipeID = m_cidPipe;
+
+			verify_test(ContractCreate_T(m_cidMirrorCoin2, m_Code.m_MirrorCoin, arg));
+		}
+
+		{
+			Shaders::MirrorCoin::SetRemote arg;
+			arg.m_Cid = m_cidMirrorCoin2;
+			verify_test(RunGuarded_T(m_cidMirrorCoin1, arg.s_iMethod, arg));
+			arg.m_Cid = m_cidMirrorCoin1;
+			verify_test(RunGuarded_T(m_cidMirrorCoin2, arg.s_iMethod, arg));
+		}
+
+#pragma pack (push, 1)
+		struct MirrorMsg
+			:public Shaders::Pipe::MsgHdr
+			,public Shaders::MirrorCoin::Message
+		{
+		};
+#pragma pack (pop)
+
+		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+		{
+			const ContractID& cidSrc = iCycle ? m_cidMirrorCoin2 : m_cidMirrorCoin1;
+			const ContractID& cidDst = iCycle ? m_cidMirrorCoin1 : m_cidMirrorCoin2;
+
+			Shaders::MirrorCoin::Send argS;
+			argS.m_Amount = 450;
+			ECC::SetRandom(argS.m_User.m_X);
+			argS.m_User.m_Y = 0;
+			
+			verify_test(RunGuarded_T(cidSrc, argS.s_iMethod, argS));
+
+			// simulate message passed
+			Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::KeyIn> key;
+			key.m_Prefix.m_Cid = m_cidPipe;
+			key.m_KeyInContract.m_iCheckpoint_BE = 0;
+			key.m_KeyInContract.m_iMsg_BE = ByteOrder::to_be(1U);
+
+			MirrorMsg msg;
+			msg.m_Sender = cidSrc;
+			msg.m_Receiver = cidDst;
+			msg.m_User = argS.m_User;
+			msg.m_Amount = argS.m_Amount;
+
+			SaveVar(Blob(&key, sizeof(key)), (uint8_t*) &msg, sizeof(msg));
+
+			Shaders::MirrorCoin::Receive argR;
+			argR.m_iCheckpoint = 0;
+			argR.m_iMsg = 1;
+
+			verify_test(RunGuarded_T(cidDst, argR.s_iMethod, argR));
+			verify_test(!RunGuarded_T(cidDst, argR.s_iMethod, argR)); // double-spend should not be possible
+		}
+
 	}
 
 	void MyProcessor::TestFaucet()

@@ -52,13 +52,15 @@ namespace beam::wallet {
             return;
         }
 
-        if(!fromByteBuffer(mval, _meta))
-        {
-            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize from Asset::Full";
-            return;
-        }
+        try {
+            if (!fromByteBuffer(mval, _meta))
+                throw std::runtime_error("deserialization failed");
 
-        Parse();
+            Parse();
+        }
+        catch (const std::exception& exc) {
+            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize metadata: " << exc.what();
+        }
     }
 
     void WalletAssetMeta::Parse()

@@ -148,12 +148,12 @@ ON_METHOD(manager, get_OutCheckpoint)
     {
         Env::DocArray gr("msgs");
 
-        Env::Key_T<Pipe::MsgHdr::Key> key1;
+        Env::Key_T<Pipe::MsgHdr::KeyOut> key1;
         key1.m_Prefix.m_Cid = cid;
         key1.m_KeyInContract.m_iCheckpoint_BE = Utils::FromBE(iIdx);
         key1.m_KeyInContract.m_iMsg_BE = 0;
 
-        Env::Key_T<Pipe::MsgHdr::Key> key2 = key1;
+        auto key2 = key1;
         key1.m_KeyInContract.m_iMsg_BE = static_cast<uint32_t>(-1);
 
         Env::VarsEnum_T(key1, key2);
@@ -172,11 +172,10 @@ ON_METHOD(manager, get_OutCheckpoint)
             Env::DocGroup gr("");
             Env::DocAddBlob_T("Sender", pHdr->m_Sender);
             Env::DocAddBlob_T("Receiver", pHdr->m_Receiver);
-            Env::DocAddBlob_T("Height", pHdr->m_Height);
 
-            HashValue hv;
-            pHdr->get_Hash(hv, nVal);
-            Env::DocAddBlob_T("Hash", hv);
+            nVal -= sizeof(*pHdr);
+            Env::DocAddNum("Size", nVal);
+            Env::DocAddBlob("Msg", pHdr + 1, nVal);
         }
     }
 }
@@ -219,10 +218,10 @@ ON_METHOD(manager, get_InCheckpointDispute)
 
         Env::VarsMoveNext(&pKey, &nKey, (const void**) &pVar, &nVar);
 
-        Env::DocAddNum("is_my", (uint32_t) !Utils::Cmp(pk, pVar->m_Cp.m_User));
+        Env::DocAddNum("is_my", (uint32_t) !Utils::Cmp(pk, pVar->m_User));
 
-        if (Utils::IsZero(vk.m_KeyInContract.m_hvVariant))
-            pVar->Evaluate(vk.m_KeyInContract.m_hvVariant, nVar);
+        //if (Utils::IsZero(vk.m_KeyInContract.m_hvVariant))
+        //    pVar->Evaluate(vk.m_KeyInContract.m_hvVariant, nVar);
 
         Env::DocAddBlob_T("hash", vk.m_KeyInContract.m_hvVariant);
     }
