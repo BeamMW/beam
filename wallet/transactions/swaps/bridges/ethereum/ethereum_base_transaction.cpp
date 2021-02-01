@@ -157,6 +157,13 @@ namespace
         // The range of the first byte is thus [0x80, 0xb7] or [0xc0, 0xf7] for list.
         return beam::ByteBuffer{ static_cast<uint8_t>(size + offset) };
     }
+
+    // returns iterator to first non zero element
+    libbitcoin::ec_signature::const_iterator TrimLeadingZero(libbitcoin::ec_signature::const_iterator first,
+                                                             libbitcoin::ec_signature::const_iterator last)
+    {
+        return std::find_if(first, last, [](uint8_t value) {return value > 0; });
+    }
 } // namespace
 
 namespace beam::ethereum
@@ -178,9 +185,10 @@ namespace beam::ethereum
         //rlpStream << 38u;
         rlpStream << (27 + signature.recovery_id);
         // r
-        rlpStream << beam::ByteBuffer(std::begin(signature.signature), std::end(signature.signature) - 32);
+        auto endRData = std::cend(signature.signature) - 32;
+        rlpStream << beam::ByteBuffer(TrimLeadingZero(signature.signature.cbegin(), endRData), endRData);
         // s
-        rlpStream << beam::ByteBuffer(std::end(signature.signature) - 32, std::end(signature.signature));
+        rlpStream << beam::ByteBuffer(TrimLeadingZero(endRData, std::cend(signature.signature)), std::cend(signature.signature));
 
         return rlpStream.out();
     }
