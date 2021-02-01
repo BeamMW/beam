@@ -49,6 +49,8 @@ namespace beam::wallet
         #undef ERROR_ITEM
     };
 
+    const char* getApiErrorMessage(ApiError code);
+
     class FailToParseToken: public std::runtime_error
     {
     public:
@@ -71,7 +73,7 @@ namespace beam::wallet
     {
     public:
         explicit FailToConnectSwap(const std::string& coin)
-            :std::runtime_error(std::string("There is not connection with ") + coin + " wallet")
+            : std::runtime_error(std::string("There is not connection with ") + coin + " wallet")
         {
         }
     };
@@ -79,21 +81,15 @@ namespace beam::wallet
     class jsonrpc_exception: public std::runtime_error
     {
     public:
-        jsonrpc_exception(const ApiError ecode, JsonRpcId reqid, const std::string &msg)
-            : runtime_error(msg),
-            _ecode(ecode),
-            _rpcid(std::move(reqid))
+        explicit jsonrpc_exception(const ApiError code, const std::string &msg = "")
+            : runtime_error(msg)
+            , _code(code)
         {
         }
 
         [[nodiscard]] ApiError code() const
         {
-            return _ecode;
-        }
-
-        [[nodiscard]] const JsonRpcId &rpcid() const
-        {
-            return _rpcid;
+            return _code;
         }
 
         [[nodiscard]] std::string whatstr() const
@@ -107,7 +103,6 @@ namespace beam::wallet
         }
 
     private:
-        ApiError _ecode;
-        JsonRpcId _rpcid;
+        ApiError _code;
     };
 }

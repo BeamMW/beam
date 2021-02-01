@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define LOG_VERBOSE_ENABLED 1
-#include "utility/logger.h"
-
-#include "wallet/api/api.h"
-#include "wallet/api/api_handler.h"
-
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
-#include <core/block_crypt.h>
 
+#define LOG_VERBOSE_ENABLED 1
+#include "core/block_crypt.h"
+#include "utility/logger.h"
+#include "wallet/api/wallet_api.h"
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
@@ -32,35 +29,15 @@
 #include "utility/io/json_serializer.h"
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
-
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
-
 #include "p2p/line_protocol.h"
-
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#include "wallet/transactions/swaps/utils.h"
-#include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
-#include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
-#include "wallet/transactions/swaps/bridges/qtum/qtum.h"
-#include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
-#if defined(BITCOIN_CASH_SUPPORT)
-#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#endif // BITCOIN_CASH_SUPPORT
-#include "wallet/transactions/swaps/bridges/dash/dash.h"
-#include "wallet/api/i_atomic_swap_provider.h"
-#include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
+#include "api_cli_swap.h"
 #include "nlohmann/json.hpp"
 #include "version.h"
 
@@ -130,92 +107,6 @@ WalletApi::ACL loadACL(const std::string& path)
     return WalletApi::ACL(keys);
 }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-using BaseSwapClient = beam::bitcoin::Client;
-class SwapClient : public BaseSwapClient
-{
-public:
-    using Ptr = std::shared_ptr<SwapClient>;
-    SwapClient(
-        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
-        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
-        io::Reactor& reactor)
-        : BaseSwapClient(bridgeHolder,
-                         std::move(settingsProvider),
-                         reactor)
-        , _timer(beam::io::Timer::create(reactor))
-        , _feeTimer(beam::io::Timer::create(reactor))
-        , _status(Status::Unknown)
-    {
-        requestBalance();
-        requestRecommendedFeeRate();
-        _timer->start(1000, true, [this] ()
-        {
-            requestBalance();
-        });
-
-        // TODO need name for the parameter
-        _feeTimer->start(60 * 1000, true, [this]()
-        {
-            requestRecommendedFeeRate();
-        });
-    }
-
-    Amount GetAvailable() const
-    {
-        return _balance.m_available;
-    }
-
-    Amount GetRecommendedFeeRate() const
-    {
-        return _recommendedFeeRate;
-    }
-
-    bool IsConnected() const
-    {
-        return _status == Status::Connected;
-    }
-
-private:
-    beam::io::Timer::Ptr _timer;
-    beam::io::Timer::Ptr _feeTimer;
-    Balance _balance;
-    Amount _recommendedFeeRate = 0;
-    Status _status;
-    void requestBalance()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update balance
-            GetAsync()->GetBalance();
-        }
-    }
-    void requestRecommendedFeeRate()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update recommended fee rate
-            GetAsync()->EstimateFeeRate();
-        }
-    }
-    void OnStatus(Status status) override
-    {
-        _status = status;
-    }
-    void OnBalance(const Balance& balance) override
-    {
-        _balance = balance;
-    }
-    void OnEstimatedFeeRate(Amount feeRate) override
-    {
-        _recommendedFeeRate = feeRate;
-    }
-    void OnCanModifySettingsChanged(bool canModify) override {}
-    void OnChangedSettings() override {}
-    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
-};
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
-
 class IWalletApiServer
 {
 public:
@@ -224,10 +115,6 @@ public:
 
 class WalletApiServer 
     : public IWalletApiServer
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    , public IAtomicSwapProvider
-    , ISwapOffersObserver
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 {
 public:
     WalletApiServer(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, io::Reactor& reactor,
@@ -249,109 +136,13 @@ public:
         stop();
     }
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-    Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
+    void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
     {
-        auto swapClient = getSwapCoinClient(swapCoin);
-
-        return swapClient ? swapClient->GetAvailable() : 0;
+        _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
+        _swapsProvider->initSwapFeature(nnet, wnet);
     }
-
-    Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
-    {
-        auto swapClient = getSwapCoinClient(swapCoin);
-
-        return swapClient ? swapClient->GetRecommendedFeeRate() : 0;
-    }
-
-    Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
-    {
-        auto swapClient = getSwapCoinClient(swapCoin);
-
-        return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
-    }
-
-    const SwapOffersBoard& getSwapOffersBoard() const override
-    {
-        return *_offersBulletinBoard;
-    }
-
-    bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
-    {
-        auto swapClient = getSwapCoinClient(swapCoin);
-
-        return swapClient && swapClient->IsConnected();
-    }
-
-    using WalletDbSubscriber =
-        ScopedSubscriber<wallet::IWalletDbObserver, wallet::IWalletDB>;
-    using SwapOffersBoardSubscriber =
-        ScopedSubscriber<wallet::ISwapOffersObserver, wallet::SwapOffersBoard>;
-    void initSwapFeature(
-        proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
-    {
-        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
-        _offerBoardProtocolHandler =
-            std::make_shared<OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
-        _offersBulletinBoard = std::make_shared<SwapOffersBoard>(
-            *_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
-        _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(
-            static_cast<IWalletDbObserver*>(
-                _offersBulletinBoard.get()), _walletDB);
-        _swapOffersBoardSubscriber =
-            std::make_unique<SwapOffersBoardSubscriber>(
-                static_cast<ISwapOffersObserver*>(this), _offersBulletinBoard);
-
-        initSwapClient<bitcoin::BitcoinCore017, bitcoin::Electrum, bitcoin::SettingsProvider>(AtomicSwapCoin::Bitcoin);
-        initSwapClient<litecoin::LitecoinCore017, litecoin::Electrum, litecoin::SettingsProvider>(AtomicSwapCoin::Litecoin);
-        initSwapClient<qtum::QtumCore017, qtum::Electrum, qtum::SettingsProvider>(AtomicSwapCoin::Qtum);
-        initSwapClient<dash::DashCore014, dash::Electrum, dash::SettingsProvider>(AtomicSwapCoin::Dash);
-#if defined(BITCOIN_CASH_SUPPORT)
-        initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
-#endif // BITCOIN_CASH_SUPPORT
-        initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
-    }
-
-    void onSwapOffersChanged(
-        ChangeAction action, const std::vector<SwapOffer>& offers) override
-    {
-
-    }
-private:
-
-    template<typename CoreBridge, typename ElectrumBridge, typename SettingsProvider>
-    void initSwapClient(beam::wallet::AtomicSwapCoin swapCoin)
-    {
-        auto bridgeHolder = std::make_shared<bitcoin::BridgeHolder<ElectrumBridge, CoreBridge>>();
-        auto settingsProvider = std::make_unique<SettingsProvider>(_walletDB);
-        settingsProvider->Initialize();
-        auto client = std::make_shared<SwapClient>(bridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
-        _swapClients.emplace(std::make_pair(swapCoin, client));
-        _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
-    }
-
-    SwapClient::Ptr getSwapCoinClient(beam::wallet::AtomicSwapCoin swapCoin) const
-    {
-        auto it = _swapClients.find(swapCoin);
-        if (it != _swapClients.end())
-        {
-            return it->second;
-        }
-        return nullptr;
-    }
-
-    std::shared_ptr<BroadcastRouter> _broadcastRouter;
-    std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
-    SwapOffersBoard::Ptr _offersBulletinBoard;
-    std::unique_ptr<WalletDbSubscriber> _walletDbSubscriber;
-    std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
-
-    std::map<beam::wallet::AtomicSwapCoin, SwapClient::Ptr> _swapClients;
-    std::map<beam::wallet::AtomicSwapCoin, beam::bitcoin::IBridgeHolder::Ptr> _swapBridgeHolders;
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 protected:
-
     void start()
     {
         LOG_INFO() << "Start server on " << _bindAddress;
@@ -395,13 +186,13 @@ private:
         }
     }
 
-        struct WalletData : WalletApiHandler::IWalletData
+        struct WalletData : IWalletApiData
         {
             #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider& atomicSwapProvider)
-                : m_atomicSwapProvider(atomicSwapProvider)
-                , m_walletDB(walletDB)
-                , m_wallet(wallet)
+            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider::Ptr atomicSwapProvider)
+                : m_atomicSwapProvider(std::move(atomicSwapProvider))
+                , m_walletDB(std::move(walletDB))
+                , m_wallet(std::move(wallet))
             {
             }
             #else
@@ -414,22 +205,22 @@ private:
 
             virtual ~WalletData() {}
 
-            IWalletDB::Ptr getWalletDBPtr() override
+            IWalletDB::Ptr getWalletDBPtr() const override
             {
                 return m_walletDB;
             }
 
-            Wallet::Ptr getWalletPtr() override
+            Wallet::Ptr getWalletPtr() const override
             {
                 return m_wallet;
             }
 
             #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            const IAtomicSwapProvider& getAtomicSwapProvider() const override
+            IAtomicSwapProvider::Ptr getAtomicSwapProvider() const override
             {
                 return m_atomicSwapProvider;
             }
-            IAtomicSwapProvider& m_atomicSwapProvider;
+            IAtomicSwapProvider::Ptr m_atomicSwapProvider;
             #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
             IWalletDB::Ptr m_walletDB;
@@ -437,18 +228,18 @@ private:
         };
 
     template<typename T>
-    std::shared_ptr<WalletApiHandler> createConnection(io::TcpStream::Ptr&& newStream)
+    std::shared_ptr<WalletApi> createConnection(io::TcpStream::Ptr&& newStream)
     {
         if (!_walletData)
         {
             #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            _walletData = std::make_unique<WalletData>(_walletDB, _wallet, *this);
+            _walletData = std::make_unique<WalletData>(_walletDB, _wallet, _swapsProvider);
             #else
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet);
             #endif
         }
 
-        return std::static_pointer_cast<WalletApiHandler>(
+        return std::static_pointer_cast<WalletApi>(
             std::make_shared<T>(*this
                                 , std::move(newStream)
                                 , *_walletData
@@ -483,15 +274,15 @@ private:
     }
 
 private:
-    class TcpApiConnection : public WalletApiHandler
+    class TcpApiConnection : public WalletApi
     {
     public:
     TcpApiConnection(IWalletApiServer& server
                     , io::TcpStream::Ptr&& newStream
-                    , IWalletData& walletData
+                    , IWalletApiData& walletData
                     , WalletApi::ACL acl
         )
-        : WalletApiHandler(walletData , acl)
+        : WalletApi(walletData , std::move(acl))
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -502,10 +293,9 @@ private:
 
         virtual ~TcpApiConnection()
         {
-
         }
 
-        void serializeMsg(const json& msg) override
+        void sendMessage(const json& msg) override
         {
             serialize_json_msg(_lineProtocol, msg);
         }
@@ -517,7 +307,7 @@ private:
 
         bool on_raw_message(void* data, size_t size)
         {
-            return _api.parseJSON(static_cast<const char*>(data), size);
+            return parseJSON(static_cast<const char*>(data), size);
         }
 
         bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
@@ -545,17 +335,15 @@ private:
         LineProtocol _lineProtocol;
     };
 
-    class HttpApiConnection : public WalletApiHandler
+    class HttpApiConnection : public WalletApi
     {
     public:
         HttpApiConnection(IWalletApiServer& server
                         , io::TcpStream::Ptr&& newStream
-                        , IWalletData& walletData
+                        , IWalletApiData& walletData
                         , WalletApi::ACL acl
             )
-            : WalletApiHandler(
-                  walletData
-                , acl)
+            : WalletApi(walletData, std::move(acl))
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -576,7 +364,7 @@ private:
 
         virtual ~HttpApiConnection() {}
 
-        void serializeMsg(const json& msg) override
+        void sendMessage(const json& msg) override
         {
             serialize_json_msg(_body, _packer, msg);                
             _keepalive = send(_connection, 200, "OK");
@@ -609,7 +397,7 @@ private:
                 size_t size = 0;
                 auto data = msg.msg->get_body(size);
 
-                _api.parseJSON((char*)data, size);
+                parseJSON(reinterpret_cast<const char*>(data), size);
             }
 
             if (!_keepalive)
@@ -671,10 +459,14 @@ private:
     bool _useHttp;
     TlsOptions _tlsOptions;
 
-    std::unordered_map<uint64_t, std::shared_ptr<WalletApiHandler>> _connections;
+    std::unordered_map<uint64_t, std::shared_ptr<WalletApi>> _connections;
 
     IWalletDB::Ptr _walletDB;
     Wallet::Ptr _wallet;
+
+    #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+    std::shared_ptr<ApiCliSwap> _swapsProvider;
+    #endif
 
     std::unique_ptr<WalletData> _walletData;
     std::vector<uint64_t> _pendingToClose;

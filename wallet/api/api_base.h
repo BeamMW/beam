@@ -21,10 +21,8 @@
 
 namespace beam::wallet
 {
-    struct IApiBaseHandler {
-        virtual void onRPCError(const json& msg) = 0;
-        virtual ~IApiBaseHandler() = default;
-    };
+    #define API_WRITE_ACCESS true
+    #define API_READ_ACCESS false
 
     class ApiBase
     {
@@ -36,7 +34,10 @@ namespace beam::wallet
         using ACL = boost::optional <std::map<std::string, bool>>;
         using Ptr = std::shared_ptr<ApiBase>;
 
-        explicit ApiBase(IApiBaseHandler &handler, ACL acl = boost::none);
+        explicit ApiBase(ACL acl = boost::none);
+
+        virtual void sendMessage(const json& msg) = 0;
+        virtual void onParseError(const json& msg);
 
         //
         // parse and execute request
@@ -48,22 +49,36 @@ namespace beam::wallet
         // return param if it exists and is of the requested type & constraints or throw otherwise
         //
         template<typename T>
-        static T getMandatoryParam(const json &params, const std::string &name, const JsonRpcId& id)
+        static T getMandatoryParam(const json &params, const std::string &name)
         {
-            auto raw = getMandatoryParam<const json&>(params, name, id);
-            return raw.get<T>();
+            if (auto param = getOptionalParam<T>(params, name))
+            {
+                return *param;
+            }
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' doesn't exist.");
         }
 
-        static const char *getErrorMessage(ApiError code);
+        //
+        // getOptional... throws only if type contraints are violated
+        //
+        template<typename T>
+        static boost::optional<T> getOptionalParam(const json& params, const std::string& name)
+        {
+            if(auto raw = getOptionalParam<const json&>(params, name))
+            {
+                return (*raw).get<T>();
+            }
+            return boost::none;
+        }
+
         static bool existsJsonParam(const json &params, const std::string &name);
-        static void throwParameterAbsence(const JsonRpcId &id, const std::string &name);
 
         class ParameterReader
         {
         public:
             ParameterReader(const JsonRpcId &id, const json &params);
-            Amount readAmount(const std::string &name, bool isMandatory = true, Amount defaultValue = 0);
             boost::optional <TxID> readTxId(const std::string &name = "txId", bool isMandatory = true);
+            Amount readAmount(const std::string& name, bool isMandatory = true, Amount defaultValue = 0);
         private:
             const JsonRpcId &m_id;
             const json &m_params;
@@ -77,30 +92,37 @@ namespace beam::wallet
         };
 
         std::unordered_map <std::string, Method> _methods;
-        IApiBaseHandler& _handler;
         ACL _acl;
+
+    private:
+        void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+        static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
     };
 
     template<>
-    json ApiBase::getMandatoryParam<json>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<json> ApiBase::getOptionalParam<json>(const json &params, const std::string &name);
 
     template<>
-    const json& ApiBase::getMandatoryParam<const json&>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name);
 
     template<>
-    std::string ApiBase::getMandatoryParam<std::string>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<std::string> ApiBase::getOptionalParam<std::string>(const json &params, const std::string &name);
 
     template<>
-    bool ApiBase::getMandatoryParam<bool>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<bool> ApiBase::getOptionalParam<bool>(const json &params, const std::string &name);
+
+    template<>
+    boost::optional<uint32_t> ApiBase::getOptionalParam<uint32_t>(const json &params, const std::string &name);
 
     BOOST_STRONG_TYPEDEF(json, JsonArray)
     template<>
-    JsonArray ApiBase::getMandatoryParam<JsonArray>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name);
 
     BOOST_STRONG_TYPEDEF(unsigned int, PositiveUnit64)
     template<>
-    PositiveUnit64 ApiBase::getMandatoryParam<PositiveUnit64>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<PositiveUnit64> ApiBase::getOptionalParam<PositiveUnit64>(const json &params, const std::string &name);
 
+    BOOST_STRONG_TYPEDEF(Amount, PositiveAmount)
     template<>
-    uint32_t ApiBase::getMandatoryParam<uint32_t>(const json &params, const std::string &name, const JsonRpcId &id);
+    boost::optional<PositiveAmount> ApiBase::getOptionalParam<PositiveAmount>(const json &params, const std::string &name);
 }
