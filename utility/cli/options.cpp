@@ -588,6 +588,7 @@ namespace beam
             macro(uint32_t, MaxRollback, "Max allowed rollback (reorg) depth") \
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
+            macro(Height, Fork3, "Height of the 3rd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
@@ -612,6 +613,7 @@ namespace beam
 
         #define Fork1 pForks[1].m_Height
         #define Fork2 pForks[2].m_Height
+        #define Fork3 pForks[3].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
