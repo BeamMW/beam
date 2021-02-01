@@ -18,6 +18,7 @@
 #include "../../core/fly_client.h"
 #include "../../core/treasury.h"
 #include "../../core/serialization_adapters.h"
+#include "../../core/block_rw.h"
 #include <boost/core/ignore_unused.hpp>
 #include "../../utility/logger_checkpoints.h"
 #include "../../bvm/bvm2.h"
@@ -72,6 +73,7 @@ struct Manager
         LocalContext(Manager& m) :m_Manager(m) {}
 
         Node m_Node;
+        Node m_NodeExt;
 
         struct NodeObserver :public Node::IObserver
         {
@@ -136,6 +138,7 @@ struct Manager
     {
         Rules m_Rules;
         Key::IKdf::Ptr m_pKdf;
+        Key::IPKdf::Ptr m_pExtOwnerKdf;
         io::Reactor::Ptr m_pReactor;
         io::AsyncEvent::Ptr m_pEvent;
         std::thread m_Thread;
@@ -316,6 +319,30 @@ void Manager::RunInThread2(uint32_t i)
     lc.m_Node.m_Keys.SetSingleKey(c.m_pKdf);
     lc.m_Node.m_Cfg.m_Horizon.SetStdFastSync();
     lc.m_Node.Initialize();
+
+    if (c.m_pExtOwnerKdf)
+    {
+        lc.m_NodeExt.m_Cfg = c.m_Cfg; // copy
+
+        lc.m_NodeExt.m_Cfg.m_VerificationThreads = -1;
+        lc.m_NodeExt.m_Cfg.m_sPathLocal = "node_ext_" + std::to_string(i) + ".db";
+
+        // disable dandelion (faster tx propagation)
+        lc.m_NodeExt.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+        lc.m_NodeExt.m_Cfg.m_Dandelion.m_FluffProbability = 0xFFFF;
+
+        lc.m_NodeExt.m_Keys.m_pOwner = c.m_pExtOwnerKdf;
+        lc.m_NodeExt.m_Cfg.m_Horizon.SetStdFastSync();
+
+        auto port = c.m_Cfg.m_Listen.port();
+        if (port)
+        {
+            lc.m_NodeExt.m_Cfg.m_Listen.port(port + 1000);
+            lc.m_NodeExt.m_Cfg.m_Connect.push_back(io::Address(INADDR_ANY, port));
+        }
+
+        lc.m_NodeExt.Initialize();
+    }
 
     Node::IObserver* pObs = &lc.m_NodeObserver;
     TemporarySwap<Node::IObserver*> tsObs(pObs, lc.m_Node.m_Cfg.m_Observer);
@@ -746,6 +773,9 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
             if (cid.m_AssetID || !cid.m_Value)
                 continue;
 
+            if (it->second >= h1)
+                continue;
+
             auto& pInp = pTx->m_vInputs.emplace_back();
             pInp.reset(new Input);
 
@@ -880,16 +910,16 @@ int main_Guarded(int argc, char* argv[])
         std::string sCfgPath = std::string("pipe_") + std::to_string(i) + ".cfg";
         po::variables_map vm = getOptions(argc, argv, sCfgPath.c_str(), options);
 
-        if (man.m_DemoMode)
+        if (c.m_Rules.FakePoW)
         {
-            c.m_Rules.TreasuryChecksum = Zero;
-            c.m_Rules.Prehistoric = i;
+            //c.m_Rules.TreasuryChecksum = Zero;
+            //c.m_Rules.Prehistoric = i;
 
-            c.m_Rules.pForks[1].m_Height = 1;
-            c.m_Rules.pForks[2].m_Height = 1;
-            c.m_Rules.pForks[3].m_Height = 1;
+            //c.m_Rules.pForks[1].m_Height = 1;
+            //c.m_Rules.pForks[2].m_Height = 1;
+            //c.m_Rules.pForks[3].m_Height = 1;
 
-            c.m_Rules.FakePoW = true;
+            //c.m_Rules.FakePoW = true;
 
             auto pKdf = std::make_shared<ECC::HKdf>();
             pKdf->Generate(c.m_Rules.Prehistoric);
@@ -913,6 +943,41 @@ int main_Guarded(int argc, char* argv[])
                 c.m_Cfg.m_Connect.push_back(addr);
         }
 
+        auto t = vm[cli::TREASURY_BLOCK];
+        if (!t.empty())
+        {
+            std::FStream f;
+            if (f.Open(t.as<std::string>().c_str(), true))
+            {
+                size_t nSize = static_cast<size_t>(f.get_Remaining());
+                if (nSize)
+                {
+                    c.m_Cfg.m_Treasury.resize(nSize);
+                    f.read(&c.m_Cfg.m_Treasury.front(), nSize);
+                }
+            }
+        }
+
+        t = vm[cli::PORT];
+        if (!t.empty())
+        {
+            c.m_Cfg.m_Listen.port(t.as<uint16_t>());
+            c.m_Cfg.m_Listen.ip(INADDR_ANY);
+        }
+
+        t = vm[cli::OWNER_KEY];
+        if (!t.empty())
+        {
+            KeyString ks;
+            ks.SetPassword(Blob("1", 1));
+            ks.m_sRes = t.as<std::string>();
+
+            auto pKdf = std::make_shared<ECC::HKdfPub>();
+            if (!ks.Import(*pKdf))
+                throw std::runtime_error("owner key import failed");
+
+            c.m_pExtOwnerKdf = std::move(pKdf);
+        }
     }
 
     std::cout << "waiting both chains to sync..." << std::endl;
