@@ -33,6 +33,9 @@
     macro(ContractID, cid) \
     macro(uint32_t, iStartFrom)
 
+#define MirrorCoin_user_view_addr(macro) \
+    macro(ContractID, cid)
+
 #define MirrorCoin_user_send(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pkDst) \
@@ -43,6 +46,7 @@
     macro(uint32_t, iStartFrom)
 
 #define MirrorCoinRole_user(macro) \
+    macro(user, view_addr) \
     macro(user, view_incoming) \
     macro(user, send) \
     macro(user, receive_all)
@@ -100,7 +104,7 @@ struct IncomingWalker
 #pragma pack (push, 1)
     struct MyMsg
         :public Pipe::MsgHdr
-        , public MirrorCoin::Message
+        ,public MirrorCoin::Message
     {
     };
 #pragma pack (pop)
@@ -248,6 +252,13 @@ void DerivePk(PubKey& pk, const ContractID& cid)
     Env::DerivePk(pk, &cid, sizeof(cid));
 }
 
+ON_METHOD(user, view_addr)
+{
+    PubKey pk;
+    DerivePk(pk, cid);
+    Env::DocAddBlob_T("addr", pk);
+}
+
 ON_METHOD(user, view_incoming)
 {
     PubKey pk;
@@ -282,6 +293,25 @@ ON_METHOD(user, receive_all)
     if (!pG)
         return;
 
+    FundsChange pFc[2];
+    pFc[0].m_Aid = 0;
+    pFc[0].m_Consume = 1;
+    pFc[1].m_Aid = pG->m_Aid;
+    pFc[1].m_Consume = 0;
+
+    {
+        // get pipe comission
+        Env::Key_T<Pipe::StateIn::Key> ksi;
+        ksi.m_Prefix.m_Cid = pG->m_PipeID;
+
+        auto* pPipe = Env::VarRead_T<Pipe::StateIn>(ksi);
+        if (!pPipe)
+            OnError("no pipe state");
+
+        pFc[0].m_Amount = pPipe->m_Cfg.m_ComissionPerMsg;
+    }
+
+
     IncomingWalker wlk(cid);
     if (!wlk.Restart(iStartFrom))
         return;
@@ -296,16 +326,13 @@ ON_METHOD(user, receive_all)
         pars.m_iCheckpoint = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iCheckpoint_BE);
         pars.m_iMsg = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iMsg_BE);
 
-        FundsChange fc;
-        fc.m_Aid = pG->m_Aid;
-        fc.m_Amount = wlk.m_pMsg->m_Amount;
-        fc.m_Consume = 0;
+        pFc[1].m_Amount = wlk.m_pMsg->m_Amount;
 
         SigRequest sig;
         sig.m_pID = &cid;
         sig.m_nID = sizeof(cid);
 
-        Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, &sig, 1, "Receive funds from MirrorCoin", 1000000U);
+        Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), pFc, _countof(pFc), &sig, 1, "Receive funds from MirrorCoin", 1000000U);
     }
 
     if (!nCount)
