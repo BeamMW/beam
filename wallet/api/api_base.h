@@ -59,7 +59,7 @@ namespace beam::wallet
         }
 
         //
-        // getOptional... throws only if type contraints are violated
+        // getOptional... throws only if type constraints are violated
         //
         template<typename T>
         static boost::optional<T> getOptionalParam(const json& params, const std::string& name)
@@ -71,18 +71,9 @@ namespace beam::wallet
             return boost::none;
         }
 
-        static bool existsJsonParam(const json &params, const std::string &name);
-
-        class ParameterReader
-        {
-        public:
-            ParameterReader(const JsonRpcId &id, const json &params);
-            boost::optional <TxID> readTxId(const std::string &name = "txId", bool isMandatory = true);
-            Amount readAmount(const std::string& name, bool isMandatory = true, Amount defaultValue = 0);
-        private:
-            const JsonRpcId &m_id;
-            const json &m_params;
-        };
+        // If no fee read and no min fee provided this function calculates minimum fee itself
+        static Amount getBeamFeeParam(const json& params, const std::string& name = "fee", boost::optional<Amount> minfee = boost::none);
+        static bool hasParam(const json &params, const std::string &name);
 
     protected:
         struct Method
@@ -99,14 +90,19 @@ namespace beam::wallet
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
     };
 
+    // boost::optional<json> is not defined intentionally, use const json& instead
     template<>
     boost::optional<json> ApiBase::getOptionalParam<json>(const json &params, const std::string &name);
 
     template<>
     boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name);
 
-    template<>
+    template<> // can be empty but must be a string
     boost::optional<std::string> ApiBase::getOptionalParam<std::string>(const json &params, const std::string &name);
+
+    BOOST_STRONG_TYPEDEF(std::string, NonEmptyString)
+    template<>
+    boost::optional<NonEmptyString> ApiBase::getOptionalParam<NonEmptyString>(const json &params, const std::string &name);
 
     template<>
     boost::optional<bool> ApiBase::getOptionalParam<bool>(const json &params, const std::string &name);
@@ -114,9 +110,20 @@ namespace beam::wallet
     template<>
     boost::optional<uint32_t> ApiBase::getOptionalParam<uint32_t>(const json &params, const std::string &name);
 
+    template<>
+    boost::optional<uint64_t> ApiBase::getOptionalParam<uint64_t>(const json &params, const std::string &name);
+
     BOOST_STRONG_TYPEDEF(json, JsonArray)
     template<>
     boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name);
+
+    BOOST_STRONG_TYPEDEF(json, NonEmptyJsonArray)
+    template<>
+    boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name);
+
+    BOOST_STRONG_TYPEDEF(unsigned int, PositiveUint32)
+    template<>
+    boost::optional<PositiveUint32> ApiBase::getOptionalParam<PositiveUint32>(const json &params, const std::string &name);
 
     BOOST_STRONG_TYPEDEF(unsigned int, PositiveUnit64)
     template<>
@@ -125,4 +132,12 @@ namespace beam::wallet
     BOOST_STRONG_TYPEDEF(Amount, PositiveAmount)
     template<>
     boost::optional<PositiveAmount> ApiBase::getOptionalParam<PositiveAmount>(const json &params, const std::string &name);
+
+    BOOST_STRONG_TYPEDEF(Height, PositiveHeight)
+    template<>
+    boost::optional<PositiveHeight> ApiBase::getOptionalParam<PositiveHeight>(const json &params, const std::string &name);
+
+    BOOST_STRONG_TYPEDEF(TxID, ValidTxID)
+    template<>
+    boost::optional<ValidTxID> ApiBase::getOptionalParam<ValidTxID>(const json &params, const std::string &name);
 }

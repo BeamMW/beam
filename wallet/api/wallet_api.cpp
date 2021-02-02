@@ -87,56 +87,16 @@ uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
 
 bool readAssetsParameter(const JsonRpcId& id, const json& params)
 {
-    if (ApiBase::existsJsonParam(params, "assets"))
+    if (auto oassets = WalletApi::getOptionalParam<bool>(params, "assets"))
     {
-        if (params["assets"].is_boolean())
-        {
-            return params["assets"].get<bool>();
-        }
-        else
-        {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "assets parameter must be boolean");
-        }
+        return *oassets;
     }
     return false;
 }
 
-
-
-// return 0 if parameter not found
-Amount readBeamFeeParameter(const JsonRpcId& id, const json& params,
-    const std::string& paramName = "fee",
-    Amount minimumFee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth)) // receivers's output + change
-{
-    ApiBase::ParameterReader reader{ id, params };
-    Amount fee = reader.readAmount(paramName, false);
-
-    if (fee > 0 && fee < minimumFee)
-    {
-        std::stringstream ss;
-        ss << "Failed to initiate the operation. The minimum fee is " << minimumFee << " GROTH.";
-        throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, ss.str());
-    }
-
-    return fee;
-}
-
-boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const json& params)
-{
-    return ApiBase::ParameterReader(id, params).readTxId("txId", false);
-}
-
 boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json& params)
 {
-    if(ApiBase::existsJsonParam(params, "asset_id"))
-    {
-        if (!params["asset_id"].is_number_unsigned())
-        {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "asset_id must be 64bit unsigned integer");
-        }
-        return params["asset_id"].get<uint32_t>();
-    }
-    return boost::optional<Asset::ID>();
+    return WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
 }
 
     WalletApi::WalletApi(IWalletApiData& walletData, ACL acl)
@@ -157,17 +117,13 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
     static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
     {
-        if (WalletApi::existsJsonParam(params, "comment"))
+        if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
         {
-            std::string comment = params["comment"];
-
-            data.comment = comment;
+            data.comment = *comment;
         }
 
-        if (WalletApi::existsJsonParam(params, "expiration"))
+        if (auto expiration = WalletApi::getOptionalParam<NonEmptyString>(params, "expiration"))
         {
-            std::string expiration = params["expiration"];
-
             static std::map<std::string, AddressData::Expiration> Items =
             {
                 {"expired", AddressData::Expired},
@@ -175,12 +131,12 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
                 {"never", AddressData::Never},
             };
 
-            if(Items.count(expiration) == 0)
+            if(Items.count(*expiration) == 0)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.");
             }
 
-            data.expiration = Items[expiration];
+            data.expiration = Items[*expiration];
         }
     }
 
@@ -193,7 +149,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
     void WalletApi::onDeleteAddressMessage(const JsonRpcId& id, const json& params)
     {
-        const auto address = getMandatoryParam<std::string>(params, "address");
+        const auto address = getMandatoryParam<NonEmptyString>(params, "address");
 
         DeleteAddress deleteAddress;
         deleteAddress.address.FromHex(address);
@@ -203,9 +159,9 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
     void WalletApi::onEditAddressMessage(const JsonRpcId& id, const json& params)
     {
-        const auto address = getMandatoryParam<std::string>(params, "address");
+        const auto address = getMandatoryParam<NonEmptyString>(params, "address");
 
-        if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "expiration"))
+        if (!hasParam(params, "comment") && !hasParam(params, "expiration"))
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Comment or Expiration parameter must be specified.");
         }
@@ -229,7 +185,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
     void WalletApi::onValidateAddressMessage(const JsonRpcId& id, const json& params)
     {
-        const auto address = getMandatoryParam<std::string>(params, "address");
+        const auto address = getMandatoryParam<NonEmptyString>(params, "address");
 
         ValidateAddress validateAddress;
         validateAddress.address = address;
@@ -241,7 +197,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
     {
         Send send;
 
-        const auto addressOrToken = getMandatoryParam<std::string>(params, "address");
+        const std::string addressOrToken = getMandatoryParam<NonEmptyString>(params, "address");
         if(auto txParams = ParseParameters(addressOrToken))
         {
             send.txParameters = *txParams;
@@ -251,8 +207,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address or token.");
         }
 
-        ParameterReader reader{ id, params };
-        send.value = reader.readAmount("value");
+        send.value = getMandatoryParam<PositiveAmount>(params, "value");
         send.assetId = readAssetIdParameter(id, params);
 
         if (send.assetId && *send.assetId != Asset::s_InvalidID)
@@ -260,12 +215,14 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             checkCAEnabled(id);
         }
 
-        if (existsJsonParam(params, "coins"))
+        if (hasParam(params, "coins"))
         {
+            // TODO: may be no check and optional read
             send.coins = readCoinsParameter(id, params);
         }
-        else if (existsJsonParam(params, "session"))
+        else if (hasParam(params, "session"))
         {
+            // TODO: may be no check and optional read
             send.session = readSessionParameter(id, params);
         }
 
@@ -282,10 +239,10 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address.");
         }
 
-        if (existsJsonParam(params, "from"))
+        if (auto fromParam = getOptionalParam<NonEmptyString>(params, "from"))
         {
             WalletID from(Zero);
-            if (from.FromHex(params["from"]))
+            if (from.FromHex(*fromParam))
             {
                 send.from = from;
             }
@@ -295,25 +252,21 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             }
         }
 
-        if (auto beamFee = readBeamFeeParameter(id, params); beamFee)
+        send.fee = getBeamFeeParam(params);
+
+        if (auto comment = getOptionalParam<std::string>(params, "comment"))
         {
-            send.fee = beamFee;
+            send.comment = *comment;
         }
 
-        if (existsJsonParam(params, "comment"))
-        {
-            send.comment = params["comment"].get<std::string>();
-        }
-
-        send.txId = readTxIdParameter(id, params);
+        send.txId = getOptionalParam<ValidTxID>(params, "txId");
         onMessage(id, send);
     }
 
     void WalletApi::onStatusMessage(const JsonRpcId& id, const json& params)
     {
-        ParameterReader reader{ id, params };
-        Status status;
-        status.txId = *reader.readTxId();
+        Status status = {};
+        status.txId = getMandatoryParam<ValidTxID>(params, "txId");
         onMessage(id, status);
     }
 
@@ -326,7 +279,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             checkCAEnabled(id);
         }
 
-        const json coins = getMandatoryParam<JsonArray>(params, "coins");
+        const json coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
         for (const auto& amount: coins)
         {
             if(!amount.is_number_unsigned() || amount == 0)
@@ -339,39 +292,30 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
         }
 
         auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
-        if (auto beamFee = readBeamFeeParameter(id, params, "fee", minimumFee); beamFee)
-        {
-            split.fee = beamFee;
-        }
-        else
-        {
-            split.fee = minimumFee;
-        }
+        split.fee = getBeamFeeParam(params, "fee", minimumFee);
+        split.txId = getOptionalParam<ValidTxID>(params, "txId");
 
-        split.txId = readTxIdParameter(id, params);
         onMessage(id, split);
     }
 
     void WalletApi::onTxCancelMessage(const JsonRpcId& id, const json& params)
     {
-        ParameterReader reader{ id, params };
-        TxCancel txCancel;
-        txCancel.txId = *reader.readTxId();
+        TxCancel txCancel = {};
+        txCancel.txId = getMandatoryParam<ValidTxID>(params, "txId");
         onMessage(id, txCancel);
     }
 
     void WalletApi::onTxDeleteMessage(const JsonRpcId& id, const json& params)
     {
-        ParameterReader reader{ id, params };
-        TxDelete txDelete;
-        txDelete.txId = *reader.readTxId();
+        TxDelete txDelete = {};
+        txDelete.txId = getMandatoryParam<ValidTxID>(params, "txId");
         onMessage(id, txDelete);
     }
 
     template<typename T>
     void ReadAssetParams(const JsonRpcId& id, const json& params, T& data)
     {
-        if (ApiBase::existsJsonParam(params, "asset_meta"))
+        if (ApiBase::hasParam(params, "asset_meta"))
         {
             if (!params["asset_meta"].is_string() || params["asset_meta"].get<std::string>().empty())
             {
@@ -379,7 +323,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             }
             data.assetMeta = params["asset_meta"].get<std::string>();
         }
-        else if(ApiBase::existsJsonParam(params, "asset_id"))
+        else if(ApiBase::hasParam(params, "asset_id"))
         {
             data.assetId = readAssetIdParameter(id, params);
         }
@@ -416,23 +360,19 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
         T data;
         data.value = getMandatoryParam<PositiveUnit64>(params, "value");
 
-        if (existsJsonParam(params, "coins"))
+        if (hasParam(params, "coins"))
         {
             data.coins = readCoinsParameter(id, params);
         }
-        else if (existsJsonParam(params, "session"))
+        else if (hasParam(params, "session"))
         {
             data.session = readSessionParameter(id, params);
         }
 
         ReadAssetParams(id, params, data);
+        data.fee = getBeamFeeParam(params);
+        data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
-        if (auto beamFee = readBeamFeeParameter(id, params); beamFee)
-        {
-            data.fee = beamFee;
-        }
-
-        data.txId = readTxIdParameter(id, params);
         onMessage(id, data);
     }
 
@@ -466,8 +406,8 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
         TxAssetInfo data;
         ReadAssetParams(id, params, data);
+        data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
-        data.txId = readTxIdParameter(id, params);
         onMessage(id, data);
     }
 
@@ -476,43 +416,29 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
         GetUtxo getUtxo;
         getUtxo.withAssets = readAssetsParameter(id, params);
 
-        if (existsJsonParam(params, "count"))
+        if (auto count = getOptionalParam<PositiveUint32>(params, "count"))
         {
-            if (params["count"] > 0)
-            {
-                getUtxo.count = params["count"];
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'count' parameter.");
-            }
+            getUtxo.count = *count;
         }
 
-        if (existsJsonParam(params, "filter"))
+        if (hasParam(params, "filter"))
         {
             getUtxo.filter.assetId = readAssetIdParameter(id, params["filter"]);
         }
 
-        if (existsJsonParam(params, "skip"))
+        if (auto skip = getOptionalParam<uint32_t>(params, "skip"))
         {
-            if (params["skip"] >= 0)
-            {
-                getUtxo.skip = params["skip"];
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.");
-            }
+            getUtxo.skip = *skip;
         }
 
-        if (existsJsonParam(params, "sort"))
+        if (hasParam(params, "sort"))
         {
-            if (existsJsonParam(params["sort"], "field") && params["sort"]["field"].is_string())
+            if (hasParam(params["sort"], "field") && params["sort"]["field"].is_string())
             {
                 getUtxo.sort.field = params["sort"]["field"].get<std::string>();
             }
 
-            if (existsJsonParam(params["sort"], "direction") && params["sort"]["direction"].is_string())
+            if (hasParam(params["sort"], "direction") && params["sort"]["direction"].is_string())
             {
                 auto direction = params["sort"]["direction"].get<std::string>();
                 if (direction != "desc" && direction != "asc")
@@ -548,15 +474,15 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
         TxList txList;
         txList.withAssets = readAssetsParameter(id, params);
 
-        if (existsJsonParam(params, "filter"))
+        if (hasParam(params, "filter"))
         {
-            if (existsJsonParam(params["filter"], "status")
+            if (hasParam(params["filter"], "status")
                 && params["filter"]["status"].is_number_unsigned())
             {
                 txList.filter.status = (TxStatus)params["filter"]["status"];
             }
 
-            if (existsJsonParam(params["filter"], "height")
+            if (hasParam(params["filter"], "height")
                 && params["filter"]["height"].is_number_unsigned())
             {
                 txList.filter.height = (Height)params["filter"]["height"];
@@ -565,22 +491,14 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
             txList.filter.assetId = readAssetIdParameter(id, params["filter"]);
         }
 
-        if (existsJsonParam(params, "count"))
+        if (auto count = getOptionalParam<PositiveUint32>(params, "count"))
         {
-            if (params["count"] > 0)
-            {
-                txList.count = params["count"];
-            }
-            else throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'count' parameter.");
+            txList.count = *count;
         }
 
-        if (existsJsonParam(params, "skip"))
+        if (auto skip = getOptionalParam<PositiveUint32>(params, "skip"))
         {
-            if (params["skip"] >= 0)
-            {
-                txList.skip = params["skip"];
-            }
-            else throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.");
+            txList.skip = *skip;
         }
 
         onMessage(id, txList);
@@ -601,10 +519,8 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
 
     void WalletApi::onExportPaymentProofMessage(const JsonRpcId& id, const json& params)
     {
-        ParameterReader reader{ id, params };
-        ExportPaymentProof data;
-        data.txId = *reader.readTxId();
-
+        ExportPaymentProof data = {};
+        data.txId = getMandatoryParam<ValidTxID>(params, "txId");
         onMessage(id, data);
     }
 
@@ -612,7 +528,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
     {
         VerifyPaymentProof data;
 
-        const auto proof = getMandatoryParam<std::string>(params, "payment_proof");
+        const auto proof = getMandatoryParam<NonEmptyString>(params, "payment_proof");
         data.paymentProof = from_hex(proof);
 
         onMessage(id, data);
@@ -624,9 +540,9 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
     {
         OffersList offersList;
 
-        if (existsJsonParam(params, "filter"))
+        if (hasParam(params, "filter"))
         {
-            if (existsJsonParam(params["filter"], "swapCoin"))
+            if (hasParam(params["filter"], "swapCoin"))
             {
                 if (params["filter"]["swapCoin"].is_string())
                 {
@@ -634,7 +550,7 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
                 }
             }
 
-            if (existsJsonParam(params["filter"], "status"))
+            if (hasParam(params["filter"], "status"))
             {
                 if (params["filter"]["status"].is_number_unsigned())
                 {
@@ -650,9 +566,9 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
     {
         OffersBoard offersBoard;
 
-        if (existsJsonParam(params, "filter"))
+        if (hasParam(params, "filter"))
         {
-            if (existsJsonParam(params["filter"], "swapCoin"))
+            if (hasParam(params["filter"], "swapCoin"))
             {
                 if (params["filter"]["swapCoin"].is_string())
                 {
@@ -872,18 +788,6 @@ void GetStatusResponseJson(const TxDescription& tx,
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 }
 
-
-
-
-
-Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
-{
-    ApiBase::ParameterReader reader{ id, params };
-    return reader.readAmount("fee_rate", true);
-}
-
-
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void throwIncorrectCurrencyError(const std::string& name, const JsonRpcId& id)
 {
@@ -1011,22 +915,27 @@ json TokenToJson(const SwapOffer& offer, bool isMyOffer = false, bool isPublic =
     return result;
 }
 
+Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
+{
+    return WalletApi::getMandatoryParam<PositiveAmount>(params, "fee_rate");
+}
+
 OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 {
     OfferInput data;
-    ApiBase::ParameterReader reader{ id, params };
-    Amount sendAmount = reader.readAmount("send_amount");
+    Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
 
-    const auto send_currency = WalletApi::getMandatoryParam<std::string>(params, "send_currency");
+    const std::string send_currency = WalletApi::getMandatoryParam<NonEmptyString>(params, "send_currency");
     const AtomicSwapCoin sendCoin = from_string(send_currency);
+
     if (sendCoin == AtomicSwapCoin::Unknown && send_currency != "beam")
     {
         throwIncorrectCurrencyError("send_currency", id);
     }
 
-    Amount receiveAmount = reader.readAmount("receive_amount");
+    Amount receiveAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "receive_amount");
 
-    const auto receive_currency = WalletApi::getMandatoryParam<std::string>(params, "receive_currency");
+    const std::string receive_currency = WalletApi::getMandatoryParam<NonEmptyString>(params, "receive_currency");
     AtomicSwapCoin receiveCoin = from_string(receive_currency);
 
     if (receiveCoin == AtomicSwapCoin::Unknown && receive_currency != "beam")
@@ -1048,15 +957,11 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     data.swapCoin = data.isBeamSide ? receiveCoin : sendCoin;
     data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
     data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
+    data.beamFee = WalletApi::getBeamFeeParam(params, "beam_fee");
 
-    if (auto beamFee = readBeamFeeParameter(id, params, "beam_fee"); beamFee)
+    if (data.isBeamSide && data.beamAmount < data.beamFee)
     {
-        data.beamFee = beamFee;
-
-        if (data.isBeamSide && data.beamAmount < data.beamFee)
-        {
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "beam swap amount is less than fee.");
-        }
+        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "beam swap amount is less than (default) fee.");
     }
 
     if (auto feeRate = readSwapFeeRateParameter(id, params); feeRate)
@@ -1064,20 +969,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         data.swapFeeRate = feeRate;
     }
 
-    if (WalletApi::existsJsonParam(params, "offer_expires"))
+    if (auto expires = WalletApi::getOptionalParam<PositiveHeight>(params, "offer_expires"))
     {
-        if (!params["offer_expires"].is_number_unsigned() ||
-            params["offer_expires"] == 0)
-        {
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "\'offer_expires\' must be non zero 64bit unsigned integer.");
-        }
-        data.offerLifetime = params["offer_expires"];
+        data.offerLifetime = *expires;
     }
 
-    if (WalletApi::existsJsonParam(params, "comment") &&
-        params["comment"].is_string())
+    if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
     {
-        data.comment = params["comment"].get<std::string>();
+        data.comment = *comment;
     }
 
     return data;
@@ -1092,20 +991,18 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const json& params)
     {
-        const auto token = getMandatoryParam<std::string>(params, "token");
-
+        const auto token = getMandatoryParam<NonEmptyString>(params, "token");
         if (!SwapOfferToken::isValid(token))
         {
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter 'token' is not valid swap token.");
         }
-
         PublishOffer data{token};
         onMessage(id, data);
     }
 
     void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
     {
-        const auto token = getMandatoryParam<std::string>(params, "token");
+        const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
         {
@@ -1114,20 +1011,16 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
         AcceptOffer data;
         data.token = token;
-
-        if (auto beamFee = readBeamFeeParameter(id, params, "beam_fee"); beamFee)
-        {
-            data.beamFee = beamFee;
-        }
+        data.beamFee = getBeamFeeParam(params, "beam_fee");
 
         if (auto feeRate = readSwapFeeRateParameter(id, params); feeRate)
         {
             data.swapFeeRate = feeRate;
         }
 
-        if (WalletApi::existsJsonParam(params, "comment") && params["comment"].is_string())
+        if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
         {
-            data.comment = params["comment"].get<std::string>();
+            data.comment = *comment;
         }
 
         onMessage(id, data);
@@ -1135,15 +1028,14 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const json& params)
     {
-        ParameterReader reader{ id, params };
-        OfferStatus offerStatus;
-        offerStatus.txId = *reader.readTxId("tx_id");
+        OfferStatus offerStatus = {};
+        offerStatus.txId = getMandatoryParam<ValidTxID>(params, "tx_id");
         onMessage(id, offerStatus);
     }
 
     void WalletApi::onDecodeTokenMessage(const JsonRpcId& id, const json& params)
     {
-        const auto token = getMandatoryParam<std::string>(params, "token");
+        const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
         {
@@ -1156,7 +1048,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onGetBalanceMessage(const JsonRpcId& id, const json& params)
     {
-        const auto coinName = getMandatoryParam<std::string>(params, "coin");
+        const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         const auto coin = from_string(coinName);
 
         if (coin == AtomicSwapCoin::Unknown)
@@ -1170,7 +1062,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
 
     void WalletApi::onRecommendedFeeRateMessage(const JsonRpcId& id, const json& params)
     {
-        const auto coinName = getMandatoryParam<std::string>(params, "coin");
+        const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         AtomicSwapCoin coin = from_string(coinName);
 
         if (coin == AtomicSwapCoin::Unknown)

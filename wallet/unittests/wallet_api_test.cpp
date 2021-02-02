@@ -257,8 +257,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -349,7 +347,6 @@ namespace
         };
 
         ApiTest api;
-        
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
@@ -374,7 +371,6 @@ namespace
         };
 
         ApiTest api;
-        
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -407,7 +403,6 @@ namespace
         };
 
         ApiTest api;
-        
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -452,7 +447,6 @@ namespace
         };
 
         ApiTest api;
-        
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -485,8 +479,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -526,8 +518,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -560,8 +550,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
@@ -585,8 +573,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -621,8 +607,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
@@ -686,8 +670,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -759,8 +741,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {
@@ -829,8 +809,6 @@ namespace
         };
 
         ApiTest api;
-        
-
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
 
         {

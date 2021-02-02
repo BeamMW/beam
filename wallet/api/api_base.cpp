@@ -16,23 +16,12 @@
 #include "utility/logger.h"
 #include <regex>
 
+// TODO: check ranges for is_number_unsigned
 namespace {
-    using namespace beam::wallet;
-
     std::string getJsonString(const char* data, size_t size)
     {
         return std::string(data, data + (size > 1024 ? 1024 : size));
     }
-
-    const auto errEmptyJSON = json {
-        {ApiBase::JsonRpcHeader, ApiBase::JsonRpcVersion},
-        {"error",
-            {
-                {"code", ApiError::InvalidJsonRpc},
-                {"message", "Empty JSON request."},
-            }
-        }
-    };
 }
 
 namespace beam::wallet {
@@ -88,6 +77,7 @@ namespace beam::wallet {
 
         if (size == 0)
         {
+            const auto errEmptyJSON = formError(JsonRpcId(), ApiError::InvalidJsonRpc, "Empty JSON request.");
             onParseError(errEmptyJSON);
             return false;
         }
@@ -176,31 +166,38 @@ namespace beam::wallet {
     boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name)
     {
         const auto it = params.find(name);
-        if(it == params.end())
+        if(it != params.end())
         {
-            return boost::none;
+            return boost::optional<const json&>(it.value());
         }
-        return boost::optional<const json&>(it.value());
+        return boost::none;
     }
 
     template<>
     boost::optional<std::string> ApiBase::getOptionalParam<std::string>(const json &params, const std::string &name)
     {
-        if(auto oraw = getOptionalParam<const json&>(params, name))
+        if(auto raw = getOptionalParam<const json&>(params, name))
         {
-            const auto &raw = *oraw;
-            if (!raw.is_string())
+            if (!(*raw).is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a string.");
             }
+            return (*raw).get<std::string>();
+        }
+        return boost::none;
+    }
 
-            auto result = raw.get<std::string>();
+    template<>
+    boost::optional<NonEmptyString> ApiBase::getOptionalParam<NonEmptyString>(const json &params, const std::string &name)
+    {
+        if (auto raw = getOptionalParam<std::string>(params, name))
+        {
+            auto result = *raw;
             if (result.empty())
             {
                 throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"Parameter '" + name + "' must be a non-empty string.");
             }
-
-            return result;
+            return NonEmptyString(result);
         }
         return boost::none;
     }
@@ -224,44 +221,30 @@ namespace beam::wallet {
     template<>
     boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name)
     {
-        if(auto oraw = getOptionalParam<const json&>(params, name))
+        if(auto raw = getOptionalParam<const json&>(params, name))
         {
-            const auto &raw = *oraw;
-            if (!raw.is_array())
+            const json& arr = *raw;
+            if (!arr.is_array())
             {
                 throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be an array.");
             }
-
-            if (raw.empty())
-            {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a non-empty array.");
-            }
-
-            return JsonArray(raw);
+            return JsonArray(arr);
         }
         return boost::none;
     }
 
     template<>
-    boost::optional<PositiveUnit64> ApiBase::getOptionalParam<PositiveUnit64>(const json &params, const std::string &name)
+    boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name)
     {
-        if(auto oraw = getOptionalParam<const json&>(params, name))
+        if (auto raw = getOptionalParam<JsonArray>(params, name))
         {
-            const auto &raw = *oraw;
-            if (!raw.is_number_unsigned())
+            const json& arr = *raw;
+            if (arr.empty())
             {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a 64bit unsigned integer.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a non-empty array.");
             }
-
-            auto result = raw.get<uint64_t>();
-            if (result == 0)
-            {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a positive 64bit unsigned integer.");
-            }
-
-            return PositiveUnit64(result);
+            return NonEmptyJsonArray(arr);
         }
-
         return boost::none;
     }
 
@@ -281,83 +264,116 @@ namespace beam::wallet {
     }
 
     template<>
-    boost::optional<PositiveAmount> ApiBase::getOptionalParam<PositiveAmount>(const json &params, const std::string &name)
+    boost::optional<PositiveUint32> ApiBase::getOptionalParam<PositiveUint32>(const json &params, const std::string &name)
     {
-        if (auto oamount = getOptionalParam<PositiveUnit64>(params, name))
+        if(auto raw = getOptionalParam<uint32_t>(params, name))
         {
-            const uint64_t amount = *oamount;
-            return PositiveAmount(amount);
+            const auto result = *raw;
+            if (result == 0)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a positive 64bit unsigned integer.");
+            }
+
+            return PositiveUint32(result);
         }
         return boost::none;
     }
 
-    //
-    // NOT REFACTORED
-    //
+    template<>
+    boost::optional<uint64_t> ApiBase::getOptionalParam<uint64_t>(const json &params, const std::string &name)
+    {
+        if(auto oraw = getOptionalParam<const json&>(params, name))
+        {
+            const auto& raw = *oraw;
+            if (!raw.is_number_unsigned())
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be an unsigned integer.");
+            }
+            return raw.get<uint64_t>();
+        }
+        return boost::none;
+    }
 
-    // static
-    bool ApiBase::existsJsonParam(const json& params, const std::string& name)
+    template<>
+    boost::optional<PositiveUnit64> ApiBase::getOptionalParam<PositiveUnit64>(const json &params, const std::string &name)
+    {
+        if(auto raw = getOptionalParam<uint64_t>(params, name))
+        {
+            auto result = *raw;
+            if (result == 0)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a positive 64bit unsigned integer.");
+            }
+
+            return PositiveUnit64(result);
+        }
+        return boost::none;
+    }
+
+    template<>
+    boost::optional<PositiveAmount> ApiBase::getOptionalParam<PositiveAmount>(const json &params, const std::string &name)
+    {
+        if (auto amount = getOptionalParam<PositiveUnit64>(params, name))
+        {
+            return PositiveAmount(*amount);
+        }
+        return boost::none;
+    }
+
+    template<>
+    boost::optional<PositiveHeight> ApiBase::getOptionalParam<PositiveHeight>(const json &params, const std::string &name)
+    {
+        if (auto height = getOptionalParam<PositiveUnit64>(params, name))
+        {
+            return PositiveHeight(*height);
+        }
+        return boost::none;
+    }
+
+    Amount ApiBase::getBeamFeeParam(const json& params, const std::string& name, boost::optional<Amount> minfee)
+    {
+        if (!minfee.is_initialized())
+        {
+            minfee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth);
+        }
+
+        if (auto ofee = getOptionalParam<PositiveUnit64>(params, name))
+        {
+            if (*ofee < *minfee)
+            {
+                std::stringstream ss;
+                ss << "Failed to initiate the operation. The minimum fee is " << *minfee << " GROTH.";
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, ss.str());
+            }
+            return *ofee;
+        }
+
+        return *minfee;
+    }
+
+    bool ApiBase::hasParam(const json& params, const std::string& name)
     {
         return params.find(name) != params.end();
     }
 
-    ApiBase::ParameterReader::ParameterReader(const JsonRpcId& id, const json& params)
-        : m_id{id}
-        , m_params{ params }
+    template<>
+    boost::optional<ValidTxID> ApiBase::getOptionalParam<ValidTxID>(const json &params, const std::string &name)
     {
-    }
-
-
-    Amount ApiBase::ParameterReader::readAmount(const std::string& name, bool isMandatory, Amount defaultValue)
-    {
-        auto it = m_params.find(name);
-        if (it == m_params.end())
+        if (auto raw = getOptionalParam<NonEmptyString>(params, name))
         {
-            if (isMandatory)
+            bool isValid = false;
+            auto txid = from_hex(*raw, &isValid);
+
+            if (!isValid || txid.size() != TxID().size())
             {
-                //TODO: refactor
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.");
+                throw jsonrpc_exception(ApiError::InvalidTxId, "Transaction ID has wrong format.");
             }
 
-            return defaultValue;
+            TxID result;
+            std::copy_n(txid.begin(), TxID().size(), result.begin());
+
+            return ValidTxID(result);
         }
-        const json& value = *it;
-        if (!value.is_number_integer() || value == 0)
-        {
-            std::stringstream ss;
-            ss << "\"" << name << "\" " << "must be non zero 64bit unsigned integer.";
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, ss.str()); // TODO: InvalidParamsJsonRpc should be used here
-        }
-        return value;
+        return boost::none;
     }
-
-    boost::optional<TxID> ApiBase::ParameterReader::readTxId(const std::string& name, bool isMandatory)
-    {
-        auto it = m_params.find(name);
-        if (it == m_params.end())
-        {
-            if (isMandatory)
-            {
-                //TODO: refactor
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.");
-            }
-
-            return {};
-        }
-        const json& value = *it;
-
-        if (!value.is_string()) // TODO: InvalidParamsJsonRpc should be used here
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Transaction ID must be a hex string.");
-
-        bool isValid = true;
-        auto txIdSrc = from_hex(value, &isValid);
-
-        if (!isValid || txIdSrc.size() != TxID().size()) // TODO: InvalidParamsJsonRpc should be used here
-            throw jsonrpc_exception(ApiError::InvalidTxId, "Transaction ID has wrong format.");
-
-        TxID txIdDst;
-        std::copy_n(txIdSrc.begin(), TxID().size(), txIdDst.begin());
-        return txIdDst;
-    }
-
 }
