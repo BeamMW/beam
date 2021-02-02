@@ -1763,7 +1763,7 @@ namespace bvm2 {
 			pArg->m_Flags = Shaders::Pipe::PushRemote0::Flags::Msgs;
 
 			uint32_t nSize = static_cast<uint32_t>(bufMsgs.size());
-			memcpy(pArg + 1, &nSize, sizeof(nSize));
+			memcpy((void*)(pArg + 1), &nSize, sizeof(nSize));
 
 			memcpy(&bufArg.front() + sizeof(Shaders::Pipe::PushRemote0) + sizeof(uint32_t), &bufMsgs.front(), nSize);
 
