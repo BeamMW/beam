@@ -34,7 +34,7 @@ namespace beam::wallet
     macro(-32006, InvalidPaymentProof,       "Invalid payment proof provided")      \
     macro(-32007, PaymentProofExportError,   "Cannot export payment proof")         \
     macro(-32008, SwapFailToParseToken,      "Invalid swap token.")                 \
-    macro(-32009, SwapFailToAcceptOwnOffer,  "Can't accept own swap offer.")        \
+    macro(-32009, SwapFailToAcceptOwn,       "Can't accept own swap offer.")        \
     macro(-32010, SwapNotEnoughtBeams,       "Not enought BEAM.")                   \
     macro(-32011, SwapFailToConnect,         "Doesn't have an active connection.")  \
     macro(-32012, DatabaseError,             "Database error")                      \
@@ -51,18 +51,6 @@ namespace beam::wallet
     };
 
     const char* getApiErrorMessage(ApiError code);
-
-    class FailToParseToken: public std::runtime_error
-    {
-    public:
-        FailToParseToken(): std::runtime_error("Parse Parameters from 'token' failed.") {}
-    };
-
-    class FailToAcceptOwnOffer: public std::runtime_error
-    {
-    public:
-        FailToAcceptOwnOffer(): std::runtime_error("You can't accept own offer.") {}
-    };
 
     class jsonrpc_exception: public std::runtime_error
     {

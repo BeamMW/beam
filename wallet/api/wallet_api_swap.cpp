@@ -27,11 +27,11 @@ namespace beam::wallet
 {
     using namespace beam::wallet;
 
-    const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
-    const char kBeamAmountToLowError[] = "\'beam_amount\' must be greater than \"beam_fee\".";
-    const char kSwapNotEnoughtSwapCoins[] = "There is not enough funds to complete the transaction.";
+    const char kSwapAmountToLowError[]          = "The swap amount must be greater than the redemption fee.";
+    const char kBeamAmountToLowError[]          = R"('beam_amount' must be greater than "beam_fee".)";
+    const char kSwapNotEnoughtSwapCoins[]       = "There is not enough funds to complete the transaction.";
     const char kSwapFeeToLowRecommenededError[] = "\'fee_rate\' must be greater or equal than recommended fee rate.";
-    const char kSwapFeeToLowError[] = "\'fee_rate\' must be greater or equal than ";
+    const char kSwapFeeToLowError[]             = R"("'fee_rate' must be greater or equal than ")";
 
     void ensureBEAMAmount(const IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
@@ -42,7 +42,7 @@ namespace beam::wallet
 
         if (beamAmount + beamFee > available)
         {
-            throw swap_no_beam();
+            throw jsonrpc_exception(ApiError::SwapNotEnoughtBeams);
         }
     }
 
@@ -56,7 +56,8 @@ namespace beam::wallet
     {
         if (!swaps->isCoinClientConnected(swapCoin))
         {
-            throw swap_coin_fail(swapCoin);
+            const auto message = std::string("No connection with the") + std::to_string(swapCoin) + " wallet";
+            throw jsonrpc_exception(ApiError::SwapFailToConnect, message);
         }
     }
 
@@ -298,189 +299,173 @@ namespace beam::wallet
 
     void WalletApi::onMessage(const JsonRpcId& id, const PublishOffer& data)
     {
-        try
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
         {
-            auto txParams = ParseParameters(data.token);
-            if (!txParams)
-                throw FailToParseToken();
-
-            auto txId = txParams->GetTxID();
-            if (!txId)
-                throw FailToParseToken();
-
-            auto walletDB = getWalletDB();
-            auto tx = walletDB->getTx(*txId);
-
-            if (!tx)
-            {
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Transaction not found.");
-            }
-
-            const auto& mirroredTxParams = MirrorSwapTxParams(*tx);
-            const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
-            SwapOffer offer(readyForTokenizeTxParams);
-
-            if (offer.m_status == SwapOfferStatus::Pending)
-            {
-                offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
-                getSwaps()->getSwapOffersBoard().publishOffer(offer);
-
-                doResponse(id, PublishOffer::Response
-                    {
-                        walletDB->getAddresses(true),
-                        walletDB->getCurrentHeight(),
-                        offer
-                    });
-            }
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken);
         }
-        catch (const FailToParseToken & e)
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
         {
-            throw jsonrpc_exception(ApiError::SwapFailToParseToken, e.what());
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing txId");
         }
-        // handled: InvalidOfferException, ForeignOfferException,
-        //        OfferAlreadyPublishedException, ExpiredOfferException
-        catch(const jsonrpc_exception&)
+
+        auto walletDB = getWalletDB();
+        auto tx = walletDB->getTx(*txId);
+
+        if (!tx)
         {
-            throw;
+            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Transaction not found.");
         }
-        catch (const std::runtime_error & e)
+
+        const auto& mirroredTxParams = MirrorSwapTxParams(*tx);
+        const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
+        SwapOffer offer(readyForTokenizeTxParams);
+
+        if (offer.m_status == SwapOfferStatus::Pending)
         {
-            std::stringstream ss;
-            ss << "Failed to publish offer:" << e.what();
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, ss.str());
+            offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+            getSwaps()->getSwapOffersBoard().publishOffer(offer);
+
+            doResponse(id, PublishOffer::Response
+                {
+                    walletDB->getAddresses(true),
+                    walletDB->getCurrentHeight(),
+                    offer
+                });
         }
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const AcceptOffer& data)
     {
-        try
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
         {
-            auto txParams = ParseParameters(data.token);
-            if (!txParams)
-                throw FailToParseToken();
-
-            ProcessLibraryVersion(*txParams);
-
-            auto txId = txParams->GetTxID();
-            if (!txId)
-                throw FailToParseToken();
-
-            auto swaps = getSwaps();
-            auto walletDB = getWalletDB();
-            auto wallet = getWallet();
-            auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
-            auto myAddresses = walletDB->getAddresses(true);
-
-            if (publicOffer)
-            {
-                // compare public offer and token
-                if (!checkPublicOffer(*txParams, *publicOffer))
-                {
-                    throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Wrong offer params.");
-                }
-
-                if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
-                    throw FailToAcceptOwnOffer();
-            }
-            else
-            {
-                auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
-
-                if (!peerId)
-                    throw FailToParseToken();
-
-                if (storage::isMyAddress(myAddresses, *peerId))
-                    throw FailToAcceptOwnOffer();
-            }
-
-            if (auto tx = walletDB->getTx(*txId); tx)
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Offer already accepted.");
-            }
-
-            auto beamAmount = txParams->GetParameter<Amount>(TxParameterID::Amount);
-            auto swapAmount = txParams->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-            auto swapCoin = txParams->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-            auto isBeamSide = txParams->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-            if (!beamAmount || !swapAmount || !swapCoin || !isBeamSide)
-            {
-                throw FailToParseToken();
-            }
-
-            Amount recommendedFeeRate = swaps->getRecommendedFeeRate(*swapCoin);
-
-            if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
-            }
-
-            Amount minFeeRate = swaps->getMinFeeRate(*swapCoin);
-
-            if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
-            {
-                std::stringstream msg;
-                msg << kSwapFeeToLowError << minFeeRate;
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
-            }
-
-            if (*beamAmount <= data.beamFee)
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
-            }
-
-            if (!IsSwapAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
-            }
-
-            ensureConnected(swaps, *swapCoin);
-
-            if (*isBeamSide)
-            {
-                ensureBEAMAmount(walletDB, *beamAmount, data.beamFee);
-            }
-            else
-            {
-                if(!checkIsEnoughtSwapAmount(*swaps, *swapCoin, *swapAmount, data.swapFeeRate))
-                {
-                    throw jsonrpc_exception(InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
-                }
-            }
-
-            auto wid = createWID(walletDB.get(), data.comment);
-            SwapOffer offer = SwapOffer(*txParams);
-            offer.SetParameter(TxParameterID::MyID, wid);
-            if (!data.comment.empty())
-            {
-                offer.SetParameter(TxParameterID::Message,
-                    beam::ByteBuffer(data.comment.begin(),
-                        data.comment.end()));
-            }
-
-            FillSwapFee(&offer, data.beamFee, data.swapFeeRate, *isBeamSide);
-
-            wallet->StartTransaction(offer);
-            offer.m_status = SwapOfferStatus::InProgress;
-            if (!publicOffer)
-                offer.DeleteParameter(TxParameterID::MyID);
-
-            doResponse(
-                id,
-                AcceptOffer::Response
-                {
-                    myAddresses,
-                    walletDB->getCurrentHeight(),
-                    offer
-                });
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken);
         }
-        catch (const FailToParseToken & e)
+
+        ProcessLibraryVersion(*txParams);
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
         {
-            throw jsonrpc_exception(ApiError::SwapFailToParseToken, e.what());
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing txId");
         }
-        catch (const FailToAcceptOwnOffer & e)
+
+        auto swaps = getSwaps();
+        auto walletDB = getWalletDB();
+        auto wallet = getWallet();
+        auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
+        auto myAddresses = walletDB->getAddresses(true);
+
+        if (publicOffer)
         {
-            throw jsonrpc_exception(ApiError::SwapFailToAcceptOwnOffer, e.what());
+            // compare public offer and token
+            if (!checkPublicOffer(*txParams, *publicOffer))
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Wrong offer params.");
+            }
+
+            if (storage::isMyAddress(myAddresses, publicOffer->m_publisherId))
+            {
+                throw jsonrpc_exception(ApiError::SwapFailToAcceptOwn);
+            }
         }
+        else
+        {
+            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+
+            if (!peerId)
+            {
+                throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing peer ID");
+            }
+
+            if (storage::isMyAddress(myAddresses, *peerId))
+            {
+                throw jsonrpc_exception(ApiError::SwapFailToAcceptOwn);
+            }
+        }
+
+        if (auto tx = walletDB->getTx(*txId); tx)
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Offer already accepted.");
+        }
+
+        auto beamAmount = txParams->GetParameter<Amount>(TxParameterID::Amount);
+        auto swapAmount = txParams->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto swapCoin   = txParams->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto isBeamSide = txParams->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+        if (!beamAmount || !swapAmount || !swapCoin || !isBeamSide)
+        {
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing amounts or coins");
+        }
+
+        Amount recommendedFeeRate = swaps->getRecommendedFeeRate(*swapCoin);
+
+        if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
+        }
+
+        Amount minFeeRate = swaps->getMinFeeRate(*swapCoin);
+
+        if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
+        {
+            std::stringstream msg;
+            msg << kSwapFeeToLowError << minFeeRate;
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
+        }
+
+        if (*beamAmount <= data.beamFee)
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
+        }
+
+        if (!IsSwapAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
+        }
+
+        ensureConnected(swaps, *swapCoin);
+
+        if (*isBeamSide)
+        {
+            ensureBEAMAmount(walletDB, *beamAmount, data.beamFee);
+        }
+        else
+        {
+            if(!checkIsEnoughtSwapAmount(*swaps, *swapCoin, *swapAmount, data.swapFeeRate))
+            {
+                throw jsonrpc_exception(InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
+            }
+        }
+
+        auto wid = createWID(walletDB.get(), data.comment);
+        SwapOffer offer = SwapOffer(*txParams);
+        offer.SetParameter(TxParameterID::MyID, wid);
+        if (!data.comment.empty())
+        {
+            offer.SetParameter(TxParameterID::Message,
+                beam::ByteBuffer(data.comment.begin(),
+                    data.comment.end()));
+        }
+
+        FillSwapFee(&offer, data.beamFee, data.swapFeeRate, *isBeamSide);
+
+        wallet->StartTransaction(offer);
+        offer.m_status = SwapOfferStatus::InProgress;
+        if (!publicOffer)
+            offer.DeleteParameter(TxParameterID::MyID);
+
+        doResponse(
+            id,
+            AcceptOffer::Response
+            {
+                myAddresses,
+                walletDB->getCurrentHeight(),
+                offer
+            });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const OfferStatus& data)
@@ -509,53 +494,52 @@ namespace beam::wallet
 
     void WalletApi::onMessage(const JsonRpcId& id, const DecodeToken& data)
     {
-        try
+        auto txParams = ParseParameters(data.token);
+        if (!txParams)
         {
-            auto txParams = ParseParameters(data.token);
-            if (!txParams)
-                throw FailToParseToken();
-
-            auto txId = txParams->GetTxID();
-            if (!txId)
-                throw FailToParseToken();
-
-            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
-            if (!peerId)
-                throw FailToParseToken();
-
-            SwapOffer offer;
-            bool isMyOffer = false;
-            auto walletDB = getWalletDB();
-            auto myAddresses = walletDB->getAddresses(true);
-            if (!storage::isMyAddress(myAddresses, *peerId))
-            {
-                offer = SwapOffer(*txParams);
-            }
-            else
-            {
-                isMyOffer = true;
-                // TODO roman.strilets: maybe it is superfluous
-                auto mirroredTxParams = MirrorSwapTxParams(*txParams, false);
-                offer = SwapOffer(mirroredTxParams);
-            }
-
-            auto swaps = getSwaps();
-            auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
-            bool isPublic = !!publicOffer;
-
-            doResponse(
-                id,
-                DecodeToken::Response
-                {
-                    offer,
-                    isMyOffer,
-                    isPublic
-                });
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken);
         }
-        catch (const FailToParseToken & e)
+
+        auto txId = txParams->GetTxID();
+        if (!txId)
         {
-            throw jsonrpc_exception(ApiError::SwapFailToParseToken, e.what());
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing txId");
         }
+
+        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+        if (!peerId)
+        {
+            throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing peer ID");
+        }
+
+        SwapOffer offer;
+        bool isMyOffer = false;
+        auto walletDB = getWalletDB();
+        auto myAddresses = walletDB->getAddresses(true);
+        if (!storage::isMyAddress(myAddresses, *peerId))
+        {
+            offer = SwapOffer(*txParams);
+        }
+        else
+        {
+            isMyOffer = true;
+            // TODO roman.strilets: maybe it is superfluous
+            auto mirroredTxParams = MirrorSwapTxParams(*txParams, false);
+            offer = SwapOffer(mirroredTxParams);
+        }
+
+        auto swaps = getSwaps();
+        auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
+        bool isPublic = !!publicOffer;
+
+        doResponse(
+            id,
+            DecodeToken::Response
+            {
+                offer,
+                isMyOffer,
+                isPublic
+            });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const GetBalance& data)
