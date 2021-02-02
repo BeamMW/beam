@@ -119,11 +119,11 @@ private:
 };
 
 class ApiCliSwap
-    : public IAtomicSwapProvider
+    : public ISwapsProvider
     , ISwapOffersObserver
 {
 public:
-    ApiCliSwap(IWalletDB::Ptr wdb)
+    explicit ApiCliSwap(IWalletDB::Ptr wdb)
         : _walletDB(std::move(wdb))
     {
     }

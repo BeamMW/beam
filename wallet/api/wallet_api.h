@@ -23,22 +23,34 @@ namespace beam::wallet {
     class WalletApi : public ApiBase
     {
     public:
-        explicit WalletApi(ACL acl = boost::none);
+        WalletApi(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, ISwapsProvider::Ptr atomicSwapProvider, ACL acl = boost::none);
 
         virtual IWalletDB::Ptr getWalletDB() const
         {
-             throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
+            if (_wdb == nullptr)
+            {
+                throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
+            }
+            return _wdb;
         }
 
-         virtual Wallet::Ptr getWallet() const
-         {
-            throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
-         }
+        virtual Wallet::Ptr getWallet() const
+        {
+            if (_wallet == nullptr)
+            {
+                throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
+            }
+            return _wallet;
+        }
 
-         ISwapsProvider::Ptr getSwaps() const
-         {
-            throw jsonrpc_exception(ApiError::NoSwapsError);
-         }
+        virtual ISwapsProvider::Ptr getSwaps() const
+        {
+            if (_swaps == nullptr)
+            {
+                throw jsonrpc_exception(ApiError::NoSwapsError);
+            }
+            return _swaps;
+        }
 
         #define RESPONSE_FUNC(api, name, _) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -97,5 +109,11 @@ namespace beam::wallet {
         template<typename T>
         void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
         void checkCAEnabled(const JsonRpcId& id);
+
+    protected:
+        // Do not access these directly, use getters
+        IWalletDB::Ptr      _wdb;
+        Wallet::Ptr         _wallet;
+        ISwapsProvider::Ptr _swaps;
     };
 }

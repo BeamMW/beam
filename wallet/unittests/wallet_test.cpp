@@ -61,7 +61,7 @@ WALLET_TEST_INIT
 
 namespace
 {
-    struct AtomicSwapProvider : IAtomicSwapProvider
+    struct AtomicSwapProvider : ISwapsProvider
     {
     public:
         Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
@@ -71,41 +71,9 @@ namespace
         bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
 
-    struct WalletData : IWalletApiData
-    {
-        WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider::Ptr atomicSwapProvider)
-            : m_walletDB(walletDB)
-            , m_wallet(wallet)
-            , m_atomicSwapProvider(atomicSwapProvider)
-        {}
-
-        virtual ~WalletData() {}
-
-        IWalletDB::Ptr getWalletDBPtr() const override
-        {
-            return m_walletDB;
-        }
-
-        Wallet::Ptr getWalletPtr() const override
-        {
-            throw std::runtime_error("not impl");
-        }
-
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        IAtomicSwapProvider::Ptr getAtomicSwapProvider() const override
-        {
-            return m_atomicSwapProvider;
-        }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-        IWalletDB::Ptr m_walletDB;
-        Wallet::Ptr m_wallet;
-        IAtomicSwapProvider::Ptr m_atomicSwapProvider;
-    };
-
     struct ApiTest: beam::wallet::WalletApi
     {
-        using beam::wallet::WalletApi::WalletApi;
+        using WalletApi::WalletApi;
         void sendMessage(const json& msg) override
         {
         }
@@ -194,9 +162,8 @@ namespace
         WALLET_CHECK(rh.size() == Count);
 
         auto asp = std::make_shared<AtomicSwapProvider>();
-        WalletData wd(sender.m_WalletDB, sender.m_Wallet, asp);
         WalletApi::ACL acl;
-        ApiTest api(wd, acl);
+        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, acl);
         TxList message;
         message.count = 10;
         message.skip = 30;
