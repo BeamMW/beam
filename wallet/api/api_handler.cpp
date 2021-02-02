@@ -80,30 +80,21 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        if (auto walletDB = _data.getWalletDBPtr())
-        {
-            WalletAddress address;
-            walletDB->createAddress(address);
-            FillAddressData(data, address);
+        auto walletDB = getWalletDB();
 
-            walletDB->saveAddress(address);
-            doResponse(id, CreateAddress::Response{ address.m_walletID });
-        }
-        else
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        WalletAddress address;
+        walletDB->createAddress(address);
+        FillAddressData(data, address);
+
+        walletDB->saveAddress(address);
+        doResponse(id, CreateAddress::Response{ address.m_walletID });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const DeleteAddress& data)
     {
         LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         auto addr = walletDB->getAddress(data.address);
 
         if (addr)
@@ -121,12 +112,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         auto addr = walletDB->getAddress(data.address);
 
         if (addr)
@@ -135,7 +121,6 @@ namespace beam::wallet
             {
                 FillAddressData(data, *addr);
                 walletDB->saveAddress(*addr);
-
                 doResponse(id, EditAddress::Response{});
             }
             else
@@ -152,12 +137,7 @@ namespace beam::wallet
     void WalletApi::onMessage(const JsonRpcId& id, const AddrList& data)
     {
         LOG_DEBUG() << "AddrList(id = " << id << ")";
-
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         doResponse(id, AddrList::Response{walletDB->getAddresses(data.own)});
     }
 
@@ -176,13 +156,9 @@ namespace beam::wallet
             {
                 isValid &= v->IsValid();
 
-                auto walletDB = _data.getWalletDBPtr();
-                if (!walletDB)
-                {
-                    throw jsonrpc_exception(ApiError::NotOpenedError, id);
-                }
-
+                auto walletDB = getWalletDB();
                 auto addr = walletDB->getAddress(*v);
+
                 if (addr)
                 {
                     isMine = addr->isOwn();
@@ -193,6 +169,7 @@ namespace beam::wallet
                 }
             }
         }
+
         doResponse(id, ValidateAddress::Response{ isValid, isMine });
     }
 
@@ -211,12 +188,8 @@ namespace beam::wallet
         {
             WalletID from(Zero);
 
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-
-            if (!walletDB || !wallet) {
-                throw jsonrpc_exception(ApiError::NotOpenedError);
-            }
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
 
             if (data.from)
             {
@@ -248,7 +221,6 @@ namespace beam::wallet
             }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
-
             CoinIDList coins;
 
             if (data.session)
@@ -307,10 +279,7 @@ namespace beam::wallet
     template<typename T>
     void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
     {
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto walletDB = getWalletDB();
 
         if (data.assetMeta)
         {
@@ -362,12 +331,8 @@ namespace beam::wallet
         try
         {
             CoinIDList coins;
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-            if (!walletDB || !wallet)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
 
             if (data.session)
             {
@@ -415,12 +380,7 @@ namespace beam::wallet
                     << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
                     << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         boost::optional<WalletAsset> info;
 
         if (data.assetId)
@@ -447,24 +407,14 @@ namespace beam::wallet
 
     void WalletApi::onMessage(const JsonRpcId& id, const SetConfirmationsCount& data)
     {
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         walletDB->setCoinConfirmationsOffset(data.count);
         doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const GetConfirmationsCount& data)
     {
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
     }
 
@@ -476,12 +426,8 @@ namespace beam::wallet
                     << ")";
         try
         {
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-            if (!walletDB || !wallet)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
 
             if (data.txId && walletDB->getTx(*data.txId))
             {
@@ -520,12 +466,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
 
         if (tx)
@@ -557,12 +498,8 @@ namespace beam::wallet
 
         try
         {
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-            if (!walletDB)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
 
             WalletAddress senderAddress;
             walletDB->createAddress(senderAddress);
@@ -599,13 +536,8 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        auto wallet = _data.getWalletPtr();
-        if (!walletDB || !wallet)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
+        auto wallet = getWallet();
         auto tx = walletDB->getTx(data.txId);
 
         if (tx)
@@ -631,12 +563,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
 
         if (tx)
@@ -671,11 +598,7 @@ namespace beam::wallet
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
                     << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto walletDB = getWalletDB();
 
         GetUtxo::Response response;
         response.confirmations_count = walletDB->getCoinConfirmationsOffset();
@@ -718,11 +641,7 @@ namespace beam::wallet
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
         WalletStatusApi::Response response;
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto walletDB = getWalletDB();
 
         {
             Block::SystemState::ID stateID = {};
@@ -766,15 +685,10 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Lock(id = " << id << ")";
 
-        Lock::Response response;
-
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        Lock::Response response = {};
+        auto walletDB = getWalletDB();
         response.result = walletDB->lockCoins(data.coins, data.session);
+
         doResponse(id, response);
     }
 
@@ -782,15 +696,10 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
-        Unlock::Response response;
-
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB)
-        {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        Unlock::Response response = {};
+        auto walletDB = getWalletDB();
         response.result = walletDB->unlockCoins(data.session);
+
         doResponse(id, response);
     }
 
@@ -801,18 +710,16 @@ namespace beam::wallet
         TxList::Response res;
 
         {
-            auto walletDB = _data.getWalletDBPtr();
-            if (!walletDB)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
+            auto walletDB = getWalletDB();
 
             Block::SystemState::ID stateID = {};
-            _data.getWalletDBPtr()->getSystemStateID(stateID);
+            walletDB->getSystemStateID(stateID);
+
             res.resultList.reserve(data.count);
             uint32_t offset = 0;
             uint32_t counter = 0;
             walletDB->visitTx([&](TxType type, TxStatus status)
+
             {
                 if (type != TxType::Simple
                     && type != TxType::Contract
@@ -875,12 +782,9 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
 
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
-
+        auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
+
         if (!tx)
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpExportFailed);

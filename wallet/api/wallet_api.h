@@ -16,22 +16,29 @@
 #include "api_base.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
-#include "i_atomic_swap_provider.h"
+#include "api_swaps_provider.h"
 #include "wallet_api_defs.h"
 
 namespace beam::wallet {
-
-    struct IWalletApiData
-    {
-        virtual IWalletDB::Ptr getWalletDBPtr() const = 0;
-        virtual Wallet::Ptr getWalletPtr() const = 0;
-        virtual IAtomicSwapProvider::Ptr getAtomicSwapProvider() const = 0;
-    };
-
     class WalletApi : public ApiBase
     {
     public:
-        explicit WalletApi(IWalletApiData& walletData, ACL acl = boost::none);
+        explicit WalletApi(ACL acl = boost::none);
+
+        virtual IWalletDB::Ptr getWalletDB() const
+        {
+             throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
+        }
+
+         virtual Wallet::Ptr getWallet() const
+         {
+            throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
+         }
+
+         ISwapsProvider::Ptr getSwaps() const
+         {
+            throw jsonrpc_exception(ApiError::NoSwapsError);
+         }
 
         #define RESPONSE_FUNC(api, name, _) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -90,7 +97,5 @@ namespace beam::wallet {
         template<typename T>
         void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
         void checkCAEnabled(const JsonRpcId& id);
-
-        IWalletApiData& _data;
     };
 }

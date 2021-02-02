@@ -18,7 +18,7 @@
 #include "wallet/api/wallet_api.h"
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
-#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/api/api_swaps_provider.h"
 
 using namespace std;
 using namespace beam;
@@ -72,35 +72,10 @@ namespace
         WALLET_CHECK(msg["id"] > 0);
     }
 
-    struct WalletApiTestData
-            : public IWalletApiData
-    {
-        virtual IWalletDB::Ptr getWalletDBPtr() const
-        {
-            assert(false);
-            return nullptr;
-        }
-
-        virtual Wallet::Ptr getWalletPtr() const {
-            assert(false);
-            return nullptr;
-        }
-
-        virtual IAtomicSwapProvider::Ptr getAtomicSwapProvider() const
-        {
-            assert(false);
-            return nullptr;
-        }
-    };
-
-    class WalletApiTest
-            : public wallet::WalletApi
+    class WalletApiTest: public wallet::WalletApi
     {
     public:
-        WalletApiTest()
-            : WalletApi(_data)
-        {
-        }
+        WalletApiTest() = default;
 
         #define MESSAGE_FUNC(strct, name, _) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
@@ -110,8 +85,6 @@ namespace
         {
             assert(false);
         }
-
-        WalletApiTestData _data;
     };
 
     void testInvalidJsonRpc(jsonFunc func, const std::string& msg)

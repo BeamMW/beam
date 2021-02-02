@@ -18,7 +18,7 @@
 #include "api_base.h"
 #include "api_errors.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
-#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/api/api_swaps_provider.h"
 
 namespace beam::wallet
 {

@@ -26,9 +26,9 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
-#include "wallet/api/i_atomic_swap_provider.h"
+#include "wallet/api/api_swaps_provider.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#include "i_atomic_swap_provider.h"
+#include "api_swaps_provider.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
