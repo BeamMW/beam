@@ -15,24 +15,17 @@
 #include "wallet/core/common_utils.h"
 #include "bvm/ManagerStd.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offer_token.h"
-#include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/utils.h"
 #include <regex>
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#include "api_swap_errors.h"
 
-namespace beam::wallet {
-
+namespace beam::wallet
+{
     using namespace beam::wallet;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 
     const char kSwapAmountToLowError[] = "The swap amount must be greater than the redemption fee.";
     const char kBeamAmountToLowError[] = "\'beam_amount\' must be greater than \"beam_fee\".";
@@ -40,30 +33,30 @@ namespace beam::wallet {
     const char kSwapFeeToLowRecommenededError[] = "\'fee_rate\' must be greater or equal than recommended fee rate.";
     const char kSwapFeeToLowError[] = "\'fee_rate\' must be greater or equal than ";
 
-    void checkIsEnoughtBeamAmount(IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
+    void ensureBEAMAmount(const IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
         storage::Totals allTotals(*walletDB);
+
         const auto& totals = allTotals.GetBeamTotals();
         const auto available = AmountBig::get_Lo(totals.Avail);
+
         if (beamAmount + beamFee > available)
         {
-            throw NotEnoughtBeams();
+            throw swap_no_beam();
         }
     }
 
-    bool checkIsEnoughtSwapAmount(
-        const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin,
-        Amount swapAmount, Amount swapFeeRate)
+    bool checkIsEnoughtSwapAmount(const ISwapsProvider& swapProvider, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
     {
         beam::Amount total = swapAmount + swapFeeRate;
         return swapProvider.getCoinAvailable(swapCoin) > total;
     }
 
-    void checkSwapConnection(const IAtomicSwapProvider& swapProvider, AtomicSwapCoin swapCoin)
+    void ensureConnected(ISwapsProvider::Ptr swaps, AtomicSwapCoin swapCoin)
     {
-        if (!swapProvider.isCoinClientConnected(swapCoin))
+        if (!swaps->isCoinClientConnected(swapCoin))
         {
-            throw FailToConnectSwap(std::to_string(swapCoin));
+            throw swap_coin_fail(swapCoin);
         }
     }
 
@@ -146,20 +139,15 @@ namespace beam::wallet {
         return true;
     }
 
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-    #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void WalletApi::onMessage(const JsonRpcId& id, const OffersList& data)
     {
-        std::vector<SwapOffer> publicOffers = _data.getAtomicSwapProvider()->getSwapOffersBoard().getOffersList();
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto swaps = getSwaps();
+        auto walletDB = getWalletDB();
 
+        std::vector<SwapOffer> publicOffers = swaps->getSwapOffersBoard().getOffersList();
         auto swapTxs = walletDB->getTxHistory(TxType::AtomicSwap);
-        std::vector<SwapOffer> offers;
 
+        std::vector<SwapOffer> offers;
         offers.reserve(swapTxs.size());
 
         for (const auto& tx : swapTxs)
@@ -197,12 +185,10 @@ namespace beam::wallet {
 
     void WalletApi::onMessage(const JsonRpcId& id, const OffersBoard& data)
     {
-        std::vector<SwapOffer> offers = _data.getAtomicSwapProvider()->getSwapOffersBoard().getOffersList();
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto swaps = getSwaps();
+        auto walletDB = getWalletDB();
 
+        std::vector<SwapOffer> offers = swaps->getSwapOffersBoard().getOffersList();
         if (data.filter.swapCoin)
         {
             std::vector<SwapOffer> filteredOffers;
@@ -226,105 +212,88 @@ namespace beam::wallet {
 
     void WalletApi::onMessage(const JsonRpcId& id, const CreateOffer& data)
     {
-        try
+        auto swaps    = getSwaps();
+        auto walletDB = getWalletDB();
+        auto wallet   = getWallet();
+
+        ensureConnected(swaps, data.swapCoin);
+
+        // TODO need to unite with AcceptOffer
+        Amount recommendedFeeRate = swaps->getRecommendedFeeRate(data.swapCoin);
+
+        if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
         {
-            checkSwapConnection(*_data.getAtomicSwapProvider(), data.swapCoin);
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
+        }
 
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-            if (!walletDB || !wallet) {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
+        Amount minFeeRate = swaps->getMinFeeRate(data.swapCoin);
 
-            // TODO need to unite with AcceptOffer
-            Amount recommendedFeeRate = _data.getAtomicSwapProvider()->getRecommendedFeeRate(data.swapCoin);
+        if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
+        {
+            std::stringstream msg;
+            msg << kSwapFeeToLowError << minFeeRate;
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
+        }
 
-            if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
+        if (data.beamAmount <= data.beamFee)
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
+        }
+
+        if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
+        }
+
+        if (data.isBeamSide)
+        {
+            ensureBEAMAmount(walletDB, data.beamAmount, data.beamFee);
+        }
+        else
+        {
+            if(!checkIsEnoughtSwapAmount(*swaps, data.swapCoin, data.swapAmount, data.swapFeeRate))
             {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
             }
+        }
 
-            Amount minFeeRate = _data.getAtomicSwapProvider()->getMinFeeRate(data.swapCoin);
+        auto txParameters = CreateSwapTransactionParameters();
+        auto wid = createWID(walletDB.get(), data.comment);
+        auto currentHeight = walletDB->getCurrentHeight();
+        FillSwapTxParams(
+            &txParameters,
+            wid,
+            currentHeight,
+            data.beamAmount,
+            data.beamFee,
+            data.swapCoin,
+            data.swapAmount,
+            data.swapFeeRate,
+            data.isBeamSide,
+            data.offerLifetime);
 
-            if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
+        if (!data.comment.empty())
+        {
+            txParameters.SetParameter(TxParameterID::Message,
+                beam::ByteBuffer(data.comment.begin(), data.comment.end()));
+        }
+
+        auto txId = wallet->StartTransaction(txParameters);
+        LOG_DEBUG() << "transaction created: " << txId;
+
+        const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
+        const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
+        auto token = std::to_string(readyForTokenizeTxParams);
+
+        doResponse(
+            id,
+            CreateOffer::Response
             {
-                std::stringstream msg;
-                msg << kSwapFeeToLowError << minFeeRate;
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
-            }
-
-            if (data.beamAmount <= data.beamFee)
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
-            }
-
-            if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
-            {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
-            }
-
-            if (data.isBeamSide)
-            {
-                checkIsEnoughtBeamAmount(walletDB, data.beamAmount, data.beamFee);
-            }
-            else
-            {
-                if(!checkIsEnoughtSwapAmount(*_data.getAtomicSwapProvider(), data.swapCoin, data.swapAmount, data.swapFeeRate))
-                {
-                    throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
-                }
-            }
-
-            auto txParameters = CreateSwapTransactionParameters();
-            auto wid = createWID(walletDB.get(), data.comment);
-            auto currentHeight = walletDB->getCurrentHeight();
-            FillSwapTxParams(
-                &txParameters,
-                wid,
+                walletDB->getAddresses(true),
                 currentHeight,
-                data.beamAmount,
-                data.beamFee,
-                data.swapCoin,
-                data.swapAmount,
-                data.swapFeeRate,
-                data.isBeamSide,
-                data.offerLifetime);
-
-            if (!data.comment.empty())
-            {
-                txParameters.SetParameter(TxParameterID::Message,
-                    beam::ByteBuffer(data.comment.begin(), data.comment.end()));
-            }
-
-            auto txId = wallet->StartTransaction(txParameters);
-            LOG_DEBUG() << "transaction created: " << txId;
-
-            const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
-            const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
-            auto token = std::to_string(readyForTokenizeTxParams);
-
-            doResponse(
-                id,
-                CreateOffer::Response
-                {
-                    walletDB->getAddresses(true),
-                    currentHeight,
-                    token,
-                    txId
-                });
-        }
-        catch (const NotEnoughtBeams & e)
-        {
-            throw jsonrpc_exception(ApiError::SwapNotEnoughtBeams, e.what());
-        }
-        catch (const FailToConnectSwap & e)
-        {
-            throw jsonrpc_exception(ApiError::SwapFailToConnect, e.what());
-        }
-        catch (...)
-        {
-            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
-        }
+                token,
+                txId
+            });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const PublishOffer& data)
@@ -339,11 +308,7 @@ namespace beam::wallet {
             if (!txId)
                 throw FailToParseToken();
 
-            auto walletDB = _data.getWalletDBPtr();
-            if (!walletDB) {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
-
+            auto walletDB = getWalletDB();
             auto tx = walletDB->getTx(*txId);
 
             if (!tx)
@@ -358,7 +323,7 @@ namespace beam::wallet {
             if (offer.m_status == SwapOfferStatus::Pending)
             {
                 offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
-                _data.getAtomicSwapProvider()->getSwapOffersBoard().publishOffer(offer);
+                getSwaps()->getSwapOffersBoard().publishOffer(offer);
 
                 doResponse(id, PublishOffer::Response
                     {
@@ -400,15 +365,10 @@ namespace beam::wallet {
             if (!txId)
                 throw FailToParseToken();
 
-            auto publicOffer = getOfferFromBoardByTxId(_data.getAtomicSwapProvider()->getSwapOffersBoard().getOffersList(), *txId);
-            auto walletDB = _data.getWalletDBPtr();
-            auto wallet = _data.getWalletPtr();
-
-            if (!walletDB || !wallet)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
-
+            auto swaps = getSwaps();
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
+            auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
             auto myAddresses = walletDB->getAddresses(true);
 
             if (publicOffer)
@@ -447,14 +407,14 @@ namespace beam::wallet {
                 throw FailToParseToken();
             }
 
-            Amount recommendedFeeRate = _data.getAtomicSwapProvider()->getRecommendedFeeRate(*swapCoin);
+            Amount recommendedFeeRate = swaps->getRecommendedFeeRate(*swapCoin);
 
             if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapFeeToLowRecommenededError);
             }
 
-            Amount minFeeRate = _data.getAtomicSwapProvider()->getMinFeeRate(*swapCoin);
+            Amount minFeeRate = swaps->getMinFeeRate(*swapCoin);
 
             if (minFeeRate > 0 && data.swapFeeRate < minFeeRate)
             {
@@ -473,15 +433,15 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
             }
 
-            checkSwapConnection(*_data.getAtomicSwapProvider(), *swapCoin);
+            ensureConnected(swaps, *swapCoin);
 
             if (*isBeamSide)
             {
-                checkIsEnoughtBeamAmount(walletDB, *beamAmount, data.beamFee);
+                ensureBEAMAmount(walletDB, *beamAmount, data.beamFee);
             }
             else
             {
-                if(!checkIsEnoughtSwapAmount(*_data.getAtomicSwapProvider(), *swapCoin, *swapAmount, data.swapFeeRate))
+                if(!checkIsEnoughtSwapAmount(*swaps, *swapCoin, *swapAmount, data.swapFeeRate))
                 {
                     throw jsonrpc_exception(InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
                 }
@@ -521,28 +481,14 @@ namespace beam::wallet {
         {
             throw jsonrpc_exception(ApiError::SwapFailToAcceptOwnOffer, e.what());
         }
-        catch (const NotEnoughtBeams & e)
-        {
-            throw jsonrpc_exception(ApiError::SwapNotEnoughtBeams, e.what());
-        }
-        catch (const FailToConnectSwap & e)
-        {
-            throw jsonrpc_exception(ApiError::SwapFailToConnect, e.what());
-        }
-        catch (const std::runtime_error & e)
-        {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, e.what());
-        }
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const OfferStatus& data)
     {
-        auto walletDB = _data.getWalletDBPtr();
-        if (!walletDB) {
-            throw jsonrpc_exception(ApiError::NotOpenedError, id);
-        }
+        auto swaps = getSwaps();
+        auto walletDB = getWalletDB();
 
-        auto publicOffer = getOfferFromBoardByTxId(_data.getAtomicSwapProvider()->getSwapOffersBoard().getOffersList(), data.txId);
+        auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), data.txId);
         SwapOffer offer;
 
         if (auto tx = walletDB->getTx(data.txId); tx)
@@ -573,17 +519,13 @@ namespace beam::wallet {
             if (!txId)
                 throw FailToParseToken();
 
-            auto walletDB = _data.getWalletDBPtr();
-            if (!walletDB) {
-                throw jsonrpc_exception(ApiError::NotOpenedError, id);
-            }
-
             auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
             if (!peerId)
                 throw FailToParseToken();
 
             SwapOffer offer;
             bool isMyOffer = false;
+            auto walletDB = getWalletDB();
             auto myAddresses = walletDB->getAddresses(true);
             if (!storage::isMyAddress(myAddresses, *peerId))
             {
@@ -597,7 +539,8 @@ namespace beam::wallet {
                 offer = SwapOffer(mirroredTxParams);
             }
 
-            auto publicOffer = getOfferFromBoardByTxId(_data.getAtomicSwapProvider()->getSwapOffersBoard().getOffersList(), *txId);
+            auto swaps = getSwaps();
+            auto publicOffer = getOfferFromBoardByTxId(swaps->getSwapOffersBoard().getOffersList(), *txId);
             bool isPublic = !!publicOffer;
 
             doResponse(
@@ -617,30 +560,19 @@ namespace beam::wallet {
 
     void WalletApi::onMessage(const JsonRpcId& id, const GetBalance& data)
     {
-        try
-        {
-            checkSwapConnection(*_data.getAtomicSwapProvider(), data.coin);
-            Amount available = _data.getAtomicSwapProvider()->getCoinAvailable(data.coin);
-            doResponse(id, GetBalance::Response{ available });
-        }
-        catch (const FailToConnectSwap & e)
-        {
-            throw jsonrpc_exception(ApiError::SwapFailToConnect, e.what());
-        }
+        auto swaps = getSwaps();
+        ensureConnected(swaps, data.coin);
+
+        Amount available = swaps->getCoinAvailable(data.coin);
+        doResponse(id, GetBalance::Response{available});
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const RecommendedFeeRate& data)
     {
-        try
-        {
-            checkSwapConnection(*_data.getAtomicSwapProvider(), data.coin);
-            Amount feeRate = _data.getAtomicSwapProvider()->getRecommendedFeeRate(data.coin);
-            doResponse(id, RecommendedFeeRate::Response{ feeRate });
-        }
-        catch (const FailToConnectSwap& e)
-        {
-            throw jsonrpc_exception(ApiError::SwapFailToConnect, e.what());
-        }
+        auto swaps = getSwaps();
+        ensureConnected(swaps, data.coin);
+
+        Amount feeRate = swaps->getRecommendedFeeRate(data.coin);
+        doResponse(id, RecommendedFeeRate::Response{feeRate});
     }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 }

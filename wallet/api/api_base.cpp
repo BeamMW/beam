@@ -158,6 +158,11 @@ namespace beam::wallet {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, e.what());
             onParseError(error);
         }
+        catch (...)
+        {
+            const auto error = formError(id, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
+            onParseError(error);
+        }
 
         return true;
     }

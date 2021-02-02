@@ -18,11 +18,11 @@
 namespace beam::wallet
 {
     class SwapOffersBoard;
-    class IAtomicSwapProvider
+    class ISwapsProvider
     {
     public:
-        virtual ~IAtomicSwapProvider() = default;
-        typedef std::shared_ptr<IAtomicSwapProvider> Ptr;
+        virtual ~ISwapsProvider() = default;
+        typedef std::shared_ptr<ISwapsProvider> Ptr;
 
         [[nodiscard]] virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
         [[nodiscard]] virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
