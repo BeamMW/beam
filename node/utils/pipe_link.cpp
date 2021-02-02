@@ -65,6 +65,38 @@ struct Manager
         void RemoveStrict(Client&);
     };
 
+    std::mutex m_OutpMutex;
+
+    struct Printer
+    {
+        Manager* m_pManager;
+        std::stringstream m_Stream;
+
+        Printer(Manager& m) :m_pManager(&m) {}
+
+        Printer(Printer&& p)
+        {
+            m_pManager = p.m_pManager;
+            p.m_pManager = nullptr;
+            m_Stream.swap(p.m_Stream);
+        }
+
+        template <typename T>
+        Printer& operator << (const T& x)
+        {
+            m_Stream << x;
+            return *this;
+        }
+
+        ~Printer()
+        {
+            if (m_pManager) {
+                std::unique_lock<std::mutex> lock(m_pManager->m_OutpMutex);
+                std::cout << m_Stream.str() << std::endl;
+            }
+        }
+    };
+
     struct LocalContext
     {
         Manager& m_Manager;
@@ -74,6 +106,8 @@ struct Manager
 
         Node m_Node;
         Node m_NodeExt;
+
+        Printer Print();
 
         struct NodeObserver :public Node::IObserver
         {
@@ -136,6 +170,7 @@ struct Manager
 
     struct PerChain
     {
+        std::string m_sPrefix;
         Rules m_Rules;
         Key::IKdf::Ptr m_pKdf;
         Key::IPKdf::Ptr m_pExtOwnerKdf;
@@ -149,7 +184,8 @@ struct Manager
         Event m_Event;
     };
 
-    bool m_DemoMode = false;
+    bool m_AssumeSynced = false;
+    bool m_PushDummies = false;
     bool m_Stop = false;
     bool m_Freeze = false;
 
@@ -291,7 +327,7 @@ void Manager::RunInThread(uint32_t i)
     }
     catch (const std::exception& e)
     {
-        std::cout << e.what() << std::endl;
+        Printer(*this) << c.m_sPrefix << e.what();
     }
 
     Event::Context ctx(c.m_Event);
@@ -347,10 +383,17 @@ void Manager::RunInThread2(uint32_t i)
     Node::IObserver* pObs = &lc.m_NodeObserver;
     TemporarySwap<Node::IObserver*> tsObs(pObs, lc.m_Node.m_Cfg.m_Observer);
 
-    if (m_DemoMode)
+    if (m_AssumeSynced)
         lc.OnInitSync();
 
     io::Reactor::get_Current().run();
+}
+
+Manager::Printer Manager::LocalContext::Print()
+{
+    Printer p(m_Manager);
+    p << m_Manager.m_pC[m_iThread].m_sPrefix;
+    return std::move(p);
 }
 
 void Manager::LocalContext::OnInitSync()
@@ -358,7 +401,7 @@ void Manager::LocalContext::OnInitSync()
     assert(!m_NodeObserver.m_InitSyncReported);
     m_NodeObserver.m_InitSyncReported = true;
 
-    std::cout << "Pipe" << m_iThread << " sync complete" << std::endl;
+    Print() << "sync complete";
 
     auto& c = m_Manager.m_pC[m_iThread];
     Event::Context ctx(c.m_Event);
@@ -486,8 +529,8 @@ void Manager::LocalContext::SyncCoins()
 
 void Manager::LocalContext::OnStateChanged()
 {
-    const auto& s = m_Node.get_Processor().m_Cursor.m_Full;;
-    std::cout << "Pipe" << m_iThread << " Height=" << s.m_Height << std::endl;
+    const auto& s = m_Node.get_Processor().m_Cursor.m_Full;
+    Print() << "Height=" << s.m_Height;
 
     SyncCoins();
 
@@ -497,13 +540,13 @@ void Manager::LocalContext::OnStateChanged()
     if (m_hCurrentTxH1)
     {
         if (db.FindKernel(m_hvCurrentTx) >= Rules::HeightGenesis) {
-            std::cout << "last tx confirmed" << std::endl;
+            Print() << "last tx confirmed";
         } else
         {
             if (s.m_Height < m_hCurrentTxH1)
                 return;
 
-            std::cout << "last tx timed-out" << std::endl;
+            Print() << "last tx timed-out";
         }
 
         m_hCurrentTxH1 = 0;
@@ -566,7 +609,7 @@ void Manager::LocalContext::OnStateChanged()
         return;
     }
 
-    if (m_Manager.m_DemoMode && !(s.m_Height % 8))
+    if (m_Manager.m_PushDummies && !(s.m_Height % 8))
     {
         struct ArgPlus
         {
@@ -597,7 +640,11 @@ void Manager::LocalContext::OnStateChanged()
         nCps++;
 
     if (si.m_Dispute.m_iIdx >= nCps)
+    {
+        if (so2.m_Checkpoint.m_iMsg && !so2.IsCheckpointClosed(s.m_Height))
+            Print() << so2.m_Checkpoint.m_iMsg << " msgs pending. Waiting for full package to assemble";
         return; // up-to-date
+    }
 
     // read the checkpoint details
     Serializer ser;
@@ -660,8 +707,9 @@ void Manager::LocalContext::OnStateChanged()
 
                 rs.Reset();
                 SendContractTx(std::move(pKrn), "finalyze checkpoint", si.m_Dispute.m_Stake, false, pSk, (uint32_t) _countof(pSk));
-
             }
+
+            Print() << "waiting for dispute to expire...";
 
             return;
         }
@@ -765,7 +813,7 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
         {
             if (m_Coins.end() == it)
             {
-                std::cout << "Send tx failed (" << sz << "), Insuffucient funds, missing " << val << std::endl;
+                Print() << "Send tx failed (" << sz << "), Insuffucient funds, missing " << val;
                 return false;
             }
 
@@ -819,12 +867,12 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
     uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, true);
     if (proto::TxStatus::Ok != nCode)
     {
-        std::cout << "Send tx failed (" << sz << "), Status=" << static_cast<uint32_t>(nCode) << std::endl;
+        Print() << "Send tx failed (" << sz << "), Status=" << static_cast<uint32_t>(nCode);
         return false;
     }
 
 
-    std::cout << "Sent tx: (" << sz << ")" << std::endl;
+    Print() << "Sent tx: (" << sz << ")";
 
     m_hCurrentTxH1 = h1;
     return true;
@@ -879,7 +927,7 @@ int main_Guarded(int argc, char* argv[])
     //auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
 
     Manager man;
-    man.m_DemoMode = true;
+    man.m_AssumeSynced = true;
 
     {
         std::FStream fs;
@@ -893,6 +941,8 @@ int main_Guarded(int argc, char* argv[])
         bvm2::get_ShaderID(man.m_sidPipe, man.m_shaderPipe);
     }
 
+    man.m_pC[0].m_sPrefix = "<mainchain> ";
+    man.m_pC[1].m_sPrefix = "<sidechain> ";
 
     for (uint32_t i = 0; i < _countof(man.m_pC); i++)
     {
@@ -932,7 +982,7 @@ int main_Guarded(int argc, char* argv[])
 
         c.m_Rules.UpdateChecksum();
 
-        std::cout << "Pipe" << i << ", " << c.m_Rules.get_SignatureStr() << std::endl;
+        Manager::Printer(man) << c.m_sPrefix << c.m_Rules.get_SignatureStr();
 
         std::vector<std::string> vPeers = getCfgPeers(vm);
 
@@ -980,11 +1030,11 @@ int main_Guarded(int argc, char* argv[])
         }
     }
 
-    std::cout << "waiting both chains to sync..." << std::endl;
+    Manager::Printer(man) << "waiting both chains to sync...";
 
     man.Start();
 
-    std::cout << "Initial sync complete" << std::endl;
+    Manager::Printer(man) << "Initial sync complete";
 
     //{
     //    Manager::Freezer f(man);
