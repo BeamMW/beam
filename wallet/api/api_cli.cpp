@@ -186,57 +186,42 @@ private:
         }
     }
 
-        struct WalletData : IWalletApiData
+    struct WalletData
+    {
+        WalletData(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps)
+            : _swaps(std::move(swaps))
+            , _wdb(std::move(wdb))
+            , _wallet(std::move(wallet))
         {
-            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, IAtomicSwapProvider::Ptr atomicSwapProvider)
-                : m_atomicSwapProvider(std::move(atomicSwapProvider))
-                , m_walletDB(std::move(walletDB))
-                , m_wallet(std::move(wallet))
-            {
-            }
-            #else
-            WalletData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet)
-                : m_walletDB(walletDB)
-                , m_wallet(wallet)
-            {
-            }
-            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        }
 
-            virtual ~WalletData() {}
+        IWalletDB::Ptr getWalletDB() const
+        {
+            return _wdb;
+        }
 
-            IWalletDB::Ptr getWalletDBPtr() const override
-            {
-                return m_walletDB;
-            }
+        Wallet::Ptr getWallet() const
+        {
+            return _wallet;
+        }
 
-            Wallet::Ptr getWalletPtr() const override
-            {
-                return m_wallet;
-            }
+        ISwapsProvider::Ptr getSwaps() const
+        {
+            return _swaps;
+        }
 
-            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            IAtomicSwapProvider::Ptr getAtomicSwapProvider() const override
-            {
-                return m_atomicSwapProvider;
-            }
-            IAtomicSwapProvider::Ptr m_atomicSwapProvider;
-            #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-            IWalletDB::Ptr m_walletDB;
-            Wallet::Ptr m_wallet;
-        };
+    private:
+        ISwapsProvider::Ptr _swaps;
+        IWalletDB::Ptr _wdb;
+        Wallet::Ptr _wallet;
+    };
 
     template<typename T>
     std::shared_ptr<WalletApi> createConnection(io::TcpStream::Ptr&& newStream)
     {
         if (!_walletData)
         {
-            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _walletData = std::make_unique<WalletData>(_walletDB, _wallet, _swapsProvider);
-            #else
-            _walletData = std::make_unique<WalletData>(_walletDB, _wallet);
-            #endif
         }
 
         return std::static_pointer_cast<WalletApi>(
@@ -279,10 +264,10 @@ private:
     public:
     TcpApiConnection(IWalletApiServer& server
                     , io::TcpStream::Ptr&& newStream
-                    , IWalletApiData& walletData
+                    , WalletData& walletData
                     , WalletApi::ACL acl
         )
-        : WalletApi(walletData , std::move(acl))
+        : WalletApi(walletData.getWalletDB(), walletData.getWallet(), walletData.getSwaps(), std::move(acl))
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -340,10 +325,10 @@ private:
     public:
         HttpApiConnection(IWalletApiServer& server
                         , io::TcpStream::Ptr&& newStream
-                        , IWalletApiData& walletData
+                        , WalletData& walletData
                         , WalletApi::ACL acl
             )
-            : WalletApi(walletData, std::move(acl))
+            : WalletApi(walletData.getWalletDB(), walletData.getWallet(), walletData.getSwaps(), std::move(acl))
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -362,7 +347,7 @@ private:
                 );
         }
 
-        virtual ~HttpApiConnection() {}
+        virtual ~HttpApiConnection() = default;
 
         void sendMessage(const json& msg) override
         {

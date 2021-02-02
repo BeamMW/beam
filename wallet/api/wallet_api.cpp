@@ -99,8 +99,11 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
     return WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
 }
 
-    WalletApi::WalletApi(ACL acl)
+    WalletApi::WalletApi(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, ACL acl)
         : ApiBase(std::move(acl))
+        , _wdb(std::move(wdb))
+        , _wallet(std::move(wallet))
+        , _swaps(std::move(swaps))
     {
         #define REG_FUNC(api, name, writeAccess) \
         _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
