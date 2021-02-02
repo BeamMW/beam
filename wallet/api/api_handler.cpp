@@ -810,8 +810,8 @@ namespace beam::wallet
             Block::SystemState::ID stateID = {};
             _data.getWalletDBPtr()->getSystemStateID(stateID);
             res.resultList.reserve(data.count);
-            int offset = 0;
-            int counter = 0;
+            uint32_t offset = 0;
+            uint32_t counter = 0;
             walletDB->visitTx([&](TxType type, TxStatus status)
             {
                 if (type != TxType::Simple

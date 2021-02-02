@@ -358,8 +358,8 @@ namespace beam::wallet
 
     struct GetUtxo
     {
-        int count = 0;
-        int skip = 0;
+        uint32_t count = 0;
+        uint32_t skip = 0;
         bool withAssets = false;
 
         struct
@@ -372,7 +372,6 @@ namespace beam::wallet
             std::string field = "default";
             bool desc = false;
         } sort;
-
 
         struct Response
         {
@@ -413,8 +412,8 @@ namespace beam::wallet
             boost::optional<Asset::ID> assetId;
         } filter;
 
-        int count = 0;
-        int skip = 0;
+        uint32_t count = 0;
+        uint32_t skip = 0;
 
         struct Response
         {
