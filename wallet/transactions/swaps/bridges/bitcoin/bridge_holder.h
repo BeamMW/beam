@@ -37,7 +37,7 @@ namespace beam::bitcoin
     {
     public:
         BridgeHolder()
-            : m_bridgeConnectionType(ISettings::ConnectionType::None)
+            : m_bridgeConnectionType(Settings::ConnectionType::None)
         {
         }
 
@@ -45,18 +45,18 @@ namespace beam::bitcoin
         {
             if (settingsProvider.GetSettings().IsCoreActivated())
             {
-                if (m_bridgeConnectionType != ISettings::ConnectionType::Core)
+                if (m_bridgeConnectionType != Settings::ConnectionType::Core)
                 {
                     m_bridge = std::make_shared<CoreBridge>(currentReactor, settingsProvider);
-                    m_bridgeConnectionType = ISettings::ConnectionType::Core;
+                    m_bridgeConnectionType = Settings::ConnectionType::Core;
                 }
             }
             else if (settingsProvider.GetSettings().IsElectrumActivated())
             {
-                if (m_bridgeConnectionType != ISettings::ConnectionType::Electrum)
+                if (m_bridgeConnectionType != Settings::ConnectionType::Electrum)
                 {
                     m_bridge = std::make_shared<ElectrumBridge>(currentReactor, settingsProvider);
-                    m_bridgeConnectionType = ISettings::ConnectionType::Electrum;
+                    m_bridgeConnectionType = Settings::ConnectionType::Electrum;
                 }
             }
             else
@@ -70,11 +70,11 @@ namespace beam::bitcoin
         void Reset() override
         {
             m_bridge.reset();
-            m_bridgeConnectionType = ISettings::ConnectionType::None;
+            m_bridgeConnectionType = Settings::ConnectionType::None;
         }
 
     private:
         IBridge::Ptr m_bridge;
-        ISettings::ConnectionType m_bridgeConnectionType;
+        Settings::ConnectionType m_bridgeConnectionType;
     };
 }

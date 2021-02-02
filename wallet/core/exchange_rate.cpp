@@ -30,6 +30,22 @@ namespace beam::wallet
                 return std::string(qtumCurrencyStr);
             case Currency::Usd:
                 return std::string(usdCurrencyStr);
+            case Currency::Dogecoin:
+                return std::string(dogeCurrencyStr);
+            case Currency::Dash:
+                return std::string(dashCurrencyStr);
+            case Currency::Ethereum:
+                return std::string(ethereumCurrencyStr);
+            case Currency::Dai:
+                return std::string(daiCurrencyStr);
+            case Currency::Usdt:
+                return std::string(usdtCurrencyStr);
+            case Currency::WBTC:
+                return std::string(wbtcCurrencyStr);
+#if defined(BITCOIN_CASH_SUPPORT)
+            case Currency::Bitcoin_Cash:
+                return std::string(bchCurrencyStr);
+#endif // BITCOIN_CASH_SUPPORT
             default:
                 return std::string(unknownCurrencyStr);
         }
@@ -47,6 +63,22 @@ namespace beam::wallet
             return Currency::Qtum;
         else if (c == usdCurrencyStr)
             return Currency::Usd;
+        else if (c == ethereumCurrencyStr)
+            return Currency::Ethereum;
+        else if (c == dogeCurrencyStr)
+            return Currency::Dogecoin;
+        else if (c == dashCurrencyStr)
+            return Currency::Dash;
+        else if (c == daiCurrencyStr)
+            return Currency::Dai;
+        else if (c == usdtCurrencyStr)
+            return Currency::Usdt;
+        else if (c == wbtcCurrencyStr)
+            return Currency::WBTC;
+#if defined(BITCOIN_CASH_SUPPORT)
+        else if (c == bchCurrencyStr)
+            return Currency::Bitcoin_Cash;
+#endif // BITCOIN_CASH_SUPPORT
         else return Currency::Unknown;
     }
 

@@ -1,0 +1,449 @@
+name: Build
+
+on: [push]
+
+env:
+  BUILD_TYPE: Release
+  BUILD_CONFIG: RelWithDebInfo
+
+jobs:
+###############################################################################
+# Build Desktop
+###############################################################################
+  build_desktop:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-10.15, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        # os: [macos-10.15, ubuntu-16.04, ubuntu-18.04, ubuntu-20.04, windows-2019]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+
+    - name: Create Build Environment [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: |
+        echo $GITHUB_WORKSPACE
+        echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
+
+    - name: Create Build Environment [ununtu all]
+      shell: bash
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: |
+        sudo apt-get update
+        sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
+
+    # - name: Create Build Environment [ununtu 16.04]
+    #   shell: bash
+    #   if: matrix.os == 'ubuntu-16.04'
+    #   run: |
+    #     sudo apt-get install g++-7 gcc-7
+    #     echo "CC=gcc-7" >> $GITHUB_ENV
+    #     echo "CXX=g++-7" >> $GITHUB_ENV
+
+    - name: Create Build Environment [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
+        echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
+
+    - name: Download boost [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: |
+        curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
+        brew install ./boost.rb 
+
+    - name: Download boost [ununtu all]
+      shell: bash
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: |
+        git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
+        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake
+###############################################################################
+    - name: Configure CMake [macos-10.15 && ununtu all]
+      if: matrix.os != 'windows-2019'
+      run: |
+        # git apply 3rdparty/protobuf-patch.diff
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$GITHUB_REF -DBEAM_HW_WALLET=Off .
+
+    - name: Configure CMake [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: |
+        # git apply 3rdparty/protobuf-patch.diff
+        cmake -G "Visual Studio 16 2019" -A x64 -DBOOST_ROOT=$BOOST_ROOT_1_72_0 -DCMAKE_BUILD_TYPE=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$GITHUB_REF -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
+
+    - name: Save version info
+      shell: bash
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-testnet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Build
+###############################################################################
+    - name: Build [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: cmake --build . --parallel --config $BUILD_TYPE
+
+    - name: Build [ununtu all]
+      shell: bash
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: make -j$(nproc)
+
+    - name: Build [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: cmake --build . --parallel --config $BUILD_CONFIG
+
+###############################################################################
+# Test
+###############################################################################
+    - name: Test [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      continue-on-error: false
+      run: ctest -C $BUILD_TYPE --verbose
+
+    - name: Test [ununtu all]
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      continue-on-error: false
+      shell: bash
+      run: ctest --verbose
+
+    - name: Test [windows]
+      if: matrix.os == 'windows-2019'
+      continue-on-error: false
+      shell: bash
+      run: ctest -C $BUILD_CONFIG --verbose
+
+###############################################################################
+# Collect artifacts
+###############################################################################
+
+    - name: Collect [macos-10.15 && ununtu all]
+      shell: bash
+      if: matrix.os != 'windows-2019'
+      run: |
+        mkdir artifacts
+        cp beam/beam-node${{env.BEAM_TARGET_SUFFIX}} artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
+        cp beam/beam-node.cfg artifacts/beam-node.cfg
+        cp wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
+        cp wallet/cli/beam-wallet.cfg artifacts/beam-wallet.cfg
+        cp wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}
+        cp wallet/api/wallet-api.cfg artifacts/wallet-api.cfg
+        cp explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}
+        cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
+        cp wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+    - name: Import Code-Signing Certificates [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      uses: Apple-Actions/import-codesign-certs@v1
+      with:
+        p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+        p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+    - name: Sign the mac binaries [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: |
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+
+    - name: Collect [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: |
+        mkdir artifacts
+        cp beam/${{env.BUILD_CONFIG}}/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe
+        cp beam/beam-node.cfg artifacts/beam-node.cfg
+        cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe
+        cp wallet/cli/beam-wallet.cfg artifacts/beam-wallet.cfg
+        cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe
+        cp wallet/api/wallet-api.cfg artifacts/wallet-api.cfg
+        cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe
+        cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
+        cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe
+
+    - name: Collect pdb [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: |
+        mkdir pdb
+        cp beam/${{env.BUILD_CONFIG}}/beam-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/beam-node${{env.BEAM_TARGET_SUFFIX}}.pdb
+        cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.pdb
+        cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb
+        cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb
+        cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb
+
+    - name: OS name [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: echo "OS_NAME=${{runner.os}}" >> $GITHUB_ENV
+
+    - name: OS name [ununtu all]
+      shell: bash
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: echo "OS_NAME=${{matrix.os}}" >> $GITHUB_ENV
+
+    - name: OS name [windows]
+      shell: bash
+      if: matrix.os == 'windows-2019'
+      run: echo "OS_NAME=${{runner.os}}" >> $GITHUB_ENV
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: artifacts/beam-node*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-wallet-cli${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: artifacts/beam-wallet*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: artifacts/wallet-api*
+        if-no-files-found: error
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: explorer-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: artifacts/explorer-node*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: artifacts/broadcaster*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'windows-2019'
+      with:
+        name: pdb${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}-${{env.OS_NAME}}
+        path: pdb
+        if-no-files-found: error
+
+###############################################################################
+# Build IOS
+###############################################################################
+  build_ios:
+    runs-on: macos-10.15
+    # if: ${{false}}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+
+    - name: Create Build Environment
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/boost-ios.git ${{runner.workspace}}/dependencies/boost-ios
+        git clone --depth=1 https://github.com/BeamMW/boost-ios-simulator.git ${{runner.workspace}}/dependencies/boost-ios-simulator
+        git clone --depth=1 https://github.com/BeamMW/openssl-ios.git ${{runner.workspace}}/dependencies/openssl-ios
+        git clone --depth=1 https://github.com/leetal/ios-cmake.git ${{runner.workspace}}/dependencies/toolchain-ios
+        # echo "BUILD_TYPE=Release" >> $GITHUB_ENV
+        echo "OPENSSL_ROOT_DIR=${{runner.workspace}}/dependencies/openssl-ios/" >> $GITHUB_ENV
+        echo "OPENSSL_CRYPTO_LIBRARY=${{runner.workspace}}/dependencies/openssl-ios/lib/libcrypto.a" >> $GITHUB_ENV
+        echo "OPENSSL_INCLUDE_DIR=${{runner.workspace}}/dependencies/openssl-ios/include" >> $GITHUB_ENV
+        echo "OPENSSL_SSL_LIBRARY=${{runner.workspace}}/dependencies/openssl-ios/lib/libssl.a" >> $GITHUB_ENV
+        echo "OPENSSL_LIBRARIES=${{runner.workspace}}/dependencies/openssl-ios/lib" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake && Build
+###############################################################################
+    - name: Configure CMake && Build
+      run: |
+        # git apply 3rdparty/protobuf-patch.diff
+        export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios"
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
+        make -C ./build -j$(sysctl -n hw.ncpu)
+        export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios-simulator"
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build-simulator
+        make -C ./build-simulator -j$(sysctl -n hw.ncpu)
+
+    - name: Save version info
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-testnet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Collect artifacts
+###############################################################################
+    - name: Collect
+      run: |
+        echo BEAM_VERSION = $BEAM_VERSION
+        mkdir -p ${{runner.workspace}}/results/beam-ios/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios/lib
+        find ./build -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios/lib/ \;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios/include/
+        cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios/include/core/
+        mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/lib
+        find ./build-simulator -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios-simulator/lib/ \;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-simulator/include/
+        cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios-simulator/include/core/
+        mkdir -p ${{runner.workspace}}/results/beam-ios-combined/include
+        mkdir -p ${{runner.workspace}}/results/beam-ios-combined/lib
+        find ${{runner.workspace}}/results/beam-ios/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output ${{runner.workspace}}/results/beam-ios-combined/lib/$(basename "$file") "$file" ${{runner.workspace}}/results/beam-ios-simulator/lib/$(basename "$file"); done;
+        rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-combined/include/
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios-simulator${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios-simulator
+        if-no-files-found: error
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-ios-combined${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: ${{runner.workspace}}/results/beam-ios-combined
+        if-no-files-found: error
+
+###############################################################################
+# Build ANDROID
+###############################################################################
+  build_android:
+    runs-on: ubuntu-18.04
+    # if: ${{false}}
+    strategy:
+      matrix:
+        abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
+    env:
+      ANDROID_ABI: ${{matrix.abi}}
+      ANDROID_SDK_VERSION: 23
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+    - name: Create Build Environment
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_68-android
+        git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
+        echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle" >> $GITHUB_ENV
+        echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_68-android" >> $GITHUB_ENV
+        echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake
+###############################################################################
+    - name: Configure CMake
+      run: |
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
+        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+
+###############################################################################
+# Build
+###############################################################################
+    - name: Build
+      run: |
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
+        make wallet-jni -j$(nproc)
+
+    - name: Save version info
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-testnet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: libwallet-jni${{env.BEAM_TARGET_SUFFIX}}-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
+        path: |
+          android/libwallet-jni.so
+          android/com
+        if-no-files-found: error
+
+###############################################################################
+# Build Key Keeper Web Assembly
+###############################################################################
+  build_key_keeper:
+    runs-on: ubuntu-18.04
+    # if: ${{false}}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+    - name: Download and install emscripten
+      shell: bash
+      run: |
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        git pull
+        ./emsdk install latest
+        ./emsdk activate latest
+
+    - name: Download boost
+      shell: bash
+      run: |
+        git clone https://github.com/BeamMW/boost-linux.git ${{runner.workspace}}/boost_prebuild
+        echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuild" >> $GITHUB_ENV
+
+###############################################################################
+# Configure CMake
+###############################################################################
+    - name: Configure CMake
+      run: |
+        source ./emsdk/emsdk_env.sh
+        emcmake cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE keykeeper
+
+###############################################################################
+# Build
+###############################################################################
+    - name: Build
+      run: |
+        make -j$(nproc)
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: wasm-key-keeper
+        path: |
+          wasm-key-keeper.*
+        if-no-files-found: error

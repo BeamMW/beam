@@ -47,8 +47,6 @@
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
@@ -59,6 +57,9 @@
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/api/i_atomic_swap_provider.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
+#include "swap_client.h"
+#include "swap_eth_client.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
@@ -132,92 +133,6 @@ WalletApi::ACL loadACL(const std::string& path)
     return WalletApi::ACL(keys);
 }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-using BaseSwapClient = beam::bitcoin::Client;
-class SwapClient : public BaseSwapClient
-{
-public:
-    using Ptr = std::shared_ptr<SwapClient>;
-    SwapClient(
-        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
-        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
-        io::Reactor& reactor)
-        : BaseSwapClient(bridgeHolder,
-                         std::move(settingsProvider),
-                         reactor)
-        , _timer(beam::io::Timer::create(reactor))
-        , _feeTimer(beam::io::Timer::create(reactor))
-        , _status(Status::Unknown)
-    {
-        requestBalance();
-        requestRecommendedFeeRate();
-        _timer->start(1000, true, [this] ()
-        {
-            requestBalance();
-        });
-
-        // TODO need name for the parameter
-        _feeTimer->start(60 * 1000, true, [this]()
-        {
-            requestRecommendedFeeRate();
-        });
-    }
-
-    Amount GetAvailable() const
-    {
-        return _balance.m_available;
-    }
-
-    Amount GetRecommendedFeeRate() const
-    {
-        return _recommendedFeeRate;
-    }
-
-    bool IsConnected() const
-    {
-        return _status == Status::Connected;
-    }
-
-private:
-    beam::io::Timer::Ptr _timer;
-    beam::io::Timer::Ptr _feeTimer;
-    Balance _balance;
-    Amount _recommendedFeeRate = 0;
-    Status _status;
-    void requestBalance()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update balance
-            GetAsync()->GetBalance();
-        }
-    }
-    void requestRecommendedFeeRate()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update recommended fee rate
-            GetAsync()->EstimateFeeRate();
-        }
-    }
-    void OnStatus(Status status) override
-    {
-        _status = status;
-    }
-    void OnBalance(const Balance& balance) override
-    {
-        _balance = balance;
-    }
-    void OnEstimatedFeeRate(Amount feeRate) override
-    {
-        _recommendedFeeRate = feeRate;
-    }
-    void OnCanModifySettingsChanged(bool canModify) override {}
-    void OnChangedSettings() override {}
-    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
-};
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
-
 class IWalletApiServer
 {
 public:
@@ -254,6 +169,11 @@ public:
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetAvailable(swapCoin) : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetAvailable() : 0;
@@ -261,6 +181,11 @@ public:
 
     Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetRecommendedFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetRecommendedFeeRate() : 0;
@@ -268,9 +193,26 @@ public:
 
     Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMinFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
+    }
+
+    Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMaxFeeRate() : 0;
+        }
+
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetSettings().GetMaxFeeRate() : 0;
     }
 
     const SwapOffersBoard& getSwapOffersBoard() const override
@@ -280,6 +222,11 @@ public:
 
     bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->IsConnected() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
 
         return swapClient && swapClient->IsConnected();
@@ -312,6 +259,7 @@ public:
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
 #endif // BITCOIN_CASH_SUPPORT
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
+        initEthClient();
     }
 
     void onSwapOffersChanged(
@@ -332,6 +280,16 @@ private:
         _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
     }
 
+    void initEthClient()
+    {
+        auto settingsProvider = std::make_unique<ethereum::SettingsProvider>(_walletDB);
+        settingsProvider->Initialize();
+
+        _swapEthBridgeHolder = std::make_shared<ethereum::BridgeHolder>();
+        _swapEthClient = std::make_shared<SwapEthClient>
+            (_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
+    }
+
     SwapClient::Ptr getSwapCoinClient(beam::wallet::AtomicSwapCoin swapCoin) const
     {
         auto it = _swapClients.find(swapCoin);
@@ -341,7 +299,7 @@ private:
         }
         return nullptr;
     }
-
+    
     std::shared_ptr<BroadcastRouter> _broadcastRouter;
     std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     SwapOffersBoard::Ptr _offersBulletinBoard;
@@ -350,6 +308,8 @@ private:
 
     std::map<beam::wallet::AtomicSwapCoin, SwapClient::Ptr> _swapClients;
     std::map<beam::wallet::AtomicSwapCoin, beam::bitcoin::IBridgeHolder::Ptr> _swapBridgeHolders;
+    SwapEthClient::Ptr _swapEthClient;
+    beam::ethereum::IBridgeHolder::Ptr _swapEthBridgeHolder;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 protected:
@@ -374,7 +334,6 @@ protected:
 
     void stop()
     {
-
     }
 
     void closeConnection(uint64_t id) override
@@ -715,7 +674,6 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
 
@@ -723,6 +681,7 @@ int main(int argc, char* argv[])
             po::options_description desc("Wallet API general options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
+                (cli::VERSION_FULL, "print project version")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
@@ -764,6 +723,12 @@ int main(int argc, char* argv[])
             if (vm.count(cli::HELP))
             {
                 std::cout << desc << std::endl;
+                return 0;
+            }
+
+            if (vm.count(cli::VERSION))
+            {
+                std::cout << PROJECT_VERSION << std::endl;
                 return 0;
             }
 
@@ -857,6 +822,7 @@ int main(int argc, char* argv[])
             options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
+        io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);

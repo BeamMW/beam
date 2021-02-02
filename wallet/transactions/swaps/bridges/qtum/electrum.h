@@ -27,5 +27,6 @@ namespace beam::qtum
     protected:
 
         Amount getDust() const override;
+        std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys(const std::vector<std::string>& words) const override;
     };
 } // namespace beam::qtum

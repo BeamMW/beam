@@ -26,4 +26,9 @@ Amount Electrum::getDust() const
 {
     return kQtumDustThreshold;
 }
+
+std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> Electrum::generateMasterPrivateKeys(const std::vector<std::string>& words) const
+{
+    return generateElectrumMasterPrivateKeys(words);
+}
 } // namespace beam::qtum

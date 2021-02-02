@@ -310,6 +310,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getShieldedCoins, assetId, std::move(callback));
     }
+
+    void enableBodyRequests(bool value) override
+    {
+        call_async(&IWalletModelAsync::enableBodyRequests, value);
+    }
 };
 }
 
@@ -540,9 +545,9 @@ namespace beam::wallet
             {
                 LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
             }
-            catch (...) {
+            /*catch (...) {
                 LOG_UNHANDLED_EXCEPTION();
-            }
+            }*/
         });
     }
 
@@ -1402,6 +1407,15 @@ namespace beam::wallet
         {
             cb(std::move(coins));
         });
+    }
+
+    void WalletClient::enableBodyRequests(bool value)
+    {
+        auto s = m_wallet.lock();
+        if (s)
+        {
+            s->EnableBodyRequests(value);
+        }
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

@@ -122,65 +122,45 @@ namespace beam::bitcoin
         }
     };
 
-    class ISettings
+    class Settings
     {
     public:
-        using Ptr = std::shared_ptr<ISettings>;
-
         enum class ConnectionType : uint8_t
         {
             None,
             Core,
             Electrum
         };
-        
-        virtual ~ISettings() {};
 
-        virtual BitcoinCoreSettings GetConnectionOptions() const = 0;
-        virtual bool IsCoreActivated() const = 0;
-        virtual ElectrumSettings GetElectrumConnectionOptions() const = 0;
-        virtual bool IsElectrumActivated() const = 0;
-        virtual Amount GetMinFeeRate() const = 0;
-        virtual uint16_t GetTxMinConfirmations() const = 0;
-        virtual uint32_t GetLockTimeInBlocks() const = 0;
-        virtual bool IsInitialized() const = 0;
-        virtual bool IsActivated() const = 0;
-        virtual ConnectionType GetCurrentConnectionType() const = 0;
-        virtual double GetBlocksPerHour() const = 0;
-        virtual uint8_t GetAddressVersion() const = 0;
-        virtual std::vector<std::string> GetGenesisBlockHashes() const = 0;
-        virtual bool IsSupportedElectrum() const = 0;
-    };
-
-    boost::optional<ISettings::ConnectionType> from_string(const std::string&);
-    std::string to_string(ISettings::ConnectionType);
-
-    class Settings : public ISettings
-    {
-    public:
        // Settings() = default;
        // ~Settings() = default;
-        BitcoinCoreSettings GetConnectionOptions() const override;
-        bool IsCoreActivated() const override;
-        ElectrumSettings GetElectrumConnectionOptions() const override;
-        bool IsElectrumActivated() const override;
-        Amount GetMinFeeRate() const override;
-        uint16_t GetTxMinConfirmations() const override;
-        uint32_t GetLockTimeInBlocks() const override;
-        bool IsInitialized() const override;
-        bool IsActivated() const override;
-        ConnectionType GetCurrentConnectionType() const override;
-        double GetBlocksPerHour() const override;
-        uint8_t GetAddressVersion() const override;
-        std::vector<std::string> GetGenesisBlockHashes() const override;
-        bool IsSupportedElectrum() const override;
+        BitcoinCoreSettings GetConnectionOptions() const;
+        bool IsCoreActivated() const;
+        ElectrumSettings GetElectrumConnectionOptions() const;
+        bool IsElectrumActivated() const;
+        Amount GetMinFeeRate() const;
+        Amount GetMaxFeeRate() const;
+        uint16_t GetLockTxMinConfirmations() const;
+        uint16_t GetWithdrawTxMinConfirmations() const;
+        uint32_t GetLockTimeInBlocks() const;
+        bool IsInitialized() const;
+        bool IsActivated() const;
+        ConnectionType GetCurrentConnectionType() const;
+        double GetBlocksPerHour() const;
+        uint8_t GetAddressVersion() const;
+        std::vector<std::string> GetGenesisBlockHashes() const;
+        bool IsSupportedElectrum() const;
 
+        void ChangeConnectionType(ConnectionType type);
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
+
+    protected:
         void SetMinFeeRate(Amount feeRate);
-        void SetTxMinConfirmations(uint16_t txMinConfirmations);
+        void SetMaxFeeRate(Amount feeRate);
+        void SetLockTxMinConfirmations(uint16_t txMinConfirmations);
+        void SetWithdrawTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
-        void ChangeConnectionType(ConnectionType type);
         void SetBlocksPerHour(double beamBlocksPerBlock);
         void SetAddressVersion(uint8_t addressVersion);
         void SetGenesisBlockHashes(const std::vector<std::string>& genesisBlockHashes);
@@ -191,12 +171,17 @@ namespace beam::bitcoin
         ElectrumSettings m_electrumConnectionSettings;
         ConnectionType m_connectionType = ConnectionType::None;
         // They are not stored in DB
-        Amount m_minFeeRate = 1000;
-        uint16_t m_txMinConfirmations = 6;
+        Amount m_minFeeRate = 20'000u;
+        Amount m_maxFeeRate = 1'000'000u; // COIN / 100
+        uint16_t m_lockTxMinConfirmations = 1;
+        uint16_t m_withdrawTxMinConfirmations = 1;
         uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
         double m_blocksPerHour = 6;
         uint8_t m_addressVersion = getAddressVersion();
         std::vector<std::string> m_genesisBlockHashes = getGenesisBlockHashes();
         bool m_isSupportedElectrum = true;
     };
+
+    boost::optional<Settings::ConnectionType> from_string(const std::string&);
+    std::string to_string(Settings::ConnectionType);
 } // namespace beam::bitcoin

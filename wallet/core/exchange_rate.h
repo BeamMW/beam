@@ -21,12 +21,19 @@ namespace beam::wallet
 {
     using namespace beam;
 
-    constexpr std::string_view beamCurrencyStr =    "beam";
-    constexpr std::string_view btcCurrencyStr =     "btc";
-    constexpr std::string_view ltcCurrencyStr =     "ltc";
-    constexpr std::string_view qtumCurrencyStr =    "qtum";
-    constexpr std::string_view usdCurrencyStr =     "usd";
-    constexpr std::string_view unknownCurrencyStr = "unknown";
+    constexpr std::string_view beamCurrencyStr =     "beam";
+    constexpr std::string_view btcCurrencyStr =      "btc";
+    constexpr std::string_view ltcCurrencyStr =      "ltc";
+    constexpr std::string_view qtumCurrencyStr =     "qtum";
+    constexpr std::string_view usdCurrencyStr =      "usd";
+    constexpr std::string_view dogeCurrencyStr =     "doge";
+    constexpr std::string_view dashCurrencyStr =     "dash";
+    constexpr std::string_view ethereumCurrencyStr = "ethereum";
+    constexpr std::string_view daiCurrencyStr =      "dai";
+    constexpr std::string_view usdtCurrencyStr =     "usdt";
+    constexpr std::string_view wbtcCurrencyStr =     "wbtc";
+    constexpr std::string_view bchCurrencyStr =      "bch";
+    constexpr std::string_view unknownCurrencyStr =  "unknown";
 
     constexpr std::string_view noSecondCurrencyStr = "off";
 
@@ -39,6 +46,13 @@ namespace beam::wallet
             Litecoin,
             Qtum,
             Usd,
+            Dogecoin,
+            Dash,
+            Ethereum,
+            Dai,
+            Usdt,
+            WBTC,
+            Bitcoin_Cash,
             Unknown
         };
     

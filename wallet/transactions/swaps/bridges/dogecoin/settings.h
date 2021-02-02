@@ -28,13 +28,16 @@ namespace beam::dogecoin
         Settings()
             : bitcoin::Settings()
         {
+            constexpr uint16_t kLockTxMinConfirmations = 6;
             constexpr double kDogeBlocksPerHour = 60;
             constexpr uint32_t kDogeDefaultLockTimeInBlocks = 12 * 60;
-            // TODO roman.strilets need investigate
-            constexpr Amount kDogeMinFeeRate = 100'000'000;
+            constexpr Amount kDogeMinFeeRate = 100'000'000u;
+            constexpr Amount kDogeMaxFeeRate = 100'000'000u * 25u; // 25 * COIN
 
+            SetLockTxMinConfirmations(kLockTxMinConfirmations);
             SetLockTimeInBlocks(kDogeDefaultLockTimeInBlocks);
             SetMinFeeRate(kDogeMinFeeRate);
+            SetMaxFeeRate(kDogeMaxFeeRate);
             SetBlocksPerHour(kDogeBlocksPerHour);
             SetAddressVersion(getAddressVersion());
             SetGenesisBlockHashes(getGenesisBlockHashes());

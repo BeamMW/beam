@@ -344,7 +344,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         assert(phrases.size() == WORD_COUNT);
 
-        if (!isValidMnemonic(phrases, language::en))
+        if (!isValidMnemonic(phrases))
         {
             LOG_ERROR() << "Invalid seed phrase provided: " << st;
             return nullptr;
@@ -489,7 +489,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getLibVersion)(JNIEnv *env, jo
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, jobject thiz)
 {
-    auto phrases = createMnemonic(getEntropy(), language::en);
+    auto phrases = createMnemonic(getEntropy());
 
     jobjectArray phrasesArray = env->NewObjectArray(static_cast<jsize>(phrases.size()), env->FindClass("java/lang/String"), 0);
 
@@ -1051,6 +1051,16 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPublicAddress)(JNIEnv *env,
     walletModel->getAsync()->getPublicAddress();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(rescan)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->rescan();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(enableBodyRequests)(JNIEnv *env, jobject thiz, jboolean enable)
+{
+    walletModel->getAsync()->enableBodyRequests(enable);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportTxHistoryToCsv)(JNIEnv *env, jobject thiz)
 {
     walletModel->getAsync()->exportTxHistoryToCsv();
@@ -1068,7 +1078,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(J
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz, jlong hours)
 {
-    walletModel->getAsync()->setMaxPrivacyLockTimeLimitHours(hours);
+    walletModel->getAsync()->setMaxPrivacyLockTimeLimitHours(static_cast<uint8_t>(hours));
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHoursAsync)(JNIEnv *env, jobject thiz)

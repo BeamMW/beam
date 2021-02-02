@@ -45,17 +45,6 @@ namespace beam::bitcoin
 #endif
     }
 
-    bool validateElectrumMnemonic(const std::vector<std::string>& words, bool isSegwitType)
-    {
-        auto seedType = isSegwitType ? libbitcoin::wallet::electrum::seed::witness : libbitcoin::wallet::electrum::seed::standard;
-        return libbitcoin::wallet::electrum::validate_mnemonic(words, seedType);
-    }
-
-    std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)
-    {
-        return libbitcoin::wallet::electrum::create_mnemonic(entropy);
-    }
-
     std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words)
     {
         auto hd_seed = libbitcoin::wallet::electrum::decode_mnemonic(words);
@@ -75,34 +64,5 @@ namespace beam::bitcoin
         libbitcoin::wallet::payment_address address = publicKey.to_payment_address(addressVersion);
 
         return address.encoded();
-    }
-
-    std::vector<std::string> generateReceivingAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
-    {
-        std::vector<std::string> addresses;
-        auto masterKey = generateElectrumMasterPrivateKeys(words).first;
-
-        for (uint32_t index = 0; index < amount; index++)
-        {
-            addresses.push_back(getElectrumAddress(masterKey, index, addressVersion));
-        }
-        return addresses;
-    }
-
-    std::vector<std::string> generateChangeAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
-    {
-        std::vector<std::string> addresses;
-        auto masterKey = generateElectrumMasterPrivateKeys(words).second;
-
-        for (uint32_t index = 0; index < amount; index++)
-        {
-            addresses.push_back(getElectrumAddress(masterKey, index, addressVersion));
-        }
-        return addresses;
-    }
-
-    bool isAllowedWord(const std::string& word)
-    {
-        return std::binary_search(libbitcoin::wallet::language::electrum::en.begin(), libbitcoin::wallet::language::electrum::en.end(), word);
     }
 } // namespace beam::bitcoin

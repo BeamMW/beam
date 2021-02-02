@@ -929,6 +929,14 @@ namespace beam::wallet
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, ShieldedCoin&, Height hTop);
 
+        bool isTreasuryHandled(const IWalletDB&);
+        void setTreasuryHandled(IWalletDB&, bool value);
+        bool needToRequestBodies(const IWalletDB& db);
+        void setNeedToRequestBodies(IWalletDB& db, bool value);
+        Height getNextEventHeight(const IWalletDB& db);
+        void setNextEventHeight(IWalletDB& db, Height value);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
+
         // Used in statistics
         struct Totals
         {
@@ -1156,7 +1164,6 @@ namespace beam::wallet
         std::string ExportDataToJson(const IWalletDB& db);
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
-        std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);
