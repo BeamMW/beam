@@ -393,7 +393,7 @@ Manager::Printer Manager::LocalContext::Print()
 {
     Printer p(m_Manager);
     p << m_Manager.m_pC[m_iThread].m_sPrefix;
-    return std::move(p);
+    return p;
 }
 
 void Manager::LocalContext::OnInitSync()
