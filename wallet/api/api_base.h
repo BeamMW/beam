@@ -43,6 +43,7 @@ namespace beam::wallet
         // parse and execute request
         //
         bool parseJSON(const char *data, size_t size);
+        void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
         //
         // getMandatory....
@@ -86,7 +87,6 @@ namespace beam::wallet
         ACL _acl;
 
     private:
-        void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
     };
 
