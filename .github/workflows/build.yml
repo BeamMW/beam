@@ -182,6 +182,33 @@ jobs:
         cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb
         cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb
 
+    - name: Checksum [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: |
+        shasum -a 256 artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-beam-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        shasum -a 256 artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-beam-wallet${{env.BEAM_TARGET_SUFFIX}}.txt
+        shasum -a 256 artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-wallet-api${{env.BEAM_TARGET_SUFFIX}}.txt
+        shasum -a 256 artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-explorer-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        shasum -a 256 artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-broadcaster${{env.BEAM_TARGET_SUFFIX}}.txt
+    
+    - name: Checksum [ubuntu]
+      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: |
+        sha256sum artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-beam-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        sha256sum artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-beam-wallet${{env.BEAM_TARGET_SUFFIX}}.txt
+        sha256sum artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-wallet-api${{env.BEAM_TARGET_SUFFIX}}.txt
+        sha256sum artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-explorer-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        sha256sum artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}} > artifacts/checksum-broadcaster${{env.BEAM_TARGET_SUFFIX}}.txt
+
+    - name: Checksum [windows]
+      if: matrix.os == 'windows-2019'
+      run: |
+        certUtil -hashfile artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/checksum-beam-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        certUtil -hashfile artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/checksum-beam-wallet${{env.BEAM_TARGET_SUFFIX}}.txt
+        certUtil -hashfile artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/checksum-wallet-api${{env.BEAM_TARGET_SUFFIX}}.txt
+        certUtil -hashfile artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/checksum-explorer-node${{env.BEAM_TARGET_SUFFIX}}.txt
+        certUtil -hashfile artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/checksum-broadcaster${{env.BEAM_TARGET_SUFFIX}}.txt
+
     - name: OS name [macos-10.15]
       if: matrix.os == 'macos-10.15'
       run: echo "OS_NAME=mac" >> $GITHUB_ENV
@@ -202,33 +229,94 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.OS_NAME}}-beam-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/beam-node*
+        path: |
+          artifacts/beam-node*
+          artifacts/checksum-beam-node*
         if-no-files-found: error
 
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.OS_NAME}}-beam-wallet-cli${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/beam-wallet*
+        path: |
+          artifacts/beam-wallet*
+          artifacts/checksum-beam-wallet*
         if-no-files-found: error
 
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.OS_NAME}}-wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/wallet-api*
+        path: |
+          artifacts/wallet-api*
+          artifacts/checksum-wallet-api*
         if-no-files-found: error
     
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.OS_NAME}}-explorer-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/explorer-node*
+        path: |
+          artifacts/explorer-node*
+          artifacts/checksum-explorer-node*
         if-no-files-found: error
 
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.OS_NAME}}-broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/broadcaster*
+        path: |
+          artifacts/broadcaster*
+          artifacts/checksum-broadcaster*
         if-no-files-found: error
 
+###############################################################################
+# Upload linux-prefix
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-18.04'
+      with:
+        name: linux-beam-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          artifacts/beam-node*
+          artifacts/checksum-beam-node*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-18.04'
+      with:
+        name: linux-beam-wallet-cli${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          artifacts/beam-wallet*
+          artifacts/checksum-beam-wallet*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-18.04'
+      with:
+        name: linux-wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          artifacts/wallet-api*
+          artifacts/checksum-wallet-api*
+        if-no-files-found: error
+    
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-18.04'
+      with:
+        name: linux-explorer-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          artifacts/explorer-node*
+          artifacts/checksum-explorer-node*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-18.04'
+      with:
+        name: linux-broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          artifacts/broadcaster*
+          artifacts/checksum-broadcaster*
+        if-no-files-found: error
+
+###############################################################################
+# Upload windows pdb
+###############################################################################
     - uses: actions/upload-artifact@v2
       if: matrix.os == 'windows-2019'
       with:
