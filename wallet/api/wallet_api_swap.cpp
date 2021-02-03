@@ -21,7 +21,6 @@
 #include "wallet/transactions/swaps/utils.h"
 #include <regex>
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
-#include "api_swap_errors.h"
 
 namespace beam::wallet
 {
