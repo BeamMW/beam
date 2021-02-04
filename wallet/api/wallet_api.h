@@ -18,12 +18,19 @@
 #include "wallet/core/wallet_db.h"
 #include "api_swaps_provider.h"
 #include "wallet_api_defs.h"
+#include "wallet/core/contracts/i_shaders_manager.h"
 
 namespace beam::wallet {
-    class WalletApi : public ApiBase
+    class WalletApi
+        : public ApiBase
+        , public IShadersManager::IDone
     {
     public:
-        WalletApi(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, ISwapsProvider::Ptr atomicSwapProvider, ACL acl = boost::none);
+        WalletApi(IWalletDB::Ptr wdb,
+                  Wallet::Ptr wallet,
+                  ISwapsProvider::Ptr swaps,
+                  IShadersManager::Ptr contracts,
+                  ACL acl = boost::none);
 
         virtual IWalletDB::Ptr getWalletDB() const
         {
@@ -52,11 +59,27 @@ namespace beam::wallet {
             return _swaps;
         }
 
+        virtual IShadersManager::Ptr getContracts() const
+        {
+            if (_contracts == nullptr)
+            {
+                throw jsonrpc_exception(ApiError::NotSupported);
+            }
+            return _contracts;
+        }
+
+        void onShaderDone(
+            boost::optional<TxID> txid,
+            boost::optional<std::string> result,
+            boost::optional<std::string> error
+        ) override;
+
         #define RESPONSE_FUNC(api, name, _) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
         WALLET_API_METHODS(RESPONSE_FUNC)
         #undef RESPONSE_FUNC
 
+        // TODO: rename onMessage -> onParse or ParseMessage
         #define MESSAGE_FUNC(api, name, _) \
         virtual void onMessage(const JsonRpcId& id, const api& data);
         WALLET_API_METHODS(MESSAGE_FUNC)
@@ -112,8 +135,11 @@ namespace beam::wallet {
 
     protected:
         // Do not access these directly, use getters
-        IWalletDB::Ptr      _wdb;
-        Wallet::Ptr         _wallet;
-        ISwapsProvider::Ptr _swaps;
+        IWalletDB::Ptr       _wdb;
+        Wallet::Ptr          _wallet;
+        ISwapsProvider::Ptr  _swaps;
+
+        IShadersManager::Ptr _contracts;
+        JsonRpcId _ccallId;
     };
 }

@@ -41,7 +41,10 @@ namespace beam::wallet
     macro(-32013, DatabaseNotFound,          "Database not found")                  \
     macro(-32014, ThrottleError,             "Requests limit exceeded")             \
     macro(-32015, NotOpenedError,            "Wallet not opened")                   \
-    macro(-32016, NoSwapsError,              "Swaps are not enabled")
+    macro(-32016, NoSwapsError,              "Swaps are not enabled")               \
+    macro(-32017, UnexpectedError,           "Unexpected call")                     \
+    macro(-32018, ContractCompileError,      "Failed to compile contract")          \
+    macro(-32019, ContractError,             "Contract call failed")
 
     enum ApiError
     {

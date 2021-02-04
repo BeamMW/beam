@@ -815,4 +815,64 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidPaymentProof, "Failed to parse");
         }
     }
+
+    void WalletApi::onMessage(const JsonRpcId &id, const InvokeContract &data)
+    {
+        LOG_DEBUG() << "InvokeContract(id = " << id << ")";
+        auto contracts = getContracts();
+
+        if (!contracts->IsDone())
+        {
+            throw jsonrpc_exception(ApiError::UnexpectedError, "Previous shader call is still in progress");
+        }
+
+        try
+        {
+            if (!data.contract.empty())
+            {
+                contracts->CompileAppShader(data.contract);
+            }
+        }
+        catch(std::runtime_error& err)
+        {
+            throw jsonrpc_exception(ApiError::ContractCompileError, err.what());
+        }
+
+        try
+        {
+            _ccallId = id;
+            contracts->Start(data.args, data.args.empty() ? 0 : 1, *this);
+        }
+        catch(std::runtime_error& err)
+        {
+            throw jsonrpc_exception(ApiError::ContractError, err.what());
+        }
+    }
+
+    void WalletApi::onShaderDone(
+            boost::optional<TxID> txid,
+            boost::optional<std::string> result,
+            boost::optional<std::string> error
+        )
+    {
+        //
+        // N.B
+        //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+        //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+        //  - this function is called in the reactor context
+        //
+        if (error)
+        {
+            return sendError(_ccallId, ApiError::ContractError, *error);
+        }
+
+        InvokeContract::Response response;
+        response.output = result ? *result : "";
+        response.txid   = txid ? *txid : TxID();
+
+        const auto callid = _ccallId;
+        _ccallId = JsonRpcId();
+
+        doResponse(callid, response);
+    }
 }

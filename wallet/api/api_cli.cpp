@@ -117,14 +117,23 @@ class WalletApiServer
     : public IWalletApiServer
 {
 public:
-    WalletApiServer(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, io::Reactor& reactor,
-        io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
+    WalletApiServer(IWalletDB::Ptr walletDB,
+                    Wallet::Ptr wallet,
+                    proto::FlyClient::NetworkStd::Ptr nnet,
+                    io::Reactor& reactor,
+                    io::Address listenTo,
+                    bool useHttp,
+                    WalletApi::ACL acl, const
+                    TlsOptions& tlsOptions,
+                    const std::vector<uint32_t>& whitelist)
+
         : _reactor(reactor)
         , _bindAddress(listenTo)
         , _useHttp(useHttp)
         , _tlsOptions(tlsOptions)
         , _walletDB(walletDB)
         , _wallet(wallet)
+        , _network(nnet)
         , _acl(acl)
         , _whitelist(whitelist)
     {
@@ -188,32 +197,10 @@ private:
 
     struct WalletData
     {
-        WalletData(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps)
-            : _swaps(std::move(swaps))
-            , _wdb(std::move(wdb))
-            , _wallet(std::move(wallet))
-        {
-        }
-
-        IWalletDB::Ptr getWalletDB() const
-        {
-            return _wdb;
-        }
-
-        Wallet::Ptr getWallet() const
-        {
-            return _wallet;
-        }
-
-        ISwapsProvider::Ptr getSwaps() const
-        {
-            return _swaps;
-        }
-
-    private:
-        ISwapsProvider::Ptr _swaps;
-        IWalletDB::Ptr _wdb;
-        Wallet::Ptr _wallet;
+        IShadersManager::Ptr contracts;
+        ISwapsProvider::Ptr swaps;
+        IWalletDB::Ptr walletDB;
+        Wallet::Ptr wallet;
     };
 
     template<typename T>
@@ -221,7 +208,11 @@ private:
     {
         if (!_walletData)
         {
-            _walletData = std::make_unique<WalletData>(_walletDB, _wallet, _swapsProvider);
+            _walletData = std::make_unique<WalletData>();
+            _walletData->walletDB  = _walletDB;
+            _walletData->wallet    = _wallet;
+            _walletData->swaps     = _swapsProvider;
+            _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);;
         }
 
         return std::static_pointer_cast<WalletApi>(
@@ -267,7 +258,7 @@ private:
                     , WalletData& walletData
                     , WalletApi::ACL acl
         )
-        : WalletApi(walletData.getWalletDB(), walletData.getWallet(), walletData.getSwaps(), std::move(acl))
+        : WalletApi(walletData.walletDB, walletData.wallet, walletData.swaps, walletData.contracts, std::move(acl))
         , _server(server)
         , _stream(std::move(newStream))
         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -328,7 +319,7 @@ private:
                         , WalletData& walletData
                         , WalletApi::ACL acl
             )
-            : WalletApi(walletData.getWalletDB(), walletData.getWallet(), walletData.getSwaps(), std::move(acl))
+            : WalletApi(walletData.walletDB, walletData.wallet, walletData.swaps, walletData.contracts, std::move(acl))
             , _server(server)
             , _keepalive(false)
             , _msgCreator(2000)
@@ -448,6 +439,7 @@ private:
 
     IWalletDB::Ptr _walletDB;
     Wallet::Ptr _wallet;
+    proto::FlyClient::NetworkStd::Ptr _network;
 
     #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     std::shared_ptr<ApiCliSwap> _swapsProvider;
@@ -660,7 +652,7 @@ int main(int argc, char* argv[])
 		wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
-        WalletApiServer server(walletDB, wallet, *reactor, 
+        WalletApiServer server(walletDB, wallet, nnet, *reactor,
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
