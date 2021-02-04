@@ -32,6 +32,7 @@ target_sources(wallet
         base_transaction.h
         private_key_keeper.h
         private_key_keeper.cpp
+        contracts/shaders_manager.cpp
 )
 
 target_link_libraries(wallet 

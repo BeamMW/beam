@@ -22,6 +22,7 @@
 #include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/core/contracts/i_shaders_manager.h"
 #include "wallet_model_async.h"
 #include "changes_collector.h"
 #include "extensions/notifications/notification_observer.h"
@@ -29,7 +30,7 @@
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
-#include "extensions/shaders/shaders_manager.h"
+
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -91,7 +92,7 @@ namespace beam::wallet
         , private INodeConnectionObserver
         , private IExchangeRateObserver
         , private INotificationsObserver
-        , private ShadersManager::IDone
+        , private IShadersManager::IDone
         , private DexBoard::IObserver
     {
     public:
@@ -104,6 +105,7 @@ namespace beam::wallet
 
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
+        IShadersManager::Ptr getAppsShaders();
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
@@ -268,9 +270,13 @@ namespace beam::wallet
         //
         // Shaders support
         //
-        ShaderCallback _shaderCback;
-        std::weak_ptr<ShadersManager> _smgr;
-        void onShaderDone() override;
+        IShadersManager::WeakPtr _appsShaders;   // this is used only for applications support
+        IShadersManager::WeakPtr _clientShaders; // this is used internally in the wallet client (callShader method)
+        ShaderCallback _clientShadersCback;
+
+        void onShaderDone(boost::optional<TxID> txid,
+                          boost::optional<std::string> result,
+                          boost::optional<std::string> error) override;
 
         // Asset info can be requested multiple times for the same ID
         // We collect all such events and process them in bulk at
