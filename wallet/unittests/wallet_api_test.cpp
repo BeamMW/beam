@@ -75,7 +75,7 @@ namespace
     class WalletApiTest: public wallet::WalletApi
     {
     public:
-        WalletApiTest(): WalletApi(nullptr, nullptr, nullptr) {}
+        WalletApiTest(): WalletApi(nullptr, nullptr, nullptr, nullptr) {}
 
         #define MESSAGE_FUNC(strct, name, _) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
