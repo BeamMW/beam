@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <boost/filesystem.hpp>
 #include "common.h"
 #include "logger.h"
 #include "fsutils.h"
@@ -30,9 +29,9 @@ namespace beam::fsutils
         }
     }
 
-    bool exists(const boost::filesystem::path& fpath)
+    bool exists(const path& fpath)
     {
-        return boost::filesystem::exists(fpath);
+        return std::filesystem::exists(fpath);
     }
 
     bool exists(const std::string& spath)
@@ -42,8 +41,8 @@ namespace beam::fsutils
 
     void remove(const path& fpath)
     {
-        boost::system::error_code error;
-        boost::filesystem::remove(fpath, error);
+        std::error_code error;
+        std::filesystem::remove(fpath, error);
 
         if (error)
         {
@@ -59,8 +58,8 @@ namespace beam::fsutils
 
     void rename(const path& oldPath, const path& newPath)
     {
-        boost::system::error_code error;
-        boost::filesystem::rename(oldPath, newPath, error);
+        std::error_code error;
+        std::filesystem::rename(oldPath, newPath, error);
 
         if (error)
         {
