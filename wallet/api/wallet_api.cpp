@@ -1077,7 +1077,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         InvokeContract message;
 
-        if(const auto contract = getOptionalParam<JsonArray>(params, "contract"))
+        if(const auto contract = getOptionalParam<NonEmptyJsonArray>(params, "contract"))
         {
             const json& bytes = *contract;
             message.contract = bytes.get<std::vector<uint8_t>>();
