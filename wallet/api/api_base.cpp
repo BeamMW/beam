@@ -67,7 +67,7 @@ namespace beam::wallet {
         sendMessage(error);
     }
 
-    bool ApiBase::parseJSON(const char* data, size_t size)
+    ApiBase::ParseJsonRes ApiBase::parseJSON(const char* data, size_t size)
     {
         {
             std::string s(data, size);
@@ -79,7 +79,7 @@ namespace beam::wallet {
         {
             const auto errEmptyJSON = formError(JsonRpcId(), ApiError::InvalidJsonRpc, "Empty JSON request.");
             onParseError(errEmptyJSON);
-            return false;
+            return ParseJsonRes::ParseFail;
         }
 
         JsonRpcId id = JsonRpcId();
@@ -123,6 +123,8 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::NotFoundJsonRpc, method);
             }
 
+            bool isAsync = false;
+
             try
             {
                 const auto& minfo = _methods[method];
@@ -132,6 +134,7 @@ namespace beam::wallet {
                 }
 
                 minfo.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
+                isAsync = minfo.isAsync;
             }
             catch (const jsonrpc_exception&)
             {
@@ -147,24 +150,28 @@ namespace beam::wallet {
                 LOG_ERROR() << "error while calling " << method << ": " << e.what();
                 throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, e.what());
             }
+
+            return isAsync ? ParseJsonRes::RunningAsync : ParseJsonRes::DoneSync;
         }
         catch (const jsonrpc_exception& e)
         {
             const auto error = formError(id, e.code(), e.whatstr());
             onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
         catch (const std::exception& e)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, e.what());
             onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
         catch (...)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
             onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
-
-        return true;
+        assert(false);
     }
 
     template<>

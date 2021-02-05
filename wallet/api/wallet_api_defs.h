@@ -22,50 +22,52 @@
 
 namespace beam::wallet
 {
-#define API_WRITE_ACCESS true
-#define API_READ_ACCESS false
+    #define API_WRITE_ACCESS true
+    #define API_READ_ACCESS false
+    #define API_ASYNC true
+    #define API_SYNC false
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #define SWAP_OFFER_API_METHODS(macro) \
-    macro(OffersList,         "swap_offers_list",          API_READ_ACCESS)  \
-    macro(OffersBoard,        "swap_offers_board",         API_READ_ACCESS)  \
-    macro(CreateOffer,        "swap_create_offer",         API_WRITE_ACCESS) \
-    macro(PublishOffer,       "swap_publish_offer",        API_WRITE_ACCESS) \
-    macro(AcceptOffer,        "swap_accept_offer",         API_WRITE_ACCESS) \
-    macro(OfferStatus,        "swap_offer_status",         API_READ_ACCESS)  \
-    macro(DecodeToken,        "swap_decode_token",         API_READ_ACCESS)  \
-    macro(GetBalance,         "swap_get_balance",          API_READ_ACCESS)  \
-    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS)
+    macro(OffersList,         "swap_offers_list",          API_READ_ACCESS,  API_SYNC)  \
+    macro(OffersBoard,        "swap_offers_board",         API_READ_ACCESS,  API_SYNC)  \
+    macro(CreateOffer,        "swap_create_offer",         API_WRITE_ACCESS, API_SYNC)  \
+    macro(PublishOffer,       "swap_publish_offer",        API_WRITE_ACCESS, API_SYNC)  \
+    macro(AcceptOffer,        "swap_accept_offer",         API_WRITE_ACCESS, API_SYNC)  \
+    macro(OfferStatus,        "swap_offer_status",         API_READ_ACCESS,  API_SYNC)  \
+    macro(DecodeToken,        "swap_decode_token",         API_READ_ACCESS,  API_SYNC)  \
+    macro(GetBalance,         "swap_get_balance",          API_READ_ACCESS,  API_SYNC)  \
+    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,         "create_address",          API_WRITE_ACCESS)   \
-    macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS)   \
-    macro(EditAddress,           "edit_address",            API_WRITE_ACCESS)   \
-    macro(AddrList,              "addr_list",               API_READ_ACCESS)    \
-    macro(ValidateAddress,       "validate_address",        API_READ_ACCESS)    \
-    macro(Send,                  "tx_send",                 API_WRITE_ACCESS)   \
-    macro(Issue,                 "tx_asset_issue",          API_WRITE_ACCESS)   \
-    macro(Consume,               "tx_asset_consume",        API_WRITE_ACCESS)   \
-    macro(TxAssetInfo,           "tx_asset_info",           API_WRITE_ACCESS)   \
-    macro(Status,                "tx_status",               API_READ_ACCESS)    \
-    macro(Split,                 "tx_split",                API_WRITE_ACCESS)   \
-    macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS)   \
-    macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS)   \
-    macro(GetUtxo,               "get_utxo",                API_READ_ACCESS)    \
-    macro(Lock,                  "lock",                    API_WRITE_ACCESS)   \
-    macro(Unlock,                "unlock",                  API_WRITE_ACCESS)   \
-    macro(TxList,                "tx_list",                 API_READ_ACCESS)    \
-    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS)    \
-    macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS)    \
-    macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS)    \
-    macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS)    \
-    macro(GetAssetInfo,          "get_asset_info",          API_READ_ACCESS)    \
-    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS)   \
-    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS)    \
-    macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS)   \
+    macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC)   \
+    macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC)   \
+    macro(EditAddress,           "edit_address",            API_WRITE_ACCESS, API_SYNC)   \
+    macro(AddrList,              "addr_list",               API_READ_ACCESS,  API_SYNC)   \
+    macro(ValidateAddress,       "validate_address",        API_READ_ACCESS,  API_SYNC)   \
+    macro(Send,                  "tx_send",                 API_WRITE_ACCESS, API_SYNC)   \
+    macro(Issue,                 "tx_asset_issue",          API_WRITE_ACCESS, API_SYNC)   \
+    macro(Consume,               "tx_asset_consume",        API_WRITE_ACCESS, API_SYNC)   \
+    macro(TxAssetInfo,           "tx_asset_info",           API_WRITE_ACCESS, API_SYNC)   \
+    macro(Status,                "tx_status",               API_READ_ACCESS,  API_SYNC)   \
+    macro(Split,                 "tx_split",                API_WRITE_ACCESS, API_SYNC)   \
+    macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC)   \
+    macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC)   \
+    macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC)   \
+    macro(Lock,                  "lock",                    API_WRITE_ACCESS, API_SYNC)   \
+    macro(Unlock,                "unlock",                  API_WRITE_ACCESS, API_SYNC)   \
+    macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC)   \
+    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC)   \
+    macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC)   \
+    macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS,  API_SYNC)   \
+    macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS,  API_SYNC)   \
+    macro(GetAssetInfo,          "get_asset_info",          API_READ_ACCESS,  API_SYNC)   \
+    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC)   \
+    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC)   \
+    macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
     SWAP_OFFER_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)

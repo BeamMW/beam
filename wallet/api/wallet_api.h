@@ -74,13 +74,13 @@ namespace beam::wallet {
             boost::optional<std::string> error
         ) override;
 
-        #define RESPONSE_FUNC(api, name, _) \
+        #define RESPONSE_FUNC(api, name, ...) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
         WALLET_API_METHODS(RESPONSE_FUNC)
         #undef RESPONSE_FUNC
 
         // TODO: rename onMessage -> onParse or ParseMessage
-        #define MESSAGE_FUNC(api, name, _) \
+        #define MESSAGE_FUNC(api, name, ...) \
         virtual void onMessage(const JsonRpcId& id, const api& data);
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
@@ -124,7 +124,7 @@ namespace beam::wallet {
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
     private:
-        #define MESSAGE_FUNC(api, name, _) \
+        #define MESSAGE_FUNC(api, name, ...) \
         void on##api##Message(const JsonRpcId& id, const json& msg);
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC

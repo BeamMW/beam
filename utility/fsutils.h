@@ -13,18 +13,22 @@
 // limitations under the License.
 
 #pragma once
-
 #include <string>
 #include <boost/filesystem.hpp>
 
-namespace beam::fsutils {
-    // remove file, log error if any
-    bool remove(const boost::filesystem::path& path);
-    bool remove(const std::string& path);
+namespace beam::fsutils
+{
+    using path = boost::filesystem::path;
 
-    bool isExist(const std::string& path);
+    bool exists(const path& path);
+    bool exists(const std::string& path);
 
-    // rename file, log error if any
-    bool rename(const boost::filesystem::path& oldPath, const boost::filesystem::path& newPath);
-    bool rename(const std::string& oldPath, const std::string& newPath);
+    void remove(const path& path); // throws
+    void remove(const std::string& path); // throws
+
+    void rename(const path& oldp, const path& newp); // throws
+    void rename(const std::string& oldp, const std::string& newp); // throws
+
+    std::vector<uint8_t> fread(const path& path); // throws
+    std::vector<uint8_t> fread(const std::string& path); // throws
 }
