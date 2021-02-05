@@ -80,10 +80,10 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        BOOST_SCOPE_EXIT(&_done, &_doneHandler) {
-            _done = true;
-            _doneHandler = nullptr;
-        } BOOST_SCOPE_EXIT_END
+        auto handler = _doneHandler;
+
+        _done = true;
+        _doneHandler = nullptr;
 
         if (pExc != nullptr)
         {
@@ -97,7 +97,7 @@ namespace beam::wallet {
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            return _doneHandler->onShaderDone(boost::none, boost::none, error);
+            return handler->onShaderDone(boost::none, boost::none, error);
         }
 
         boost::optional<std::string> result = m_Out.str();
@@ -105,7 +105,7 @@ namespace beam::wallet {
 
         if (m_vInvokeData.empty())
         {
-            return _doneHandler->onShaderDone(boost::none, result, boost::none);
+            return handler->onShaderDone(boost::none, result, boost::none);
         }
 
         std::string sComment = "Contract: ";
@@ -124,12 +124,12 @@ namespace beam::wallet {
         try
         {
             auto txid = _wallet->StartTransaction(params);
-            _doneHandler->onShaderDone(txid, result, boost::none);
+            handler->onShaderDone(txid, result, boost::none);
         }
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            _doneHandler->onShaderDone(boost::none, result, error);
+            handler->onShaderDone(boost::none, result, error);
         }
     }
 
