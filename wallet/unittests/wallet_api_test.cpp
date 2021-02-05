@@ -302,6 +302,26 @@ namespace
         WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
     }
 
+    void testInvalidInvokeContractJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onParseError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const InvokeContract& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+    }
+
     template<typename T>
     void testInvalidAssetJsonRpc(const std::string& msg)
     {
@@ -1646,6 +1666,7 @@ int main()
         }
     }));
 
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     testGetBalanceJsonRpc(JSON_CODE(
         {
@@ -1682,6 +1703,78 @@ int main()
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     TestAssetsAPI();
+
+    // empty args
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "args": ""
+            }
+        }));
+
+    // non-string args
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "args": 22
+            }
+        }));
+
+    // non-array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": 22
+            }
+        }));
+
+    // empty array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": []
+            }
+        }));
+
+    // non-sting contract_file
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract_file": 22
+            }
+        }));
+
+    // empty contract_file
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract_file": ""
+            }
+        }));
 
     return WALLET_CHECK_RESULT;
 }
