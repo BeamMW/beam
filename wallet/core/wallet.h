@@ -18,6 +18,7 @@
 #include "common.h"
 #include "base_transaction.h"
 #include "core/fly_client.h"
+#include "node/processor.h"
 
 namespace beam::wallet
 {
@@ -160,6 +161,7 @@ namespace beam::wallet
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
+        void EnableBodyRequests(bool value);
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -210,14 +212,21 @@ namespace beam::wallet
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
         void report_sync_progress();
-        void notifySyncProgress();
+        void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
-        void saveKnownState();
+        void SaveKnownState();
+        void ProcessBody(const proto::BodyBuffers& b, Height h, NodeProcessor::Recognizer& recoginzer);
+        void PreprocessBlock(TxVectors::Full& block);
+        void RequestBodies();
+        void RequestTreasury();
+        void RequestBodies(Height currentHeight, Height startHeight);
+        void AbortBodiesRequests();
         void RequestEvents();
         void AbortEvents();
+        void ProcessEventUtxo(const proto::Event::Utxo& utxoEvt, Height h);
         void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd, const Output::User& user);
         void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
@@ -239,10 +248,13 @@ namespace beam::wallet
         void FailTxWaitingForVouchers(const WalletID& peerID);
         void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
         void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
+        void SetTreasuryHandled(bool);
+        void CacheCommitments();
+        void CacheCommitment(const ECC::Point& comm, Height maturity, bool add);
+        void ResetCommitmentsCache();
+        bool IsMobileNodeEnabled() const;
 
     private:
-
-        static const char s_szNextEvt[];
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -253,7 +265,9 @@ namespace beam::wallet
         macro(Utxo) \
         macro(Kernel) \
         macro(Events) \
-        macro(StateSummary)
+        macro(StateSummary) \
+        macro(BodyPack) \
+        macro(Body) 
 
         struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
@@ -303,6 +317,14 @@ namespace beam::wallet
             struct ShieldedOutputsAt
             {
                 std::function<void(Height, TxoID)> m_callback;
+            };
+            struct BodyPack
+            {
+                Height m_StartHeight;
+            };
+            struct Body
+            {
+                Height m_Height;
             };
         };
 
@@ -380,6 +402,7 @@ namespace beam::wallet
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_VoucherManager)
         } m_VoucherManager;
 
+        struct RecognizerHandler;
 
         // List of registered transaction creators
         // Creators can store some objects for the transactions, 
@@ -410,5 +433,12 @@ namespace beam::wallet
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
         bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
+
+        // data for mobile node support
+        bool m_IsBodyRequestsEnabled = false; // simple way to enable/disable mobile node in code
+        NodeProcessor::Extra m_Extra = { 0 };
+        bool m_IsTreasuryHandled = false;
+        std::map<ECC::Point, Height> m_Commitments;
+        bool m_IsCommitmentsCached = false;
     };
 }

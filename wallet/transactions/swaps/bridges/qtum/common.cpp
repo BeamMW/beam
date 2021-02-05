@@ -13,11 +13,20 @@
 // limitations under the License.
 
 #include "common.h"
+#include <bitcoin/bitcoin.hpp>
 
 namespace
 {
     constexpr uint8_t kQtumMainnetP2KH = 0x3a;
     constexpr uint8_t kQtumTestnetP2KH = 0x78;
+
+    // TODO roman.strilets it's dupplicate (ethereum/common.cpp)
+    libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
+    {
+        static constexpr auto first = libbitcoin::wallet::hd_first_hardened_key;
+        const auto position = hard ? first + index : index;
+        return privateKey.derive_private(position);
+    }
 }
 
 namespace beam::qtum
@@ -42,5 +51,26 @@ namespace beam::qtum
 #else
         return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
 #endif
+    }
+
+    std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words)
+    {
+        auto seed = libbitcoin::wallet::decode_mnemonic(words);
+        libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+        libbitcoin::wallet::hd_private privateKey(seed_chunk, libbitcoin::wallet::hd_public::mainnet);
+#else
+        libbitcoin::wallet::hd_private privateKey(seed_chunk, libbitcoin::wallet::hd_public::testnet);
+#endif
+
+        privateKey = ProcessHDPrivate(privateKey, 44);
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
+        privateKey = ProcessHDPrivate(privateKey, 88);
+#else
+        privateKey = ProcessHDPrivate(privateKey, 1);
+#endif
+        privateKey = ProcessHDPrivate(privateKey, 0);
+        
+        return std::make_pair(privateKey.derive_private(0), privateKey.derive_private(1));
     }
 } // namespace beam::qtum

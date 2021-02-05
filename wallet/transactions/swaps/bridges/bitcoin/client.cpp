@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
 #include "client.h"
 
 #include "bitcoin_core_017.h"
@@ -151,7 +150,7 @@ namespace beam::bitcoin
                 return;
             }
 
-            // TODO roman.strilets sometimes bitcoin server returns bad estimate fee rate (< min fee rate)
+            // sometimes bitcoin server returns bad estimate fee rate (< min fee rate)
             if (GetSettings().GetMinFeeRate() > feeRate)
             {
                 feeRate = 0;
@@ -249,5 +248,4 @@ namespace beam::bitcoin
             OnConnectionError(m_connectionError);
         }
     }
-
 } // namespace beam::bitcoin

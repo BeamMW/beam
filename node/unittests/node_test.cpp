@@ -2619,7 +2619,7 @@ namespace beam
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) override
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) override
 			{
 				m_Utxos++;
 				return true;

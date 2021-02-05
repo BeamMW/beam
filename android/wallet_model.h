@@ -26,6 +26,8 @@ public:
     WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
+    std::map<uint64_t, beam::wallet::ShieldedCoin> shieldedCoins;
+
     void callMyFunction();
     std::function<void()> myFunction;
 
@@ -60,7 +62,7 @@ private:
     void onImportDataFromJson(bool isOk) override;
     void onExportDataToJson(const std::string& data) override;
     void onPostFunctionToClientContext(MessageFunction&& func) override;
-    void onExportTxHistoryToCsv(const std::string& data) override {};
+    void onExportTxHistoryToCsv(const std::string& data) override;
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;

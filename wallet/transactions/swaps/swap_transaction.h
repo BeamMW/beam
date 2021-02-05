@@ -222,7 +222,9 @@ namespace beam::wallet
 
         void OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify = false);
         void CheckSubTxFailures();
+        void ExtractSecret();
         void ExtractSecretPrivateKey();
+        bool IsHashlockScheme() const;
 
         mutable boost::optional<bool> m_IsBeamSide;
         mutable boost::optional<bool> m_IsSender;

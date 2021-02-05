@@ -29,13 +29,13 @@ namespace beam::wallet
     {
     }
 
-    bool BitcoinCashSide::CheckAmount(Amount amount, Amount feeRate)
+    bool BitcoinCashSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
-    Amount BitcoinCashSide::CalcTotalFee(Amount feeRate)
+    Amount BitcoinCashSide::CalcWithdrawTxFee(Amount feeRate)
     {
         return static_cast<Amount>(std::round(double(kBCHWithdrawTxAverageSize * feeRate) / 1000));
     }

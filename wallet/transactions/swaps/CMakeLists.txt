@@ -30,6 +30,13 @@ set(SWAP_SRC
     bridges/qtum/electrum.cpp
     bridges/qtum/qtum_core_017.cpp
     bridges/qtum/qtum_side.cpp
+    bridges/ethereum/client.cpp
+    bridges/ethereum/common.cpp
+    bridges/ethereum/ethereum_base_transaction.cpp
+    bridges/ethereum/ethereum_side.cpp
+    bridges/ethereum/ethereum_bridge.cpp
+    bridges/ethereum/settings.cpp
+    bridges/ethereum/settings_provider.cpp
 )
 
 if(BITCOIN_CASH_SUPPORT)
@@ -43,7 +50,7 @@ if(BITCOIN_CASH_SUPPORT)
 endif()
 
 add_library(swap STATIC ${SWAP_SRC})
-target_link_libraries(swap PUBLIC wallet libbitcoin PRIVATE http)
+target_link_libraries(swap PUBLIC wallet libbitcoin ethash PRIVATE http)
 target_compile_definitions(swap PUBLIC BEAM_ATOMIC_SWAP_SUPPORT)
 target_include_directories(swap PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 

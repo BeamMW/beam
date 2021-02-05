@@ -9,7 +9,19 @@ target_link_libraries(wallet_api_proto
         utility
 )
 
-add_library(wallet_api STATIC api_handler.cpp)
+set(API_SRC
+    api_handler.cpp
+)
+
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    set(API_SRC
+        ${API_SRC}
+        swap_client.cpp
+        swap_eth_client.cpp
+    )
+endif()
+
+add_library(wallet_api STATIC ${API_SRC})
 
 target_link_libraries(wallet_api
     PUBLIC 

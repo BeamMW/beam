@@ -574,6 +574,12 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // Events
+        virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
+        virtual void deleteEventsFrom(Height h) = 0;
+        virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+        virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
+
         void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
         TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
 
@@ -731,6 +737,11 @@ namespace beam::wallet
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
+
+        void insertEvent(Height h, const Blob& body, const Blob& key) override;
+        void deleteEventsFrom(Height h) override;
+        void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
+        void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
@@ -917,6 +928,14 @@ namespace beam::wallet
 
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, ShieldedCoin&, Height hTop);
+
+        bool isTreasuryHandled(const IWalletDB&);
+        void setTreasuryHandled(IWalletDB&, bool value);
+        bool needToRequestBodies(const IWalletDB& db);
+        void setNeedToRequestBodies(IWalletDB& db, bool value);
+        Height getNextEventHeight(const IWalletDB& db);
+        void setNextEventHeight(IWalletDB& db, Height value);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
 
         // Used in statistics
         struct Totals
@@ -1145,7 +1164,6 @@ namespace beam::wallet
         std::string ExportDataToJson(const IWalletDB& db);
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
-        std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
         std::string ExportTxHistoryToCsv(const IWalletDB& db);

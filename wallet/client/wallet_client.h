@@ -76,6 +76,7 @@ namespace beam::wallet
     };
 
     class SwapOffersBoard;
+    class Filter;
 
     class WalletClient
         : private IWalletObserver
@@ -103,7 +104,11 @@ namespace beam::wallet
         bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
-        bool isConnectionTrusted() const;
+        bool isConnectionTrusted() const;   
+        uint8_t getMPLockTimeLimit() const;
+        uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
+        uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
+
         ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
         void setCoinConfirmationsOffset(uint32_t offset);
         uint32_t getCoinConfirmationsOffset() const;
@@ -232,7 +237,6 @@ namespace beam::wallet
         void getPublicAddress() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
-        void getShieldedCountAt(Height h, AsyncCallback<Height, TxoID>&& callback) override;
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
@@ -240,18 +244,23 @@ namespace beam::wallet
         void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override;
         void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override;
 
+        void enableBodyRequests(bool value) override;
+
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos(Asset::ID assetId) const;
         
-
-        void updateClientState();
+        void updateStatus();
+        void updateClientState(WalletStatus&&);
+        void updateMaxPrivacyStats(const WalletStatus& status);
+        void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
+        beam::TxoID getTotalShieldedCount() const;
 
     private:
         // Asset info can be requested multiple times for the same ID
@@ -315,6 +324,11 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
-        ShieldedCoinsSelectionInfo _shieldedCoinsSelectionResult;
+        ShieldedCoinsSelectionInfo m_shieldedCoinsSelectionResult;
+        std::unique_ptr<Filter> m_shieldedPer24hFilter;
+        beam::wallet::WalletStatus m_status;
+        std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;
+        beam::TxoID m_shieldedPer24h = 0;
+        uint8_t m_mpLockTimeLimit = 0;
     };
 }

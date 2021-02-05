@@ -36,6 +36,7 @@ target_link_libraries(wallet
     PUBLIC
         core
         keykeeper
+        node
     PRIVATE
         sqlite
 )

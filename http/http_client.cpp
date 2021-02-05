@@ -22,10 +22,11 @@ static const size_t CREATOR_FRAGMENT_SIZE = 1000;
 static const size_t READER_FRAGMENT_SIZE = 8192;
 static const size_t MAX_RESPONSE_BODY_SIZE = 16*1024*1024;
 
-HttpClient::HttpClient(io::Reactor& reactor) :
+HttpClient::HttpClient(io::Reactor& reactor, bool ssl) :
     _reactor(reactor),
     _msgCreator(CREATOR_FRAGMENT_SIZE),
-    _idCounter(0)
+    _idCounter(0),
+    _ssl(ssl)
 {}
 
 HttpClient::~HttpClient() {
@@ -81,7 +82,7 @@ expected<uint64_t, io::ErrorCode> HttpClient::send_request(const HttpClient::Req
     } else if (newConnection) {
         int timeout = (request.connectTimeoutMsec_ > 0) ? int(request.connectTimeoutMsec_) : -1;
         auto tag = uint64_t(ctx);
-        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout);
+        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout, _ssl, false);
         if (result) {
             _pendingConnections[tag] = id;
         }

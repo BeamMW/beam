@@ -24,8 +24,8 @@ namespace beam::wallet
     public:
         LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider& settingsProvider, bool isBeamSide);
 
-        static bool CheckAmount(Amount amount, Amount feeRate);
-        static Amount CalcTotalFee(Amount feeRate);
+        static bool CheckLockTxAmount(Amount amount, Amount feeRate);
+        static Amount CalcWithdrawTxFee(Amount feeRate);
 
     protected:
 
