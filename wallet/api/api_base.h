@@ -129,11 +129,11 @@ namespace beam::wallet
     template<>
     boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name);
 
-    BOOST_STRONG_TYPEDEF(unsigned int, PositiveUint32)
+    BOOST_STRONG_TYPEDEF(uint32_t, PositiveUint32)
     template<>
     boost::optional<PositiveUint32> ApiBase::getOptionalParam<PositiveUint32>(const json &params, const std::string &name);
 
-    BOOST_STRONG_TYPEDEF(unsigned int, PositiveUnit64)
+    BOOST_STRONG_TYPEDEF(uint64_t, PositiveUnit64)
     template<>
     boost::optional<PositiveUnit64> ApiBase::getOptionalParam<PositiveUnit64>(const json &params, const std::string &name);
 
