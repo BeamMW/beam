@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #pragma once
+
 #include <string>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 namespace beam::fsutils
 {
-    using namespace boost::filesystem;
+    using namespace std::filesystem;
 
     bool exists(const path& path);
     bool exists(const std::string& path);
