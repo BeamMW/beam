@@ -373,7 +373,8 @@ private:
                 size_t size = 0;
                 auto data = msg.msg->get_body(size);
 
-                parseJSON(reinterpret_cast<const char*>(data), size);
+                const auto parseResult = parseJSON(reinterpret_cast<const char*>(data), size);
+                _keepalive = parseResult == ApiBase::ParseJsonRes::RunningAsync;
             }
 
             if (!_keepalive)

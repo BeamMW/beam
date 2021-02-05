@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "wallet_api.h"
 #include "wallet/core/common_utils.h"
+#include "utility/fsutils.h"
 #include "bvm/ManagerStd.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -96,8 +97,8 @@ namespace beam::wallet {
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
     {
-        #define REG_FUNC(api, name, writeAccess) \
-        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
+        #define REG_FUNC(api, name, writeAccess, isAsync) \
+        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess, isAsync};
         WALLET_API_METHODS(REG_FUNC)
         #undef REG_FUNC
 
@@ -272,16 +273,21 @@ namespace beam::wallet {
             checkCAEnabled(id);
         }
 
-        const json& coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
+        const json coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
         for (const auto& amount: coins)
         {
-            if(!amount.is_number_unsigned() || amount == 0)
+            if(!amount.is_number_unsigned())
             {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,
-                                        "Coin amount must be non zero 64bit unsigned integer.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"Coin amount must be a 64bit unsigned integer.");
             }
 
-            split.coins.push_back(amount);
+            const auto uamount = amount.get<uint64_t>();
+            if (uamount == 0)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"Coin amount must be a non-zero 64bit unsigned integer.");
+            }
+
+            split.coins.push_back(uamount);
         }
 
         auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
@@ -1076,6 +1082,10 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             const json& bytes = *contract;
             message.contract = bytes.get<std::vector<uint8_t>>();
         }
+        else if(const auto fname = getOptionalParam<NonEmptyString>(params, "contract_file"))
+        {
+            fsutils::fread(*fname).swap(message.contract);
+        }
 
         if (const auto args = getOptionalParam<NonEmptyString>(params, "args"))
         {
@@ -1114,11 +1124,15 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result",
                 {
-                    {"output", res.output},
-                    {"txid",   TxIDToString(res.txid)}
+                    {"output", res.output}
                 }
             }
         };
+
+        if (res.txid != TxID())
+        {
+            msg["result"]["txid"] = TxIDToString(res.txid);
+        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)

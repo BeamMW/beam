@@ -55,13 +55,11 @@ namespace beam::wallet {
     {
         if (!IsDone())
         {
-            assert(false);
             throw std::runtime_error("still in shader call");
         }
 
         if (m_BodyManager.empty())
         {
-            assert(false);
             throw std::runtime_error("missing shader code");
         }
 

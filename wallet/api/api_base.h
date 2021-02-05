@@ -42,7 +42,14 @@ namespace beam::wallet
         //
         // parse and execute request
         //
-        bool parseJSON(const char *data, size_t size);
+        enum ParseJsonRes {
+            ParseFail = 0,
+            DoneSync,
+            RunningAsync,
+        };
+
+        // TODO: review error codes and returned results
+        ParseJsonRes parseJSON(const char *data, size_t size);
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
         //
@@ -81,6 +88,7 @@ namespace beam::wallet
         {
             std::function<void(const JsonRpcId &id, const json &msg)> func;
             bool writeAccess;
+            bool isAsync;
         };
 
         std::unordered_map <std::string, Method> _methods;

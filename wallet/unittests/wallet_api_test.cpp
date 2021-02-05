@@ -77,7 +77,7 @@ namespace
     public:
         WalletApiTest(): WalletApi(nullptr, nullptr, nullptr, nullptr) {}
 
-        #define MESSAGE_FUNC(strct, name, _) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
+        #define MESSAGE_FUNC(strct, name, ...) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
 
@@ -472,8 +472,8 @@ namespace
         public:
             void onParseError(const json& msg) override
             {
-                WALLET_CHECK(!"invalid split api json!!!");
                 cout << msg["error"] << endl;
+                WALLET_CHECK(!"invalid split api json!!!");
             }
 
             void onMessage(const JsonRpcId& id, const Split& data) override
