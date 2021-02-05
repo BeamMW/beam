@@ -30,31 +30,31 @@ namespace beam::fsutils
         }
     }
 
-    bool exists(const boost::filesystem::path& path)
+    bool exists(const boost::filesystem::path& fpath)
     {
-        return boost::filesystem::exists(path);
+        return boost::filesystem::exists(fpath);
     }
 
-    bool exists(const std::string& path)
+    bool exists(const std::string& spath)
     {
-        return fsutils::exists(topath(path));
+        return fsutils::exists(topath(spath));
     }
 
-    void remove(const path& path)
+    void remove(const path& fpath)
     {
         boost::system::error_code error;
-        boost::filesystem::remove(path, error);
+        boost::filesystem::remove(fpath, error);
 
         if (error)
         {
-            auto errmsg = std::string("fsutils::remove for ") + path.string() + ", " + error.message();
+            auto errmsg = std::string("fsutils::remove for ") + fpath.string() + ", " + error.message();
             throw std::runtime_error(errmsg);
         }
     }
 
-    void remove(const std::string& path)
+    void remove(const std::string& spath)
     {
-        return fsutils::remove(topath(path));
+        return fsutils::remove(topath(spath));
     }
 
     void rename(const path& oldPath, const path& newPath)
@@ -74,20 +74,20 @@ namespace beam::fsutils
         return fsutils::rename(topath(oldPath), topath(newPath));
     }
 
-    std::vector<uint8_t> fread(const path& path)
+    std::vector<uint8_t> fread(const path& fpath)
     {
         std::ifstream file;
 
-        auto checkerr = [&path, &file] () {
+        auto checkerr = [&fpath, &file] () {
             if (file.fail())
             {
                 std::ostringstream ss;
-                ss << "fsutils::fread failed for file " << path.string() + ", code " << errno << ", msg " << strerror(errno);
+                ss << "fsutils::fread failed for file " << fpath.string() + ", code " << errno;
                 throw std::runtime_error(ss.str());
             }
         };
 
-        file.open(path, std::ios::binary);
+        file.open(fpath, std::ios::binary);
         checkerr();
 
         file.unsetf(std::ios::skipws);
@@ -110,8 +110,8 @@ namespace beam::fsutils
         return vec;
     }
 
-    std::vector<uint8_t> fread(const std::string& path)
+    std::vector<uint8_t> fread(const std::string& spath)
     {
-        return fsutils::fread(topath(path));
+        return fsutils::fread(topath(spath));
     }
 }
