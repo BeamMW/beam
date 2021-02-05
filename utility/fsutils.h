@@ -18,7 +18,7 @@
 
 namespace beam::fsutils
 {
-    using path = boost::filesystem::path;
+    using namespace boost::filesystem;
 
     bool exists(const path& path);
     bool exists(const std::string& path);
