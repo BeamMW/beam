@@ -105,6 +105,8 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Dummy::TestFarCallStack& x) {
 		ConvertOrd<bToShader>(x.m_iCaller);
 	}
+	template <bool bToShader> void Convert(Dummy::TestRingSig& x) {
+	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
 	}
@@ -906,6 +908,7 @@ namespace bvm2 {
 				//switch (iMethod)
 				//{
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
+				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
 				//}
 			}
 
@@ -1190,6 +1193,63 @@ namespace bvm2 {
 		bh.m_PoW.m_Difficulty = s.m_PoW.m_Difficulty.m_Packed;
 	}
 
+	void CreateRingSignature(const ECC::Hash::Value& msg, uint32_t nRing, const ECC::Point* pPk, uint32_t iProver, const ECC::Scalar::Native& sk, ECC::Scalar& e0, ECC::Scalar* pK)
+	{
+		assert(iProver < nRing);
+
+		ECC::NonceGenerator ng("r-sig");
+		ng << msg;
+		ng << Blob(pPk, sizeof(*pPk) * nRing);
+
+		{
+			ECC::NoLeak<ECC::Scalar> s_;
+			s_.V = sk;
+			ng << s_.V.m_Value;
+		}
+
+		ECC::Scalar::Native n0; // the resid that we're going to leave
+		ng >> n0;
+
+		ECC::Point::Native ptN = ECC::Context::get().G * n0;
+
+		for (uint32_t i = 0; ; i++)
+		{
+			uint32_t iUser = (i + iProver + 1) % nRing;
+
+			ECC::SignatureBase sb;
+			sb.m_NoncePub = ptN;
+
+			ECC::Scalar::Native e;
+			sb.get_Challenge(e, msg);
+
+			if (!iUser)
+				e0 = e;
+
+			ECC::Scalar::Native k;
+
+			if (iProver == iUser)
+			{
+				// calculate k such that:
+				// k*G + e*P == n0*G
+				// k = n0 - e*s
+
+				e *= sk;
+				n0 = n0 - e;
+
+				pK[iProver] = n0;
+				break;
+			}
+
+			ECC::Point::Native pk;
+			pk.Import(pPk[iUser]);
+
+			ng >> k;
+			pK[iUser] = k;
+
+			ptN = ECC::Context::get().G * k;
+			ptN += pk * e;
+		}
+	}
 
 	void MyProcessor::TestDummy()
 	{
@@ -1363,6 +1423,28 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		}
 
+		{
+			Shaders::Dummy::TestRingSig args;
+			ZeroObject(args);
+
+			ECC::SetRandom(args.m_Msg);
+
+			const uint32_t nRing = Shaders::Dummy::TestRingSig::s_Ring;
+			ECC::Scalar::Native pS[nRing];
+			for (uint32_t i = 0; i < nRing; i++)
+			{
+				ECC::SetRandom(pS[i]);
+				ECC::Point::Native pt = ECC::Context::get().G * pS[i];
+				args.m_pPks[i] = pt;
+			}
+
+			const uint32_t iProver = 2;
+			static_assert(iProver < nRing);
+
+			CreateRingSignature(args.m_Msg, nRing, args.m_pPks, iProver, pS[iProver], args.m_e, args.m_pK);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+		}
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}

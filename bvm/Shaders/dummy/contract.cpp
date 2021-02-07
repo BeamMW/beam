@@ -102,3 +102,56 @@ export void Method_10(Dummy::TestFarCallStack& r)
 {
     Env::get_CallerCid(r.m_iCaller, r.m_Cid);
 }
+
+bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, const Secp_scalar_data& e0, const Secp_scalar_data* pK)
+{
+    if (!nRing)
+        return true;
+
+    Secp_point* pP0 = Env::Secp_Point_alloc();
+    Secp_point* pP1 = Env::Secp_Point_alloc();
+
+    Secp_scalar* pE = Env::Secp_Scalar_alloc();
+    Env::Halt_if(!Env::Secp_Scalar_import(*pE, e0));
+
+    Secp_scalar* pS = Env::Secp_Scalar_alloc();
+    Secp_scalar_data ed;
+
+    for (uint32_t i = 0; i < nRing; i++)
+    {
+        Env::Halt_if(!Env::Secp_Scalar_import(*pS, pK[i]));
+        Env::Secp_Point_mul_G(*pP0, *pS);
+
+        Env::Halt_if(!Env::Secp_Point_Import(*pP1, pPk[i]));
+        Env::Secp_Point_mul(*pP1, *pP1, *pE);
+
+        Env::Secp_Point_add(*pP0, *pP0, *pP1); // k[i]*G + e*P[i]
+
+        // derive next challenge
+        Secp_point_data pd;
+        Env::Secp_Point_Export(*pP0, pd);
+
+        HashProcessor hp;
+        hp.m_p = Env::HashCreateSha256();
+        hp
+            << pd
+            << msg;
+
+        do
+            hp >> ed;
+        while (Utils::IsZero(ed) || !Env::Secp_Scalar_import(*pE, ed));
+    }
+
+    Env::Secp_Point_free(*pP0);
+    Env::Secp_Point_free(*pP1);
+
+    Env::Secp_Scalar_free(*pE);
+    Env::Secp_Scalar_free(*pS);
+
+    return !Utils::Cmp(ed, e0);
+}
+
+export void Method_11(Dummy::TestRingSig& r)
+{
+    Env::Halt_if(!TestRingSignature(r.m_Msg, r.s_Ring, r.m_pPks, r.m_e, r.m_pK));
+}
