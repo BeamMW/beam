@@ -1627,6 +1627,12 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(Secp_Scalar_inv)
 
+	BVM_METHOD(Secp_Scalar_set)
+	{
+		m_Secp.m_Scalar.FindStrict(dst).m_Val = val;
+	}
+	BVM_METHOD_HOST_AUTO(Secp_Scalar_set)
+
 
 	uint32_t Processor::Secp::Point::From(const Secp_point& p)
 	{
@@ -1725,6 +1731,48 @@ namespace bvm2 {
 		return !!bRet;
 	}
 	BVM_METHOD_HOST_AUTO(Secp_Point_IsZero)
+
+	BVM_METHOD(Secp_Point_mul_G)
+	{
+		DischargeUnits(Limits::Cost::Secp_Point_Multiply);
+
+		ECC::Mode::Scope mode(ECC::Mode::Fast);
+
+		m_Secp.m_Point.FindStrict(dst).m_Val =
+			ECC::Context::get().G *
+			m_Secp.m_Scalar.FindStrict(s).m_Val;
+	}
+	BVM_METHOD_HOST_AUTO(Secp_Point_mul_G)
+
+	BVM_METHOD(Secp_Point_mul_J)
+	{
+		DischargeUnits(Limits::Cost::Secp_Point_Multiply);
+
+		ECC::Mode::Scope mode(ECC::Mode::Fast);
+
+		m_Secp.m_Point.FindStrict(dst).m_Val =
+			ECC::Context::get().J *
+			m_Secp.m_Scalar.FindStrict(s).m_Val;
+	}
+	BVM_METHOD_HOST_AUTO(Secp_Point_mul_J)
+
+	BVM_METHOD(Secp_Point_mul_H)
+	{
+		DischargeUnits(Limits::Cost::Secp_Point_Multiply);
+
+		ECC::Mode::Scope mode(ECC::Mode::Fast);
+
+		auto& dst_ = m_Secp.m_Point.FindStrict(dst).m_Val;
+		auto& s_ = m_Secp.m_Scalar.FindStrict(s).m_Val;
+
+		CoinID::Generator gen(aid);
+		if (gen.m_hGen == Zero)
+			dst_ = ECC::Context::get().H_Big * s_;
+		else
+			dst_ = gen.m_hGen * s_;
+	}
+	BVM_METHOD_HOST_AUTO(Secp_Point_mul_H)
+
 
 	/////////////////////////////////////////////
 	// other
