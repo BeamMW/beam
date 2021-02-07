@@ -20,6 +20,8 @@
 namespace Shaders {
 
     typedef ECC::Point PubKey;
+	typedef ECC::Point Secp_point_data;
+	typedef ECC::Scalar Secp_scalar_data;
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
@@ -44,6 +46,8 @@ namespace beam {
 namespace bvm2 {
 
 	using Shaders::PubKey;
+	using Shaders::Secp_point_data;
+	using Shaders::Secp_scalar_data;
 	using Shaders::AssetID;
 	using Shaders::ContractID;
 	using Shaders::ShaderID;

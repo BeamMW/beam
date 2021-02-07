@@ -86,11 +86,11 @@
 
 #define BVMOp_Secp_Scalar_import(macro, sep) \
 	macro(Secp_scalar&, s) sep \
-	macro(const void*, pBuf)
+	macro(const Secp_scalar_data&, data)
 
 #define BVMOp_Secp_Scalar_export(macro, sep) \
 	macro(const Secp_scalar&, s) sep \
-	macro(void*, pBuf)
+	macro(Secp_scalar_data&, data)
 
 #define BVMOp_Secp_Scalar_neg(macro, sep) \
 	macro(Secp_scalar&, dst) sep \

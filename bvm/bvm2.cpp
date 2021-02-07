@@ -1580,22 +1580,22 @@ namespace bvm2 {
 
 	BVM_METHOD(Secp_Scalar_import)
 	{
-		return !m_Secp.m_Scalar.FindStrict(s).m_Val.Import(get_AddrAsR<ECC::Scalar>(pBuf));
+		return !m_Secp.m_Scalar.FindStrict(s).m_Val.Import(get_AddrAsR<ECC::Scalar>(data));
 	}
 
 	BVM_METHOD_HOST(Secp_Scalar_import)
 	{
-		return !m_Secp.m_Scalar.FindStrict(Secp::Scalar::From(s)).m_Val.Import(*(const ECC::Scalar*) pBuf);
+		return !m_Secp.m_Scalar.FindStrict(Secp::Scalar::From(s)).m_Val.Import(data);
 	}
 
 	BVM_METHOD(Secp_Scalar_export)
 	{
-		return m_Secp.m_Scalar.FindStrict(s).m_Val.Export(get_AddrAsW<ECC::Scalar>(pBuf));
+		return m_Secp.m_Scalar.FindStrict(s).m_Val.Export(get_AddrAsW<ECC::Scalar>(data));
 	}
 
 	BVM_METHOD_HOST(Secp_Scalar_export)
 	{
-		return m_Secp.m_Scalar.FindStrict(Secp::Scalar::From(s)).m_Val.Export(*(ECC::Scalar*) pBuf);
+		return m_Secp.m_Scalar.FindStrict(Secp::Scalar::From(s)).m_Val.Export(data);
 	}
 
 	BVM_METHOD(Secp_Scalar_neg)
