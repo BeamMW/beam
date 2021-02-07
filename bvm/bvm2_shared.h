@@ -42,6 +42,8 @@ struct SigRequest
 };
 
 struct HashObj;
+struct Secp_scalar;
+struct Secp_point;
 
 struct BlockHeader
 {

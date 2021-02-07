@@ -79,6 +79,67 @@
 #define BVMOp_HashFree(macro, sep) \
 	macro(HashObj*, pHash)
 
+#define BVMOp_Secp_Scalar_alloc(macro, sep)
+
+#define BVMOp_Secp_Scalar_free(macro, sep) \
+	macro(Secp_scalar&, s)
+
+#define BVMOp_Secp_Scalar_import(macro, sep) \
+	macro(Secp_scalar&, s) sep \
+	macro(const void*, pBuf)
+
+#define BVMOp_Secp_Scalar_export(macro, sep) \
+	macro(const Secp_scalar&, s) sep \
+	macro(void*, pBuf)
+
+#define BVMOp_Secp_Scalar_neg(macro, sep) \
+	macro(Secp_scalar&, dst) sep \
+	macro(const Secp_scalar&, src)
+
+#define BVMOp_Secp_Scalar_add(macro, sep) \
+	macro(Secp_scalar&, dst) sep \
+	macro(const Secp_scalar&, a) sep \
+	macro(const Secp_scalar&, b)
+
+#define BVMOp_Secp_Scalar_mul(macro, sep) \
+	macro(Secp_scalar&, dst) sep \
+	macro(const Secp_scalar&, a) sep \
+	macro(const Secp_scalar&, b)
+
+#define BVMOp_Secp_Scalar_inv(macro, sep) \
+	macro(Secp_scalar&, dst) sep \
+	macro(const Secp_scalar&, src)
+
+#define BVMOp_Secp_Point_alloc(macro, sep)
+
+#define BVMOp_Secp_Point_free(macro, sep) \
+	macro(Secp_point&, p)
+
+#define BVMOp_Secp_Point_Import(macro, sep) \
+	macro(Secp_point&, p) sep \
+	macro(const PubKey&, pk)
+
+#define BVMOp_Secp_Point_Export(macro, sep) \
+	macro(const Secp_point&, p) sep \
+	macro(PubKey&, pk)
+
+#define BVMOp_Secp_Point_neg(macro, sep) \
+	macro(Secp_point&, dst) sep \
+	macro(const Secp_point&, src)
+
+#define BVMOp_Secp_Point_add(macro, sep) \
+	macro(Secp_point&, dst) sep \
+	macro(const Secp_point&, a) sep \
+	macro(const Secp_point&, b)
+
+#define BVMOp_Secp_Point_mul(macro, sep) \
+	macro(Secp_point&, dst) sep \
+	macro(const Secp_point&, p) sep \
+	macro(const Secp_scalar&, s)
+
+#define BVMOp_Secp_Point_IsZero(macro, sep) \
+	macro(const Secp_point&, p)
+
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -248,6 +309,22 @@
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
 	macro(0x4A, HashObj* , HashCreateKeccak256) \
+	macro(0x80, Secp_scalar* , Secp_Scalar_alloc) \
+	macro(0x81, void     , Secp_Scalar_free) \
+	macro(0x82, uint8_t  , Secp_Scalar_import) \
+	macro(0x83, void     , Secp_Scalar_export) \
+	macro(0x84, void     , Secp_Scalar_neg) \
+	macro(0x85, void     , Secp_Scalar_add) \
+	macro(0x86, void     , Secp_Scalar_mul) \
+	macro(0x87, void     , Secp_Scalar_inv) \
+	macro(0x90, Secp_point* , Secp_Point_alloc) \
+	macro(0x91, void     , Secp_Point_free) \
+	macro(0x92, uint8_t     , Secp_Point_Import) \
+	macro(0x93, void     , Secp_Point_Export) \
+	macro(0x94, void     , Secp_Point_neg) \
+	macro(0x95, void     , Secp_Point_add) \
+	macro(0x96, void     , Secp_Point_mul) \
+	macro(0x97, uint8_t  , Secp_Point_IsZero) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
