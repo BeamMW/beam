@@ -18,6 +18,12 @@
 #include <string>
 #include <vector>
 
+namespace libbitcoin::wallet
+{
+    class ec_private;
+    class hd_private;
+}
+
 namespace beam::qtum
 {
     constexpr uint64_t kQtumDustThreshold = 72800;
@@ -27,4 +33,8 @@ namespace beam::qtum
 
     uint8_t getAddressVersion();
     std::vector<std::string> getGenesisBlockHashes();
+
+    // the first key is receiving master private key
+    // the second key is changing master private key
+    std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words);
 } // namespace beam::qtum

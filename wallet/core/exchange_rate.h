@@ -26,6 +26,13 @@ namespace beam::wallet
     constexpr std::string_view ltcCurrencyStr      = "ltc";
     constexpr std::string_view qtumCurrencyStr     = "qtum";
     constexpr std::string_view usdCurrencyStr      = "usd";
+    constexpr std::string_view dogeCurrencyStr =     "doge";
+    constexpr std::string_view dashCurrencyStr =     "dash";
+    constexpr std::string_view ethereumCurrencyStr = "ethereum";
+    constexpr std::string_view daiCurrencyStr =      "dai";
+    constexpr std::string_view usdtCurrencyStr =     "usdt";
+    constexpr std::string_view wbtcCurrencyStr =     "wbtc";
+    constexpr std::string_view bchCurrencyStr =      "bch";
     constexpr std::string_view unknownCurrencyStr  = "unknown";
     constexpr std::string_view exchangeRateOffStr  = "off";
 
@@ -38,6 +45,13 @@ namespace beam::wallet
             Litecoin,
             Qtum,
             Usd,
+            Dogecoin,
+            Dash,
+            Ethereum,
+            Dai,
+            Usdt,
+            WBTC,
+            Bitcoin_Cash,
             Unknown
         };
     

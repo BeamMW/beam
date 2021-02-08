@@ -247,6 +247,13 @@ namespace beam
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
 
+        // ethereum
+        const char* ETHEREUM_SEED = "ethereum_seed";
+        const char* INFURA_PROJECT_ID = "infura_project_id";
+        const char* ACCOUNT_INDEX = "account_index";
+        const char* SHOULD_CONNECT = "should_connect";
+        const char* ETH_GAS_PRICE = "eth_gas_price";
+        const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
@@ -322,6 +329,7 @@ namespace beam
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
         const char* OFFLINE_ADDRESS     = "offline";
         const char* PUBLIC_OFFLINE      = "public_offline";
+        const char* ENABLE_LELANTUS     = "enable_lelantus";
 
         // shaders
         const char* SHADER_INVOKE       = "shader";
@@ -463,7 +471,7 @@ namespace beam
         swap_options.add_options()
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
-            (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
+            (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed(use space as separator)")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::SELECT_SERVER_AUTOMATICALLY, po::value<bool>(), "select electrum server automatically")
             (cli::ELECTRUM_ADDR, po::value<string>(), "set electrum wallet address")
@@ -472,12 +480,18 @@ namespace beam
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of the swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
-            (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM)")
+            (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM/DASH/DOGE/ETH)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin (e.g. satoshi for BTC)")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "specific feerate you are willing to pay (the smallest unit of the coin per KB)")
             (cli::SWAP_BEAM_SIDE, "should be always set by the swap party who owns BEAM")
             (cli::SWAP_TX_HISTORY, "print swap transaction history in info command")
-            (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap");
+            (cli::SWAP_TOKEN, po::value<string>(), "transaction token for atomic swap")
+            (cli::ETHEREUM_SEED, po::value<string>(), "ethereum seed(use space as separator)")
+            (cli::INFURA_PROJECT_ID, po::value<string>(), "infura project ID")
+            (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "ethereum account index")
+            (cli::SHOULD_CONNECT, po::value<bool>(), "connect to ethereum [true|false]")
+            (cli::ETH_GAS_PRICE, po::value<Positive<Amount>>(), "gas price in the gwei")
+            (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums or tokens");
 
         po::options_description wallet_assets_options("Confidential assets");
         wallet_assets_options.add_options()

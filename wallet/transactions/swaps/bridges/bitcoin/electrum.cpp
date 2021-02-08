@@ -36,6 +36,8 @@ using namespace libbitcoin::chain;
 namespace
 {
     const std::chrono::seconds kRequestPeriod = std::chrono::seconds(10);
+    const size_t kUnlogingScriptSize = 107u; // without prefix
+
     std::string generateScriptHash(const ec_public& publicKey, uint8_t addressVersion)
     {
         payment_address addr = publicKey.to_payment_address(addressVersion);
@@ -45,11 +47,12 @@ namespace
         return libbitcoin::encode_base16(reverseSecretHash);
     }
 
+    // tx without unloking script
     beam::Amount calcFee(const libbitcoin::chain::transaction& tx, beam::Amount feeRate)
     {
-        beam::Amount vsize = (tx.weight() + 3u) / 4u;
+        beam::Amount vsize = tx.serialized_size();
 
-        return (vsize * feeRate) / 1000u;
+        return ((vsize + kUnlogingScriptSize * tx.inputs().size()) * feeRate) / 1000u;
     }
 
     const char kInvalidGenesisBlockHashMsg[] = "Invalid genesis block hash";
@@ -116,7 +119,7 @@ namespace beam::bitcoin
                     unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
                 }
 
-                auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
+                auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
                 while (true)
                 {
                     int changePosition = -1;
@@ -145,8 +148,7 @@ namespace beam::bitcoin
                     }
                     auto changeValue = totalInputValue - newTx.total_output_value();
 
-                    auto signTx = signRawTx(newTx, coins);
-                    auto fee = calcFee(signTx, feeRate);
+                    auto fee = calcFee(newTx, feeRate);
 
                     if (fee > changeValue)
                     {
@@ -162,8 +164,7 @@ namespace beam::bitcoin
 
                         newTx.outputs().push_back(out);
 
-                        signTx = signRawTx(newTx, coins);
-                        auto newFee = calcFee(signTx, feeRate);
+                        auto newFee = calcFee(newTx, feeRate);
 
                         if (newFee > changeValue || changeValue - newFee <= getDust())
                         {
@@ -175,7 +176,7 @@ namespace beam::bitcoin
                             newTx.outputs().back().set_value(changeValue - newFee);
                         }
 
-                        LOG_DEBUG() << "electrum fundrawtransaction: sign weight = " << signTx.weight() << ", fee = " << newFee << ", size = " << signTx.serialized_size();
+                        LOG_DEBUG() << "electrum fundrawtransaction:  fee = " << newFee << ", size = " << newTx.serialized_size();
                     }
 
                     for (auto p : resultPoints.points)
@@ -268,7 +269,7 @@ namespace beam::bitcoin
         LOG_DEBUG() << "getRawChangeAddress command";
 
         Error error{ None, "" };
-        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
+        auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
         std::srand(static_cast<unsigned int>(std::time(0)));
         uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_receivingAddressAmount);
 
@@ -809,7 +810,7 @@ namespace beam::bitcoin
     {
         std::vector<ec_private> result;
         auto settings = m_settingsProvider.GetSettings().GetElectrumConnectionOptions();
-        auto privateKeys = generateElectrumMasterPrivateKeys(settings.m_secretWords);
+        auto privateKeys = generateMasterPrivateKeys(settings.m_secretWords);
         auto addressVersion = m_settingsProvider.GetSettings().GetAddressVersion();
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
 
@@ -899,6 +900,11 @@ namespace beam::bitcoin
     Amount Electrum::getDust() const
     {
         return kDustThreshold;
+    }
+
+    std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> Electrum::generateMasterPrivateKeys(const std::vector<std::string>& words) const
+    {
+        return generateElectrumMasterPrivateKeys(words);
     }
 
     transaction Electrum::signRawTx(const transaction& tx1, const std::vector<Utxo>& coins)

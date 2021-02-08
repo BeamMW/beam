@@ -238,6 +238,8 @@ namespace beam::wallet
             case TxParameterID::PeerPublicNonce:
             case TxParameterID::PeerSignature:
                 return true;
+            case TxParameterID::PeerLockImage:
+                return isTxOwner && !isTxOwner.get();
             default:
                 return false;
         }
@@ -745,7 +747,7 @@ namespace beam::wallet
                     if (!GetKernelFromChain(SubTxIndex::BEAM_REDEEM_TX))
                         break;
 
-                    ExtractSecretPrivateKey();
+                    ExtractSecret();
 
                     // Redeem second Coin
                     SetNextState(State::SendingRedeemTX);
@@ -1471,6 +1473,19 @@ namespace beam::wallet
         }
     }
 
+    void AtomicSwapTransaction::ExtractSecret()
+    {
+        if (IsHashlockScheme())
+        {
+            TxKernelStd::Ptr pKrn = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, SubTxIndex::BEAM_REDEEM_TX);
+            SetParameter(TxParameterID::PreImage, pKrn->m_pHashLock->m_Value, false, SubTxIndex::BEAM_REDEEM_TX);
+        }
+        else
+        {
+            ExtractSecretPrivateKey();
+        }
+    }
+
     void AtomicSwapTransaction::ExtractSecretPrivateKey()
     {
         auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
@@ -1492,6 +1507,21 @@ namespace beam::wallet
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig); // secret pubkey is missing
 
         SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, k, false, BEAM_REDEEM_TX);
+    }
+
+    bool AtomicSwapTransaction::IsHashlockScheme() const
+    {
+        // TODO: check State >= HandlingContractTX ?
+
+        Hash::Value lockImage;
+        Hash::Value preImage;
+        if (GetParameter(TxParameterID::PeerLockImage, lockImage, SubTxIndex::BEAM_REDEEM_TX) ||
+            GetParameter(TxParameterID::PreImage, preImage, SubTxIndex::BEAM_REDEEM_TX))
+        {
+            return true;
+        }
+
+        return false;
     }
 
 } // namespace

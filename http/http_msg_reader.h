@@ -61,7 +61,7 @@ public:
 /// Extracts individual http messages from stream, performs header/size validation
 class HttpMsgReader {
 public:
-    enum What { nothing, http_message, connection_error, message_corrupted, message_too_long };
+    enum What { nothing, http_message, connection_error, message_corrupted, message_too_long, unsupported_type };
 
     struct Message {
         What what;
@@ -102,9 +102,10 @@ public:
 private:
     size_t feed_header(const uint8_t* p, size_t sz);
     size_t feed_body(const uint8_t* p, size_t sz);
+    size_t feed_chunked_body(const uint8_t* p, size_t sz);
 
     /// 2 states of the reader
-    enum State { reading_header, reading_body };
+    enum State { reading_header, reading_body, reading_chunked_body };
 
     /// callback
     Callback _callback;

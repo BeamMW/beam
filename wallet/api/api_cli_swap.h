@@ -16,8 +16,6 @@
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
-#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
@@ -28,95 +26,16 @@
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
 #include "wallet/api/api_swaps_provider.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
+#include "swap_client.h"
+#include "swap_eth_client.h"
 #include "api_swaps_provider.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
 using namespace beam::wallet;
 
-using BaseSwapClient = beam::bitcoin::Client;
-class SwapClient : public BaseSwapClient
-{
-public:
-    using Ptr = std::shared_ptr<SwapClient>;
-    SwapClient(
-        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
-        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
-        io::Reactor& reactor)
-        : BaseSwapClient(bridgeHolder,
-                         std::move(settingsProvider),
-                         reactor)
-        , _timer(beam::io::Timer::create(reactor))
-        , _feeTimer(beam::io::Timer::create(reactor))
-        , _status(Status::Unknown)
-    {
-        requestBalance();
-        requestRecommendedFeeRate();
-        _timer->start(1000, true, [this] ()
-        {
-            requestBalance();
-        });
 
-        // TODO need name for the parameter
-        _feeTimer->start(60 * 1000, true, [this]()
-        {
-            requestRecommendedFeeRate();
-        });
-    }
-
-    Amount GetAvailable() const
-    {
-        return _balance.m_available;
-    }
-
-    Amount GetRecommendedFeeRate() const
-    {
-        return _recommendedFeeRate;
-    }
-
-    bool IsConnected() const
-    {
-        return _status == Status::Connected;
-    }
-
-private:
-    beam::io::Timer::Ptr _timer;
-    beam::io::Timer::Ptr _feeTimer;
-    Balance _balance;
-    Amount _recommendedFeeRate = 0;
-    Status _status;
-    void requestBalance()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update balance
-            GetAsync()->GetBalance();
-        }
-    }
-    void requestRecommendedFeeRate()
-    {
-        if (GetSettings().IsActivated())
-        {
-            // update recommended fee rate
-            GetAsync()->EstimateFeeRate();
-        }
-    }
-    void OnStatus(Status status) override
-    {
-        _status = status;
-    }
-    void OnBalance(const Balance& balance) override
-    {
-        _balance = balance;
-    }
-    void OnEstimatedFeeRate(Amount feeRate) override
-    {
-        _recommendedFeeRate = feeRate;
-    }
-    void OnCanModifySettingsChanged(bool canModify) override {}
-    void OnChangedSettings() override {}
-    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override {}
-};
 
 class ApiCliSwap
     : public ISwapsProvider
@@ -149,20 +68,50 @@ public:
 private:
     [[nodiscard]] beam::Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetAvailable(swapCoin) : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
+
         return swapClient ? swapClient->GetAvailable() : 0;
     }
 
     [[nodiscard]] beam::Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetRecommendedFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
+
         return swapClient ? swapClient->GetRecommendedFeeRate() : 0;
     }
 
     [[nodiscard]] beam::Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMinFeeRate() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
+
         return swapClient ? swapClient->GetSettings().GetMinFeeRate() : 0;
+    }
+
+    [[nodiscard]] beam::Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override
+    {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->GetSettings().GetMaxFeeRate() : 0;
+        }
+
+        auto swapClient = getSwapCoinClient(swapCoin);
+
+        return swapClient ? swapClient->GetSettings().GetMaxFeeRate() : 0;
     }
 
     [[nodiscard]] const SwapOffersBoard& getSwapOffersBoard() const override
@@ -172,7 +121,13 @@ private:
 
     [[nodiscard]] bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
+        if (ethereum::IsEthereumBased(swapCoin))
+        {
+            return _swapEthClient ? _swapEthClient->IsConnected() : 0;
+        }
+
         auto swapClient = getSwapCoinClient(swapCoin);
+
         return swapClient && swapClient->IsConnected();
     }
 
@@ -207,6 +162,8 @@ private:
 private:
     std::map<beam::wallet::AtomicSwapCoin, SwapClient::Ptr> _swapClients;
     std::map<beam::wallet::AtomicSwapCoin, beam::bitcoin::IBridgeHolder::Ptr> _swapBridgeHolders;
+    SwapEthClient::Ptr _swapEthClient;
+    beam::ethereum::IBridgeHolder::Ptr _swapEthBridgeHolder;
     SwapOffersBoard::Ptr _offersBulletinBoard;
     std::shared_ptr<BroadcastRouter> _broadcastRouter;
     std::shared_ptr<OfferBoardProtocolHandler> _offerBoardProtocolHandler;

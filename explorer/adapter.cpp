@@ -30,6 +30,8 @@
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/core/wallet_network.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include <boost/algorithm/string.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 #include "wallet/client/extensions/offers_board/offers_protocol_handler.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -45,6 +47,23 @@ static const size_t CACHE_DEPTH = 100000;
 const unsigned int FAKE_SEED = 10283UL;
 const char WALLET_DB_PATH[] = "explorer-wallet.db";
 const char WALLET_DB_PASS[] = "1";
+
+std::string SwapAmountToString(Amount swapAmount, wallet::AtomicSwapCoin swapCoin)
+{
+    auto decimals = std::lround(std::log10(wallet::UnitsPerCoin(swapCoin)));
+    boost::multiprecision::cpp_dec_float_50 preciseAmount(swapAmount);
+    preciseAmount /= wallet::UnitsPerCoin(swapCoin);
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(decimals) << preciseAmount;
+    auto str = ss.str();
+
+    const auto point = std::use_facet< std::numpunct<char>>(ss.getloc()).decimal_point();
+    boost::algorithm::trim_right_if(str, boost::is_any_of("0"));
+    boost::algorithm::trim_right_if(str, [point](const char ch) {return ch == point; });
+
+    return str;
+}
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
@@ -869,11 +888,12 @@ private:
                 {"status_string", swapOfferStatusToString(offer.m_status)},
                 {"txId", wallet::TxIDToString(offer.m_txId)},
                 {"beam_amount", std::to_string(wallet::PrintableAmount(offer.amountBeam(), true))},
-                {"swap_amount", std::to_string(wallet::PrintableAmount(offer.amountSwapCoin(), true))},
+                {"swap_amount", SwapAmountToString(offer.amountSwapCoin(), offer.swapCoinType())},
                 {"swap_currency", std::to_string(offer.swapCoinType())},
                 {"time_created", format_timestamp(wallet::kTimeStampFormat3x3, offer.timeCreated() * 1000, false)},
                 {"min_height", offer.minHeight()},
                 {"height_expired", offer.minHeight() + offer.peerResponseHeight()},
+                {"is_beam_side", offer.isBeamSide()},
             });
         }
 
@@ -890,7 +910,11 @@ private:
                qtumAmount = 0,
             //    bitcoinCashAmount = 0,
                dogecoinAmount = 0,
-               dashAmount = 0;
+               dashAmount = 0,
+               ethereumAmount = 0,
+               daiAmount = 0,
+               usdtAmount = 0,
+               wbtcAmount = 0;
 
         for(auto& offer : offers)
         {
@@ -915,6 +939,18 @@ private:
                 case wallet::AtomicSwapCoin::Dash :
                     dashAmount += offer.amountSwapCoin();
                     break;
+                case wallet::AtomicSwapCoin::Ethereum:
+                    ethereumAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Dai:
+                    daiAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::Usdt:
+                    usdtAmount += offer.amountSwapCoin();
+                    break;
+                case wallet::AtomicSwapCoin::WBTC:
+                    wbtcAmount += offer.amountSwapCoin();
+                    break;
                 default :
                     LOG_ERROR() << "Unknown swap coin type";
                     return false;
@@ -924,12 +960,16 @@ private:
         json obj = json{
             { "total_swaps_count", offers.size()},
             { "beams_offered", std::to_string(wallet::PrintableAmount(beamAmount, true)) },
-            { "bitcoin_offered", std::to_string(wallet::PrintableAmount(bitcoinAmount, true))},
-            { "litecoin_offered", std::to_string(wallet::PrintableAmount(litecoinAmount, true))},
-            { "qtum_offered", std::to_string(wallet::PrintableAmount(qtumAmount, true))},
-            // { "bicoin_cash_offered", std::to_string(wallet::PrintableAmount(bitcoinCashAmount, true))},
-            { "dogecoin_offered", std::to_string(wallet::PrintableAmount(dogecoinAmount, true))},
-            { "dash_offered", std::to_string(wallet::PrintableAmount(dashAmount, true))}
+            { "bitcoin_offered", SwapAmountToString(bitcoinAmount, wallet::AtomicSwapCoin::Bitcoin)},
+            { "litecoin_offered", SwapAmountToString(litecoinAmount, wallet::AtomicSwapCoin::Litecoin)},
+            { "qtum_offered", SwapAmountToString(qtumAmount, wallet::AtomicSwapCoin::Qtum)},
+            // { "bicoin_cash_offered", SwapAmountToString(bitcoinCashAmount, wallet::AtomicSwapCoin::Bitcoin_Cash)},
+            { "dogecoin_offered", SwapAmountToString(dogecoinAmount, wallet::AtomicSwapCoin::Dogecoin)},
+            { "dash_offered", SwapAmountToString(dashAmount, wallet::AtomicSwapCoin::Dash)},
+            { "ethereum_offered", SwapAmountToString(ethereumAmount, wallet::AtomicSwapCoin::Ethereum)},
+            { "dai_offered", SwapAmountToString(daiAmount, wallet::AtomicSwapCoin::Dai)},
+            { "usdt_offered", SwapAmountToString(usdtAmount, wallet::AtomicSwapCoin::Usdt)},
+            { "wbtc_offered", SwapAmountToString(wbtcAmount, wallet::AtomicSwapCoin::WBTC)}
         };
 
         return json2Msg(obj, out);

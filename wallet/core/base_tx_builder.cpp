@@ -1284,6 +1284,12 @@ namespace beam::wallet
                     .AddParameter(TxParameterID::PeerPublicExcess, m_pKrn->CastTo_Std().m_Commitment)
                     .AddParameter(TxParameterID::PeerPublicNonce, m_pKrn->CastTo_Std().m_Signature.m_NoncePub);
 
+                if (m_pKrn->CastTo_Std().m_pHashLock)
+                {
+                    ECC::Hash::Value lockImage = m_pKrn->CastTo_Std().m_pHashLock->get_Image(lockImage);
+                    msg.AddParameter(TxParameterID::PeerLockImage, lockImage);
+                }
+
                 SendToPeer(std::move(msg));
 
                 SetStatus(Status::SndHalfSent);

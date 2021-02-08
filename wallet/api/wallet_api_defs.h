@@ -205,9 +205,12 @@ namespace beam::wallet
 
     struct CreateAddress : AddressData
     {
+        TxAddressType type = TxAddressType::Regular;
+        bool newStyleRegular = false; // by default we generate SBBS addresses for regular type
+        uint32_t offlinePayments = 10;
         struct Response
         {
-            WalletID address;
+            std::string address;
         };
     };
 
@@ -471,6 +474,7 @@ namespace beam::wallet
         boost::optional<Asset::ID> assetId;
         struct Response
         {
+            Response() = default;
             WalletAsset AssetInfo;
         };
     };

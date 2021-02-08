@@ -109,15 +109,16 @@ namespace beam::wallet::lelantus
             m_OutpHeight = MaxHeight;
             GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
-                if (weak.expired())
-                    return;
-
-                try {
-                    m_OutpHeight = 0;
-                    OnOutpProof(proof);
-                }
-                catch (const TransactionFailedException& ex) {
-                    OnFailed(ex.GetReason(), ex.ShouldNofify());
+                auto thisHolder = weak.lock();
+                if (thisHolder) // not expired
+                {
+                    try {
+                        m_OutpHeight = 0;
+                        OnOutpProof(proof);
+                    }
+                    catch (const TransactionFailedException& ex) {
+                        OnFailed(ex.GetReason(), ex.ShouldNofify());
+                    }
                 }
             });
         }

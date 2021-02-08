@@ -26,6 +26,9 @@
 #include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
 #endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#include "wallet/transactions/swaps/bridges/ethereum/bridge_holder.h"
 
 namespace beam::wallet
 {
@@ -38,19 +41,32 @@ ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
     auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
     settingsProvider->Initialize();
 
-    // btcSettingsProvider stored in bitcoinBridgeCreator
-    auto bridgeCreator = [provider = settingsProvider]() -> bitcoin::IBridge::Ptr
+    auto bridgeHolder = std::make_shared<bitcoin::BridgeHolder<Electrum, Core>>();
+
+    // btcSettingsProvider and bridgeHolder are stored in bitcoinBridgeCreator
+    auto bridgeCreator = [holder = bridgeHolder, provider = settingsProvider]() -> bitcoin::IBridge::Ptr
     {
-        if (provider->GetSettings().IsElectrumActivated())
-            return std::make_shared<Electrum>(io::Reactor::get_Current(), *provider);
-
-        if (provider->GetSettings().IsCoreActivated())
-            return std::make_shared<Core>(io::Reactor::get_Current(), *provider);
-
-        return bitcoin::IBridge::Ptr();
+        return holder->Get(io::Reactor::get_Current(), *provider);
     };
 
     return wallet::MakeSecondSideFactory<SecondSide, Electrum, ISettingsProvider>(bridgeCreator, *settingsProvider);
+}
+
+template<typename SettingsProvider, typename Bridge, typename SecondSide, typename ISettingsProvider>
+ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
+{
+    auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
+    settingsProvider->Initialize();
+
+    auto bridgeHolder = std::make_shared<ethereum::BridgeHolder>();
+
+    // SettingsProvider and bridgeHolder are stored in bitcoinBridgeCreator
+    auto bridgeCreator = [holder = bridgeHolder, provider = settingsProvider]() -> typename Bridge::Ptr
+    {
+        return holder->Get(io::Reactor::get_Current(), *provider);
+    };
+
+    return wallet::MakeSecondSideFactory<SecondSide, Bridge, ISettingsProvider>(bridgeCreator, *settingsProvider);
 }
 } // namespace
 
@@ -186,27 +202,43 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
              dash::DashCore014,
              DashSide, 
              dash::ISettingsProvider>(walletDB));
+
+    auto ethFactory = CreateFactory
+            <ethereum::SettingsProvider, ethereum::EthereumBridge, EthereumSide, ethereum::ISettingsProvider>
+                (walletDB);
+
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Ethereum, ethFactory);
+    // register ERC20 tokens
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dai, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Usdt, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::WBTC, ethFactory);
 }
 
-bool IsSwapAmountValid(
-    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
+bool IsLockTxAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount withdrawFeeRate)
 {
     switch (swapCoin)
     {
     case AtomicSwapCoin::Bitcoin:
-        return BitcoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return BitcoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Litecoin:
-        return LitecoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return LitecoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Qtum:
-        return QtumSide::CheckAmount(swapAmount, swapFeeRate);
+        return QtumSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
 #if defined(BITCOIN_CASH_SUPPORT)
     case AtomicSwapCoin::Bitcoin_Cash:
-        return BitcoinCashSide::CheckAmount(swapAmount, swapFeeRate);
+        return BitcoinCashSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
 #endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
-        return DogecoinSide::CheckAmount(swapAmount, swapFeeRate);
+        return DogecoinSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
     case AtomicSwapCoin::Dash:
-        return DashSide::CheckAmount(swapAmount, swapFeeRate);
+        return DashSide::CheckLockTxAmount(swapAmount, withdrawFeeRate);
+    // For ethereum based coins receiver pays fee
+    case AtomicSwapCoin::Ethereum:
+    case AtomicSwapCoin::Dai:
+    case AtomicSwapCoin::Usdt:
+    case AtomicSwapCoin::WBTC:
+        return true;
     default:
         throw std::runtime_error("Unsupported coin for swap");
     }

@@ -28,13 +28,13 @@ namespace beam::wallet
     {
     }
 
-    bool LitecoinSide::CheckAmount(Amount amount, Amount feeRate)
+    bool LitecoinSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) >= litecoin::kDustThreshold;
     }
 
-    Amount LitecoinSide::CalcTotalFee(Amount feeRate)
+    Amount LitecoinSide::CalcWithdrawTxFee(Amount feeRate)
     {
         // TODO roman.strilets need to use segwit 
         return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));

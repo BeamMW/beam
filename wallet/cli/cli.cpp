@@ -25,6 +25,7 @@
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
+#include "wallet/transactions/swaps/swap_tx_description.h"
 #include "swaps.h"
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -35,7 +36,6 @@
 #include "core/treasury.h"
 #include "core/block_rw.h"
 #include <algorithm>
-//#include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
 #include "version.h"
@@ -66,7 +66,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <iomanip>
 #include <iterator>
@@ -111,6 +110,88 @@ namespace beam
 
 namespace
 {
+    std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
+    {
+        auto tx = walletDB->getTx(txID);
+        if (!tx)
+        {
+            LOG_WARNING() << "Can't get transaction details";
+            return "";
+        }
+        const TxDescription& desc = *tx;
+        TxAddressType addressType = GetAddressType(desc);
+
+        if (addressType == TxAddressType::AtomicSwap)
+        {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            Amount swapAmount = 0u;
+            AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+            bool isBeamSide = true;
+            bool bSuccess = storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapAmount, swapAmount);
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapCoin, swapCoin);
+            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+            if (bSuccess)
+            {
+                SwapTxDescription swapDescription(desc);
+                auto swapToken = swapDescription.getToken();
+
+                if (swapToken)
+                {
+                    std::ostringstream s;
+
+                    s << "Type:        " << "atomic swap" << std::endl;
+                    s << "Swap coin:   " << std::to_string(swapCoin) << std::endl;
+                    s << "Beam side:   " << isBeamSide << std::endl;
+                    s << "Beam amount: " << PrintableAmount(desc.m_amount) << std::endl;
+                    s << "Swap amount: " << std::to_string(swapAmount) << std::endl;
+                    s << "Swap token:  " << *swapToken << std::endl;
+
+                    return s.str();
+                }
+            }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+            return "";
+        }
+
+        bool hasNoPeerId = desc.m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+
+        auto senderIdentity = desc.getSenderIdentity();
+        auto receiverIdentity = desc.getReceiverIdentity();
+        bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+
+        auto sender = desc.getSender();
+        auto receiver = desc.getReceiver();
+        if (desc.m_txType == wallet::TxType::PushTransaction && !desc.m_sender)
+        {
+            sender = "shielded pool";
+        }
+        else if (desc.m_txType == wallet::TxType::Contract)
+        {
+            sender = receiver = "n/a";
+        }
+
+        std::ostringstream s;
+        s << "Type:              " << desc.getTxTypeString() << '\n';
+        s << "Sender:            " << sender << std::endl;
+        if (showIdentity)
+        {
+            s << "Sender identity:   " << senderIdentity << std::endl;
+        }
+
+        s << "Receiver:          " << (hasNoPeerId ? desc.getToken() : receiver) << std::endl;
+        if (showIdentity)
+        {
+            s << "Receiver identity: " << receiverIdentity << std::endl;
+        }
+
+        s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
+        s << "KernelID:          " << std::to_string(desc.m_kernelID) << std::endl;
+
+        return s.str();
+
+    }
+
     SecString GetPassword(const po::variables_map& vm);
 
     void ResolveWID(PeerID& res, const std::string& s)
@@ -677,65 +758,41 @@ namespace
    int GetAddress(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
-        std::string newAddress;
+
+        TxAddressType type = TxAddressType::Regular;
+        std::string receiver;
+        uint32_t offlineCount = 10;
+
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            LOG_INFO() << "Generating public offline address";
-            newAddress =  GeneratePublicOfflineAddress(*walletDB);
+            type = TxAddressType::PublicOffline;
         }
         else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
-            LOG_INFO() << "Generating max privacy address";
-            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-            newAddress = GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+            type = TxAddressType::MaxPrivacy;
         }
         else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
         {
-            LOG_INFO() << "Generating offline address";
-            auto walletAddress = GenerateNewAddress(walletDB, "", WalletAddress::ExpirationStatus::Never);
-            auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, it2->second.as<Positive<uint32_t>>().value);
-            newAddress = GenerateOfflineAddress(walletAddress, 0, vouchers);
+            type = TxAddressType::Offline;
+            offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
         else
         {
-            boost::optional<WalletAddress> address;
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
-                auto receiver = it->second.as<string>();
-                bool isValid = true;
-                WalletID walletID;
-                ByteBuffer buffer = from_hex(receiver, &isValid);
-                if (!isValid || !walletID.FromBuf(buffer))
-                {
-                    LOG_ERROR() << "Invalid address";
-                    return -1;
-                }
-                address = walletDB->getAddress(walletID);
-                if (!address)
-                {
-                    LOG_ERROR() << "Cannot get address, there is no SBBS";
-                    return -1;
-                }
-                if (address->isExpired())
-                {
-                    LOG_ERROR() << "Cannot get address, it is expired";
-                    return -1;
-                }
-                if (!address->isPermanent())
-                {
-                    LOG_ERROR() << "The address expiration time must be never.";
-                    return -1;
-                }
+                receiver = it->second.as<string>();
             }
-            else
-            {
-                address = GenerateNewAddress(walletDB, "");
-            }
-            newAddress = GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+        }
+
+        try 
+        {
+            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::OneDay, receiver, offlineCount);
+        }
+        catch (const std::exception& ex)
+        {
+            LOG_ERROR() << ex.what();
         }
         
-        LOG_INFO() << "address: " << newAddress;
         return 0;
     }
 
@@ -758,7 +815,7 @@ namespace
 
     WordList GeneratePhrase()
     {
-        auto phrase = createMnemonic(getEntropy(), language::en);
+        auto phrase = createMnemonic(getEntropy());
         BOOST_ASSERT(phrase.size() == 12);
         cout << kSeedPhraseGeneratedTitle;
         for (const auto& word : phrase)
@@ -791,7 +848,7 @@ namespace
             phrase = string_helpers::split(tempPhrase, ';');
 
             if (phrase.size() != WORD_COUNT
-                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase, language::en)))
+                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase)))
             {
                 LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;
@@ -1548,9 +1605,9 @@ namespace
             return -1;
         }
 
-        const auto txdetails = storage::TxDetailsInfo(walletDB, *txId);
+        const auto txdetails = TxDetailsInfo(walletDB, *txId);
         if (txdetails.empty()) {
-            // storage::TxDetailsInfo already printed an error
+            // TxDetailsInfo already printed an error
             return -1;
         }
 
@@ -2490,7 +2547,7 @@ namespace
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
             Amount feeRate = EstimateSwapFeerate(swapCoin, walletDB);
 
-            cout << "estimate fee rate = " << feeRate;
+            cout << "estimate fee rate = " << feeRate << endl;
             return 0;
         }
 
@@ -2506,7 +2563,7 @@ namespace
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
             Amount balance = GetBalance(swapCoin, walletDB);
 
-            cout << "avaible: " << balance;
+            cout << "avaible: " << balance << endl;
             return 0;
         }
 
@@ -2705,9 +2762,9 @@ int main_impl(int argc, char* argv[])
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
         {cli::SET_SWAP_SETTINGS,    SetSwapSettings,                "set generic atomic swap settings"},
-        {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM-specific swap settings"},
-        {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM-specific fee rate"},
-        {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM balance"},
+        {cli::SHOW_SWAP_SETTINGS,   ShowSwapSettings,               "print BTC/LTC/QTUM/DASH/DOGE/ETH-specific swap settings"},
+        {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM/DASH/DOGE/ETH-specific fee rate"},
+        {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM/DASH/DOGE/ETH balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
         {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet identity)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},

@@ -67,6 +67,7 @@ namespace
         Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         const SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
         bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
@@ -74,8 +75,23 @@ namespace
     struct ApiTest: beam::wallet::WalletApi
     {
         using WalletApi::WalletApi;
+        
+        std::vector<json> m_Messages;
         void sendMessage(const json& msg) override
         {
+            m_Messages.push_back(msg);
+        }
+
+        void TestTxListResSize(size_t s)
+        {
+            WALLET_CHECK(m_Messages.size() == 1);
+            WALLET_CHECK(m_Messages[0]["result"].size() == s);
+        }
+
+        void TestTxListResHeight(Height h)
+        {
+            WALLET_CHECK(m_Messages.size() == 1);
+            WALLET_CHECK(m_Messages[0]["result"][0]["height"] == h);
         }
     };
 
@@ -134,6 +150,7 @@ namespace
         helpers::StopWatch sw;
         sw.start();
 
+        Timestamp createTime = getTimestamp();
         for (int i = 0; i < Count; ++i)
         {
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
@@ -141,7 +158,9 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(1))
                 .SetParameter(TxParameterID::Fee, Amount(2))
-                .SetParameter(TxParameterID::Lifetime, Height(200)));
+                .SetParameter(TxParameterID::Lifetime, Height(200))
+                .SetParameter(TxParameterID::CreateTime, createTime));
+            createTime += 1000;
         }
         
         mainReactor->run();
@@ -169,9 +188,89 @@ namespace
         message.skip = 30;
         message.filter.status = wallet::TxStatus::Completed;
         message.withAssets = false;
+        sw.start();
         for (int i = 0; i < 100; ++i)
         {
             api.onMessage(1, message);
+            api.TestTxListResSize(10);
+            api.m_Messages.clear();
+        }
+        sw.stop();
+        cout << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
+
+        message.count = 10;
+        message.skip = 0;
+        api.onMessage(1, message);
+        api.TestTxListResSize(10);
+        api.m_Messages.clear();
+
+        message.count = 100;
+        message.skip = 0;
+        api.onMessage(1, message);
+        api.TestTxListResSize(64);
+        api.m_Messages.clear();
+
+        message.count = 100;
+        message.skip = 10;
+        api.onMessage(1, message);
+        api.TestTxListResSize(54);
+        api.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 10;
+        api.onMessage(1, message);
+        api.TestTxListResSize(10);
+        api.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 63;
+        api.onMessage(1, message);
+        api.TestTxListResSize(1);
+        api.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 64;
+        api.onMessage(1, message);
+        api.TestTxListResSize(0);
+        api.m_Messages.clear();
+
+        message.count = 10;
+        message.skip = 65;
+        api.onMessage(1, message);
+        api.TestTxListResSize(0);
+        api.m_Messages.clear();
+
+        Timestamp t = std::numeric_limits<Timestamp>::max();
+        int count = 0;
+
+        std::map<TxID, Height> storedTx;
+        sender.m_WalletDB->visitTx([&](const auto& tx)
+        {
+            const auto height = storage::DeduceTxProofHeight(*sender.m_WalletDB, tx);
+            storedTx.emplace(tx.m_txId, height);
+            WALLET_CHECK(tx.m_createTime > 0);
+            WALLET_CHECK(tx.m_createTime < t);
+            t = tx.m_createTime;
+            ++count;
+            return true;
+        }, {});
+        WALLET_CHECK(count == Count);
+        WALLET_CHECK(count == (int)storedTx.size());
+        for (auto p : storedTx)
+        {
+
+            TxList message2;
+            message2.count = 0;
+            message2.skip = 0;
+            message2.filter.status = wallet::TxStatus::Completed;
+            message2.withAssets = false;
+            message2.filter.height = p.second;
+
+            api.onMessage(1, message2);
+            api.TestTxListResSize(1);
+            api.TestTxListResHeight(p.second);
+
+            api.m_Messages.clear();
         }
     }
 
@@ -2859,6 +2958,41 @@ void TestVouchers()
     WALLET_CHECK(!sender.m_Vouchers.empty());
 }
 
+void TestAddressGeneration()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    auto db = createSenderWalletDB();
+    auto a1 = GenerateAddress(db, TxAddressType::Regular, false, "test", WalletAddress::ExpirationStatus::Never);
+    WalletID w1;
+    WALLET_CHECK(w1.FromHex(a1));
+    auto wa1 = db->getAddress(a1);
+    WALLET_CHECK(wa1);
+    WALLET_CHECK(wa1->m_label == "test");
+    WALLET_CHECK(wa1->isPermanent());
+    WALLET_CHECK(GetAddressType(a1) == TxAddressType::Regular);
+    
+    auto a2 = GenerateAddress(db, TxAddressType::Regular, true, "test2", WalletAddress::ExpirationStatus::Never, a1);
+    WALLET_CHECK(GetAddressType(a2) == TxAddressType::Regular);
+    auto p2 = ParseParameters(a2);
+    WALLET_CHECK(p2);
+    auto peerID2= p2->GetParameter<WalletID>(TxParameterID::PeerID);
+    WALLET_CHECK(peerID2);
+    auto& ww1 = *peerID2;
+    WALLET_CHECK(ww1.cmp(w1) == 0);
+
+
+    auto a3 = GenerateAddress(db, TxAddressType::Offline, true, "test2", WalletAddress::ExpirationStatus::Never, "", 10);
+    WALLET_CHECK(GetAddressType(a3) == TxAddressType::Offline);
+
+    auto a4 = GenerateAddress(db, TxAddressType::MaxPrivacy);
+    WALLET_CHECK(GetAddressType(a4) == TxAddressType::MaxPrivacy);
+
+    auto a5 = GenerateAddress(db, TxAddressType::PublicOffline);
+    WALLET_CHECK(GetAddressType(a5) == TxAddressType::PublicOffline);
+
+}
+
 #if defined(BEAM_HW_WALLET)
 
 //IWalletDB::Ptr createSqliteWalletDB()
@@ -3114,6 +3248,7 @@ int main()
 
     TestVouchers();
 
+    TestAddressGeneration();
 
     //TestBbsDecrypt();
 

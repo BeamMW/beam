@@ -54,42 +54,16 @@ namespace
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
         setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
         setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
+        setStringField(env, WalletAddressClass, addr, "address", address.m_Address);
 
         return addr;
-    }
-
-    std::string getAddressFrom(TxDescription m_tx)
-    {
-        if (m_tx.m_txType == wallet::TxType::PushTransaction && !m_tx.m_sender){
-            return m_tx.getSenderIdentity();
-        }
-        return to_string(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
-    }
-
-    std::string getAddressTo(TxDescription m_tx)
-    {
-        if (m_tx.m_sender)
-        {
-            auto token = m_tx.getToken();
-            if (token.length() == 0) {
-                return to_string(m_tx.m_myId);
-            }
-            auto params = beam::wallet::ParseParameters(token);
-            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
-            {
-                auto s = std::to_string(*peerIdentity);
-                return s;
-            }
-            return token;
-        }
-        return to_string(m_tx.m_myId);
     }
 
     jobject fillTransactionData(JNIEnv* env, const TxDescription& txDescription)
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
-        auto shieldedFee = GetShieldedFee(txDescription);
+        auto shieldedFee = GetShieldedFee(txDescription) + txDescription.m_fee;
 
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
@@ -113,8 +87,10 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
         setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
 
-        setStringField(env, TxDescriptionClass, tx, "receiverAddress", getAddressTo(txDescription));
-        setStringField(env, TxDescriptionClass, tx, "senderAddress", getAddressFrom(txDescription));
+        setStringField(env, TxDescriptionClass, tx, "receiverAddress", txDescription.getAddressTo());
+        setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());
+
+        setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
 
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
@@ -178,6 +154,7 @@ namespace
             setLongField(env, UtxoClass, utxo, "id", coin.m_spentHeight);
             setStringField(env, UtxoClass, utxo, "stringId", idString);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
+            setLongField(env, UtxoClass, utxo, "txoID", coin.m_TxoID);
 
             switch (coin.m_Status)
             {
@@ -651,31 +628,63 @@ void WalletModel::onPaymentProofExported(const TxID& txID, const ByteBuffer& pro
     strProof.resize(proof.size() * 2);
 
     to_hex(strProof.data(), proof.data(), proof.size());
-    storage::PaymentInfo paymentInfo = storage::PaymentInfo::FromByteBuffer(proof);
-
+   
     JNIEnv* env = Android_JNI_getEnv();
 
-    jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
-
+    try
     {
+        storage::PaymentInfo paymentInfo = storage::PaymentInfo::FromByteBuffer(proof);
+
+        jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+        {   
         setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
         setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
         setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
         setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
         setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
         setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", strProof);
+        }
+
+        jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
+
+        jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO;)V");
+
+        env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jPaymentInfo);
+
+        env->DeleteLocalRef(jStrTxId);
+        env->DeleteLocalRef(jPaymentInfo);
+    }
+    catch (...)
+    {
+        
     }
 
-    jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
+    try
+    {
+        auto shieldedPaymentInfo = beam::wallet::storage::ShieldedPaymentInfo::FromByteBuffer(proof);
+       
+        jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+        {   
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(shieldedPaymentInfo.m_Sender));
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(shieldedPaymentInfo.m_Receiver));
+        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", shieldedPaymentInfo.m_Amount);
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(shieldedPaymentInfo.m_KernelID));
+        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", shieldedPaymentInfo.IsValid());
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", strProof);
+        }
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO;)V");
+        jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
 
-    
-    //jstring jStrProof = env->NewStringUTF(str.c_str());
-    env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jPaymentInfo);
+        jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO;)V");
 
-    env->DeleteLocalRef(jStrTxId);
-    env->DeleteLocalRef(jPaymentInfo);
+        env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jPaymentInfo);
+
+        env->DeleteLocalRef(jStrTxId);
+        env->DeleteLocalRef(jPaymentInfo);
+    }
+    catch (...)
+    {
+    }
 }
 
 void WalletModel::onCoinsByTx(const std::vector<Coin>& coins)
@@ -796,6 +805,11 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 
+        for (const auto& coin : items)
+        {
+            shieldedCoins[coin.m_TxoID] = coin;
+        }
+
     JNIEnv* env = Android_JNI_getEnv();
 
     jobjectArray utxos = convertShieldedToJObject(env, items);
@@ -820,6 +834,20 @@ void WalletModel::callMyFunction()
 void WalletModel::doFunction(const std::function<void()>& func)
 {
     func();  
+}
+
+void WalletModel::onExportTxHistoryToCsv(const std::string& data) 
+{
+    LOG_DEBUG() << "onExportTxHistoryToCsv()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportTxHistoryToCsv", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
 }
 
 void WalletModel::onPublicAddress(const std::string& publicAddr)

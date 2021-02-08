@@ -274,7 +274,7 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const
     return createSenderWalletDBWithSeed(SenderWalletDB, false, separateDBForPrivateData, amounts);
 }
 
-IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false, bool generateSeed = false)
+IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false, bool generateSeed = true)
 {
     auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData, generateSeed);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
@@ -1131,6 +1131,18 @@ private:
         {
             proto::ProofAsset msgOut;
             Send(msgOut);
+        }
+
+        void OnMsg(proto::GetBodyPack&& msg) override
+        {
+            if (msg.m_CountExtra)
+            {
+                Send(proto::BodyPack{});
+            }
+            else
+            {
+                Send(proto::Body{});
+            }
         }
 
 

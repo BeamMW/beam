@@ -329,7 +329,9 @@ NodeProcessor::Mmr::Mmr(NodeDB& db)
 }
 
 NodeProcessor::NodeProcessor()
-	:m_Mmr(m_DB)
+	:m_RecognizerHandler(*this)
+	,m_Recognizer(m_RecognizerHandler, m_Extra)
+	,m_Mmr(m_DB)
 {
 }
 
@@ -2119,17 +2121,15 @@ struct NodeProcessor::BlockInterpretCtx
 	};
 };
 
-bool NodeProcessor::HandleTreasury(const Blob& blob)
+bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
 {
-	assert(!IsTreasuryHandled());
-
 	Deserializer der;
 	der.reset(blob.p, blob.n);
-	Treasury::Data td;
 
 	try {
-		der & td;
-	} catch (const std::exception&) {
+		der& td;
+	}
+	catch (const std::exception&) {
 		LOG_WARNING() << "Treasury corrupt";
 		return false;
 	}
@@ -2152,6 +2152,16 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	}
 
 	LOG_INFO() << os.str();
+
+	return true;
+}
+
+bool NodeProcessor::HandleTreasury(const Blob& blob)
+{
+	assert(!IsTreasuryHandled());
+	Treasury::Data td;
+	if (!ExtractTreasury(blob, td))
+		return false;
 
 	BlockInterpretCtx bic(0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
@@ -2388,29 +2398,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
 		// recognize all
-		for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			Recognize(*block.m_vInputs[i], sid.m_Height);
-
-		ViewerKeys vk;
-		get_ViewerKeys(vk);
-		if (vk.m_pMw)
-		{
-			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				Recognize(*block.m_vOutputs[i], sid.m_Height, *vk.m_pMw);
-		}
-
-		if (!vk.IsEmpty())
-		{
-			KrnWalkerRecognize wlkKrn(*this);
-			wlkKrn.m_Height = sid.m_Height;
-
-			TxoID nOuts = m_Extra.m_ShieldedOutputs;
-			m_Extra.m_ShieldedOutputs -= bic.m_ShieldedOuts;
-
-			wlkKrn.Process(block.m_vKernels);
-			assert(m_Extra.m_ShieldedOutputs == nOuts);
-			nOuts; // supporess unused var warning in release
-		}
+		m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
 
 		Serializer ser;
 		bic.m_Rollback.clear();
@@ -2454,19 +2442,19 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 }
 
 template <typename TKey, typename TEvt>
-bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
+bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt)
 {
-	NodeDB::WalkerEvent wlk;
-	m_DB.FindEvents(wlk, Blob(&key, sizeof(key)));
+	auto wlk = m_Handler.FindEvents(Blob(&key, sizeof(key)));
 
 	Deserializer der;
 	while (true)
 	{
-		if (!wlk.MoveNext())
+		if (!wlk || !wlk->MoveNext())
 			return false;
 
+		const Blob& body = wlk->get_Body();
 		proto::Event::Type::Enum eType;
-		der.reset(wlk.m_Body.p, wlk.m_Body.n);
+		der.reset(body.p, body.n);
 		eType = proto::Event::Type::Load(der);
 
 		if (TEvt::s_Type == eType)
@@ -2479,30 +2467,68 @@ bool NodeProcessor::FindEvent(const TKey& key, TEvt& evt)
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEventInternal(Height h, EventKey::IndexType nIdx, const TEvt& evt, const Blob& key)
+void NodeProcessor::Recognizer::AddEventInternal(Height h, EventKey::IndexType nIdx, const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
 	ser & uintBigFrom(nIdx);
 	ser & TEvt::s_Type;
 	ser & evt;
 
-	m_DB.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
-	OnEvent(h, evt);
+	m_Handler.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
+	m_Handler.OnEvent(h, evt);
 }
 
 template <typename TEvt, typename TKey>
-void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt, const TKey& key)
+void NodeProcessor::Recognizer::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt, const TKey& key)
 {
 	AddEventInternal(h, nIdx, evt, Blob(&key, sizeof(key)));
 }
 
 template <typename TEvt>
-void NodeProcessor::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt)
+void NodeProcessor::Recognizer::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt)
 {
 	AddEventInternal(h, nIdx, evt, Blob(nullptr, 0));
 }
 
-void NodeProcessor::Recognize(const Input& x, Height h)
+NodeProcessor::Recognizer::Recognizer(IHandler& h, Extra& extra)
+	: m_Handler(h)
+	, m_Extra(extra)
+{
+
+}
+
+void NodeProcessor::Recognizer::Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts)
+{
+	// recognize all
+	for (size_t i = 0; i < block.m_vInputs.size(); i++)
+		Recognize(*block.m_vInputs[i], height);
+
+	NodeProcessor::ViewerKeys vk;
+	m_Handler.get_ViewerKeys(vk);
+	if (vk.m_pMw)
+	{
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			Recognize(*block.m_vOutputs[i], height, *vk.m_pMw);
+	}
+
+	if (!vk.IsEmpty())
+	{
+		KrnWalkerRecognize wlkKrn(*this);
+		wlkKrn.m_Height = height;
+
+		TxoID nOuts = m_Extra.m_ShieldedOutputs;
+		m_Extra.m_ShieldedOutputs -= shieldedOuts;
+
+		wlkKrn.Process(block.m_vKernels);
+		if (validateShieldedOuts)
+		{
+			assert(m_Extra.m_ShieldedOutputs == nOuts);
+			nOuts; // supporess unused var warning in release
+		}
+	}
+}
+
+void NodeProcessor::Recognizer::Recognize(const Input& x, Height h)
 {
 	const EventKey::Utxo& key = x.m_Commitment;
 	proto::Event::Utxo evt;
@@ -2518,11 +2544,11 @@ void NodeProcessor::Recognize(const Input& x, Height h)
 	AddEvent(h, EventKey::s_IdxInput, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelStd&, Height, uint32_t)
+void NodeProcessor::Recognizer::Recognize(const TxKernelStd&, Height, uint32_t)
 {
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t nKrnIdx)
 {
 	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
@@ -2534,6 +2560,14 @@ void NodeProcessor::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+}
+
+void NodeProcessor::Recognizer::Recognize(const TxKernelContractCreate& v, Height h, uint32_t nKrnIdx)
+{
+}
+
+void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
+{
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -2571,12 +2605,12 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_t nKrnIdx)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
 	ViewerKeys vk;
-	get_ViewerKeys(vk);
+	m_Handler.get_ViewerKeys(vk);
 
 	for (Key::Index nIdx = 0; nIdx < vk.m_nSh; nIdx++)
 	{
@@ -2606,7 +2640,7 @@ void NodeProcessor::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_
 	}
 }
 
-void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
+void NodeProcessor::Recognizer::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 {
 	CoinID cid;
 	Output::User user;
@@ -2614,9 +2648,9 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 		return;
 
 	// filter-out dummies
-	if (IsDummy(cid))
+	if (m_Handler.IsDummy(cid))
 	{
-		OnDummy(cid, h);
+		m_Handler.OnDummy(cid, h);
 		return;
 	}
 
@@ -2632,10 +2666,10 @@ void NodeProcessor::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
 	AddEvent(h, EventKey::s_IdxOutput, evt, key);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
 {
 	ViewerKeys vk;
-	get_ViewerKeys(vk);
+	m_Handler.get_ViewerKeys(vk);
 	if (!vk.m_pMw)
 		return;
 
@@ -2650,8 +2684,8 @@ void NodeProcessor::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t n
 	evt.m_Flags = proto::Event::Flags::Add;
 	evt.m_EmissionChange = 0; // no change upon creation
 
-	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	NodeDB::AssetEvt wlk;
+	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
 	assert(wlk.m_ID > Asset::s_MaxCount);
 
 	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
@@ -2670,7 +2704,7 @@ void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
 	memcpy(this, blob.p, sizeof(*this));
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
@@ -2679,8 +2713,8 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKr
 	evt.m_Flags = 0;
 	evt.m_EmissionChange = v.m_Value;
 
-	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	NodeDB::AssetEvt wlk;
+	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
 	assert(wlk.m_ID == evt.m_Info.m_ID);
 
 	AssetDataPacked adp;
@@ -2692,7 +2726,7 @@ void NodeProcessor::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKr
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
-void NodeProcessor::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
@@ -2738,10 +2772,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 	}
 
 	return true;
-}
-
-void NodeProcessor::Recognize(const TxKernelContractCreate& v, Height h, uint32_t nKrnIdx)
-{
 }
 
 bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInterpretCtx& bic)
@@ -2833,10 +2863,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::Cont
 		!memcmp(cid.m_pData, key.p, cid.nBytes);
 }
 
-void NodeProcessor::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
-{
-}
-
 void NodeProcessor::get_ViewerKeys(ViewerKeys& vk)
 {
 	ZeroObject(vk);
@@ -2880,7 +2906,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_User = user;
 
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
+			m_This.m_Recognizer.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
 
 			m_Total++;
 
@@ -2889,7 +2915,7 @@ void NodeProcessor::RescanOwnedTxos()
 			else
 			{
 				evt.m_Flags = 0;
-				m_This.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
+				m_This.m_Recognizer.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
 			}
 
 			return true;
@@ -2924,7 +2950,7 @@ void NodeProcessor::RescanOwnedTxos()
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
-			KrnWalkerRecognize wlkKrn(*this);
+			KrnWalkerRecognize wlkKrn(m_Recognizer);
 			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 			assert(m_Extra.m_ShieldedOutputs == nOuts);

@@ -90,7 +90,7 @@ public:
         }
     };
 
-    explicit HttpClient(io::Reactor& reactor);
+    explicit HttpClient(io::Reactor& reactor, bool ssl = false);
 
     ~HttpClient();
 
@@ -118,6 +118,7 @@ private:
     std::map<uint64_t, Ctx> _connections;
     std::map<uint64_t, uint64_t> _pendingConnections;
     uint64_t _idCounter;
+    bool _ssl;
 };
 
 } //namespace

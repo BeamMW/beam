@@ -617,8 +617,9 @@ namespace beam
 		if (m_pOwner)
 		{
 			CoinID cid;
-			if (outp.Recover(h, *m_pOwner, cid))
-				return OnUtxoRecognized(h, outp, cid);
+			Output::User user;
+			if (outp.Recover(h, *m_pOwner, cid, &user))
+				return OnUtxoRecognized(h, outp, cid, user);
 		}
 
 		return true;

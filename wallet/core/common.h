@@ -28,22 +28,28 @@
 
 namespace beam::wallet
 {
+
+#define BEAM_TX_TYPES_MAP(MACRO) \
+    MACRO(Simple,          0,  "simple") \
+    MACRO(AtomicSwap,      1,  "atomic swap") \
+    MACRO(AssetIssue,      2,  "asset issue") \
+    MACRO(AssetConsume,    3,  "asset consume") \
+    MACRO(AssetReg,        4,  "asset register") \
+    MACRO(AssetUnreg,      5,  "asset unregister") \
+    MACRO(AssetInfo,       6,  "asset info") \
+    MACRO(PushTransaction, 7,  "lelantus mw push") \
+    MACRO(PullTransaction, 8,  "lelantus mw pull") \
+    MACRO(VoucherRequest,  9,  "lelantus voucher request") \
+    MACRO(VoucherResponse, 10, "lelantus voucher response") \
+    MACRO(UnlinkFunds,     11, "unlink") \
+    MACRO(Contract,        12, "contract") \
+    MACRO(DexSimpleSwap,   13, "dex simple swap")
+
     enum class TxType : uint8_t
     {
-        Simple,
-        AtomicSwap,
-        AssetIssue,
-        AssetConsume,
-        AssetReg,
-        AssetUnreg,
-        AssetInfo,
-        PushTransaction,
-        PullTransaction,
-        VoucherRequest,
-        VoucherResponse,
-        UnlinkFunds,
-        Contract,
-        DexSimpleSwap,
+#define MACRO(type, index, s) type = index,
+        BEAM_TX_TYPES_MAP(MACRO)
+#undef MACRO
         ALL
     };
 
@@ -394,6 +400,7 @@ namespace beam::wallet
         AtomicSwapExternalHeight = 207,
         InternalFailureReason = 210,
         AddressType = 211,
+        SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
         State = 255
     };
@@ -612,6 +619,8 @@ namespace beam::wallet
         [[nodiscard]] std::string getIdentity(bool isSender) const;
         [[nodiscard]] std::string getSender() const;
         [[nodiscard]] std::string getReceiver() const;
+        [[nodiscard]] std::string getAddressFrom() const;
+        [[nodiscard]] std::string getAddressTo() const;
 
 #define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
         macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \

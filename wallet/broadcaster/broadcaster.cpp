@@ -223,7 +223,7 @@ namespace
         SecString pass("tempPass"); // TODO: random password should be used
 
         WordList phrase;
-        phrase = createMnemonic(getEntropy(), language::en);
+        phrase = createMnemonic(getEntropy());
         BOOST_ASSERT(phrase.size() == 12);
 
         auto buf = decodeMnemonic(phrase);
@@ -409,7 +409,11 @@ int main_impl(int argc, char* argv[])
                 (cli::MESSAGE_TYPE, po::value<std::string>(&options.messageType), "type of message: 'update' - info about available software updates, 'exchange' - info about current exchange rates")
                 (cli::UPDATE_VERSION, po::value<std::string>(&options.walletUpdateInfo.version), "available software version in format 'x.x.x.x' for desktop or 'x.x.x' for IOS and Android")
                 (cli::UPDATE_TYPE, po::value<std::string>(&options.walletUpdateInfo.walletType), "updated software: 'desktop', 'android', 'ios'")
-                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum'")
+#if defined(BITCOIN_CASH_SUPPORT)
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum', 'doge', 'dash', 'ethereum', 'dai', 'usdt', 'wbtc', 'bch'")
+#else
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum', 'doge', 'dash', 'ethereum', 'dai', 'usdt', 'wbtc'")
+#endif // BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
                 (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
             ;
