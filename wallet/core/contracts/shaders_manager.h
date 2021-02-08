@@ -33,7 +33,7 @@ namespace beam::wallet {
         }
 
         void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
-        void Start(const std::string &args, unsigned method, IDone& doneHandler); // throws
+        void Start(const std::string &args, unsigned method, IDone& doneHandler) override; // throws
 
     protected:
         void OnDone(const std::exception *pExc) override;
