@@ -31,7 +31,7 @@ namespace beam::fsutils
 
     bool exists(const path& fpath)
     {
-        return std::filesystem::exists(fpath);
+        return boost::filesystem::exists(fpath);
     }
 
     bool exists(const std::string& spath)
@@ -41,8 +41,8 @@ namespace beam::fsutils
 
     void remove(const path& fpath)
     {
-        std::error_code error;
-        std::filesystem::remove(fpath, error);
+        boost::system::error_code error;
+        boost::filesystem::remove(fpath, error);
 
         if (error)
         {
@@ -58,8 +58,8 @@ namespace beam::fsutils
 
     void rename(const path& oldPath, const path& newPath)
     {
-        std::error_code error;
-        std::filesystem::rename(oldPath, newPath, error);
+        boost::system::error_code error;
+        boost::filesystem::rename(oldPath, newPath, error);
 
         if (error)
         {
@@ -86,7 +86,12 @@ namespace beam::fsutils
             }
         };
 
-        file.open(fpath, std::ios::binary);
+        #ifdef WIN32
+        file.open(fpath.wstring().c_str(), std::ios::binary);
+        #else
+        file.open(fpath.string().c_str(), std::ios::binary);
+        #endif
+
         checkerr();
 
         file.unsetf(std::ios::skipws);
