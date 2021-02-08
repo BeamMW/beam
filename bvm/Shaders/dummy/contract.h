@@ -71,6 +71,20 @@ namespace Dummy
         HashValue m_Cid;
     };
 
+    struct TestRingSig
+    {
+        static const uint32_t s_iMethod = 11;
+
+        static const uint32_t s_Ring = 5;
+
+        PubKey m_pPks[s_Ring];
+        HashValue m_Msg;
+
+        // signature
+        Secp_scalar_data m_e;
+        Secp_scalar_data m_pK[s_Ring];
+    };
+
 #pragma pack (pop)
 
 }

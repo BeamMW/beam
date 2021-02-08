@@ -39,12 +39,18 @@ struct Opaque {
     uint8_t m_p[nBytes];
 };
 
+struct Secp_point_data {
+    Opaque<32> X;
+    uint8_t Y;
+};
+
 #pragma pack (pop)
 
-typedef Opaque<33> PubKey;
+typedef Secp_point_data PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;
 typedef Opaque<32> HashValue;
+typedef Opaque<32> Secp_scalar_data;
 
 template <bool bToShader, typename T>
 inline void ConvertOrd(T&) {}
@@ -422,6 +428,11 @@ struct HashProcessor
     void Write(const HashValue& hv)
     {
         Write(&hv, sizeof(hv));
+    }
+
+    void Write(const Secp_point_data& pd)
+    {
+        Write(&pd, sizeof(pd));
     }
 
     template <typename T>

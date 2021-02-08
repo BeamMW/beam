@@ -20,6 +20,8 @@
 namespace Shaders {
 
     typedef ECC::Point PubKey;
+	typedef ECC::Point Secp_point_data;
+	typedef ECC::Scalar Secp_scalar_data;
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
@@ -44,6 +46,8 @@ namespace beam {
 namespace bvm2 {
 
 	using Shaders::PubKey;
+	using Shaders::Secp_point_data;
+	using Shaders::Secp_scalar_data;
 	using Shaders::AssetID;
 	using Shaders::ContractID;
 	using Shaders::ShaderID;
@@ -52,6 +56,8 @@ namespace bvm2 {
 	using Shaders::FundsChange;
 	using Shaders::SigRequest;
 	using Shaders::HashObj;
+	using Shaders::Secp_scalar;
+	using Shaders::Secp_point;
 	using Shaders::HashValue;
 	using Shaders::BlockHeader;
 
@@ -77,6 +83,8 @@ namespace bvm2 {
 		static const uint32_t HeapSize = 0x10000; // 64K
 
 		static const uint32_t HashObjects = 8;
+		static const uint32_t SecScalars = 16;
+		static const uint32_t SecPoints = 16;
 
 		struct Cost
 		{
@@ -99,6 +107,11 @@ namespace bvm2 {
 			static const uint32_t AssetEmit = 2000;
 			static const uint32_t HashOp = 40; // alloc, getval
 			static const uint32_t HashOpPerAtom = 200;
+
+			static const uint32_t Secp_ScalarInv = 20000;
+			static const uint32_t Secp_Point_Import = 20000;
+			static const uint32_t Secp_Point_Export = 20000;
+			static const uint32_t Secp_Point_Multiply = 50000;
 		};
 
 		struct Charge
@@ -246,6 +259,42 @@ namespace bvm2 {
 		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
 
 		static void CvtHdr(Shaders::BlockHeader::InfoBase&, const Block::SystemState::Full&);
+
+		struct Secp
+		{
+			struct Scalar
+			{
+				struct Item
+					:public intrusive::set_base_hook<uint32_t>
+				{
+					ECC::Scalar::Native m_Val;
+				};
+
+				typedef intrusive::multiset_autoclear<Item> Map;
+				Map m_Map;
+
+				Item& FindStrict(uint32_t);
+				static uint32_t From(const Secp_scalar&);
+
+			} m_Scalar;
+
+			struct Point
+			{
+				struct Item
+					:public intrusive::set_base_hook<uint32_t>
+				{
+					ECC::Point::Native m_Val;
+				};
+
+				typedef intrusive::multiset_autoclear<Item> Map;
+				Map m_Map;
+
+				Item& FindStrict(uint32_t);
+				static uint32_t From(const Secp_point&);
+
+			} m_Point;
+
+		} m_Secp;
 
 	public:
 
