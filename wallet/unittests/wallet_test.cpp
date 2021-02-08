@@ -182,7 +182,7 @@ namespace
 
         auto asp = std::make_shared<AtomicSwapProvider>();
         WalletApi::ACL acl;
-        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, acl);
+        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr, acl);
         TxList message;
         message.count = 10;
         message.skip = 30;

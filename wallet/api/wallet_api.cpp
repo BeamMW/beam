@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "wallet_api.h"
 #include "wallet/core/common_utils.h"
+#include "utility/fsutils.h"
 #include "bvm/ManagerStd.h"
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -25,30 +26,14 @@
 #include <locale>
 
 namespace beam::wallet {
-
-        namespace {
+    namespace {
         // This is for jscript compatibility
         // Number.MAX_SAFE_INTEGER
         const auto MAX_ALLOWED_INT = AmountBig::Type(9'007'199'254'740'991U);
     }
 
-    json getNotImplError(const JsonRpcId& id)
-{
-    return json
+    CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
     {
-        {ApiBase::JsonRpcHeader, ApiBase::JsonRpcVersion},
-        {"id", id},
-        {"error",
-            {
-                {"code", ApiError::InternalErrorJsonRpc},
-                {"message", "Not implemented yet!"},
-            }
-        }
-    };
-}
-
-CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
-{
     CoinIDList coins;
 
     if (!params["coins"].is_array() || params["coins"].size() <= 0)
@@ -75,40 +60,47 @@ CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
     }
 
     return coins;
-}
+    }
 
-uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
-{
+    uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
+    {
     if (params["session"].is_number_unsigned() && params["session"] > 0)
     {
         return params["session"].get<uint64_t>();
     }
 
     throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'session' parameter.");
-}
+    }
 
-bool readAssetsParameter(const JsonRpcId& id, const json& params)
-{
+    bool readAssetsParameter(const JsonRpcId& id, const json& params)
+    {
     if (auto oassets = WalletApi::getOptionalParam<bool>(params, "assets"))
     {
         return *oassets;
     }
     return false;
-}
+    }
 
-boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json& params)
-{
-    return WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
-}
+    boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json& params)
+    {
+        return WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
+    }
 
-    WalletApi::WalletApi(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, ACL acl)
+    WalletApi::WalletApi(
+            IWalletDB::Ptr wdb,
+            Wallet::Ptr wallet,
+            ISwapsProvider::Ptr swaps,
+            IShadersManager::Ptr contracts,
+            ACL acl
+        )
         : ApiBase(std::move(acl))
         , _wdb(std::move(wdb))
         , _wallet(std::move(wallet))
         , _swaps(std::move(swaps))
+        , _contracts(std::move(contracts))
     {
-        #define REG_FUNC(api, name, writeAccess) \
-        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
+        #define REG_FUNC(api, name, writeAccess, isAsync) \
+        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess, isAsync};
         WALLET_API_METHODS(REG_FUNC)
         #undef REG_FUNC
 
@@ -311,13 +303,18 @@ boost::optional<Asset::ID> readAssetIdParameter(const JsonRpcId& id, const json&
         const json coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
         for (const auto& amount: coins)
         {
-            if(!amount.is_number_unsigned() || amount == 0)
+            if(!amount.is_number_unsigned())
             {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,
-                                        "Coin amount must be non zero 64bit unsigned integer.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"Coin amount must be a 64bit unsigned integer.");
             }
 
-            split.coins.push_back(amount);
+            const auto uamount = amount.get<uint64_t>();
+            if (uamount == 0)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"Coin amount must be a non-zero 64bit unsigned integer.");
+            }
+
+            split.coins.push_back(uamount);
         }
 
         auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
@@ -1102,6 +1099,28 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         RecommendedFeeRate data{ coin };
         onMessage(id, data);
     }
+
+    void WalletApi::onInvokeContractMessage(const JsonRpcId &id, const json &params)
+    {
+        InvokeContract message;
+
+        if(const auto contract = getOptionalParam<NonEmptyJsonArray>(params, "contract"))
+        {
+            const json& bytes = *contract;
+            message.contract = bytes.get<std::vector<uint8_t>>();
+        }
+        else if(const auto fname = getOptionalParam<NonEmptyString>(params, "contract_file"))
+        {
+            fsutils::fread(*fname).swap(message.contract);
+        }
+
+        if (const auto args = getOptionalParam<NonEmptyString>(params, "args"))
+        {
+            message.args = *args;
+        }
+
+        onMessage(id, message);
+    }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
@@ -1122,6 +1141,25 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
             {"id", id},
             {"result", "done"}
         };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const InvokeContract::Response& res, json& msg)
+    {
+        msg = nlohmann::json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"output", res.output}
+                }
+            }
+        };
+
+        if (res.txid != TxID())
+        {
+            msg["result"]["txid"] = TxIDToString(res.txid);
+        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)
