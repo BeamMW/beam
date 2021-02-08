@@ -388,29 +388,6 @@ namespace beam::wallet
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
         {
-            if (!IsConnectedToOwnNode() && !m_IsBodyRequestsEnabled)
-            {
-                std::vector<IPrivateKeyKeeper2::ShieldedInput> inputShielded;
-                it->second->GetParameter(TxParameterID::InputCoinsShielded, inputShielded);
-                if (!inputShielded.empty())
-                {
-                    Block::SystemState::Full sTip;
-                    get_tip(sTip);
-
-                    for(const auto& coin : inputShielded)
-                    {
-                        auto shieldedCoin = m_WalletDB->getShieldedCoin(coin.m_Key);
-                        if (shieldedCoin)
-                        {
-                            shieldedCoin->m_spentTxId = txID;
-                            shieldedCoin->m_spentHeight = sTip.m_Height;
-                            shieldedCoin->m_Status = ShieldedCoin::Status::Spent;
-                            m_WalletDB->saveShieldedCoin(*shieldedCoin);
-                        }
-                    }
-                }
-            }
-
             pGuard.swap(it->second);
             m_ActiveTransactions.erase(it);
             m_NextTipTransactionToUpdate.erase(pGuard);
