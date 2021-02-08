@@ -15,11 +15,11 @@
 #pragma once
 
 #include <string>
-#include <filesystem>
+#include <boost/filesystem.hpp>
 
 namespace beam::fsutils
 {
-    using namespace std::filesystem;
+    using namespace boost::filesystem;
 
     bool exists(const path& path);
     bool exists(const std::string& path);
