@@ -24,8 +24,6 @@
 
 namespace beam::wallet
 {
-    using namespace beam::wallet;
-
     const char kSwapAmountToLowError[]          = "The swap amount must be greater than the redemption fee.";
     const char kBeamAmountToLowError[]          = R"('beam_amount' must be greater than "beam_fee".)";
     const char kSwapNotEnoughtSwapCoins[]       = "There is not enough funds to complete the transaction.";
