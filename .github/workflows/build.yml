@@ -144,9 +144,9 @@ jobs:
         mkdir artifacts
         tar -cvf artifacts/beam-node.tar beam/beam-node${{env.BEAM_TARGET_SUFFIX}} beam/beam-node.cfg
         tar -cvf artifacts/beam-wallet.tar wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} wallet/cli/beam-wallet.cfg
-        tar -cvf api/wallet-api.tar wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} wallet/api/wallet-api.cfg
-        tar -cvf explorer-node.tar explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} explorer/explorer-node.cfg
-        tar -cvf broadcaster.tar wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+        tar -cvf artifacts/wallet-api.tar wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} wallet/api/wallet-api.cfg
+        tar -cvf artifacts/explorer-node.tar explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} explorer/explorer-node.cfg
+        tar -cvf artifacts/broadcaster.tar wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}
 
     - name: Collect [windows]
       shell: bash
