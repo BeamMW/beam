@@ -122,25 +122,6 @@ jobs:
 ###############################################################################
 # Collect artifacts
 ###############################################################################
-    - name: Collect [macos-10.15 && ununtu all]
-      shell: bash
-      if: matrix.os != 'windows-2019'
-      run: |
-        mkdir artifacts
-        cp beam/beam-node${{env.BEAM_TARGET_SUFFIX}} artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
-        chmod +x artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
-        cp beam/beam-node.cfg artifacts/beam-node.cfg
-        cp wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
-        chmod +x artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
-        cp wallet/cli/beam-wallet.cfg artifacts/beam-wallet.cfg
-        cp wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}
-        chmod +x artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}
-        cp wallet/api/wallet-api.cfg artifacts/wallet-api.cfg
-        cp explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}
-        chmod +x artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}
-        cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
-        cp wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}
-        chmod +x artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}
     - name: Import Code-Signing Certificates [macos-10.15]
       if: matrix.os == 'macos-10.15'
       uses: Apple-Actions/import-codesign-certs@v1
@@ -150,11 +131,22 @@ jobs:
     - name: Sign the mac binaries [macos-10.15]
       if: matrix.os == 'macos-10.15'
       run: |
-        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}
-        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
-        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}
-        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}
-        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+
+    - name: Collect [macos-10.15 && ununtu all]
+      shell: bash
+      if: matrix.os != 'windows-2019'
+      run: |
+        mkdir artifacts
+        tar -cvf artifacts/beam-node.tar -C beam beam-node${{env.BEAM_TARGET_SUFFIX}} beam-node.cfg
+        tar -cvf artifacts/beam-wallet.tar -C wallet/cli beam-wallet${{env.BEAM_TARGET_SUFFIX}} beam-wallet.cfg
+        tar -cvf artifacts/wallet-api.tar -C wallet/api wallet-api${{env.BEAM_TARGET_SUFFIX}} wallet-api.cfg
+        tar -cvf artifacts/explorer-node.tar -C explorer explorer-node${{env.BEAM_TARGET_SUFFIX}} explorer-node.cfg
+        tar -cvf artifacts/broadcaster.tar -C wallet/broadcaster broadcaster${{env.BEAM_TARGET_SUFFIX}}
 
     - name: Collect [windows]
       shell: bash
