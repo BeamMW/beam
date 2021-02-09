@@ -793,7 +793,7 @@ namespace beam::wallet
                 ++counter;
                 return data.count == 0 || counter < data.count;
             }, filter);
-            assert(data.count == 0 || (int)res.resultList.size() <= data.count);
+            assert(data.count == 0 || (uint32_t)res.resultList.size() <= data.count);
         }
         
         doResponse(id, res);
