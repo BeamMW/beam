@@ -148,8 +148,10 @@ public:
 
     void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
     {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
         _swapsProvider->initSwapFeature(nnet, wnet);
+#endif
     }
 
 protected:
@@ -212,7 +214,9 @@ private:
             _walletData = std::make_unique<WalletData>();
             _walletData->walletDB  = _walletDB;
             _walletData->wallet    = _wallet;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _walletData->swaps     = _swapsProvider;
+#endif
             _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);;
         }
 
