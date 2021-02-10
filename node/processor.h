@@ -622,12 +622,12 @@ public:
 
 	struct Recognizer
 	{
-		struct WalkerEventBase
+		struct IEventHandler
 		{
-			virtual ~WalkerEventBase() = default;
-			virtual bool MoveNext() { return false; }
-			virtual const Blob& get_Body() const { throw std::runtime_error("unexpected"); }
+			// returns true to stop enumeration
+			virtual bool OnEvent(Height, const Blob& body) = 0;
 		};
+
 		struct IHandler
 		{
 			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
@@ -640,9 +640,9 @@ public:
 			}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
-			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {};
+			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
 			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
-			virtual std::unique_ptr<WalkerEventBase> FindEvents(const Blob& key) { return std::make_unique<WalkerEventBase>(); }
+			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
 		Recognizer(IHandler& h, Extra& extra);
 

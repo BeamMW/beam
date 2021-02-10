@@ -1186,7 +1186,7 @@ namespace beam::wallet
         {
             m_Wallet.m_WalletDB->insertEvent(h, b, k);
         }
-
+/*
         struct WalletDBWalkerEvent : NodeProcessor::Recognizer::WalkerEventBase
         {
             IWalletDB::Ptr m_WalletDB;
@@ -1233,6 +1233,27 @@ namespace beam::wallet
             auto w = std::make_unique<WalletDBWalkerEvent>(m_Wallet.m_WalletDB);
             w->Find(key);
             return w;
+        }*/
+
+        bool FindEvents(const Blob& key, NodeProcessor::Recognizer::IEventHandler& handler) override
+        {
+            bool bFound = false;
+
+            m_Wallet.m_WalletDB->visitEvents(0, key, [&handler, &bFound](Height h, ByteBuffer&& b)
+            {
+                Blob body = b;
+                // skip index
+                body.n -= sizeof(NodeDB::EventIndexType);
+                ((const uint8_t*&) body.p) += sizeof(NodeDB::EventIndexType);
+
+                if (!handler.OnEvent(h, body))
+                    return true; // continue
+
+                bFound = true;
+                return false; // stop
+            });
+
+            return bFound;
         }
     };
 

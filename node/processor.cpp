@@ -2269,18 +2269,16 @@ struct NodeProcessor::MyRecognizer
 			m_Proc.m_DB.InsertEvent(h, b, key);
 		}
 
-		struct NodeDBWalkerEvent : Recognizer::WalkerEventBase
+		bool FindEvents(const Blob& key, Recognizer::IEventHandler& h) override
 		{
-			NodeDB::WalkerEvent m_Wlk;
-			bool MoveNext() override { return m_Wlk.MoveNext(); }
-			const Blob& get_Body() const override { return m_Wlk.m_Body; }
-		};
+			NodeDB::WalkerEvent wlk;
+			for (m_Proc.m_DB.FindEvents(wlk, key); wlk.MoveNext(); )
+			{
+				if (h.OnEvent(wlk.m_Height, wlk.m_Body))
+					return true;
+			}
 
-		std::unique_ptr<Recognizer::WalkerEventBase> FindEvents(const Blob& key) override
-		{
-			auto res = std::make_unique<NodeDBWalkerEvent>();
-			m_Proc.m_DB.FindEvents(res->m_Wlk, key);
-			return res;
+			return false;
 		}
 
 	} m_Handler;
@@ -2510,26 +2508,30 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 template <typename TKey, typename TEvt>
 bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt)
 {
-	auto wlk = m_Handler.FindEvents(Blob(&key, sizeof(key)));
-
-	Deserializer der;
-	while (true)
+	struct MyHandler
+		:public Recognizer::IEventHandler
 	{
-		if (!wlk || !wlk->MoveNext())
-			return false;
+		TEvt& m_Evt;
+		MyHandler(TEvt& x) :m_Evt(x) {}
 
-		const Blob& body = wlk->get_Body();
-		proto::Event::Type::Enum eType;
-		der.reset(body.p, body.n);
-		eType = proto::Event::Type::Load(der);
+		bool OnEvent(Height, const Blob& body) override
+		{
+			Deserializer der;
 
-		if (TEvt::s_Type == eType)
-			break;
-	}
+			proto::Event::Type::Enum eType;
+			der.reset(body.p, body.n);
+			eType = proto::Event::Type::Load(der);
 
-	der & evt;
+			if (TEvt::s_Type != eType)
+				return false;
 
-	return true;
+			der & m_Evt;
+			return true;
+		}
+
+	} h(evt);
+
+	return m_Handler.FindEvents(Blob(&key, sizeof(key)), h);
 }
 
 template <typename TEvt>
