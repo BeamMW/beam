@@ -59,9 +59,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y 
         git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
-        echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuild" >> $GITHUB_ENV
-        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV 
+        export BOOST_ROOT=${{runner.workspace}}/boost_prebuild
+        export BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include
+        export BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/
         cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=$GITHUB_REF -DBEAM_HW_WALLET=Off .
         make -j$(nproc) 
 
