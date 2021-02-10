@@ -329,9 +329,7 @@ NodeProcessor::Mmr::Mmr(NodeDB& db)
 }
 
 NodeProcessor::NodeProcessor()
-	:m_RecognizerHandler(*this)
-	,m_Recognizer(m_RecognizerHandler, m_Extra)
-	,m_Mmr(m_DB)
+	:m_Mmr(m_DB)
 {
 }
 
@@ -2230,6 +2228,73 @@ struct NodeProcessor::KrnFlyMmr
 	}
 };
 
+
+struct NodeProcessor::MyRecognizer
+{
+	struct Handler
+		:public Recognizer::IHandler
+	{
+		NodeProcessor& m_Proc;
+		Handler(NodeProcessor& proc) :m_Proc(proc) {}
+
+		void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) override
+		{
+			m_Proc.get_ViewerKeys(vk);
+		}
+
+		bool IsDummy(const CoinID& cid) const override
+		{
+			return m_Proc.IsDummy(cid);
+		}
+
+		void OnDummy(const CoinID& cid, Height h) override
+		{
+			m_Proc.OnDummy(cid, h);
+		}
+
+		void OnEvent(Height h, const proto::Event::Base& evt) override
+		{
+			m_Proc.OnEvent(h, evt);
+		}
+
+		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
+		{
+			NodeDB::WalkerAssetEvt wlk;
+			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+			event = static_cast<NodeDB::AssetEvt>(wlk);
+		}
+
+		void InsertEvent(Height h, const Blob& b, const Blob& key) override
+		{
+			m_Proc.m_DB.InsertEvent(h, b, key);
+		}
+
+		struct NodeDBWalkerEvent : Recognizer::WalkerEventBase
+		{
+			NodeDB::WalkerEvent m_Wlk;
+			bool MoveNext() override { return m_Wlk.MoveNext(); }
+			const Blob& get_Body() const override { return m_Wlk.m_Body; }
+		};
+
+		std::unique_ptr<Recognizer::WalkerEventBase> FindEvents(const Blob& key) override
+		{
+			auto res = std::make_unique<NodeDBWalkerEvent>();
+			m_Proc.m_DB.FindEvents(res->m_Wlk, key);
+			return res;
+		}
+
+	} m_Handler;
+
+	Recognizer m_Recognizer;
+
+	MyRecognizer(NodeProcessor& x)
+		:m_Handler(x)
+		,m_Recognizer(m_Handler, x.m_Extra)
+	{
+	}
+};
+
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
 	if (s.m_Height == m_sidForbidden.m_Height)
@@ -2398,7 +2463,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
 		// recognize all
-		m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
+		MyRecognizer rec(*this);
+		rec.m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
 
 		Serializer ser;
 		bic.m_Rollback.clear();
@@ -2877,16 +2943,18 @@ void NodeProcessor::RescanOwnedTxos()
 {
 	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
 
+	MyRecognizer rec(*this);
+
 	struct TxoRecover
 		:public ITxoRecover
 	{
-		NodeProcessor& m_This;
+		MyRecognizer& m_Rec;
 		uint32_t m_Total = 0;
 		uint32_t m_Unspent = 0;
 
-		TxoRecover(Key::IPKdf& key, NodeProcessor& x)
+		TxoRecover(Key::IPKdf& key, NodeProcessor& x, MyRecognizer& rec)
 			:ITxoRecover(key)
-			,m_This(x)
+			,m_Rec(rec)
 		{
 		}
 
@@ -2894,7 +2962,7 @@ void NodeProcessor::RescanOwnedTxos()
 		{
 			if (IsDummy(cid))
 			{
-				m_This.OnDummy(cid, hCreate);
+				m_Rec.m_Handler.m_Proc.OnDummy(cid, hCreate);
 				return true;
 			}
 
@@ -2906,7 +2974,7 @@ void NodeProcessor::RescanOwnedTxos()
 			evt.m_User = user;
 
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_This.m_Recognizer.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
+			m_Rec.m_Recognizer.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
 
 			m_Total++;
 
@@ -2915,7 +2983,7 @@ void NodeProcessor::RescanOwnedTxos()
 			else
 			{
 				evt.m_Flags = 0;
-				m_This.m_Recognizer.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
+				m_Rec.m_Recognizer.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
 			}
 
 			return true;
@@ -2929,7 +2997,7 @@ void NodeProcessor::RescanOwnedTxos()
 	{
 		LOG_INFO() << "Rescanning owned Txos...";
 
-		TxoRecover wlk(*vk.m_pMw, *this);
+		TxoRecover wlk(*vk.m_pMw, *this, rec);
 		EnumTxos(wlk);
 
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
@@ -2950,7 +3018,7 @@ void NodeProcessor::RescanOwnedTxos()
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
-			KrnWalkerRecognize wlkKrn(m_Recognizer);
+			KrnWalkerRecognize wlkKrn(rec.m_Recognizer);
 			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 			assert(m_Extra.m_ShieldedOutputs == nOuts);

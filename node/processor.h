@@ -671,58 +671,7 @@ public:
 		Extra& m_Extra;
 	};
 
-	struct RecognizerHandler : Recognizer::IHandler
-	{
-		NodeProcessor& m_Proc;
-		RecognizerHandler(NodeProcessor& proc) : m_Proc(proc) {};
-		void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) override
-		{
-			m_Proc.get_ViewerKeys(vk);
-		}
-
-		bool IsDummy(const CoinID& cid) const override
-		{
-			return m_Proc.IsDummy(cid);
-		}
-
-		void OnDummy(const CoinID& cid, Height h) override
-		{
-			m_Proc.OnDummy(cid, h);
-		}
-
-		void OnEvent(Height h, const proto::Event::Base& evt) override
-		{
-			m_Proc.OnEvent(h, evt);
-		}
-
-		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
-		{
-			NodeDB::WalkerAssetEvt wlk;
-			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-			event = static_cast<NodeDB::AssetEvt>(wlk);
-		}
-
-		void InsertEvent(Height h, const Blob& b, const Blob& key) override
-		{
-			m_Proc.m_DB.InsertEvent(h, b, key);
-		}
-
-		struct NodeDBWalkerEvent : Recognizer::WalkerEventBase
-		{
-			NodeDB::WalkerEvent m_Wlk;
-			bool MoveNext() override { return m_Wlk.MoveNext(); }
-			const Blob& get_Body() const override { return m_Wlk.m_Body; }
-		};
-
-		std::unique_ptr<Recognizer::WalkerEventBase> FindEvents(const Blob& key) override
-		{ 
-			auto res = std::make_unique<NodeDBWalkerEvent>();
-			m_Proc.m_DB.FindEvents(res->m_Wlk, key);
-			return res;
-		}
-	};
-	RecognizerHandler m_RecognizerHandler;
-	Recognizer m_Recognizer;
+	struct MyRecognizer;
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
