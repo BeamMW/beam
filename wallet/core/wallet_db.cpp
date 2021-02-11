@@ -2051,6 +2051,17 @@ namespace beam::wallet
                 case DbVersion26:
                     LOG_INFO() << "Converting DB from format 26...";
                     MigrateTransactionsFrom25(walletDB.get());
+                    // no break
+
+                case DbVersion27:
+                    LOG_INFO() << "Converting DB from format 27...";
+                    CreateTxSummaryTable(walletDB->_db);
+                    walletDB->FillTxSummaryTable();
+                    // no break
+
+                case DbVersion28:
+                    LOG_INFO() << "Converting DB from format 28...";
+                    CreateEventsTable(walletDB->_db);
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
