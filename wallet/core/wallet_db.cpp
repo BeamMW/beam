@@ -2065,17 +2065,6 @@ namespace beam::wallet
 
                     storage::setVar(*walletDB, Version, DbVersion);
                     // no break
-                  // no break
-
-                case DbVersion27:
-                    LOG_INFO() << "Converting DB from format 27...";
-                    CreateTxSummaryTable(walletDB->_db);
-                    walletDB->FillTxSummaryTable();
-                    // no break
-
-                case DbVersion28:
-                    LOG_INFO() << "Converting DB from format 28...";
-                    CreateEventsTable(walletDB->_db);
 
                 case DbVersion:
                     CreateTxParamsIndex(walletDB->_db);
