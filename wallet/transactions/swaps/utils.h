@@ -30,6 +30,6 @@ TxParameters InitNewSwap(
 
 void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB);
 
-bool IsSwapAmountValid(
-    AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate);
+bool IsLockTxAmountValid(
+    AtomicSwapCoin swapCoin, Amount swapAmount, Amount withdrawFeeRate);
 } // namespace beam::wallet

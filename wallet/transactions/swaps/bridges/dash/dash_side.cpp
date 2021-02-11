@@ -17,7 +17,6 @@
 
 namespace
 {
-    // TODO check these parameters
     constexpr uint32_t kDashWithdrawTxAverageSize = 360; 
     constexpr uint32_t kDashLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
 }
@@ -29,13 +28,13 @@ namespace beam::wallet
     {
     }
 
-    bool DashSide::CheckAmount(Amount amount, Amount feeRate)
+    bool DashSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) >= dash::kDustThreshold;
     }
 
-    Amount DashSide::CalcTotalFee(Amount feeRate)
+    Amount DashSide::CalcWithdrawTxFee(Amount feeRate)
     {
         return static_cast<Amount>(std::round(double(kDashWithdrawTxAverageSize * feeRate) / 1000));
     }

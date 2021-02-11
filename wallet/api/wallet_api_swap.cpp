@@ -29,6 +29,7 @@ namespace beam::wallet
     const char kSwapNotEnoughtSwapCoins[]       = "There is not enough funds to complete the transaction.";
     const char kSwapFeeToLowRecommenededError[] = "\'fee_rate\' must be greater or equal than recommended fee rate.";
     const char kSwapFeeToLowError[]             = R"("'fee_rate' must be greater or equal than ")";
+    const char kSwapFeeToHighError[]            = "\'fee_rate\' must be less or equal than ";
 
     void ensureBEAMAmount(const IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
@@ -233,12 +234,22 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
         }
 
+
+        Amount maxFeeRate = swaps->getMaxFeeRate(data.swapCoin);
+
+        if (maxFeeRate > 0 && data.swapFeeRate > maxFeeRate)
+        {
+            std::stringstream msg;
+            msg << kSwapFeeToHighError << maxFeeRate;
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
+        }
+
         if (data.beamAmount <= data.beamFee)
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
         }
 
-        if (!IsSwapAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
+        if (!IsLockTxAmountValid(data.swapCoin, data.swapAmount, data.swapFeeRate))
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
         }
@@ -414,12 +425,21 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
         }
 
+        Amount maxFeeRate =swaps->getMaxFeeRate(*swapCoin);
+
+        if (maxFeeRate > 0 && data.swapFeeRate > maxFeeRate)
+        {
+            std::stringstream msg;
+            msg << kSwapFeeToHighError << maxFeeRate;
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
+        }
+
         if (*beamAmount <= data.beamFee)
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, kBeamAmountToLowError);
         }
 
-        if (!IsSwapAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
+        if (!IsLockTxAmountValid(*swapCoin, *swapAmount, data.swapFeeRate))
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapAmountToLowError);
         }

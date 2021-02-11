@@ -23,6 +23,7 @@
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/transactions/swaps/second_side.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
+#include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"
@@ -117,12 +118,22 @@ namespace
 
         return parameters;
     }
+
+    class TestSettings : public bitcoin::Settings
+    {
+    public:
+        TestSettings()
+        {
+            SetLockTxMinConfirmations(kBtcTxMinConfirmations);
+            SetLockTimeInBlocks(kLockTimeInBlocks);
+        }
+    };
 }
 
-bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, std::shared_ptr<bitcoin::Settings> settings)
+bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, const TestSettings& settings)
 {
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-    settingsProvider->SetSettings(*settings);
+    settingsProvider->SetSettings(settings);
     return settingsProvider;
 }
 
@@ -186,13 +197,11 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -310,13 +319,11 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     TestElectrumWallet btcWallet(*mainReactor, address);
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -415,13 +422,11 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -498,15 +503,11 @@ void TestSwapBTCRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -600,15 +601,11 @@ void TestSwapBTCQuickRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -697,15 +694,11 @@ void TestElectrumSwapBTCRefundTransaction()
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -792,13 +785,11 @@ void TestSwapBeamRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -908,13 +899,11 @@ void TestSwapBeamAndBTCRefundTransaction()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1043,13 +1032,11 @@ void TestSwapBTCRedeemAfterExpired()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1156,13 +1143,11 @@ void TestElectrumSwapBeamRefundTransaction()
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, false});
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, false});
 
     TestElectrumWallet btcWallet(*mainReactor, address);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
@@ -1264,8 +1249,8 @@ void ExpireByResponseTime(bool isBeamSide)
     Height lifetime = 100;
     Height responseTime = 100;
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", senderAddress });
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", senderAddress });
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
     auto senderSP = InitSettingsProvider(senderWalletDB, aliceSettings);
@@ -1328,13 +1313,11 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1425,13 +1408,11 @@ void TestExpireByLifeTime()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1559,15 +1540,11 @@ void TestIgnoringThirdPeer()
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    auto bobSettings = std::make_shared<bitcoin::Settings>();
-    bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
-    bobSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    bobSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
 
-    auto aliceSettings = std::make_shared<bitcoin::Settings>();
-    aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
-    aliceSettings->SetLockTimeInBlocks(kLockTimeInBlocks);
-    aliceSettings->SetTxMinConfirmations(kBtcTxMinConfirmations);
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -1652,10 +1629,445 @@ void TestIgnoringThirdPeer()
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 }
 
+namespace beam::ethereum
+{
+    class Provider : public ISettingsProvider
+    {
+    public:
+        Provider(const Settings& settings)
+            : m_settings(settings)
+        {
+        }
+
+        Settings GetSettings() const override
+        {
+            return m_settings;
+        }
+
+        void SetSettings(const Settings& settings) override
+        {
+            m_settings = settings;
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
+    private:
+        Settings m_settings;
+    };
+}
+
+ethereum::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, const ethereum::Settings& settings)
+{
+    auto settingsProvider = std::make_shared<ethereum::SettingsProvider>(walletDB);
+    settingsProvider->SetSettings(settings);
+    return settingsProvider;
+}
+
+void InitEthereum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, ethereum::ISettingsProvider& settingsProvider)
+{
+    auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
+    auto bridge = std::make_shared<ethereum::EthereumBridge>(reactor, settingsProvider);
+    // TODO should refactored this code
+    auto bridgeCreator = [bridge]() -> ethereum::IBridge::Ptr
+    {
+        return bridge;
+    };
+    auto factory = wallet::MakeSecondSideFactory<EthereumSide, ethereum::EthereumBridge, ethereum::ISettingsProvider>(bridgeCreator, settingsProvider);
+    creator->RegisterFactory(AtomicSwapCoin::Ethereum, factory);
+    creator->RegisterFactory(AtomicSwapCoin::Dai, factory);
+    wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
+}
+
+// TODO roman.strilets need to implement new test
+void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+{
+    cout << "\nTesting ethereum atomic swap transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    io::Address receiverAddress;
+    receiverAddress.resolve("127.0.0.1:10300");
+
+    Amount beamAmount = 300;
+    Amount beamFee = 101;
+    Amount swapAmount = 2'000'000'000u;
+    Amount gasPrice = 30u;
+    //Amount feeRate = 256;
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+
+    ethereum::Settings aliceSettings;
+    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    aliceSettings.m_accountIndex = 6;
+    //aliceSettings.m_address = "127.0.0.1:7545";
+    aliceSettings.m_shouldConnect = true;
+    aliceSettings.m_lockTxMinConfirmations = 2;
+    //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+
+    ethereum::Settings bobSettings;
+    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    bobSettings.m_accountIndex = 5;
+    //bobSettings.m_address = "127.0.0.1:7545";
+    bobSettings.m_shouldConnect = true;
+    bobSettings.m_lockTxMinConfirmations = 2;
+    //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+
+    /*TestSettings bobSettings;
+    bobSettings.SetConnectionOptions({ "Bob", "123", senderAddress });
+
+    TestSettings aliceSettings;
+    aliceSettings.SetConnectionOptions({ "Alice", "123", receiverAddress });*/
+
+    /*TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);*/
+
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    InitEthereum(*sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitEthereum(*receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    //receiverBtcWallet.addPeer(senderAddress);
+
+    TxID txID = { {0} };
+
+    auto receiverCoins = receiver.GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    Node node;
+
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == fork1Height + 5)
+        {
+            auto currentHeight = cursor.m_Sid.m_Height;
+            bool isBeamSide = !isBeamOwnerStart;
+            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+                currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, 
+                gasPrice, isBeamSide);
+
+            if (useSecureIDs)
+            {
+                parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+            }
+
+            TestWalletRig* initiator = &sender;
+            TestWalletRig* acceptor = &receiver;
+            if (isBeamOwnerStart)
+            {
+                std::swap(initiator, acceptor);
+            }
+
+            initiator->m_Wallet->StartTransaction(parameters);
+            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
+            if (useSecureIDs)
+            {
+                acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
+            }
+            txID = acceptor->m_Wallet->StartTransaction(acceptParams);
+        }
+    });
+
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    receiverCoins = receiver.GetCoins();
+    WALLET_CHECK(receiverCoins.size() == 1);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
+    WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
+
+    auto senderCoins = sender.GetCoins();
+    WALLET_CHECK(senderCoins.size() == kDefaultTestAmounts.size() + 1);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
+    WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
+    // change
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
+    WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(senderCoins[4].m_createTxId == txID);
+
+    // TODO: check secret for "aggregate signature" scheme
+    // check secret
+    //uintBig senderSecret(Zero);
+    //storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, senderSecret);
+    //uintBig receiverSecret(Zero);
+    //storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::PreImage, receiverSecret);
+    //WALLET_CHECK(senderSecret != Zero && senderSecret == receiverSecret);
+}
+
+// TODO need to implement new test
+void TestSwapEthRefundTransaction()
+{
+    cout << "\nAtomic swap: testing ETH refund transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completeAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    Amount beamAmount = 300;
+    Amount beamFee = 101;
+    Amount swapAmount = 2'000'000'000u;
+    Amount gasPrice = 30u;
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+
+    ethereum::Settings aliceSettings;
+    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    aliceSettings.m_accountIndex = 3;
+    //aliceSettings.m_address = "127.0.0.1:7545";
+    aliceSettings.m_shouldConnect = true;
+    aliceSettings.m_lockTimeInBlocks = 20;  // speed-up test
+    aliceSettings.m_lockTxMinConfirmations = 0; // speed-up test
+    //aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+
+    ethereum::Settings bobSettings;
+    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    bobSettings.m_accountIndex = 4;
+    //bobSettings.m_address = "127.0.0.1:7545";
+    bobSettings.m_shouldConnect = true;
+    bobSettings.m_lockTimeInBlocks = 20;    // speed-up test
+    bobSettings.m_lockTxMinConfirmations = 0;   // speed-up test
+    //bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    auto sender = std::make_unique<TestWalletRig>(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiver = std::make_shared<TestWalletRig>(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    InitEthereum(*sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitEthereum(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    auto receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
+    Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
+
+    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
+
+    receiver->m_Wallet->StartTransaction(parameters);
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, gasPrice));
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
+
+    io::AsyncEvent::Ptr eventToUpdate;
+    //uint64_t startBlocks = receiverBtcWallet.getBlockCount();
+
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate]()
+        {
+            if (sender)
+            {
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+                if (txState == wallet::AtomicSwapTransaction::State::HandlingContractTX)
+                {
+                    // delete sender to simulate refund on ETH side
+                    sender.reset();
+                }
+                eventToUpdate->post();
+            }
+            else
+            {
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            }
+        });
+
+    eventToUpdate->post();
+    mainReactor->run();
+
+    // validate receiver TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Refunded);
+    receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.size() == 0);
+}
+
+// TODO roman.strilets need to implement new test
+void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+{
+    cout << "\nTesting ERC20 atomic swap transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+
+    Amount beamAmount = 300;
+    Amount beamFee = 101;
+    Amount swapAmount = 1'000'000'000u;
+    Amount gasPrice = 30u;
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+
+    ethereum::Settings aliceSettings;
+    aliceSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    aliceSettings.m_accountIndex = 3;
+    //aliceSettings.m_address = "127.0.0.1:7545";
+    aliceSettings.m_shouldConnect = true;
+    aliceSettings.m_lockTxMinConfirmations = 2;
+    /*aliceSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    aliceSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
+    aliceSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/
+
+    ethereum::Settings bobSettings;
+    bobSettings.m_secretWords = { "silly", "profit", "jewel", "fox", "evoke", "victory", "until", "topic", "century", "depth", "usual", "update" };
+    bobSettings.m_accountIndex = 4;
+    //bobSettings.m_address = "127.0.0.1:7545";
+    bobSettings.m_shouldConnect = true;
+    bobSettings.m_lockTxMinConfirmations = 2;
+    /*bobSettings.m_swapContractAddress = "0xe2369A46e36b3586e904Ff533fa77A0c4B48C6D0";
+    bobSettings.m_erc20SwapContractAddress = "0x1268071E90CEE6ed135292008f010f60a542c523";
+    bobSettings.m_daiContractAddress = "0x4A2043c5625ec1E6759EA429C6FF8C02979e291E";*/
+
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    InitEthereum(*sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitEthereum(*receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
+
+    TxID txID = { {0} };
+
+    auto receiverCoins = receiver.GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    Node node;
+
+    NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == fork1Height + 5)
+            {
+                auto currentHeight = cursor.m_Sid.m_Height;
+                bool isBeamSide = !isBeamOwnerStart;
+                auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+                    currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Dai, swapAmount,
+                    gasPrice, isBeamSide);
+
+                if (useSecureIDs)
+                {
+                    parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
+                }
+
+                TestWalletRig* initiator = &sender;
+                TestWalletRig* acceptor = &receiver;
+                if (isBeamOwnerStart)
+                {
+                    std::swap(initiator, acceptor);
+                }
+
+                initiator->m_Wallet->StartTransaction(parameters);
+                auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
+                if (useSecureIDs)
+                {
+                    acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
+                }
+                txID = acceptor->m_Wallet->StartTransaction(acceptParams);
+            }
+        });
+
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
+
+    mainReactor->run();
+
+    {
+        WALLET_CHECK(senderSP->CanModify() == true);
+        WALLET_CHECK(receiverSP->CanModify() == true);
+
+        receiverCoins = receiver.GetCoins();
+        WALLET_CHECK(receiverCoins.size() == 1);
+        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
+        WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
+        WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
+
+        auto senderCoins = sender.GetCoins();
+        WALLET_CHECK(senderCoins.size() == kDefaultTestAmounts.size() + 1);
+        WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
+        WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
+        // change
+        WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
+        WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
+        WALLET_CHECK(senderCoins[4].m_createTxId == txID);
+    }
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING;
-    auto logger = beam::Logger::create(logLevel, logLevel);
+    const auto path = boost::filesystem::system_complete("logs");
+    auto logger = beam::Logger::create(logLevel, logLevel, LOG_LEVEL_DEBUG, "swap_test", path.string());
+
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
     beam::Height fork1Height = Rules::get().pForks[1].m_Height;
@@ -1698,6 +2110,10 @@ int main()
 #endif // BEAM_TESTNET
 
     TestIgnoringThirdPeer();
+
+    //TestEthSwapTransaction(true, fork1Height);
+    //TestSwapEthRefundTransaction();
+    //TestERC20SwapTransaction(true, fork1Height);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

@@ -37,6 +37,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
+#include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "api_cli_swap.h"
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -476,14 +477,13 @@ int main(int argc, char* argv[])
             std::string whitelist;
 
             uint32_t logCleanupPeriod;
-
+            bool enableLelentus = false;
         } options;
 
         TlsOptions tlsOptions;
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
         std::vector<uint32_t> whitelist;
 
@@ -491,6 +491,7 @@ int main(int argc, char* argv[])
             po::options_description desc("Wallet API general options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
+                (cli::VERSION_FULL, "print project version")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
@@ -499,7 +500,8 @@ int main(int argc, char* argv[])
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions");
+                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
+                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -531,6 +533,12 @@ int main(int argc, char* argv[])
             if (vm.count(cli::HELP))
             {
                 std::cout << desc << std::endl;
+                return 0;
+            }
+
+            if (vm.count(cli::VERSION))
+            {
+                std::cout << PROJECT_VERSION << std::endl;
                 return 0;
             }
 
@@ -620,8 +628,11 @@ int main(int argc, char* argv[])
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
             wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
+
+            options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
+        io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
@@ -664,6 +675,11 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAssetCreators(*wallet);
+        }
+
+        if (options.enableLelentus)
+        {
+            lelantus::RegisterCreators(*wallet, walletDB);
         }
 
         // All TxCreators must be registered by this point

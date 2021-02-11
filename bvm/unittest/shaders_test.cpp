@@ -1911,6 +1911,7 @@ namespace bvm2 {
 			struct Arg :public Shaders::MirrorCoin::Create0 {
 				char m_chMeta = 'x';
 			} arg;
+#pragma pack (pop)
 			arg.m_Aid = 0;
 			arg.m_MetadataSize = sizeof(arg.m_chMeta);
 			arg.m_PipeID = m_cidPipe;

@@ -134,7 +134,7 @@ namespace
             WALLET_CHECK(walletID.IsValid());
 
             json res;
-            CreateAddress::Response response{ walletID };
+            CreateAddress::Response response{ std::to_string(walletID) };
             api.getResponse(123, response, res);
             testResultHeader(res);
 

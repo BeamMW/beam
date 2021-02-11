@@ -81,7 +81,7 @@ namespace beam
 			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
 			virtual bool OnAsset(Asset::Full&) override;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&) { return true; }
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) { return true; }
 			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&, Key::Index) { return true; }
 			virtual bool OnAssetRecognized(Asset::Full&) { return true; }
 		};

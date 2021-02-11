@@ -51,8 +51,16 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Bitcoin_Cash,
     Dogecoin,
     Dash,
+    Ethereum,
+    Dai,
+    Usdt,
+    WBTC,
     Unknown
 };
+
+const AtomicSwapCoin kEthTokens[] = { AtomicSwapCoin::Dai, AtomicSwapCoin::Usdt, AtomicSwapCoin::WBTC };
+
+bool IsEthToken(AtomicSwapCoin swapCoin);
 
 enum class SwapOfferStatus : uint32_t
 {
@@ -76,3 +84,15 @@ namespace std
     string to_string(beam::wallet::AtomicSwapCoin value);
     string to_string(beam::wallet::SwapOfferStatus status);  
 }  // namespace std
+
+namespace beam::electrum
+{
+std::vector<std::string> generateReceivingAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
+std::vector<std::string> generateChangeAddresses
+    (wallet::AtomicSwapCoin swapCoin, const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion);
+
+bool validateMnemonic(const std::vector<std::string>& words, bool isSegwitType = false);
+std::vector<std::string> createMnemonic(const std::vector<uint8_t>& entropy);
+bool isAllowedWord(const std::string& word);
+}  // namespace beam::electrum

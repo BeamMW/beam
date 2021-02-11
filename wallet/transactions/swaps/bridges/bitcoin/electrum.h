@@ -99,6 +99,7 @@ namespace beam::bitcoin
         virtual uint8_t GetSighashAlgorithm() const;
         virtual bool NeedSignValue() const;
         virtual Amount getDust() const;
+        virtual std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys(const std::vector<std::string>& words) const;
 
     private:
         libbitcoin::chain::transaction signRawTx

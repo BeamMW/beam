@@ -42,10 +42,10 @@ namespace beam
 
     // implementation of bip39 for 12 words
     // TODO implement other version of bip39
-    WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict);
+    WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict = language::en);
 
     std::vector<uint8_t> decodeMnemonic(const WordList& words);
 
-    bool isAllowedWord(const std::string& word, const Dictionary& dict);
-    bool isValidMnemonic(const WordList& words, const Dictionary& dict);
+    bool isAllowedWord(const std::string& word, const Dictionary& dict = language::en);
+    bool isValidMnemonic(const WordList& words, const Dictionary& dict = language::en);
 }

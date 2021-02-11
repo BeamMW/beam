@@ -10,14 +10,13 @@ client.connect(10000, '127.0.0.1', function() {
 			method: 'tx_list',
 			params: 
 			{
-				filter:
-				{
-
-					//status:4
+				filter: {
+					//asset_id: 0,
+					//height: 313375,
+					//status: 3
 				},
-				count: 4,
+				count: 10,
 				skip: 0
-
 			}
 		}) + '\n');
 });

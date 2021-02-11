@@ -34,7 +34,7 @@ WalletAddress GenerateNewAddress(
     walletDB->createAddress(address);
 
     address.setExpiration(expirationStatus);
-    address.m_label = label;
+    address.setLabel(label);
     if (saveRequired)
     {
         walletDB->saveAddress(address);

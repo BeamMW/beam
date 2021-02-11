@@ -28,13 +28,13 @@ namespace beam::wallet
     {
     }
 
-    bool QtumSide::CheckAmount(Amount amount, Amount feeRate)
+    bool QtumSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) > qtum::kQtumDustThreshold;
     }
 
-    Amount QtumSide::CalcTotalFee(Amount feeRate)
+    Amount QtumSide::CalcWithdrawTxFee(Amount feeRate)
     {
         return static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
     }

@@ -4,8 +4,10 @@ add_library(wallet_client STATIC)
 target_sources(wallet_client
     PUBLIC
         wallet_client.h
+        filter.h
     PRIVATE
         wallet_client.cpp
+        filter.cpp
         extensions/broadcast_gateway/broadcast_router.cpp
         extensions/broadcast_gateway/broadcast_msg_creator.cpp
         extensions/broadcast_gateway/broadcast_msg_validator.cpp

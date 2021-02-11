@@ -944,6 +944,24 @@ void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
     Send(msg2);
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBodyPack& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBodyPack& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBody& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBody& req)
+{
+}
+
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)
 {
 }

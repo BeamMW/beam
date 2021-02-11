@@ -40,6 +40,7 @@ target_link_libraries(wallet
         core
         keykeeper
         bvm
+        node
     PRIVATE
         sqlite
 )

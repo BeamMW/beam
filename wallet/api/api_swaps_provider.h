@@ -27,6 +27,7 @@ namespace beam::wallet
         [[nodiscard]] virtual Amount getCoinAvailable(AtomicSwapCoin swapCoin) const = 0;
         [[nodiscard]] virtual Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const = 0;
         [[nodiscard]] virtual Amount getMinFeeRate(AtomicSwapCoin swapCoin) const = 0;
+        [[nodiscard]] virtual Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const = 0;
         [[nodiscard]] virtual const SwapOffersBoard& getSwapOffersBoard() const = 0;
         [[nodiscard]] virtual bool isCoinClientConnected(AtomicSwapCoin swapCoin) const = 0;
     };

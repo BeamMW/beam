@@ -16,6 +16,7 @@
 
 #include "../core/radixtree.h"
 #include "../core/proto.h"
+#include "../core/treasury.h"
 #include "../core/mapped_file.h"
 #include "../utility/dvector.h"
 #include "../utility/executor.h"
@@ -163,13 +164,6 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 
-	void Recognize(const Input&, Height);
-	void Recognize(const Output&, Height, Key::IPKdf&);
-
-#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
-	BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
-
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
@@ -269,6 +263,7 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
+    static bool ExtractTreasury(const Blob&, Treasury::Data&);
 	static void get_MappingPath(std::string&, const char*);
 
 	NodeProcessor();
@@ -564,11 +559,12 @@ public:
 		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
 	};
 
+	struct Recognizer;
 	struct KrnWalkerRecognize
 		:public IKrnWalker
 	{
-		NodeProcessor& m_Proc;
-		KrnWalkerRecognize(NodeProcessor& p) :m_Proc(p) {}
+		Recognizer& m_Proc;
+		KrnWalkerRecognize(Recognizer& p) :m_Proc(p) {}
 
 		virtual bool OnKrn(const TxKernel& krn) override;
 	};
@@ -623,6 +619,110 @@ public:
 	};
 
 #pragma pack (pop)
+
+	struct Recognizer
+	{
+		struct WalkerEventBase
+		{
+			virtual ~WalkerEventBase() = default;
+			virtual bool MoveNext() { return false; }
+			virtual const Blob& get_Body() const { throw std::runtime_error("unexpected"); }
+		};
+		struct IHandler
+		{
+			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
+			virtual bool IsDummy(const CoinID& cid) const 
+			{
+				return
+					!cid.m_Value &&
+					!cid.m_AssetID &&
+					(Key::Type::Decoy == cid.m_Type);
+			}
+			virtual void OnDummy(const CoinID&, Height) {}
+			virtual void OnEvent(Height, const proto::Event::Base&) {}
+			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {};
+			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
+			virtual std::unique_ptr<WalkerEventBase> FindEvents(const Blob& key) { return std::make_unique<WalkerEventBase>(); }
+		};
+		Recognizer(IHandler& h, Extra& extra);
+
+		void Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts = true);
+
+		void Recognize(const Input&, Height);
+		void Recognize(const Output&, Height, Key::IPKdf&);
+
+#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
+		BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+		template <typename TKey, typename TEvt>
+		bool FindEvent(const TKey&, TEvt&);
+
+		template <typename TEvt, typename TKey>
+		void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
+
+		template <typename TEvt>
+		void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
+	private:
+		template <typename TEvt>
+		void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
+
+		IHandler& m_Handler;
+		Extra& m_Extra;
+	};
+
+	struct RecognizerHandler : Recognizer::IHandler
+	{
+		NodeProcessor& m_Proc;
+		RecognizerHandler(NodeProcessor& proc) : m_Proc(proc) {};
+		void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) override
+		{
+			m_Proc.get_ViewerKeys(vk);
+		}
+
+		bool IsDummy(const CoinID& cid) const override
+		{
+			return m_Proc.IsDummy(cid);
+		}
+
+		void OnDummy(const CoinID& cid, Height h) override
+		{
+			m_Proc.OnDummy(cid, h);
+		}
+
+		void OnEvent(Height h, const proto::Event::Base& evt) override
+		{
+			m_Proc.OnEvent(h, evt);
+		}
+
+		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
+		{
+			NodeDB::WalkerAssetEvt wlk;
+			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+			event = static_cast<NodeDB::AssetEvt>(wlk);
+		}
+
+		void InsertEvent(Height h, const Blob& b, const Blob& key) override
+		{
+			m_Proc.m_DB.InsertEvent(h, b, key);
+		}
+
+		struct NodeDBWalkerEvent : Recognizer::WalkerEventBase
+		{
+			NodeDB::WalkerEvent m_Wlk;
+			bool MoveNext() override { return m_Wlk.MoveNext(); }
+			const Blob& get_Body() const override { return m_Wlk.m_Body; }
+		};
+
+		std::unique_ptr<Recognizer::WalkerEventBase> FindEvents(const Blob& key) override
+		{ 
+			auto res = std::make_unique<NodeDBWalkerEvent>();
+			m_Proc.m_DB.FindEvents(res->m_Wlk, key);
+			return res;
+		}
+	};
+	RecognizerHandler m_RecognizerHandler;
+	Recognizer m_Recognizer;
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
@@ -705,18 +805,6 @@ private:
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
-
-	template <typename TKey, typename TEvt>
-	bool FindEvent(const TKey&, TEvt&);
-
-	template <typename TEvt, typename TKey>
-	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
-
-	template <typename TEvt>
-	void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
-
-	template <typename TEvt>
-	void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
 };
 
 struct LogSid

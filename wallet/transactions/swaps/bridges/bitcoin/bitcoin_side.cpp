@@ -208,7 +208,7 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
             return false;
 
-        if (m_SwapLockTxConfirmations < GetTxMinConfirmations())
+        if (m_SwapLockTxConfirmations < GetTxMinConfirmations(SubTxIndex::LOCK_TX))
         {
             // validate expired?
 
@@ -226,7 +226,7 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REFUND_TX))
             return false;
 
-        if (m_RefundTxConfirmations < GetTxMinConfirmations())
+        if (m_RefundTxConfirmations < GetTxMinConfirmations(SubTxIndex::REFUND_TX))
         {
             // validate expired?
 
@@ -244,7 +244,7 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::REDEEM_TX))
             return false;
 
-        if (m_RedeemTxConfirmations < GetTxMinConfirmations())
+        if (m_RedeemTxConfirmations < GetTxMinConfirmations(SubTxIndex::REDEEM_TX))
         {
             // validate expired?
 
@@ -344,13 +344,13 @@ namespace beam::wallet
         return static_cast<Amount>(std::round(double(GetWithdrawTxAverageSize() * feeRate) / 1000));
     }
 
-    bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
+    bool BitcoinSide::CheckLockTxAmount(Amount amount, Amount feeRate)
     {
-        Amount fee = CalcTotalFee(feeRate);
+        Amount fee = CalcWithdrawTxFee(feeRate);
         return amount > fee && (amount - fee) >= bitcoin::kDustThreshold;
     }
 
-    Amount BitcoinSide::CalcTotalFee(Amount feeRate)
+    Amount BitcoinSide::CalcWithdrawTxFee(Amount feeRate)
     {
         // TODO roman.strilets need to use segwit 
         return static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
@@ -376,9 +376,19 @@ namespace beam::wallet
         return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);
     }
 
-    uint16_t BitcoinSide::GetTxMinConfirmations() const
+    uint16_t BitcoinSide::GetTxMinConfirmations(SubTxID subTxID) const
     {
-        return m_settingsProvider.GetSettings().GetTxMinConfirmations();
+        switch (subTxID)
+        {
+        case SubTxIndex::LOCK_TX:
+            return m_settingsProvider.GetSettings().GetLockTxMinConfirmations();
+        case SubTxIndex::REDEEM_TX:
+        case SubTxIndex::REFUND_TX:
+            return m_settingsProvider.GetSettings().GetWithdrawTxMinConfirmations();
+        default:
+            assert(false && "unexpected subTxID!");
+            return 0;
+        }
     }
 
     uint32_t BitcoinSide::GetLockTimeInBlocks() const
@@ -670,7 +680,7 @@ namespace beam::wallet
                 if (m_RefundTxConfirmations != confirmations)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REFUND_TX) << "] " << confirmations << "/"
-                        << GetTxMinConfirmations() << " confirmations for Refund TX are received.";
+                        << GetTxMinConfirmations(SubTxIndex::REFUND_TX) << " confirmations for Refund TX are received.";
                     m_RefundTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RefundTxConfirmations, true, SubTxIndex::REFUND_TX);
                 }
@@ -697,7 +707,7 @@ namespace beam::wallet
                 if (m_RedeemTxConfirmations != confirmations)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REDEEM_TX) << "] " << confirmations << "/"
-                        << GetTxMinConfirmations() << " confirmations for Redeem TX are received.";
+                        << GetTxMinConfirmations(SubTxIndex::REDEEM_TX) << " confirmations for Redeem TX are received.";
                     m_RedeemTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RedeemTxConfirmations, true, SubTxIndex::REDEEM_TX);
                 }
@@ -1082,10 +1092,10 @@ namespace beam::wallet
             if (m_SwapLockTxConfirmations != confirmations)
             {
                 LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
-                    << GetTxMinConfirmations() << " confirmations for Lock TX are received.";
+                    << GetTxMinConfirmations(SubTxIndex::LOCK_TX) << " confirmations for Lock TX are received.";
                 m_SwapLockTxConfirmations = confirmations;
                 m_tx.SetParameter(TxParameterID::Confirmations, m_SwapLockTxConfirmations, true, SubTxIndex::LOCK_TX);
-                if (m_SwapLockTxConfirmations >= GetTxMinConfirmations())
+                if (m_SwapLockTxConfirmations >= GetTxMinConfirmations(SubTxIndex::LOCK_TX))
                 {
                     m_tx.UpdateAsync();
                 }

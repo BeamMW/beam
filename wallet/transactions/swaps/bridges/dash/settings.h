@@ -30,9 +30,10 @@ namespace beam::dash
         {
             constexpr double kBlocksPerHour = 24;
             constexpr uint32_t kDefaultLockTimeInBlocks = 12 * 24;
-            // TODO roman.strilets need investigate
             constexpr Amount kMinFeeRate = 1000;
-            
+            constexpr uint16_t kLockTxMinConfirmations = 6;
+
+            SetLockTxMinConfirmations(kLockTxMinConfirmations);
             SetLockTimeInBlocks(kDefaultLockTimeInBlocks);
             SetMinFeeRate(kMinFeeRate);
             SetBlocksPerHour(kBlocksPerHour);

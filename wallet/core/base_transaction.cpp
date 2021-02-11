@@ -488,7 +488,8 @@ namespace beam::wallet
 
     void BaseTransaction::SetCompletedTxCoinStatuses(Height proofHeight)
     {
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
+        auto walletDb = GetWalletDB();
+        std::vector<Coin> modified = walletDb->getCoinsByTx(GetTxID());
         for (auto& coin : modified)
         {
             bool bIn = (coin.m_createTxId && *coin.m_createTxId == GetTxID());
@@ -507,7 +508,28 @@ namespace beam::wallet
             }
         }
 
-        GetWalletDB()->saveCoins(modified);
+        walletDb->saveCoins(modified);
+
+        std::vector<IPrivateKeyKeeper2::ShieldedInput> inputShielded;
+        GetParameter(TxParameterID::InputCoinsShielded, inputShielded);
+
+        if (!inputShielded.empty())
+        {
+            Block::SystemState::Full sTip;
+            walletDb->get_History().get_Tip(sTip);
+
+            for(const auto& coin : inputShielded)
+            {
+                auto shieldedCoin = walletDb->getShieldedCoin(coin.m_Key);
+                if (shieldedCoin)
+                {
+                    shieldedCoin->m_spentTxId = GetTxID();
+                    shieldedCoin->m_spentHeight = sTip.m_Height;
+                    shieldedCoin->m_Status = ShieldedCoin::Status::Spent;
+                    walletDb->saveShieldedCoin(*shieldedCoin);
+                }
+            }
+        }
     }
 
     void BaseTransaction::LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const

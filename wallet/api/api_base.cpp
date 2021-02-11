@@ -171,7 +171,6 @@ namespace beam::wallet {
             onParseError(error);
             return ParseJsonRes::DoneSync;
         }
-        assert(false);
     }
 
     template<>

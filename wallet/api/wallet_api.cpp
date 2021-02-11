@@ -22,6 +22,8 @@
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#include <string_view>
+#include <locale>
 
 namespace beam::wallet {
     namespace {
@@ -138,6 +140,34 @@ namespace beam::wallet {
     {
         CreateAddress createAddress;
         beam::wallet::FillAddressData(id, params, createAddress);
+        auto it = params.find("type");
+        if (it != params.end())
+        {
+            static constexpr std::array<std::pair<std::string_view, TxAddressType>, 4> types =
+            {
+                {
+                    {"regular",         TxAddressType::Regular},
+                    {"offline",         TxAddressType::Offline},
+                    {"max_privacy",     TxAddressType::MaxPrivacy},
+                    {"public_offline",  TxAddressType::PublicOffline}
+                }
+            };
+            auto t = std::find_if(types.begin(), types.end(), [&](const auto& p) { return p.first == it->get<std::string>(); });
+            if (t != types.end())
+            {
+                createAddress.type = t->second;
+            }
+        }
+        it = params.find("new_style_regular");
+        if (it != params.end())
+        {
+            createAddress.newStyleRegular = it->get<bool>();
+        }
+        it = params.find("offline_payments");
+        if (it != params.end())
+        {
+            createAddress.offlinePayments = it->get<uint32_t>();
+        }
         onMessage(id, createAddress);
     }
 
@@ -194,7 +224,7 @@ namespace beam::wallet {
         const std::string addressOrToken = getMandatoryParam<NonEmptyString>(params, "address");
         if(auto txParams = ParseParameters(addressOrToken))
         {
-            send.txParameters = *txParams;
+            send.txParameters = std::move(*txParams);
         }
         else
         {
@@ -220,17 +250,14 @@ namespace beam::wallet {
             send.session = readSessionParameter(id, params);
         }
 
-        if (auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID); peerID)
+        auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (peerID)
         {
             send.address = *peerID;
-            if (std::to_string(*peerID) != addressOrToken)
-            {
-                send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
-            }
         }
-        else
+        if (!peerID || std::to_string(*peerID) != addressOrToken)
         {
-            throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address.");
+            send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
         }
 
         if (auto fromParam = getOptionalParam<NonEmptyString>(params, "from"))
@@ -1102,7 +1129,7 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", std::to_string(res.address)}
+            {"result", res.address}
         };
     }
 
@@ -1394,7 +1421,8 @@ OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
                 resItem.tx,
                 item,
                 resItem.txHeight,
-                resItem.systemHeight);
+                resItem.systemHeight,
+                true);
             msg["result"].push_back(item);
         }
     }
