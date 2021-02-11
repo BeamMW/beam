@@ -17,14 +17,15 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on:  ${{ matrix.os }} 
 
     strategy:
       fail-fast: false
       matrix:
         # Override automatic language detection by changing the below list
         # Supported options are ['csharp', 'cpp', 'go', 'java', 'javascript', 'python']
-        language: ['cpp', 'java', 'javascript']
+        language: ['cpp']
+        os: [ubuntu-20.04]
         # Learn more...
         # https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#overriding-automatic-language-detection
 
@@ -36,11 +37,6 @@ jobs:
         # a pull request then we can checkout the head.
         fetch-depth: 2
 
-    # If this run was triggered by a pull request event, then checkout
-    # the head of the pull request instead of the merge commit.
-    - run: git checkout HEAD^2
-      if: ${{ github.event_name == 'pull_request' }}
-
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
@@ -51,21 +47,22 @@ jobs:
         # Prefix the list here with "+" to use these queries and those in the config file.
         # queries: ./path/to/local/query, your-org/your-repo/queries@main
 
-    # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
-    # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
-
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 https://git.io/JvXDl
 
     # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
     #    and modify them (or add more) to build your code if your project
     #    uses a compiled language
-
-    #- run: |
-    #   make bootstrap
-    #   make release
+    
+    - name: Build
+      run: |
+        sudo apt-get update
+        sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y 
+        git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
+        export BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include
+        export BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=$GITHUB_REF -DBEAM_HW_WALLET=Off .
+        make -j$(nproc) 
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1

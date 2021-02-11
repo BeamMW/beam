@@ -43,11 +43,11 @@ namespace {
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 static const size_t CACHE_DEPTH = 100000;
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 const unsigned int FAKE_SEED = 10283UL;
 const char WALLET_DB_PATH[] = "explorer-wallet.db";
 const char WALLET_DB_PASS[] = "1";
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 std::string SwapAmountToString(Amount swapAmount, wallet::AtomicSwapCoin swapCoin)
 {
     auto decimals = std::lround(std::log10(wallet::UnitsPerCoin(swapCoin)));
@@ -243,10 +243,10 @@ public:
         _nodeIsSyncing(true),
         _cache(CACHE_DEPTH)
     {
-        init_helper_fragments();
-        _hook = &node.m_Cfg.m_Observer;
-        _nextHook = *_hook;
-        *_hook = this;
+         init_helper_fragments();
+         _hook = &node.m_Cfg.m_Observer;
+         _nextHook = *_hook;
+         *_hook = this;
 
          if (!wallet::WalletDB::isInitialized(WALLET_DB_PATH))
          {

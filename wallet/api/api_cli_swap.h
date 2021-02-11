@@ -30,7 +30,6 @@
 #include "swap_client.h"
 #include "swap_eth_client.h"
 #include "api_swaps_provider.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 using namespace beam;
 using namespace beam::wallet;
@@ -171,3 +170,4 @@ private:
     std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
     WalletDB::Ptr _walletDB;
 };
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
