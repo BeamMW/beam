@@ -137,10 +137,12 @@ namespace beam
 		m_Coinbase			+= s.m_Coinbase;
 
 		m_Kernels			+= s.m_Kernels;
+		m_KernelsNonStd		+= s.m_KernelsNonStd;
 		m_Inputs			+= s.m_Inputs;
 		m_Outputs			+= s.m_Outputs;
 		m_InputsShielded	+= s.m_InputsShielded;
 		m_OutputsShielded	+= s.m_OutputsShielded;
+		m_Contract			+= s.m_Contract;
 	}
 
 	/////////////
@@ -965,6 +967,12 @@ namespace beam
 		m_Msg = v.m_Msg;
 	}
 
+	void TxKernelNonStd::AddStats(TxStats& s) const
+	{
+		TxKernel::AddStats(s);
+		s.m_KernelsNonStd++;
+	}
+
 	/////////////
 	// TxKernelAssetControl
 	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1384,6 +1392,12 @@ namespace beam
 		sig.Sign(cfg, hv, &m_Signature.m_k, pK, &res);
 
 		MsgToID();
+	}
+
+	void TxKernelContractControl::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_Contract++;
 	}
 
 	/////////////
