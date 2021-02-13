@@ -683,15 +683,15 @@ namespace bvm2 {
 
 			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
 
-			m_Charge = Limits::Charge(); // default
-			uint32_t nUnitsMax = m_Charge.m_Units;
+			m_Charge = Limits::BlockCharge; // default
+			uint32_t nUnitsMax = m_Charge;
 
 			Shaders::Env::g_pEnv = this;
 			m_Cycles = 0;
 
 			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n);
 
-			os << "Done in " << m_Cycles << " cycles, Discharge=" << (nUnitsMax - m_Charge.m_Units) << std::endl << std::endl;
+			os << "Done in " << m_Cycles << " cycles, Discharge=" << (nUnitsMax - m_Charge) << std::endl << std::endl;
 			std::cout << os.str();
 		}
 
