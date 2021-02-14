@@ -160,10 +160,13 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 //	assert(txNew.IsValid(ctx));
 //#endif // _DEBUG
 
-	if (!ValidateTxContext(txNew, hr))
+	auto fees = trg.m_Profit.m_Fee;
+	fees += src.m_Profit.m_Fee;
+	Amount feeReserve = 0;
+	if (!ValidateTxContext(txNew, hr, fees, feeReserve))
 		return false; // conflicting txs, can't merge
 
-	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
+	trg.m_Profit.m_Fee += fees;
 	trg.m_Profit.SetSize(txNew, trg.m_Profit.get_Correction() + src.m_Profit.get_Correction());
 
 	Delete(src);
@@ -173,7 +176,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
 	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
-
+	trg.m_FeeReserve = feeReserve;
 	trg.m_Height = hr;
 
 	InsertKrn(trg);

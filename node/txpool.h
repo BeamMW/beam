@@ -135,6 +135,7 @@ struct TxPool
 			};
 
 			HeightRange m_Height;
+			Amount m_FeeReserve;
 
 			std::vector<Kernel> m_vKrn;
 		};
@@ -166,7 +167,7 @@ struct TxPool
 
 		~Stem() { Clear(); }
 
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) = 0; // assuming context-free validation is already performed, but 
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type& fees, Amount& feeReserve) = 0; // assuming context-free validation is already performed, but 
 		virtual void OnTimedOut(Element&) = 0;
 
 	private:

@@ -361,7 +361,7 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type&, Amount& feeReserve) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
@@ -392,10 +392,11 @@ private:
 	void AddDummyInputs(Transaction&);
 	bool AddDummyInputRaw(Transaction& tx, const CoinID&);
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
-	void AddDummyOutputs(Transaction&);
+	void AddDummyOutputs(Transaction&, Amount feeReserve);
 	Height SampleDummySpentHeight();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection); // complete validation
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve); // complete validation
+	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
 
