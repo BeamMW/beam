@@ -2170,16 +2170,19 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
 		Transaction::FeeSettings feeSettings;
-		AmountBig::Type fees = feeSettings.Calculate(ctx.m_Stats);
+		Amount fees = feeSettings.Calculate(ctx.m_Stats);
 
         if (nSizeCorrection)
         {
+            // TODO: calc fees addition
+            fees += feeSettings.CalculateForBvm(ctx.m_Stats, nSizeCorrection);
+
             // convert charge to effective size correction
             nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
 
         }
 
-		if (ctx.m_Stats.m_Fee < fees)
+		if (ctx.m_Stats.m_Fee < AmountBig::Type(fees))
 			return proto::TxStatus::LowFee;
 	}
 

@@ -1182,12 +1182,18 @@ namespace beam
 			Amount m_ShieldedInput;
 			Amount m_ShieldedOutput;
 
+			struct Bvm {
+				Amount m_ChargeUnitPrice;
+				Amount m_Minimum;
+			} m_Bvm;
+
 			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
 
 			FeeSettings(); // defaults
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;
+			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
 		};
 	};
 
