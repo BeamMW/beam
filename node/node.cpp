@@ -26,6 +26,8 @@
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
+#include "../bvm/bvm2.h"
+
 #include "pow/external_pow.h"
 
 namespace beam {
@@ -576,7 +578,8 @@ void Node::Processor::DeleteOutdated()
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 		Transaction& tx = *x.m_pValue;
 
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
+        uint32_t nBvmCharge = 0;
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge))
 			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
 	}
 }
@@ -2160,7 +2163,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection);
 	if (proto::TxStatus::Ok != nCode)
 		return nCode;
 
@@ -2168,6 +2171,13 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
 	{
 		Transaction::FeeSettings feeSettings;
 		AmountBig::Type fees = feeSettings.Calculate(ctx.m_Stats);
+
+        if (nSizeCorrection)
+        {
+            // convert charge to effective size correction
+            nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+
+        }
 
 		if (ctx.m_Stats.m_Fee < fees)
 			return proto::TxStatus::LowFee;
@@ -2729,7 +2739,8 @@ void Node::Dandelion::OnTimedOut(Element& x)
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return proto::TxStatus::Ok == get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true);
+    uint32_t nBvmCharge = 0;
+    return proto::TxStatus::Ok == get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)

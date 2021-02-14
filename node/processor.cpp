@@ -4843,7 +4843,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
@@ -4873,8 +4873,12 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
 
+	nBvmCharge = bic.m_ChargePerBlock;
+
 	size_t n = 0;
 	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+
+	nBvmCharge -= bic.m_ChargePerBlock;
 
 	if (!bic.m_ShieldedIns)
 		bShieldedTested = true;
