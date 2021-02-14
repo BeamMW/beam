@@ -395,7 +395,7 @@ private:
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
 

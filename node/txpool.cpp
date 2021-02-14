@@ -25,9 +25,17 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 		ar & *v[i];
 }
 
-void TxPool::Profit::SetSize(const Transaction& tx)
+void TxPool::Profit::SetSize(const Transaction& tx, uint32_t nCorrection)
 {
 	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
+	m_nSizeCorrected = m_nSize + nCorrection;
+}
+
+uint32_t TxPool::Profit::get_Correction() const
+{
+	uint32_t ret;
+	m_nSizeCorrected.Export(ret);
+	return ret - m_nSize;
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -36,13 +44,13 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
 	return
-		(m_Fee * uintBigFrom(t.m_nSize)) >
-		(t.m_Fee * uintBigFrom(m_nSize));
+		(m_Fee * t.m_nSizeCorrected) >
+		(t.m_Fee * m_nSizeCorrected);
 }
 
 /////////////////////////////
 // Fluff
-TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key, uint32_t nSizeCorrection)
 {
 	assert(pValue);
 
@@ -50,7 +58,7 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	p->m_pValue = std::move(pValue);
 	p->m_Height	= ctx.m_Height;
 	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-	p->m_Profit.SetSize(*p->m_pValue);
+	p->m_Profit.SetSize(*p->m_pValue, nSizeCorrection);
 	p->m_Tx.m_Key = key;
 	p->m_Outdated.m_Height = MaxHeight;
 	assert(!p->IsOutdated());
@@ -156,7 +164,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 		return false; // conflicting txs, can't merge
 
 	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
-	trg.m_Profit.SetSize(txNew);
+	trg.m_Profit.SetSize(txNew, trg.m_Profit.get_Correction() + src.m_Profit.get_Correction());
 
 	Delete(src);
 	DeleteKrn(trg);

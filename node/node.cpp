@@ -2153,7 +2153,7 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool 
         OnTransactionStem(std::move(pTx));
 }
 
-uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
+uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection)
 {
 	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
@@ -2282,6 +2282,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 	Transaction::Context ctx(pars);
     bool bTested = false;
     TxPool::Stem::Element* pDup = nullptr;
+    uint32_t nSizeCorrection = 0;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
@@ -2322,7 +2323,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 
@@ -2337,7 +2338,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
     {
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 		}
@@ -2348,7 +2349,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
         pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-        pGuard->m_Profit.SetSize(*ptx);
+        pGuard->m_Profit.SetSize(*ptx, nSizeCorrection);
         pGuard->m_pValue.swap(ptx);
 		pGuard->m_Height = ctx.m_Height;
 
@@ -2665,14 +2666,15 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
     m_Wtx.Delete(key.m_Key);
 
     // new transaction
-    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx);
+    uint32_t nSizeCorrection = 0;
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx, nSizeCorrection);
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
 		return nCode; // stupid compiler insists on parentheses here!
 	}
 
-	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key, nSizeCorrection);
 
 	while (m_TxPool.m_setProfit.size() + m_TxPool.m_setOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{

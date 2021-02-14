@@ -987,7 +987,7 @@ namespace beam
 				Transaction::KeyType key;
 				pTx->get_Key(key);
 
-				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key, 0);
 			}
 
 			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);
