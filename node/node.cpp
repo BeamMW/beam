@@ -2282,7 +2282,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
-	if (!(s.m_Inputs + s.m_Outputs) || !s.m_Kernels) {
+	if (!s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2377,7 +2377,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 
 	bool bDontAggregate =
 		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
-		(ctx.m_Stats.m_InputsShielded || ctx.m_Stats.m_OutputsShielded) || // contains shielded elements
+		s.m_KernelsNonStd || // contains non-std elements
 		!m_Keys.m_pMiner; // can't manage decoys
 
     if (bDontAggregate)
