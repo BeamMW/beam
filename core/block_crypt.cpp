@@ -137,10 +137,12 @@ namespace beam
 		m_Coinbase			+= s.m_Coinbase;
 
 		m_Kernels			+= s.m_Kernels;
+		m_KernelsNonStd		+= s.m_KernelsNonStd;
 		m_Inputs			+= s.m_Inputs;
 		m_Outputs			+= s.m_Outputs;
 		m_InputsShielded	+= s.m_InputsShielded;
 		m_OutputsShielded	+= s.m_OutputsShielded;
+		m_Contract			+= s.m_Contract;
 	}
 
 	/////////////
@@ -965,6 +967,12 @@ namespace beam
 		m_Msg = v.m_Msg;
 	}
 
+	void TxKernelNonStd::AddStats(TxStats& s) const
+	{
+		TxKernel::AddStats(s);
+		s.m_KernelsNonStd++;
+	}
+
 	/////////////
 	// TxKernelAssetControl
 	void TxKernelAssetControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1386,6 +1394,12 @@ namespace beam
 		MsgToID();
 	}
 
+	void TxKernelContractControl::AddStats(TxStats& s) const
+	{
+		TxKernelNonStd::AddStats(s);
+		s.m_Contract++;
+	}
+
 	/////////////
 	// TxKernelContractCreate
 	void TxKernelContractCreate::Clone(TxKernel::Ptr& p) const
@@ -1433,6 +1447,9 @@ namespace beam
 		m_Kernel = 10;
 		m_ShieldedInput = MinShieldedFee - m_Kernel;
 		m_ShieldedOutput = MinShieldedFee - m_Kernel - m_Output;
+
+		m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
+		m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -1449,6 +1466,14 @@ namespace beam
 			m_Kernel * s.m_Kernels +
 			m_ShieldedInput * s.m_InputsShielded +
 			m_ShieldedOutput * s.m_OutputsShielded;
+	}
+
+	Amount Transaction::FeeSettings::CalculateForBvm(const TxStats& s, uint32_t nBvmCharge) const
+	{
+		Amount fee = m_Bvm.m_ChargeUnitPrice * nBvmCharge;
+		Amount feeMin = m_Bvm.m_Minimum * s.m_Contract;
+
+		return std::max(fee, feeMin);
 	}
 
 	template <class T>

@@ -144,7 +144,6 @@ namespace bvm2 {
 	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
 		DischargeUnits(Limits::Cost::CallFar);
-		DischargeVar(m_Charge.m_CallFar, 1);
 
 		uint32_t nRetAddr = get_Ip();
 
@@ -273,44 +272,30 @@ namespace bvm2 {
 	void Processor::DischargeMemOp(uint32_t size)
 	{
 		// don't care about overflow. Assume avail max mem size multiplied by cost won't overflow
-		size = size + 15 / 16;
-		DischargeUnits(size * Limits::Cost::MemOpPer16Byte);
-	}
-
-	void ProcessorContract::DischargeVar(uint32_t& trg, uint32_t val)
-	{
-		struct MyCheckpoint :public Wasm::Checkpoint
-		{
-			void Dump(std::ostream& os) override {
-				os << "Discharge";
-			}
-
-			uint32_t get_Type() override {
-				return ErrorSubType::NoCharge;
-			}
-
-		} cp;
-
-		Limits::Charge::Test(trg >= val);
-		trg -= val;
+		DischargeUnits(size * Limits::Cost::MemOpPerByte);
 	}
 
 	void ProcessorContract::DischargeUnits(uint32_t n)
 	{
-		DischargeVar(m_Charge.m_Units, n);
-	}
+		if (m_Charge < n)
+		{
+			struct MyCheckpoint :public Wasm::Checkpoint
+			{
+				void Dump(std::ostream& os) override {
+					os << "Discharge";
+				}
 
-	void Limits::Charge::Fail()
-	{
-		Wasm::Fail("no Charge");
-	}
+				uint32_t get_Type() override {
+					return ErrorSubType::NoCharge;
+				}
 
-	void Limits::Charge::Test(bool b)
-	{
-		if (!b)
-			Fail();
-	}
+			} cp;
 
+			Wasm::Fail("no Charge");
+		}
+
+		m_Charge -= n;
+	}
 	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
@@ -1038,10 +1023,7 @@ namespace bvm2 {
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
 
-		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + std::min(nVal, ret));
-
-		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerAtom * nAtoms);
-		DischargeVar(m_Charge.m_VarLoadAtoms, 1);
+		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerByte * std::min(nVal, ret));
 
 		return ret;
 	}
@@ -1056,11 +1038,7 @@ namespace bvm2 {
 
 	BVM_METHOD(SaveVar)
 	{
-		uint32_t nAtoms = Limits::Cost::get_Atoms(nKey + nVal);
-
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerAtom * nAtoms);
-		DischargeVar(m_Charge.m_VarSaveAtoms, 1);
-
+		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerByte * nVal);
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
 	BVM_METHOD_HOST(SaveVar)
@@ -1090,6 +1068,8 @@ namespace bvm2 {
 			// invalid, null, or current data section pointer. NOT allowed!
 			Wasm::Fail();
 		}
+
+		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
 
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
 	}
@@ -1147,8 +1127,6 @@ namespace bvm2 {
 	BVM_METHOD(AddSig)
 	{
 		DischargeUnits(Limits::Cost::AddSig);
-		DischargeVar(m_Charge.m_AddSig, 1);
-
 		return OnHost_AddSig(get_AddrAsR<ECC::Point>(pubKey));
 	}
 	BVM_METHOD_HOST(AddSig)
@@ -1191,12 +1169,12 @@ namespace bvm2 {
 
 	BVM_METHOD(AssetCreate)
 	{
-		DischargeVar(m_Charge.m_AssetOps, 1);
 		return OnHost_AssetCreate(get_AddrR(pMeta, nMeta), nMeta);
 	}
 	BVM_METHOD_HOST(AssetCreate)
 	{
 		Wasm::Test(nMeta && (nMeta <= Asset::Info::s_MetadataMaxSize));
+		DischargeUnits(Limits::Cost::AssetManage);
 
 		Asset::Metadata md;
 		Blob(pMeta, nMeta).Export(md.m_Value);
@@ -1235,7 +1213,6 @@ namespace bvm2 {
 	BVM_METHOD(AssetEmit)
 	{
 		DischargeUnits(Limits::Cost::AssetEmit);
-		DischargeVar(m_Charge.m_AssetOps, 1);
 
 		AssetVar av;
 		get_AssetStrict(av, aid);
@@ -1259,7 +1236,7 @@ namespace bvm2 {
 
 	BVM_METHOD(AssetDestroy)
 	{
-		DischargeVar(m_Charge.m_AssetOps, 1);
+		DischargeUnits(Limits::Cost::AssetManage);
 
 		AssetVar av;
 		get_AssetStrict(av, aid);
@@ -1497,7 +1474,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
+		DischargeUnits(Limits::Cost::HashOpPerByte * size);
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1509,7 +1486,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerAtom * Limits::Cost::get_Atoms(size));
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);

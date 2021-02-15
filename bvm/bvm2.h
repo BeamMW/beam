@@ -80,51 +80,41 @@ namespace bvm2 {
 		static const uint32_t VarSize = 0x2000; // 8K
 
 		static const uint32_t StackSize = 0x10000; // 64K
-		static const uint32_t HeapSize = 0x10000; // 64K
+		static const uint32_t HeapSize = 0x100000; // 1MB
 
 		static const uint32_t HashObjects = 8;
 		static const uint32_t SecScalars = 16;
 		static const uint32_t SecPoints = 16;
 
-		struct Cost
-		{
-			static const Amount UnitPrice = 50; // groth
+		static const uint32_t BlockCharge = 100*1000*1000; // 100 mln units
 
-			static const uint32_t AtomSize = 256; // bytes
-			static uint32_t get_Atoms(uint32_t n) {
-				return 1 + n / AtomSize; // 1 at least, even if n==0
-			}
-
-			static const uint32_t Cycle = 1;
-			static const uint32_t MemOpPer16Byte = 1;
-			static const uint32_t HeapOp = 30; // in addition to per-byte price
-			static const uint32_t LoadVar = 200;
-			static const uint32_t LoadVarPerAtom = 200;
-			static const uint32_t SaveVar = 600;
-			static const uint32_t SaveVarPerAtom = 500;
-			static const uint32_t CallFar = 1000;
-			static const uint32_t AddSig = 1000;
-			static const uint32_t AssetEmit = 2000;
-			static const uint32_t HashOp = 40; // alloc, getval
-			static const uint32_t HashOpPerAtom = 200;
-
-			static const uint32_t Secp_ScalarInv = 20000;
-			static const uint32_t Secp_Point_Import = 20000;
-			static const uint32_t Secp_Point_Export = 20000;
-			static const uint32_t Secp_Point_Multiply = 50000;
+		template <uint32_t nMaxOps>
+		struct ChargeFor {
+			static const uint32_t V = (BlockCharge + nMaxOps - 1) / nMaxOps;
+			static_assert(V, "");
 		};
 
-		struct Charge
+		struct Cost
 		{
-			static void Fail();
-			static void Test(bool);
+			static const uint32_t Cycle				= ChargeFor<20*1000*1000>::V;
+			static const uint32_t MemOp				= ChargeFor<2*1000*1000>::V;
+			static const uint32_t MemOpPerByte		= ChargeFor<50*1000*1000>::V;
+			static const uint32_t HeapOp			= ChargeFor<1000*1000>::V;
+			static const uint32_t LoadVar			= ChargeFor<20*1000>::V;
+			static const uint32_t LoadVarPerByte	= ChargeFor<2*1000*1000>::V;
+			static const uint32_t SaveVar			= ChargeFor<2*1000>::V;
+			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
+			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
+			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
+			static const uint32_t AssetManage		= ChargeFor<1000>::V;
+			static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
+			static const uint32_t HashOp			= ChargeFor<100*1000>::V;
+			static const uint32_t HashOpPerByte		= ChargeFor<1000*1000>::V;
 
-			uint32_t m_Units = 20000000; // max, regardless to the fee. Equivalent of ~20mln cycles
-			uint32_t m_CallFar = 320;
-			uint32_t m_AddSig = 1024;
-			uint32_t m_AssetOps = 512;
-			uint32_t m_VarLoadAtoms = 32768;
-			uint32_t m_VarSaveAtoms = 8192;
+			static const uint32_t Secp_ScalarInv		= ChargeFor<5*1000>::V;
+			static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;
+			static const uint32_t Secp_Point_Export		= ChargeFor<5*1000>::V;
+			static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
 		};
 	};
 
@@ -401,8 +391,6 @@ namespace bvm2 {
 
 		FundsChangeMap m_FundsIO;
 
-		static void DischargeVar(uint32_t& trg, uint32_t val);
-
 	public:
 
 		Kind get_Kind() override { return Kind::Contract; }
@@ -414,7 +402,7 @@ namespace bvm2 {
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 
-		Limits::Charge m_Charge;
+		uint32_t m_Charge = Limits::BlockCharge;
 
 		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
 	};

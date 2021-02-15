@@ -420,10 +420,12 @@ namespace beam
 		AmountBig::Type m_Coinbase;
 
 		uint64_t m_Kernels;
+		uint64_t m_KernelsNonStd;
 		uint64_t m_Inputs; // all types
 		uint64_t m_Outputs; // all types
 		uint64_t m_InputsShielded;
 		uint64_t m_OutputsShielded;
+		uint64_t m_Contract;
 
 		TxStats() { Reset(); }
 
@@ -902,6 +904,7 @@ namespace beam
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const = 0;
 		void CopyFrom(const TxKernelNonStd&);
+		virtual void AddStats(TxStats&) const override;
 	};
 
 	struct TxKernelAssetControl
@@ -1021,6 +1024,7 @@ namespace beam
 		ByteBuffer m_Args;
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const override;
 
 		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds);
 
@@ -1178,12 +1182,18 @@ namespace beam
 			Amount m_ShieldedInput;
 			Amount m_ShieldedOutput;
 
+			struct Bvm {
+				Amount m_ChargeUnitPrice;
+				Amount m_Minimum;
+			} m_Bvm;
+
 			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
 
 			FeeSettings(); // defaults
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;
+			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
 		};
 	};
 

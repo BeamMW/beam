@@ -26,6 +26,8 @@
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
+#include "../bvm/bvm2.h"
+
 #include "pow/external_pow.h"
 
 namespace beam {
@@ -576,7 +578,8 @@ void Node::Processor::DeleteOutdated()
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 		Transaction& tx = *x.m_pValue;
 
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true))
+        uint32_t nBvmCharge = 0;
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge))
 			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
 	}
 }
@@ -2153,27 +2156,52 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool 
         OnTransactionStem(std::move(pTx));
 }
 
-uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
+uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve)
 {
 	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection);
 	if (proto::TxStatus::Ok != nCode)
 		return nCode;
 
-	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
-	{
-		Transaction::FeeSettings feeSettings;
-		AmountBig::Type fees = feeSettings.Calculate(ctx.m_Stats);
+    if (nSizeCorrection)
+        // convert charge to effective size correction
+        nSizeCorrection = (uint32_t)(((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
 
-		if (ctx.m_Stats.m_Fee < fees)
-			return proto::TxStatus::LowFee;
-	}
+    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve))
+        return proto::TxStatus::LowFee;
 
 	return proto::TxStatus::Ok;
+}
+
+bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const AmountBig::Type& fees, uint32_t nBvmCharge, Amount& feeReserve)
+{
+    feeReserve = static_cast<Amount>(-1);
+
+    if (hr.m_Min >= Rules::get().pForks[1].m_Height)
+    {
+        Transaction::FeeSettings feeSettings;
+        Amount feesMin = feeSettings.Calculate(s);
+
+        if (nBvmCharge)
+            feesMin += feeSettings.CalculateForBvm(s, nBvmCharge);
+
+        AmountBig::Type val(feesMin);
+
+        if (fees < val)
+            return false;
+
+        val.Negate();
+        val += fees;
+
+        if (!AmountBig::get_Hi(val))
+            feeReserve = AmountBig::get_Lo(val);
+    }
+
+    return true;
 }
 
 void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
@@ -2269,7 +2297,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
-	if (!(s.m_Inputs + s.m_Outputs) || !s.m_Kernels) {
+	if (!s.m_Kernels) {
 		// stupid compiler insists on parentheses here!
 		return proto::TxStatus::TooSmall;
 	}
@@ -2282,6 +2310,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 	Transaction::Context ctx(pars);
     bool bTested = false;
     TxPool::Stem::Element* pDup = nullptr;
+    uint32_t nSizeCorrection = 0;
+    Amount feeReserve = 0;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
@@ -2322,7 +2352,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 
@@ -2337,7 +2367,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
     {
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 		}
@@ -2348,9 +2378,10 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
         pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-        pGuard->m_Profit.SetSize(*ptx);
+        pGuard->m_Profit.SetSize(*ptx, nSizeCorrection);
         pGuard->m_pValue.swap(ptx);
 		pGuard->m_Height = ctx.m_Height;
+        pGuard->m_FeeReserve = feeReserve;
 
         m_Dandelion.InsertKrn(*pGuard);
 
@@ -2363,7 +2394,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 
 	bool bDontAggregate =
 		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
-		(ctx.m_Stats.m_InputsShielded || ctx.m_Stats.m_OutputsShielded) || // contains shielded elements
+		s.m_KernelsNonStd || // contains non-std elements
 		!m_Keys.m_pMiner; // can't manage decoys
 
     if (bDontAggregate)
@@ -2564,18 +2595,21 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 	return true;
 }
 
-void Node::AddDummyOutputs(Transaction& tx)
+void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 {
     if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi || !m_Keys.m_pMiner)
         return;
 
     // add dummy outputs
     bool bModified = false;
-
+    Transaction::FeeSettings feeSettings;
     NodeDB& db = m_Processor.get_DB();
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
+        if (feeReserve < feeSettings.m_Output)
+            break;
+
 		CoinID cid(Zero);
 		cid.m_Type = Key::Type::Decoy;
         cid.set_Subkey(m_Keys.m_nMinerSubIndex);
@@ -2600,6 +2634,8 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         sk = -sk;
         tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+
+        feeReserve -= feeSettings.m_Output;
     }
 
     if (bModified)
@@ -2665,14 +2701,16 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
     m_Wtx.Delete(key.m_Key);
 
     // new transaction
-    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx);
+    uint32_t nSizeCorrection = 0;
+    Amount feeReserve = 0;
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx, nSizeCorrection, feeReserve);
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
 		return nCode; // stupid compiler insists on parentheses here!
 	}
 
-	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key, nSizeCorrection);
 
 	while (m_TxPool.m_setProfit.size() + m_TxPool.m_setOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{
@@ -2714,7 +2752,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 {
     if (x.m_bAggregating)
     {
-        get_ParentObj().AddDummyOutputs(*x.m_pValue);
+        get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_FeeReserve);
 		get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
 		get_ParentObj().OnTransactionAggregated(x);
 	}
@@ -2725,9 +2763,17 @@ void Node::Dandelion::OnTimedOut(Element& x)
 	}
 }
 
-bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
-    return proto::TxStatus::Ok == get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true);
+    uint32_t nBvmCharge = 0;
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge))
+        return false;
+
+    TxStats s;
+    tx.get_Reader().AddStats(s);
+    CalculateFeeReserve(s, hr, fees, nBvmCharge, feeReserve);
+
+    return true;
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)

@@ -2073,7 +2073,7 @@ struct NodeProcessor::BlockInterpretCtx
 		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 	};
 
-	bvm2::Limits::Charge m_ChargePerBlock;
+	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
@@ -3987,13 +3987,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	{
 		InitStack();
 
-		Amount fee = krn.m_Fee;
-		fee /= bvm2::Limits::Cost::UnitPrice;
-		uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
+		//Amount fee = krn.m_Fee;
+		//fee /= bvm2::Limits::Cost::UnitPrice;
+		//uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
 
 		m_Charge = m_Bic.m_ChargePerBlock;
-		std::setmin(m_Charge.m_Units, nUnits);
-		uint32_t nUnits0 = m_Charge.m_Units;
+		//std::setmin(m_Charge.m_Units, nUnits);
+		//uint32_t nUnits0 = m_Charge.m_Units;
 
 		m_Stack.PushAlias(krn.m_Args);
 		DischargeMemOp(static_cast<uint32_t>(krn.m_Args.size()));
@@ -4019,11 +4019,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		bRes = true;
 
-		nUnits0 -= m_Charge.m_Units; // units burned by this invocation
-		uint32_t nUnitsPerBlockLeft = m_Bic.m_ChargePerBlock.m_Units - nUnits0;
+		//nUnits0 -= m_Charge.m_Units; // units burned by this invocation
+		//uint32_t nUnitsPerBlockLeft = m_Bic.m_ChargePerBlock.m_Units - nUnits0;
 
 		m_Bic.m_ChargePerBlock = m_Charge;
-		m_Bic.m_ChargePerBlock.m_Units = nUnitsPerBlockLeft;
+		//m_Bic.m_ChargePerBlock.m_Units = nUnitsPerBlockLeft;
 	}
 	catch (const Wasm::Exc& e)
 	{
@@ -4843,7 +4843,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
@@ -4873,8 +4873,12 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
 
+	nBvmCharge = bic.m_ChargePerBlock;
+
 	size_t n = 0;
 	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+
+	nBvmCharge -= bic.m_ChargePerBlock;
 
 	if (!bic.m_ShieldedIns)
 		bShieldedTested = true;

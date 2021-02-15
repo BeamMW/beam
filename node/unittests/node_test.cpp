@@ -977,7 +977,8 @@ namespace beam
 
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
-				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false));
+				uint32_t nBvmCharge = 0;
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -987,7 +988,7 @@ namespace beam
 				Transaction::KeyType key;
 				pTx->get_Key(key);
 
-				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key, 0);
 			}
 
 			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);
