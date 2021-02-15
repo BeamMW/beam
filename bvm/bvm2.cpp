@@ -1069,6 +1069,8 @@ namespace bvm2 {
 			Wasm::Fail();
 		}
 
+		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
+
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
 	}
 	BVM_METHOD_HOST(CallFar)
