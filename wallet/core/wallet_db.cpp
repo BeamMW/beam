@@ -2084,9 +2084,9 @@ namespace beam::wallet
 
                 walletDB->flushDB();
             }
-            catch (...)
+            catch (std::runtime_error& err)
             {
-                LOG_ERROR() << "Database migration failed";
+                LOG_ERROR() << "Database migration failed: " << err.what();
                 walletDB->rollbackDB();
                 throw DatabaseMigrationException();
             }
