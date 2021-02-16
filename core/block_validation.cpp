@@ -72,7 +72,7 @@ namespace beam
 
 		const Rules& rules = Rules::get(); // alias
 
-		size_t iFork = rules.FindFork(m_Height.m_Min);
+		auto iFork = rules.FindFork(m_Height.m_Min);
 		std::setmin(m_Height.m_Max, rules.get_ForkMaxHeightSafe(iFork)); // mixed versions are not allowed!
 		assert(!m_Height.IsEmpty());
 
