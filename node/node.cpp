@@ -2158,21 +2158,26 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool 
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve)
 {
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+    ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
-	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
-		return proto::TxStatus::Invalid;
+    if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+        return proto::TxStatus::Invalid;
 
     uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection);
-	if (proto::TxStatus::Ok != nCode)
-		return nCode;
+    if (proto::TxStatus::Ok != nCode)
+        return nCode;
 
     if (nSizeCorrection)
+    {
         // convert charge to effective size correction
-        nSizeCorrection = (uint32_t)(((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+        nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize /
+                                      bvm2::Limits::BlockCharge);
+    }
 
     if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve))
+    {
         return proto::TxStatus::LowFee;
+    }
 
 	return proto::TxStatus::Ok;
 }
