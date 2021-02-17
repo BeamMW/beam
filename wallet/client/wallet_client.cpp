@@ -369,8 +369,9 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : m_walletDB(walletDB)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : m_rules(rules)
+        , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_connectedNodesCount(0)
@@ -448,8 +449,8 @@ namespace beam::wallet
         {
             try
             {
+                Rules::Scope scopeRules(getRules());
                 io::Reactor::Scope scope(*m_reactor);
-                io::Reactor::GracefulIntHandler gih(*m_reactor);
 
                 static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
@@ -657,7 +658,7 @@ namespace beam::wallet
 
     bool WalletClient::isFork1() const
     {
-        return m_currentHeight >= Rules::get().pForks[1].m_Height;
+        return m_currentHeight >= getRules().pForks[1].m_Height;
     }
 
     size_t WalletClient::getUnsafeActiveTransactionsCount() const
@@ -710,7 +711,7 @@ namespace beam::wallet
             auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
             const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
             auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
-            auto maxWindowBacklog = mpAnonymitySet ? Rules::get().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : Rules::get().Shielded.MaxWindowBacklog;
+            auto maxWindowBacklog = mpAnonymitySet ? getRules().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : getRules().Shielded.MaxWindowBacklog;
             auto outputsLeftForMP = maxWindowBacklog - outputsAddedAfterMyCoin;
             auto hoursLeft = outputsLeftForMP / static_cast<double>(m_shieldedPer24h) * 24;
             uint16_t hoursLeftU = static_cast<uint16_t>(hoursLeft > 1 ? floor(hoursLeft) : ceil(hoursLeft));
@@ -724,6 +725,10 @@ namespace beam::wallet
         return timeLimit ? hoursLeftByBlocksU : std::numeric_limits<uint16_t>::max();
     }
 
+    const Rules& WalletClient::getRules() const
+    {
+        return m_rules;
+    }
 
     /////////////////////////////////////////////
     /// IWalletClientAsync implementation, these method are called in background thread and could safelly access wallet DB

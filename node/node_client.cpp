@@ -208,10 +208,11 @@ namespace beam
             {
                 LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
             }
-            catch (...)
-            {
-                LOG_UNHANDLED_EXCEPTION();
-            }
+            // commented intentionally to be able to catch crash
+            //catch (...)
+            //{
+            //    LOG_UNHANDLED_EXCEPTION();
+            //}
 
             m_observer->onNodeThreadFinished();
         });
