@@ -1945,7 +1945,7 @@ namespace
     struct TestWalletClient : public WalletClient
     {
         TestWalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-            : WalletClient(walletDB, nodeAddr, reactor)
+            : WalletClient(Rules::get(), walletDB, nodeAddr, reactor)
         {
         }
 
