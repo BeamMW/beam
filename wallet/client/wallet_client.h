@@ -97,7 +97,7 @@ namespace beam::wallet
         , private DexBoard::IObserver
     {
     public:
-        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -269,6 +269,7 @@ namespace beam::wallet
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
         beam::TxoID getTotalShieldedCount() const;
+        const Rules& getRules() const;
 
     private:
         //
@@ -299,6 +300,7 @@ namespace beam::wallet
         void scheduleBalance();
 
         std::shared_ptr<std::thread> m_thread;
+        const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
         IWalletModelAsync::Ptr m_async;

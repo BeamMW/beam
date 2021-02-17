@@ -1999,9 +1999,9 @@ namespace beam
 		return nullptr;
 	}
 
-	size_t Rules::FindFork(Height h) const
+	uint32_t Rules::FindFork(Height h) const
 	{
-		for (size_t i = _countof(pForks); i--; )
+		for (uint32_t i = (uint32_t) _countof(pForks); i--; )
 		{
 			if (h >= pForks[i].m_Height)
 				return i;
@@ -2010,7 +2010,7 @@ namespace beam
 		return 0; // should not be reached
 	}
 
-	Height Rules::get_ForkMaxHeightSafe(size_t iFork) const
+	Height Rules::get_ForkMaxHeightSafe(uint32_t iFork) const
 	{
 		assert(iFork < _countof(pForks));
 		if (iFork + 1 < _countof(pForks))
@@ -2127,7 +2127,7 @@ namespace beam
 
 		// Starting from Fork2: add Rules cfg. Make it harder to tamper using headers mined on different cfg
 		const Rules& r = Rules::get();
-		size_t iFork = r.FindFork(m_Height);
+		auto iFork = r.FindFork(m_Height);
 		if (iFork >= 2)
 			hp << r.pForks[iFork].m_Hash;
 

@@ -2167,15 +2167,12 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
-    if (nSizeCorrection)
-    {
+    if (nSizeCorrection) {
         // convert charge to effective size correction
-        nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize /
-                                      bvm2::Limits::BlockCharge);
+        nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
     }
 
-    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve))
-    {
+    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve)) {
         return proto::TxStatus::LowFee;
     }
 
