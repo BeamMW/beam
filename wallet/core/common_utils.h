@@ -54,7 +54,7 @@ namespace beam::wallet
         Asset::ID assetID = Asset::s_BeamID;
         bool isEnought = true;
     };
-    ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
+    ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(Height, const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
 
     class BaseTxBuilder;
     Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);

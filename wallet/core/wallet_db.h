@@ -436,7 +436,7 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
-        virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
+        virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -618,7 +618,7 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
-        void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
+        void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;

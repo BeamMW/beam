@@ -138,12 +138,12 @@ Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<Sh
     return sum;
 }
 
-ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx)
+ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(Height h, const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx)
 {
     std::vector<Coin> beamCoins, nonbeamCoins;
     std::vector<ShieldedCoin> beamShielded, nonbeamShielded;
 
-    Transaction::FeeSettings fs;
+    Transaction::FeeSettings fs(h);
     TxStats ts;
     if(isPushTx)
     {
@@ -155,12 +155,12 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
 
     if (isBeam)
     {
-         walletDB->selectCoins2(requestedSum + requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
+         walletDB->selectCoins2(h, requestedSum + requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
     }
     else
     {
-        walletDB->selectCoins2(requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
-        walletDB->selectCoins2(requestedSum, assetId, nonbeamCoins, nonbeamShielded, Rules::get().Shielded.MaxIns, true);
+        walletDB->selectCoins2(h, requestedFee + shieldedOutputsFee, Asset::s_BeamID, beamCoins, beamShielded, Rules::get().Shielded.MaxIns, true);
+        walletDB->selectCoins2(h, requestedSum, assetId, nonbeamCoins, nonbeamShielded, Rules::get().Shielded.MaxIns, true);
     }
 
     Amount reqBeam = isBeam ? requestedSum : 0;
@@ -208,7 +208,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
     }
     else if (selectedFee == minFee && selectedFee - (shieldedInputsFee + shieldedOutputsFee) < kMinFeeInGroth)
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, assetId, isPushTx);
+        auto res = CalcShieldedCoinSelectionInfo(h, walletDB, requestedSum, shieldedInputsFee + kMinFeeInGroth, assetId, isPushTx);
         res.requestedFee = requestedFee;
         return res;
     }
@@ -257,7 +257,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
     }
     else
     {
-        auto res = CalcShieldedCoinSelectionInfo(walletDB, requestedSum, minFee - shieldedOutputsFee, assetId, isPushTx);
+        auto res = CalcShieldedCoinSelectionInfo(h, walletDB, requestedSum, minFee - shieldedOutputsFee, assetId, isPushTx);
         res.requestedFee = requestedFee;
         return res;
     }
@@ -265,7 +265,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& w
 
 Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
 {
-    Amount shieldedFee = CalculateShieldedFeeByKernelsCount(builder.m_Coins.m_InputShielded.size());
+    Amount shieldedFee = CalculateShieldedFeeByKernelsCount(builder.m_Height.m_Min, builder.m_Coins.m_InputShielded.size());
     return shieldedFee + builder.m_Fee;
 }
 

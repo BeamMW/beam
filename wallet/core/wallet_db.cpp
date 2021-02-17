@@ -2607,7 +2607,7 @@ namespace beam::wallet
         return selectCoinsEx(amount, assetId, false);
     }
 
-    void WalletDB::selectCoins2(Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
+    void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
         if (!nTrg)
             return;
@@ -2617,7 +2617,7 @@ namespace beam::wallet
         vector<ShieldedCoin::WithStatus> vShielded;
         size_t iPosShielded = 0;
 
-        Transaction::FeeSettings fs;
+        Transaction::FeeSettings fs(h);
         Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
 
         if (nMaxShielded)

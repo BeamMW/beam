@@ -1441,7 +1441,7 @@ namespace beam
 
 	/////////////
 	// Transaction
-	Transaction::FeeSettings::FeeSettings()
+	void Transaction::FeeSettings::set_Height(Height)
 	{
 		m_Output = 10;
 		m_Kernel = 10;

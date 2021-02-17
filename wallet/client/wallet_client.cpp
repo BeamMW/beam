@@ -962,7 +962,7 @@ namespace beam::wallet
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        m_shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
+        m_shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_currentHeight, m_walletDB, requested, beforehandMinFee, assetId, isShielded);
         onShieldedCoinsSelectionCalculated(m_shieldedCoinsSelectionResult);
     }
 

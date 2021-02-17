@@ -2185,7 +2185,7 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
 
     if (hr.m_Min >= Rules::get().pForks[1].m_Height)
     {
-        Transaction::FeeSettings feeSettings;
+        Transaction::FeeSettings feeSettings(hr.m_Min);
         Amount feesMin = feeSettings.Calculate(s);
 
         if (nBvmCharge)
@@ -2604,7 +2604,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
     // add dummy outputs
     bool bModified = false;
-    Transaction::FeeSettings feeSettings;
+    Transaction::FeeSettings feeSettings(m_Processor.m_Cursor.m_Full.m_Height + 1);
     NodeDB& db = m_Processor.get_DB();
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)

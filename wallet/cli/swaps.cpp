@@ -952,15 +952,16 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
 
+    Height minHeight = walletDB->getCurrentHeight();
     Amount feeForShieldedInputs = 0;
-    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
+
+    if (isBeamSide && !CheckFeeForShieldedInputs(minHeight, amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
         throw std::runtime_error("Fee to low");
 
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
     // TODO:SWAP use async callbacks or IWalletObserver?
 
-    Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
 
     FillSwapTxParams(&swapTxParameters,
@@ -1090,7 +1091,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     Amount feeForShieldedInputs = 0;
 
     ReadFee(vm, fee, checkFee);    
-    if (*isBeamSide && !CheckFeeForShieldedInputs(*beamAmount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
+    if (*isBeamSide && !CheckFeeForShieldedInputs(*minHeight, *beamAmount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
         throw std::runtime_error("Fee to low");
 
     fee = !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee;

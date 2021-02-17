@@ -1189,7 +1189,11 @@ namespace beam
 
 			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
 
-			FeeSettings(); // defaults
+			FeeSettings(Height h) {
+				set_Height(h);
+			}
+
+			void set_Height(Height);
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;

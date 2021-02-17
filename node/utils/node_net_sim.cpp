@@ -410,6 +410,8 @@ struct Context
     {
         Transaction::FeeSettings m_Fees; // def
 
+        Cfg() :m_Fees(1) {}
+
 #define CfgFieldsAll(macro) \
         macro(Amount, BulletValue, 3000, "must be big enough to cover shielded out & in txs") \
         macro(uint32_t, BulletsMin, 50, "min avail bullets") \
@@ -505,6 +507,8 @@ struct Context
             return;
 
         std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;
+
+        m_Cfg.m_Fees.set_Height(h + 1);
 
         m_TxosMW.HandleTxs(m_setSplit, h);
 

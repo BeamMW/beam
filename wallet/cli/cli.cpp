@@ -2221,7 +2221,7 @@ namespace
                 }
 
                 Amount feeForShieldedInputs = 0;
-                if (!CheckFeeForShieldedInputs(amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
+                if (!CheckFeeForShieldedInputs(walletDB->getCurrentHeight(), amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
                     return -1;
 
                 if (isPushTx)
