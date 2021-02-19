@@ -2618,7 +2618,7 @@ namespace beam::wallet
         size_t iPosShielded = 0;
 
         Transaction::FeeSettings fs(h);
-        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
+        Amount feeShielded = fs.m_ShieldedInputTotal;
 
         if (nMaxShielded)
         {

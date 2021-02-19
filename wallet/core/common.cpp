@@ -1597,7 +1597,7 @@ namespace beam::wallet
         if (count)
         {
             Transaction::FeeSettings fs(h);
-            shieldedFee = count * (fs.m_ShieldedInput + fs.m_Kernel);
+            shieldedFee = count * fs.m_ShieldedInputTotal;
         }
 
         return shieldedFee;

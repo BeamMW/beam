@@ -1213,7 +1213,6 @@ namespace beam
 	void TxKernelShieldedOutput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
-		s.m_Outputs++;
 		s.m_OutputsShielded++;
 	}
 
@@ -1276,7 +1275,6 @@ namespace beam
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
-		s.m_Inputs++;
 		s.m_InputsShielded++;
 	}
 
@@ -1445,8 +1443,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
-		m_ShieldedInput = MinShieldedFee - m_Kernel;
-		m_ShieldedOutput = MinShieldedFee - m_Kernel - m_Output;
+		m_ShieldedInputTotal = MinShieldedFee;
+		m_ShieldedOutputTotal = MinShieldedFee;
 
 		m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
 		m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
@@ -1463,9 +1461,9 @@ namespace beam
 	{
 		return
 			m_Output * s.m_Outputs +
-			m_Kernel * s.m_Kernels +
-			m_ShieldedInput * s.m_InputsShielded +
-			m_ShieldedOutput * s.m_OutputsShielded;
+			m_Kernel * (s.m_Kernels - s.m_InputsShielded - s.m_OutputsShielded) +
+			m_ShieldedInputTotal * s.m_InputsShielded +
+			m_ShieldedOutputTotal * s.m_OutputsShielded;
 	}
 
 	Amount Transaction::FeeSettings::CalculateForBvm(const TxStats& s, uint32_t nBvmCharge) const

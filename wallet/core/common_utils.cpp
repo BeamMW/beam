@@ -151,7 +151,7 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(Height h, const IWallet
     }
 
     const bool isBeam = assetId == Asset::s_BeamID;
-    Amount shieldedOutputsFee = ts.m_OutputsShielded * (fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput);
+    Amount shieldedOutputsFee = ts.m_OutputsShielded * (fs.m_Kernel + fs.m_ShieldedOutputTotal);
 
     if (isBeam)
     {
@@ -170,10 +170,10 @@ ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(Height h, const IWallet
 
     ts.m_Outputs  = sumBeam > (reqBeam + requestedFee + shieldedOutputsFee) ? 2 : 1 + sumNonBeam > reqNonBeam ? 1 : 0;
     ts.m_InputsShielded = beamShielded.size() + nonbeamShielded.size();
-    ts.m_Kernels = ts.m_Outputs + ts.m_InputsShielded + ts.m_OutputsShielded;
+    ts.m_Kernels = 1 + ts.m_InputsShielded + ts.m_OutputsShielded;
 
     Amount minFee = fs.Calculate(ts);
-    Amount shieldedInputsFee = ts.m_InputsShielded * (fs.m_Kernel + fs.m_ShieldedInput);
+    Amount shieldedInputsFee = ts.m_InputsShielded * fs.m_ShieldedInputTotal;
     Amount selectedFee = requestedFee >= shieldedInputsFee + shieldedOutputsFee
         ? requestedFee
         : std::max(requestedFee + shieldedOutputsFee, minFee);

@@ -421,8 +421,8 @@ namespace beam
 
 		uint64_t m_Kernels;
 		uint64_t m_KernelsNonStd;
-		uint64_t m_Inputs; // all types
-		uint64_t m_Outputs; // all types
+		uint64_t m_Inputs; // MW only
+		uint64_t m_Outputs; // MW only
 		uint64_t m_InputsShielded;
 		uint64_t m_OutputsShielded;
 		uint64_t m_Contract;
@@ -1179,8 +1179,8 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
-			Amount m_ShieldedInput;
-			Amount m_ShieldedOutput;
+			Amount m_ShieldedInputTotal; // including 1 kernel price
+			Amount m_ShieldedOutputTotal; // including 1 kernel price
 
 			struct Bvm {
 				Amount m_ChargeUnitPrice;

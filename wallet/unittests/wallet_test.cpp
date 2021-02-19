@@ -2180,7 +2180,7 @@ namespace
         const uint32_t nShieldedCoins = 3;
         Amount nValNetto = 135;
         Transaction::FeeSettings fs(1);
-        Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
+        Amount nInpFee = fs.m_ShieldedInputTotal;
         StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
 
         auto txId  = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
@@ -2225,8 +2225,8 @@ namespace
         auto walletDB = createSenderWalletDB(false, lst);
         StoreShieldedCoins(3, 3000000, walletDB, node);
         Transaction::FeeSettings fs(1);
-        Amount nInpFee = fs.m_ShieldedInput + fs.m_Kernel;
-        Amount nOutFee = fs.m_ShieldedOutput + fs.m_Kernel + fs.m_Output;
+        Amount nInpFee = fs.m_ShieldedInputTotal;
+        Amount nOutFee = fs.m_ShieldedOutputTotal + fs.m_Kernel;
         Amount beforehandFee = 1000100;
 
         auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 6000000, beforehandFee, Asset::s_BeamID);

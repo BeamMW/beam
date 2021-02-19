@@ -169,7 +169,7 @@ namespace beam::wallet
 
         IPrivateKeyKeeper2::ShieldedInput si;
         Cast::Down<ShieldedTxo::ID>(si) = sid;
-        si.m_Fee = fs.m_Kernel + fs.m_ShieldedInput; // auto-fee for shielded inputs
+        si.m_Fee = fs.m_ShieldedInputTotal; // auto-fee for shielded inputs
         Add(si);
     }
 

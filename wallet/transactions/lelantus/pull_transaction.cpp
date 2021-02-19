@@ -62,7 +62,7 @@ namespace beam::wallet::lelantus
         auto& builder = *m_TxBuilder;
 
         Transaction::FeeSettings fs(builder.m_Height.m_Min);
-        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
+        Amount feeShielded = fs.m_ShieldedInputTotal;
 
         if (bFirstTime)
         {

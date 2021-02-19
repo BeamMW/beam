@@ -156,7 +156,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
 bool CheckFeeForShieldedInputs(Height h, Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
 {
     Transaction::FeeSettings fs(h);
-    Amount shieldedFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+    Amount shieldedFee = isPushTx ? fs.m_ShieldedOutputTotal : 0;
 
     const auto coinSelectionRes = CalcShieldedCoinSelectionInfo(h, walletDB, amount, (isPushTx && fee > shieldedFee) ? fee - shieldedFee : fee, assetId, isPushTx);
     shieldedFee = coinSelectionRes.shieldedInputsFee;

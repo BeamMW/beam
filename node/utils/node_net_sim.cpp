@@ -699,7 +699,9 @@ struct Context
         if (!bShouldEmbed)
             pKrn->m_Height = hr;
 
-        pKrn->m_Fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output + m_Cfg.m_Fees.m_ShieldedOutput;
+        pKrn->m_Fee = m_Cfg.m_Fees.m_ShieldedOutputTotal;
+        if (bShouldEmbed)
+            pKrn->m_Fee += m_Cfg.m_Fees.m_Kernel;
 
         pKrn->UpdateMsg();
         ECC::Oracle oracle;
@@ -788,7 +790,7 @@ struct Context
     bool SendShieldedInp(TxoSH& txo)
     {
         Height h = m_FlyClient.get_Height();
-        Amount fee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_ShieldedInput + m_Cfg.m_Fees.m_Output;
+        Amount fee = m_Cfg.m_Fees.m_ShieldedInputTotal + m_Cfg.m_Fees.m_Output;
 
         if ((txo.m_LockedUntil >= h) ||
             txo.m_AssetID ||
@@ -1070,7 +1072,7 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel * 3 + ctx.m_Cfg.m_Fees.m_Output * 2 + ctx.m_Cfg.m_Fees.m_ShieldedOutput + ctx.m_Cfg.m_Fees.m_ShieldedInput;
+    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output + ctx.m_Cfg.m_Fees.m_ShieldedOutputTotal + ctx.m_Cfg.m_Fees.m_ShieldedInputTotal;
     std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;
