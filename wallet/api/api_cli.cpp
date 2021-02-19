@@ -39,6 +39,9 @@
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "api_cli_swap.h"
+
+#include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+
 #include "nlohmann/json.hpp"
 #include "version.h"
 

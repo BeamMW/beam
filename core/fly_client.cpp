@@ -931,19 +931,6 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& 
 {
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
-{
-    return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
-{
-	Send(req.m_Msg);
-
-	Ping msg2(Zero);
-    Send(msg2);
-}
-
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBodyPack& req)
 {
     return (Flags::Node & m_Flags) && IsAtTip();
@@ -960,6 +947,19 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBody& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBody& req)
 {
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
+{
+    return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
+{
+	Send(req.m_Msg);
+
+	Ping msg2(Zero);
+    Send(msg2);
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)

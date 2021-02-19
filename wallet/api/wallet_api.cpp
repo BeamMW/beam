@@ -122,6 +122,10 @@ namespace beam::wallet {
             };
             statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
         }
+        else if (tx.m_txType == TxType::PushTransaction)
+        {
+            statusInterpreter = std::make_unique<MaxPrivacyTxStatusInterpreter>(tx);
+        }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -137,8 +141,8 @@ namespace beam::wallet {
             {"txId", TxIDToString(tx.m_txId)},
             {"status", tx.m_status},
             {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
-            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
-            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
+            {"sender", tx.getAddressFrom()},
+            {"receiver", tx.getAddressTo()},
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"create_time", tx.m_createTime},
@@ -165,7 +169,7 @@ namespace beam::wallet {
             {
                 for (const auto& data : vData)
                 {
-                    auto ivdata = json{
+                    auto ivdata = json {
                        {"contract_id", data.m_Cid.str()}
                     };
                     msg["invoke_data"].push_back(ivdata);

@@ -5624,15 +5624,36 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::KernelProofHeight, coin.m_confirmHeight);
+                    .SetParameter(TxParameterID::AddressType, addressType);
+
+                /*const auto assetId = coin.m_CoinID.m_AssetID;
+                if (assetId != Asset::s_BeamID)
+                {
+                    if (const auto oinfo = db.findAsset(assetId))
+                    {
+                        WalletAsset info(*oinfo);
+                        if (info.IsExpired(db))
+                        {
+                            confirm_asset(txID, assetId);
+                        }
+                        else
+                        {
+                            params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
+                                    .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                        }
+                    }
+                    else
+                    {
+                        confirm_asset(txID, assetId);
+                    }
+                }*/
 
                 if (message->m_MaxPrivacyMinAnonymitySet)
                 {
                     params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
                 }
-                params.SetParameter(TxParameterID::AddressType, addressType);
 
-                auto packed = params.Pack();
+                const auto packed = params.Pack();
                 for (const auto& p : packed)
                 {
                     storage::setTxParameter(db, *params.GetTxID(), p.first, p.second, true);

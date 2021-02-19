@@ -215,7 +215,9 @@ namespace beam::wallet
         {
             assert(m_OwnedNodesOnline); // check that m_OwnedNodesOnline is positive number
             if (!--m_OwnedNodesOnline)
+            {
                 AbortEvents();
+            }
         }
 
         for (const auto sub : m_subscribers)
@@ -1479,7 +1481,9 @@ namespace beam::wallet
     void Wallet::RequestEvents()
     {
         if (!m_OwnedNodesOnline)
+        {
             return;
+        }
 
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
@@ -1531,7 +1535,7 @@ namespace beam::wallet
             }
 
         } p(*this);
-        
+
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
 
         if (nCount < r.m_Max)
