@@ -353,6 +353,13 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
+    Height Wallet::get_CurrentHeight() const
+    {
+        Block::SystemState::Full s;
+        get_tip(s);
+        return s.m_Height;
+    }
+
     size_t Wallet::GetUnsafeActiveTransactionsCount() const
     {
         return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
