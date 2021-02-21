@@ -1426,7 +1426,7 @@ namespace
         {
             ShowAssetCoins(walletDB, Zero);
         }
-        else if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
+        else if (vm.count(cli::TX_HISTORY))
         {
             std::vector<TxDescription> txHistory;
 
@@ -1824,19 +1824,6 @@ namespace
             }
         }
         return coinIDs;
-    }
-
-    bool ReadShieldedId(const po::variables_map& vm, TxoID& id)
-    {
-        if (vm.count(cli::SHIELDED_ID) == 0)
-        {
-            LOG_ERROR() << kErrorShieldedIDMissing;
-            return false;
-        }
-
-        id = vm[cli::SHIELDED_ID].as<Nonnegative<TxoID>>().value;
-
-        return true;
     }
 
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
@@ -2617,115 +2604,6 @@ namespace
             });
     }
 
-    boost::optional<TxID> InsertToShieldedPool(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
-    {
-        Amount amount = 0;
-        Amount fee = 0;
-        if (!ReadAmount(vm, amount) || !ReadFee(vm, fee, true))
-        {
-            return boost::none;
-        }
-
-        if (fee < kShieldedTxMinFeeInGroth)
-        {
-            LOG_ERROR() << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-            return boost::none;
-        }
-
-        const Amount pushTxMinAmount = kShieldedTxMinFeeInGroth + 1;
-        if (amount < pushTxMinAmount)
-        {
-            LOG_ERROR() << "Amount is too small. Minimal amount is " << PrintableAmount(pushTxMinAmount);
-            return boost::none;
-        }
-
-        Asset::ID assetId = Asset::s_InvalidID;
-        if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
-        {
-            CheckAssetsAllowed(vm);
-            assetId = vm[cli::ASSET_ID].as<Positive<uint32_t> >().value;
-        }
-
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-        auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID);
-        LoadReceiverParams(vm, txParams);
-
-        txParams.SetParameter(TxParameterID::Amount, amount)
-                .SetParameter(TxParameterID::Fee, fee)
-                .SetParameter(TxParameterID::AssetID, assetId)
-                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        return wallet.StartTransaction(txParams);
-    }
-
-    int InsertToShieldedPool(const po::variables_map& vm)
-    {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
-            {
-                currentTxID = InsertToShieldedPool(vm, *wallet, walletDB);
-                return currentTxID ? 0: -1;
-            });
-    }
-
-    boost::optional<TxID> ExtractFromShieldedPool(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
-    {
-        TxoID shieldedId = 0;
-        Amount fee = 0;
-
-        if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
-        {
-            return boost::none;
-        }
-
-        if (fee < kShieldedTxMinFeeInGroth)
-        {
-            LOG_ERROR () << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-            return boost::none;
-        }
-
-        auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
-        if (!shieldedCoin)
-        {
-            LOG_ERROR () << "Is not shielded UTXO id: " << shieldedId;
-            return boost::none;
-        }
-
-        const bool isAsset = shieldedCoin->m_CoinID.m_AssetID != Asset::s_InvalidID;
-        if (isAsset)
-        {
-            CheckAssetsAllowed(vm);
-        }
-        else
-        {
-            // BEAM
-            if (shieldedCoin->m_CoinID.m_Value <= fee)
-            {
-                LOG_ERROR() << "Shielded UTXO amount less or equal fee.";
-                return boost::none;
-            }
-        }
-
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-
-        auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
-            .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_CoinID.m_Value : shieldedCoin->m_CoinID.m_Value - fee)
-            .SetParameter(TxParameterID::Fee, fee)
-            .SetParameter(TxParameterID::AssetID, shieldedCoin->m_CoinID.m_AssetID)
-            .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
-            .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        return wallet.StartTransaction(txParams);
-    }
-
-    int ExtractFromShieldedPool(const po::variables_map& vm)
-    {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
-            {
-                currentTxID = ExtractFromShieldedPool(vm, *wallet, walletDB);
-                return currentTxID ? 0: -1;
-            });
-    }
-
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2777,11 +2655,6 @@ int main_impl(int argc, char* argv[])
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
         {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from the blockchain"},
         {cli::ASSET_INFO,           GetAssetInfo,                   "print confidential asset information from a node"},
-#ifdef BEAM_LELANTUS_SUPPORT
-        // Basic lelantus operations are disabled in CLI starting from v5.1
-        // {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert UTXO to the shielded pool"},
-        // {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded UTXO from the shielded pool"}
-#endif
     };
 
     try

@@ -62,8 +62,6 @@ namespace beam::wallet
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
     constexpr Amount kMinFeeInGroth = 100;
-    constexpr Amount kShieldedCoinMinFeeInGroth = Transaction::FeeSettings::MinShieldedFee;
-    constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
 
 #pragma pack (push, 1)
     struct WalletID
