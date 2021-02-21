@@ -947,7 +947,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorCantSwapAsset);
     }
 
-    if (amount <= kMinFeeInGroth)
+    if (amount <= fee)
     {
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }

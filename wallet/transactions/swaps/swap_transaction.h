@@ -181,7 +181,6 @@ namespace beam::wallet
         void SetNextState(State state);
 
         bool IsInSafety() const override;
-        Amount GetWithdrawFee() const;
         void UpdateImpl() override;
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
