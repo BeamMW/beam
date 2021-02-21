@@ -953,10 +953,6 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     }
 
     Height minHeight = walletDB->getCurrentHeight();
-    Amount feeForShieldedInputs = 0;
-
-    if (isBeamSide && !CheckFeeForShieldedInputs(minHeight, amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
-        throw std::runtime_error("Fee to low");
 
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
@@ -968,7 +964,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
                      senderAddress.m_walletID,
                      minHeight,
                      amount,
-                     !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee,
+                     fee,
                      swapCoin,
                      swapAmount,
                      swapFeeRate,
@@ -1088,13 +1084,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     }
 
     Amount fee = 0;
-    Amount feeForShieldedInputs = 0;
-
     ReadFee(vm, fee, checkFee);    
-    if (*isBeamSide && !CheckFeeForShieldedInputs(*minHeight, *beamAmount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
-        throw std::runtime_error("Fee to low");
-
-    fee = !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee;
 
     ProcessLibraryVersion(*swapTxParameters);
 

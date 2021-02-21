@@ -2207,10 +2207,6 @@ namespace
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                Amount feeForShieldedInputs = 0;
-                if (!CheckFeeForShieldedInputs(walletDB->getCurrentHeight(), amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
-                    return -1;
-
                 if (isPushTx)
                 {
                     const auto& ownAddresses = walletDB->getAddresses(true);
@@ -2233,7 +2229,7 @@ namespace
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automaticaly
-                    .SetParameter(TxParameterID::Fee, fee - feeForShieldedInputs)
+                    .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
                 currentTxID = wallet->StartTransaction(params);
