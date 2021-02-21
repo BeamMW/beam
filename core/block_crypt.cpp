@@ -1443,8 +1443,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
-		m_ShieldedInputTotal = MinShieldedFee;
-		m_ShieldedOutputTotal = MinShieldedFee;
+		m_ShieldedInputTotal = Rules::Coin / 100;
+		m_ShieldedOutputTotal = Rules::Coin / 100;
 
 		m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
 		m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge

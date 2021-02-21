@@ -1187,8 +1187,6 @@ namespace beam
 				Amount m_Minimum;
 			} m_Bvm;
 
-			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
-
 			FeeSettings(Height h) {
 				set_Height(h);
 			}
