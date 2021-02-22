@@ -2177,19 +2177,20 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
+        auto& fs = Transaction::FeeSettings::get(node.GetHeight());
+
         const uint32_t nShieldedCoins = 3;
         Amount nValNetto = 135;
-        auto& fs = Transaction::FeeSettings::get(1);
-        Amount nInpFee = fs.m_ShieldedInputTotal;
-        StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
+        Amount nStdFee = fs.get_DefaultStd();
+        StoreShieldedCoins(nShieldedCoins, fs.m_ShieldedInputTotal + (nValNetto + nStdFee)/3 + 1, sender.m_WalletDB, node);
 
         auto txId  = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-            .SetParameter(TxParameterID::Amount, nValNetto * nShieldedCoins  - 15)
-            .SetParameter(TxParameterID::Fee, Amount(30))
+            .SetParameter(TxParameterID::Amount, nValNetto)
+            .SetParameter(TxParameterID::Fee, nStdFee)
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
