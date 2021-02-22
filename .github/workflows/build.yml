@@ -100,7 +100,7 @@ jobs:
 
     - name: Build [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: make -j$(nproc)
 
     - name: Build [windows]
@@ -111,22 +111,22 @@ jobs:
 ###############################################################################
 # Test
 ###############################################################################
-    - name: Test [macos-10.15]
-      if: matrix.os == 'macos-10.15'
-      continue-on-error: false
-      run: ctest -C $BUILD_TYPE --verbose
+    # - name: Test [macos-10.15]
+    #   if: matrix.os == 'macos-10.15'
+    #   continue-on-error: false
+    #   run: ctest -C $BUILD_TYPE --verbose
 
-    - name: Test [ununtu all]
-      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
-      continue-on-error: false
-      shell: bash
-      run: ctest --verbose
+    # - name: Test [ununtu all]
+    #   if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+    #   continue-on-error: false
+    #   shell: bash
+    #   run: ctest --verbose
 
-    - name: Test [windows]
-      if: matrix.os == 'windows-2019'
-      continue-on-error: false
-      shell: bash
-      run: ctest -C $BUILD_CONFIG --verbose
+    # - name: Test [windows]
+    #   if: matrix.os == 'windows-2019'
+    #   continue-on-error: false
+    #   shell: bash
+    #   run: ctest -C $BUILD_CONFIG --verbose
 
 ###############################################################################
 # Collect artifacts
@@ -216,7 +216,7 @@ jobs:
 
     - name: OS name [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: echo "OS_NAME=${{matrix.os}}" >> $GITHUB_ENV
 
     - name: OS name [windows]
