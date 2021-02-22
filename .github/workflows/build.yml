@@ -14,7 +14,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-10.15, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [ubuntu-16.04]
+        # os: [macos-10.15, ubuntu-16.04, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
     - uses: actions/checkout@v2
@@ -33,10 +34,18 @@ jobs:
 
     - name: Create Build Environment [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: |
         sudo apt-get update
         sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
+      
+    - name: Create Build Environment [ubuntu 16.04]
+        shell: bash
+        if: matrix.os == 'ubuntu-16.04'
+        run: |
+          sudo apt-get install g++-7 gcc-7
+          echo "CC=gcc-7" >> $GITHUB_ENV
+          echo "CXX=g++-7" >> $GITHUB_ENV
 
     - name: Create Build Environment [windows]
       shell: bash
@@ -53,7 +62,7 @@ jobs:
 
     - name: Download boost [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: |
         git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
         echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
