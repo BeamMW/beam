@@ -402,7 +402,7 @@ namespace beam::wallet
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
-		void ImportRecovery(const std::string& path);
+		void ImportRecovery(const std::string& path, INegotiatorGateway& gateway);
 
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
         bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
@@ -426,7 +426,7 @@ namespace beam::wallet
 		};
 
 		// returns false if callback asked to stop verification.
-		bool ImportRecovery(const std::string& path, IRecoveryProgress&);
+		bool ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress&);
 
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
@@ -935,7 +935,7 @@ namespace beam::wallet
         void setNeedToRequestBodies(IWalletDB& db, bool value);
         Height getNextEventHeight(const IWalletDB& db);
         void setNextEventHeight(IWalletDB& db, Height value);
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway);
 
         // Used in statistics
         struct Totals

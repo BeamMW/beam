@@ -2164,7 +2164,7 @@ namespace beam::wallet
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
-        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin);
+        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin, *this);
     }
 
     void Wallet::SetTreasuryHandled(bool value)

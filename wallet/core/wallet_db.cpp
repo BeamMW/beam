@@ -2365,23 +2365,25 @@ namespace beam::wallet
         return (comm2 == comm);
     }
 
-	void IWalletDB::ImportRecovery(const std::string& path)
+	void IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway)
 	{
 		IRecoveryProgress prog;
-		BEAM_VERIFY(ImportRecovery(path, prog));
+		BEAM_VERIFY(ImportRecovery(path, gateway, prog));
 	}
 
-	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
+	bool IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress& prog)
 	{
         struct MyParser
             :public RecoveryInfo::IRecognizer
         {
             IWalletDB& m_This;
+            INegotiatorGateway& m_Gateway;
             IRecoveryProgress& m_Progr;
             TxoID m_ShieldedOuts = 0;
 
-            MyParser(IWalletDB& db, IRecoveryProgress& progr)
+            MyParser(IWalletDB& db, INegotiatorGateway& gateway, IRecoveryProgress& progr)
                 :m_This(db)
+                ,m_Gateway(gateway)
                 ,m_Progr(progr)
             {
             }
@@ -2459,7 +2461,7 @@ namespace beam::wallet
 
                 m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_CoinID.m_Key;
 
-                storage::restoreTransactionFromShieldedCoin(m_This, sc);
+                storage::restoreTransactionFromShieldedCoin(m_This, sc, m_Gateway);
 
                 return true;
             }
@@ -2493,7 +2495,7 @@ namespace beam::wallet
 
         };
 
-        MyParser p(*this, prog);
+        MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 
         if (p.Proceed(path.c_str()))
@@ -5561,7 +5563,7 @@ namespace beam::wallet
             }
         }
 
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin)
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway)
         {
             // add virtual transaction for receiver
             beam::Block::SystemState::Full tip;
@@ -5623,7 +5625,7 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
                     .SetParameter(TxParameterID::AddressType, addressType);
 
-                /*const auto assetId = coin.m_CoinID.m_AssetID;
+                const auto assetId = coin.m_CoinID.m_AssetID;
                 if (assetId != Asset::s_BeamID)
                 {
                     if (const auto oinfo = db.findAsset(assetId))
@@ -5631,7 +5633,7 @@ namespace beam::wallet
                         WalletAsset info(*oinfo);
                         if (info.IsExpired(db))
                         {
-                            confirm_asset(txID, assetId);
+                            gateway.confirm_asset(txID, assetId);
                         }
                         else
                         {
@@ -5641,9 +5643,9 @@ namespace beam::wallet
                     }
                     else
                     {
-                        confirm_asset(txID, assetId);
+                        gateway.confirm_asset(txID, assetId);
                     }
-                }*/
+                }
 
                 if (message->m_MaxPrivacyMinAnonymitySet)
                 {

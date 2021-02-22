@@ -1404,7 +1404,10 @@ namespace beam::wallet
     {
         try
         {
-            m_walletDB->ImportRecovery(path, *this);
+            if (auto w = getWallet())
+            {
+                m_walletDB->ImportRecovery(path, *w, *this);
+            }
             return;
         }
         catch (const std::exception& e)
