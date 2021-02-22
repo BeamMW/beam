@@ -651,13 +651,20 @@ void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
 
 FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Request::Type x)
 {
+    auto& r = get_FirstRequest();
+
+    if (r.get_Type() != x)
+        ThrowUnexpected();
+
+    return r;
+}
+
+FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequest()
+{
     if (m_lst.empty())
         ThrowUnexpected();
     RequestNode& n = m_lst.front();
     assert(n.m_pRequest);
-
-    if (n.m_pRequest->get_Type() != x)
-        ThrowUnexpected();
 
     return *n.m_pRequest;
 }
@@ -898,8 +905,22 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestEnumHdrs& req)
 
 void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
 {
-    auto& req = Cast::Up<RequestEnumHdrs>(get_FirstRequestStrict(Request::Type::EnumHdrs));
-    OnFirstRequestDone(IsSupported(req));
+    auto& r = get_FirstRequest();
+    auto type = r.get_Type();
+    if (type == Request::Type::EnumHdrs)
+    {
+        auto& req = Cast::Up<RequestEnumHdrs>(get_FirstRequestStrict(Request::Type::EnumHdrs));
+        OnFirstRequestDone(IsSupported(req));
+    }
+    else if (type == Request::Type::BodyPack)
+    {
+        auto& req = Cast::Up<RequestBodyPack>(get_FirstRequestStrict(Request::Type::BodyPack));
+        OnFirstRequestDone(IsSupported(req));
+    }
+    else
+    {
+        ThrowUnexpected();
+    }
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)
