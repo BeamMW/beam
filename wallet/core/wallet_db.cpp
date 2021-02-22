@@ -6343,8 +6343,6 @@ namespace beam::wallet
 
                 std::string amountInUsd = tx.getAmount(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmount(ExchangeRate::Currency::Bitcoin);
-                Amount shieldedFee = GetShieldedFee(tx);
-
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
@@ -6352,7 +6350,7 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","          // Transaction fee, BEAM
+                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
                    << statusInterpreter->getStatus() << ","                                         // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID

@@ -58,7 +58,4 @@ namespace beam::wallet
         Amount get_TotalFee() const;
         Amount get_NettoValue() const;
     };
-
-    class BaseTxBuilder;
-    Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);
 }

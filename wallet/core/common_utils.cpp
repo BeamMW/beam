@@ -252,10 +252,4 @@ Amount CoinsSelectionInfo::get_NettoValue() const
     return (val > fees) ? (val - fees) : 0;
 }
 
-Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder)
-{
-    Amount shieldedFee = CalculateShieldedFeeByKernelsCount(builder.m_Height.m_Min, builder.m_Coins.m_InputShielded.size());
-    return shieldedFee + builder.m_Fee;
-}
-
 }  // namespace beam::wallet
