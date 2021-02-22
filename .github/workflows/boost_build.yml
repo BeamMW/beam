@@ -23,9 +23,16 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-16.04'
         run: |
-          sudo apt-get install g++-7 gcc-7
-          echo "CC=gcc-7" >> $GITHUB_ENV
-          echo "CXX=g++-7" >> $GITHUB_ENV
+          sudo apt-get update -y
+          sudo apt-get upgrade -y
+          sudo apt-get dist-upgrade -y
+          sudo apt-get install build-essential software-properties-common -y
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -y
+          sudo apt-get install gcc-9 g++-9 -y
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+          sudo update-alternatives --set gcc "/usr/bin/gcc-9"
+          sudo update-alternatives --set g++ "/usr/bin/g++-9"
 
       - name: Download
         shell: bash
@@ -40,16 +47,8 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
 
-      - name: Build [ubuntu 16.04]
-        shell: bash
-        if: matrix.os == 'ubuntu-16.04'
-        run: |
-          cd ${{runner.workspace}}/boost
-          ./b2 --target=static --toolset=gcc-7
-
       - name: Build [ubuntu 18.04 && ubuntu 20.04]
         shell: bash
-        if: matrix.os != 'ubuntu-16.04'
         run: |
           cd ${{runner.workspace}}/boost
           ./b2 --target=static
