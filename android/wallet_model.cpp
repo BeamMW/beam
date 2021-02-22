@@ -485,13 +485,13 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
     env->CallStaticVoidMethod(WalletListenerClass, callback, changeAsset, changeBeam, assetId);
 }
 
-void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
+void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selectionRes)
 {
-    LOG_DEBUG() << "onShieldedCoinsSelectionCalculated(" << selectionRes.minimalFee << ")";
+    LOG_DEBUG() << "onCoinsSelectionCalculated(" << selectionRes.m_ << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(JJJ)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelectionCalculated", "(JJJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
 }

@@ -2202,9 +2202,9 @@ namespace
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
     }
 
-    void TestCalculateShieldedCoinsSelection()
+    void TestCalculateCoinsSelection()
     {
-        cout << "\nTesting shielded coins selection...\n";
+        cout << "\nTesting coins selection...\n";
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
@@ -2225,46 +2225,32 @@ namespace
         auto walletDB = createSenderWalletDB(false, lst);
         StoreShieldedCoins(3, 3000000, walletDB, node);
         Transaction::FeeSettings fs(1);
-        Amount nInpFee = fs.m_ShieldedInputTotal;
-        Amount nOutFee = fs.m_ShieldedOutputTotal + fs.m_Kernel;
-        Amount beforehandFee = 1000100;
+        Amount beforehandFee = 100;
 
-        auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 6000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(6000000 > selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam == 0);
+        wallet::CoinsSelectionInfo csi;
+        csi.m_assetID = 0;
+        csi.m_requestedSum = 6000000;
+        csi.m_explicitFee = beforehandFee;
+        csi.Calculate(1, walletDB);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 4000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(!csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() < 6000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 4000000,100, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > 100);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        csi.m_requestedSum = 4000000;
+        csi.Calculate(1, walletDB);
+        WALLET_CHECK(csi.get_NettoValue() == 4000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+        WALLET_CHECK(csi.m_changeBeam != 0);
+        
+        csi.m_requestedSum = 3000000;
+        csi.Calculate(1, walletDB, true);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 500000, beforehandFee,  Asset::s_BeamID);
-        WALLET_CHECK(500000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(csi.get_NettoValue() == 3000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+        WALLET_CHECK(csi.m_explicitFee > beforehandFee);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 3000000, beforehandFee, Asset::s_BeamID, true);
-        WALLET_CHECK(3000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee * 3);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
-
-        cout << "\nShielded coins selection tested\n";
+        cout << "\nCoins selection tested\n";
     }
 
     void TestMultiUserWallet()
@@ -3303,7 +3289,7 @@ int main()
     Rules::get().UpdateChecksum();
 
     TestSendingShielded();
-    TestCalculateShieldedCoinsSelection();
+    TestCalculateCoinsSelection();
 
     TestContractInvoke();
 
