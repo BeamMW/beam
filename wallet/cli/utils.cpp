@@ -16,6 +16,7 @@
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/core/wallet.h"
 
 #include <boost/format.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
@@ -74,23 +75,27 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
     return true;
 }
 
-bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
+Amount get_MinFee(const Wallet& wallet)
+{
+    Transaction::FeeSettings fs(wallet.get_CurrentHeight());
+    return fs.get_DefaultStd();
+}
+
+bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee)
 {
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
         fee = it->second.as<Nonnegative<Amount>>().value;
+        if (checkFee && (fee < get_MinFee(wallet)))
+        {
+            LOG_ERROR() << kErrorFeeToLow;
+            return false;
+        }
     }
-    else
-    {
-        fee = kMinFeeInGroth;
+    else {
+        fee = get_MinFee(wallet);
     }
-
-    if (checkFee && fee < kMinFeeInGroth)
-    {
-        LOG_ERROR() << kErrorFeeToLow;
-        return false;
-    }
-
+        
     return true;
 }
 
@@ -120,7 +125,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     return true;
 }
 
-bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
+bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
 {
     if (!skipReceiverWalletID)
     {
@@ -140,7 +145,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
         return false;
     }
 
-    if (!ReadFee(vm, fee, checkFee))
+    if (!ReadFee(vm, fee, wallet, checkFee))
     {
         return false;
     }

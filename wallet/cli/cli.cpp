@@ -1978,7 +1978,7 @@ namespace
         }
 
         Amount fee = 0;
-        if(!ReadFee(vm, fee, true))
+        if(!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -1999,7 +1999,7 @@ namespace
         const auto strMeta = ReadAssetMeta(vm, false);
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, true))
+        if (!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -2032,7 +2032,7 @@ namespace
         }
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, true))
+        if (!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -2187,7 +2187,7 @@ namespace
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
 
-                if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
+                if (!LoadBaseParamsForTX(vm, *wallet, assetId, amount, fee, receiverWalletID, isFork1))
                 {
                     return -1;
                 }

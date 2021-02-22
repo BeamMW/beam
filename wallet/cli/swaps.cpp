@@ -937,7 +937,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Amount fee = 0;
     WalletID receiverWalletID(Zero);
 
-    if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, checkFee, true))
+    if (!LoadBaseParamsForTX(vm, wallet, assetId, amount, fee, receiverWalletID, checkFee, true))
     {
         return boost::none;
     }
@@ -1084,7 +1084,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     }
 
     Amount fee = 0;
-    ReadFee(vm, fee, checkFee);    
+    ReadFee(vm, fee, wallet, checkFee);
 
     ProcessLibraryVersion(*swapTxParameters);
 
