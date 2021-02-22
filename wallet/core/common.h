@@ -263,12 +263,6 @@ namespace beam::wallet
         return obj;
     }
 
-    constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
-    {
-        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
-        return (numberOfOutputs + numberOfKenrnels) * 10;
-    }
-
     using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
 
 #define BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO) \

@@ -1196,6 +1196,8 @@ namespace beam
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;
 			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
+
+			Amount get_DefaultStd() const;
 		};
 	};
 

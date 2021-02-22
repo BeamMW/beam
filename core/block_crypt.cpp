@@ -1474,6 +1474,12 @@ namespace beam
 		return std::max(fee, feeMin);
 	}
 
+	Amount Transaction::FeeSettings::get_DefaultStd() const
+	{
+		Amount val = m_Output * 5 + m_Kernel; // cover 5 outputs, to allow for decoys
+		return std::max(val, (Amount) 100);
+	}
+
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{
