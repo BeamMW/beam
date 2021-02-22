@@ -2185,11 +2185,11 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
 
     if (hr.m_Min >= Rules::get().pForks[1].m_Height)
     {
-        Transaction::FeeSettings feeSettings(hr.m_Min);
-        Amount feesMin = feeSettings.Calculate(s);
+        auto& fs = Transaction::FeeSettings::get(hr.m_Min);
+        Amount feesMin = fs.Calculate(s);
 
         if (nBvmCharge)
-            feesMin += feeSettings.CalculateForBvm(s, nBvmCharge);
+            feesMin += fs.CalculateForBvm(s, nBvmCharge);
 
         AmountBig::Type val(feesMin);
 
@@ -2604,12 +2604,12 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
     // add dummy outputs
     bool bModified = false;
-    Transaction::FeeSettings feeSettings(m_Processor.m_Cursor.m_Full.m_Height + 1);
+    auto& fs = Transaction::FeeSettings::get(m_Processor.m_Cursor.m_Full.m_Height + 1);
     NodeDB& db = m_Processor.get_DB();
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-        if (feeReserve < feeSettings.m_Output)
+        if (feeReserve < fs.m_Output)
             break;
 
 		CoinID cid(Zero);
@@ -2637,7 +2637,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
         sk = -sk;
         tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
 
-        feeReserve -= feeSettings.m_Output;
+        feeReserve -= fs.m_Output;
     }
 
     if (bModified)

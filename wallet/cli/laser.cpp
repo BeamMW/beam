@@ -145,7 +145,7 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
 
     Block::SystemState::Full s;
     mediator.getWalletDB()->get_History().get_Tip(s);
-    Transaction::FeeSettings fs(s.m_Height);
+    auto& fs = Transaction::FeeSettings::get(s.m_Height);
     Amount feeMin = fs.get_DefaultStd();
 
     if (vm.count(cli::LASER_FEE))

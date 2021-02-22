@@ -254,7 +254,7 @@ namespace beam::wallet {
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        Transaction::FeeSettings fs(get_CurrentHeight());
+        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
         return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
@@ -480,7 +480,7 @@ namespace beam::wallet {
             split.coins.push_back(uamount);
         }
 
-        Transaction::FeeSettings fs(get_CurrentHeight());
+        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
         Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
 
         split.fee = getBeamFeeParam(params, "fee", minimumFee);

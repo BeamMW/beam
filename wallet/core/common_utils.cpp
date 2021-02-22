@@ -165,7 +165,7 @@ Amount CalcCoinSelectionInfo2(Height h, const IWalletDB::Ptr& walletDB, Amount r
 
 void CoinsSelectionInfo::Calculate(Height h, const IWalletDB::Ptr& walletDB, bool isPushTx)
 {
-    Transaction::FeeSettings fs(h);
+    auto& fs = Transaction::FeeSettings::get(h);
     m_minimalExplicitFee = fs.m_Kernel;
     m_minimalExplicitFee += isPushTx ? fs.m_ShieldedOutputTotal : fs.m_Output; // tx value
 

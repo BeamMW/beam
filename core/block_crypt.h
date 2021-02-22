@@ -1181,17 +1181,14 @@ namespace beam
 			Amount m_Kernel; // nested kernels are accounted too
 			Amount m_ShieldedInputTotal; // including 1 kernel price
 			Amount m_ShieldedOutputTotal; // including 1 kernel price
+			Amount m_Default; // for std tx
 
 			struct Bvm {
 				Amount m_ChargeUnitPrice;
 				Amount m_Minimum;
 			} m_Bvm;
 
-			FeeSettings(Height h) {
-				set_Height(h);
-			}
-
-			void set_Height(Height);
+			static const FeeSettings& get(Height);
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;

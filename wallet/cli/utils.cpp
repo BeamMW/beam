@@ -77,7 +77,7 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
 
 Amount get_MinFee(const Wallet& wallet)
 {
-    Transaction::FeeSettings fs(wallet.get_CurrentHeight());
+    auto& fs = Transaction::FeeSettings::get(wallet.get_CurrentHeight());
     return fs.get_DefaultStd();
 }
 

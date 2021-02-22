@@ -2619,7 +2619,7 @@ namespace beam::wallet
         vector<ShieldedCoin::WithStatus> vShielded;
         size_t iPosShielded = 0;
 
-        Transaction::FeeSettings fs(h);
+        auto& fs = Transaction::FeeSettings::get(h);
         Amount feeShielded = fs.m_ShieldedInputTotal;
 
         if (nMaxShielded)

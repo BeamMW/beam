@@ -2179,7 +2179,7 @@ namespace
 
         const uint32_t nShieldedCoins = 3;
         Amount nValNetto = 135;
-        Transaction::FeeSettings fs(1);
+        auto& fs = Transaction::FeeSettings::get(1);
         Amount nInpFee = fs.m_ShieldedInputTotal;
         StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
 
@@ -2224,7 +2224,7 @@ namespace
         AmountList lst;
         auto walletDB = createSenderWalletDB(false, lst);
         StoreShieldedCoins(3, 3000000, walletDB, node);
-        Transaction::FeeSettings fs(1);
+        auto& fs = Transaction::FeeSettings::get(1);
         Amount beforehandFee = 100;
 
         wallet::CoinsSelectionInfo csi;

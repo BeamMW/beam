@@ -60,9 +60,6 @@ namespace beam::wallet::lelantus
 
         auto& builder = *m_TxBuilder;
 
-        Transaction::FeeSettings fs(builder.m_Height.m_Min);
-        Amount feeShielded = fs.m_ShieldedInputTotal;
-
         if (builder.m_Coins.IsEmpty())
         {
             UpdateTxDescription(TxStatus::InProgress);
@@ -86,7 +83,7 @@ namespace beam::wallet::lelantus
 
             IPrivateKeyKeeper2::ShieldedInput si;
             Cast::Down<ShieldedTxo::ID>(si) = sc.m_CoinID;
-            si.m_Fee = feeShielded;
+            si.m_Fee = Transaction::FeeSettings::get(builder.m_Height.m_Min).m_ShieldedInputTotal;
 
             BaseTxBuilder::Balance bb(builder);
 
