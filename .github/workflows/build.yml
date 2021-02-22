@@ -43,9 +43,8 @@ jobs:
       shell: bash
       if: matrix.os == 'ubuntu-16.04'
       run: |
-        sudo apt-get install g++-7 gcc-7
-        echo "CC=gcc-7" >> $GITHUB_ENV
-        echo "CXX=g++-7" >> $GITHUB_ENV
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+        sudo update-alternatives --set gcc "/usr/bin/gcc-9"
 
     - name: Create Build Environment [windows]
       shell: bash

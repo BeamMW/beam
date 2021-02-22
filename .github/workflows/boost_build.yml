@@ -9,8 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-16.04]
-        # os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-16.04, ubuntu-18.04, ubuntu-20.04]
 
     steps:
       - name: Create Build Environment
@@ -39,7 +38,7 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
 
-      - name: Build [ubuntu 18.04 && ubuntu 20.04]
+      - name: Build
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
