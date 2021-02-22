@@ -100,7 +100,7 @@ void LaserObserver::OnExpired(const laser::ChannelIDPtr& chID)
     LaserShow(m_walletDB); 
 }
 
-bool LoadLaserParams(const po::variables_map& vm,
+bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
                      Amount* aMy,
                      Amount* aTrg,
                      Amount* fee,
@@ -143,10 +143,15 @@ bool LoadLaserParams(const po::variables_map& vm,
         return false;
     }
 
+    Block::SystemState::Full s;
+    mediator.getWalletDB()->get_History().get_Tip(s);
+    Transaction::FeeSettings fs(s.m_Height);
+    Amount feeMin = fs.get_DefaultStd();
+
     if (vm.count(cli::LASER_FEE))
     {
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
-        if (*fee < kMinFeeInGroth)
+        if (*fee < feeMin)
         {
             LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
             return false;
@@ -154,8 +159,8 @@ bool LoadLaserParams(const po::variables_map& vm,
     }
     else
     {
-        LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << kMinFeeInGroth;
-        *fee = kMinFeeInGroth;
+        LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << feeMin;
+        *fee = feeMin;
     }
 
     return true;
@@ -221,10 +226,10 @@ bool LaserOpen(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
+    Amount aMy = 0, aTrg = 0, fee = 0;
     WalletID receiverWalletID(Zero);
 
-    if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID))
+    if (!LoadLaserParams(vm, *laser, &aMy, &aTrg, &fee, &receiverWalletID))
     {
         LOG_ERROR() << kLaserErrorParamsRead;
         return false;
@@ -238,10 +243,10 @@ bool LaserWait(const MediatorPtr& laser,
                const po::variables_map& vm)
 {
     io::Address receiverAddr;
-    Amount aMy = 0, aTrg = 0, fee = kMinFeeInGroth;
+    Amount aMy = 0, aTrg = 0, fee = 0;
     WalletID receiverWalletID(Zero);
 
-    if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, true))
+    if (!LoadLaserParams(vm, *laser, &aMy, &aTrg, &fee, &receiverWalletID, true))
     {
         LOG_ERROR() << kLaserErrorParamsRead;
         return false;
