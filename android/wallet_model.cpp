@@ -485,13 +485,13 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
 
 void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selectionRes)
 {
-    LOG_DEBUG() << "onCoinsSelectionCalculated(" << selectionRes.m_ << ")";
+    LOG_DEBUG() << "onCoinsSelectionCalculated(" << selectionRes.m_explicitFee << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelectionCalculated", "(JJJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.m_explicitFee, selectionRes.m_changeBeam, 0);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
