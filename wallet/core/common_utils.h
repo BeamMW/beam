@@ -45,7 +45,8 @@ namespace beam::wallet
         Amount m_selectedSumBeam = 0U;
         Amount m_changeAsset = 0U; // if assetId is BEAM then changeAsset == changeBeam
         Amount m_changeBeam = 0U;
-        Amount m_minimalExplicitFee = 0U;
+        Amount m_minimalRawFee = 0U; // the very minimum fee for tx elements, wouldn't suffice for decoys
+        Amount m_minimalExplicitFee = 0U; // the minimum recommended for this tx type.
         Amount m_explicitFee = 0U;
         Amount m_involuntaryFee = 0U;
 

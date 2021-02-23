@@ -166,8 +166,18 @@ Amount CalcCoinSelectionInfo2(Height h, const IWalletDB::Ptr& walletDB, Amount r
 void CoinsSelectionInfo::Calculate(Height h, const IWalletDB::Ptr& walletDB, bool isPushTx)
 {
     auto& fs = Transaction::FeeSettings::get(h);
-    m_minimalExplicitFee = fs.m_Kernel;
-    m_minimalExplicitFee += isPushTx ? fs.m_ShieldedOutputTotal : fs.m_Output; // tx value
+
+    m_minimalRawFee = fs.m_Kernel;
+    if (isPushTx)
+    {
+        m_minimalExplicitFee = fs.get_DefaultShieldedOut();
+        m_minimalRawFee += fs.m_ShieldedOutputTotal;
+    }
+    else
+    {
+        m_minimalExplicitFee = fs.get_DefaultStd();
+        m_minimalRawFee += fs.m_Output;
+    }
 
     m_isEnought = true;
 
@@ -186,13 +196,14 @@ void CoinsSelectionInfo::Calculate(Height h, const IWalletDB::Ptr& walletDB, boo
             if (m_selectedSumAsset > m_requestedSum) {
                 // change
                 m_changeAsset = m_selectedSumAsset - m_requestedSum;
-                m_minimalExplicitFee += fs.m_Output;
+                m_minimalRawFee += fs.m_Output;
             }
         }
 
         valBeams = 0;
     }
 
+    std::setmax(m_minimalExplicitFee, m_minimalRawFee);
     std::setmax(m_explicitFee, m_minimalExplicitFee);
     valBeams += m_explicitFee + m_involuntaryFee;
 
@@ -204,7 +215,8 @@ void CoinsSelectionInfo::Calculate(Height h, const IWalletDB::Ptr& walletDB, boo
     if (m_selectedSumBeam > valBeams + feeInvoluntary2) {
 
         // change output is necessary
-        m_minimalExplicitFee += fs.m_Output;
+        m_minimalRawFee += fs.m_Output;
+        std::setmax(m_minimalExplicitFee, m_minimalRawFee);
 
         if (m_explicitFee < m_minimalExplicitFee)
         {

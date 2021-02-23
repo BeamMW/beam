@@ -1500,8 +1500,12 @@ namespace beam
 
 	Amount Transaction::FeeSettings::get_DefaultStd() const
 	{
-		Amount val = m_Output * 5 + m_Kernel; // cover 5 outputs, to allow for decoys
-		return std::max(val, (Amount) 100);
+		return m_Default;
+	}
+
+	Amount Transaction::FeeSettings::get_DefaultShieldedOut(uint32_t nNumShieldedOutputs) const
+	{
+		return m_Default + m_ShieldedOutputTotal * nNumShieldedOutputs;
 	}
 
 	/////////////

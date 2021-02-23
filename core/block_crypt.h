@@ -1195,6 +1195,7 @@ namespace beam
 			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
 
 			Amount get_DefaultStd() const;
+			Amount get_DefaultShieldedOut(uint32_t nNumShieldedOutputs = 1) const;
 		};
 	};
 
