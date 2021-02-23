@@ -71,6 +71,8 @@ uint64_t get_thread_id() {
     return syscall(__NR_gettid);
 #elif defined _WIN32
     return GetCurrentThreadId();
+#elif defined EMSCRIPTEN
+    return (uint64_t)pthread_self();
 #else
     uint64_t tid;
     pthread_threadid_np(NULL, &tid);

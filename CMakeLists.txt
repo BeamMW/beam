@@ -294,9 +294,11 @@ if(UNIX OR WIN32)
 endif()
 
 #Boost
-
-set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale)
-
+if (NOT EMSCRIPTEN)
+    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale)
+else()
+    set(BEAM_BOOST_COMPONENTS system filesystem)
+endif()
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)
     set (INCLUDE_LOCATION "${root}/include")

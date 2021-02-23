@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+    <script src='wasm-client.js'></script>    
+    <script>
+
+        BeamModule().then(function(Module) 
+        {
+            //var phrase = Module.KeyKeeper.GeneratePhrase()
+            
+            //console.log('seed phrase is: ', phrase);
+            //console.log("IsAllowedWord('hurdle') -", Module.KeyKeeper.IsAllowedWord('hurdle'))
+            //console.log("IsValidPhrase()", Module.KeyKeeper.IsValidPhrase(phrase))
+            //console.log('world list size is', phrase.split(' ').length)
+
+            var walletClient = new Module.WasmWalletClient("Teststs s");
+            {
+                console.log('test: ' + walletClient.testThreads());
+                //console.log('owner key is: ' + keykeeper.getOwnerKey("123"));
+                //console.log('wallet ID is: ' + keykeeper.getWalletID());
+                
+                //console.log('identity #0 is: ' + keykeeper.getIdentity("0"));
+
+                //var id42 = "42";
+
+                //var identity = keykeeper.getIdentity(id42);
+                //console.log('identity #42 is: ' + keykeeper.getIdentity(id42));
+                
+                //var address = keykeeper.getSbbsAddress(id42);
+                //console.log('sbbs address #42 is: ' + address);
+                //console.log('sbbs address private #42 is: ' + keykeeper.getSbbsAddressPrivate(id42));
+
+               
+                
+            }
+        })
+    </script>
+</html>

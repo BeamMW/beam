@@ -33,29 +33,30 @@ target_link_libraries(wallet_api
         wallet_api_proto
 )
 
-set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
-add_executable(${WALLET_API_NAME} api_cli.cpp api_cli_swap.cpp)
-target_link_libraries(${WALLET_API_NAME}
-    PRIVATE 
-        wallet_api_proto
-        wallet_api
-        http
-        cli
-)
-
-if(LINUX)
-    target_link_libraries(${WALLET_API_NAME} 
-        PRIVATE
-            -static-libstdc++
-            -static-libgcc)
-endif()
-
-#add_subdirectory(unittests)
-
-if (BEAM_SIGN_PACKAGE AND WIN32)
-    add_custom_command(
-        TARGET ${WALLET_API_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
+    add_executable(${WALLET_API_NAME} api_cli.cpp api_cli_swap.cpp)
+    target_link_libraries(${WALLET_API_NAME}
+        PRIVATE 
+            wallet_api_proto
+            wallet_api
+            http
+            cli
     )
+
+
+    if(LINUX)
+        target_link_libraries(${WALLET_API_NAME} 
+            PRIVATE
+                -static-libstdc++
+                -static-libgcc)
+    endif()
+
+    if (BEAM_SIGN_PACKAGE AND WIN32)
+        add_custom_command(
+            TARGET ${WALLET_API_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
+        )
+    endif()
 endif()

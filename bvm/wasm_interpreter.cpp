@@ -449,13 +449,13 @@ namespace Wasm {
 
 			case 1: {
 				// table. Ignore.
-				uint32_t lim;
+				[[maybe_unused]] uint32_t lim;
 				lim = inp.Read<uint32_t>();
 				lim = inp.Read<uint32_t>();
-				lim;
+				//lim;
 
-				uint8_t nElemType = inp.Read1();
-				nElemType;
+				[[maybe_unused]] uint8_t nElemType = inp.Read1();
+				//nElemType;
 
 
 			} break;
@@ -463,10 +463,10 @@ namespace Wasm {
 			case 2: {
 
 				// mem type. Ignore.
-				uint32_t lim;
+				[[maybe_unused]] uint32_t lim;
 				lim = inp.Read<uint32_t>();
 				lim = inp.Read<uint32_t>();
-				lim;
+				//lim;
 			}
 			break;
 
@@ -512,14 +512,14 @@ namespace Wasm {
 			Test(0x70 == tblType); // must by anyfunc
 
 			auto nFlags = inp.Read<uint32_t>();
-			auto nLimitMin = inp.Read<uint32_t>();
-			nLimitMin;
-			auto nLimitMax = nLimitMin;
+			[[maybe_unused]] auto nLimitMin = inp.Read<uint32_t>();
+			//nLimitMin;
+			[[maybe_unused]] auto nLimitMax = nLimitMin;
 
 			if (1 & nFlags)
 				nLimitMax = inp.Read<uint32_t>(); // max
 
-			nLimitMax;
+			//nLimitMax;
 		}
 	}
 
@@ -656,8 +656,8 @@ namespace Wasm {
 
 	void CompilerPlus::OnSection_DataCount(Reader& inp)
 	{
-		uint32_t nCount = inp.Read<uint32_t>();
-		nCount;
+		[[maybe_unused]] uint32_t nCount = inp.Read<uint32_t>();
+		//nCount;
 	}
 
 
@@ -992,14 +992,14 @@ namespace Wasm {
 		}
 
 		void On_i32_const() {
-			auto val = m_Code.Read<int32_t>();
-			val;
+			[[maybe_unused]] auto val = m_Code.Read<int32_t>();
+			//val;
 			Push(Type::i32);
 		}
 
 		void On_i64_const() {
-			auto val = m_Code.Read<int64_t>();
-			val;
+			[[maybe_unused]] auto val = m_Code.Read<int64_t>();
+			//val;
 			Push(Type::i64);
 		}
 

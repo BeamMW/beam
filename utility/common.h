@@ -108,14 +108,14 @@ namespace Cast
 	template <typename TT, typename T> inline TT& Up(T& x)
 	{
 		TT& ret = (TT&) x;
-		T& unused = ret; unused;
+		[[maybe_unused]] T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT* Up(T* p)
 	{
 		TT* ret = (TT*) p;
-		T* unused = ret; unused;
+		[[maybe_unused]] T* unused = ret;
 		return ret;
 	}
 

@@ -1974,9 +1974,9 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	Merkle::FixedMmr mmr;
 	mmr.Resize(txve.m_vKernels.size());
-	size_t iTrg = ProcessKrnMmr(mmr, txve.m_vKernels, idKrn, ppRes);
+	auto iTrg = ProcessKrnMmr(mmr, txve.m_vKernels, idKrn, ppRes);
 
-	if (uint64_t(-1) == iTrg)
+	if (std::numeric_limits<uint64_t>::max() == iTrg)
 		OnCorrupted();
 
 	mmr.get_Proof(proof, iTrg);
