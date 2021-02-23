@@ -1832,11 +1832,11 @@ namespace beam
 		ZeroObject(pForks);
 
 		pForks[1].m_Height = 30;
-		Emission.Drop0 = 3000;
-		Emission.Drop1 = 500000;
+		pForks[2].m_Height = 30;
+		pForks[3].m_Height = 8500;
 
 		// future forks
-		for (size_t i = 2; i < _countof(pForks); i++)
+		for (size_t i = 4; i < _countof(pForks); i++)
 			pForks[i].m_Height = MaxHeight;
 	}
 
