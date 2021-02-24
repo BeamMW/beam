@@ -2677,19 +2677,6 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 		if (!bValid)
 			return proto::TxStatus::InvalidContext;
 	}
-    else
-    {
-        for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
-        {
-            TxPool::Stem::Element::Kernel key;
-			key.m_pKrn = ptx->m_vKernels[i].get();
-
-            TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
-            if (m_Dandelion.m_setKrns.end() != it)
-                m_Dandelion.Delete(*it->m_pThis);
-        }
-
-    }
 
     TxPool::Fluff::Element::Tx key;
     ptx->get_Key(key.m_Key);
@@ -2700,8 +2687,6 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 
     const Transaction& tx = *ptx;
 
-    m_Wtx.Delete(key.m_Key);
-
     // new transaction
     uint32_t nSizeCorrection = 0;
     Amount feeReserve = 0;
@@ -2711,6 +2696,22 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 	if (proto::TxStatus::Ok != nCode) {
 		return nCode; // stupid compiler insists on parentheses here!
 	}
+
+    m_Wtx.Delete(key.m_Key);
+
+    if (!pElem)
+    {
+        for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
+        {
+            TxPool::Stem::Element::Kernel keyKrn;
+            keyKrn.m_pKrn = ptx->m_vKernels[i].get();
+
+            TxPool::Stem::KrnSet::iterator itKrn = m_Dandelion.m_setKrns.find(keyKrn);
+            if (m_Dandelion.m_setKrns.end() != itKrn)
+                m_Dandelion.Delete(*itKrn->m_pThis);
+        }
+
+    }
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key, nSizeCorrection);
 
