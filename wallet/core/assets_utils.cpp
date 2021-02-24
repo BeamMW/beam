@@ -168,6 +168,18 @@ namespace beam::wallet {
         return it != _values.end() ? it->second : std::string(kAmountAGROTH);
     }
 
+    std::string WalletAssetMeta::GetShortDesc() const
+    {
+        const auto it = _values.find(OPT_SDESC_KEY);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetLongDesc() const
+    {
+        const auto it = _values.find(OPT_LDESC_KEY);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
     std::string WalletAssetMeta::GetName() const
     {
         const auto it = _values.find(NAME_KEY);

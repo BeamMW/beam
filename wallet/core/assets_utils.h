@@ -31,6 +31,8 @@ namespace beam::wallet {
         std::string GetNthUnitName() const;
         std::string GetName() const;
         std::string GetShortName() const;
+        std::string GetShortDesc() const;
+        std::string GetLongDesc() const;
         unsigned GetSchemaVersion() const;
 
     private:
