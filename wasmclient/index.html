@@ -14,7 +14,9 @@
 
             var walletClient = new Module.WasmWalletClient("Teststs s");
             {
-                console.log('test: ' + walletClient.testThreads());
+                console.log('test threads: ' + walletClient.testWalletDB());
+                //console.log("test OpenSSL: " + walletClient.testOpenSSL());
+                //console.log("test reactor: " + walletClient.testReactor());
                 //console.log('owner key is: ' + keykeeper.getOwnerKey("123"));
                 //console.log('wallet ID is: ' + keykeeper.getWalletID());
                 

@@ -22,7 +22,8 @@
 #include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <core/block_crypt.h>
 #include <core/shielded.h>
 #include "nlohmann/json.hpp"
@@ -1128,7 +1129,8 @@ namespace beam::wallet
 #ifdef WIN32
         return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
 #else
-        return boost::filesystem::exists(path);
+        //return boost::filesystem::exists(path);
+        return std::filesystem::exists(path);
 #endif
     }
 
@@ -3214,9 +3216,13 @@ namespace beam::wallet
 
     void WalletDB::setSystemStateID(const Block::SystemState::ID& stateID)
     {
+        puts("setSystemStateID 1");
         storage::setVar(*this, SystemStateIDName, stateID);
+        puts("setSystemStateID 2");
         storage::setVar(*this, LastUpdateTimeName, getTimestamp());
+        puts("setSystemStateID 3");
         notifySystemStateChanged(stateID);
+        puts("setSystemStateID 4");
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const

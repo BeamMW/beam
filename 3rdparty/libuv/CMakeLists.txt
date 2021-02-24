@@ -15,6 +15,8 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "AppleClang|Clang|GNU")
   list(APPEND uv_cflags -Wno-unused-parameter)
 endif()
 
+message("CMAKE_C_COMPILER_ID: ${CMAKE_C_COMPILER_ID}")
+message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message("${uv_cflags}")
 
 set(uv_sources
@@ -123,6 +125,11 @@ endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD")
   list(APPEND uv_sources src/unix/freebsd.c)
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
+  list(APPEND uv_sources src/unix/posix-hrtime.c src/unix/no-fsevents.c src/unix/posix-poll.c)
+  #list(APPEND uv_libraries kvm)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")
