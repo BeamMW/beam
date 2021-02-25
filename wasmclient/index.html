@@ -12,9 +12,11 @@
             //console.log("IsValidPhrase()", Module.KeyKeeper.IsValidPhrase(phrase))
             //console.log('world list size is', phrase.split(' ').length)
 
-            var walletClient = new Module.WasmWalletClient("Teststs s");
+            var walletClient = new Module.WasmWalletClient("uncle;ghost;decline;glance;all;midnight;eternal;edit;gloom;mean;curve;casual;", "wallet.db");
             {
                 console.log('test threads: ' + walletClient.testWalletDB());
+                console.log("starting wallet...");
+                walletClient.startWallet();
                 //console.log("test OpenSSL: " + walletClient.testOpenSSL());
                 //console.log("test reactor: " + walletClient.testReactor());
                 //console.log('owner key is: ' + keykeeper.getOwnerKey("123"));

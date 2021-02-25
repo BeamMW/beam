@@ -20,42 +20,78 @@
 #include <chrono>
 #include <vector>
 #include <mutex>
-#include "wallet/core/wallet_db.h"
-//#include "wallet/client/wallet_client.h"
+#include <memory>
+//#include "wallet/core/wallet_db.h"
+#include "wallet/client/wallet_client.h"
+#include "mnemonic/mnemonic.h"
+#include "utility/string_helpers.h"
+#include <boost/algorithm/string.hpp>
 
-#include "utility/io/reactor.h"
+//#include "utility/io/reactor.h"
 //#ifndef LOG_VERBOSE_ENABLED
 //#define LOG_VERBOSE_ENABLED 0
 //#endif
-#include "utility/logger.h"
-#include <future>
-#include <iostream>
+//#include "utility/logger.h"
+//#include <future>
+//#include <iostream>
 
 #include <stdio.h>
 
 #include <stdlib.h>
 
-#include <openssl/bio.h> /* BasicInput/Output streams */
+//#include <openssl/bio.h> /* BasicInput/Output streams */
 
-#include <openssl/err.h> /* errors */
+//#include <openssl/err.h> /* errors */
 
 #include <openssl/ssl.h> /* core library */
 
-#define BuffSize 1024
+//#define BuffSize 1024
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 
 using namespace emscripten;
-//using namespace beam;
+using namespace ECC;
 using namespace beam::wallet;
+
+namespace
+{
+    bool GetWalletSeed(NoLeak<uintBig>& walletSeed, const std::string& s)
+    {
+        SecString seed;
+        WordList phrase;
+
+        auto tempPhrase = s;
+        boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
+        phrase = string_helpers::split(tempPhrase, ';');
+
+        auto buf = decodeMnemonic(phrase);
+        seed.assign(buf.data(), buf.size());
+
+        walletSeed.V = seed.hash().V;
+        return true;
+    }
+
+    IWalletDB::Ptr CreateDatabase(const std::string& s, const std::string& dbName, io::Reactor::Ptr r)
+    {
+        ECC::NoLeak<ECC::uintBig> seed;
+        GetWalletSeed(seed, s);
+        puts("TestWalletDB...");
+        io::Reactor::Scope scope(*r);
+        return WalletDB::init(dbName, std::string("123"), seed);
+    }
+}
 
 class WasmWalletClient //: public WalletClient
 {
 public:
-    WasmWalletClient(const std::string& s)
+    WasmWalletClient(const std::string& s, const std::string& dbName)
         : m_Seed(s)
+        , m_DbName(dbName)
+        , m_Reactor(io::Reactor::create())
+        , m_Db(CreateDatabase(s, dbName, m_Reactor))
+        , m_Client(Rules::get(), m_Db, "eu-node03.masternet.beam.mw:8100", m_Reactor)
     {}
 
     std::string TestThreads()
@@ -94,7 +130,9 @@ public:
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = 10283UL;
         puts("TestWalletDB...");
-        auto walletDB = WalletDB::init("file:////c//Data//wallet.db", std::string("123"), seed);
+        auto reactor = io::Reactor::create();
+        io::Reactor::Scope scope(*reactor);
+        auto walletDB = WalletDB::init("//test_wallet.db", std::string("123"), seed);
         if (walletDB)
         {
             puts("setting new state...");
@@ -111,89 +149,89 @@ public:
         //return "";
     }
 
-    void report_and_exit(const char* msg) {
-        perror(msg);
-        ERR_print_errors_fp(stderr);
-        exit(-1);
-    }
+    //void report_and_exit(const char* msg) {
+    //    perror(msg);
+    //    ERR_print_errors_fp(stderr);
+    //    exit(-1);
+    //}
 
-    void init_ssl() {
-        SSL_load_error_strings();
-        SSL_library_init();
-    }
+    //void init_ssl() {
+    //    SSL_load_error_strings();
+    //    SSL_library_init();
+    //}
 
-    void cleanup(SSL_CTX* ctx, BIO* bio) {
-        SSL_CTX_free(ctx);
-        BIO_free_all(bio);
-    }
+    //void cleanup(SSL_CTX* ctx, BIO* bio) {
+    //    SSL_CTX_free(ctx);
+    //    BIO_free_all(bio);
+    //}
 
-    void secure_connect(const char* hostname) {
-        char name[BuffSize];
-        char request[BuffSize];
-        char response[BuffSize];
+    //void secure_connect(const char* hostname) {
+    //    char name[BuffSize];
+    //    char request[BuffSize];
+    //    char response[BuffSize];
 
-        const SSL_METHOD* method = TLSv1_2_client_method();
-        if (NULL == method) report_and_exit("TLSv1_2_client_method...");
+    //    const SSL_METHOD* method = TLSv1_2_client_method();
+    //    if (NULL == method) report_and_exit("TLSv1_2_client_method...");
 
-        SSL_CTX* ctx = SSL_CTX_new(method);
-        if (NULL == ctx) report_and_exit("SSL_CTX_new...");
+    //    SSL_CTX* ctx = SSL_CTX_new(method);
+    //    if (NULL == ctx) report_and_exit("SSL_CTX_new...");
 
-        BIO* bio = BIO_new_ssl_connect(ctx);
-        if (NULL == bio) report_and_exit("BIO_new_ssl_connect...");
+    //    BIO* bio = BIO_new_ssl_connect(ctx);
+    //    if (NULL == bio) report_and_exit("BIO_new_ssl_connect...");
 
-        SSL* ssl = NULL;
+    //    SSL* ssl = NULL;
 
-        /* link bio channel, SSL session, and server endpoint */
+    //    /* link bio channel, SSL session, and server endpoint */
 
-        sprintf(name, "%s:%s", hostname, "https");
-        BIO_get_ssl(bio, &ssl); /* session */
-        SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY); /* robustness */
-        BIO_set_conn_hostname(bio, name); /* prepare to connect */
+    //    sprintf(name, "%s:%s", hostname, "https");
+    //    BIO_get_ssl(bio, &ssl); /* session */
+    //    SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY); /* robustness */
+    //    BIO_set_conn_hostname(bio, name); /* prepare to connect */
 
-        /* try to connect */
-        if (BIO_do_connect(bio) <= 0) {
-            cleanup(ctx, bio);
-            report_and_exit("BIO_do_connect...");
-        }
+    //    /* try to connect */
+    //    if (BIO_do_connect(bio) <= 0) {
+    //        cleanup(ctx, bio);
+    //        report_and_exit("BIO_do_connect...");
+    //    }
 
-        /* verify truststore, check cert */
-        if (!SSL_CTX_load_verify_locations(ctx,
-            "/etc/ssl/certs/ca-certificates.crt", /* truststore */
-            "/etc/ssl/certs/")) /* more truststore */
-            report_and_exit("SSL_CTX_load_verify_locations...");
+    //    /* verify truststore, check cert */
+    //    if (!SSL_CTX_load_verify_locations(ctx,
+    //        "/etc/ssl/certs/ca-certificates.crt", /* truststore */
+    //        "/etc/ssl/certs/")) /* more truststore */
+    //        report_and_exit("SSL_CTX_load_verify_locations...");
 
-        long verify_flag = SSL_get_verify_result(ssl);
-        if (verify_flag != X509_V_OK)
-            fprintf(stderr,
-                "##### Certificate verification error (%i) but continuing...\n",
-                (int)verify_flag);
+    //    long verify_flag = SSL_get_verify_result(ssl);
+    //    if (verify_flag != X509_V_OK)
+    //        fprintf(stderr,
+    //            "##### Certificate verification error (%i) but continuing...\n",
+    //            (int)verify_flag);
 
-        /* now fetch the homepage as sample data */
-        sprintf(request,
-            "GET / HTTP/1.1\x0D\x0AHost: %s\x0D\x0A\x43onnection: Close\x0D\x0A\x0D\x0A",
-            hostname);
-        BIO_puts(bio, request);
+    //    /* now fetch the homepage as sample data */
+    //    sprintf(request,
+    //        "GET / HTTP/1.1\x0D\x0AHost: %s\x0D\x0A\x43onnection: Close\x0D\x0A\x0D\x0A",
+    //        hostname);
+    //    BIO_puts(bio, request);
 
-        /* read HTTP response from server and print to stdout */
-        while (1) {
-            memset(response, '\0', sizeof(response));
-            int n = BIO_read(bio, response, BuffSize);
-            if (n <= 0) break; /* 0 is end-of-stream, < 0 is an error */
-            puts(response);
-        }
+    //    /* read HTTP response from server and print to stdout */
+    //    while (1) {
+    //        memset(response, '\0', sizeof(response));
+    //        int n = BIO_read(bio, response, BuffSize);
+    //        if (n <= 0) break; /* 0 is end-of-stream, < 0 is an error */
+    //        puts(response);
+    //    }
 
-        cleanup(ctx, bio);
-    }
+    //    cleanup(ctx, bio);
+    //}
 
-    int TestOpenSSL() {
-        init_ssl();
+    //int TestOpenSSL() {
+    //    init_ssl();
 
-        const char* hostname = "www.google.com:443";
-        fprintf(stderr, "Trying an HTTPS connection to %s...\n", hostname);
-        secure_connect(hostname);
+    //    const char* hostname = "www.google.com:443";
+    //    fprintf(stderr, "Trying an HTTPS connection to %s...\n", hostname);
+    //    secure_connect(hostname);
 
-        return 0;
-    }
+    //    return 0;
+    //}
 
     void TestReactor()
     {
@@ -217,11 +255,18 @@ public:
             f.get();
     }
 
+    void StartWallet()
+    {
+        m_Client.start({}, true, {});
+    }
+
 private:
-    
-   // WalletClient m_Client;
     std::string m_Seed;
+    std::string m_DbName;
     std::mutex m_Mutex;
+    io::Reactor::Ptr m_Reactor;
+    IWalletDB::Ptr m_Db;
+    WalletClient m_Client;
 };
 
 //struct WasmClientWrapper
@@ -240,11 +285,12 @@ private:
 EMSCRIPTEN_BINDINGS() 
 {
     class_<WasmWalletClient>("WasmWalletClient")
-        .constructor<const std::string&>()
+        .constructor<const std::string&, const std::string&>()
         .function("testThreads",                &WasmWalletClient::TestThreads)
-        .function("testOpenSSL",                &WasmWalletClient::TestOpenSSL)
+        //.function("testOpenSSL",                &WasmWalletClient::TestOpenSSL)
         .function("testReactor",                &WasmWalletClient::TestReactor)
         .function("testWalletDB",               &WasmWalletClient::TestWalletDB)
+        .function("startWallet",                &WasmWalletClient::StartWallet)
  
         ;
 }

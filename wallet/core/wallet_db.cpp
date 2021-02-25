@@ -264,6 +264,7 @@ namespace beam::wallet
             }
             stringstream ss;
             ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(db);
+            puts(ss.str().c_str());
             if (res == SQLITE_NOTADB)
             {
                 throw FileIsNotDatabaseException();
@@ -3216,13 +3217,9 @@ namespace beam::wallet
 
     void WalletDB::setSystemStateID(const Block::SystemState::ID& stateID)
     {
-        puts("setSystemStateID 1");
         storage::setVar(*this, SystemStateIDName, stateID);
-        puts("setSystemStateID 2");
         storage::setVar(*this, LastUpdateTimeName, getTimestamp());
-        puts("setSystemStateID 3");
         notifySystemStateChanged(stateID);
-        puts("setSystemStateID 4");
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
