@@ -1591,18 +1591,6 @@ namespace beam::wallet
         }
     }
 
-    Amount CalculateShieldedFeeByKernelsCount(Height h, size_t count)
-    {
-        Amount shieldedFee = 0;
-        if (count)
-        {
-            Transaction::FeeSettings fs(h);
-            shieldedFee = count * fs.m_ShieldedInputTotal;
-        }
-
-        return shieldedFee;
-    }
-
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>& v)
     {
         uint32_t ret = 0;
@@ -1610,13 +1598,6 @@ namespace beam::wallet
             if (TxKernel::Subtype::ShieldedInput == v[i]->get_Subtype())
                 ret++;
         return ret;
-    }
-
-    Amount GetShieldedFee(const TxDescription& tx, SubTxID subTxID)
-    {
-        std::vector<TxKernel::Ptr> v;
-        tx.GetParameter(TxParameterID::ExtraKernels, v, subTxID);
-        return CalculateShieldedFeeByKernelsCount(tx.m_minHeight, GetShieldedInputsNum(v));
     }
 
     TxAddressType GetAddressType(const TxDescription& tx)

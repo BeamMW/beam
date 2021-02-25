@@ -962,8 +962,12 @@ namespace beam::wallet
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        m_shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_currentHeight, m_walletDB, requested, beforehandMinFee, assetId, isShielded);
-        onShieldedCoinsSelectionCalculated(m_shieldedCoinsSelectionResult);
+        m_CoinsSelectionResult.m_requestedSum = requested;
+        m_CoinsSelectionResult.m_assetID = assetId;
+        m_CoinsSelectionResult.m_explicitFee = beforehandMinFee;
+
+        m_CoinsSelectionResult.Calculate(m_currentHeight, m_walletDB, isShielded);
+        onCoinsSelectionCalculated(m_CoinsSelectionResult);
     }
 
     void WalletClient::getWalletStatus()

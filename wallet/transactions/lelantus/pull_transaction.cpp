@@ -55,23 +55,10 @@ namespace beam::wallet::lelantus
 
     void PullTransaction::UpdateImpl()
     {
-        bool bFirstTime = !m_TxBuilder;
         if (!m_TxBuilder)
             m_TxBuilder = std::make_shared<MyBuilder>(*this, GetSubTxID());
 
         auto& builder = *m_TxBuilder;
-
-        Transaction::FeeSettings fs(builder.m_Height.m_Min);
-        Amount feeShielded = fs.m_ShieldedInputTotal;
-
-        if (bFirstTime)
-        {
-            // by convention the fee now includes ALL the fee, whereas our code will add the minimal shielded fee.
-            if (builder.m_Fee >= feeShielded)
-                builder.m_Fee -= feeShielded;
-            std::setmax(builder.m_Fee, fs.m_Kernel);
-        }
-
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -96,7 +83,7 @@ namespace beam::wallet::lelantus
 
             IPrivateKeyKeeper2::ShieldedInput si;
             Cast::Down<ShieldedTxo::ID>(si) = sc.m_CoinID;
-            si.m_Fee = feeShielded;
+            si.m_Fee = Transaction::FeeSettings::get(builder.m_Height.m_Min).m_ShieldedInputTotal;
 
             BaseTxBuilder::Balance bb(builder);
 

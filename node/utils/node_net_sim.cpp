@@ -408,9 +408,16 @@ struct Context
 
     struct Cfg
     {
-        Transaction::FeeSettings m_Fees; // def
+        const Transaction::FeeSettings* m_pFees; // def
 
-        Cfg() :m_Fees(1) {}
+        void set_FeesHeight(Height h)
+        {
+            m_pFees = &Transaction::FeeSettings::get(h);
+        }
+
+        Cfg() {
+            set_FeesHeight(1);
+        }
 
 #define CfgFieldsAll(macro) \
         macro(Amount, BulletValue, 3000, "must be big enough to cover shielded out & in txs") \
@@ -508,7 +515,7 @@ struct Context
 
         std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;
 
-        m_Cfg.m_Fees.set_Height(h + 1);
+        m_Cfg.set_FeesHeight(h + 1);
 
         m_TxosMW.HandleTxs(m_setSplit, h);
 
@@ -644,7 +651,7 @@ struct Context
     {
         Height h = m_FlyClient.get_Height();
 
-        Amount valFee = m_Cfg.m_Fees.m_Kernel + m_Cfg.m_Fees.m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
+        Amount valFee = m_Cfg.m_pFees->m_Kernel + m_Cfg.m_pFees->m_Output * (m_Cfg.m_BulletsMax + 1); // minimum fee (assuming there's a change output)
         Amount valInp = m_Cfg.m_BulletValue * m_Cfg.m_BulletsMax + valFee;
 
         std::vector<TxoMW*> vInps;
@@ -699,9 +706,9 @@ struct Context
         if (!bShouldEmbed)
             pKrn->m_Height = hr;
 
-        pKrn->m_Fee = m_Cfg.m_Fees.m_ShieldedOutputTotal;
+        pKrn->m_Fee = m_Cfg.m_pFees->m_ShieldedOutputTotal;
         if (bShouldEmbed)
-            pKrn->m_Fee += m_Cfg.m_Fees.m_Kernel;
+            pKrn->m_Fee += m_Cfg.m_pFees->m_Kernel;
 
         pKrn->UpdateMsg();
         ECC::Oracle oracle;
@@ -712,7 +719,7 @@ struct Context
         sdp.m_Output.m_AssetID = txo.m_ID.m_Value.m_AssetID;
         sdp.m_Output.m_Value = txo.m_ID.m_Value.m_Value - pKrn->m_Fee;
         if (bShouldEmbed)
-            sdp.m_Output.m_Value -= m_Cfg.m_Fees.m_Kernel;
+            sdp.m_Output.m_Value -= m_Cfg.m_pFees->m_Kernel;
 
         ShieldedTxo::Viewer v;
         v.FromOwner(*m_pKdf, 0);
@@ -737,7 +744,7 @@ struct Context
 
             TxKernelStd::Ptr pKrnOuter = std::make_unique<TxKernelStd>();
             pKrnOuter->m_Height = hr;
-            pKrnOuter->m_Fee = m_Cfg.m_Fees.m_Kernel;
+            pKrnOuter->m_Fee = m_Cfg.m_pFees->m_Kernel;
 
             pKrnOuter->m_vNested.push_back(std::move(pKrn));
 
@@ -790,7 +797,7 @@ struct Context
     bool SendShieldedInp(TxoSH& txo)
     {
         Height h = m_FlyClient.get_Height();
-        Amount fee = m_Cfg.m_Fees.m_ShieldedInputTotal + m_Cfg.m_Fees.m_Output;
+        Amount fee = m_Cfg.m_pFees->m_ShieldedInputTotal + m_Cfg.m_pFees->m_Output;
 
         if ((txo.m_LockedUntil >= h) ||
             txo.m_AssetID ||
@@ -1072,7 +1079,7 @@ int main_Guarded(int argc, char* argv[])
     else
         node.m_PostStartSynced = true;
 
-    Amount nMinInOut = ctx.m_Cfg.m_Fees.m_Kernel + ctx.m_Cfg.m_Fees.m_Output + ctx.m_Cfg.m_Fees.m_ShieldedOutputTotal + ctx.m_Cfg.m_Fees.m_ShieldedInputTotal;
+    Amount nMinInOut = ctx.m_Cfg.m_pFees->m_Kernel + ctx.m_Cfg.m_pFees->m_Output + ctx.m_Cfg.m_pFees->m_ShieldedOutputTotal + ctx.m_Cfg.m_pFees->m_ShieldedInputTotal;
     std::setmax(ctx.m_Cfg.m_BulletValue, nMinInOut + 10);
 
     ctx.m_pKdf = pKdf;

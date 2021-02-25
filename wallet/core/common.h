@@ -61,7 +61,6 @@ namespace beam::wallet
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
-    constexpr Amount kMinFeeInGroth = 100;
 
 #pragma pack (push, 1)
     struct WalletID
@@ -261,12 +260,6 @@ namespace beam::wallet
         }
 
         return obj;
-    }
-
-    constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
-    {
-        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
-        return (numberOfOutputs + numberOfKenrnels) * 10;
     }
 
     using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
@@ -826,8 +819,6 @@ namespace beam::wallet
     using VersionFunc = std::function<void(const std::string&, const std::string&)>;
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
-    Amount CalculateShieldedFeeByKernelsCount(Height, size_t shieldedCount);
-    Amount GetShieldedFee(const TxDescription& tx, SubTxID subTxID = kDefaultSubTxID);
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
     TxAddressType GetAddressType(const std::string& address);

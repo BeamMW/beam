@@ -2177,19 +2177,20 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
+        auto& fs = Transaction::FeeSettings::get(node.GetHeight());
+
         const uint32_t nShieldedCoins = 3;
         Amount nValNetto = 135;
-        Transaction::FeeSettings fs(1);
-        Amount nInpFee = fs.m_ShieldedInputTotal;
-        StoreShieldedCoins(nShieldedCoins, nValNetto + nInpFee + 1, sender.m_WalletDB, node);
+        Amount nStdFee = fs.get_DefaultStd();
+        StoreShieldedCoins(nShieldedCoins, fs.m_ShieldedInputTotal + (nValNetto + nStdFee)/3 + 1, sender.m_WalletDB, node);
 
         auto txId  = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, sender.m_WalletID)
             .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-            .SetParameter(TxParameterID::Amount, nValNetto * nShieldedCoins  - 15)
-            .SetParameter(TxParameterID::Fee, Amount(30))
+            .SetParameter(TxParameterID::Amount, nValNetto)
+            .SetParameter(TxParameterID::Fee, nStdFee)
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
@@ -2202,9 +2203,9 @@ namespace
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
     }
 
-    void TestCalculateShieldedCoinsSelection()
+    void TestCalculateCoinsSelection()
     {
-        cout << "\nTesting shielded coins selection...\n";
+        cout << "\nTesting coins selection...\n";
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
@@ -2224,47 +2225,33 @@ namespace
         AmountList lst;
         auto walletDB = createSenderWalletDB(false, lst);
         StoreShieldedCoins(3, 3000000, walletDB, node);
-        Transaction::FeeSettings fs(1);
-        Amount nInpFee = fs.m_ShieldedInputTotal;
-        Amount nOutFee = fs.m_ShieldedOutputTotal + fs.m_Kernel;
-        Amount beforehandFee = 1000100;
+        auto& fs = Transaction::FeeSettings::get(1);
+        Amount beforehandFee = 100;
 
-        auto selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 6000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(6000000 > selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam == 0);
+        wallet::CoinsSelectionInfo csi;
+        csi.m_assetID = 0;
+        csi.m_requestedSum = 6000000;
+        csi.m_explicitFee = beforehandFee;
+        csi.Calculate(1, walletDB);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 4000000, beforehandFee, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(!csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() < 6000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 4000000,100, Asset::s_BeamID);
-        WALLET_CHECK(4000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == 3 * nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee > 100);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        csi.m_requestedSum = 4000000;
+        csi.Calculate(1, walletDB);
+        WALLET_CHECK(csi.get_NettoValue() == 4000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+        WALLET_CHECK(csi.m_changeBeam != 0);
+        
+        csi.m_requestedSum = 3000000;
+        csi.Calculate(1, walletDB, true);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 500000, beforehandFee,  Asset::s_BeamID);
-        WALLET_CHECK(500000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == 0);
-        WALLET_CHECK(selectionRes.minimalFee <= beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
+        WALLET_CHECK(csi.get_NettoValue() == 3000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+        WALLET_CHECK(csi.m_explicitFee > beforehandFee);
 
-        selectionRes = wallet::CalcShieldedCoinSelectionInfo(1, walletDB, 3000000, beforehandFee, Asset::s_BeamID, true);
-        WALLET_CHECK(3000000 == selectionRes.selectedSumBeam - selectionRes.selectedFee - selectionRes.changeBeam);
-        WALLET_CHECK(selectionRes.shieldedInputsFee == nInpFee * 3);
-        WALLET_CHECK(selectionRes.shieldedOutputsFee == nOutFee);
-        WALLET_CHECK(selectionRes.minimalFee > beforehandFee);
-        WALLET_CHECK(selectionRes.changeBeam != 0);
-
-        cout << "\nShielded coins selection tested\n";
+        cout << "\nCoins selection tested\n";
     }
 
     void TestMultiUserWallet()
@@ -3237,6 +3224,8 @@ int main()
 
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
+    Rules::get().pForks[2].m_Height = MaxHeight;
+    Rules::get().pForks[3].m_Height = MaxHeight;
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
@@ -3303,7 +3292,7 @@ int main()
     Rules::get().UpdateChecksum();
 
     TestSendingShielded();
-    TestCalculateShieldedCoinsSelection();
+    TestCalculateCoinsSelection();
 
     TestContractInvoke();
 

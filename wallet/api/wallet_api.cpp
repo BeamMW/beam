@@ -252,6 +252,28 @@ namespace beam::wallet {
         //WALLET_API_METHODS_ALIASES
     }
 
+    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
+    {
+        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        return getBeamFeeParam(params, name, fs.get_DefaultStd());
+    }
+
+    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
+    {
+        auto ofee = getOptionalParam<PositiveUnit64>(params, name);
+        if (!ofee)
+            return feeMin;
+
+        if (*ofee < feeMin)
+        {
+            std::stringstream ss;
+            ss << "Failed to initiate the operation. The minimum fee is " << feeMin << " GROTH.";
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, ss.str());
+        }
+        return *ofee;
+    }
+
+
     static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
     {
         if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
@@ -414,7 +436,7 @@ namespace beam::wallet {
             }
         }
 
-        send.fee = getBeamFeeParam(params);
+        send.fee = getBeamFeeParam(params, "fee");
 
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
         {
@@ -458,7 +480,9 @@ namespace beam::wallet {
             split.coins.push_back(uamount);
         }
 
-        auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
+        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
+
         split.fee = getBeamFeeParam(params, "fee", minimumFee);
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
 
@@ -537,7 +561,7 @@ namespace beam::wallet {
         }
 
         ReadAssetParams(id, params, data);
-        data.fee = getBeamFeeParam(params);
+        data.fee = getBeamFeeParam(params, "fee");
         data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
         onMessage(id, data);
@@ -947,7 +971,7 @@ namespace beam::wallet {
         return WalletApi::getMandatoryParam<PositiveAmount>(params, "fee_rate");
     }
 
-    OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
+    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
     {
         OfferInput data;
         Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
@@ -1006,12 +1030,6 @@ namespace beam::wallet {
             data.comment = *comment;
         }
 
-        return data;
-    }
-
-    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
-    {
-        CreateOffer data = collectOfferInput(id, params);
         onMessage(id, data);
     }
 
