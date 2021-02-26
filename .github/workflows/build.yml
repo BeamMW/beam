@@ -471,6 +471,7 @@ jobs:
 # Build Key Keeper Web Assembly
 ###############################################################################
   build_key_keeper:
+    if: ${{false}} # disabled 
     runs-on: ubuntu-18.04
     # if: ${{false}}
 
