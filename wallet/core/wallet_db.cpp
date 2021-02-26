@@ -22,8 +22,13 @@
 #include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
-//#include <boost/filesystem.hpp>
+#ifndef __EMSCRIPTEN__
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#elif
 #include <filesystem>
+namespace fs = std::filesystem;
+#endif
 #include <core/block_crypt.h>
 #include <core/shielded.h>
 #include "nlohmann/json.hpp"
@@ -1128,10 +1133,9 @@ namespace beam::wallet
     bool WalletDB::isInitialized(const string& path)
     {
 #ifdef WIN32
-        return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
+        return fs::exists(Utf8toUtf16(path.c_str()));
 #else
-        //return boost::filesystem::exists(path);
-        return std::filesystem::exists(path);
+        return fs::exists(path);
 #endif
     }
 

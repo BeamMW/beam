@@ -81,8 +81,8 @@ elseif(ANDROID)
     )
 endif()
 
-#target_link_libraries(utility Boost::system Boost::filesystem)
 if (NOT EMSCRIPTEN)
+    target_link_libraries(utility Boost::system Boost::filesystem)
     target_link_libraries(cli Boost::program_options)
 endif()
 

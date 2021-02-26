@@ -184,7 +184,6 @@ namespace std
         }
      }
 
-#ifndef __EMSCRIPTEN__
     string to_string(const beam::AmountBig::Type& amount)
     {
         cpp_int intval;
@@ -195,7 +194,6 @@ namespace std
 
         return ss.str();
     }
-#endif  // __EMSCRIPTEN__
 
 }  // namespace std
 
