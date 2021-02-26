@@ -32,10 +32,8 @@
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-#ifndef __EMSCRIPTEN__
 #include <boost/multiprecision/cpp_int.hpp>
 using boost::multiprecision::cpp_int;
-#endif
 
 using namespace std;
 using namespace ECC;
@@ -107,7 +105,6 @@ namespace std
         return string(sz);
     }
 
-#ifndef __EMSCRIPTEN__
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         cpp_int intval;
@@ -148,7 +145,6 @@ namespace std
             return ss.str();
         }
     }
-#endif  // __EMSCRIPTEN__
 
     string to_string(const beam::wallet::TxParameters& value)
     {

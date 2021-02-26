@@ -12,28 +12,12 @@
             //console.log("IsValidPhrase()", Module.KeyKeeper.IsValidPhrase(phrase))
             //console.log('world list size is', phrase.split(' ').length)
 
-            var walletClient = new Module.WasmWalletClient("uncle;ghost;decline;glance;all;midnight;eternal;edit;gloom;mean;curve;casual;", "wallet.db");
+            var walletClient = new Module.WasmWalletClient("uncle;ghost;decline;glance;all;midnight;eternal;edit;gloom;mean;curve;casual;", "wallet.db", "127.0.0.1:8100")//"eu-node03.masternet.beam.mw:8100");
             {
                 console.log('test threads: ' + walletClient.testWalletDB());
                 console.log("starting wallet...");
                 walletClient.startWallet();
-                //console.log("test OpenSSL: " + walletClient.testOpenSSL());
-                //console.log("test reactor: " + walletClient.testReactor());
-                //console.log('owner key is: ' + keykeeper.getOwnerKey("123"));
-                //console.log('wallet ID is: ' + keykeeper.getWalletID());
-                
-                //console.log('identity #0 is: ' + keykeeper.getIdentity("0"));
-
-                //var id42 = "42";
-
-                //var identity = keykeeper.getIdentity(id42);
-                //console.log('identity #42 is: ' + keykeeper.getIdentity(id42));
-                
-                //var address = keykeeper.getSbbsAddress(id42);
-                //console.log('sbbs address #42 is: ' + address);
-                //console.log('sbbs address private #42 is: ' + keykeeper.getSbbsAddressPrivate(id42));
-
-               
+            
                 
             }
         })
