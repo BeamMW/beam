@@ -3270,12 +3270,21 @@ namespace beam::wallet
 
     std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
-        ShieldedStatusCtx ssc(*this);
+        ShieldedStatusCtx  ssc(*this);
+        std::unique_ptr<sqlite::Statement> pstm;
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
-        stm.bind(1, assetId);
+        if (assetId != beam::Asset::s_InvalidID)
+        {
+            pstm = std::make_unique<sqlite::Statement>(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
+            pstm->bind(1, assetId);
+        }
+        else
+        {
+            pstm = std::make_unique<sqlite::Statement>(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
+        }
+
+        auto& stm = *pstm;
         std::vector<ShieldedCoin> coins;
-
         while (stm.step())
         {
             auto& coin = coins.emplace_back();
