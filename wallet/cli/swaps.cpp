@@ -937,7 +937,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Amount fee = 0;
     WalletID receiverWalletID(Zero);
 
-    if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, checkFee, true))
+    if (!LoadBaseParamsForTX(vm, wallet, assetId, amount, fee, receiverWalletID, checkFee, true))
     {
         return boost::none;
     }
@@ -947,27 +947,24 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         throw std::runtime_error(kErrorCantSwapAsset);
     }
 
-    if (amount <= kMinFeeInGroth)
+    if (amount <= fee)
     {
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
 
-    Amount feeForShieldedInputs = 0;
-    if (isBeamSide && !CheckFeeForShieldedInputs(amount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
-        throw std::runtime_error("Fee to low");
+    Height minHeight = walletDB->getCurrentHeight();
 
     WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
     // TODO:SWAP use async callbacks or IWalletObserver?
 
-    Height minHeight = walletDB->getCurrentHeight();
     auto swapTxParameters = CreateSwapTransactionParameters();
 
     FillSwapTxParams(&swapTxParameters,
                      senderAddress.m_walletID,
                      minHeight,
                      amount,
-                     !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee,
+                     fee,
                      swapCoin,
                      swapAmount,
                      swapFeeRate,
@@ -1087,13 +1084,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     }
 
     Amount fee = 0;
-    Amount feeForShieldedInputs = 0;
-
-    ReadFee(vm, fee, checkFee);    
-    if (*isBeamSide && !CheckFeeForShieldedInputs(*beamAmount, fee, Asset::s_BeamID, walletDB, false, feeForShieldedInputs))
-        throw std::runtime_error("Fee to low");
-
-    fee = !!feeForShieldedInputs ? fee - feeForShieldedInputs : fee;
+    ReadFee(vm, fee, wallet, checkFee);
 
     ProcessLibraryVersion(*swapTxParameters);
 

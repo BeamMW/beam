@@ -341,27 +341,6 @@ namespace beam::wallet {
         return boost::none;
     }
 
-    Amount ApiBase::getBeamFeeParam(const json& params, const std::string& name, boost::optional<Amount> minfee)
-    {
-        if (!minfee.is_initialized())
-        {
-            minfee = std::max(wallet::GetMinimumFee(2), kMinFeeInGroth);
-        }
-
-        if (auto ofee = getOptionalParam<PositiveUnit64>(params, name))
-        {
-            if (*ofee < *minfee)
-            {
-                std::stringstream ss;
-                ss << "Failed to initiate the operation. The minimum fee is " << *minfee << " GROTH.";
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, ss.str());
-            }
-            return *ofee;
-        }
-
-        return *minfee;
-    }
-
     bool ApiBase::hasParam(const json& params, const std::string& name)
     {
         return params.find(name) != params.end();

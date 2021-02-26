@@ -38,24 +38,25 @@ namespace beam::wallet
     Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId);
     Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded);
 
-    struct ShieldedCoinsSelectionInfo
+    struct CoinsSelectionInfo
     {
-        Amount requestedSum = 0U;
-        Amount selectedSumAsset = 0U; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
-        Amount selectedSumBeam = 0U;
-        Amount requestedFee = 0U;
-        Amount selectedFee = 0U;
-        Amount minimalFee = 0U;
-        Amount shieldedInputsFee = 0U;
-        Amount shieldedOutputsFee = 0U;
-        Amount changeBeam = 0U;
-        Amount changeAsset = 0U; // if assetId is BEAM then changeAsset == changeBeam
+        Amount m_requestedSum = 0U;
+        Amount m_selectedSumAsset = 0U; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
+        Amount m_selectedSumBeam = 0U;
+        Amount m_changeAsset = 0U; // if assetId is BEAM then changeAsset == changeBeam
+        Amount m_changeBeam = 0U;
+        Amount m_minimalRawFee = 0U; // the very minimum fee for tx elements, wouldn't suffice for decoys
+        Amount m_minimalExplicitFee = 0U; // the minimum recommended for this tx type.
+        Amount m_explicitFee = 0U;
+        Amount m_involuntaryFee = 0U;
 
-        Asset::ID assetID = Asset::s_BeamID;
-        bool isEnought = true;
+        Asset::ID m_assetID = Asset::s_BeamID;
+        bool m_isEnought = true;
+
+        // set m_requestedSum, m_assetID and m_explicitFee before calling the following
+        void Calculate(Height, const IWalletDB::Ptr& walletDB, bool isPushTx = false);
+
+        Amount get_TotalFee() const;
+        Amount get_NettoValue() const;
     };
-    ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
-
-    class BaseTxBuilder;
-    Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);
 }

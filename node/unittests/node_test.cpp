@@ -1818,8 +1818,8 @@ namespace beam
 				if (!sdp.m_Output.m_Value)
 					return false;
 
-				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedOutput;
+				auto& fs = Transaction::FeeSettings::get(h + 1);
+				Amount fee = fs.get_DefaultStd() + fs.m_ShieldedOutputTotal;
 
 				sdp.m_Output.m_Value -= fee;
 
@@ -1945,8 +1945,8 @@ namespace beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
-				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedInput;
+				auto& fs = Transaction::FeeSettings::get(h + 1);
+				Amount fee = fs.get_DefaultStd() + fs.m_ShieldedInputTotal;
 
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.m_R_Output, false);

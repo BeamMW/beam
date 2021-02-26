@@ -251,7 +251,7 @@ namespace beam
 
 		struct {
 			bool Enabled = true;
-			Amount DepositForList = Coin * 1000;
+			Amount DepositForList = Coin * 3000;
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
 		} CA;
@@ -421,8 +421,8 @@ namespace beam
 
 		uint64_t m_Kernels;
 		uint64_t m_KernelsNonStd;
-		uint64_t m_Inputs; // all types
-		uint64_t m_Outputs; // all types
+		uint64_t m_Inputs; // MW only
+		uint64_t m_Outputs; // MW only
 		uint64_t m_InputsShielded;
 		uint64_t m_OutputsShielded;
 		uint64_t m_Contract;
@@ -1179,21 +1179,23 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
-			Amount m_ShieldedInput;
-			Amount m_ShieldedOutput;
+			Amount m_ShieldedInputTotal; // including 1 kernel price
+			Amount m_ShieldedOutputTotal; // including 1 kernel price
+			Amount m_Default; // for std tx
 
 			struct Bvm {
 				Amount m_ChargeUnitPrice;
 				Amount m_Minimum;
 			} m_Bvm;
 
-			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
-
-			FeeSettings(); // defaults
+			static const FeeSettings& get(Height);
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;
 			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
+
+			Amount get_DefaultStd() const;
+			Amount get_DefaultShieldedOut(uint32_t nNumShieldedOutputs = 1) const;
 		};
 	};
 

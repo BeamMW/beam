@@ -68,6 +68,10 @@ namespace beam::wallet {
             return _contracts;
         }
 
+        virtual Height get_CurrentHeight() const {
+            return _wallet->get_CurrentHeight();
+        }
+
         void onShaderDone(
             boost::optional<TxID> txid,
             boost::optional<std::string> result,
@@ -132,6 +136,10 @@ namespace beam::wallet {
         template<typename T>
         void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
         void checkCAEnabled(const JsonRpcId& id);
+
+        // If no fee read and no min fee provided this function calculates minimum fee itself
+        Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
+        Amount getBeamFeeParam(const json& params, const std::string& name) const;
 
     protected:
         // Do not access these directly, use getters

@@ -141,7 +141,7 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
-        virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
+        virtual void onCoinsSelectionCalculated(const CoinsSelectionInfo&) {}
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
@@ -354,7 +354,7 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
-        ShieldedCoinsSelectionInfo m_shieldedCoinsSelectionResult;
+        CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;

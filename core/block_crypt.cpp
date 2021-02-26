@@ -1213,7 +1213,6 @@ namespace beam
 	void TxKernelShieldedOutput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
-		s.m_Outputs++;
 		s.m_OutputsShielded++;
 	}
 
@@ -1276,7 +1275,6 @@ namespace beam
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
 	{
 		TxKernelNonStd::AddStats(s);
-		s.m_Inputs++;
 		s.m_InputsShielded++;
 	}
 
@@ -1440,16 +1438,40 @@ namespace beam
 	}
 
 	/////////////
-	// Transaction
-	Transaction::FeeSettings::FeeSettings()
-	{
-		m_Output = 10;
-		m_Kernel = 10;
-		m_ShieldedInput = MinShieldedFee - m_Kernel;
-		m_ShieldedOutput = MinShieldedFee - m_Kernel - m_Output;
+	// FeeSettings
 
-		m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
-		m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
+	struct FeeSettingsGlobal
+	{
+		Transaction::FeeSettings m_BeforeHF3;
+		Transaction::FeeSettings m_AfterHF3;
+
+		FeeSettingsGlobal()
+		{
+			m_BeforeHF3.m_Output = 10;
+			m_BeforeHF3.m_Kernel = 10;
+			m_BeforeHF3.m_Default = 100;
+
+			m_BeforeHF3.m_ShieldedInputTotal = Rules::Coin / 100;
+			m_BeforeHF3.m_ShieldedOutputTotal = Rules::Coin / 100;
+
+			m_BeforeHF3.m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
+			m_BeforeHF3.m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
+
+			m_AfterHF3 = m_BeforeHF3;
+			m_AfterHF3.m_Output = 18000;
+			m_AfterHF3.m_Kernel = 10000;
+			m_AfterHF3.m_Default = 100000; // exactly covers 5 outputs + 1 kernel
+
+			m_AfterHF3.m_ShieldedInputTotal = 0;
+		}
+
+	} g_FeeSettingsGlobal;
+
+	const Transaction::FeeSettings& Transaction::FeeSettings::get(Height h)
+	{
+		return (h >= Rules::get().pForks[3].m_Height) ?
+			g_FeeSettingsGlobal.m_AfterHF3 :
+			g_FeeSettingsGlobal.m_BeforeHF3;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -1463,9 +1485,9 @@ namespace beam
 	{
 		return
 			m_Output * s.m_Outputs +
-			m_Kernel * s.m_Kernels +
-			m_ShieldedInput * s.m_InputsShielded +
-			m_ShieldedOutput * s.m_OutputsShielded;
+			m_Kernel * (s.m_Kernels - s.m_InputsShielded - s.m_OutputsShielded) +
+			m_ShieldedInputTotal * s.m_InputsShielded +
+			m_ShieldedOutputTotal * s.m_OutputsShielded;
 	}
 
 	Amount Transaction::FeeSettings::CalculateForBvm(const TxStats& s, uint32_t nBvmCharge) const
@@ -1476,6 +1498,18 @@ namespace beam
 		return std::max(fee, feeMin);
 	}
 
+	Amount Transaction::FeeSettings::get_DefaultStd() const
+	{
+		return m_Default;
+	}
+
+	Amount Transaction::FeeSettings::get_DefaultShieldedOut(uint32_t nNumShieldedOutputs) const
+	{
+		return m_Default + m_ShieldedOutputTotal * nNumShieldedOutputs;
+	}
+
+	/////////////
+	// Transaction
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{

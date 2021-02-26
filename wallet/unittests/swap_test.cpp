@@ -2069,8 +2069,11 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel, LOG_LEVEL_DEBUG, "swap_test", path.string());
 
     Rules::get().FakePoW = true;
+    beam::Height fork1Height = 10;
+    Rules::get().pForks[1].m_Height = fork1Height;
+    Rules::get().pForks[2].m_Height = fork1Height;
+    Rules::get().pForks[3].m_Height = MaxHeight; // swap values currently specified in the test are insufficient for fees after HF3
     Rules::get().UpdateChecksum();
-    beam::Height fork1Height = Rules::get().pForks[1].m_Height;
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);

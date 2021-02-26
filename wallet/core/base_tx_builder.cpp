@@ -165,11 +165,11 @@ namespace beam::wallet
 
     void BaseTxBuilder::Balance::Add(const ShieldedTxo::ID& sid)
     {
-        Transaction::FeeSettings fs;
+        auto& fs = Transaction::FeeSettings::get(m_Builder.m_Height.m_Min);
 
         IPrivateKeyKeeper2::ShieldedInput si;
         Cast::Down<ShieldedTxo::ID>(si) = sid;
-        si.m_Fee = fs.m_Kernel + fs.m_ShieldedInput; // auto-fee for shielded inputs
+        si.m_Fee = fs.m_ShieldedInputTotal; // auto-fee for shielded inputs
         Add(si);
     }
 
@@ -238,7 +238,7 @@ namespace beam::wallet
 
                 std::vector<Coin> vSelStd;
                 std::vector<ShieldedCoin> vSelShielded;
-                m_Builder.m_Tx.GetWalletDB()->selectCoins2(-val, aid, vSelStd, vSelShielded, nShieldedMax, true);
+                m_Builder.m_Tx.GetWalletDB()->selectCoins2(m_Builder.m_Height.m_Min, -val, aid, vSelStd, vSelShielded, nShieldedMax, true);
 
                 for (const auto& c : vSelStd)
                     Add(c.m_ID, false);
@@ -902,7 +902,7 @@ namespace beam::wallet
             if (pFromPeer)
                 ts += *pFromPeer;
 
-            Transaction::FeeSettings fs;
+            auto& fs = Transaction::FeeSettings::get(m_Height.m_Min);
             Amount minFee = fs.Calculate(ts);
 
             if (m_Fee + feeInps < minFee)

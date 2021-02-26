@@ -2365,23 +2365,25 @@ namespace beam::wallet
         return (comm2 == comm);
     }
 
-	void IWalletDB::ImportRecovery(const std::string& path)
+	void IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway)
 	{
 		IRecoveryProgress prog;
-		BEAM_VERIFY(ImportRecovery(path, prog));
+		BEAM_VERIFY(ImportRecovery(path, gateway, prog));
 	}
 
-	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
+	bool IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress& prog)
 	{
         struct MyParser
             :public RecoveryInfo::IRecognizer
         {
             IWalletDB& m_This;
+            INegotiatorGateway& m_Gateway;
             IRecoveryProgress& m_Progr;
             TxoID m_ShieldedOuts = 0;
 
-            MyParser(IWalletDB& db, IRecoveryProgress& progr)
+            MyParser(IWalletDB& db, INegotiatorGateway& gateway, IRecoveryProgress& progr)
                 :m_This(db)
+                ,m_Gateway(gateway)
                 ,m_Progr(progr)
             {
             }
@@ -2459,7 +2461,7 @@ namespace beam::wallet
 
                 m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_CoinID.m_Key;
 
-                storage::restoreTransactionFromShieldedCoin(m_This, sc);
+                storage::restoreTransactionFromShieldedCoin(m_This, sc, m_Gateway);
 
                 return true;
             }
@@ -2493,7 +2495,7 @@ namespace beam::wallet
 
         };
 
-        MyParser p(*this, prog);
+        MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 
         if (p.Proceed(path.c_str()))
@@ -2607,7 +2609,7 @@ namespace beam::wallet
         return selectCoinsEx(amount, assetId, false);
     }
 
-    void WalletDB::selectCoins2(Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
+    void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
         if (!nTrg)
             return;
@@ -2617,8 +2619,8 @@ namespace beam::wallet
         vector<ShieldedCoin::WithStatus> vShielded;
         size_t iPosShielded = 0;
 
-        Transaction::FeeSettings fs;
-        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
+        auto& fs = Transaction::FeeSettings::get(h);
+        Amount feeShielded = fs.m_ShieldedInputTotal;
 
         if (nMaxShielded)
         {
@@ -5273,11 +5275,8 @@ namespace beam::wallet
                 const AmountBig::Type value = c.m_CoinID.m_Value;
                 switch(c.m_Status) {
                     case ShieldedCoin::Status::Available:
-                        if (AmountBig::get_Lo(value) > Transaction::FeeSettings::MinShieldedFee)  // shielded dust
-                        {
-                            totals.AvailShielded += value;
-                            totals.UnspentShielded += value;
-                        }
+                        totals.AvailShielded += value;
+                        totals.UnspentShielded += value;
                         break;
                     case ShieldedCoin::Status::Maturing:
                         totals.MaturingShielded += value;
@@ -5564,7 +5563,7 @@ namespace beam::wallet
             }
         }
 
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin)
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway)
         {
             // add virtual transaction for receiver
             beam::Block::SystemState::Full tip;
@@ -5624,15 +5623,36 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::KernelProofHeight, coin.m_confirmHeight);
+                    .SetParameter(TxParameterID::AddressType, addressType);
+
+                const auto assetId = coin.m_CoinID.m_AssetID;
+                if (assetId != Asset::s_BeamID)
+                {
+                    if (const auto oinfo = db.findAsset(assetId))
+                    {
+                        WalletAsset info(*oinfo);
+                        if (info.IsExpired(db))
+                        {
+                            gateway.confirm_asset(txID, assetId);
+                        }
+                        else
+                        {
+                            params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
+                                    .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                        }
+                    }
+                    else
+                    {
+                        gateway.confirm_asset(txID, assetId);
+                    }
+                }
 
                 if (message->m_MaxPrivacyMinAnonymitySet)
                 {
                     params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
                 }
-                params.SetParameter(TxParameterID::AddressType, addressType);
 
-                auto packed = params.Pack();
+                const auto packed = params.Pack();
                 for (const auto& p : packed)
                 {
                     storage::setTxParameter(db, *params.GetTxID(), p.first, p.second, true);
@@ -6323,8 +6343,6 @@ namespace beam::wallet
 
                 std::string amountInUsd = tx.getAmount(ExchangeRate::Currency::Usd);
                 std::string amountInBtc = tx.getAmount(ExchangeRate::Currency::Bitcoin);
-                Amount shieldedFee = GetShieldedFee(tx);
-
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
@@ -6332,7 +6350,7 @@ namespace beam::wallet
                    << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
                    << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
                    << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","          // Transaction fee, BEAM
+                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
                    << statusInterpreter->getStatus() << ","                                         // Status
                    << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
                    << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID

@@ -402,7 +402,7 @@ namespace beam::wallet
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
-		void ImportRecovery(const std::string& path);
+		void ImportRecovery(const std::string& path, INegotiatorGateway& gateway);
 
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
         bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
@@ -426,7 +426,7 @@ namespace beam::wallet
 		};
 
 		// returns false if callback asked to stop verification.
-		bool ImportRecovery(const std::string& path, IRecoveryProgress&);
+		bool ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress&);
 
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
@@ -436,7 +436,7 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
-        virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
+        virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -618,7 +618,7 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
-        void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
+        void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
@@ -935,7 +935,7 @@ namespace beam::wallet
         void setNeedToRequestBodies(IWalletDB& db, bool value);
         Height getNextEventHeight(const IWalletDB& db);
         void setNextEventHeight(IWalletDB& db, Height value);
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway);
 
         // Used in statistics
         struct Totals
