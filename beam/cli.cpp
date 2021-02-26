@@ -61,7 +61,7 @@ namespace
 			r.cancel_tcp_connect(uint64_t(this));
 		}
 	private:
-		void ReactorThread_onWSDataReceived(const std::string& data)
+		void ReactorThread_onWSDataReceived(const std::string& data) override
 		{
 			_dataQueue.push(data);
 			if (_stream)
