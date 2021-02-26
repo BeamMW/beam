@@ -154,7 +154,7 @@ namespace Lightning {
 			Height m_hRevisionMaxLifeTime = kDefaultRevisionMaxLifeTime;
 			Height m_hLockTime = kDefaultLockTime; // withdrawal lock. Same for all
 			Height m_hPostLockReserve = kDefaultPostLockReserve; // max height diff of 2nd-stage withdrawal, in addition to m_hLockTime. Same for all
-			Amount m_Fee = 0; // for all txs
+			Amount m_Fee = beam::wallet::kMinFeeInGroth; // for all txs
 		} m_Params;
 
 		struct State

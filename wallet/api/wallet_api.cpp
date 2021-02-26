@@ -122,10 +122,6 @@ namespace beam::wallet {
             };
             statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
         }
-        else if (tx.m_txType == TxType::PushTransaction)
-        {
-            statusInterpreter = std::make_unique<MaxPrivacyTxStatusInterpreter>(tx);
-        }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -141,8 +137,8 @@ namespace beam::wallet {
             {"txId", TxIDToString(tx.m_txId)},
             {"status", tx.m_status},
             {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
-            {"sender", tx.getAddressFrom()},
-            {"receiver", tx.getAddressTo()},
+            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
+            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"create_time", tx.m_createTime},
@@ -169,7 +165,7 @@ namespace beam::wallet {
             {
                 for (const auto& data : vData)
                 {
-                    auto ivdata = json {
+                    auto ivdata = json{
                        {"contract_id", data.m_Cid.str()}
                     };
                     msg["invoke_data"].push_back(ivdata);
@@ -251,28 +247,6 @@ namespace beam::wallet {
         #undef REG_ALIASES_FUNC
         //WALLET_API_METHODS_ALIASES
     }
-
-    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
-    {
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        return getBeamFeeParam(params, name, fs.get_DefaultStd());
-    }
-
-    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
-    {
-        auto ofee = getOptionalParam<PositiveUnit64>(params, name);
-        if (!ofee)
-            return feeMin;
-
-        if (*ofee < feeMin)
-        {
-            std::stringstream ss;
-            ss << "Failed to initiate the operation. The minimum fee is " << feeMin << " GROTH.";
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, ss.str());
-        }
-        return *ofee;
-    }
-
 
     static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
     {
@@ -436,7 +410,7 @@ namespace beam::wallet {
             }
         }
 
-        send.fee = getBeamFeeParam(params, "fee");
+        send.fee = getBeamFeeParam(params);
 
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
         {
@@ -480,9 +454,7 @@ namespace beam::wallet {
             split.coins.push_back(uamount);
         }
 
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
-
+        auto minimumFee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), kMinFeeInGroth); // +1 extra output for change
         split.fee = getBeamFeeParam(params, "fee", minimumFee);
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
 
@@ -561,7 +533,7 @@ namespace beam::wallet {
         }
 
         ReadAssetParams(id, params, data);
-        data.fee = getBeamFeeParam(params, "fee");
+        data.fee = getBeamFeeParam(params);
         data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
         onMessage(id, data);
@@ -971,7 +943,7 @@ namespace beam::wallet {
         return WalletApi::getMandatoryParam<PositiveAmount>(params, "fee_rate");
     }
 
-    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
+    OfferInput collectOfferInput(const JsonRpcId& id, const json& params)
     {
         OfferInput data;
         Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
@@ -1030,6 +1002,12 @@ namespace beam::wallet {
             data.comment = *comment;
         }
 
+        return data;
+    }
+
+    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
+    {
+        CreateOffer data = collectOfferInput(id, params);
         onMessage(id, data);
     }
 

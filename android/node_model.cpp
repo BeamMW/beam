@@ -30,7 +30,7 @@ using namespace beam::io;
 using namespace std;
 
 NodeModel::NodeModel(const std::string& appPath)
-    : m_nodeClient(Rules::get(), this)
+    : m_nodeClient(this)
     , m_appPath(appPath)
 {
 }

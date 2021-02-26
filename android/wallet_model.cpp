@@ -63,9 +63,11 @@ namespace
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
+        auto shieldedFee = GetShieldedFee(txDescription) + txDescription.m_fee;
+
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
-        setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
+        setLongField(env, TxDescriptionClass, tx, "fee", shieldedFee);
         setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
 
         setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
@@ -483,15 +485,15 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
     env->CallStaticVoidMethod(WalletListenerClass, callback, changeAsset, changeBeam, assetId);
 }
 
-void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selectionRes)
+void WalletModel::onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes)
 {
-    LOG_DEBUG() << "onCoinsSelectionCalculated(" << selectionRes.m_explicitFee << ")";
+    LOG_DEBUG() << "onShieldedCoinsSelectionCalculated(" << selectionRes.minimalFee << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelectionCalculated", "(JJJ)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onShieldedCoinsSelectionCalculated", "(JJJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.m_explicitFee, selectionRes.m_changeBeam, 0);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.minimalFee, selectionRes.changeBeam, selectionRes.shieldedInputsFee);
 }
 
 void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)

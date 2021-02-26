@@ -41,7 +41,7 @@ namespace beam::wallet
         const po::variables_map& m_vm;
     };
 
-    bool LoadLaserParams(const po::variables_map& vm, laser::Mediator&,
+    bool LoadLaserParams(const po::variables_map& vm,
                          Amount* aMy,
                          Amount* aTrg,
                          Amount* fee,

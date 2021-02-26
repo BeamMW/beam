@@ -16,7 +16,6 @@
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/strings_resources.h"
-#include "wallet/core/wallet.h"
 
 #include <boost/format.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
@@ -75,27 +74,23 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
     return true;
 }
 
-Amount get_MinFee(const Wallet& wallet)
-{
-    auto& fs = Transaction::FeeSettings::get(wallet.get_CurrentHeight());
-    return fs.get_DefaultStd();
-}
-
-bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee)
+bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
 {
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
         fee = it->second.as<Nonnegative<Amount>>().value;
-        if (checkFee && (fee < get_MinFee(wallet)))
-        {
-            LOG_ERROR() << kErrorFeeToLow;
-            return false;
-        }
     }
-    else {
-        fee = get_MinFee(wallet);
+    else
+    {
+        fee = kMinFeeInGroth;
     }
-        
+
+    if (checkFee && fee < kMinFeeInGroth)
+    {
+        LOG_ERROR() << kErrorFeeToLow;
+        return false;
+    }
+
     return true;
 }
 
@@ -125,7 +120,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     return true;
 }
 
-bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
+bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
 {
     if (!skipReceiverWalletID)
     {
@@ -145,7 +140,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asse
         return false;
     }
 
-    if (!ReadFee(vm, fee, wallet, checkFee))
+    if (!ReadFee(vm, fee, checkFee))
     {
         return false;
     }
@@ -153,6 +148,53 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asse
     if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
     {
         assetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
+    }
+
+    return true;
+}
+
+bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
+{
+    Transaction::FeeSettings fs;
+    Amount shieldedFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
+
+    const auto coinSelectionRes = CalcShieldedCoinSelectionInfo(walletDB, amount, (isPushTx && fee > shieldedFee) ? fee - shieldedFee : fee, assetId, isPushTx);
+    shieldedFee = coinSelectionRes.shieldedInputsFee;
+
+    const auto isBeam = assetId == Asset::s_BeamID;
+    if (isBeam)
+    {
+        if (coinSelectionRes.selectedSumBeam  < amount + coinSelectionRes.selectedFee + coinSelectionRes.changeBeam)
+        {
+            LOG_ERROR() << kErrorNotEnoughtCoins;
+            return false;
+        }
+    }
+
+    if (!isBeam)
+    {
+        AmountBig::Type value(amount);
+        value += AmountBig::Type(coinSelectionRes.changeAsset);
+
+        if (AmountBig::Type(coinSelectionRes.selectedSumAsset) < value)
+        {
+            // TODO: enough beam & asset
+            LOG_ERROR() << kErrorNotEnoughtCoins;
+            return false;
+        }
+    }
+
+    if (coinSelectionRes.minimalFee > fee)
+    {
+        if (isPushTx && !coinSelectionRes.shieldedInputsFee)
+        {
+            LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
+        }
+        else
+        {
+            LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
+        }
+        return false;
     }
 
     return true;

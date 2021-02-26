@@ -191,7 +191,6 @@ namespace proto {
 				void PostChainworkProof(const StateArray&, Height hLowHeight);
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
-				Request& get_FirstRequest();
 				void OnFirstRequestDone(bool bStillSupported);
 
 				io::Timer::Ptr m_pTimer;

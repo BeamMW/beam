@@ -36,7 +36,7 @@ namespace beam::wallet
         storage::Totals allTotals(*walletDB);
 
         const auto& totals = allTotals.GetBeamTotals();
-        const auto available = AmountBig::get_Lo(totals.Avail) + AmountBig::get_Lo(totals.AvailShielded);
+        const auto available = AmountBig::get_Lo(totals.Avail);
 
         if (beamAmount + beamFee > available)
         {
@@ -425,7 +425,7 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, msg.str());
         }
 
-        Amount maxFeeRate = swaps->getMaxFeeRate(*swapCoin);
+        Amount maxFeeRate =swaps->getMaxFeeRate(*swapCoin);
 
         if (maxFeeRate > 0 && data.swapFeeRate > maxFeeRate)
         {

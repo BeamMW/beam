@@ -79,6 +79,8 @@ namespace beam::wallet
             return boost::none;
         }
 
+        // If no fee read and no min fee provided this function calculates minimum fee itself
+        static Amount getBeamFeeParam(const json& params, const std::string& name = "fee", boost::optional<Amount> minfee = boost::none);
         static bool hasParam(const json &params, const std::string &name);
 
     protected:

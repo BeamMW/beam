@@ -962,12 +962,8 @@ namespace beam::wallet
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        m_CoinsSelectionResult.m_requestedSum = requested;
-        m_CoinsSelectionResult.m_assetID = assetId;
-        m_CoinsSelectionResult.m_explicitFee = beforehandMinFee;
-
-        m_CoinsSelectionResult.Calculate(m_currentHeight, m_walletDB, isShielded);
-        onCoinsSelectionCalculated(m_CoinsSelectionResult);
+        m_shieldedCoinsSelectionResult = CalcShieldedCoinSelectionInfo(m_walletDB, requested, beforehandMinFee, assetId, isShielded);
+        onShieldedCoinsSelectionCalculated(m_shieldedCoinsSelectionResult);
     }
 
     void WalletClient::getWalletStatus()
@@ -1408,10 +1404,7 @@ namespace beam::wallet
     {
         try
         {
-            if (auto w = getWallet())
-            {
-                m_walletDB->ImportRecovery(path, *w, *this);
-            }
+            m_walletDB->ImportRecovery(path, *this);
             return;
         }
         catch (const std::exception& e)

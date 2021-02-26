@@ -85,10 +85,6 @@ namespace
         {
             assert(false);
         }
-
-        Height get_CurrentHeight() const override {
-            return 18;
-        }
     };
 
     void testInvalidJsonRpc(jsonFunc func, const std::string& msg)

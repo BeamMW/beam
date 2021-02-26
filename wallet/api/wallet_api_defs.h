@@ -85,7 +85,7 @@ namespace beam::wallet
         Amount swapAmount = 0;
         AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
         bool isBeamSide = true;
-        Amount beamFee = 0;
+        Amount beamFee = kMinFeeInGroth;
         Amount swapFeeRate = 0;
         Height offerLifetime = 15;
         std::string comment;
@@ -147,7 +147,7 @@ namespace beam::wallet
     struct AcceptOffer
     {
         std::string token;
-        Amount beamFee = 0;
+        Amount beamFee = kMinFeeInGroth;
         Amount swapFeeRate = 0;
         std::string comment;
         struct Response
@@ -255,7 +255,7 @@ namespace beam::wallet
     struct Send
     {
         Amount value = 0;
-        Amount fee = 0;
+        Amount fee = kMinFeeInGroth;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
         boost::optional<uint64_t> session;
@@ -274,7 +274,7 @@ namespace beam::wallet
     struct Issue
     {
         Amount value = 0;
-        Amount fee = 0;
+        Amount fee = kMinFeeInGroth;
         boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
@@ -290,7 +290,7 @@ namespace beam::wallet
     struct Consume
     {
         Amount value = 0;
-        Amount fee = 0;
+        Amount fee = kMinFeeInGroth;
         boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
@@ -330,7 +330,7 @@ namespace beam::wallet
 
     struct Split
     {
-        Amount fee = 0;
+        Amount fee = kMinFeeInGroth;
         AmountList coins;
         boost::optional<TxID> txId;
         boost::optional<Asset::ID> assetId;

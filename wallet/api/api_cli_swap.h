@@ -34,6 +34,8 @@
 using namespace beam;
 using namespace beam::wallet;
 
+
+
 class ApiCliSwap
     : public ISwapsProvider
     , ISwapOffersObserver
@@ -60,7 +62,6 @@ public:
         initSwapClient<bitcoin_cash::BitcoinCashCore, bitcoin_cash::Electrum, bitcoin_cash::SettingsProvider>(AtomicSwapCoin::Bitcoin_Cash);
 #endif // BITCOIN_CASH_SUPPORT
         initSwapClient<dogecoin::DogecoinCore014, dogecoin::Electrum, dogecoin::SettingsProvider>(AtomicSwapCoin::Dogecoin);
-        initEthClient();
     }
 
 private:
@@ -155,16 +156,6 @@ private:
         auto client = std::make_shared<SwapClient>(bridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
         _swapClients.emplace(std::make_pair(swapCoin, client));
         _swapBridgeHolders.emplace(std::make_pair(swapCoin, bridgeHolder));
-    }
-
-    void initEthClient()
-    {
-        auto settingsProvider = std::make_unique<ethereum::SettingsProvider>(_walletDB);
-        settingsProvider->Initialize();
-
-        _swapEthBridgeHolder = std::make_shared<ethereum::BridgeHolder>();
-        _swapEthClient = std::make_shared<SwapEthClient>
-            (_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
     }
 
 private:

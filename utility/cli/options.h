@@ -223,6 +223,10 @@ namespace beam
         extern const char* EXCHANGE_UNIT;
 
         // lelantus
+        extern const char* INSERT_TO_POOL;
+        extern const char* EXTRACT_FROM_POOL;
+        extern const char* SHIELDED_UTXOS;
+        extern const char* SHIELDED_ID;
         extern const char* MAX_PRIVACY_ADDRESS;
         extern const char* OFFLINE_ADDRESS;
         extern const char* PUBLIC_OFFLINE;

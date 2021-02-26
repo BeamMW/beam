@@ -49,7 +49,7 @@ namespace beam
     class NodeClient
     {
     public:
-        NodeClient(const Rules& rules, INodeClientObserver* observer);
+        NodeClient(INodeClientObserver* observer);
         ~NodeClient();
 
         void setKdf(beam::Key::IKdf::Ptr);
@@ -66,7 +66,6 @@ namespace beam
         void setRecreateTimer();
 
     private:
-        const Rules& m_rules;
         INodeClientObserver* m_observer;
         std::shared_ptr<std::thread> m_thread;
         std::weak_ptr<beam::io::Reactor> m_reactor;

@@ -2185,11 +2185,11 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
 
     if (hr.m_Min >= Rules::get().pForks[1].m_Height)
     {
-        auto& fs = Transaction::FeeSettings::get(hr.m_Min);
-        Amount feesMin = fs.Calculate(s);
+        Transaction::FeeSettings feeSettings;
+        Amount feesMin = feeSettings.Calculate(s);
 
         if (nBvmCharge)
-            feesMin += fs.CalculateForBvm(s, nBvmCharge);
+            feesMin += feeSettings.CalculateForBvm(s, nBvmCharge);
 
         AmountBig::Type val(feesMin);
 
@@ -2604,12 +2604,12 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
     // add dummy outputs
     bool bModified = false;
-    auto& fs = Transaction::FeeSettings::get(m_Processor.m_Cursor.m_Full.m_Height + 1);
+    Transaction::FeeSettings feeSettings;
     NodeDB& db = m_Processor.get_DB();
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-        if (feeReserve < fs.m_Output)
+        if (feeReserve < feeSettings.m_Output)
             break;
 
 		CoinID cid(Zero);
@@ -2637,7 +2637,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
         sk = -sk;
         tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
 
-        feeReserve -= fs.m_Output;
+        feeReserve -= feeSettings.m_Output;
     }
 
     if (bModified)
@@ -2677,6 +2677,19 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 		if (!bValid)
 			return proto::TxStatus::InvalidContext;
 	}
+    else
+    {
+        for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
+        {
+            TxPool::Stem::Element::Kernel key;
+			key.m_pKrn = ptx->m_vKernels[i].get();
+
+            TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
+            if (m_Dandelion.m_setKrns.end() != it)
+                m_Dandelion.Delete(*it->m_pThis);
+        }
+
+    }
 
     TxPool::Fluff::Element::Tx key;
     ptx->get_Key(key.m_Key);
@@ -2687,6 +2700,8 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 
     const Transaction& tx = *ptx;
 
+    m_Wtx.Delete(key.m_Key);
+
     // new transaction
     uint32_t nSizeCorrection = 0;
     Amount feeReserve = 0;
@@ -2696,22 +2711,6 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
 	if (proto::TxStatus::Ok != nCode) {
 		return nCode; // stupid compiler insists on parentheses here!
 	}
-
-    m_Wtx.Delete(key.m_Key);
-
-    if (!pElem)
-    {
-        for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
-        {
-            TxPool::Stem::Element::Kernel keyKrn;
-            keyKrn.m_pKrn = ptx->m_vKernels[i].get();
-
-            TxPool::Stem::KrnSet::iterator itKrn = m_Dandelion.m_setKrns.find(keyKrn);
-            if (m_Dandelion.m_setKrns.end() != itKrn)
-                m_Dandelion.Delete(*itKrn->m_pThis);
-        }
-
-    }
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key, nSizeCorrection);
 

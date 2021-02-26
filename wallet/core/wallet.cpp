@@ -215,9 +215,7 @@ namespace beam::wallet
         {
             assert(m_OwnedNodesOnline); // check that m_OwnedNodesOnline is positive number
             if (!--m_OwnedNodesOnline)
-            {
                 AbortEvents();
-            }
         }
 
         for (const auto sub : m_subscribers)
@@ -353,13 +351,6 @@ namespace beam::wallet
         get_tip(state);
 
         return IsValidTimeStamp(state.m_TimeStamp);
-    }
-
-    Height Wallet::get_CurrentHeight() const
-    {
-        Block::SystemState::Full s;
-        get_tip(s);
-        return s.m_Height;
     }
 
     size_t Wallet::GetUnsafeActiveTransactionsCount() const
@@ -1481,9 +1472,7 @@ namespace beam::wallet
     void Wallet::RequestEvents()
     {
         if (!m_OwnedNodesOnline)
-        {
             return;
-        }
 
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
@@ -1535,7 +1524,7 @@ namespace beam::wallet
             }
 
         } p(*this);
-
+        
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
 
         if (nCount < r.m_Max)
@@ -2164,7 +2153,7 @@ namespace beam::wallet
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
-        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin, *this);
+        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin);
     }
 
     void Wallet::SetTreasuryHandled(bool value)

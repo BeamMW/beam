@@ -488,6 +488,12 @@ namespace beam::wallet
         }
     }
 
+    Amount AtomicSwapTransaction::GetWithdrawFee() const
+    {
+        // TODO(alex.starun): implement fee calculation
+        return kMinFeeInGroth;
+    }
+
     void AtomicSwapTransaction::UpdateImpl()
     {
         try
