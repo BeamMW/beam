@@ -18,7 +18,6 @@
 #include <memory>
 #include <thread>
 #include <boost/asio/ip/tcp.hpp>
-//#include "pipe.h"
 #include "reactor.h"
 #include "utility/io/timer.h"
 
@@ -45,8 +44,5 @@ namespace beam::wallet {
         boost::asio::io_context       _ioc;
         std::shared_ptr<std::thread>  _iocThread;
         std::string                   _allowedOrigin;
-        //io::Timer::Ptr                _aliveLogTimer;
-        //Heartbeat                     _heartbeat;
-        //std::string                   _logPrefix;
     };
 }

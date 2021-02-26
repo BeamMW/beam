@@ -9,8 +9,7 @@ add_library(websocket STATIC
     reactor.cpp 
     sessions.h 
     sessions.cpp
-    utils.h
-    utils.cpp)
+    )
 
 target_link_libraries(websocket
     PUBLIC

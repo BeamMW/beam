@@ -14,7 +14,7 @@
 #include "websocket_server.h"
 #include "sessions.h"
 #include "utility/logger.h"
-#include "utils.h"
+//#include "utils.h"
 #include "reactor.h"
 
 namespace beam::wallet
@@ -120,7 +120,6 @@ namespace beam::wallet
     WebSocketServer::WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin)
         : _ioc(1)
         , _allowedOrigin(std::move(allowedOrigin))
-        //, _logPrefix(std::move(logPrefix))
     {
         _iocThread = std::make_shared<std::thread>([this, port, reactor]() {
 
@@ -133,28 +132,12 @@ namespace beam::wallet
                     tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port },
                     reactor, creator, _allowedOrigin)->run();
 
-            //if (withPipes)
-            //{
-              //  Pipe syncPipe(Pipe::SyncFileDescriptor);
-              //  syncPipe.notifyListening();
-              //  _heartbeat.start();
-           // }
-
             _ioc.run();
         });
-
-        //LOG_INFO() << logPrefix << " alive log interval: " << msec2readable(getAliveLogInterval());
-       // _aliveLogTimer = io::Timer::create(reactor->ref());
-       // _aliveLogTimer->start(getAliveLogInterval(), true, []() {
-       //     logAlive("Wallet service");
-       // });
     }
 
     WebSocketServer::~WebSocketServer()
     {
-       // _heartbeat.stop();
-       // if (_aliveLogTimer) _aliveLogTimer->cancel();
-
         _ioc.stop();
         if (_iocThread && _iocThread->joinable())
         {
