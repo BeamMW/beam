@@ -38,7 +38,7 @@ namespace beam::wallet
         virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
-        virtual void getUtxosStatus() = 0;
+        virtual void getUtxosStatus(beam::Asset::ID) = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;

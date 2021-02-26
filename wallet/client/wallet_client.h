@@ -195,7 +195,7 @@ namespace beam::wallet
         void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
-        void getUtxosStatus() override;
+        void getUtxosStatus(beam::Asset::ID) override;
         void getAddresses(bool own) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
