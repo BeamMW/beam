@@ -121,7 +121,7 @@ namespace beam::wallet {
             return fail(ec, "read");
 
         {
-            std::string data = boost::beast::buffers_to_string(_buffer.cdata());
+            std::string data = boost::beast::buffers_to_string(_buffer.data());
             _buffer.consume(_buffer.size());
 
             if (!data.empty())
