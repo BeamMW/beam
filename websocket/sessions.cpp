@@ -37,6 +37,7 @@ namespace beam::wallet {
         , _creator(std::move(creator))
     {
         LOG_DEBUG() << "WebsocketSession created";
+        _wsocket.binary(true);
     }
 
     WebsocketSession::~WebsocketSession()
