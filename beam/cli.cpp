@@ -25,6 +25,8 @@
 #include <iomanip>
 
 #include "pow/external_pow.h"
+#include "websocket/websocket_server.h"
+
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -35,6 +37,90 @@
 using namespace std;
 using namespace beam;
 using namespace ECC;
+
+namespace
+{
+	using namespace beam;
+	using namespace beam::wallet;
+
+	class WebClient
+		: public  WebSocketServer::ClientHandler  // We handle web socket client
+		, public std::enable_shared_from_this<WebClient>
+	{
+	public:
+		WebClient(WebSocketServer::SendFunc wsSend)
+			: _wsSend(std::move(wsSend))
+		{
+			auto& r = io::Reactor::get_Current();
+			r.tcp_connect(io::Address::localhost().port(10000), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
+		}
+
+		~WebClient() noexcept override
+		{
+			auto& r = io::Reactor::get_Current();
+			r.cancel_tcp_connect(uint64_t(this));
+		}
+	private:
+		void ReactorThread_onWSDataReceived(const std::string& data)
+		{
+			_dataQueue.push(data);
+			if (_stream)
+			{
+				ProcessDataQueue();
+			}
+		}
+
+		void ProcessDataQueue()
+		{
+			while (!_dataQueue.empty())
+			{
+				auto& d = _dataQueue.front();
+				_stream->write(d.data(), d.size());
+				_dataQueue.pop();
+			}
+		}
+
+		void OnConnected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
+		{
+			if (newStream)
+			{
+				_stream = std::move(newStream);
+				_stream->enable_read(
+					[this](io::ErrorCode what, void* data, size_t size) -> bool
+					{
+						_wsSend(std::string((const char*)data, size));
+						return true;
+					});
+				ProcessDataQueue();
+			}
+		}
+	private:
+		WebSocketServer::SendFunc _wsSend;
+		io::TcpStream::Ptr _stream;
+		std::queue<std::string> _dataQueue;
+
+	};
+
+	class WebSocketNode : public WebSocketServer
+	{
+	public:
+		WebSocketNode(SafeReactor::Ptr reactor, uint16_t port,
+			const std::string& allowedOrigin)
+			: WebSocketServer(std::move(reactor), port, allowedOrigin)
+		{
+		}
+
+		~WebSocketNode() = default;
+
+	private:
+		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend) override
+		{
+			return std::make_shared<WebClient>(wsSend);
+		}
+
+	private:
+	};
+}
 
 namespace
 {
@@ -206,10 +292,13 @@ int main_impl(int argc, char* argv[])
             }
 
 			{
-				reactor = io::Reactor::create();
-				io::Reactor::Scope scope(*reactor);
+				SafeReactor::Ptr safeReactor = SafeReactor::create();
+				io::Reactor::Scope scope(safeReactor->ref());
+				io::Reactor::GracefulIntHandler gih(safeReactor->ref());
+				reactor = safeReactor->ptr();
+				//io::Reactor::Scope scope(*reactor);
 
-				io::Reactor::GracefulIntHandler gih(*reactor);
+				//io::Reactor::GracefulIntHandler gih(*reactor);
 
 				LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
@@ -226,6 +315,8 @@ int main_impl(int argc, char* argv[])
 
 				{
 					beam::Node node;
+
+					WebSocketNode webSocketNode(safeReactor, 8100, "");
 
                     NodeObserver observer(node);
 

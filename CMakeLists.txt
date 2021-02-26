@@ -431,6 +431,8 @@ add_subdirectory(bvm)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
 
+add_subdirectory(websocket)
+
 
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)

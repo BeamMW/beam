@@ -17,6 +17,8 @@ target_link_libraries(${TARGET_NAME}
         node
         external_pow
         cli
+        websocket
+        Boost::date_time
 )
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
