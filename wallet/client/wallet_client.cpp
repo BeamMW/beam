@@ -90,9 +90,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getTransactions);
     }
 
-    void getUtxosStatus() override
+    void getUtxosStatus(beam::Asset::ID id) override
     {
-        call_async(&IWalletModelAsync::getUtxosStatus);
+        call_async(&IWalletModelAsync::getUtxosStatus, id);
     }
 
     void getAddresses(bool own) override
@@ -980,10 +980,10 @@ namespace beam::wallet
         onTransactionChanged(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
     }
 
-    void WalletClient::getUtxosStatus()
+    void WalletClient::getUtxosStatus(beam::Asset::ID id)
     {
-        onCoinsChanged(ChangeAction::Reset, getUtxos(beam::Asset::s_BeamID));
-        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(beam::Asset::s_BeamID));
+        onCoinsChanged(ChangeAction::Reset, getUtxos(id));
+        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(id));
     }
 
     void WalletClient::getAddresses(bool own)
