@@ -197,6 +197,7 @@ namespace beam::wallet
         void getTransactions() override;
         void getUtxosStatus(beam::Asset::ID) override;
         void getAddresses(bool own) override;
+        void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;

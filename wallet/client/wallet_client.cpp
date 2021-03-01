@@ -97,7 +97,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void getAddresses(bool own) override
     {
-        call_async(&IWalletModelAsync::getAddresses, own);
+        typedef void(IWalletModelAsync::* MethodType)(bool);
+        call_async((MethodType)&IWalletModelAsync::getAddresses, own);
+    }
+
+    void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(bool, AsyncCallback<const std::vector<WalletAddress>&>&&);
+        call_async((MethodType)&IWalletModelAsync::getAddresses, own, std::move(callback));
     }
 
      void getDexOrders() override
@@ -989,6 +996,14 @@ namespace beam::wallet
     void WalletClient::getAddresses(bool own)
     {
         onAddresses(own, m_walletDB->getAddresses(own));
+    }
+
+    void WalletClient::getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback)
+    {
+        postFunctionToClientContext([res= m_walletDB->getAddresses(own), cb = std::move(callback)]()
+        {
+            cb(std::move(res));
+        });
     }
 
     void WalletClient::getDexOrders()

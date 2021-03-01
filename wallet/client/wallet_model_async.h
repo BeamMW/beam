@@ -40,6 +40,7 @@ namespace beam::wallet
         virtual void getTransactions() = 0;
         virtual void getUtxosStatus(beam::Asset::ID) = 0;
         virtual void getAddresses(bool own) = 0;
+        virtual void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;
