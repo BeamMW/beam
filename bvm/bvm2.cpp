@@ -1315,8 +1315,29 @@ namespace bvm2 {
 		return r.pForks[iFork].m_Height;
 	}
 
-	struct Processor::DataProcessor::Sha256
+	struct Processor::DataProcessor::FixedResSize
 		:public Processor::DataProcessor::Base
+	{
+		virtual void Read(ECC::Hash::Value&) = 0;
+
+		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		{
+			if (n >= ECC::Hash::Value::nBytes)
+			{
+				Read(*reinterpret_cast<ECC::Hash::Value*>(p));
+				return ECC::Hash::Value::nBytes;
+			}
+
+			ECC::Hash::Value hv;
+			Read(hv);
+
+			memcpy(p, hv.m_pData, n);
+			return n;
+		}
+	};
+
+	struct Processor::DataProcessor::Sha256
+		:public Processor::DataProcessor::FixedResSize
 	{
 		ECC::Hash::Processor m_Hp;
 
@@ -1325,15 +1346,10 @@ namespace bvm2 {
 		{
 			m_Hp << Blob(p, n);
 		}
-		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		virtual void Read(ECC::Hash::Value& hv) override
 		{
-			ECC::Hash::Value hv;
 			ECC::Hash::Processor(m_Hp) >> hv;
 			m_Hp << hv;
-			
-			std::setmin(n, hv.nBytes);
-			memcpy(p, hv.m_pData, n);
-			return n;
 		}
 	};
 
@@ -1362,7 +1378,7 @@ namespace bvm2 {
 	};
 
 	struct Processor::DataProcessor::Keccak256
-		:public Processor::DataProcessor::Base
+		:public Processor::DataProcessor::FixedResSize
 	{
 		SHA3_CTX m_State;
 
@@ -1385,17 +1401,12 @@ namespace bvm2 {
 			keccak_update(&m_State, p, static_cast<uint16_t>(n));
 
 		}
-		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		virtual void Read(ECC::Hash::Value& hv) override
 		{
 			SHA3_CTX s = m_State; // copy
 
-			ECC::Hash::Value hv;
 			keccak_final(&s, hv.m_pData);
 			keccak_update(&m_State, hv.m_pData, static_cast<uint16_t>(hv.nBytes));
-
-			std::setmin(n, hv.nBytes);
-			memcpy(p, hv.m_pData, n);
-			return n;
 		}
 	};
 
