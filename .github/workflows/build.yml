@@ -541,8 +541,8 @@ jobs:
     - name: Download and install emscripten
       shell: bash
       run: |
-        git clone https://github.com/emscripten-core/emsdk.git
-        cd emsdk
+        git clone https://github.com/emscripten-core/emsdk.git ${{runner.workspace}}/emsdk
+        cd ${{runner.workspace}}/emsdk
         git pull
         ./emsdk install latest
         ./emsdk activate latest
@@ -564,7 +564,7 @@ jobs:
 ###############################################################################
     - name: Configure CMake
       run: |
-        source ./emsdk/emsdk_env.sh
+        source ${{runner.workspace}}/emsdk/emsdk_env.sh
         cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBoost_NO_SYSTEM_PATHS=FALSE -DCMAKE_VERBOSE_MAKEFILE=ON -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_USE_STATIC=On -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl_wasm -DOPENSSL_INCLUDE_DIR=${{runner.workspace}}/openssl-wasm/include -D OPENSSL_CRYPTO_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libcrypto.a -DOPENSSL_SSL_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libssl.a -B${{runner.workspace}}/build_wasm
         emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
 
