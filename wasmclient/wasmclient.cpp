@@ -14,20 +14,16 @@
 
 // #include "wallet/client/wallet_client.h"
 #include <emscripten/bind.h>
-#include <string>
-#include <thread>
-#include <sstream>
-#include <chrono>
-#include <vector>
-#include <mutex>
-#include <memory>
+#include <emscripten/threading.h>
+#include <emscripten/val.h>
+
 #include "wallet/client/wallet_client.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
 #include <boost/algorithm/string.hpp>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <queue>
+#include <exception>
 
 
 using namespace beam;
@@ -80,6 +76,59 @@ namespace
     }
 }
 
+class WalletClient2 : public WalletClient
+{
+public:
+    using WalletClient::WalletClient;
+private:
+    void onPostFunctionToClientContext(MessageFunction&& func)
+    {
+        LOG_DEBUG() << std::this_thread::get_id() << " onPostFunctionToClientContext";
+        {
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_Messages.push(std::move(func));
+        }
+        emscripten_async_run_in_main_runtime_thread(
+            EM_FUNC_SIG_VI,
+            &WalletClient2::ProsessMessageOnMainThread,
+            reinterpret_cast<int>(this));
+    }
+    static void ProsessMessageOnMainThread(int pThis)
+    {
+        reinterpret_cast<WalletClient2*>(pThis)->ProsessMessageOnMainThread2();
+    }
+
+    void ProsessMessageOnMainThread2()
+    {
+        LOG_DEBUG() << std::this_thread::get_id() << "[Main thread] ProsessMessageOnMainThread";
+        if (!m_Messages.empty())
+        {
+            auto func = m_Messages.front();
+            func();
+            m_Messages.pop();
+        }
+    }
+public:
+    void PushCallback(val&& callback)
+    {
+        m_Callbacks.push(std::move(callback));
+    }
+    val PopCallback()
+    {
+        if (m_Callbacks.empty())
+        {
+            throw std::runtime_error("unexpected pop");
+        }
+        auto cb = std::move(m_Callbacks.front());
+        m_Callbacks.pop();
+        return cb;
+    }
+private:
+    std::mutex m_Mutex;
+    std::queue<MessageFunction> m_Messages;
+    std::queue<val> m_Callbacks;
+};
+
 class WasmWalletClient //: public WalletClient
 {
 public:
@@ -105,6 +154,16 @@ public:
         m_Client.getAsync()->sendMoney(w, "", (Amount)amount, (Amount)fee);
     }
 
+    void GetMaxPrivacyLockTimeLimitHours(val callback)
+    {
+        m_Client.PushCallback(std::move(callback));
+        m_Client.getAsync()->getMaxPrivacyLockTimeLimitHours([this](uint8_t v)
+        {
+            auto cb = m_Client.PopCallback();
+            cb(v);
+        });
+    }
+
 private:
     std::string m_Seed;
     std::shared_ptr<Logger> m_Logger;
@@ -112,7 +171,7 @@ private:
     std::mutex m_Mutex;
     io::Reactor::Ptr m_Reactor;
     IWalletDB::Ptr m_Db;
-    WalletClient m_Client;
+    WalletClient2 m_Client;
 };
 
 
@@ -121,7 +180,8 @@ EMSCRIPTEN_BINDINGS()
 {
     class_<WasmWalletClient>("WasmWalletClient")
         .constructor<const std::string&, const std::string&, const std::string&>()
-        .function("startWallet",                &WasmWalletClient::StartWallet)
-        .function("send",                       &WasmWalletClient::Send)
+        .function("startWallet",                      &WasmWalletClient::StartWallet)
+        .function("send",                             &WasmWalletClient::Send)
+        .function("getMaxPrivacyLockTimeLimitHours",  &WasmWalletClient::GetMaxPrivacyLockTimeLimitHours)
         ;
 }
