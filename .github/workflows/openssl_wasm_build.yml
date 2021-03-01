@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           curl -O https://www.openssl.org/source/${{env.OPENSSL}}.tar.gz
-          tar ${{env.OPENSSL}}.tar.gz
+          tar -xf ${{env.OPENSSL}}.tar.gz
 
       - name: Configure && Build && Install
         shell: bash
