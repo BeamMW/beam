@@ -92,86 +92,17 @@ public:
         , m_Client(Rules::get(), m_Db, node, m_Reactor)
     {}
 
-    std::string TestThreads()
-    {
-        std::vector<std::thread> threads;
-
-        for (int i = 0; i < 5; ++i)
-        {
-            threads.emplace_back([this]() { ThreadFunc(); });
-        }
-
-        for (auto& t : threads)
-        {
-            if (t.joinable())
-            {
-                t.join();
-            }
-        }
-
-        return "TestThreads " + std::to_string(std::thread::hardware_concurrency()) + m_Seed;
-    }
-
-    void ThreadFunc()
-    {
-        std::stringstream ss;
-        ss << "\nThread #" << std::this_thread::get_id();
-        {
-            std::unique_lock lock(m_Mutex);
-            m_Seed += ss.str();
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
-    std::string TestWalletDB()
-    {
-        ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = 10283UL;
-        puts("TestWalletDB...");
-        auto reactor = io::Reactor::create();
-        io::Reactor::Scope scope(*reactor);
-        auto walletDB = WalletDB::init("//test_wallet.db", std::string("123"), seed);
-        if (walletDB)
-        {
-            puts("setting new state...");
-            beam::Block::SystemState::ID id = { };
-            id.m_Height = 134;
-            walletDB->setSystemStateID(id);
-            return std::to_string(walletDB->getCurrentHeight());
-        }
-        else
-        {
-            puts("failed to open");
-            return "";
-        }
-    }
-
-    void TestReactor()
-    {
-    
-            Reactor::Ptr reactor = Reactor::create();
-          
-            auto f = std::async(
-                std::launch::async,
-                [reactor]() {
-                this_thread::sleep_for(chrono::microseconds(300000));
-                //usleep(300000);
-                LOG_DEBUG() << "stopping reactor from foreign thread...";
-                reactor->stop();
-            }
-            );
-          
-            LOG_DEBUG() << "starting reactor...";;
-            reactor->run();
-            LOG_DEBUG() << "reactor stopped";
-          
-            f.get();
-    }
-
     void StartWallet()
     {
         m_Client.getAsync()->enableBodyRequests(true);
         m_Client.start({}, true, {});
+    }
+
+    void Send(const std::string& receiver, int amount, int fee)
+    {
+        WalletID w;
+        w.FromHex(receiver);
+        m_Client.getAsync()->sendMoney(w, "", (Amount)amount, (Amount)fee);
     }
 
 private:
@@ -184,28 +115,13 @@ private:
     WalletClient m_Client;
 };
 
-//struct WasmClientWrapper
-//{
-//public:
-//    WasmClientWrapper(const std::string& phrase)
-//    {
-//        _client = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
-//    }
-//
-//private:
-//    std::unique_ptr<WasmClient> _client;
-//
-//};
+
 // Binding code
 EMSCRIPTEN_BINDINGS() 
 {
     class_<WasmWalletClient>("WasmWalletClient")
         .constructor<const std::string&, const std::string&, const std::string&>()
-        .function("testThreads",                &WasmWalletClient::TestThreads)
-        //.function("testOpenSSL",                &WasmWalletClient::TestOpenSSL)
-        .function("testReactor",                &WasmWalletClient::TestReactor)
-        .function("testWalletDB",               &WasmWalletClient::TestWalletDB)
         .function("startWallet",                &WasmWalletClient::StartWallet)
- 
+        .function("send",                       &WasmWalletClient::Send)
         ;
 }
