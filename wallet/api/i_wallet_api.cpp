@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "i_wallet_api.h"
+#include "v6_0/wallet_api.h"
 #include <stdexcept>
 
 namespace beam::wallet
@@ -21,7 +22,7 @@ namespace beam::wallet
         switch (version)
         {
         case ApiVer6_0:
-            throw std::runtime_error("unsupported version");
+            return std::make_shared<WalletApi>(handler, data.acl, data.walletDB, data.wallet, data.swaps, data.contracts);
         default:
             throw bad_api_version();
         }
