@@ -8,7 +8,7 @@ env:
   OPENSSL: openssl-1.1.1i
 
 jobs:
-  build_ubuntu:
+  build_openssl_wasm:
     runs-on: ubuntu-20.04
 
     steps:
