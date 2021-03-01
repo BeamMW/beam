@@ -25,14 +25,14 @@ namespace beam::wallet
     #define API_READ_ACCESS false
 
     class ApiBase
-        : public IWalletAPI
+        : public IWalletApi
     {
     public:
         static inline const char JsonRpcHeader[] = "jsonrpc";
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletAPIHandler& handler, ACL acl = boost::none);
+        ApiBase(IWalletApiHandler& handler, ACL acl = boost::none);
 
         // TODO: review error codes and returned results
         ApiSyncMode executeAPIRequest(const char *data, size_t size);
@@ -77,7 +77,7 @@ namespace beam::wallet
 
         std::unordered_map <std::string, Method> _methods;
         ACL _acl;
-        IWalletAPIHandler& _handler;
+        IWalletApiHandler& _handler;
 
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");

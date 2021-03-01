@@ -30,7 +30,7 @@ namespace beam::wallet
     const uint32_t ApiVer6_0 = 60;
     const uint32_t ApiVerCurrent = ApiVer6_0;
 
-    class IWalletAPIHandler
+    class IWalletApiHandler
     {
     public:
          virtual void sendAPIResponse(const json& result) = 0;
@@ -49,11 +49,11 @@ namespace beam::wallet
         }
     };
 
-    class IWalletAPI
+    class IWalletApi
     {
     public:
-        typedef std::shared_ptr<IWalletAPI> Ptr;
-        typedef std::weak_ptr<IWalletAPI> WeakPtr;
+        typedef std::shared_ptr<IWalletApi> Ptr;
+        typedef std::weak_ptr<IWalletApi> WeakPtr;
         typedef boost::optional<std::map<std::string, bool>> ACL;
 
         struct InitData
@@ -66,7 +66,7 @@ namespace beam::wallet
         };
 
         // throws std::runtime_error
-        static Ptr CreateInstance(uint32_t version, IWalletAPIHandler& handler, const InitData& data);
+        static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
         // doesn't throw
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
