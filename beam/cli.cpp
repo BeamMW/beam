@@ -101,16 +101,16 @@ namespace
 
 	};
 
-	class WebSocketNode : public WebSocketServer
+	class WebSocketProxy : public WebSocketServer
 	{
 	public:
-		WebSocketNode(SafeReactor::Ptr reactor, uint16_t port,
+		WebSocketProxy(SafeReactor::Ptr reactor, uint16_t port,
 			const std::string& allowedOrigin)
 			: WebSocketServer(std::move(reactor), port, allowedOrigin)
 		{
 		}
 
-		~WebSocketNode() = default;
+		~WebSocketProxy() = default;
 
 	private:
 		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend) override
@@ -293,12 +293,10 @@ int main_impl(int argc, char* argv[])
 
 			{
 				SafeReactor::Ptr safeReactor = SafeReactor::create();
-				io::Reactor::Scope scope(safeReactor->ref());
-				io::Reactor::GracefulIntHandler gih(safeReactor->ref());
 				reactor = safeReactor->ptr();
-				//io::Reactor::Scope scope(*reactor);
+				io::Reactor::Scope scope(*reactor);
 
-				//io::Reactor::GracefulIntHandler gih(*reactor);
+				io::Reactor::GracefulIntHandler gih(*reactor);
 
 				LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
@@ -316,7 +314,11 @@ int main_impl(int argc, char* argv[])
 				{
 					beam::Node node;
 
-					WebSocketNode webSocketNode(safeReactor, 8100, "");
+					std::unique_ptr<WebSocketProxy> webSocketProxy;
+					if (auto wsPort = vm[cli::WEBSOCKET_PORT].as<uint16_t>(); wsPort > 0)
+					{
+						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsPort, "");
+					}
 
                     NodeObserver observer(node);
 
