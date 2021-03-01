@@ -16,7 +16,7 @@
 
 namespace beam::wallet
 {
-    IWalletAPI::Ptr IWalletAPI::CreateInstance(uint32_t version, IWalletAPIHandler& handler, const InitData& data)
+    IWalletApi::Ptr IWalletApi::CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data)
     {
         switch (version)
         {

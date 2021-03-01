@@ -75,7 +75,7 @@ namespace
 
     class WalletApiTest
         : public wallet::WalletApi
-        , IWalletAPIHandler
+        , IWalletApiHandler
     {
     public:
         WalletApiTest(): WalletApi(*this, boost::none, nullptr, nullptr, nullptr, nullptr) {}

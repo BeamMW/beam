@@ -25,7 +25,7 @@ namespace {
 }
 
 namespace beam::wallet {
-    ApiBase::ApiBase(IWalletAPIHandler& handler, ACL acl)
+    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl)
         : _acl(std::move(acl))
         , _handler(handler)
     {

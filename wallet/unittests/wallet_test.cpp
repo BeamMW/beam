@@ -57,7 +57,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/i_wallet_api.h"
+#include "wallet/api/v6_0/wallet_api.h"
 
 namespace
 {
@@ -72,10 +72,15 @@ namespace
         bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
 
-    struct ApiTest: beam::wallet::WalletApi
+    struct ApiTest
+        : public IWalletApiHandler
+        , public beam::wallet::WalletApi
     {
-        using WalletApi::WalletApi;
-        
+        ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
+            : WalletApi(*this, boost::none, std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+        {
+        }
+
         std::vector<json> m_Messages;
         void sendAPIResponse(const json& msg) override
         {
@@ -181,8 +186,7 @@ namespace
         WALLET_CHECK(rh.size() == Count);
 
         auto asp = std::make_shared<AtomicSwapProvider>();
-        WalletApi::ACL acl;
-        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr, acl);
+        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr);
         TxList message;
         message.count = 10;
         message.skip = 30;
