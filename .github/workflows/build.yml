@@ -557,7 +557,7 @@ jobs:
     - name: Download openssl
       shell: bash
       run: |
-        git clone https://github.com/BeamMW/openssl-wasm.git
+        git clone https://github.com/BeamMW/openssl-wasm.git ${{runner.workspace}}/openssl-wasm
 
 ###############################################################################
 # Configure CMake && Build
