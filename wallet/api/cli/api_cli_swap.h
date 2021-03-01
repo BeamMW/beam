@@ -13,23 +13,22 @@
 // limitations under the License.
 #pragma once
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #include "wallet/transactions/swaps/utils.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/litecoin/litecoin.h"
 #include "wallet/transactions/swaps/bridges/qtum/qtum.h"
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
-#if defined(BITCOIN_CASH_SUPPORT)
-#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
-#endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dash/dash.h"
-#include "wallet/api/api_swaps_provider.h"
+#include "wallet/api/i_swaps_provider.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
 #include "swap_client.h"
 #include "swap_eth_client.h"
-#include "api_swaps_provider.h"
+
+#if defined(BITCOIN_CASH_SUPPORT)
+#include "wallet/transactions/swaps/bridges/bitcoin_cash/bitcoin_cash.h"
+#endif // BITCOIN_CASH_SUPPORT
 
 using namespace beam;
 using namespace beam::wallet;
@@ -163,8 +162,7 @@ private:
         settingsProvider->Initialize();
 
         _swapEthBridgeHolder = std::make_shared<ethereum::BridgeHolder>();
-        _swapEthClient = std::make_shared<SwapEthClient>
-            (_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
+        _swapEthClient = std::make_shared<SwapEthClient>(_swapEthBridgeHolder, std::move(settingsProvider), io::Reactor::get_Current());
     }
 
 private:
@@ -179,4 +177,3 @@ private:
     std::unique_ptr<SwapOffersBoardSubscriber> _swapOffersBoardSubscriber;
     WalletDB::Ptr _walletDB;
 };
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT

@@ -57,7 +57,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/wallet_api.h"
+#include "wallet/api/i_wallet_api.h"
 
 namespace
 {
@@ -77,7 +77,7 @@ namespace
         using WalletApi::WalletApi;
         
         std::vector<json> m_Messages;
-        void sendMessage(const json& msg) override
+        void sendAPIResponse(const json& msg) override
         {
             m_Messages.push_back(msg);
         }

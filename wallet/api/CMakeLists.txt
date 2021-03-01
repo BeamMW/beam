@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
 add_library(wallet_api_proto STATIC
-    api_errors.cpp
-    api_base.cpp
+    v6_0/api_errors.cpp
+    v6_0/api_base.cpp
 )
 
 target_link_libraries(wallet_api_proto
@@ -11,21 +11,15 @@ target_link_libraries(wallet_api_proto
         utility
 )
 
-set(API_SRC
-    api_handler.cpp
-    wallet_api.cpp
+add_library(wallet_api STATIC
+    v6_0/wallet_api_imp.cpp
+    v6_0/wallet_api_parse.cpp
+    v6_0/wallet_api_swap_imp.cpp
+    v6_0/wallet_api_swap_parse.cpp
+    cli/swap_client.cpp
+    cli/swap_eth_client.cpp
+    i_wallet_api.cpp
 )
-
-if(BEAM_ATOMIC_SWAP_SUPPORT)
-    set(API_SRC
-        ${API_SRC}
-        wallet_api_swap.cpp
-        swap_client.cpp
-        swap_eth_client.cpp
-    )
-endif()
-
-add_library(wallet_api STATIC ${API_SRC})
 
 target_link_libraries(wallet_api
     PUBLIC 
@@ -35,7 +29,8 @@ target_link_libraries(wallet_api
 
 set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
-add_executable(${WALLET_API_NAME} api_cli.cpp api_cli_swap.cpp)
+add_executable(${WALLET_API_NAME} cli/api_cli.cpp cli/api_cli_swap.cpp)
+
 target_link_libraries(${WALLET_API_NAME}
     PRIVATE 
         wallet_api_proto
@@ -50,8 +45,6 @@ if(LINUX)
             -static-libstdc++
             -static-libgcc)
 endif()
-
-#add_subdirectory(unittests)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

@@ -16,21 +16,22 @@
 #include "api_base.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
-#include "api_swaps_provider.h"
 #include "wallet_api_defs.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 
-namespace beam::wallet {
+namespace beam::wallet
+{
     class WalletApi
         : public ApiBase
         , public IShadersManager::IDone
     {
     public:
-        WalletApi(IWalletDB::Ptr wdb,
+        WalletApi(IWalletAPIHandler& handler,
+                  ACL acl,
+                  IWalletDB::Ptr wdb,
                   Wallet::Ptr wallet,
                   ISwapsProvider::Ptr swaps,
-                  IShadersManager::Ptr contracts,
-                  ACL acl = boost::none);
+                  IShadersManager::Ptr contracts);
 
         virtual IWalletDB::Ptr getWalletDB() const
         {
@@ -68,7 +69,8 @@ namespace beam::wallet {
             return _contracts;
         }
 
-        virtual Height get_CurrentHeight() const {
+        virtual Height get_CurrentHeight() const
+        {
             return _wallet->get_CurrentHeight();
         }
 
@@ -94,7 +96,7 @@ namespace beam::wallet {
         {
             json msg;
             getResponse(id, response, msg);
-            sendMessage(msg);
+            _handler.sendAPIResponse(msg);
         }
 
         void FillAddressData(const AddressData& data, WalletAddress& address);

@@ -15,10 +15,11 @@
 #include <iostream>
 #include <core/block_crypt.h>
 #include "test_helpers.h"
-#include "wallet/api/wallet_api.h"
+#include "wallet/api/i_wallet_api.h"
+#include "wallet/api/v6_0/wallet_api.h"
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
-#include "wallet/api/api_swaps_provider.h"
+#include "wallet/api/i_swaps_provider.h"
 
 using namespace std;
 using namespace beam;
@@ -72,16 +73,18 @@ namespace
         WALLET_CHECK(msg["id"] > 0);
     }
 
-    class WalletApiTest: public wallet::WalletApi
+    class WalletApiTest
+        : public wallet::WalletApi
+        , IWalletAPIHandler
     {
     public:
-        WalletApiTest(): WalletApi(nullptr, nullptr, nullptr, nullptr) {}
+        WalletApiTest(): WalletApi(*this, boost::none, nullptr, nullptr, nullptr, nullptr) {}
 
         #define MESSAGE_FUNC(strct, name, ...) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
 
-        void sendMessage(const json&) override
+        void sendAPIResponse(const json&) override
         {
             assert(false);
         }
@@ -107,7 +110,7 @@ namespace
 
         ApiTest api;
         api.func = std::move(func);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testCreateAddressJsonRpc(const std::string& msg)
@@ -128,7 +131,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             std::string addr = "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67";
@@ -171,7 +174,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -234,7 +237,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -272,7 +275,7 @@ namespace
         };
 
         ApiTest api(onError, onSuccess);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -303,7 +306,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testInvalidInvokeContractJsonRpc(const std::string& msg)
@@ -323,7 +326,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -344,7 +347,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -368,7 +371,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -400,7 +403,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -444,7 +447,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -476,7 +479,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -515,7 +518,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -547,7 +550,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testTxListJsonRpc(const std::string& msg)
@@ -570,7 +573,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -604,7 +607,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testValidateAddressJsonRpc(const std::string& msg, bool valid)
@@ -631,7 +634,7 @@ namespace
         };
 
         ApiTest api(valid);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -667,7 +670,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -702,7 +705,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -738,7 +741,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -783,7 +786,7 @@ namespace
         };
 
         ApiTest api(value);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -806,7 +809,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -852,7 +855,7 @@ namespace
         };
 
         ApiTest api(kToken);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -911,7 +914,7 @@ namespace
         };
 
         ApiTest api(kTxId);
-        WALLET_CHECK(api.parseJSON(msg.data(), msg.size()));
+        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
