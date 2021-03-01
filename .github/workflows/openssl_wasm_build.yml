@@ -1,0 +1,53 @@
+name: Build Openssl wasm
+on:
+  push:
+    tags:
+      - openssl_wasm*
+
+env:
+  OPENSSL: openssl-1.1.1i
+
+jobs:
+  build_ubuntu:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Create Build Environment
+        shell: bash
+        run: |
+          mkdir ${{runner.workspace}}/boost_prebuild
+          sudo apt-get update
+
+      - name: Download and install emscripten
+        shell: bash
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git ${{runner.workspace}}/emsdk
+          cd ${{runner.workspace}}/emsdk
+          git pull
+          ./emsdk install latest
+          ./emsdk activate latest
+
+      - name: Download
+        shell: bash
+        run: |
+          wget -q curl -O https://www.openssl.org/source/${{env.OPENSSL}}.tar.gz
+          tar ${{env.OPENSSL}}.tar.gz
+
+      - name: Configure && Build && Install
+        shell: bash
+        run: |
+          source ${{runner.workspace}}/emsdk/emsdk_env.sh
+          mkdir ${{runner.workspace}}/openssl-wasm
+          cd ${{env.OPENSSL}}
+          emconfigure ./Configure linux-generic32 no-asm threads no-engine no-hw no-weak-ssl-ciphers no-dtls no-shared no-dso --prefix=${{runner.workspace}}/openssl-wasm
+          sed -i 's|^CROSS_COMPILE.*$|CROSS_COMPILE=|g' Makefile
+          sed -i '/^CFLAGS/ s/$/ -D__STDC_NO_ATOMICS__=1/' Makefile
+          sed -i '/^CXXFLAGS/ s/$/ -D__STDC_NO_ATOMICS__=1/' Makefile
+          emmake make -j 26 build_generated libssl.a libcrypto.a
+          emmake make install
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: openssl-wasm
+          path: ${{runner.workspace}}/openssl-wasm
+          if-no-files-found: error
