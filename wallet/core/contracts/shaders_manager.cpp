@@ -108,7 +108,7 @@ namespace beam::wallet {
             return handler->onShaderDone(boost::none, result, boost::none);
         }
 
-        std::string sComment = "Contract: ";
+        std::string sComment;
         for (size_t i = 0; i < m_vInvokeData.size(); i++)
         {
             const auto& cdata = m_vInvokeData[i];
