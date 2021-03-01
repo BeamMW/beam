@@ -30,7 +30,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q curl -O https://www.openssl.org/source/${{env.OPENSSL}}.tar.gz
+          curl -O https://www.openssl.org/source/${{env.OPENSSL}}.tar.gz
           tar ${{env.OPENSSL}}.tar.gz
 
       - name: Configure && Build && Install
