@@ -43,7 +43,7 @@ jobs:
           sed -i 's|^CROSS_COMPILE.*$|CROSS_COMPILE=|g' Makefile
           sed -i '/^CFLAGS/ s/$/ -D__STDC_NO_ATOMICS__=1/' Makefile
           sed -i '/^CXXFLAGS/ s/$/ -D__STDC_NO_ATOMICS__=1/' Makefile
-          emmake make -j 26 build_generated libssl.a libcrypto.a
+          emmake make -j$(nproc) build_generated libssl.a libcrypto.a
           emmake make install
 
       - uses: actions/upload-artifact@v2
