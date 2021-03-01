@@ -388,7 +388,6 @@ include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 #OpenSSL
 
 if(BEAM_USE_STATIC)
-    message("OPENSSL_USE_STATIC_LIBS !!!!!!!!!!")
     set(OPENSSL_USE_STATIC_LIBS TRUE)
     set(OPENSSL_MSVC_STATIC_RT ${BEAM_USE_STATIC_RUNTIME})
     find_package(OpenSSL REQUIRED)
@@ -410,7 +409,6 @@ else()
             IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a")
 
     else()
-        message("OpenSSL::Crypto dymanic")
         find_package(OpenSSL REQUIRED)
     endif()
 endif()
