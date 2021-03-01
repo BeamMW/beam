@@ -291,7 +291,7 @@ namespace beam::wallet
     }
 
     WalletApi::WalletApi(
-            IWalletApiHandler& handler,
+            IWalletAPIHandler& handler,
             ACL acl,
             IWalletDB::Ptr wdb,
             Wallet::Ptr wallet,

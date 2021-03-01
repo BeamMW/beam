@@ -26,7 +26,7 @@ namespace beam::wallet
         , public IShadersManager::IDone
     {
     public:
-        WalletApi(IWalletApiHandler& handler,
+        WalletApi(IWalletAPIHandler& handler,
                   ACL acl,
                   IWalletDB::Ptr wdb,
                   Wallet::Ptr wallet,
