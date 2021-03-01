@@ -522,3 +522,64 @@ jobs:
         path: |
           wasm-key-keeper.*
         if-no-files-found: error
+
+###############################################################################
+# Build Web Assembly
+###############################################################################
+  build_key_keeper:
+    runs-on: ubuntu-20.04
+    # if: ${{false}}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+###############################################################################
+# Create Build Environment
+###############################################################################
+    - name: Download and install emscripten
+      shell: bash
+      run: |
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        git pull
+        ./emsdk install latest
+        ./emsdk activate latest
+
+    - name: Download boost
+      shell: bash
+      run: |
+        git clone https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
+        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
+    
+    - name: Download openssl
+      shell: bash
+      run: |
+        git clone https://github.com/BeamMW/openssl-wasm.git
+
+###############################################################################
+# Configure CMake && Build
+###############################################################################
+    - name: Configure CMake
+      run: |
+        source ./emsdk/emsdk_env.sh
+        cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBoost_NO_SYSTEM_PATHS=FALSE -DCMAKE_VERBOSE_MAKEFILE=ON -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_USE_STATIC=On -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl_wasm -DOPENSSL_INCLUDE_DIR=${{runner.workspace}}/openssl-wasm/include -D OPENSSL_CRYPTO_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libcrypto.a -DOPENSSL_SSL_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libssl.a -B${{runner.workspace}}/build_wasm
+        emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
+
+    - name: Save version info
+      run: |
+        echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
+        rm beam_version.gen
+
+###############################################################################
+# Upload
+###############################################################################
+    - uses: actions/upload-artifact@v2
+      with:
+        name: beam-wasm${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: |
+          ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
+        if-no-files-found: error
