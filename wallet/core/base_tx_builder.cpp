@@ -895,9 +895,9 @@ namespace beam::wallet
                 feeInps += si.m_Fee; // account for shielded inputs, they carry their fee individually
 
             TxStats ts;
-            ts.m_Outputs = m_Coins.m_Output.size();
-            ts.m_InputsShielded = m_Coins.m_InputShielded.size();
-            ts.m_Kernels = 1 + m_Coins.m_InputShielded.size();
+            ts.m_Outputs = static_cast<uint32_t>(m_Coins.m_Output.size());
+            ts.m_InputsShielded = static_cast<uint32_t>(m_Coins.m_InputShielded.size());
+            ts.m_Kernels = 1 + static_cast<uint32_t>(m_Coins.m_InputShielded.size());
 
             if (pFromPeer)
                 ts += *pFromPeer;
