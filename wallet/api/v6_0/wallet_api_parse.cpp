@@ -32,7 +32,7 @@ namespace beam::wallet
     {
         CoinIDList coins;
 
-        if (!params["coins"].is_array() || params["coins"].empty() <= 0)
+        if (!params["coins"].is_array() || params["coins"].empty())
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Coins parameter must be an array of strings (coin IDs).");
         }
