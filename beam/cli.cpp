@@ -110,7 +110,7 @@ namespace
 		{
 		}
 
-		~WebSocketProxy() = default;
+		virtual ~WebSocketProxy() = default;
 
 	private:
 		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend) override
