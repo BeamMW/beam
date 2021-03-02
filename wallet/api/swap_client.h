@@ -11,39 +11,40 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
-#include "wallet/transactions/swaps/bridges/ethereum/client.h"
 
-class SwapEthClient : public beam::ethereum::Client
+#pragma once
+
+#include "wallet/transactions/swaps/bridges/bitcoin/client.h"
+
+class SwapClient : public beam::bitcoin::Client
 {
 public:
-    using Ptr = std::shared_ptr<SwapEthClient>;
+    using Ptr = std::shared_ptr<SwapClient>;
 
-    SwapEthClient(
-        beam::ethereum::IBridgeHolder::Ptr bridgeHolder,
-        std::unique_ptr<beam::ethereum::SettingsProvider> settingsProvider,
-        beam::io::Reactor& reactor
-    );
+    SwapClient(
+        beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
+        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+        beam::io::Reactor& reactor);
 
-    beam::Amount GetAvailable(beam::wallet::AtomicSwapCoin swapCoin) const;
+    beam::Amount GetAvailable() const;
     beam::Amount GetRecommendedFeeRate() const;
     bool IsConnected() const;
-
+    
 private:
     void requestBalance();
     void requestRecommendedFeeRate();
 
     void OnStatus(Status status) override;
-    void OnBalance(beam::wallet::AtomicSwapCoin swapCoin, beam::Amount balance) override;
-    void OnEstimatedGasPrice(beam::Amount feeRate) override;
+    void OnBalance(const Balance& balance) override;
+    void OnEstimatedFeeRate(beam::Amount feeRate) override;
     void OnCanModifySettingsChanged(bool canModify) override;
     void OnChangedSettings() override;
-    void OnConnectionError(beam::ethereum::IBridge::ErrorType error) override;
+    void OnConnectionError(beam::bitcoin::IBridge::ErrorType error) override;
 
 private:
     beam::io::Timer::Ptr _timer;
     beam::io::Timer::Ptr _feeTimer;
-    std::map<beam::wallet::AtomicSwapCoin, beam::Amount> _balances;
+    Balance _balance;
     beam::Amount _recommendedFeeRate = 0;
     Status _status;
 };

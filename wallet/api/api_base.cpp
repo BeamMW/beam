@@ -25,10 +25,15 @@ namespace {
 }
 
 namespace beam::wallet {
-    ApiBase::ApiBase(IWalletAPIHandler& handler, ACL acl)
+    ApiBase::ApiBase(ACL acl)
         : _acl(std::move(acl))
-        , _handler(handler)
     {
+    }
+
+    void ApiBase::onParseError(const json& msg)
+    {
+        LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
+        sendMessage(msg);
     }
 
     json ApiBase::formError(const JsonRpcId& id, ApiError code, const std::string& data)
@@ -59,10 +64,10 @@ namespace beam::wallet {
     void ApiBase::sendError(const JsonRpcId& id, ApiError code, const std::string& data)
     {
         const auto error = formError(id, code, data);
-        _handler.sendAPIResponse(error);
+        sendMessage(error);
     }
 
-    ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
+    ApiBase::ParseJsonRes ApiBase::parseJSON(const char* data, size_t size)
     {
         {
             std::string s(data, size);
@@ -73,8 +78,8 @@ namespace beam::wallet {
         if (size == 0)
         {
             const auto errEmptyJSON = formError(JsonRpcId(), ApiError::InvalidJsonRpc, "Empty JSON request.");
-            _handler.onParseError(errEmptyJSON);
-            return ApiSyncMode::NotStartedAndFailed;
+            onParseError(errEmptyJSON);
+            return ParseJsonRes::ParseFail;
         }
 
         JsonRpcId id = JsonRpcId();
@@ -146,25 +151,25 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, e.what());
             }
 
-            return isAsync ? ApiSyncMode::RunningAsync : ApiSyncMode::DoneSync;
+            return isAsync ? ParseJsonRes::RunningAsync : ParseJsonRes::DoneSync;
         }
         catch (const jsonrpc_exception& e)
         {
             const auto error = formError(id, e.code(), e.whatstr());
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
+            onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
         catch (const std::exception& e)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, e.what());
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
+            onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
         catch (...)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
+            onParseError(error);
+            return ParseJsonRes::DoneSync;
         }
     }
 

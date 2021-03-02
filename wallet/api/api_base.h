@@ -13,11 +13,11 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/optional.hpp>
 #include <boost/serialization/strong_typedef.hpp>
 #include "api_errors.h"
 #include "wallet/core/common.h"
 #include "utility/common.h"
-#include "../i_wallet_api.h"
 
 namespace beam::wallet
 {
@@ -25,17 +25,31 @@ namespace beam::wallet
     #define API_READ_ACCESS false
 
     class ApiBase
-        : public IWalletAPI
     {
     public:
         static inline const char JsonRpcHeader[] = "jsonrpc";
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletAPIHandler& handler, ACL acl = boost::none);
+        using ACL = boost::optional <std::map<std::string, bool>>;
+        using Ptr = std::shared_ptr<ApiBase>;
+
+        explicit ApiBase(ACL acl = boost::none);
+
+        virtual void sendMessage(const json& msg) = 0;
+        virtual void onParseError(const json& msg);
+
+        //
+        // parse and execute request
+        //
+        enum ParseJsonRes {
+            ParseFail = 0,
+            DoneSync,
+            RunningAsync,
+        };
 
         // TODO: review error codes and returned results
-        ApiSyncMode executeAPIRequest(const char *data, size_t size);
+        ParseJsonRes parseJSON(const char *data, size_t size);
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
         //
@@ -79,7 +93,6 @@ namespace beam::wallet
 
         std::unordered_map <std::string, Method> _methods;
         ACL _acl;
-        IWalletAPIHandler& _handler;
 
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
