@@ -126,7 +126,7 @@ namespace
         : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB,
+        WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
                         Wallet::Ptr wallet,
                         proto::FlyClient::NetworkStd::Ptr nnet,
                         io::Reactor& reactor,
@@ -136,7 +136,8 @@ namespace
                         const TlsOptions& tlsOptions,
                         const std::vector<uint32_t>& whitelist)
 
-            : _reactor(reactor)
+            : _apiVersion(apiVersion)
+            , _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
             , _tlsOptions(tlsOptions)
@@ -216,7 +217,7 @@ namespace
                 _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
             }
 
-            return std::make_shared<T>(*this, std::move(newStream), *_walletData);
+            return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -252,12 +253,12 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
             {
-                _walletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, walletData);
+                _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
             }
@@ -308,13 +309,13 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
                 : _server(server)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
             {
-                _walletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, walletData);
+                _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
 
                 newStream->enable_keepalive(1);
                 auto peer = newStream->peer_address();
@@ -418,6 +419,7 @@ namespace
             IWalletApi::Ptr     _walletApi;
         };
 
+        std::string        _apiVersion;
         io::Reactor&       _reactor;
         io::TcpServer::Ptr _server;
         io::Address        _bindAddress;
@@ -459,6 +461,7 @@ int main(int argc, char* argv[])
             bool useAcl;
             std::string aclPath;
             std::string whitelist;
+            std::string apiVersion;
 
             uint32_t logCleanupPeriod;
             bool enableLelentus = false;
@@ -485,7 +488,8 @@ int main(int argc, char* argv[])
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
                 (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
-                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions");
+                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
+                (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -528,11 +532,15 @@ int main(int argc, char* argv[])
 
             ReadCfgFromFileCommon(vm, desc);
             ReadCfgFromFile(vm, desc, "wallet-api.cfg");
-
             vm.notify();
 
-            getRulesOptions(vm);
+            if (!IWalletApi::ValidateAPIVersion(options.apiVersion))
+            {
+                std::cout << "Unsupported API version requested: " << options.apiVersion << std::endl;
+                return 1;
+            }
 
+            getRulesOptions(vm);
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
@@ -652,7 +660,7 @@ int main(int argc, char* argv[])
 		wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
-        WalletApiServer server(walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
+        WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
         RegisterSwapTxCreators(wallet, walletDB);
         server.initSwapFeature(*nnet, *wnet);
 

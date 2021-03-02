@@ -188,6 +188,7 @@ namespace beam
         extern const char* API_TLS_REJECT_UNAUTHORIZED;
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
+        extern const char* API_VERSION;
 
         // treasury
         extern const char* TR_OPCODE;
