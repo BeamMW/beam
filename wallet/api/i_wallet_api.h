@@ -68,6 +68,7 @@ namespace beam::wallet
             Wallet::Ptr wallet;
         };
 
+        static uint32_t SApiVer2NApiVer(std::string version);
         static bool ValidateAPIVersion(const std::string& version);
 
         // throws std::runtime_error

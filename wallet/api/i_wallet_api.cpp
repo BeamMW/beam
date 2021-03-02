@@ -20,28 +20,28 @@ namespace beam::wallet
     namespace
     {
         const std::string kVerCurrent = "current";
+    }
 
-        unsigned long SVerToUVer(std::string sver)
+    uint32_t IWalletApi::SApiVer2NApiVer(std::string sver)
+    {
+        if (sver.empty() || sver == kVerCurrent)
         {
-            if (sver.empty() || sver == kVerCurrent)
-            {
-                return ApiVerCurrent;
-            }
-
-            sver.erase(std::remove(sver.begin(), sver.end(), '.'), sver.end());
-            return std::stoul(sver);
+            return ApiVerCurrent;
         }
+
+        sver.erase(std::remove(sver.begin(), sver.end(), '.'), sver.end());
+        return std::stoul(sver);
     }
 
     bool IWalletApi::ValidateAPIVersion(const std::string& sver)
     {
-        const auto version = SVerToUVer(sver);
+        const auto version = SApiVer2NApiVer(sver);
         return ApiVerMin >= version && ApiVerMax <= version;
     }
 
     IWalletApi::Ptr IWalletApi::CreateInstance(const std::string& sversion, IWalletApiHandler& handler, const InitData& data)
     {
-        const auto version = SVerToUVer(sversion);
+        const auto version = SApiVer2NApiVer(sversion);
         return IWalletApi::CreateInstance(version, handler, data);
     }
 
