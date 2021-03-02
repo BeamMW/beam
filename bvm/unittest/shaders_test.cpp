@@ -624,9 +624,9 @@ namespace bvm2 {
 
 		MyProcessor()
 		{
-			m_Dbg.m_Stack = true;
-			m_Dbg.m_Instructions = true;
-			m_Dbg.m_ExtCall = true;
+			//m_Dbg.m_Stack = true;
+			//m_Dbg.m_Instructions = true;
+			//m_Dbg.m_ExtCall = true;
 		}
 
 		uint32_t m_Cycles;
@@ -675,7 +675,7 @@ namespace bvm2 {
 		void RunMany(const ContractID& cid, uint32_t iMethod, const Blob& args)
 		{
 			std::ostringstream os;
-			m_Dbg.m_pOut = &os;
+			//m_Dbg.m_pOut = &os;
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
@@ -2144,7 +2144,7 @@ namespace bvm2 {
 		void RunMany(uint32_t iMethod)
 		{
 			std::ostringstream os;
-			m_Dbg.m_pOut = &os;
+			//m_Dbg.m_pOut = &os;
 
 			os << "BVM Method: " << iMethod << std::endl;
 

@@ -414,10 +414,14 @@ struct HashProcessor
         // Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
         static_assert(T(-1) > 0, "must be unsigned");
 
-        for (; v >= 0x80; v >>= 7)
-            Write(uint8_t(uint8_t(v) | 0x80));
+        uint8_t pBuf[sizeof(T) * 8 /7 + 1];
+        uint32_t n = 0;
 
-        Write(uint8_t(v));
+        for (; v >= 0x80; v >>= 7)
+            pBuf[n++] = uint8_t(v) | 0x80;
+            
+        pBuf[n] = uint8_t(v);
+        Write(pBuf, n + 1);
     }
 
     void Write(const void* p, uint32_t n)
