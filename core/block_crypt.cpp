@@ -143,6 +143,7 @@ namespace beam
 		m_InputsShielded	+= s.m_InputsShielded;
 		m_OutputsShielded	+= s.m_OutputsShielded;
 		m_Contract			+= s.m_Contract;
+		m_ContractSizeExtra	+= s.m_ContractSizeExtra;
 	}
 
 	/////////////
@@ -1396,6 +1397,7 @@ namespace beam
 	{
 		TxKernelNonStd::AddStats(s);
 		s.m_Contract++;
+		s.m_ContractSizeExtra += static_cast<uint32_t>(m_Args.size());
 	}
 
 	/////////////
@@ -1415,6 +1417,12 @@ namespace beam
 		hp
 			<< m_Data.size()
 			<< Blob(m_Data);
+	}
+
+	void TxKernelContractCreate::AddStats(TxStats& s) const
+	{
+		TxKernelContractControl::AddStats(s);
+		s.m_ContractSizeExtra += static_cast<uint32_t>(m_Data.size());
 	}
 
 	/////////////
@@ -1447,6 +1455,8 @@ namespace beam
 
 		FeeSettingsGlobal()
 		{
+			ZeroObject(*this);
+
 			m_BeforeHF3.m_Output = 10;
 			m_BeforeHF3.m_Kernel = 10;
 			m_BeforeHF3.m_Default = 100;
@@ -1454,15 +1464,19 @@ namespace beam
 			m_BeforeHF3.m_ShieldedInputTotal = Rules::Coin / 100;
 			m_BeforeHF3.m_ShieldedOutputTotal = Rules::Coin / 100;
 
-			m_BeforeHF3.m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
-			m_BeforeHF3.m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
-
-			m_AfterHF3 = m_BeforeHF3;
 			m_AfterHF3.m_Output = 18000;
 			m_AfterHF3.m_Kernel = 10000;
 			m_AfterHF3.m_Default = 100000; // exactly covers 5 outputs + 1 kernel
 
-			m_AfterHF3.m_ShieldedInputTotal = 0;
+			m_AfterHF3.m_ShieldedOutputTotal = Rules::Coin / 100;
+
+			m_AfterHF3.m_Bvm.m_ChargeUnitPrice = 10; // 10 groth
+			m_AfterHF3.m_Bvm.m_Minimum = 1000000; // 0.01 beam. This pays for 100K charge
+
+			// the following is to mitigate spamming by excessive contract argumets + data size. Make it comparable to the spamming price by UTXOs
+			// for UTXO the price is approximately 25 groth/byte
+			m_AfterHF3.m_Bvm.m_ExtraSizeFree = 32768; // up to 32K arguments (+ bytecode for creation) are included in minimal fee. This is nearly 30 groth/byte
+			m_AfterHF3.m_Bvm.m_ExtraBytePrice = 50;
 		}
 
 	} g_FeeSettingsGlobal;
@@ -1483,11 +1497,17 @@ namespace beam
 
 	Amount Transaction::FeeSettings::Calculate(const TxStats& s) const
 	{
-		return
+		Amount val =
 			m_Output * s.m_Outputs +
 			m_Kernel * (s.m_Kernels - s.m_InputsShielded - s.m_OutputsShielded) +
 			m_ShieldedInputTotal * s.m_InputsShielded +
 			m_ShieldedOutputTotal * s.m_OutputsShielded;
+
+		uint32_t nContractSizeFree = m_Bvm.m_ExtraSizeFree * s.m_Contract;
+		if (s.m_ContractSizeExtra > nContractSizeFree)
+			val += m_Bvm.m_ExtraBytePrice *(s.m_ContractSizeExtra - nContractSizeFree);
+
+		return val;
 	}
 
 	Amount Transaction::FeeSettings::CalculateForBvm(const TxStats& s, uint32_t nBvmCharge) const

@@ -426,6 +426,7 @@ namespace beam
 		uint32_t m_InputsShielded;
 		uint32_t m_OutputsShielded;
 		uint32_t m_Contract;
+		uint32_t m_ContractSizeExtra;
 
 		TxStats() { Reset(); }
 
@@ -1044,6 +1045,7 @@ namespace beam
 		virtual ~TxKernelContractCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
+		virtual void AddStats(TxStats&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
@@ -1186,6 +1188,8 @@ namespace beam
 			struct Bvm {
 				Amount m_ChargeUnitPrice;
 				Amount m_Minimum;
+				Amount m_ExtraBytePrice;
+				uint32_t m_ExtraSizeFree;
 			} m_Bvm;
 
 			static const FeeSettings& get(Height);
