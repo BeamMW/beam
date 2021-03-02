@@ -27,10 +27,8 @@ namespace beam::wallet
 {
     using json = nlohmann::json;
 
-    const uint32_t ApiVer6_0     = 60;
+    const uint32_t ApiVer6_0 = 60;
     const uint32_t ApiVerCurrent = ApiVer6_0;
-    const uint32_t ApiVerMin     = ApiVer6_0;
-    const uint32_t ApiVerMax     = ApiVer6_0;
 
     class IWalletApiHandler
     {
@@ -68,10 +66,7 @@ namespace beam::wallet
             Wallet::Ptr wallet;
         };
 
-        static bool ValidateAPIVersion(const std::string& version);
-
         // throws std::runtime_error
-        static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
         // doesn't throw
