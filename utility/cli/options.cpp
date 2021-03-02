@@ -279,13 +279,14 @@ namespace beam
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
-        const char* API_USE_TLS = "use_tls";
+        const char* API_USE_TLS  = "use_tls";
         const char* API_TLS_CERT = "tls_cert";
-        const char* API_TLS_KEY = "tls_key";
+        const char* API_TLS_KEY  = "tls_key";
         const char* API_TLS_REQUEST_CERTIFICATE = "tls_request_cert";
         const char* API_TLS_REJECT_UNAUTHORIZED = "tls_reject_unauthorized";
-        const char* API_USE_ACL= "use_acl";
+        const char* API_USE_ACL  = "use_acl";
         const char* API_ACL_PATH = "acl_path";
+        const char* API_VERSION  = "api_version";
 
         // treasury
         const char* TR_OPCODE = "tr_op";
