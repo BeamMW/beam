@@ -33,13 +33,14 @@ namespace beam::wallet
     class IWalletApiHandler
     {
     public:
-         virtual void sendAPIResponse(const json& result) = 0;
+        virtual ~IWalletApiHandler() = default;
+        virtual void sendAPIResponse(const json& result) = 0;
 
-         virtual void onParseError(const json& msg)
-         {
-             LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
-             sendAPIResponse(msg);
-         }
+        virtual void onParseError(const json& msg)
+        {
+            LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
+            sendAPIResponse(msg);
+        }
     };
 
     struct bad_api_version: public std::runtime_error {
@@ -70,6 +71,7 @@ namespace beam::wallet
 
         // doesn't throw
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
+        virtual ~IWalletApi() = default;
     };
 }
 
