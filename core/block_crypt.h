@@ -419,13 +419,13 @@ namespace beam
 		AmountBig::Type m_Fee;
 		AmountBig::Type m_Coinbase;
 
-		uint64_t m_Kernels;
-		uint64_t m_KernelsNonStd;
-		uint64_t m_Inputs; // MW only
-		uint64_t m_Outputs; // MW only
-		uint64_t m_InputsShielded;
-		uint64_t m_OutputsShielded;
-		uint64_t m_Contract;
+		uint32_t m_Kernels;
+		uint32_t m_KernelsNonStd;
+		uint32_t m_Inputs; // MW only
+		uint32_t m_Outputs; // MW only
+		uint32_t m_InputsShielded;
+		uint32_t m_OutputsShielded;
+		uint32_t m_Contract;
 
 		TxStats() { Reset(); }
 
