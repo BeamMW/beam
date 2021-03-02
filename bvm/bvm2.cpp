@@ -1055,17 +1055,16 @@ namespace bvm2 {
 		// make sure the pArgs is not malicious.
 		// Attacker may try to cause the target shader to overwrite its future stack operands, or const data in its data section.
 		//
+		// Note: using 'Global' (heap) is not allowed either, since there's no reliable and simple way to verify it.
+		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocater later by the callee.
 		switch (Wasm::MemoryType::Mask & pArgs)
 		{
-		case Wasm::MemoryType::Global:
-			break; // this is allowed
-
 		case Wasm::MemoryType::Stack:
 			Wasm::Test(pArgs >= m_Stack.get_AlasSp());
 			break;
 
 		default:
-			// invalid, null, or current data section pointer. NOT allowed!
+			// invalid, null, heap or current data section pointer. NOT allowed!
 			Wasm::Fail();
 		}
 
