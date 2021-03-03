@@ -176,7 +176,7 @@ ON_METHOD(manager, view)
     EnumAndDumpContracts(MirrorCoin::s_SID);
 }
 
-static const Amount g_DepositCA = 100000000000ULL; // 1K beams
+static const Amount g_DepositCA = 300000000000ULL; // 3K beams
 
 ON_METHOD(manager, create)
 {
@@ -210,7 +210,7 @@ ON_METHOD(manager, create)
     fc.m_Amount = g_DepositCA; // amount of the input or output
     fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
-    Env::GenerateKernel(nullptr, pArg->s_iMethod, pArg, sizeof(*pArg) + nMetaSize, &fc, bIsMirror ? 1 : 0, nullptr, 0, "generate MirrorCoin contract", 2000000U);
+    Env::GenerateKernel(nullptr, pArg->s_iMethod, pArg, sizeof(*pArg) + nMetaSize, &fc, bIsMirror ? 1 : 0, nullptr, 0, "generate MirrorCoin contract", 0);
 }
 
 ON_METHOD(manager, set_remote)
@@ -218,12 +218,12 @@ ON_METHOD(manager, set_remote)
     MirrorCoin::SetRemote pars;
     pars.m_Cid = cidRemote;
 
-    Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "Set MirrorCoin contract remote counter-part", 1000000U);
+    Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "Set MirrorCoin contract remote counter-part", 0);
 }
 
 ON_METHOD(manager, destroy)
 {
-    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy MirrorCoin contract", 2000000U);
+    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy MirrorCoin contract", 0);
 }
 
 ON_METHOD(manager, view_params)
@@ -284,7 +284,7 @@ ON_METHOD(user, send)
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, "Send funds via MirrorCoin", 1000000U);
+    Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, "Send funds via MirrorCoin", 0);
 }
 
 ON_METHOD(user, receive_all)
@@ -332,7 +332,7 @@ ON_METHOD(user, receive_all)
         sig.m_pID = &cid;
         sig.m_nID = sizeof(cid);
 
-        Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), pFc, _countof(pFc), &sig, 1, "Receive funds from MirrorCoin", 1000000U);
+        Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), pFc, _countof(pFc), &sig, 1, "Receive funds from MirrorCoin", 0);
     }
 
     if (!nCount)

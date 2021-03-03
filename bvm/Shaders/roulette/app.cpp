@@ -209,7 +209,7 @@ ON_METHOD(manager, view)
     EnumAndDumpContracts(Roulette::s_SID);
 }
 
-static const Amount g_DepositCA = 100000000000ULL; // 1K beams
+static const Amount g_DepositCA = 300000000000ULL; // 3K beams
 
 ON_METHOD(manager, create)
 {
@@ -227,7 +227,7 @@ ON_METHOD(manager, create)
 
     // Create kernel with all the required parameters
     // 
-    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, "generate Roulette contract", 2000000U);
+    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, nullptr, 0, "generate Roulette contract", 0);
 }
 
 ON_METHOD(manager, destroy)
@@ -252,7 +252,7 @@ ON_METHOD(manager, destroy)
     // signatures
     // number of signatures
     // transaction fees
-    Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, "destroy Roulette contract", 2000000U);
+    Env::GenerateKernel(&cid, 1, nullptr, 0, &fc, 1, &sig, 1, "destroy Roulette contract", 0);
 }
 
 ON_METHOD(dealer, spin)
@@ -266,7 +266,7 @@ ON_METHOD(dealer, spin)
     Roulette::Spin arg;
     arg.m_PlayingSectors = 0; // max
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "spin Roulette", 2000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "spin Roulette", 0);
 }
 
 ON_METHOD(dealer, bets_off)
@@ -277,7 +277,7 @@ ON_METHOD(dealer, bets_off)
     sig.m_pID = &dk;
     sig.m_nID = sizeof(dk);
 
-    Env::GenerateKernel(&cid, Roulette::BetsOff::s_iMethod, nullptr, 0, nullptr, 0, &sig, 1, "bets-off Roulette", 2000000U);
+    Env::GenerateKernel(&cid, Roulette::BetsOff::s_iMethod, nullptr, 0, nullptr, 0, &sig, 1, "bets-off Roulette", 0);
 }
 
 ON_METHOD(manager, view_params)
@@ -342,7 +342,7 @@ ON_METHOD(player, bet)
     sig.m_pID = &cid;
     sig.m_nID = sizeof(cid);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Place a bet on Roulette", 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Place a bet on Roulette", 0);
 }
 
 ON_METHOD(player, take)
@@ -379,7 +379,7 @@ ON_METHOD(player, take)
 
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Take the prize from Roulette", 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Take the prize from Roulette", 0);
 }
 
 #undef ON_METHOD

@@ -85,7 +85,7 @@ ON_METHOD(manager, create)
     arg.m_Cfg.m_In.m_hContenderWaitPeriod = In_hContenderWaitPeriod;
     arg.m_Cfg.m_In.m_FakePoW = !!In_FakePoW;
 
-    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "create Pipe contract", 1000000U);
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "create Pipe contract", 0);
 }
 
 ON_METHOD(manager, set_remote)
@@ -93,7 +93,7 @@ ON_METHOD(manager, set_remote)
     Pipe::SetRemote arg;
     arg.m_cid = cidRemote;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Pipe contract 2nd-stage init", 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Pipe contract 2nd-stage init", 0);
 }
 
 ON_METHOD(manager, get_NumOutCheckpoints)

@@ -83,7 +83,7 @@ ON_METHOD(client, create)
 
     // Create kernel with all the required parameters
     // 
-    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "generate Sidechain contract", 2000000U);
+    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "generate Sidechain contract", 0);
 }
 
 ON_METHOD(client, view_params)
@@ -170,7 +170,7 @@ ON_METHOD(client, send_new_hdrs)
 
     DeriveMyPk(pRequest->m_Contributor, cid);
 
-    Env::GenerateKernel(&cid, Request::s_iMethod, pRequest, nArgSize, nullptr, 0, nullptr, 0, "Sidechain new hdrs", 2000000U);
+    Env::GenerateKernel(&cid, Request::s_iMethod, pRequest, nArgSize, nullptr, 0, nullptr, 0, "Sidechain new hdrs", 0);
 }
 
 ON_METHOD(server, get_new_hdrs)

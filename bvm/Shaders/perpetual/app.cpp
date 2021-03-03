@@ -100,7 +100,7 @@ ON_METHOD(manager, create)
     arg.m_MarginRequirement_mp = nMargin_mp;
     arg.m_Oracle = oracle;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "create Perpetual contract", 1000000U);
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "create Perpetual contract", 0);
 }
 
 ON_METHOD(manager, view_offers)
@@ -136,7 +136,7 @@ ON_METHOD(my_account, CreateOffer)
     sig.m_pID = &cid;
     sig.m_nID = sizeof(cid);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Creating offer", 1000000U);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Creating offer", 0);
 }
 
 ON_METHOD(my_account, view)

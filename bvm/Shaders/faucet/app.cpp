@@ -124,12 +124,12 @@ ON_METHOD(manager, create)
     pars.m_BacklogPeriod = backlogPeriod;
     pars.m_MaxWithdraw = withdrawLimit;
 
-    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "create Faucet contract", 1000000U);
+    Env::GenerateKernel(nullptr, pars.s_iMethod, &pars, sizeof(pars), nullptr, 0, nullptr, 0, "create Faucet contract", 0);
 }
 
 ON_METHOD(manager, destroy)
 {
-    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Faucet contract", 1000000U);
+    Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Faucet contract", 0);
 }
 
 ON_METHOD(manager, view_params)
@@ -199,7 +199,7 @@ ON_METHOD(my_account, move)
         arg.m_Aid = fc.m_Aid;
         arg.m_Amount = fc.m_Amount;
 
-        Env::GenerateKernel(&cid, Faucet::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Faucet", 1000000U);
+        Env::GenerateKernel(&cid, Faucet::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Faucet", 0);
     }
     else
     {
@@ -212,7 +212,7 @@ ON_METHOD(my_account, move)
         sig.m_pID = &cid;
         sig.m_nID = sizeof(cid);
 
-        Env::GenerateKernel(&cid, Faucet::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Faucet", 2000000U);
+        Env::GenerateKernel(&cid, Faucet::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Faucet", 0);
     }
 }
 
