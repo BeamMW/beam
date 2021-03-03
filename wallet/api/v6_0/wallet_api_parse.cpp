@@ -362,6 +362,23 @@ namespace beam::wallet
         }
     }
 
+    void WalletApi::onCalcMyChangeMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        CalcMyChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
+        onMessage(id, message);
+    }
+
+    void WalletApi::onChangePasswordMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        if (!hasParam(params, "new_pass"))
+        {
+            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "New password parameter must be specified.");
+        }
+        ChangePassword message;
+        message.newPassword = params["new_pass"].get<std::string>();
+        onMessage(id, message);
+    }
+
     void WalletApi::onCreateAddressMessage(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
@@ -901,6 +918,31 @@ namespace beam::wallet
         }
 
         onMessage(id, message);
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const CalcMyChange::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"change", res.change},
+                    {"change_str", std::to_string(res.change)} // string representation
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const ChangePassword::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result", "done"}
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
