@@ -2097,14 +2097,30 @@ struct NodeProcessor::BlockInterpretCtx
 
 	void EnsureAssetsUsed(NodeDB&);
 
+	struct ChangesFlushGlobal
+	{
+		TxoID m_ShieldedInputs;
+		ChangesFlushGlobal(NodeProcessor& p)
+		{
+			m_ShieldedInputs = p.get_ShieldedInputs();
+		}
+
+		void Do(NodeProcessor& p)
+		{
+			TxoID val = p.get_ShieldedInputs();
+			if (val != m_ShieldedInputs)
+				p.m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, val);
+		}
+	};
+
 	struct ChangesFlush
+		:public ChangesFlushGlobal
 	{
 		TxoID m_ShieldedOutps;
-		TxoID m_ShieldedInputs;
 		ChangesFlush(NodeProcessor& p)
+			:ChangesFlushGlobal(p)
 		{
 			m_ShieldedOutps = p.m_Extra.m_ShieldedOutputs;
-			m_ShieldedInputs = p.get_ShieldedInputs();
 		}
 
 		void Do(NodeProcessor& p, Height h)
@@ -2112,9 +2128,7 @@ struct NodeProcessor::BlockInterpretCtx
 			if (p.m_Extra.m_ShieldedOutputs != m_ShieldedOutps)
 				p.m_DB.ShieldedOutpSet(h, p.m_Extra.m_ShieldedOutputs);
 
-			TxoID val = p.get_ShieldedInputs();
-			if (val != m_ShieldedInputs)
-				p.m_DB.ParamIntSet(NodeDB::ParamID::ShieldedInputs, val);
+			ChangesFlushGlobal::Do(p);
 		}
 	};
 };
@@ -4458,6 +4472,8 @@ void NodeProcessor::RollbackTo(Height h)
 	ByteBuffer bbE, bbR;
 	TxVectors::Eternal txve;
 
+	BlockInterpretCtx::ChangesFlushGlobal cf(*this);
+
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
 		txve.m_vKernels.clear();
@@ -4479,6 +4495,8 @@ void NodeProcessor::RollbackTo(Height h)
 		bic.m_Rollback.swap(bbR);
 		assert(bbR.empty());
 	}
+
+	cf.Do(*this);
 
 	m_RecentStates.RollbackTo(h);
 	m_ValCache.OnShLo(m_Extra.m_ShieldedOutputs);
