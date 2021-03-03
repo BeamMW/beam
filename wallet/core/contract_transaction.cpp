@@ -66,7 +66,10 @@ namespace beam::wallet
     void ContractTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
+        {
             m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
+            std::setmax(m_TxBuilder->m_Fee, Transaction::FeeSettings::get(m_TxBuilder->m_Height.m_Min).get_DefaultStd());
+        }
         auto& builder = *m_TxBuilder;
 
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
@@ -89,21 +92,28 @@ namespace beam::wallet
             if (vData.empty())
                 throw TransactionFailedException(false, TxFailureReason::Unknown);
 
-            BaseTxBuilder::Balance bb(builder);
             bvm2::FundsMap fm;
-            fm += vData;
 
+            for (uint32_t i = 0; i < vData.size(); i++)
+            {
+                const auto& cdata = vData[i];
+
+                Amount fee = cdata.get_FeeMin(builder.m_Height.m_Min);
+                if (!i)
+                    fee += builder.m_Fee;
+
+                cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height, fee);
+
+                fm += cdata.m_Spend;
+                fm[0] += fee;
+            }
+
+            BaseTxBuilder::Balance bb(builder);
             for (auto it = fm.begin(); fm.end() != it; it++)
                 bb.m_Map[it->first].m_Value -= it->second;
 
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
-
-            for (uint32_t i = 0; i < vData.size(); i++)
-            {
-                const auto& cdata = vData[i];
-                cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height);
-            }
 
             builder.AddCoinOffsets(pKdf);
             builder.OnSigned();

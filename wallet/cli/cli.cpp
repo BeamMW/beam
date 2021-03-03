@@ -2316,9 +2316,11 @@ namespace
                 if (man.m_Err || man.m_vInvokeData.empty())
                     return 1;
 
+                Height h = wallet->get_CurrentHeight();
+
                 std::string sComment = "Contract: ";
                 bvm2::FundsMap fm;
-                Amount fee = 0;
+                Amount fee = Transaction::FeeSettings::get(h).get_DefaultStd();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
 
@@ -2326,7 +2328,7 @@ namespace
                 {
                     const auto& cdata = man.m_vInvokeData[i];
                     fm += cdata.m_Spend;
-                    fee += cdata.m_Fee;
+                    fee += cdata.get_FeeMin(h);
 
                     if (i)
                         sComment += "; ";

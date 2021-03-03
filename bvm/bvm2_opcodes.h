@@ -302,7 +302,7 @@
 	macro(const SigRequest*, pSig) sep \
 	macro(uint32_t, nSig) sep \
 	macro(const char*, szComment) sep \
-	macro(Amount, nFee)
+	macro(uint32_t, nCharge)
 
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \

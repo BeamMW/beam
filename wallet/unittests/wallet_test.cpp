@@ -2373,16 +2373,15 @@ namespace
         cdata.m_Cid = 746U;
         cdata.m_iMethod = 6;
         cdata.m_Args.resize(15, 1);
-        cdata.m_Spend[0] = -300200;
+        cdata.m_Spend[0] = -1300200;
         cdata.m_Spend[2] = -500;
         cdata.m_vSig.emplace_back() = 233U;
         cdata.m_vSig.emplace_back() = 2330U;
-        cdata.m_Fee = 600;
+        cdata.m_Charge = 600;
 
         auto txId  = sender.m_Wallet->StartTransaction(
             CreateTransactionParameters(TxType::Contract)
-            .SetParameter(TxParameterID::ContractDataPacked, vData)
-            .SetParameter(TxParameterID::Fee, Amount(cdata.m_Fee)));
+            .SetParameter(TxParameterID::ContractDataPacked, vData));
 
         mainReactor->run();
 

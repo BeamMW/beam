@@ -246,7 +246,7 @@ namespace bvm2 {
 		pubKey = pt;
 	}
 
-	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount nFee)
+	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
 	{
 		ContractInvokeData& v = m_vInvokeData.emplace_back();
 
@@ -265,7 +265,7 @@ namespace bvm2 {
 		args.Export(v.m_Args);
 		v.m_vSig.assign(pSig, pSig + nSig);
 		v.m_sComment = szComment;
-		v.m_Fee = nFee;
+		v.m_Charge = nCharge;
 
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
@@ -278,7 +278,7 @@ namespace bvm2 {
 		}
 	}
 
-	void ContractInvokeData::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr) const
+	void ContractInvokeData::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 
@@ -297,7 +297,7 @@ namespace bvm2 {
 		}
 
 		pKrn->m_Args = m_Args;
-		pKrn->m_Fee = m_Fee;
+		pKrn->m_Fee = fee;
 		pKrn->m_Height = hr;
 		pKrn->m_Commitment = Zero;
 		pKrn->UpdateMsg();
@@ -352,6 +352,19 @@ namespace bvm2 {
 		tx.m_Offset = kOffs;
 	}
 
+	Amount ContractInvokeData::get_FeeMin(Height h) const
+	{
+		const auto& fs = Transaction::FeeSettings::get(h);
+
+		Amount ret = std::max(fs.m_Bvm.m_ChargeUnitPrice * m_Charge, fs.m_Bvm.m_Minimum);
+
+		uint32_t nSizeExtra = static_cast<uint32_t>(m_Args.size() + m_Data.size());
+		if (nSizeExtra > fs.m_Bvm.m_ExtraSizeFree)
+			ret += fs.m_Bvm.m_ExtraBytePrice * (nSizeExtra - fs.m_Bvm.m_ExtraSizeFree);
+
+		return ret;
+	}
+
 	void FundsMap::AddSpend(Asset::ID aid, AmountSigned val)
 	{
 		// don't care about overflow.
@@ -376,20 +389,6 @@ namespace bvm2 {
 		for (auto it = x.begin(); x.end() != it; it++)
 			AddSpend(it->first, it->second);
 	}
-
-	void FundsMap::operator += (const ContractInvokeData& x)
-	{
-		*this += x.m_Spend;
-		(*this)[0] += x.m_Fee;
-	}
-
-	void FundsMap::operator += (const std::vector<ContractInvokeData>& v)
-	{
-		for (size_t i = 0; i < v.size(); i++)
-			*this += v[i];
-	}
-
-
 
 } // namespace bvm2
 } // namespace beam

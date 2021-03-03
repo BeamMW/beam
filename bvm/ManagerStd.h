@@ -26,8 +26,6 @@ namespace bvm2 {
 	{
 		void AddSpend(Asset::ID aid, AmountSigned val);
 		void operator += (const FundsMap&);
-		void operator += (const ContractInvokeData&);
-		void operator += (const std::vector<ContractInvokeData>&);
 	};
 
 	struct ContractInvokeData
@@ -37,7 +35,7 @@ namespace bvm2 {
 		ByteBuffer m_Data;
 		ByteBuffer m_Args;
 		std::vector<ECC::Hash::Value> m_vSig;
-		Amount m_Fee;
+		uint32_t m_Charge;
 		FundsMap m_Spend; // ins - outs, not including fee
 		std::string m_sComment;
 
@@ -48,7 +46,7 @@ namespace bvm2 {
 				& m_iMethod
 				& m_Args
 				& m_vSig
-				& m_Fee
+				& m_Charge
 				& m_sComment
 				& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_Spend);
 
@@ -61,7 +59,8 @@ namespace bvm2 {
 			}
 		}
 
-		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr) const;
+		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
+		Amount get_FeeMin(Height) const;
 	};
 
 
@@ -112,7 +111,7 @@ namespace bvm2 {
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
-		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, Amount nFee) override;
+		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
