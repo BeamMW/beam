@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <emscripten.h>
 #include <emscripten/bind.h>
 #include <emscripten/threading.h>
 #include <emscripten/val.h>
@@ -69,6 +70,13 @@ namespace
         io::Reactor::Scope scope(*r);
         auto db = WalletDB::init(dbName, SecString(pass), seed);
         GenerateDefaultAddress(db);
+        EM_ASM
+        (
+            FS.syncfs(false, function()
+            {
+                console.log("wallet created!");
+            });
+        );
         return db;
     }
 }
@@ -247,7 +255,32 @@ public:
         return WalletDB::open(dbName, SecString(pass));
     }
 
+    static void MountFS(val cb)
+    {
+        m_MountCB = cb;
+        EM_ASM_
+        (
+            {
+                FS.mkdir("/beam_wallet");
+                FS.mount(IDBFS, {}, "/beam_wallet");
+                console.log("mounting...");
+                FS.syncfs(true, function()
+                {
+                    console.log("mounted");
+                    dynCall('v', $0);
+                });
+
+            }, OnMountFS
+        );
+    }
 private:
+    static void OnMountFS()
+    {
+        m_MountCB();
+    }
+
+private:
+    static val m_MountCB;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
     IWalletDB::Ptr m_Db;
@@ -256,6 +289,7 @@ private:
     IWalletApi::Ptr m_WalletApi;
 };
 
+val WasmWalletClient::m_MountCB = val::null();
 
 // Binding code
 EMSCRIPTEN_BINDINGS() 
@@ -272,5 +306,6 @@ EMSCRIPTEN_BINDINGS()
         .class_function("ConvertTokenToJson",        &WasmWalletClient::ConvertTokenToJson)
         .class_function("ConvertJsonToToken",        &WasmWalletClient::ConvertJsonToToken)
         .class_function("CreateWallet",              &WasmWalletClient::CreateWallet)
+        .class_function("MountFS",                   &WasmWalletClient::MountFS)
     ;
 }

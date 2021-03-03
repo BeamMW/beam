@@ -26,6 +26,8 @@
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 #else
+#include <emscripten.h>
+#include <emscripten/threading.h>
 #include <filesystem>
 namespace fs = std::filesystem;
 #endif
@@ -4840,6 +4842,12 @@ namespace beam::wallet
         {
             m_DbTransaction->commit();
             m_DbTransaction.reset();
+
+#ifdef __EMSCRIPTEN__
+            MAIN_THREAD_ASYNC_EM_ASM(
+                FS.syncfs(false, function() {});
+            );
+#endif
         }
     }
 

@@ -10,28 +10,33 @@
             console.log("IsAllowedWord('hurdle') -", Module.WasmWalletClient.IsAllowedWord('hurdle'))
             console.log("IsValidPhrase()", Module.WasmWalletClient.IsValidPhrase(phrase))
             console.log('world list size is', phrase.split(' ').length)
-            Module.WasmWalletClient.CreateWallet(phrase, "wallet.db", "123");
-            var walletClient = new Module.WasmWalletClient("wallet.db", "123", "127.0.0.1:8101")//"eu-node03.masternet.beam.mw:8100");
-            {
-                console.log("starting wallet...");
-                walletClient.startWallet();
-                var i = walletClient.subscribe((r)=> {
-                    console.log("response: " + r)
-                });
-                walletClient.sendRequest(JSON.stringify({
-                      jsonrpc: '2.0',
-                      id: 5,
-                      method: 'wallet_status'
-                    }));
+            Module.WasmWalletClient.MountFS(function()
+                {
+                    console.log("mounted");
+                    //Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
+                    var walletClient = new Module.WasmWalletClient("/beam_wallet/wallet.db", "123", "127.0.0.1:8101")//"eu-node03.masternet.beam.mw:8100");
+                    {
+                        console.log("starting wallet...");
+                        walletClient.startWallet();
+                        var i = walletClient.subscribe((r)=> {
+                            console.log("response: " + r)
+                        });
+                        walletClient.sendRequest(JSON.stringify({
+                              jsonrpc: '2.0',
+                              id: 5,
+                              method: 'wallet_status'
+                            }));
 
-                walletClient.unsubscribe(i)    
-                walletClient.sendRequest(JSON.stringify({
-                      jsonrpc: '2.0',
-                      id: 5,
-                      method: 'wallet_status'
-                    }));
-                
-            }
+                        walletClient.unsubscribe(i)    
+                        walletClient.sendRequest(JSON.stringify({
+                              jsonrpc: '2.0',
+                              id: 5,
+                              method: 'wallet_status'
+                            }));
+                        
+                    }
+                });
+           
         })
     </script>
 </html>
