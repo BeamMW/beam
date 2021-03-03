@@ -87,7 +87,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void getTransactions() override
     {
-        call_async(&IWalletModelAsync::getTransactions);
+        typedef void(IWalletModelAsync::* MethodType)();
+        call_async((MethodType)&IWalletModelAsync::getTransactions);
+    }
+
+    void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(AsyncCallback<const std::vector<TxDescription>&>&&);
+        call_async((MethodType)&IWalletModelAsync::getTransactions, callback);
     }
 
     void getUtxosStatus(beam::Asset::ID id) override
@@ -97,7 +104,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void getAddresses(bool own) override
     {
-        call_async(&IWalletModelAsync::getAddresses, own);
+        typedef void(IWalletModelAsync::* MethodType)(bool);
+        call_async((MethodType)&IWalletModelAsync::getAddresses, own);
+    }
+
+    void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(bool, AsyncCallback<const std::vector<WalletAddress>&>&&);
+        call_async((MethodType)&IWalletModelAsync::getAddresses, own, std::move(callback));
     }
 
      void getDexOrders() override
@@ -980,6 +994,14 @@ namespace beam::wallet
         onTransactionChanged(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
     }
 
+    void WalletClient::getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback)
+    {
+        postFunctionToClientContext([res = m_walletDB->getTxHistory(wallet::TxType::ALL), cb = std::move(callback)]()
+        {
+            cb(std::move(res));
+        });
+    }
+
     void WalletClient::getUtxosStatus(beam::Asset::ID id)
     {
         onCoinsChanged(ChangeAction::Reset, getUtxos(id));
@@ -989,6 +1011,14 @@ namespace beam::wallet
     void WalletClient::getAddresses(bool own)
     {
         onAddresses(own, m_walletDB->getAddresses(own));
+    }
+
+    void WalletClient::getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback)
+    {
+        postFunctionToClientContext([res= m_walletDB->getAddresses(own), cb = std::move(callback)]()
+        {
+            cb(std::move(res));
+        });
     }
 
     void WalletClient::getDexOrders()

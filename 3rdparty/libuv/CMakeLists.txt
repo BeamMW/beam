@@ -125,6 +125,11 @@ if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD")
   list(APPEND uv_sources src/unix/freebsd.c)
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
+  list(APPEND uv_sources src/unix/posix-hrtime.c src/unix/no-fsevents.c src/unix/posix-poll.c)
+  #list(APPEND uv_libraries kvm)
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")
   list(APPEND uv_sources src/unix/posix-hrtime.c src/unix/bsd-proctitle.c)
   list(APPEND uv_libraries kvm)

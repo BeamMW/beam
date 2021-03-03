@@ -41,6 +41,10 @@ namespace beam::wallet
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
+#define WEB_WALLET_API_METHODS(macro) \
+    macro(CalcMyChange,         "calc_change",              API_READ_ACCESS,  API_SYNC)   \
+    macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC)
+
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC)   \
     macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC)   \
@@ -67,7 +71,8 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
-    SWAP_OFFER_API_METHODS(macro)
+    SWAP_OFFER_API_METHODS(macro) \
+    WEB_WALLET_API_METHODS(macro)
 
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
 #define WALLET_API_METHODS_ALIASES(macro) \
@@ -196,6 +201,46 @@ namespace beam::wallet
         };
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    struct CreateWallet
+    {
+        std::string pass;
+        std::string ownerKey;
+
+        struct Response
+        {
+            std::string id;
+        };
+    };
+
+    struct OpenWallet
+    {
+        std::string id;
+        std::string pass;
+        bool freshKeeper = true;
+
+        struct Response
+        {
+            std::string session;
+        };
+    };
+
+    struct CalcMyChange
+    {
+        Amount amount;
+        struct Response
+        {
+            Amount change;
+        };
+    };
+
+    struct ChangePassword
+    {
+        std::string newPassword;
+        struct Response
+        {
+        };
+    };
 
     struct AddressData
     {

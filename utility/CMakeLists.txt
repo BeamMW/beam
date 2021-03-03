@@ -15,7 +15,9 @@ set(UTILITY_SRC
 # ~etc
 )
 
-set(CLI_SRC cli/options.cpp)
+if (NOT EMSCRIPTEN)
+    set(CLI_SRC cli/options.cpp)
+endif()
 
 set(IO_SRC
     io/buffer.cpp
@@ -55,11 +57,12 @@ add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 
 target_compile_features(utility PUBLIC cxx_std_17)
 
-add_library(cli STATIC ${CLI_SRC})
-if(BEAM_LASER_SUPPORT)
-    target_compile_definitions(cli PUBLIC BEAM_LASER_SUPPORT)
+if (NOT EMSCRIPTEN)
+    add_library(cli STATIC ${CLI_SRC})
+    if(BEAM_LASER_SUPPORT)
+        target_compile_definitions(cli PUBLIC BEAM_LASER_SUPPORT)
+    endif()
 endif()
-
 if (UV_INTERNAL)
     target_link_libraries(utility uv_a)
 else()
@@ -78,8 +81,12 @@ elseif(ANDROID)
     )
 endif()
 
-target_link_libraries(utility Boost::system Boost::filesystem)
-target_link_libraries(cli Boost::program_options)
+if (NOT EMSCRIPTEN)
+    target_link_libraries(utility Boost::system Boost::filesystem)
+    target_link_libraries(cli Boost::program_options)
+else()
+    set_target_properties(utility PROPERTIES COMPILE_FLAGS "-s USE_BOOST_HEADERS=1" LINK_FLAGS "-s USE_BOOST_HEADERS=1")
+endif()
 
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
 if (LINUX)

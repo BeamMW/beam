@@ -195,8 +195,10 @@ namespace beam::wallet
         void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
+        void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
         void getUtxosStatus(beam::Asset::ID) override;
         void getAddresses(bool own) override;
+        void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;

@@ -94,6 +94,29 @@ namespace beam::wallet
         }
     }
 
+    void WalletApi::onMessage(const JsonRpcId& id, const CalcMyChange& data)
+    {
+        LOG_DEBUG() << "CalcChange(id = " << id << ")";
+
+        auto coins = getWalletDB()->selectCoins(data.amount, Zero);
+        Amount sum = 0;
+        for (auto& c : coins)
+        {
+            sum += c.m_ID.m_Value;
+        }
+
+        Amount change = (sum > data.amount) ? (sum - data.amount) : 0UL;
+        doResponse(id, CalcMyChange::Response{ change });
+    }
+
+    void WalletApi::onMessage(const JsonRpcId& id, const ChangePassword& data)
+    {
+        LOG_DEBUG() << "ChangePassword(id = " << id << ")";
+
+        getWalletDB()->changePassword(data.newPassword);
+        doResponse(id, ChangePassword::Response{ });
+    }
+
     void WalletApi::onMessage(const JsonRpcId& id, const CreateAddress& data)
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";

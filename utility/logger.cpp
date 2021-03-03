@@ -15,7 +15,13 @@
 #include "logger_checkpoints.h"
 #include "helpers.h"
 #include "common.h"
+#ifndef __EMSCRIPTEN__
 #include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
 #include <boost/iostreams/device/back_inserter.hpp>
 
 #if defined(__clang__)
@@ -169,14 +175,14 @@ private:
         if (!_dstPath.empty())
         {
 #ifdef WIN32
-            boost::filesystem::path path{ Utf8toUtf16(_dstPath.c_str()) };
+            fs::path path{ Utf8toUtf16(_dstPath.c_str()) };
 #else
-            boost::filesystem::path path{ _dstPath.c_str() };
+            fs::path path{ _dstPath.c_str() };
 #endif
 
-            if (!boost::filesystem::exists(path))
+            if (!fs::exists(path))
             {
-                boost::filesystem::create_directories(path);
+                fs::create_directories(path);
             }
 
             path /= fileName;

@@ -64,9 +64,9 @@ namespace beam::wallet {
 
     void DexBoard::publishOrder(const DexOrder &offer)
     {
-        auto message = createMessage(offer);
+        [[maybe_unused]] auto message = createMessage(offer);
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
-        message;
+        //message;
     }
 
     bool DexBoard::onMessage(uint64_t, ByteBuffer&&)
