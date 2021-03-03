@@ -5,7 +5,6 @@ set(UTILITY_SRC
     common.cpp
     logger.cpp
     logger_checkpoints.cpp
-    log_rotation.cpp
     helpers.cpp
     config.cpp
     string_helpers.cpp
@@ -16,6 +15,7 @@ set(UTILITY_SRC
 )
 
 if (NOT EMSCRIPTEN)
+    set(UTILITY_SRC ${UTILITY_SRC} log_rotation.cpp)
     set(CLI_SRC cli/options.cpp)
 endif()
 

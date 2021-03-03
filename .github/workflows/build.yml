@@ -565,7 +565,7 @@ jobs:
     - name: Configure CMake && Build
       run: |
         source ${{runner.workspace}}/emsdk/emsdk_env.sh
-        cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBoost_NO_SYSTEM_PATHS=FALSE -DCMAKE_VERBOSE_MAKEFILE=ON -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_USE_STATIC=On -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -DOPENSSL_INCLUDE_DIR=${{runner.workspace}}/openssl-wasm/include -D OPENSSL_CRYPTO_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libcrypto.a -DOPENSSL_SSL_LIBRARY=${{runner.workspace}}/openssl-wasm/lib/libssl.a -B${{runner.workspace}}/build_wasm
+        cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
         emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
 
     - name: Save version info

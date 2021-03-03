@@ -465,10 +465,12 @@ namespace beam::wallet
             {
                 Rules::Scope scopeRules(getRules());
                 io::Reactor::Scope scope(*m_reactor);
-
+#ifndef __EMSCRIPTEN__
                 static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
+#endif // !__EMSCRIPTEN__
+
 
                 auto wallet = make_shared<Wallet>(m_walletDB);
                 m_wallet = wallet;
