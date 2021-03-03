@@ -46,24 +46,16 @@ elseif(ANDROID)
 )
 endif()
 
-if (NOT BEAM_WALLET_CLIENT_LIBRARY)
-
-    target_link_libraries(${TARGET_NAME}
-        Boost::boost 
-        Boost::system 
-        Boost::thread 
-        Boost::regex 
-        Boost::filesystem 
-        Boost::program_options 
-        Boost::log 
-        Boost::locale
-    )
-    add_subdirectory(examples)
-else()
-    target_link_libraries(${TARGET_NAME}
-        Boost::boost 
-    )
-endif()
+target_link_libraries(${TARGET_NAME}
+    Boost::boost 
+    Boost::system 
+    Boost::thread 
+    Boost::regex 
+    Boost::filesystem 
+    Boost::program_options 
+    Boost::log 
+    Boost::locale
+)
 
 if(MSVC)
     target_compile_options(${TARGET_NAME} PUBLIC "/wd4245")
@@ -75,4 +67,8 @@ elseif(APPLE)
 elseif(ANDROID)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-mismatched-tags)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-compare)
+endif()
+
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(examples)
 endif()
