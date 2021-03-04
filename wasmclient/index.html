@@ -27,13 +27,21 @@
                               method: 'wallet_status'
                             }));
 
-                        walletClient.unsubscribe(i)    
+                        //walletClient.unsubscribe(i)    
                         walletClient.sendRequest(JSON.stringify({
                               jsonrpc: '2.0',
                               id: 5,
-                              method: 'wallet_status'
+                              method: 'tx_list'
                             }));
-                        
+                        walletClient.sendRequest(JSON.stringify({
+                              jsonrpc: '2.0',
+                              id: 2,
+                              method: 'tx_send',
+                              params: {
+                                value: 1234,
+                                address: "AfsQCJmL1h8zRiKibvswvvXVMkKnMRbG8PFK1kHfNVDkWWT78TSUNzDrc1Lz6Jb1VBvLshjt3drt91vT9WRYiSp2zFRLEHm4hhnPjf564qUADQB8i34eykFPuBYME3cU4q5315YLwMQCK6ZpERYQ9K7RPnJ2rcF5Yd1N9aRRefnBhkm1qqavgQqML5"
+                              }
+                            }) + '\n');
                     }
                 });
            

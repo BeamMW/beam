@@ -71,7 +71,7 @@ namespace beam::wallet
 
         virtual Height get_CurrentHeight() const
         {
-            return _wallet->get_CurrentHeight();
+            return getWallet()->get_CurrentHeight();
         }
 
         void onShaderDone(

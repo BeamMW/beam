@@ -182,8 +182,6 @@ public:
         , m_Reactor(io::Reactor::create())
         , m_Db(OpenWallet(dbName, pass))
         , m_Client(Rules::get(), m_Db, node, m_Reactor)
-        , m_WalletData(m_Client.GetApiInitData(m_Db))
-        , m_WalletApi(IWalletApi::CreateInstance(ApiVerCurrent, *this, *m_WalletData))
     {}
 
     void sendAPIResponse(const json& result) override
@@ -205,6 +203,12 @@ public:
     {
         m_Client.getAsync()->makeIWTCall([this, request]()
         {
+            if (!m_WalletApi)
+            {
+                m_WalletData = m_Client.GetApiInitData(m_Db);
+                m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, *m_WalletData);
+            }
+
             m_WalletApi->executeAPIRequest(request.data(), request.size());
             return boost::none;
         }, 
