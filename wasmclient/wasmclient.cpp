@@ -20,8 +20,11 @@
 #include "wallet/client/wallet_client.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/api/i_wallet_api.h"
+#include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+#include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
+
 #include <boost/algorithm/string.hpp>
 
 #include <queue>
@@ -218,8 +221,10 @@ public:
 
     void StartWallet()
     {
+        auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
+        additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(m_Db));
         m_Client.getAsync()->enableBodyRequests(true);
-        m_Client.start({}, true, {});
+        m_Client.start({}, true, additionalTxCreators);
     }
 
     static std::string GeneratePhrase()
