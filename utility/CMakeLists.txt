@@ -84,8 +84,6 @@ endif()
 if (NOT EMSCRIPTEN)
     target_link_libraries(utility Boost::system Boost::filesystem)
     target_link_libraries(cli Boost::program_options)
-else()
-    set_target_properties(utility PROPERTIES COMPILE_FLAGS "-s USE_BOOST_HEADERS=1" LINK_FLAGS "-s USE_BOOST_HEADERS=1")
 endif()
 
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
