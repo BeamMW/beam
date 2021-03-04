@@ -100,7 +100,7 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
     k0.m_KeyInContract.m_Account = pubKey;
     k0.m_KeyInContract.m_Aid = 0;
 
-    Utils::Copy(k1, k0);
+    _POD_(k1) = k0;
     k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
     Env::VarsEnum_T(k0, k1);
@@ -125,8 +125,8 @@ ON_METHOD(manager, destroy)
 ON_METHOD(manager, view_accounts)
 {
     Env::KeyPrefix k0, k1;
-    Utils::Copy(k0.m_Cid, cid);
-    Utils::Copy(k1.m_Cid, cid);
+    _POD_(k0.m_Cid) = cid;
+    _POD_(k1.m_Cid) = cid;
     k1.m_Tag = KeyTag::Internal + 1;
 
     Env::VarsEnum_T(k0, k1); // enum all internal contract vars
@@ -204,7 +204,7 @@ ON_METHOD(my_account, view)
 ON_METHOD(my_account, get_proof)
 {
     KeyAccount key;
-    Utils::Copy(key.m_Prefix.m_Cid, cid);
+    _POD_(key.m_Prefix.m_Cid) = cid;
     DeriveMyPk(key.m_KeyInContract.m_Account, cid);
     key.m_KeyInContract.m_Aid = aid;
 

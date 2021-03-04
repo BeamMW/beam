@@ -19,7 +19,7 @@ export void Dtor(void*)
 export void Method_2(void*)
 {
     Vault::Deposit r;
-    Utils::ZeroObject(r);
+    _POD_(r).SetZero();
     r.m_Amount = 318;
     Env::CallFar_T(Vault::s_CID, r);
 }
@@ -139,7 +139,7 @@ bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, 
 
         do
             hp >> ed;
-        while (Utils::IsZero(ed) || !Env::Secp_Scalar_import(*pE, ed));
+        while (_POD_(ed).IsZero() || !Env::Secp_Scalar_import(*pE, ed));
     }
 
     Env::Secp_Point_free(*pP0);
@@ -148,7 +148,7 @@ bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, 
     Env::Secp_Scalar_free(*pE);
     Env::Secp_Scalar_free(*pS);
 
-    return !Utils::Cmp(ed, e0);
+    return _POD_(ed) == e0;
 }
 
 export void Method_11(Dummy::TestRingSig& r)

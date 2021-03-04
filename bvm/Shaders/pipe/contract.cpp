@@ -5,15 +5,15 @@
 export void Ctor(const Pipe::Create& r)
 {
 	Pipe::StateOut so;
-	Utils::ZeroObject(so);
-	Utils::Copy(so.m_Cfg, r.m_Cfg.m_Out);
+	_POD_(so).SetZero();
+	_POD_(so.m_Cfg) = r.m_Cfg.m_Out;
 	
 	Pipe::StateOut::Key ko;
 	Env::SaveVar_T(ko, so);
 
 	Pipe::StateIn si;
-	Utils::ZeroObject(si);
-	Utils::Copy(si.m_Cfg, r.m_Cfg.m_In);
+	_POD_(si).SetZero();
+	_POD_(si.m_Cfg) = r.m_Cfg.m_In;
 
 	Pipe::StateIn::Key ki;
 	Env::SaveVar_T(ki, si);
@@ -30,9 +30,9 @@ export void Method_2(const Pipe::SetRemote& r)
 	Pipe::StateIn::Key ki;
 	Env::LoadVar_T(ki, si);
 
-	Env::Halt_if(!Utils::IsZero(si.m_cidRemote) || Utils::IsZero(r.m_cid));
+	Env::Halt_if(!_POD_(si.m_cidRemote).IsZero() || _POD_(r.m_cid).IsZero());
 
-	Utils::Copy(si.m_cidRemote, r.m_cid);
+	_POD_(si.m_cidRemote) = r.m_cid;
 	Env::SaveVar_T(ki, si);
 
 }
@@ -47,9 +47,9 @@ export void Method_3(const Pipe::PushLocal0& r)
 	if (Env::get_CallDepth() > 1)
 		Env::get_CallerCid(1, pMsg->m_Sender);
 	else
-		Utils::ZeroObject(pMsg->m_Sender);
+		_POD_(pMsg->m_Sender).SetZero();
 
-	Utils::Copy(pMsg->m_Receiver, r.m_Receiver);
+	_POD_(pMsg->m_Receiver) = r.m_Receiver;
 	Env::Memcpy(pMsg + 1, &r + 1, r.m_MsgSize);
 
 	Pipe::StateOut so;
@@ -76,7 +76,7 @@ export void Method_3(const Pipe::PushLocal0& r)
 	if (bNewCheckpoint)
 	{
 		so.m_Checkpoint.m_h0 = h;
-		Utils::ZeroObject(hv);
+		_POD_(hv).SetZero();
 	}
 	else
 		Env::LoadVar_T(cpk, hv);
@@ -225,7 +225,7 @@ struct VariantWrap
 	{
 		auto& x = m_pVar->m_Begin;
 		x.m_Height = m_Hdr.m_Key.m_Height;
-		Utils::Copy(x.m_hvPrev, hdr.m_Prev);
+		_POD_(x.m_hvPrev) = hdr.m_Prev;
 
 		BeamDifficulty::Raw d;
 		BeamDifficulty::Unpack(d, hdr.m_PoW.m_Difficulty);
@@ -236,13 +236,13 @@ struct VariantWrap
 	{
 		auto& x = m_pVar->m_End;
 		x.m_Height = m_Hdr.m_Key.m_Height + 1;
-		Utils::Copy(x.m_hvPrev, m_Hdr.m_Data.m_hvHeader);
+		_POD_(x.m_hvPrev) = m_Hdr.m_Data.m_hvHeader;
 	}
 
 	void SetEnd(const BeamDifficulty::Raw& wrk)
 	{
 		SetEnd();
-		Utils::Copy(m_pVar->m_End.m_Work, wrk);
+		_POD_(m_pVar->m_End.m_Work) = wrk;
 	}
 
 	void LoadHdr(Height h)
@@ -268,7 +268,7 @@ struct VariantWrap
 			LoadHdr(h);
 			vw2.LoadHdr(h);
 
-			if (!Utils::Cmp(m_Hdr.m_Data.m_hvHeader, vw2.m_Hdr.m_Data.m_hvHeader))
+			if (_POD_(m_Hdr.m_Data.m_hvHeader) == vw2.m_Hdr.m_Data.m_hvHeader)
 			{
 				// yes! No need to compare work. The winner is the bigger variant.
 				Env::Halt_if(m_VarSize <= vw2.m_VarSize);
@@ -281,7 +281,7 @@ struct VariantWrap
 			LoadHdr(h);
 			vw2.LoadHdr(h);
 
-			if (!Utils::Cmp(m_Hdr.m_Data.m_hvHeader, vw2.m_Hdr.m_Data.m_hvHeader))
+			if (_POD_(m_Hdr.m_Data.m_hvHeader) == vw2.m_Hdr.m_Data.m_hvHeader)
 			{
 				// yes! Compare only the top chainwork
 				Env::Halt_if(v.m_End.m_Work <= v2.m_End.m_Work);
@@ -315,29 +315,29 @@ export void Method_4(const Pipe::PushRemote0& r)
 		vw.m_VarSize = sizeof(*vw.m_pVar) + nSizeMsgs;
 
 		vw.Alloc();
-		Utils::ZeroObject(*vw.m_pVar);
+		_POD_(*vw.m_pVar).SetZero();
 
 		vw.m_pVar->m_iDispute = si.m_Dispute.m_iIdx;
-		Utils::Copy(vw.m_pVar->m_User, r.m_User);
+		_POD_(vw.m_pVar->m_User) = r.m_User;
 
 		Env::Memcpy(vw.m_pVar + 1, p.Read(nSizeMsgs), nSizeMsgs);
 
-		Utils::ZeroObject(vw.m_Key.m_hvVariant);
+		_POD_(vw.m_Key.m_hvVariant).SetZero();
 
 	}
 	else
 	{
 		// load
-		Utils::Copy(vw.m_Key.m_hvVariant, p.Read_As<HashValue>());
+		_POD_(vw.m_Key.m_hvVariant) = p.Read_As<HashValue>();
 		vw.Load();
 
 		Env::Halt_if(vw.m_pVar->m_iDispute != si.m_Dispute.m_iIdx);
 
-		if (Utils::Cmp(vw.m_pVar->m_User, r.m_User))
+		if (_POD_(vw.m_pVar->m_User) != r.m_User)
 		{
 			Env::Halt_if(h - vw.m_pVar->m_hLastLoose <= si.m_Cfg.m_hContenderWaitPeriod);
 			// replace the contender user for this variant
-			Utils::Copy(vw.m_pVar->m_User, r.m_User);
+			_POD_(vw.m_pVar->m_User) = r.m_User;
 		}
 	}
 
@@ -353,7 +353,7 @@ export void Method_4(const Pipe::PushRemote0& r)
 	{
 		// load the rival variant
 		VariantWrap vwRival;
-		Utils::Copy(vwRival.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+		_POD_(vwRival.m_Key.m_hvVariant) = si.m_Dispute.m_hvBestVariant;
 		vwRival.Load();
 
 		if (1 == si.m_Dispute.m_Variants)
@@ -364,9 +364,9 @@ export void Method_4(const Pipe::PushRemote0& r)
 
 		if (bNewVariant)
 			vw.Evaluate();
-		Env::Halt_if(!Utils::Cmp(vw.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant));
+		Env::Halt_if(_POD_(vw.m_Key.m_hvVariant) == vwRival.m_Key.m_hvVariant);
 
-		Utils::Copy(vw.m_Hdr.m_Key.m_hvVariant, vw.m_Key.m_hvVariant);
+		_POD_(vw.m_Hdr.m_Key.m_hvVariant) = vw.m_Key.m_hvVariant;
 
 		if (Pipe::PushRemote0::Flags::Reset & r.m_Flags)
 			vw.m_pVar->m_Begin.m_Height = 0;
@@ -395,19 +395,19 @@ export void Method_4(const Pipe::PushRemote0& r)
 			while (n--)
 				Merkle::Interpret(hv, p.Read_As<Merkle::Node>());
 
-			Env::Halt_if(Utils::Cmp(hv, hdr.m_Definition));
+			Env::Halt_if(_POD_(hv) != hdr.m_Definition);
 		}
 
 		if (Pipe::PushRemote0::Flags::HdrsDown & r.m_Flags)
 		{
 			BlockHeader::Full hdr;
-			Utils::Copy(hdr, p.Read_As<BlockHeader::Full>());
+			_POD_(hdr) = p.Read_As<BlockHeader::Full>();
 
 			BeamDifficulty::Raw wrk;
 			wrk.FromBE_T(hdr.m_ChainWork);
 
 			Pipe::Variant::Ending vb;
-			Utils::Copy(vb, vw.m_pVar->m_Begin);
+			_POD_(vb) = vw.m_pVar->m_Begin;
 			Env::Halt_if(hdr.m_Height >= vb.m_Height);
 
 			vw.SetBegin(hdr, wrk);
@@ -419,18 +419,18 @@ export void Method_4(const Pipe::PushRemote0& r)
 				if (++hdr.m_Height == vb.m_Height)
 				{
 					Env::Halt_if(
-						Utils::Cmp(vw.m_Hdr.m_Data.m_hvHeader, vb.m_hvPrev) ||
-						Utils::Cmp(wrk, vb.m_Work));
+						(_POD_(vw.m_Hdr.m_Data.m_hvHeader) != vb.m_hvPrev) ||
+						(_POD_(wrk) != vb.m_Work));
 
 					break;
 				}
 
-				Utils::Copy(hdr.m_Prev, vw.m_Hdr.m_Data.m_hvHeader);
+				_POD_(hdr.m_Prev) = vw.m_Hdr.m_Data.m_hvHeader;
 
 				BeamDifficulty::Add(wrk, hdr.m_PoW.m_Difficulty);
 				wrk.ToBE_T(hdr.m_ChainWork);
 
-				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+				_POD_(Cast::Down<BlockHeader::Element>(hdr)) = p.Read_As<BlockHeader::Element>();
 			}
 		}
 
@@ -438,11 +438,11 @@ export void Method_4(const Pipe::PushRemote0& r)
 		{
 			BlockHeader::Full hdr;
 			hdr.m_Height = vw.m_pVar->m_End.m_Height;
-			Utils::Copy(hdr.m_Prev, vw.m_pVar->m_End.m_hvPrev);
+			_POD_(hdr.m_Prev) = vw.m_pVar->m_End.m_hvPrev;
 
 			for (auto n = p.Read_As<uint32_t>(); ; )
 			{
-				Utils::Copy(Cast::Down<BlockHeader::Element>(hdr), p.Read_As<BlockHeader::Element>());
+				_POD_(Cast::Down<BlockHeader::Element>(hdr)) = p.Read_As<BlockHeader::Element>();
 
 				BeamDifficulty::Add(vw.m_pVar->m_End.m_Work, hdr.m_PoW.m_Difficulty);
 				vw.m_pVar->m_End.m_Work.ToBE_T(hdr.m_ChainWork);
@@ -452,7 +452,7 @@ export void Method_4(const Pipe::PushRemote0& r)
 				if (! --n)
 					break;
 
-				Utils::Copy(hdr.m_Prev, vw.m_Hdr.m_Data.m_hvHeader);
+				_POD_(hdr.m_Prev) = vw.m_Hdr.m_Data.m_hvHeader;
 				hdr.m_Height++;
 			}
 
@@ -462,7 +462,7 @@ export void Method_4(const Pipe::PushRemote0& r)
 		if (vwRival.HasHdrs())
 		{
 			// Compare the variants.
-			Utils::Copy(vwRival.m_Hdr.m_Key.m_hvVariant, vwRival.m_Key.m_hvVariant);
+			_POD_(vwRival.m_Hdr.m_Key.m_hvVariant) = vwRival.m_Key.m_hvVariant;
 
 			vw.EnsureBetter(vwRival);
 		}
@@ -470,7 +470,7 @@ export void Method_4(const Pipe::PushRemote0& r)
 		vwRival.m_pVar->m_hLastLoose = h;
 		vwRival.Save();
 
-		Utils::Copy(si.m_Dispute.m_hvBestVariant, vw.m_Key.m_hvVariant);
+		_POD_(si.m_Dispute.m_hvBestVariant) = vw.m_Key.m_hvVariant;
 	}
 
 	vw.Save();
@@ -493,7 +493,7 @@ void HandleUserAccount(const PubKey& pk, Amount val, bool bAdd)
 {
 	Pipe::UserInfo ui;
 	Pipe::UserInfo::Key kui;
-	Utils::Copy(kui.m_Pk, pk);
+	_POD_(kui.m_Pk) = pk;
 
 	if (!Env::LoadVar_T(kui, ui))
 		ui.m_Balance = 0;
@@ -518,12 +518,12 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	Env::Halt_if(!si.m_Dispute.m_Variants || !si.CanFinalyze(Env::get_Height()));
 
 	VariantWrap vw;
-	Utils::Copy(vw.m_Key.m_hvVariant, si.m_Dispute.m_hvBestVariant);
+	_POD_(vw.m_Key.m_hvVariant) = si.m_Dispute.m_hvBestVariant;
 	vw.Load();
 	vw.Del();
 
 	Pipe::InpCheckpoint cp;
-	Utils::Copy(cp.m_User, vw.m_pVar->m_User);
+	_POD_(cp.m_User) = vw.m_pVar->m_User;
 
 	if (r.m_DepositStake)
 		HandleUserAccount(cp.m_User, si.m_Dispute.m_Stake, true);
@@ -548,7 +548,7 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 		Env::SaveVar(&mki, sizeof(mki), p.m_pMsg, sizeof(*p.m_pMsg) + p.m_MsgSize);
 	}
 
-	Utils::ZeroObject(si.m_Dispute);
+	_POD_(si.m_Dispute).SetZero();
 	si.m_Dispute.m_iIdx = iIdx + 1;
 	Env::SaveVar_T(ki, si);
 }
@@ -565,14 +565,14 @@ export void Method_6(Pipe::ReadRemote0& r)
 	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
 	Env::LoadVar(&mki, sizeof(mki), pMsg, nSize);
 
-	r.m_IsPrivate = !Utils::IsZero(pMsg->m_Receiver);
+	r.m_IsPrivate = !_POD_(pMsg->m_Receiver).IsZero();
 
 	if (r.m_IsPrivate)
 	{
 		// check the recipient
 		ContractID cid;
 		Env::get_CallerCid(1, cid);
-		Env::Halt_if(Utils::Cmp(cid, pMsg->m_Receiver));
+		Env::Halt_if(_POD_(cid) != pMsg->m_Receiver);
 
 		if (r.m_Wipe)
 			Env::DelVar_T(mki);
@@ -582,7 +582,7 @@ export void Method_6(Pipe::ReadRemote0& r)
 
 	nSize -= sizeof(Pipe::MsgHdr);
 
-	Utils::Copy(r.m_Sender, pMsg->m_Sender);
+	_POD_(r.m_Sender) = pMsg->m_Sender;
 	Env::Memcpy(&r + 1, pMsg + 1, std::min(nSize, r.m_MsgSize));
 	r.m_MsgSize = nSize;
 

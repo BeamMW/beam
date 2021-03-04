@@ -28,7 +28,7 @@ bool LoadAccount(const PubKey& pk, Perpetual::OfferState& s)
 	if (Env::LoadVar_T(pk, s))
 		return true;
 
-	Utils::ZeroObject(s);
+	_POD_(s).SetZero();
 	return false;
 }
 

@@ -50,7 +50,7 @@ struct BeamDifficulty
         }
         else
         {
-            Utils::SetObject(res, static_cast<uint8_t>(-1)); // inf
+            _POD_(res).SetObject(static_cast<uint8_t>(-1)); // inf
         }
 
     }

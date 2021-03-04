@@ -236,34 +236,39 @@ namespace Env {
 
 namespace Utils {
 
-    template <typename T>
-    inline void SetObject(T& x, uint8_t nFill) {
-        Env::Memset(&x, nFill, sizeof(x));
-    }
-
-    template <typename T>
-    inline void ZeroObject(T& x) {
-        SetObject(x, 0);
-    }
-
-    template <typename T>
-    inline uint8_t IsZero(const T& x) {
-        return Env::Memis0(&x, sizeof(x));
-    }
-
-    template <typename TDst, typename TSrc>
-    inline void Copy(TDst& dst, const TSrc& src)
+    template <typename T> struct BlobOf
     {
-        static_assert(sizeof(dst) == sizeof(src), "operands must have equal size");
-        Env::Memcpy(&dst, &src, sizeof(dst));
-    }
+        T& m_Obj;
+        explicit BlobOf(T& x) :m_Obj(x) {}
 
-    template <typename TSrc0, typename TSrc1>
-    inline int32_t Cmp(const TSrc0& src0, const TSrc1& src1)
-    {
-        static_assert(sizeof(src0) == sizeof(src1), "operands must have equal size");
-        return Env::Memcmp(&src0, &src1, sizeof(src0));
-    }
+        template <typename TT> static void TestOperand(const TT&) {
+            static_assert(sizeof(T) == sizeof(TT), "operands must have equal size");
+        }
+        template <typename TT> const BlobOf& operator = (const TT& v) const {
+            TestOperand(v);
+            Env::Memcpy(&m_Obj, &v, sizeof(T));
+            return *this;
+        }
+        template <typename TT> int32_t Cmp(const TT& v) const {
+            TestOperand(v);
+            return Env::Memcmp(&m_Obj, &v, sizeof(T));
+        }
+        template <typename TT> uint8_t operator == (const TT& v) const {
+            return !Cmp(v);
+        }
+        template <typename TT> uint8_t operator != (const TT& v) const {
+            return !!Cmp(v);
+        }
+        void SetObject(uint8_t nFill) const {
+            Env::Memset(&m_Obj, nFill, sizeof(T));
+        }
+        void SetZero() const {
+            SetObject(0);
+        }
+        uint8_t IsZero() const {
+            return Env::Memis0(&m_Obj, sizeof(T));
+        }
+    };
 
 #ifdef HOST_BUILD
 
@@ -301,6 +306,10 @@ namespace Utils {
 #endif // HOST_BUILD
 
 } // namespace Utils
+
+template <typename T> Utils::BlobOf<T> _POD_(T& x) {
+    return Utils::BlobOf<T>(x);
+}
 
 namespace std {
     

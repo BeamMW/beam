@@ -106,8 +106,8 @@ ON_METHOD(manager, create)
 ON_METHOD(manager, view_offers)
 {
     Env::KeyPrefix k0, k1;
-    Utils::Copy(k0.m_Cid, cid);
-    Utils::Copy(k1.m_Cid, cid);
+    _POD_(k0.m_Cid) = cid;
+    _POD_(k1.m_Cid) = cid;
     k1.m_Tag = KeyTag::Internal + 1;
 
     Env::VarsEnum_T(k0, k1); // enum all internal contract vars

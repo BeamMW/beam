@@ -197,7 +197,7 @@ export void Method_4(const StableCoin::Grab& arg)
 void Position::Load(const PubKey& pk)
 {
 	if (!Env::LoadVar_T(pk, *this))
-		Utils::ZeroObject(*this);
+		_POD_(*this).SetZero();
 }
 
 void Position::Save(const PubKey& pk) const
@@ -291,5 +291,5 @@ void Position::ReleaseBidStrict(const Worker& wrk)
 		Env::CallFar_T(Vault::s_CID, arg);
 	}
 
-	Utils::ZeroObject(m_Bid);
+	_POD_(m_Bid).SetZero();
 }

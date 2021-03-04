@@ -6,7 +6,7 @@ export void Ctor(const Roulette::Params& r)
 {
     // Initialize global roulette state
     Roulette::State s;
-    Utils::ZeroObject(s);
+    _POD_(s).SetZero();
 
     // Initialize winning segment (no winner)
     s.m_iWinner = s.s_Sectors;

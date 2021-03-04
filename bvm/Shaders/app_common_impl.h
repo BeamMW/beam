@@ -32,16 +32,16 @@ struct WalkerContracts
 	void Enum(const ShaderID* pSid)
 	{
 		KeySidCid k0, k1;
-		Utils::ZeroObject(k0);
+		_POD_(k0).SetZero();
 		k0.m_Prefix.m_Tag = KeyTag::SidCid;
 
 		if (pSid)
-			Utils::Copy(k0.m_KeyInContract.m_Sid, *pSid);
+			_POD_(k0.m_KeyInContract.m_Sid) = *pSid;
 
-		Utils::Copy(k1, k0);
-		Utils::SetObject(k1.m_KeyInContract.m_Cid, 0xff);
+		_POD_(k1) = k0;
+		_POD_(k1.m_KeyInContract.m_Cid).SetObject(0xff);
 		if (!pSid)
-			Utils::SetObject(k1.m_KeyInContract.m_Sid, 0xff);
+			_POD_(k1.m_KeyInContract.m_Sid).SetObject(0xff);
 
 		Env::VarsEnum_T(k0, k1);
 	}
@@ -115,7 +115,7 @@ struct WalkerFunds
 		else
 		{
 			KeyFunds k1;
-			Utils::Copy(k1.m_Prefix, k0.m_Prefix);
+			_POD_(k1.m_Prefix) = k0.m_Prefix;
 
 			k0.m_KeyInContract = 0;
 			k1.m_KeyInContract = static_cast<AssetID>(-1);

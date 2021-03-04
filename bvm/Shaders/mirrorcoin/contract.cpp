@@ -5,8 +5,8 @@
 export void Ctor(const MirrorCoin::Create0& r)
 {
     MirrorCoin::Global g;
-    Utils::Copy(g.m_PipeID, r.m_PipeID);
-    Utils::ZeroObject(g.m_Remote);
+    _POD_(g.m_PipeID) = r.m_PipeID;
+    _POD_(g.m_Remote).SetZero();
 
     Env::Halt_if(!Env::RefAdd(r.m_PipeID));
 
@@ -44,8 +44,8 @@ export void Method_2(const MirrorCoin::SetRemote& r)
     uint8_t gk = 0;
     Env::LoadVar_T(gk, g);
 
-    Env::Halt_if(!Utils::IsZero(g.m_Remote) || Utils::IsZero(r.m_Cid));
-    Utils::Copy(g.m_Remote, r.m_Cid);
+    Env::Halt_if(!_POD_(g.m_Remote).IsZero() || _POD_(r.m_Cid).IsZero());
+    _POD_(g.m_Remote) = r.m_Cid;
 
     Env::SaveVar_T(gk, g);
 }
@@ -56,7 +56,7 @@ export void Method_3(const MirrorCoin::Send& r)
     uint8_t gk = 0;
     Env::LoadVar_T(gk, g);
 
-    Env::Halt_if(Utils::IsZero(g.m_Remote));
+    Env::Halt_if(_POD_(g.m_Remote).IsZero());
 
 #pragma pack (push, 1)
     struct Arg :public Pipe::PushLocal0
@@ -66,9 +66,9 @@ export void Method_3(const MirrorCoin::Send& r)
 #pragma pack (pop)
 
     Arg arg;
-    Utils::Copy(arg.m_Receiver, g.m_Remote);
+    _POD_(arg.m_Receiver) = g.m_Remote;
     arg.m_MsgSize = sizeof(arg.m_Msg);
-    Utils::Copy(arg.m_Msg, r);
+    _POD_(arg.m_Msg) = r;
 
     Env::CallFar_T(g.m_PipeID, arg);
 
@@ -84,7 +84,7 @@ export void Method_4(const MirrorCoin::Receive& r)
     uint8_t gk = 0;
     Env::LoadVar_T(gk, g);
 
-    Env::Halt_if(Utils::IsZero(g.m_Remote));
+    Env::Halt_if(_POD_(g.m_Remote).IsZero());
 
 #pragma pack (push, 1)
     struct Arg
@@ -102,7 +102,7 @@ export void Method_4(const MirrorCoin::Receive& r)
     Env::CallFar_T(g.m_PipeID, arg);
 
     Env::Halt_if(
-        Utils::Cmp(arg.m_Sender, g.m_Remote) ||
+        (_POD_(arg.m_Sender) != g.m_Remote) ||
         (sizeof(arg.m_Msg) != arg.m_MsgSize)
     );
 

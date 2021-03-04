@@ -218,9 +218,9 @@ ON_METHOD(manager, get_InCheckpointDispute)
 
         Env::VarsMoveNext(&pKey, &nKey, (const void**) &pVar, &nVar);
 
-        Env::DocAddNum("is_my", (uint32_t) !Utils::Cmp(pk, pVar->m_User));
+        Env::DocAddNum("is_my", (uint32_t) (_POD_(pk) == pVar->m_User));
 
-        //if (Utils::IsZero(vk.m_KeyInContract.m_hvVariant))
+        //if (_POD_(vk.m_KeyInContract.m_hvVariant).IsZero())
         //    pVar->Evaluate(vk.m_KeyInContract.m_hvVariant, nVar);
 
         Env::DocAddBlob_T("hash", vk.m_KeyInContract.m_hvVariant);

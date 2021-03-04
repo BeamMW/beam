@@ -82,8 +82,8 @@ struct DealerKey
 
     DealerKey()
     {
-        Utils::Copy(m_SID, Roulette::s_SID);
-        Utils::Copy(m_pSeed, DEALER_SEED);
+        _POD_(m_SID) = Roulette::s_SID;
+        _POD_(m_pSeed) = DEALER_SEED;
     }
 
     void DerivePk(PubKey& pk) const
@@ -120,7 +120,7 @@ struct StateInfoPlus
         PubKey pk;
         dk.DerivePk(pk); // create public key from dealer key seed
 
-        m_isDealer = !Utils::Cmp(pk, m_State.m_Dealer);
+        m_isDealer = (_POD_(pk) == m_State.m_Dealer);
         m_RoundOver = (m_State.m_iWinner < m_State.s_Sectors);
 
         return true;

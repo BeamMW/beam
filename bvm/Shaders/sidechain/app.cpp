@@ -76,10 +76,10 @@ ON_METHOD(client, create)
 {
     Sidechain::Init pars;
 
-    Utils::Copy(pars.m_Rules, rulesCfg);
+    _POD_(pars.m_Rules) = rulesCfg;
     pars.m_VerifyPoW = !!verifyPoW;
     pars.m_ComissionForProof = comission;
-    Utils::Copy(pars.m_Hdr0, hdr0);
+    _POD_(pars.m_Hdr0) = hdr0;
 
     // Create kernel with all the required parameters
     // 
@@ -140,7 +140,7 @@ ON_METHOD(client, get_State)
             return;
         }
 
-        Utils::Copy(pHashes[i], pV->m_Hash);
+        _POD_(pHashes[i]) = pV->m_Hash;
     }
 
     Env::DocAddBlob("hashes", pHashes, nSizeHashes);
@@ -160,7 +160,7 @@ ON_METHOD(client, send_new_hdrs)
     Request* pRequest = (Request*) Env::StackAlloc(nArgSize);
 
     pRequest->m_nSequence = nHdrsCount;
-    Utils::Copy(pRequest->m_Prefix, prefix);
+    _POD_(pRequest->m_Prefix) = prefix;
 
     if (!Env::DocGetBlobEx("hdrs", pRequest->m_pSequence, nSizeElems))
     {
@@ -200,7 +200,7 @@ ON_METHOD(server, get_new_hdrs)
         {
             Env::get_HdrInfo(hdr);
 
-            if (!Utils::Cmp(hdr.m_Hash, pHashes[nReorg]))
+            if (_POD_(hdr.m_Hash) == pHashes[nReorg])
                 break;
         }
     }
@@ -229,7 +229,7 @@ ON_METHOD(server, get_new_hdrs)
         if (!i)
             Env::DocAddBlob_T("prefix", Cast::Down<BlockHeader::Prefix>(s));
 
-        Utils::Copy(pElem[i], Cast::Down<BlockHeader::Element>(s));
+        _POD_(pElem[i]) = Cast::Down<BlockHeader::Element>(s);
     }
 
     Env::DocAddBlob("hdrs", pElem, nSizeNewHdrs);

@@ -84,7 +84,7 @@ void OnError(const char* sz)
 const MirrorCoin::Global* get_Global(const ContractID& cid)
 {
     Env::Key_T<uint8_t> gk;
-    Utils::Copy(gk.m_Prefix.m_Cid, cid);
+    _POD_(gk.m_Prefix.m_Cid) = cid;
     gk.m_KeyInContract = 0;
 
     auto* pG = Env::VarRead_T<MirrorCoin::Global>(gk);
@@ -140,10 +140,10 @@ struct IncomingWalker
             if (!Env::VarsMoveNext_T(m_pKey, m_pMsg))
                 return false;
 
-            if (Utils::Cmp(m_pMsg->m_Sender, m_cidRemote) || Utils::Cmp(m_pMsg->m_Receiver, m_Cid))
+            if ((_POD_(m_pMsg->m_Sender) != m_cidRemote) || (_POD_(m_pMsg->m_Receiver) != m_Cid))
                 continue;
 
-            if (pPk && Utils::Cmp(*pPk, m_pMsg->m_User))
+            if (pPk && (_POD_(*pPk) !=m_pMsg->m_User))
                 continue;
 
             return true;
@@ -244,7 +244,7 @@ ON_METHOD(manager, view_params)
 
 ON_METHOD(manager, view_incoming)
 {
-    ViewIncoming(cid, Utils::IsZero(pkUser) ? nullptr : &pkUser, iStartFrom);
+    ViewIncoming(cid, _POD_(pkUser).IsZero() ? nullptr : &pkUser, iStartFrom);
 }
 
 void DerivePk(PubKey& pk, const ContractID& cid)
@@ -274,10 +274,10 @@ ON_METHOD(user, send)
 
     MirrorCoin::Send pars;
     pars.m_Amount = amount;
-    if (Utils::IsZero(pkDst))
+    if (_POD_(pkDst).IsZero())
         DerivePk(pars.m_User, cid);
     else
-        Utils::Copy(pars.m_User, pkDst);
+        _POD_(pars.m_User) = pkDst;
 
     FundsChange fc;
     fc.m_Aid = pG->m_Aid;

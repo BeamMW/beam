@@ -103,7 +103,7 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
     k0.m_KeyInContract.m_Account = pubKey;
     k0.m_KeyInContract.m_Aid = 0;
 
-    Utils::Copy(k1, k0);
+    _POD_(k1) = k0;
     k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
     Env::VarsEnum_T(k0, k1);
