@@ -120,7 +120,6 @@ namespace beam::wallet
                 }
                 else res = {};
             }
-            else res = {};
         }
 
         template<typename T>

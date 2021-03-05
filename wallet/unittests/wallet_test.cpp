@@ -106,8 +106,8 @@ namespace
 
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 0, v);
-            WALLET_CHECK(v.empty()); 
+            WalletApi::doPagination(0, 0, v); // for count 0 we return all
+            WALLET_CHECK(v.size() == 4); 
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
