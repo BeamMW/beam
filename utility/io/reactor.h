@@ -119,14 +119,14 @@ private:
         Object(const Object&) = delete;
         Object& operator=(const Object&) = delete;
 
-        Object(Object&& o) :
+        Object(Object&& o) noexcept :
             _reactor(std::move(o._reactor)),
             _handle(o._handle)
         {
             o._handle = 0;
         }
 
-        Object& operator=(Object&& o) {
+        Object& operator=(Object&& o) noexcept {
             _reactor = std::move(o._reactor);
             _handle = o._handle;
             o._handle = 0;

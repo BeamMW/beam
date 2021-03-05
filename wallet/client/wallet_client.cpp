@@ -314,7 +314,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getPublicAddress);
     }
 
-    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override
+    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override
     {
         call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
     }
@@ -344,12 +344,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
-    void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override
+    void getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback) override
     {
         call_async(&IWalletModelAsync::getCoins, assetId, std::move(callback));
     }
 
-    void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override
+    void getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback) override
     {
         call_async(&IWalletModelAsync::getShieldedCoins, assetId, std::move(callback));
     }
@@ -718,7 +718,7 @@ namespace beam::wallet
         if (timeLimit)
         {
             auto& stateID = m_status.stateID;
-            auto hoursLeftByBlocks = (coin.m_confirmHeight + timeLimit * 60 - stateID.m_Height) / 60.;
+            auto hoursLeftByBlocks = (coin.m_confirmHeight + static_cast<uint32_t>(timeLimit) * 60 - stateID.m_Height) / 60.;
             hoursLeftByBlocksU = static_cast<uint16_t>(hoursLeftByBlocks > 1 ? floor(hoursLeftByBlocks) : ceil(hoursLeftByBlocks));
         }
 
@@ -1000,7 +1000,7 @@ namespace beam::wallet
     {
         postFunctionToClientContext([res = m_walletDB->getTxHistory(wallet::TxType::ALL), cb = std::move(callback)]()
         {
-            cb(std::move(res));
+            cb(res);
         });
     }
 
@@ -1019,7 +1019,7 @@ namespace beam::wallet
     {
         postFunctionToClientContext([res= m_walletDB->getAddresses(own), cb = std::move(callback)]()
         {
-            cb(std::move(res));
+            cb(res);
         });
     }
 
@@ -1524,12 +1524,12 @@ namespace beam::wallet
         onPublicAddress(GeneratePublicOfflineAddress(*m_walletDB));
     }
 
-    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback)
+    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback)
     {
         auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
         postFunctionToClientContext([res = std::move(vouchers), cb = std::move(callback)]() 
         {
-            cb(std::move(res));
+            cb(res);
         });
     }
 
@@ -1544,25 +1544,25 @@ namespace beam::wallet
         auto limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours();
         postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
         {
-            cb(std::move(res));
+            cb(res);
         });
     }
 
-    void WalletClient::getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback)
+    void WalletClient::getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback)
     {
         auto coins = getUtxos(assetId);
         postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
         {
-            cb(std::move(coins));
+            cb(coins);
         });
     }
 
-    void WalletClient::getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback)
+    void WalletClient::getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback)
     {
         auto coins = m_walletDB->getShieldedCoins(assetId);
         postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
         {
-            cb(std::move(coins));
+            cb(coins);
         });
     }
 
@@ -1678,7 +1678,7 @@ namespace beam::wallet
                 , status = std::move(status)
                 , limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours()]()
             {
-                m_status = std::move(status);
+                m_status = status;
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;

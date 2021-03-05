@@ -246,13 +246,13 @@ namespace beam::wallet
         void getExchangeRates() override;
         void getPublicAddress() override;
 
-        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
 
-        void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override;
-        void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override;
+        void getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback) override;
+        void getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback) override;
 
         void enableBodyRequests(bool value) override;
 
