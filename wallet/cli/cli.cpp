@@ -941,6 +941,9 @@ namespace
         beam::AmountBig::Type available = totals.Avail;
         available += totals.AvailShielded;
 
+        beam::AmountBig::Type unspent = totals.Unspent;
+        unspent += totals.UnspentShielded;
+
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetIDFormat) % totals.AssetId
@@ -953,7 +956,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, unitName, nthName));
              // % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
 
         auto minHeight = std::min(totals.MinCoinHeightMW, totals.MinCoinHeightShielded);

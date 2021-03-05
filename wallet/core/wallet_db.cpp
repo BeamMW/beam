@@ -5229,7 +5229,7 @@ namespace beam::wallet
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
-                    totals.Avail += value;
+                    totals.Avail   += value;
                     totals.Unspent += value;
                     switch (c.m_ID.m_Type)
                     {
