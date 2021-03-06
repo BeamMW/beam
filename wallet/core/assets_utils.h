@@ -33,6 +33,8 @@ namespace beam::wallet {
         std::string GetShortName() const;
         std::string GetShortDesc() const;
         std::string GetLongDesc() const;
+        std::string GetSiteUrl() const;
+        std::string GetPaperUrl() const;
         unsigned GetSchemaVersion() const;
 
     private:

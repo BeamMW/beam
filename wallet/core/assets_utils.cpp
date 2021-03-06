@@ -30,6 +30,8 @@ namespace beam::wallet {
         const char NTH_UNIT_NAME_KEY[] = "NTHUN";
         const char OPT_SDESC_KEY[]     = "OPT_SHORT_DESC";
         const char OPT_LDESC_KEY[]     = "OPT_LONG_DESC";
+        const char OPT_SITE_URL[]      = "OPT_SITE_URL";
+        const char OPT_PAPER_URL[]     = "OPT_PDF_URL";
         const char ALLOWED_SYMBOLS[]   = " .,-_";
         const unsigned CURRENT_META_VERSION = 1;
     }
@@ -189,6 +191,18 @@ namespace beam::wallet {
     std::string WalletAssetMeta::GetShortName() const
     {
         const auto it = _values.find(SHORT_NAME_KEY);
+        return it != _values.end() ? it->second : std::string(kNA);
+    }
+
+    std::string WalletAssetMeta::GetSiteUrl() const
+    {
+        const auto it = _values.find(OPT_SITE_URL);
+        return it != _values.end() ? it->second : std::string(kNA);
+    }
+
+    std::string WalletAssetMeta::GetPaperUrl() const
+    {
+        const auto it = _values.find(OPT_PAPER_URL);
         return it != _values.end() ? it->second : std::string(kNA);
     }
 
