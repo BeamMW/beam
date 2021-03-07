@@ -29,7 +29,11 @@ inline bool BlockHeader::Full::IsValid(const HashValue* pRules) const
 
     HashValue hv;
     get_HashInternal(hv, false, pRules);
-    return BeamHashIII::Verify(hv, m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce), m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
+
+    return BeamHashIII::Verify(
+        &hv, sizeof(hv),
+        m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce),
+        m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
 }
 
 inline void BlockHeader::Full::get_HashInternal(HashValue& out, bool bFull, const HashValue* pRules) const

@@ -193,7 +193,7 @@ struct BeamHashIII
 	};
 
 
-	static bool Verify(const HashValue& hvInp, const void* pNonce, uint32_t nNonce, const uint8_t* pSol, uint32_t nSol)
+	static bool Verify(const void* pInp, uint32_t nInp, const void* pNonce, uint32_t nNonce, const uint8_t* pSol, uint32_t nSol)
 	{
 		if (104 != nSol)
 			return false;
@@ -215,7 +215,7 @@ struct BeamHashIII
 
 			HashProcessor::Blake2b hp(&pers, sizeof(pers), sizeof(prePoW));
 
-			hp.Write(&hvInp, sizeof(hvInp));
+			hp.Write(pInp, nInp);
 			hp.Write(pNonce, nNonce);
 			hp.Write(pSol + 100, 4); // last 4 bytes are the extra nonce
 			hp >> prePoW;
