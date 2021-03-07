@@ -141,8 +141,7 @@ namespace Pipe
 
         void UpdateState(HashValue& res, uint32_t nMsg) const
         {
-            HashProcessor hp;
-            hp.m_p = Env::HashCreateSha256();
+            HashProcessor::Sha256 hp;
             UpdateStateEx(hp, res, nMsg);
         }
     };

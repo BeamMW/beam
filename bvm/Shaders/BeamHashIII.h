@@ -199,11 +199,8 @@ struct BeamHashIII
 			return false;
 
 		sipHash prePoW;
-		static_assert(sizeof(prePoW) == sizeof(hvInp), "");
 
 		{
-			HashProcessor hp;
-
 #pragma pack (push, 1)
 			struct Personal {
 				char m_sz[8];
@@ -216,12 +213,12 @@ struct BeamHashIII
 			pers.m_WorkBits = s_workBitSize;
 			pers.m_Rounds = s_numRounds;
 
-			hp.m_p = Env::HashCreateBlake2b(&pers, sizeof(pers), 32);
-			hp << hvInp;
-			hp.Write(pNonce, nNonce);
+			HashProcessor::Blake2b hp(&pers, sizeof(pers), sizeof(prePoW));
 
+			hp.Write(&hvInp, sizeof(hvInp));
+			hp.Write(pNonce, nNonce);
 			hp.Write(pSol + 100, 4); // last 4 bytes are the extra nonce
-			Env::HashGetValue(hp.m_p, &prePoW, sizeof(prePoW));
+			hp >> prePoW;
 		}
 
 		uint32_t pIndices[32];

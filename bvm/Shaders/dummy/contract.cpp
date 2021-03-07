@@ -131,8 +131,7 @@ bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, 
         Secp_point_data pd;
         Env::Secp_Point_Export(*pP0, pd);
 
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
+        HashProcessor::Sha256 hp;
         hp
             << pd
             << msg;
