@@ -1422,7 +1422,6 @@ namespace bvm2 {
 		virtual void Read(ECC::Hash::Value& hv) override
 		{
 			ECC::Hash::Processor(m_Hp) >> hv;
-			m_Hp << hv;
 		}
 	};
 
@@ -1439,13 +1438,7 @@ namespace bvm2 {
 		virtual uint32_t Read(uint8_t* p, uint32_t n) override
 		{
 			auto s = m_B2b; // copy
-
-			auto nRet = s.Read(p, n);
-			if (!nRet)
-				return 0;
-
-			m_B2b.Write(p, nRet);
-			return nRet;
+			return s.Read(p, n);
 		}
 	};
 
@@ -1476,9 +1469,7 @@ namespace bvm2 {
 		virtual void Read(ECC::Hash::Value& hv) override
 		{
 			SHA3_CTX s = m_State; // copy
-
 			keccak_final(&s, hv.m_pData);
-			keccak_update(&m_State, hv.m_pData, static_cast<uint16_t>(hv.nBytes));
 		}
 	};
 
