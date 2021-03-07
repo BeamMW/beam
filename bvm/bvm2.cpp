@@ -29,6 +29,25 @@ namespace bvm2 {
 
 	namespace Impl
 	{
+		namespace Env {
+			void Memcpy(void* pDst, const void* pSrc, uint32_t n) {
+				memcpy(pDst, pSrc, n);
+			}
+			void Memset(void* pDst, char c, uint32_t n) {
+				memset(pDst, c, n);
+			}
+			uint8_t Memis0(const void* p, uint32_t n) {
+				return !!memis0(p, n);
+			}
+		}
+
+		namespace Utils {
+			template <typename T>
+			inline T FromLE(T x) {
+				return beam::ByteOrder::from_le(x);
+			}
+		}
+
 		struct HashProcessor {
 
 			struct Blake2b_Base
@@ -77,6 +96,11 @@ namespace bvm2 {
 					BEAM_VERIFY(Init(pPersonal, nPersonal, nResultSize)); // should no fail with internally specified params
 				}
 			};
+		};
+
+#include "Shaders/BeamHashIII.h"
+	}
+
 	void get_ShaderID(ShaderID& sid, const Blob& data)
 	{
 		ECC::Hash::Processor()
@@ -1806,6 +1830,17 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// other
 
+	BVM_METHOD(VerifyBeamHashIII)
+	{
+		return OnHost_VerifyBeamHashIII(
+			get_AddrR(pInp, nInp), nInp,
+			get_AddrR(pNonce, nNonce), nNonce,
+			get_AddrR(pSol, nSol), nSol);
+	}
+	BVM_METHOD_HOST(VerifyBeamHashIII)
+	{
+		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
+	}
 
 
 

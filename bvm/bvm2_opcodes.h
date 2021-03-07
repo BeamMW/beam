@@ -157,6 +157,14 @@
 	macro(const Secp_scalar&, s) sep \
 	macro(AssetID, aid)
 
+#define BVMOp_VerifyBeamHashIII(macro, sep) \
+	macro(const void*, pInp) sep \
+	macro(uint32_t, nInp) sep \
+	macro(const void*, pNonce) sep \
+	macro(uint32_t, nNonce) sep \
+	macro(const void*, pSol) sep \
+	macro(uint32_t, nSol)
+
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -346,6 +354,7 @@
 	macro(0x98, void     , Secp_Point_mul_G) \
 	macro(0x99, void     , Secp_Point_mul_J) \
 	macro(0x9A, void     , Secp_Point_mul_H) \
+	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
