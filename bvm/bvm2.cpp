@@ -1823,6 +1823,8 @@ namespace bvm2 {
 
 	BVM_METHOD(VerifyBeamHashIII)
 	{
+		DischargeUnits(Limits::Cost::BeamHashIII);
+
 		return OnHost_VerifyBeamHashIII(
 			get_AddrR(pInp, nInp), nInp,
 			get_AddrR(pNonce, nNonce), nNonce,

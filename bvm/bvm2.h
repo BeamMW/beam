@@ -115,6 +115,8 @@ namespace bvm2 {
 			static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;
 			static const uint32_t Secp_Point_Export		= ChargeFor<5*1000>::V;
 			static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
+
+			static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
 		};
 	};
 
