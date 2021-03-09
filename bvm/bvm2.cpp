@@ -27,6 +27,80 @@
 namespace beam {
 namespace bvm2 {
 
+	namespace Impl
+	{
+		namespace Env {
+			void Memcpy(void* pDst, const void* pSrc, uint32_t n) {
+				memcpy(pDst, pSrc, n);
+			}
+			void Memset(void* pDst, char c, uint32_t n) {
+				memset(pDst, c, n);
+			}
+			uint8_t Memis0(const void* p, uint32_t n) {
+				return !!memis0(p, n);
+			}
+		}
+
+		namespace Utils {
+			template <typename T>
+			inline T FromLE(T x) {
+				return beam::ByteOrder::from_le(x);
+			}
+		}
+
+		struct HashProcessor {
+
+			struct Blake2b_Base
+			{
+				blake2b_state m_State;
+
+				bool Init(const void* pPersonal, uint32_t nPersonal, uint32_t nResultSize)
+				{
+					blake2b_param pars = { 0 };
+					pars.digest_length = static_cast<uint8_t>(nResultSize);
+					pars.fanout = 1;
+					pars.depth = 1;
+
+					memcpy(pars.personal, pPersonal, std::min<size_t>(sizeof(pars.personal), nPersonal));
+
+					return !blake2b_init_param(&m_State, &pars);
+				}
+
+				void Write(const void* p, uint32_t n)
+				{
+					blake2b_update(&m_State, p, n);
+				}
+
+				uint32_t Read(void* p, uint32_t n)
+				{
+					if (blake2b_final(&m_State, p, n))
+						return 0;
+
+					assert(m_State.outlen <= n);
+
+					return static_cast<uint32_t>(m_State.outlen);
+				}
+
+				template <typename T>
+				void operator >> (T& res) {
+					Read(&res, sizeof(res));
+
+				}
+			};
+
+			struct Blake2b
+				:public Blake2b_Base
+			{
+				Blake2b(const void* pPersonal, uint32_t nPersonal, uint32_t nResultSize)
+				{
+					BEAM_VERIFY(Init(pPersonal, nPersonal, nResultSize)); // should no fail with internally specified params
+				}
+			};
+		};
+
+#include "Shaders/BeamHashIII.h"
+	}
+
 	void get_ShaderID(ShaderID& sid, const Blob& data)
 	{
 		ECC::Hash::Processor()
@@ -1348,31 +1422,23 @@ namespace bvm2 {
 		virtual void Read(ECC::Hash::Value& hv) override
 		{
 			ECC::Hash::Processor(m_Hp) >> hv;
-			m_Hp << hv;
 		}
 	};
 
 	struct Processor::DataProcessor::Blake2b
 		:public Processor::DataProcessor::Base
 	{
-		blake2b_state m_State;
+		Impl::HashProcessor::Blake2b_Base m_B2b;
 
 		virtual ~Blake2b() {}
 		virtual void Write(const uint8_t* p, uint32_t n) override
 		{
-			blake2b_update(&m_State, p, n);
+			m_B2b.Write(p, n);
 		}
 		virtual uint32_t Read(uint8_t* p, uint32_t n) override
 		{
-			blake2b_state s = m_State; // copy
-
-			if (blake2b_final(&s, p, n))
-				return 0;
-
-			assert(s.outlen <= n);
-			Write(p, static_cast<uint32_t>(s.outlen));
-
-			return static_cast<uint32_t>(s.outlen);
+			auto s = m_B2b; // copy
+			return s.Read(p, n);
 		}
 	};
 
@@ -1403,9 +1469,7 @@ namespace bvm2 {
 		virtual void Read(ECC::Hash::Value& hv) override
 		{
 			SHA3_CTX s = m_State; // copy
-
 			keccak_final(&s, hv.m_pData);
-			keccak_update(&m_State, hv.m_pData, static_cast<uint16_t>(hv.nBytes));
 		}
 	};
 
@@ -1455,15 +1519,8 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(HashCreateBlake2b)
 	{
-		blake2b_param pars = { 0 };
-		pars.digest_length = static_cast<uint8_t>(nResultSize);
-		pars.fanout = 1;
-		pars.depth = 1;
-
-		memcpy(pars.personal, pPersonal, std::min<size_t>(sizeof(pars.personal), nPersonal));
-
 		auto pRet = std::make_unique<DataProcessor::Blake2b>();
-		if (blake2b_init_param(&pRet->m_State, &pars))
+		if (!pRet->m_B2b.Init(pPersonal, nPersonal, nResultSize))
 			return nullptr;
 
 		auto val = AddHash(std::move(pRet));
@@ -1764,6 +1821,19 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// other
 
+	BVM_METHOD(VerifyBeamHashIII)
+	{
+		DischargeUnits(Limits::Cost::BeamHashIII);
+
+		return OnHost_VerifyBeamHashIII(
+			get_AddrR(pInp, nInp), nInp,
+			get_AddrR(pNonce, nNonce), nNonce,
+			get_AddrR(pSol, nSol), nSol);
+	}
+	BVM_METHOD_HOST(VerifyBeamHashIII)
+	{
+		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
+	}
 
 
 

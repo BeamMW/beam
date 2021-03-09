@@ -29,14 +29,16 @@ inline bool BlockHeader::Full::IsValid(const HashValue* pRules) const
 
     HashValue hv;
     get_HashInternal(hv, false, pRules);
-    return BeamHashIII::Verify(hv, m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce), m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
+
+    return BeamHashIII::Verify(
+        &hv, sizeof(hv),
+        m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce),
+        m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
 }
 
 inline void BlockHeader::Full::get_HashInternal(HashValue& out, bool bFull, const HashValue* pRules) const
 {
-    HashProcessor hp;
-    hp.m_p = Env::HashCreateSha256();
-
+    HashProcessor::Sha256 hp;
     hp
         << m_Height
         << m_Prev
@@ -60,8 +62,7 @@ inline void BlockHeader::Full::get_HashInternal(HashValue& out, bool bFull, cons
 
 inline bool BlockHeader::Full::TestDifficulty() const
 {
-    HashProcessor hp;
-    hp.m_p = Env::HashCreateSha256();
+    HashProcessor::Sha256 hp;
     hp.Write(m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
 
     HashValue hv;

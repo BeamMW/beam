@@ -131,15 +131,18 @@ bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, 
         Secp_point_data pd;
         Env::Secp_Point_Export(*pP0, pd);
 
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
+        HashProcessor::Sha256 hp;
         hp
             << pd
             << msg;
 
-        do
+        while (true)
+        {
             hp >> ed;
-        while (_POD_(ed).IsZero() || !Env::Secp_Scalar_import(*pE, ed));
+            if (!_POD_(ed).IsZero() && Env::Secp_Scalar_import(*pE, ed))
+                break;
+            hp.Write(&ed, sizeof(ed));
+        }
     }
 
     Env::Secp_Point_free(*pP0);

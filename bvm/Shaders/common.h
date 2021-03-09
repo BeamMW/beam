@@ -387,80 +387,98 @@ namespace Cast
 
 struct HashProcessor
 {
-    HashObj* m_p;
-
-    HashProcessor() :m_p(nullptr) {}
-
-    ~HashProcessor()
+    struct Base
     {
-        if (m_p)
-            Env::HashFree(m_p);
-    }
+        HashObj* m_p;
 
-    template <typename T>
-    HashProcessor& operator << (const T& x)
+        Base() :m_p(nullptr) {}
+
+        ~Base()
+        {
+            if (m_p)
+                Env::HashFree(m_p);
+        }
+
+        template <typename T>
+        Base& operator << (const T& x)
+        {
+            Write(x);
+            return *this;
+        }
+
+        void Write(uint8_t x) {
+            Env::HashWrite(m_p, &x, sizeof(x));
+        }
+
+        template <uint32_t n>
+        void Write(const char(&sz)[n])
+        {
+            Write(sz, n);
+        }
+
+
+        template <typename T>
+        void Write(T v)
+        {
+            // Must be independent of the endian-ness
+            // Must prevent ambiguities (different inputs should be properly distinguished)
+            // Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
+            static_assert(T(-1) > 0, "must be unsigned");
+
+            uint8_t pBuf[sizeof(T) * 8 / 7 + 1];
+            uint32_t n = 0;
+
+            for (; v >= 0x80; v >>= 7)
+                pBuf[n++] = uint8_t(v) | 0x80;
+
+            pBuf[n] = uint8_t(v);
+            Write(pBuf, n + 1);
+        }
+
+        void Write(const void* p, uint32_t n)
+        {
+            Env::HashWrite(m_p, p, n);
+        }
+
+        void Write(const HashValue& hv)
+        {
+            Write(&hv, sizeof(hv));
+        }
+
+        void Write(const Secp_point_data& pd)
+        {
+            Write(&pd, sizeof(pd));
+        }
+
+        template <typename T>
+        void operator >> (T& res)
+        {
+            Env::HashGetValue(m_p, &res, sizeof(res));
+        }
+    };
+
+    struct Sha256
+        :public Base
     {
-        Write(x);
-        return *this;
-    }
+        Sha256() {
+            m_p = Env::HashCreateSha256();
+        }
+    };
 
-    void Write(uint8_t x) {
-        Env::HashWrite(m_p, &x, sizeof(x));
-    }
-
-    template <uint32_t n>
-    void Write(const char(&sz)[n])
+    struct Blake2b
+        :public Base
     {
-        Write(sz, n);
-    }
-
-
-    template <typename T>
-    void Write(T v)
-    {
-        // Must be independent of the endian-ness
-        // Must prevent ambiguities (different inputs should be properly distinguished)
-        // Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
-        static_assert(T(-1) > 0, "must be unsigned");
-
-        uint8_t pBuf[sizeof(T) * 8 /7 + 1];
-        uint32_t n = 0;
-
-        for (; v >= 0x80; v >>= 7)
-            pBuf[n++] = uint8_t(v) | 0x80;
-            
-        pBuf[n] = uint8_t(v);
-        Write(pBuf, n + 1);
-    }
-
-    void Write(const void* p, uint32_t n)
-    {
-        Env::HashWrite(m_p, p, n);
-    }
-
-    void Write(const HashValue& hv)
-    {
-        Write(&hv, sizeof(hv));
-    }
-
-    void Write(const Secp_point_data& pd)
-    {
-        Write(&pd, sizeof(pd));
-    }
-
-    template <typename T>
-    void operator >> (T& res)
-    {
-        Env::HashGetValue(m_p, &res, sizeof(res));
-    }
+        Blake2b(const void* pPersonal, uint32_t nPersonal, uint32_t nResultSize) {
+            m_p = Env::HashCreateBlake2b(pPersonal, nPersonal, nResultSize);
+        }
+    };
 };
 
 namespace Merkle
 {
     inline void Interpret(HashValue& hv, const HashValue& hvL, const HashValue& hvR)
     {
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
+        HashProcessor::Sha256 hp;
         hp << hvL << hvR >> hv;
     }
 
@@ -485,8 +503,7 @@ namespace Merkle
 
     inline void get_ContractVarHash(HashValue& hv, const ContractID& cid, uint8_t nKeyTag, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal)
     {
-        HashProcessor hp;
-        hp.m_p = Env::HashCreateSha256();
+        HashProcessor::Sha256 hp;
 
         uint32_t nSizeKey = sizeof(cid) + 1 + nKey;
 
