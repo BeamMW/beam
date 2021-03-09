@@ -104,7 +104,7 @@ namespace beam::wallet
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
+        uint64_t  m_duration;   // if equals to "AddressExpirationNever" then address never expires
         uint64_t  m_OwnID;      // set for own address
         PeerID    m_Identity;   // derived from master. Different from m_walletID
         std::string m_Address;  // base58 address representation
@@ -129,16 +129,16 @@ namespace beam::wallet
         enum class ExpirationStatus
         {
             Expired = 0,
-            OneDay,
+            Auto,
             Never,
             AsIs
         };
+
         void setLabel(const std::string& label);
         void setExpiration(ExpirationStatus status);
 
         static constexpr uint64_t AddressExpirationNever = 0;
-        static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
-        static constexpr uint64_t AddressExpiration1h    = 60 * 60;
+        static constexpr uint64_t AddressExpirationAuto  = 24 * 60 * 60 * 61; // 61 day(s) / roughly 2 months
     };
 
     class ILaserChannelEntity
@@ -1178,7 +1178,7 @@ namespace beam::wallet
     std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
     std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
-    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::OneDay, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
+    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::Auto, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
 
 
 }  // namespace beam::wallet

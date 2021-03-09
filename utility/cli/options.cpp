@@ -256,9 +256,10 @@ namespace beam
         const char* ETH_GAS_PRICE = "eth_gas_price";
         const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
         // values
-        const char* EXPIRATION_TIME_24H = "24h";
+        const char* EXPIRATION_TIME_24H   = "24h";
+        const char* EXPIRATION_TIME_AUTO  = "auto";
         const char* EXPIRATION_TIME_NEVER = "never";
-        const char* EXPIRATION_TIME_NOW = "now";
+        const char* EXPIRATION_TIME_NOW   = "now";
         // laser
 #ifdef BEAM_LASER_SUPPORT
         const char* LASER = "laser";
@@ -429,7 +430,7 @@ namespace beam
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
-            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_24H), "expiration time for own address [24h|never|now]")
+            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")

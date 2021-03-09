@@ -53,16 +53,14 @@ namespace
     {
         switch (exp)
         {
-        case EditAddress::OneDay:
-            return WalletAddress::ExpirationStatus::OneDay;
-
+        case EditAddress::Auto:
+            return WalletAddress::ExpirationStatus::Auto;
         case EditAddress::Expired:
             return WalletAddress::ExpirationStatus::Expired;
-
         case EditAddress::Never:
             return WalletAddress::ExpirationStatus::Never;
         default:
-            return WalletAddress::ExpirationStatus::OneDay;
+            return WalletAddress::ExpirationStatus::Auto;
         }
     }
 
@@ -81,8 +79,8 @@ namespace beam::wallet
         {
             switch (*data.expiration)
             {
-            case EditAddress::OneDay:
-                address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
+            case EditAddress::Auto:
+                address.setExpiration(WalletAddress::ExpirationStatus::Auto);
                 break;
             case EditAddress::Expired:
                 address.setExpiration(WalletAddress::ExpirationStatus::Expired);
@@ -135,7 +133,7 @@ namespace beam::wallet
             , data.type
             , data.newStyleRegular
             , data.comment ? *data.comment : ""
-            , data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay
+            , data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::Auto
             , ""
             , data.offlinePayments);
 

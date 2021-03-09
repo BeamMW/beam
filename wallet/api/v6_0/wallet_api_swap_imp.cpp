@@ -83,7 +83,7 @@ namespace beam::wallet
         walletDb->createAddress(address);
         if (!comment.empty())
             address.m_label = comment;
-        address.m_duration = WalletAddress::AddressExpiration24h;
+        address.m_duration = WalletAddress::AddressExpirationAuto;
         walletDb->saveAddress(address);
 
         return address.m_walletID;

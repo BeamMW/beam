@@ -5734,7 +5734,7 @@ namespace beam::wallet
                             else
                             {
                                 address.m_createTime = currentTime;
-                                address.m_duration = WalletAddress::AddressExpiration24h;
+                                address.m_duration = WalletAddress::AddressExpirationAuto;
                             }
                             if (auto it = jsonAddress.find(Fields::Category); it != jsonAddress.end()) // for compatibility with older export
                             {
@@ -6436,7 +6436,7 @@ namespace beam::wallet
     WalletAddress::WalletAddress()
         : m_walletID(Zero)
         , m_createTime(0)
-        , m_duration(AddressExpiration24h)
+        , m_duration(AddressExpirationAuto)
         , m_OwnID(0)
         , m_Identity(Zero)
     {}
@@ -6495,11 +6495,11 @@ namespace beam::wallet
                 m_duration = getTimestamp() - m_createTime - 1;
                 break;
             }
-        case ExpirationStatus::OneDay:
+        case ExpirationStatus::Auto:
             {
                 // set expiration date since current timestamp
                 auto delta = getTimestamp() - m_createTime;
-                m_duration = delta + WalletAddress::AddressExpiration24h;
+                m_duration = delta + WalletAddress::AddressExpirationAuto;
                 break;
             }
         case ExpirationStatus::Never:
@@ -6507,7 +6507,6 @@ namespace beam::wallet
                 m_duration = AddressExpirationNever;
                 break;
             }
-        
         default:
             break;
         }

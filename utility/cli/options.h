@@ -158,6 +158,7 @@ namespace beam
         extern const char* ETH_SWAP_AMOUNT;
         // values
         extern const char* EXPIRATION_TIME_24H;
+        extern const char* EXPIRATION_TIME_AUTO;
         extern const char* EXPIRATION_TIME_NEVER;
         extern const char* EXPIRATION_TIME_NOW;
         // laser

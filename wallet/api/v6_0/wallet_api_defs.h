@@ -246,7 +246,7 @@ namespace beam::wallet
     {
         boost::optional<std::string> comment;
 
-        enum Expiration { Expired, Never, OneDay };
+        enum Expiration { Expired, Never, Auto };
         boost::optional<Expiration> expiration;
     };
 

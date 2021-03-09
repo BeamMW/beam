@@ -1259,7 +1259,7 @@ namespace beam::wallet
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(WalletAddress::ExpirationStatus::OneDay);
+                    addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
                 }
                 m_walletDB->saveAddress(*addr);
             }

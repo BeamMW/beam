@@ -601,7 +601,12 @@ namespace
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
         {
-            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+            // 24h is left for compatibility, mapped to auto
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
+        }
+        else if (expiration == cli::EXPIRATION_TIME_AUTO)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
         }
         else if (expiration == cli::EXPIRATION_TIME_NEVER)
         {
@@ -647,7 +652,12 @@ namespace
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
         {
-            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+            // 24h is left for compatibility, mapped to auto
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
+        }
+        else if (expiration == cli::EXPIRATION_TIME_AUTO)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
         }
         else if (expiration == cli::EXPIRATION_TIME_NEVER)
         {
@@ -786,7 +796,7 @@ namespace
 
         try 
         {
-            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::OneDay, receiver, offlineCount);
+            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
         }
         catch (const std::exception& ex)
         {

@@ -349,8 +349,9 @@ namespace beam::wallet
             static std::map<std::string, AddressData::Expiration> Items =
             {
                 {"expired", AddressData::Expired},
-                {"24h",  AddressData::OneDay},
-                {"never", AddressData::Never},
+                {"24h",     AddressData::Auto}, // just not to break API, map 24h to auto
+                {"auto",    AddressData::Auto},
+                {"never",   AddressData::Never},
             };
 
             if(Items.count(*expiration) == 0)
