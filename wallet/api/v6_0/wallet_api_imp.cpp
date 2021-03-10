@@ -139,7 +139,7 @@ namespace beam::wallet
             data.type,
             walletDB,
             data.comment ? *data.comment : std::string(),
-            data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::Auto,
+            data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay,
             std::string(),
             data.offlinePayments);
 

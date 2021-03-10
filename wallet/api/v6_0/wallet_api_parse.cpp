@@ -384,6 +384,7 @@ namespace beam::wallet
     {
         CreateAddress createAddress;
         beam::wallet::FillAddressData(id, params, createAddress);
+
         auto it = params.find("type");
         if (it != params.end())
         {
