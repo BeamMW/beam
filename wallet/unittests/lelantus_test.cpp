@@ -116,9 +116,9 @@ void TestTreasuryRestore()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto walletAddress = GenerateNewAddress(receiver.m_WalletDB, "", WalletAddress::ExpirationStatus::Never);
+            auto walletAddress = WalletAddress::Generate(*receiver.m_WalletDB, "", WalletAddress::ExpirationStatus::Never);
             auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-            auto newAddress = GenerateOfflineAddress(walletAddress, 0, vouchers);
+            auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
             auto p = ParseParameters(newAddress);
             WALLET_CHECK(p);
             auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)

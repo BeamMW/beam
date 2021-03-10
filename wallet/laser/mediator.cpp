@@ -261,8 +261,8 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee)
     m_feeAllowed = fee;
 
     m_pInputReceiver = std::make_unique<Receiver>(*this, nullptr);
-    m_myInAddr = GenerateNewAddress(
-        m_pWalletDB,
+    m_myInAddr = WalletAddress::Generate(
+        *m_pWalletDB,
         "laser_in",
         WalletAddress::ExpirationStatus::Never,
         false);
@@ -368,8 +368,8 @@ void Mediator::OpenChannel(Amount aMy,
         return;
     }
 
-    auto myOutAddr = GenerateNewAddress(
-            m_pWalletDB,
+    auto myOutAddr = WalletAddress::Generate(
+            *m_pWalletDB,
             "laser_out",
             WalletAddress::ExpirationStatus::Never,
             false);        

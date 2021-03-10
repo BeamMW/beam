@@ -230,6 +230,7 @@ namespace beam
         extern const char* OFFLINE_ADDRESS;
         extern const char* PUBLIC_OFFLINE;
         extern const char* ENABLE_LELANTUS;
+        extern const char* CHOICE_TOKEN;
 
         // shaders
         extern const char* SHADER_INVOKE;

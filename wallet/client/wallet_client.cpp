@@ -1521,7 +1521,7 @@ namespace beam::wallet
 
     void WalletClient::getPublicAddress()
     {
-        onPublicAddress(GeneratePublicOfflineAddress(*m_walletDB));
+        onPublicAddress(GeneratePublicToken(*m_walletDB, std::string()));
     }
 
     void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback)

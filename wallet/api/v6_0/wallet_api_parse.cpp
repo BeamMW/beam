@@ -349,7 +349,7 @@ namespace beam::wallet
             static std::map<std::string, AddressData::Expiration> Items =
             {
                 {"expired", AddressData::Expired},
-                {"24h",     AddressData::Auto}, // just not to break API, map 24h to auto
+                {"24h",     AddressData::OneDay},
                 {"auto",    AddressData::Auto},
                 {"never",   AddressData::Never},
             };
@@ -387,13 +387,15 @@ namespace beam::wallet
         auto it = params.find("type");
         if (it != params.end())
         {
-            static constexpr std::array<std::pair<std::string_view, TxAddressType>, 4> types =
+            static constexpr std::array<std::pair<std::string_view, TokenType>, 6> types =
             {
                 {
-                    {"regular",         TxAddressType::Regular},
-                    {"offline",         TxAddressType::Offline},
-                    {"max_privacy",     TxAddressType::MaxPrivacy},
-                    {"public_offline",  TxAddressType::PublicOffline}
+                    {"regular",         TokenType::RegularOldStyle},
+                    {"offline",         TokenType::Offline},
+                    {"max_privacy",     TokenType::MaxPrivacy},
+                    {"public_offline",  TokenType::Public},
+                    {"choice",          TokenType::Choice},
+                    {"regular_new",     TokenType::RegularNewStyle}
                 }
             };
             auto t = std::find_if(types.begin(), types.end(), [&](const auto& p) { return p.first == it->get<std::string>(); });
@@ -402,16 +404,25 @@ namespace beam::wallet
                 createAddress.type = t->second;
             }
         }
-        it = params.find("new_style_regular");
-        if (it != params.end())
+
+        if (createAddress.type == TokenType::RegularOldStyle)
         {
-            createAddress.newStyleRegular = it->get<bool>();
+            it = params.find("new_style_regular");
+            if (it != params.end())
+            {
+                if (it->get<bool>())
+                {
+                    createAddress.type = TokenType::RegularNewStyle;
+                }
+            }
         }
+
         it = params.find("offline_payments");
         if (it != params.end())
         {
             createAddress.offlinePayments = it->get<uint32_t>();
         }
+
         onMessage(id, createAddress);
     }
 
@@ -806,99 +817,6 @@ namespace beam::wallet
         onMessage(id, data);
     }
 
-    /*
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-
-
-
-
-
-    void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
-    {
-        SwapTxDescription swapTx(tx);
-
-        msg["is_beam_side"] = swapTx.isBeamSide();
-        msg["swap_value"] = swapTx.getSwapAmount();
-
-        auto fee = swapTx.getFee();
-        if (fee)
-        {
-            msg["fee"] = *fee;
-        }
-        auto feeRate = swapTx.getSwapCoinFeeRate();
-        if (feeRate)
-        {
-            msg["swap_fee_rate"] = *feeRate;
-        }
-
-        auto beamLockTxKernelID = swapTx.getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>();
-        if (beamLockTxKernelID)
-        {
-            msg["beam_lock_kernel_id"] = *beamLockTxKernelID;
-        }
-
-        std::string coinName = std::to_string(swapTx.getSwapCoin());
-        std::locale loc;
-        std::transform(coinName.begin(),
-                       coinName.end(),
-                       coinName.begin(),
-                       [&loc](char c) -> char { return std::tolower(c, loc); });
-        if (!coinName.empty())
-        {
-            msg["swap_coin"] = coinName;
-            coinName.push_back('_');
-        }
-
-        auto swapCoinLockTxID = swapTx.getSwapCoinTxId<SubTxIndex::LOCK_TX>();
-        if (swapCoinLockTxID)
-        {
-            std::string lockTxIdStr = "lock_tx_id";
-            msg[coinName + lockTxIdStr] = *swapCoinLockTxID;
-        }
-        auto swapCoinLockTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>();
-        if (swapCoinLockTxConfirmations && swapTx.isBeamSide())
-        {
-            std::string lockTxConfirmationsStr = "lock_tx_confirmations";
-            msg[coinName + lockTxConfirmationsStr] = *swapCoinLockTxConfirmations;
-        }
-
-        auto swapCoinRedeemTxID = swapTx.getSwapCoinTxId<SubTxIndex::REDEEM_TX>();
-        if (swapCoinRedeemTxID && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
-        {
-            std::string redeemTxIdStr = "redeem_tx_id";
-            msg[coinName + redeemTxIdStr] = *swapCoinRedeemTxID;
-        }
-        auto swapCoinRedeemTxConfirmations = swapTx.getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>();
-        if (swapCoinRedeemTxConfirmations && swapTx.isBeamSide() && swapTx.isLockTxProofReceived())
-        {
-            std::string redeemTxConfirmationsStr = "redeem_tx_confirmations";
-            msg[coinName + redeemTxConfirmationsStr] = *swapCoinRedeemTxConfirmations;
-        }
-
-        auto failureReason = swapTx.getFailureReason();
-        if (failureReason)
-        {
-            msg["failure_reason"] = GetFailureMessage(*failureReason);
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-*/
     void WalletApi::onInvokeContractMessage(const JsonRpcId &id, const json &params)
     {
         InvokeContract message;

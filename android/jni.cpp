@@ -306,7 +306,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
 
     auto address = walletDB->getAddress(JString(env, walletId).value());
-    auto regularAddress = GenerateRegularAddress(*address, bAmount, isPermanentAddress, std::string(BEAM_LIB_VERSION));
+    auto regularAddress = GenerateRegularAddress(*address, bAmount, 0, std::string(BEAM_LIB_VERSION));
     
     jstring tokenString = env->NewStringUTF(regularAddress.c_str());
     return tokenString;
@@ -813,10 +813,16 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         expirationStatus = WalletAddress::ExpirationStatus::Expired;
         break;
     case 1:
-        expirationStatus = WalletAddress::ExpirationStatus::Auto;
+        expirationStatus = WalletAddress::ExpirationStatus::OneDay;
         break;
     case 2:
         expirationStatus = WalletAddress::ExpirationStatus::Never;
+        break;
+    case 3:
+        expirationStatus = WalletAddress::ExpirationStatus::AsIs;
+        break;
+    case 4:
+        expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
     default:
         LOG_ERROR() << "Address expiration is not valid!!!";

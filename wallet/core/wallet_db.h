@@ -43,6 +43,7 @@ struct sqlite3;
 
 namespace beam::wallet
 {
+    struct IWalletDB;
     const uint32_t EmptyCoinSession = 0;
 
     // Describes a UTXO in the context of the Wallet
@@ -129,16 +130,20 @@ namespace beam::wallet
         enum class ExpirationStatus
         {
             Expired = 0,
-            Auto,
+            OneDay,
             Never,
-            AsIs
+            AsIs,
+            Auto
         };
 
         void setLabel(const std::string& label);
         void setExpiration(ExpirationStatus status);
 
         static constexpr uint64_t AddressExpirationNever = 0;
-        static constexpr uint64_t AddressExpirationAuto  = 24 * 60 * 60 * 61; // 61 day(s) / roughly 2 months
+        static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
+        static constexpr uint64_t AddressExpirationAuto  = AddressExpiration24h * 61; // 61 day(s) / roughly 2 months
+
+        static WalletAddress Generate(IWalletDB&, const std::string& comment = std::string(), ExpirationStatus = ExpirationStatus::Auto, bool saveToDB = true);
     };
 
     class ILaserChannelEntity
@@ -1174,11 +1179,21 @@ namespace beam::wallet
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
     }  // namespace storage
 
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers);
-    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
-    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
-    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
-    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::Auto, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
+    enum class TokenType
+    {
+        RegularOldStyle,
+        RegularNewStyle,
+        Offline,
+        MaxPrivacy,
+        Public,     // 1 offline voucher
+        Choice,     // includes regular address + 1 offline voucher
+    };
 
-
+    std::string  GenerateOfflineToken    (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion);
+    std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+    std::string  GenerateChoiceToken     (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+    std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateToken           (TokenType type, IWalletDB::Ptr walletDB, const std::string& label, WalletAddress::ExpirationStatus = WalletAddress::ExpirationStatus::Auto, std::string receiver = std::string(), uint32_t offlineCount = 10);
 }  // namespace beam::wallet

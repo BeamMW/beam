@@ -2950,10 +2950,12 @@ void TestVouchers()
 
 void TestAddressGeneration()
 {
+    cout << "\nTesting tokens generation exchange...\n";
+
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     auto db = createSenderWalletDB();
-    auto a1 = GenerateAddress(db, TxAddressType::Regular, false, "test", WalletAddress::ExpirationStatus::Never);
+    auto a1 = GenerateToken(TokenType::RegularOldStyle, db, "test", WalletAddress::ExpirationStatus::Never);
     WalletID w1;
     WALLET_CHECK(w1.FromHex(a1));
     auto wa1 = db->getAddress(a1);
@@ -2962,7 +2964,7 @@ void TestAddressGeneration()
     WALLET_CHECK(wa1->isPermanent());
     WALLET_CHECK(GetAddressType(a1) == TxAddressType::Regular);
     
-    auto a2 = GenerateAddress(db, TxAddressType::Regular, true, "test2", WalletAddress::ExpirationStatus::Never, a1);
+    auto a2 = GenerateToken(TokenType::RegularNewStyle, db, "test2", WalletAddress::ExpirationStatus::Never, a1);
     WALLET_CHECK(GetAddressType(a2) == TxAddressType::Regular);
     auto p2 = ParseParameters(a2);
     WALLET_CHECK(p2);
@@ -2971,16 +2973,26 @@ void TestAddressGeneration()
     auto& ww1 = *peerID2;
     WALLET_CHECK(ww1.cmp(w1) == 0);
 
-
-    auto a3 = GenerateAddress(db, TxAddressType::Offline, true, "test2", WalletAddress::ExpirationStatus::Never, "", 10);
+    auto a3 = GenerateToken(TokenType::Offline, db, "test2", WalletAddress::ExpirationStatus::Never, "", 10);
     WALLET_CHECK(GetAddressType(a3) == TxAddressType::Offline);
 
-    auto a4 = GenerateAddress(db, TxAddressType::MaxPrivacy);
+    auto a4 = GenerateToken(TokenType::MaxPrivacy, db, "");
     WALLET_CHECK(GetAddressType(a4) == TxAddressType::MaxPrivacy);
 
-    auto a5 = GenerateAddress(db, TxAddressType::PublicOffline);
+    auto a5 = GenerateToken(TokenType::Public, db, "");
     WALLET_CHECK(GetAddressType(a5) == TxAddressType::PublicOffline);
 
+    auto a6 = GenerateToken(TokenType::Choice, db, "");
+    WALLET_CHECK(GetAddressType(a6) == TxAddressType::Regular);
+
+    auto p6 = ParseParameters(a6);
+    TxType type2;
+    p6->GetParameter(TxParameterID::TransactionType2, type2);
+    WALLET_CHECK(type2 == TxType::PushTransaction);
+
+    p6->SetParameter(TxParameterID::TransactionType, type2);
+    a6 = std::to_string(*p6);
+    WALLET_CHECK(GetAddressType(a6) == TxAddressType::Offline);
 }
 
 #if defined(BEAM_HW_WALLET)

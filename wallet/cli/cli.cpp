@@ -601,8 +601,7 @@ namespace
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
         {
-            // 24h is left for compatibility, mapped to auto
-            expirationStatus = WalletAddress::ExpirationStatus::Auto;
+            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
         }
         else if (expiration == cli::EXPIRATION_TIME_AUTO)
         {
@@ -652,8 +651,7 @@ namespace
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
         {
-            // 24h is left for compatibility, mapped to auto
-            expirationStatus = WalletAddress::ExpirationStatus::Auto;
+            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
         }
         else if (expiration == cli::EXPIRATION_TIME_AUTO)
         {
@@ -671,7 +669,7 @@ namespace
             return false;
         }
         
-        GenerateNewAddress(walletDB, comment, expirationStatus);
+        WalletAddress::Generate(*walletDB, comment, expirationStatus);
         return true;
     }
 
@@ -769,21 +767,25 @@ namespace
     {
         auto walletDB = OpenDataBase(vm);
 
-        TxAddressType type = TxAddressType::Regular;
+        TokenType type = TokenType::RegularNewStyle;
         std::string receiver;
         uint32_t offlineCount = 10;
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TxAddressType::PublicOffline;
+            type = TokenType::Offline;
         }
         else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TxAddressType::MaxPrivacy;
+            type = TokenType::MaxPrivacy;
+        }
+        else if (it2 = vm.find(cli::CHOICE_TOKEN); it2 != vm.end() && it2->second.as<bool>())
+        {
+            type = TokenType::Choice;
         }
         else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
         {
-            type = TxAddressType::Offline;
+            type = TokenType::Offline;
             offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
         else
@@ -796,7 +798,7 @@ namespace
 
         try 
         {
-            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
+            LOG_INFO() << "address: " << GenerateToken(type, walletDB, std::string(), WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
         }
         catch (const std::exception& ex)
         {
@@ -2237,16 +2239,15 @@ namespace
                     }
                 }
 
-
-                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+                WalletAddress senderAddress = WalletAddress::Generate(*walletDB);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
-                    // fee for shielded inputs included automaticaly
+                    // fee for shielded inputs included automatically
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-                currentTxID = wallet->StartTransaction(params);
 
+                currentTxID = wallet->StartTransaction(params);
                 return 0;
             });
     }

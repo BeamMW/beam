@@ -246,15 +246,15 @@ namespace beam::wallet
     {
         boost::optional<std::string> comment;
 
-        enum Expiration { Expired, Never, Auto };
+        enum Expiration { Expired, Never, OneDay, Auto };
         boost::optional<Expiration> expiration;
     };
 
     struct CreateAddress : AddressData
     {
-        TxAddressType type = TxAddressType::Regular;
-        bool newStyleRegular = false; // by default we generate SBBS addresses for regular type
+        TokenType type = TokenType::RegularOldStyle;
         uint32_t offlinePayments = 10;
+
         struct Response
         {
             std::string address;

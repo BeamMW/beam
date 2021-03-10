@@ -29,7 +29,9 @@ public class WalletAddressDTO
     public enum WalletAddressExpirationStatus
     {
         Expired,
-        Auto,
-        Never
+        OneDay,
+        Never,
+        AsIs,
+        Auto
     }
 }

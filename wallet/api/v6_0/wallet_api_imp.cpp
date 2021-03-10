@@ -53,6 +53,8 @@ namespace
     {
         switch (exp)
         {
+        case EditAddress::OneDay:
+            return WalletAddress::ExpirationStatus::OneDay;
         case EditAddress::Auto:
             return WalletAddress::ExpirationStatus::Auto;
         case EditAddress::Expired:
@@ -81,6 +83,9 @@ namespace beam::wallet
             {
             case EditAddress::Auto:
                 address.setExpiration(WalletAddress::ExpirationStatus::Auto);
+                break;
+            case EditAddress::OneDay:
+                address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
                 break;
             case EditAddress::Expired:
                 address.setExpiration(WalletAddress::ExpirationStatus::Expired);
@@ -120,22 +125,23 @@ namespace beam::wallet
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
         if (!getWallet()->IsConnectedToOwnNode() 
-           && (data.type == TxAddressType::MaxPrivacy
-            || data.type == TxAddressType::PublicOffline
-            || data.type == TxAddressType::Offline))
+           && (data.type == TokenType::MaxPrivacy
+            || data.type == TokenType::Public
+            || data.type == TokenType::Offline
+            || data.type == TokenType::Choice))
         {
             throw jsonrpc_exception(ApiError::NotSupported);
         }
 
         auto walletDB = getWalletDB();
 
-        std::string newAddress = GenerateAddress(walletDB
-            , data.type
-            , data.newStyleRegular
-            , data.comment ? *data.comment : ""
-            , data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::Auto
-            , ""
-            , data.offlinePayments);
+        std::string newAddress = GenerateToken(
+            data.type,
+            walletDB,
+            data.comment ? *data.comment : std::string(),
+            data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::Auto,
+            std::string(),
+            data.offlinePayments);
 
         doResponse(id, CreateAddress::Response{ newAddress });
     }

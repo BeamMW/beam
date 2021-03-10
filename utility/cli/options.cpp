@@ -329,6 +329,7 @@ namespace beam
         const char* OFFLINE_ADDRESS     = "offline";
         const char* PUBLIC_OFFLINE      = "public_offline";
         const char* ENABLE_LELANTUS     = "enable_lelantus";
+        const char* CHOICE_TOKEN        = "choice";
 
         // shaders
         const char* SHADER_INVOKE       = "shader";

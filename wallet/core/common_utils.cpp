@@ -11,64 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "wallet/core/common_utils.h"
-
-#include "wallet/core/base_transaction.h"
-#include "wallet/core/base_tx_builder.h"
-#include "wallet/core/strings_resources.h"
-#include "utility/logger.h"
-
-#include <boost/format.hpp>
 #include <numeric>
 
 namespace beam::wallet
 {
-WalletAddress GenerateNewAddress(
-        const IWalletDB::Ptr& walletDB,
-        const std::string& label,
-        WalletAddress::ExpirationStatus expirationStatus,
-        bool saveRequired)
-{
-    WalletAddress address;
-    walletDB->createAddress(address);
 
-    address.setExpiration(expirationStatus);
-    address.setLabel(label);
-    if (saveRequired)
+    bool ReadTreasury(ByteBuffer& bb, const std::string& sPath)
     {
-        walletDB->saveAddress(address);
+        if (sPath.empty())
+            return false;
+
+        std::FStream f;
+        if (!f.Open(sPath.c_str(), true))
+            return false;
+
+        size_t nSize = static_cast<size_t>(f.get_Remaining());
+        if (!nSize)
+            return false;
+
+        bb.resize(f.get_Remaining());
+        return f.read(&bb.front(), nSize) == nSize;
     }
 
-    LOG_INFO() << boost::format(kAddrNewGenerated) 
-                % std::to_string(address.m_walletID);
-    if (!label.empty()) {
-        LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % label;
+    std::string TxIDToString(const TxID& txId)
+    {
+        return to_hex(txId.data(), txId.size());
     }
-    return address;
-}
-
-bool ReadTreasury(ByteBuffer& bb, const std::string& sPath)
-{
-    if (sPath.empty())
-        return false;
-
-    std::FStream f;
-    if (!f.Open(sPath.c_str(), true))
-        return false;
-
-    size_t nSize = static_cast<size_t>(f.get_Remaining());
-    if (!nSize)
-        return false;
-
-    bb.resize(f.get_Remaining());
-    return f.read(&bb.front(), nSize) == nSize;
-}
-
-std::string TxIDToString(const TxID& txId)
-{
-    return to_hex(txId.data(), txId.size());
-}
 
 Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId)
 {

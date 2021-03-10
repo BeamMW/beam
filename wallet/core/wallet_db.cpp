@@ -45,6 +45,8 @@ namespace fs = std::filesystem;
 
 #include "base_transaction.h"
 #include "node/processor.h"
+#include "wallet/core/strings_resources.h"
+#include <boost/format.hpp>
 
 #define NOSEP
 #define COMMA ", "
@@ -6512,6 +6514,28 @@ namespace beam::wallet
         }
     }
 
+    WalletAddress WalletAddress::Generate(IWalletDB& walletDB, const std::string& comment, ExpirationStatus expiration, bool saveToDB)
+    {
+        WalletAddress address;
+        walletDB.createAddress(address);
+
+        address.setExpiration(expiration);
+        address.setLabel(comment);
+
+        if (saveToDB)
+        {
+            walletDB.saveAddress(address);
+        }
+
+        LOG_INFO() << boost::format(kAddrNewGenerated) % std::to_string(address.m_walletID);
+        if (!comment.empty())
+        {
+            LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % comment;
+        }
+
+        return address;
+    }
+
     uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
     {
         assert(N);
@@ -6637,12 +6661,18 @@ namespace beam::wallet
 
     namespace
     {
-        TxParameters GenerateCommonAddressPart(Amount amount, const std::string& clientVersion)
+        TxParameters GenerateCommonAddressPart(Amount amount, Asset::ID assetId, const std::string& clientVersion)
         {
             TxParameters params;
+
             if (amount > 0)
             {
                 params.SetParameter(TxParameterID::Amount, amount);
+            }
+
+            if (assetId != Asset::s_InvalidID)
+            {
+                params.SetParameter(TxParameterID::AssetID, assetId);
             }
 
             if (!clientVersion.empty())
@@ -6655,74 +6685,105 @@ namespace beam::wallet
         }
     }
 
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
+    std::string GenerateOfflineToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion)
     {
-        TxParameters offlineParameters;
-        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        // add voucher parameter
-        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
-        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
-        if (amount > 0)
-        {
-            offlineParameters.SetParameter(TxParameterID::Amount, amount);
-        }
-        return std::to_string(offlineParameters);
-    }
+        TxParameters params;
+        GenerateCommonAddressPart(amount, assetId, clientVersion);
 
-    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion)
-    {
-        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        params.SetParameter(TxParameterID::PeerID,              address.m_walletID);
+        params.SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
+        params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
+        params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
 
-        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanent);
-        params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
         return std::to_string(params);
     }
 
-    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
+    std::string GenerateMaxPrivacyToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
     {
-        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
         params.SetParameter(TxParameterID::Voucher, voucher);
+
         return std::to_string(params);
     }
 
-    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB)
+    std::string GeneratePublicToken(const IWalletDB& walletDB, const std::string& clientVersion)
     {
-        TxParameters params;
+        TxParameters params = GenerateCommonAddressPart(0, Asset::s_InvalidID, clientVersion);
+
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
+
         return std::to_string(params);
     }
 
-    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular, const string& label, WalletAddress::ExpirationStatus expiration, const std::string& existingSBBS, uint32_t offlineCount)
+    std::string  GenerateRegularOldToken(const WalletAddress& address)
+    {
+        return std::to_string(address.m_walletID);
+    }
+
+    std::string  GenerateRegularNewToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion)
+    {
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
+
+        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
+        params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
+
+        return std::to_string(params);
+    }
+
+    std::string  GenerateChoiceToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
+    {
+        std::string regular = GenerateRegularNewToken(address, amount, assetId, clientVersion);
+
+        auto params = ParseParameters(regular);
+        if (!params)
+        {
+            throw std::runtime_error("Failed to create regular new token");
+        }
+
+        params->SetParameter(TxParameterID::TransactionType2, beam::wallet::TxType::PushTransaction);
+
+        ShieldedVoucherList vouchers;
+        vouchers.push_back(voucher);
+        params->SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+
+        params->SetParameter(TxParameterID::PeerID,              address.m_walletID);
+        params->SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
+        params->SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
+        params->SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
+
+        return std::to_string(*params);
+    }
+
+    std::string  GenerateToken (TokenType type, IWalletDB::Ptr walletDB, const std::string& label, WalletAddress::ExpirationStatus expiration, std::string existingSBBS, uint32_t offlineCount)
     {
         switch (type)
         {
-        case beam::wallet::TxAddressType::Unknown:
-            throw std::runtime_error("Unknown address type");
-
-        case beam::wallet::TxAddressType::Regular:
+        case TokenType::RegularOldStyle:
+        case TokenType::RegularNewStyle:
             {
+                LOG_INFO() << "Generating regular address";
                 boost::optional<WalletAddress> address;
                 if (!existingSBBS.empty())
                 {
-                    auto receiver = existingSBBS;
                     bool isValid = true;
                     WalletID walletID;
-                    ByteBuffer buffer = from_hex(receiver, &isValid);
+                    ByteBuffer buffer = from_hex(existingSBBS, &isValid);
+
                     if (!isValid || !walletID.FromBuf(buffer))
                     {
                         throw std::runtime_error("Invalid address");
                     }
+
                     address = walletDB->getAddress(walletID);
                     if (!address)
                     {
@@ -6732,46 +6793,52 @@ namespace beam::wallet
                     {
                         throw std::runtime_error("Cannot get address, it is expired");
                     }
-                    if (!address->isPermanent())
-                    {
-                        throw std::runtime_error("The address expiration time must be never.");
-                    }
                 }
                 else
                 {
-                    address = GenerateNewAddress(walletDB, label, expiration);
+                    address = WalletAddress::Generate(*walletDB, label, expiration);
                 }
-                if (newStyleRegular)
+
+                if (type == TokenType::RegularNewStyle)
                 {
-                    return GenerateRegularAddress(*address, 0, address->isPermanent(), "");
+                    return GenerateRegularNewToken(*address, 0, 0, "");
                 }
                 else
                 {
-                    return std::to_string(address->m_walletID);
+                    return GenerateRegularOldToken(*address);
                 }
             }
-        case beam::wallet::TxAddressType::AtomicSwap:
-            throw std::runtime_error("Unsupported address type");
 
-        case beam::wallet::TxAddressType::Offline:
+        case TokenType::Offline:
             {
                 LOG_INFO() << "Generating offline address";
-                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto walletAddress = WalletAddress::Generate(*walletDB, label, WalletAddress::ExpirationStatus::Never);
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, offlineCount);
-                return GenerateOfflineAddress(walletAddress, 0, vouchers);
+                return GenerateOfflineToken(walletAddress, 0, 0, vouchers, "");
             }
-        case beam::wallet::TxAddressType::MaxPrivacy:
+
+        case TokenType::MaxPrivacy:
             {
                 LOG_INFO() << "Generating max privacy address";
-                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto walletAddress = WalletAddress::Generate(*walletDB, label, WalletAddress::ExpirationStatus::Never);
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-                return GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+                return GenerateMaxPrivacyToken(walletAddress, 0, 0, vouchers[0], "");
             }
-        case beam::wallet::TxAddressType::PublicOffline:
+
+        case TokenType::Public:
             {
                 LOG_INFO() << "Generating public offline address";
-                return GeneratePublicOfflineAddress(*walletDB);
+                return GeneratePublicToken(*walletDB, "");
             }
+
+        case TokenType::Choice:
+            {
+                LOG_INFO() << "Generating choice address";
+                auto walletAddress = WalletAddress::Generate(*walletDB, label, WalletAddress::ExpirationStatus::Never);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                return GenerateChoiceToken(walletAddress, 0, 0, vouchers[0], "");
+            }
+
         default:
             throw std::runtime_error("Unexpected address type");
         }
