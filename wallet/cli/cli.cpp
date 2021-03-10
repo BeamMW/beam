@@ -663,13 +663,13 @@ namespace
         }
         else
         {
-            LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid) 
-                        % cli::EXPIRATION_TIME
-                        % expiration;
+            std::cerr << boost::format(kErrorAddrExprTimeInvalid) % cli::EXPIRATION_TIME % expiration;
             return false;
         }
         
-        WalletAddress::Generate(*walletDB, comment, expirationStatus);
+        const auto address = WalletAddress::Generate(*walletDB, comment, expirationStatus);
+        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
+
         return true;
     }
 
@@ -798,11 +798,12 @@ namespace
 
         try 
         {
-            LOG_INFO() << "address: " << GenerateToken(type, walletDB, std::string(), WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
+            const auto token = GenerateToken(type, walletDB, std::string(), WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
+            std::cout << "New address: " << token;
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << ex.what();
+            std::cerr << ex.what();
         }
         
         return 0;
@@ -2828,6 +2829,8 @@ int main(int argc, char* argv[]) {
             // TODO: this hungs app on OSX
             //lock_signals_in_this_thread();
             int ret = main_impl(argc, argv);
+            std::cout << std::flush;
+            std::cerr << std::flush;
             kill(0, SIGINT);
             return ret;
         }
