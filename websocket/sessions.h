@@ -34,7 +34,7 @@ namespace beam::wallet {
     void failEx(boost::system::error_code ec, char const* what);
 
     using tcp = boost::asio::ip::tcp;
-    using HandlerCreator = std::function<WebSocketServer::ClientHandler::Ptr (WebSocketServer::SendFunc)>;
+    using HandlerCreator = std::function<WebSocketServer::ClientHandler::Ptr (WebSocketServer::SendFunc, WebSocketServer::CloseFunc)>;
 
     class WebsocketSession
             : public std::enable_shared_from_this<WebsocketSession>
@@ -71,7 +71,6 @@ namespace beam::wallet {
         SafeReactor::Ptr _reactor;
         HandlerCreator _creator;
 
-        std::mutex _queueMutex;
         std::queue<std::string> _writeQueue;
     };
 

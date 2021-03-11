@@ -123,9 +123,9 @@ namespace beam::wallet
     {
         _iocThread = std::make_shared<std::thread>([this, port, reactor]() {
 
-            HandlerCreator creator = [this, reactor] (WebSocketServer::SendFunc func) -> auto {
+            HandlerCreator creator = [this, reactor] (WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto {
                 reactor->assert_thread();
-                return ReactorThread_onNewWSClient(std::move(func));
+                return ReactorThread_onNewWSClient(std::move(func), std::move(closeFunc));
             };
 
             std::make_shared<Listener>(_ioc,
