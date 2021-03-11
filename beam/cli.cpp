@@ -63,6 +63,7 @@ namespace
 	private:
 		void ReactorThread_onWSDataReceived(const std::string& data) override
 		{
+			LOG_DEBUG() << std::this_thread::get_id() << " Received data from websocket" << TRACE(data.size());
 			_dataQueue.push(data);
 			if (_stream)
 			{
@@ -72,22 +73,26 @@ namespace
 
 		void ProcessDataQueue()
 		{
+			LOG_DEBUG() << std::this_thread::get_id() << " Starting websocket data queue processing";
 			while (!_dataQueue.empty())
 			{
 				auto& d = _dataQueue.front();
 				_stream->write(d.data(), d.size());
 				_dataQueue.pop();
 			}
+			LOG_DEBUG() << std::this_thread::get_id() << " Finished websocket data queue processing";
 		}
 
 		void OnConnected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
 		{
 			if (newStream)
 			{
+				LOG_DEBUG() << "Websocket proxy connected to the node";
 				_stream = std::move(newStream);
 				_stream->enable_read(
 					[this](io::ErrorCode what, void* data, size_t size) -> bool
 					{
+						LOG_DEBUG() << std::this_thread::get_id() << " Sending data back to websocket" << TRACE(size);
 						_wsSend(std::string((const char*)data, size));
 						return true;
 					});
