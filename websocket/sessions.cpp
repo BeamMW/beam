@@ -71,10 +71,33 @@ namespace beam::wallet {
                     // in the context of the same thread. So if one creates handler
                     // the next would discover it and skip.
                     // There would be no race conditions as well
-                    sp->_handler = creator([wp](const std::string &data) {
+                    sp->_handler = creator([wp](const std::string &data) { // SendFunc
                         if (auto sp = wp.lock())
                         {
-                            sp->do_write(data);
+                            boost::asio::post(
+                                sp->_wsocket.get_executor(),
+                                [sp, data]() {
+                                    sp->do_write(data);
+                                }
+                           );
+                        }
+                    },
+                    [wp](std::string&& reason) { // CloseFunc
+                        if (auto sp = wp.lock())
+                        {
+                            boost::asio::post(
+                                sp->_wsocket.get_executor(),
+                                [sp, reason = std::move(reason)]()
+                                {
+                                    websocket::close_reason cr;
+                                    cr.reason = std::move(reason);
+                                    sp->_wsocket.async_close(cr, [sp](boost::system::error_code ec)
+                                    {
+                                        if (ec)
+                                            return fail(ec, "close");
+                                    });
+                                }
+                            );
                         }
                     });
                 }
@@ -138,7 +161,6 @@ namespace beam::wallet {
         std::string* contents = nullptr;
 
         {
-            std::unique_lock<std::mutex> lock(_queueMutex);
             _writeQueue.push(msg);
 
             if (_writeQueue.size() > 1)
@@ -162,7 +184,6 @@ namespace beam::wallet {
 
         std::string* contents = nullptr;
         {
-            std::unique_lock<std::mutex> lock(_queueMutex);
             _writeQueue.pop();
 
             if (!_writeQueue.empty())

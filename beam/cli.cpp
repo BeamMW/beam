@@ -48,11 +48,12 @@ namespace
 		, public std::enable_shared_from_this<WebClient>
 	{
 	public:
-		WebClient(WebSocketServer::SendFunc wsSend)
-			: _wsSend(std::move(wsSend))
+		WebClient(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose, uint16_t nodePort)
+			: m_wsSend(std::move(wsSend))
+			, m_wsClose(std::move(wsClose))
 		{
 			auto& r = io::Reactor::get_Current();
-			r.tcp_connect(io::Address::localhost().port(10000), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
+			r.tcp_connect(io::Address::localhost().port(nodePort), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
 		}
 
 		~WebClient() noexcept override
@@ -63,9 +64,8 @@ namespace
 	private:
 		void ReactorThread_onWSDataReceived(const std::string& data) override
 		{
-			LOG_DEBUG() << std::this_thread::get_id() << " Received data from websocket" << TRACE(data.size());
-			_dataQueue.push(data);
-			if (_stream)
+			m_DataQueue.push(data);
+			if (m_Stream)
 			{
 				ProcessDataQueue();
 			}
@@ -73,14 +73,12 @@ namespace
 
 		void ProcessDataQueue()
 		{
-			LOG_DEBUG() << std::this_thread::get_id() << " Starting websocket data queue processing";
-			while (!_dataQueue.empty())
+			while (!m_DataQueue.empty())
 			{
-				auto& d = _dataQueue.front();
-				_stream->write(d.data(), d.size());
-				_dataQueue.pop();
+				auto& d = m_DataQueue.front();
+				m_Stream->write(d.data(), d.size());
+				m_DataQueue.pop();
 			}
-			LOG_DEBUG() << std::this_thread::get_id() << " Finished websocket data queue processing";
 		}
 
 		void OnConnected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -88,42 +86,51 @@ namespace
 			if (newStream)
 			{
 				LOG_DEBUG() << "Websocket proxy connected to the node";
-				_stream = std::move(newStream);
-				_stream->enable_read(
+				m_Stream = std::move(newStream);
+				m_Stream->enable_read(
 					[this](io::ErrorCode what, void* data, size_t size) -> bool
 					{
-						LOG_DEBUG() << std::this_thread::get_id() << " Sending data back to websocket" << TRACE(size);
-						_wsSend(std::string((const char*)data, size));
+						m_wsSend(std::string((const char*)data, size));
 						return true;
 					});
 				ProcessDataQueue();
 			}
+			else
+			{
+				std::stringstream ss;
+				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
+				LOG_DEBUG() << ss.str();
+				m_wsClose(ss.str());
+			}
 		}
 	private:
-		WebSocketServer::SendFunc _wsSend;
-		io::TcpStream::Ptr _stream;
-		std::queue<std::string> _dataQueue;
+		WebSocketServer::SendFunc m_wsSend;
+		WebSocketServer::CloseFunc m_wsClose;
+		io::TcpStream::Ptr m_Stream;
+		std::queue<std::string> m_DataQueue;
 
 	};
 
 	class WebSocketProxy : public WebSocketServer
 	{
 	public:
-		WebSocketProxy(SafeReactor::Ptr reactor, uint16_t port,
+		WebSocketProxy(SafeReactor::Ptr reactor, uint16_t port, uint16_t nodePort,
 			const std::string& allowedOrigin)
 			: WebSocketServer(std::move(reactor), port, allowedOrigin)
+			, m_NodePort(nodePort)
 		{
 		}
 
 		virtual ~WebSocketProxy() = default;
 
 	private:
-		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend) override
+		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose) override
 		{
-			return std::make_shared<WebClient>(wsSend);
+			return std::make_shared<WebClient>(wsSend, wsClose, m_NodePort);
 		}
 
 	private:
+		uint16_t m_NodePort;
 	};
 }
 
@@ -322,7 +329,7 @@ int main_impl(int argc, char* argv[])
 					std::unique_ptr<WebSocketProxy> webSocketProxy;
 					if (auto wsPort = vm[cli::WEBSOCKET_PORT].as<uint16_t>(); wsPort > 0)
 					{
-						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsPort, "");
+						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsPort, port, "");
 					}
 
                     NodeObserver observer(node);

@@ -26,6 +26,7 @@ namespace beam::wallet {
     {
     public:
         using SendFunc = std::function<void (const std::string&)>;
+        using CloseFunc = std::function<void (std::string&&)>;
 
         struct ClientHandler
         {
@@ -38,7 +39,7 @@ namespace beam::wallet {
         ~WebSocketServer();
 
     protected:
-        virtual ClientHandler::Ptr ReactorThread_onNewWSClient(SendFunc) = 0;
+        virtual ClientHandler::Ptr ReactorThread_onNewWSClient(SendFunc, CloseFunc) = 0;
 
     private:
         boost::asio::io_context       _ioc;
