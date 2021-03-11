@@ -6686,8 +6686,7 @@ namespace beam::wallet
 
     std::string GenerateOfflineToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion)
     {
-        TxParameters params;
-        GenerateCommonAddressPart(amount, assetId, clientVersion);
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
