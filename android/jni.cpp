@@ -292,7 +292,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
          LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
-    auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers);
+    auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
     
     jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
 
