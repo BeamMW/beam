@@ -395,7 +395,7 @@ namespace beam::wallet
                     {"offline",         TokenType::Offline},
                     {"max_privacy",     TokenType::MaxPrivacy},
                     {"public_offline",  TokenType::Public},
-                    {"choice",          TokenType::Choice},
+                    {"choice",          TokenType::Offline},
                     {"regular_new",     TokenType::RegularNewStyle}
                 }
             };
@@ -403,6 +403,10 @@ namespace beam::wallet
             if (t != types.end())
             {
                 createAddress.type = t->second;
+                if (t->first == "choice")
+                {
+                    createAddress.offlinePayments = 1;
+                }
             }
         }
 

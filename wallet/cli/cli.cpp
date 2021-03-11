@@ -781,7 +781,8 @@ namespace
         }
         else if (it2 = vm.find(cli::CHOICE_TOKEN); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TokenType::Choice;
+            type = TokenType::Offline;
+            offlineCount = 1;
         }
         else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
         {

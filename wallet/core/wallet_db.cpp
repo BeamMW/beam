@@ -6740,30 +6740,6 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
-    std::string  GenerateChoiceToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
-    {
-        std::string regular = GenerateRegularNewToken(address, amount, assetId, clientVersion);
-
-        auto params = ParseParameters(regular);
-        if (!params)
-        {
-            throw std::runtime_error("Failed to create regular new token");
-        }
-
-        params->SetParameter(TxParameterID::TransactionType2, beam::wallet::TxType::PushTransaction);
-
-        ShieldedVoucherList vouchers;
-        vouchers.push_back(voucher);
-        params->SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-
-        params->SetParameter(TxParameterID::PeerID,              address.m_walletID);
-        params->SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
-        params->SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
-        params->SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
-
-        return std::to_string(*params);
-    }
-
     std::string  GenerateToken (TokenType type, IWalletDB::Ptr walletDB, const std::string& label, WalletAddress::ExpirationStatus expiration, std::string existingSBBS, uint32_t offlineCount)
     {
         switch (type)
@@ -6829,14 +6805,6 @@ namespace beam::wallet
             {
                 LOG_INFO() << "Generating public offline address";
                 return GeneratePublicToken(*walletDB, "");
-            }
-
-        case TokenType::Choice:
-            {
-                LOG_INFO() << "Generating choice address";
-                auto walletAddress = WalletAddress::Generate(*walletDB, label, WalletAddress::ExpirationStatus::Never);
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-                return GenerateChoiceToken(walletAddress, 0, 0, vouchers[0], "");
             }
 
         default:

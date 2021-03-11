@@ -127,8 +127,7 @@ namespace beam::wallet
         if (!getWallet()->IsConnectedToOwnNode() 
            && (data.type == TokenType::MaxPrivacy
             || data.type == TokenType::Public
-            || data.type == TokenType::Offline
-            || data.type == TokenType::Choice))
+            || data.type == TokenType::Offline))
         {
             throw jsonrpc_exception(ApiError::NotSupported);
         }

@@ -1186,14 +1186,12 @@ namespace beam::wallet
         Offline,
         MaxPrivacy,
         Public,     // 1 offline voucher
-        Choice,     // includes regular address + 1 offline voucher
     };
 
     std::string  GenerateOfflineToken    (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion);
     std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
-    std::string  GenerateChoiceToken     (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
     std::string  GenerateToken           (TokenType type, IWalletDB::Ptr walletDB, const std::string& label, WalletAddress::ExpirationStatus = WalletAddress::ExpirationStatus::Auto, std::string receiver = std::string(), uint32_t offlineCount = 10);
 }  // namespace beam::wallet
