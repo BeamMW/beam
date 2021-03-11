@@ -767,7 +767,7 @@ namespace
     {
         auto walletDB = OpenDataBase(vm);
 
-        TokenType type = TokenType::RegularNewStyle;
+        auto type = TokenType::RegularNewStyle;
         std::string receiver;
         uint32_t offlineCount = 10;
 
