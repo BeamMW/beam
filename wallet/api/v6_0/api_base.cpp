@@ -277,7 +277,7 @@ namespace beam::wallet {
             const auto result = *raw;
             if (result == 0)
             {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a positive 64bit unsigned integer.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a positive 32bit unsigned integer.");
             }
 
             return PositiveUint32(result);
