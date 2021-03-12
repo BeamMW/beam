@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
-[![Build status](https://ci.appveyor.com/api/projects/status/0j424l1h61gwqddm/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 [![Build](https://github.com/BeamMW/beam/actions/workflows/build.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/build.yml)
 [![CodeQL](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml)
 
