@@ -69,7 +69,7 @@ namespace beam::wallet
         return rates;
     }
 
-    void ExchangeRateProvider::processRates(std::vector<ExchangeRate> rates)
+    void ExchangeRateProvider::processRates(const std::vector<ExchangeRate>& rates)
     {
         std::vector<ExchangeRate> changedRates;
         for (const auto& rate : rates)

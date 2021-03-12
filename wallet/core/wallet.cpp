@@ -2036,8 +2036,8 @@ namespace beam::wallet
         if (!pTx)
             return;
 
-        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
+        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), true); // true in order to get ChangeAction::Added
         pTx->SetParameter(TxParameterID::MyID, myID, false);
         pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
         pTx->SetParameter(TxParameterID::IsInitiator, false, false);
