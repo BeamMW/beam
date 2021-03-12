@@ -98,7 +98,7 @@ namespace beam
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
-    const char kErrorNotEnoughtCoins[] = "Not enought coins for this transaction parameters";
+    const char kErrorNotEnoughtCoins[] = "Not enough coins for this transaction parameters";
     const char kErrorCantSendMaxPrivacyToOwn[] = "Can not sent max privacy transaction to own address";
 
     // Swap Tx statuses
