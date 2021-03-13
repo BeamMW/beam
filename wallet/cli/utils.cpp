@@ -86,9 +86,10 @@ bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, boo
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
         fee = it->second.as<Nonnegative<Amount>>().value;
-        if (checkFee && (fee < get_MinFee(wallet)))
+        auto minFee = get_MinFee(wallet);
+        if (checkFee && (fee < minFee))
         {
-            LOG_ERROR() << kErrorFeeToLow;
+            LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
             return false;
         }
     }

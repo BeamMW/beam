@@ -784,7 +784,7 @@ namespace beam::wallet
             txList.count = *count;
         }
 
-        if (auto skip = getOptionalParam<PositiveUint32>(params, "skip"))
+        if (auto skip = getOptionalParam<uint32_t>(params, "skip"))
         {
             txList.skip = *skip;
         }

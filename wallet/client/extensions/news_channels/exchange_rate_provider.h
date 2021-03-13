@@ -44,7 +44,7 @@ namespace beam::wallet
         
     private:
         void loadRatesToCache();
-        void processRates(std::vector<ExchangeRate> rates);
+        void processRates(const std::vector<ExchangeRate>& rates);
         void notifySubscribers(const std::vector<ExchangeRate>&) const;
 
         bool m_isEnabled;                           /// Shows if provider is working or turned OFF
