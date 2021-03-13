@@ -67,10 +67,6 @@
 	macro(const void*, p) sep \
 	macro(uint32_t, size)
 
-#define BVMOp_HashWriteNum(macro, sep) \
-	macro(HashObj*, pHash) sep \
-	macro(uint64_t, num)
-
 #define BVMOp_HashGetValue(macro, sep) \
 	macro(HashObj*, pHash) sep \
 	macro(void*, pDst) sep \
