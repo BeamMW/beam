@@ -592,33 +592,49 @@ namespace beam::wallet
         return {};
     }
 
-    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params)
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params, TxAddressType type)
     {
         const TxParameters& p = receiverParams;
-        auto type = GetAddressTypeImpl(p);
         switch (type)
         {
         case TxAddressType::AtomicSwap:
         case TxAddressType::Regular:
-            if (!CopyParameter(TxParameterID::PeerID, p, params))
-                return false;
-            CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
-            break;
-        case TxAddressType::PublicOffline:
-        {
-            auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
-            // generate fake peerID 
-            Scalar::Native sk;
-            sk.GenRandomNnz();
-            PeerID pid;  // fake peedID
-            pid.FromSk(sk);
-            ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
-            params.SetParameter(TxParameterID::Voucher, voucher);
-            params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            {
+                if (type == TxAddressType::Regular)
+                {
+                    params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
+                }
+                else if (type == TxAddressType::AtomicSwap)
+                {
+                    params.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
+                }
 
-        }break;
+                if (!CopyParameter(TxParameterID::PeerID, p, params))
+                {
+                    return false;
+                }
+                CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
+                break;
+            }
+
+        case TxAddressType::PublicOffline:
+            {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
+                auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+                // generate fake peerID
+                Scalar::Native sk;
+                sk.GenRandomNnz();
+                PeerID pid;  // fake peedID
+                pid.FromSk(sk);
+                ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
+                params.SetParameter(TxParameterID::Voucher, voucher);
+                params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            }
+            break;
+
         case TxAddressType::Offline:
             {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerID, p, params);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); 
@@ -635,8 +651,10 @@ namespace beam::wallet
                 }
             }
             break;
+
         case TxAddressType::MaxPrivacy:
             {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
                 params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
@@ -650,16 +668,12 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
             }
             break;
+
         default:
             return false;
         }
 
-        if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
-        {
-            params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-        }
         params.SetParameter(TxParameterID::AddressType, type);
-
         ProcessLibraryVersion(receiverParams);
 
         return true;
