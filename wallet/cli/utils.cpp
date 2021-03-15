@@ -75,26 +75,27 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
     return true;
 }
 
-Amount get_MinFee(const Wallet& wallet)
+Amount get_MinFee(const Wallet& wallet, bool hasShieldedOutputs)
 {
     auto& fs = Transaction::FeeSettings::get(wallet.get_CurrentHeight());
-    return fs.get_DefaultStd();
+    return hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd();
 }
 
-bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee)
+bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee, bool hasShieldedOutputs /*= false*/)
 {
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
         fee = it->second.as<Nonnegative<Amount>>().value;
-        auto minFee = get_MinFee(wallet);
+        auto minFee = get_MinFee(wallet, hasShieldedOutputs);
         if (checkFee && (fee < minFee))
         {
             LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
             return false;
         }
     }
-    else {
-        fee = get_MinFee(wallet);
+    else 
+    {
+        fee = get_MinFee(wallet, hasShieldedOutputs);
     }
         
     return true;
@@ -128,6 +129,7 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
 
 bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
 {
+    bool hasShieldedOutputs = false;
     if (!skipReceiverWalletID)
     {
         TxParameters params;
@@ -139,6 +141,10 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asse
         {
             receiverWalletID = *peerID;
         }
+        if (auto txType = params.GetParameter<TxType>(TxParameterID::TransactionType))
+        {
+            hasShieldedOutputs = *txType == TxType::PushTransaction;
+        }
     }
 
     if (!ReadAmount(vm, amount))
@@ -146,7 +152,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asse
         return false;
     }
 
-    if (!ReadFee(vm, fee, wallet, checkFee))
+    if (!ReadFee(vm, fee, wallet, checkFee, hasShieldedOutputs))
     {
         return false;
     }
