@@ -101,7 +101,7 @@ namespace beam::wallet {
         }
 
         boost::optional<std::string> result = m_Out.str();
-        LOG_INFO () << "SHader result: " << *result;
+        LOG_INFO () << "Shader result: " << *result;
 
         if (m_vInvokeData.empty())
         {
