@@ -80,7 +80,7 @@ jobs:
       if: matrix.os == 'windows-2019'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
-        cmake -G "Visual Studio 16 2019" -A x64 -DBOOST_ROOT=$BOOST_ROOT_1_72_0 -DCMAKE_BUILD_TYPE=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
+        cmake -G "Visual Studio 16 2019" -A x64 -DBOOST_ROOT=$BOOST_ROOT_1_69_0 -DCMAKE_BUILD_TYPE=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
 
     - name: Save version info
       shell: bash
