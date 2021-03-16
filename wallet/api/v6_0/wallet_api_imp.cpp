@@ -782,24 +782,23 @@ namespace beam::wallet
                 filter.m_AssetConfirmedHeight = data.filter.height;
             }
             filter.m_KernelProofHeight = data.filter.height;
-            walletDB->visitTx(
-                [&](const TxDescription& tx)
+            walletDB->visitTx([&](const TxDescription& tx)
             {
                 // filter supported tx types
                 // TODO: remove this in future, this condition was added to preserve existing behavior
-                if (tx.m_txType != TxType::Simple
+                if (tx.m_txType    != TxType::Simple
                     && tx.m_txType != TxType::PushTransaction
                     && tx.m_txType != TxType::AssetIssue
                     && tx.m_txType != TxType::AssetConsume
-                    && tx.m_txType != TxType::AssetInfo)
+                    && tx.m_txType != TxType::AssetInfo
+                    && tx.m_txType != TxType::AssetReg
+                    && tx.m_txType != TxType::AssetUnreg
+                    && tx.m_txType != TxType::Contract)
                 {
                     return true;
                 }
 
-                if (!data.withAssets && (tx.m_txType == TxType::AssetIssue
-                    || tx.m_txType == TxType::AssetConsume
-                    || tx.m_txType == TxType::AssetInfo
-                    || tx.m_assetId != Asset::s_InvalidID))
+                if (tx.m_assetId > 0 && !data.withAssets)
                 {
                     return true;
                 }
