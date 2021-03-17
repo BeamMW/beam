@@ -125,7 +125,7 @@ void TestTreasuryRestore()
                 .SetParameter(TxParameterID::Amount, 38000000)
                 .SetParameter(TxParameterID::Fee, 12000000);
 
-            LoadReceiverParams(*p, parameters);
+            LoadReceiverParams(*p, parameters, TxAddressType::Offline);
 
             sender.m_Wallet->StartTransaction(parameters);
         }
