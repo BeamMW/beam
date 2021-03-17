@@ -51,6 +51,9 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
         echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
+        git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
+        echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
+
 
     - name: Download boost [macos-10.15]
       if: matrix.os == 'macos-10.15'
@@ -80,7 +83,7 @@ jobs:
       if: matrix.os == 'windows-2019'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
-        cmake -G "Visual Studio 16 2019" -A x64 -DBOOST_ROOT=$BOOST_ROOT_1_69_0 -DCMAKE_BUILD_TYPE=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
+        cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_BUILD_TYPE=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=On -DBEAM_HW_WALLET=Off .
 
     - name: Save version info
       shell: bash

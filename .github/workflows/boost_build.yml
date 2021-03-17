@@ -5,6 +5,40 @@ on:
       - boost_prebuild*
 
 jobs:
+  build_windows:
+    runs-on: windows-2019
+    steps:
+      - name: Create Build Environment
+        shell: cmd
+        run: |
+          mkdir ${{runner.workspace}}\boost_prebuild
+
+      - name: Download
+        shell: powershell
+        run: |
+          $Url = "https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_72_0.zip"
+          (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_72_0.zip")
+          Expand-Archive -Path "$env:TEMP\boost_1_72_0.zip" -DestinationPath ${{runner.workspace}}/boost
+
+      - name: Bootstrap
+        shell: cmd
+        run: |
+          cd ${{runner.workspace}}\boost\boost_1_72_0
+          .\bootstrap.bat
+
+      - name: Build and install
+        shell: cmd
+        run: |
+          cd ${{runner.workspace}}\boost\boost_1_72_0
+          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: boost_prebuild_windows-2019
+          path: ${{runner.workspace}}\boost_prebuild
+          if-no-files-found: error
+
+
   build_ubuntu:
     runs-on: ${{ matrix.os }}
     strategy:
