@@ -51,7 +51,7 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
         echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
-        git clone --depth 1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
+        git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
         echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
 
@@ -498,7 +498,7 @@ jobs:
     - name: Download boost
       shell: bash
       run: |
-        git clone --depth 1 https://github.com/BeamMW/boost-linux.git ${{runner.workspace}}/boost_prebuild
+        git clone --depth=1 https://github.com/BeamMW/boost-linux.git ${{runner.workspace}}/boost_prebuild
         echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuild" >> $GITHUB_ENV
 
 ###############################################################################
@@ -553,14 +553,14 @@ jobs:
     - name: Download boost
       shell: bash
       run: |
-        git clone --depth 1 https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
+        git clone --depth=1 https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
         echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
         echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
     
     - name: Download openssl
       shell: bash
       run: |
-        git clone --depth 1 https://github.com/BeamMW/openssl-wasm.git ${{runner.workspace}}/openssl-wasm
+        git clone --depth=1 https://github.com/BeamMW/openssl-wasm.git ${{runner.workspace}}/openssl-wasm
 
 ###############################################################################
 # Configure CMake && Build
