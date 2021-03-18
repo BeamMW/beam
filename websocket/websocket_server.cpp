@@ -14,7 +14,6 @@
 #include "websocket_server.h"
 #include "sessions.h"
 #include "utility/logger.h"
-//#include "utils.h"
 #include "reactor.h"
 
 namespace beam::wallet
