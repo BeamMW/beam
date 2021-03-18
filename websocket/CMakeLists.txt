@@ -15,7 +15,6 @@ target_link_libraries(websocket
     PUBLIC
         Boost::boost
     PRIVATE
-        Boost::date_time
         beam
         utility
 )
