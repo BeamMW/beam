@@ -367,7 +367,11 @@ namespace beam::wallet
     {
         CalcMyChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
         message.assetId = readAssetIdParameter(id, params);
-        message.explicitFee = getBeamFeeParam(params, "fee");
+        if (auto f = getOptionalParam<PositiveUnit64>(params, "fee"))
+        {
+            message.explicitFee = *f;
+        }
+        
         if (auto isPush = getOptionalParam<bool>(params, "is_push_transaction"))
         {
             message.isPushTransaction = *isPush;
@@ -860,10 +864,10 @@ namespace beam::wallet
                 {
                     {"change", res.change},
                     {"change_str", std::to_string(res.change)}, // string representation
-                    {"asset_change", res.change},
+                    {"asset_change", res.assetChange},
                     {"asset_change_str", std::to_string(res.assetChange)}, // string representation
-                    {"explicit_fee", res.change},
-                    {"explicit_fee_str", std::to_string(res.assetChange)} // string representation
+                    {"explicit_fee", res.explicitFee},
+                    {"explicit_fee_str", std::to_string(res.explicitFee)} // string representation
                 }
             }
         };
