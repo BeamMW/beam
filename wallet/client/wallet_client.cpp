@@ -972,8 +972,12 @@ namespace beam::wallet
 
     void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        const auto change = CalcChange(m_walletDB, amount, fee, assetId);
-        onChangeCalculated(change.changeAsset, change.changeBeam, assetId);
+        m_CoinsSelectionResult.m_requestedSum = amount;
+        m_CoinsSelectionResult.m_assetID = assetId;
+        m_CoinsSelectionResult.m_explicitFee = fee;
+
+        m_CoinsSelectionResult.Calculate(m_currentHeight, m_walletDB, false);
+        onChangeCalculated(m_CoinsSelectionResult.m_changeAsset, m_CoinsSelectionResult.m_changeBeam, assetId);
     }
 
     void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)

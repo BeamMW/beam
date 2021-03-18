@@ -202,35 +202,17 @@ namespace beam::wallet
     };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-    struct CreateWallet
-    {
-        std::string pass;
-        std::string ownerKey;
-
-        struct Response
-        {
-            std::string id;
-        };
-    };
-
-    struct OpenWallet
-    {
-        std::string id;
-        std::string pass;
-        bool freshKeeper = true;
-
-        struct Response
-        {
-            std::string session;
-        };
-    };
-
     struct CalcMyChange
     {
         Amount amount;
+        Amount explicitFee = 0;
+        boost::optional<Asset::ID> assetId;
+        bool isPushTransaction = false;
         struct Response
         {
             Amount change;
+            Amount assetChange;
+            Amount explicitFee;
         };
     };
 

@@ -886,7 +886,7 @@ private:
             result.push_back( json {
                 {"status", offer.m_status},
                 {"status_string", swapOfferStatusToString(offer.m_status)},
-                {"txId", wallet::TxIDToString(offer.m_txId)},
+                {"txId", std::to_string(offer.m_txId)},
                 {"beam_amount", std::to_string(wallet::PrintableAmount(offer.amountBeam(), true))},
                 {"swap_amount", SwapAmountToString(offer.amountSwapCoin(), offer.swapCoinType())},
                 {"swap_currency", std::to_string(offer.swapCoinType())},

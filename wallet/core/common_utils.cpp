@@ -34,66 +34,6 @@ namespace beam::wallet
         return f.read(&bb.front(), nSize) == nSize;
     }
 
-    std::string TxIDToString(const TxID& txId)
-    {
-        return to_hex(txId.data(), txId.size());
-    }
-
-Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId)
-{
-    Change result;
-    result.assetId = assetId;
-
-    const bool isBeamTx = assetId == Asset::s_BeamID;
-    if (isBeamTx)
-    {
-        amountAsset += beamFee;
-    }
-
-    if (amountAsset > 0)
-    {
-        auto coins = walletDB->selectCoins(amountAsset, assetId);
-        const auto assetAvailable = accumulate(coins.begin(), coins.end(), AmountBig::Type(Zero), [] (const AmountBig::Type& sum, const Coin& c)
-        {
-            auto result = sum;
-            result += AmountBig::Type(c.m_ID.m_Value);
-            return result;
-        });
-
-        {
-            // Do not use bigAmountAsset outside of this block, it is negated below
-            AmountBig::Type bigAmountAsset(amountAsset);
-            if (assetAvailable > bigAmountAsset)
-            {
-                AmountBig::Type changeAsset = assetAvailable;
-                bigAmountAsset.Negate();
-                changeAsset += bigAmountAsset;
-
-                assert(AmountBig::get_Hi(result.changeAsset) == 0);
-                result.changeAsset = AmountBig::get_Lo(changeAsset);
-            }
-        }
-
-        if (isBeamTx)
-        {
-            result.changeBeam = AmountBig::get_Lo(result.changeAsset);
-        }
-    }
-
-    if (!isBeamTx && beamFee)
-    {
-        auto coins = walletDB->selectCoins(amountAsset, Asset::s_BeamID);
-        const auto beamAvailable = accumulate(coins.begin(), coins.end(), (Amount)0, [] (Amount sum, const Coin& c)
-        {
-            return sum + c.m_ID.m_Value;
-        });
-
-        result.changeBeam = beamAvailable <= beamFee ? 0 : beamAvailable - beamFee;
-    }
-
-    return result;
-}
-
 Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded)
 {
     Amount sum = accumulate(vSelStd.begin(), vSelStd.end(), (Amount)0, [] (Amount sum, const Coin& c) {

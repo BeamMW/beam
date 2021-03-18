@@ -35,14 +35,14 @@ namespace
         {"maturity", [] (const Coin& a, const Coin& b) { return a.get_Maturity() < b.get_Maturity();}},
         {"createTxId", [] (const Coin& a, const Coin& b)
             {
-                std::string createTxIdA = a.m_createTxId.is_initialized() ? TxIDToString(*a.m_createTxId) : "";
-                std::string createTxIdB = b.m_createTxId.is_initialized() ? TxIDToString(*b.m_createTxId) : "";
+                std::string createTxIdA = a.m_createTxId.is_initialized() ? std::to_string(*a.m_createTxId) : "";
+                std::string createTxIdB = b.m_createTxId.is_initialized() ? std::to_string(*b.m_createTxId) : "";
                 return createTxIdA < createTxIdB;
             }},
         {"spentTxId", [] (const Coin& a, const Coin& b)
             {
-                std::string spentTxIdA = a.m_spentTxId.is_initialized() ? TxIDToString(*a.m_spentTxId) : "";
-                std::string spentTxIdB = b.m_spentTxId.is_initialized() ? TxIDToString(*b.m_spentTxId) : "";
+                std::string spentTxIdA = a.m_spentTxId.is_initialized() ? std::to_string(*a.m_spentTxId) : "";
+                std::string spentTxIdB = b.m_spentTxId.is_initialized() ? std::to_string(*b.m_spentTxId) : "";
                 return spentTxIdA < spentTxIdB;
             }},
         {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}},
@@ -99,17 +99,21 @@ namespace beam::wallet
 
     void WalletApi::onMessage(const JsonRpcId& id, const CalcMyChange& data)
     {
-        LOG_DEBUG() << "CalcChange(id = " << id << ")";
+        LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
 
-        auto coins = getWalletDB()->selectCoins(data.amount, Zero);
-        Amount sum = 0;
-        for (auto& c : coins)
+        CoinsSelectionInfo csi = { 0 };
+
+        csi.m_requestedSum = data.amount;
+        if (data.assetId)
         {
-            sum += c.m_ID.m_Value;
+            csi.m_assetID = *data.assetId;
         }
 
-        Amount change = (sum > data.amount) ? (sum - data.amount) : 0UL;
-        doResponse(id, CalcMyChange::Response{ change });
+        csi.m_explicitFee = data.explicitFee;
+
+        csi.Calculate(get_CurrentHeight(), getWalletDB(), data.isPushTransaction);
+
+        doResponse(id, CalcMyChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
     }
 
     void WalletApi::onMessage(const JsonRpcId& id, const ChangePassword& data)

@@ -29,7 +29,7 @@ namespace beam::wallet
             json result{
                 {"status", offer.m_status},
                 {"status_string", swapOfferStatusToString(offer.m_status)},
-                {"tx_id", TxIDToString(offer.m_txId)},
+                {"tx_id", std::to_string(offer.m_txId)},
                 {"time_created", createTimeStr},
                 {"min_height", offer.minHeight()},
                 {"height_expired", expiredHeight},
@@ -59,7 +59,7 @@ namespace beam::wallet
                 false);
 
             json result{
-                {"tx_id", TxIDToString(offer.m_txId)},
+                {"tx_id", std::to_string(offer.m_txId)},
                 {"is_my_offer", isMyOffer},
                 {"is_public", isPublic},
                 {"send_amount", send},
@@ -112,7 +112,7 @@ namespace beam::wallet
             json result {
                 {"status", offer.m_status},
                 {"status_string", swapOfferStatusToString(offer.m_status)},
-                {"txId", TxIDToString(offer.m_txId)},
+                {"txId", std::to_string(offer.m_txId)},
                 {"send_amount", send},
                 {"send_currency", sendCurrency},
                 {"receive_amount", receive},
@@ -385,7 +385,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
             {
-                {"txId", TxIDToString(res.txId)},
+                {"txId", std::to_string(res.txId)},
                 {"token", res.token},
             }}
         };

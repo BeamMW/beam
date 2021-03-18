@@ -201,7 +201,7 @@ namespace beam::wallet
         }
         msg = json
         {
-            {"txId", TxIDToString(tx.m_txId)},
+            {"txId", std::to_string(tx.m_txId)},
             {"status", tx.m_status},
             {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
             {"sender", tx.getAddressFrom()},
@@ -366,6 +366,12 @@ namespace beam::wallet
     void WalletApi::onCalcMyChangeMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         CalcMyChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
+        message.assetId = readAssetIdParameter(id, params);
+        message.explicitFee = getBeamFeeParam(params, "fee");
+        if (auto isPush = getOptionalParam<bool>(params, "is_push_transaction"))
+        {
+            message.isPushTransaction = *isPush;
+        }
         onMessage(id, message);
     }
 
@@ -853,7 +859,11 @@ namespace beam::wallet
             {"result",
                 {
                     {"change", res.change},
-                    {"change_str", std::to_string(res.change)} // string representation
+                    {"change_str", std::to_string(res.change)}, // string representation
+                    {"asset_change", res.change},
+                    {"asset_change_str", std::to_string(res.assetChange)}, // string representation
+                    {"explicit_fee", res.change},
+                    {"explicit_fee_str", std::to_string(res.assetChange)} // string representation
                 }
             }
         };
@@ -904,7 +914,7 @@ namespace beam::wallet
 
         if (res.txid != TxID())
         {
-            msg["result"]["txid"] = TxIDToString(res.txid);
+            msg["result"]["txid"] = std::to_string(res.txid);
         }
     }
 
@@ -974,8 +984,8 @@ namespace beam::wallet
 
         for (auto& utxo : res.utxos)
         {
-            std::string createTxId = utxo.m_createTxId.is_initialized() ? TxIDToString(*utxo.m_createTxId) : "";
-            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? TxIDToString(*utxo.m_spentTxId) : "";
+            std::string createTxId = utxo.m_createTxId.is_initialized() ? std::to_string(*utxo.m_createTxId) : "";
+            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? std::to_string(*utxo.m_spentTxId) : "";
 
             msg["result"].push_back(
             {
@@ -1001,7 +1011,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"txId", TxIDToString(res.txId)}
+                    {"txId", std::to_string(res.txId)}
                 }
             }
         };
@@ -1015,7 +1025,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"txId", TxIDToString(res.txId)}
+                    {"txId", std::to_string(res.txId)}
                 }
             }
         };
@@ -1029,7 +1039,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"txId", TxIDToString(res.txId)}
+                    {"txId", std::to_string(res.txId)}
                 }
             }
         };
@@ -1101,7 +1111,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"txId", TxIDToString(res.txId)}
+                    {"txId", std::to_string(res.txId)}
                 }
             }
         };
@@ -1127,7 +1137,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"txId", TxIDToString(res.txId)}
+                    {"txId", std::to_string(res.txId)}
                 }
             }
         };
@@ -1252,7 +1262,7 @@ namespace beam::wallet
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", TxIDToString(res.txId)}
+            {"result", std::to_string(res.txId)}
         };
     }
 

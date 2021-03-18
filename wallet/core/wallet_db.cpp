@@ -291,7 +291,7 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        struct CoinSelector3
+        struct CoinSelector
         {
             typedef std::vector<Coin> Coins;
             typedef std::vector<size_t> Indexes;
@@ -300,7 +300,7 @@ namespace beam::wallet
 
             const Coins& m_Coins; // input coins must be in ascending order, without zeroes
             
-            CoinSelector3(const Coins& coins)
+            CoinSelector(const Coins& coins)
                 :m_Coins(coins)
             {
             }
@@ -2759,8 +2759,8 @@ namespace beam::wallet
             }
         }
 
-        CoinSelector3 csel(coins);
-        CoinSelector3::Result res = csel.Select(amount);
+        CoinSelector csel(coins);
+        CoinSelector::Result res = csel.Select(amount);
 
         if (res.first >= amount)
         {

@@ -19,18 +19,7 @@
 namespace beam::wallet
 {
     bool ReadTreasury(ByteBuffer&, const std::string& sPath);
-    std::string TxIDToString(const TxID& txId);
 
-    struct Change {
-        //
-        // if assetId is BEAM then changeAsset == changeBeam
-        //
-        Amount changeBeam = 0U;
-        Amount changeAsset = 0U;
-        Asset::ID assetId = Asset::s_BeamID;
-    };
-
-    Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId);
     Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded);
 
     struct CoinsSelectionInfo
