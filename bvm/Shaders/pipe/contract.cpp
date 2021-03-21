@@ -84,7 +84,7 @@ export void Method_3(const Pipe::PushLocal0& r)
 	Pipe::MsgHdr::KeyOut km;
 	km.m_iCheckpoint_BE = cpk.m_iCheckpoint_BE;
 	km.m_iMsg_BE = Utils::FromBE(so.m_Checkpoint.m_iMsg);
-	Env::SaveVar(&km, sizeof(km), pMsg, nSize);
+	Env::SaveVar(&km, sizeof(km), pMsg, nSize, 0);
 
 	pMsg->UpdateState(hv, nSize);
 	Env::SaveVar_T(cpk, hv);
@@ -188,14 +188,14 @@ struct VariantWrap
 
 	void Load()
 	{
-		m_VarSize = Env::LoadVar(&m_Key, sizeof(m_Key), nullptr, 0);
+		m_VarSize = Env::LoadVar(&m_Key, sizeof(m_Key), nullptr, 0, 0);
 		Alloc();
-		Env::LoadVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+		Env::LoadVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize, 0);
 	}
 
 	void Save()
 	{
-		Env::SaveVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize);
+		Env::SaveVar(&m_Key, sizeof(m_Key), m_pVar, m_VarSize, 0);
 	}
 
 	void Del()
@@ -545,7 +545,7 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	for (uint32_t iMsg = 0; p.MoveNext(); iMsg++)
 	{
 		mki.m_iMsg_BE = Utils::FromBE(iMsg);
-		Env::SaveVar(&mki, sizeof(mki), p.m_pMsg, sizeof(*p.m_pMsg) + p.m_MsgSize);
+		Env::SaveVar(&mki, sizeof(mki), p.m_pMsg, sizeof(*p.m_pMsg) + p.m_MsgSize, 0);
 	}
 
 	_POD_(si.m_Dispute).SetZero();
@@ -559,11 +559,11 @@ export void Method_6(Pipe::ReadRemote0& r)
 	mki.m_iCheckpoint_BE = Utils::FromBE(r.m_iCheckpoint);
 	mki.m_iMsg_BE = Utils::FromBE(r.m_iMsg);
 
-	uint32_t nSize = Env::LoadVar(&mki, sizeof(mki), nullptr, 0);
+	uint32_t nSize = Env::LoadVar(&mki, sizeof(mki), nullptr, 0, 0);
 	Env::Halt_if(nSize < sizeof(Pipe::MsgHdr));
 
 	auto* pMsg = (Pipe::MsgHdr*) Env::StackAlloc(nSize);
-	Env::LoadVar(&mki, sizeof(mki), pMsg, nSize);
+	Env::LoadVar(&mki, sizeof(mki), pMsg, nSize, 0);
 
 	r.m_IsPrivate = !_POD_(pMsg->m_Receiver).IsZero();
 
