@@ -127,7 +127,7 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value = {};
+			ByteBuffer m_Value;
 			ECC::Hash::Value m_Hash = Zero; // not serialized
 
 			void Reset();
