@@ -1121,7 +1121,7 @@ namespace bvm2 {
 		SetVarKeyInternal(vk, pKey, nKey);
 
 		Wasm::Test(nVal <= Limits::VarSize);
-		SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
+		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
 	BVM_METHOD(CallFar)
@@ -2413,7 +2413,7 @@ namespace bvm2 {
 		return false;
 	}
 
-	bool ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
+	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
 		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
 	}
