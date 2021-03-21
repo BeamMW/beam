@@ -4159,8 +4159,23 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob&
 		m_Proc.m_DB.ContractDataDel(key);
 }
 
+bool NodeProcessor::Mapped::Contract::IsStored(const Blob& key)
+{
+	if (key.n > bvm2::ContractID::nBytes)
+	{
+		uint8_t nTag = reinterpret_cast<const uint8_t*>(key.p)[bvm2::ContractID::nBytes];
+		if (Shaders::KeyTag::InternalStealth == nTag)
+			return false;
+	}
+
+	return true;
+}
+
 void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, bool bAdd)
 {
+	if (!IsStored(key))
+		return;
+
 	Merkle::Hash hv;
 	Block::get_HashContractVar(hv, key, data);
 
