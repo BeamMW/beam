@@ -2420,6 +2420,8 @@ namespace bvm2 {
 
 	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
 	{
+		DischargeUnits(Limits::Cost::FundsLock);
+
 		HandleAmountInner(amount, aid, bLock);
 		HandleAmountOuter(amount, aid, bLock);
 	}
