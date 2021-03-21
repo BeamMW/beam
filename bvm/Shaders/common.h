@@ -91,21 +91,21 @@ namespace Env {
 
     // Template wrapper that returns true if the size of loaded variables matches the provided parameter and false otherwise
     template <typename TKey, typename TVal>
-    inline bool LoadVar_T(const TKey& key, TVal& val, uint8_t bStealth = 0)
+    inline bool LoadVar_T(const TKey& key, TVal& val, uint8_t nType = KeyTag::Internal)
     {
-        return LoadVar(&key, sizeof(key), &val, sizeof(val), bStealth) == sizeof(val);
+        return LoadVar(&key, sizeof(key), &val, sizeof(val), nType) == sizeof(val);
     }
 
     template <typename TKey, typename TVal>
-    inline bool SaveVar_T(const TKey& key, const TVal& val, uint8_t bStealth = 0)
+    inline bool SaveVar_T(const TKey& key, const TVal& val, uint8_t nType = KeyTag::Internal)
     {
-        return SaveVar(&key, sizeof(key), &val, sizeof(val), bStealth) == sizeof(val);
+        return SaveVar(&key, sizeof(key), &val, sizeof(val), nType) == sizeof(val);
     }
 
     template <typename TKey>
-    inline bool DelVar_T(const TKey& key, uint8_t bStealth = 0)
+    inline bool DelVar_T(const TKey& key, uint8_t nType = KeyTag::Internal)
     {
-        return SaveVar(&key, sizeof(key), nullptr, 0, bStealth) != 0;
+        return SaveVar(&key, sizeof(key), nullptr, 0, nType) != 0;
     }
 
     inline void Halt_if(bool b)

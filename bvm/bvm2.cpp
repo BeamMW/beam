@@ -309,12 +309,6 @@ namespace bvm2 {
 		vk.Append(nTag, blob);
 	}
 
-	void ProcessorContract::SetVarKeyInternal(VarKey& vk, const void* pKey, Wasm::Word nKey, uint8_t bStealth)
-	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
-		SetVarKey(vk, bStealth ? VarKey::Tag::InternalStealth : VarKey::Tag::Internal, Blob(pKey, nKey));
-	}
-
 	/////////////////////////////////////////////
 	// Compilation
 
@@ -1095,7 +1089,7 @@ namespace bvm2 {
 
 	BVM_METHOD(LoadVar)
 	{
-		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, bStealth);
+		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
 
 		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerByte * std::min(nVal, ret));
 
@@ -1103,8 +1097,9 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
+		Wasm::Test(nKey <= Limits::VarKeySize);
 		VarKey vk;
-		SetVarKeyInternal(vk, pKey, nKey, bStealth);
+		SetVarKey(vk, nType, Blob(pKey, nKey));
 
 		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
 		return nVal;
@@ -1113,14 +1108,26 @@ namespace bvm2 {
 	BVM_METHOD(SaveVar)
 	{
 		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerByte * nVal);
-		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, bStealth);
+		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		VarKey vk;
-		SetVarKeyInternal(vk, pKey, nKey, bStealth);
-
+		Wasm::Test(nKey <= Limits::VarKeySize);
 		Wasm::Test(nVal <= Limits::VarSize);
+
+		switch (nType)
+		{
+		case VarKey::Tag::Internal:
+		case VarKey::Tag::InternalStealth:
+			break; // ok
+
+		default:
+			Wasm::Fail(); // not allowed to modify
+		}
+
+		VarKey vk;
+		SetVarKey(vk, nType, Blob(pKey, nKey));
+
 		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
