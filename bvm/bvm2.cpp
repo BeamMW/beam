@@ -1333,6 +1333,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_HdrInfo)
 	{
+		DischargeUnits(Limits::Cost::LoadVar);
 		auto& hdr_ = get_AddrAsW<BlockHeader::Info>(hdr); // currently ignore alignment
 		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
 		OnHost_get_HdrInfo(hdr_);
@@ -1350,6 +1351,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_HdrFull)
 	{
+		DischargeUnits(Limits::Cost::LoadVar);
 		auto& hdr_ = get_AddrAsW<BlockHeader::Full>(hdr); // currently ignore alignment
 		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
 		OnHost_get_HdrFull(hdr_);
