@@ -142,9 +142,24 @@ public:
         });
     }
 
-private:
+    void SetSyncHandler(val handler)
+    {
+        m_SyncHandler = std::make_unique<val>(handler);
+    }
 
-    void onPostFunctionToClientContext(MessageFunction&& func)
+private:
+    void onSyncProgressUpdated(int done, int total) override
+    {
+        postFunctionToClientContext([this, done, total]()
+        {
+            if (m_SyncHandler && !m_SyncHandler->isNull())
+            {
+                (*m_SyncHandler)(done, total);
+            }
+        });
+    }
+
+    void onPostFunctionToClientContext(MessageFunction&& func) override
     {
         {
             std::unique_lock<std::mutex> lock(m_Mutex);
@@ -175,6 +190,7 @@ private:
     std::mutex m_Mutex;
     std::queue<MessageFunction> m_Messages;
     std::vector<val> m_Callbacks;
+    std::unique_ptr<val> m_SyncHandler;
 };
 
 class WasmWalletClient : public IWalletApiHandler
@@ -200,6 +216,11 @@ public:
     void Unsubscribe(int i)
     {
         m_Client.RemoveCallback(i);
+    }
+
+    void SetSyncHandler(val handler)
+    {
+        m_Client.SetSyncHandler(handler);
     }
 
     void ExecuteAPIRequest(const std::string& request)
@@ -309,6 +330,7 @@ EMSCRIPTEN_BINDINGS()
         .function("sendRequest",                     &WasmWalletClient::ExecuteAPIRequest)
         .function("subscribe",                       &WasmWalletClient::Subscribe)
         .function("unsubscribe",                     &WasmWalletClient::Unsubscribe)
+        .function("setSyncHandler",                  &WasmWalletClient::SetSyncHandler)
         .class_function("GeneratePhrase",            &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord",             &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase",             &WasmWalletClient::IsValidPhrase)

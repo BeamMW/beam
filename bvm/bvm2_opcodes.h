@@ -165,13 +165,15 @@
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
 	macro(void*, pVal) sep \
-	macro(uint32_t, nVal)
+	macro(uint32_t, nVal) sep \
+	macro(uint8_t, nType)
 
 #define BVMOp_SaveVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
 	macro(const void*, pVal) sep \
-	macro(uint32_t, nVal)
+	macro(uint32_t, nVal) sep \
+	macro(uint8_t, nType)
 
 #define BVMOp_CallFar(macro, sep) \
 	macro(const ContractID&, cid) sep \
@@ -354,7 +356,7 @@
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
-	macro(0x21, void     , SaveVar) \
+	macro(0x21, uint32_t , SaveVar) \
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \

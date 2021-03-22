@@ -939,7 +939,7 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
 {
-    if (req.m_Res.m_Proof.empty() && !m_Tip.IsValidProofContract(req.m_Msg.m_Key, req.m_Res.m_Value, req.m_Res.m_Proof))
+    if (!req.m_Res.m_Proof.empty() && !m_Tip.IsValidProofContract(req.m_Msg.m_Key, req.m_Res.m_Value, req.m_Res.m_Proof))
         ThrowUnexpected();
 }
 
