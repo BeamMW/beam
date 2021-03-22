@@ -3265,8 +3265,20 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
 	}
 
-    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
-	Send(msgOut);
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8)
+    {
+        if (msg.m_Id0)
+            p.get_DB().ShieldedStateRead(msg.m_Id0 - 1, &msgOut.m_State0, 1);
+
+        Send(msgOut);
+    }
+    else
+    {
+        proto::ShieldedList0 msgOut0;
+        msgOut0.m_Items = std::move(msgOut.m_Items);
+        msgOut0.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+        Send(msgOut0);
+    }
 }
 
 bool Node::Processor::BuildCwp()

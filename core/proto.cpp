@@ -943,6 +943,13 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
+void NodeConnection::OnMsg(ShieldedList0&& msg)
+{
+    proto::ShieldedList msg2;
+    msg2.m_Items = std::move(msg.m_Items);
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
+}
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)

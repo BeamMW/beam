@@ -1112,11 +1112,11 @@ private:
             const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
 
             proto::ShieldedList msgOut;
-            msgOut.m_ShieldedOuts = v.size();
+            auto nShieldedOuts = v.size();
 
-            if (msg.m_Id0 < msgOut.m_ShieldedOuts)
+            if (msg.m_Id0 < nShieldedOuts)
             {
-                size_t n = msgOut.m_ShieldedOuts - msg.m_Id0;
+                size_t n = nShieldedOuts - msg.m_Id0;
                 std::setmin(n, msg.m_Count);
                 std::setmin(n, Rules::get().Shielded.m_ProofMax.get_N() * 2);
 
