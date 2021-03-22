@@ -1853,7 +1853,7 @@ namespace beam
 
 		pForks[1].m_Height = 30;
 		pForks[2].m_Height = 30;
-		pForks[3].m_Height = 8500;
+		pForks[3].m_Height = 30;
 
 		// future forks
 		for (size_t i = 4; i < _countof(pForks); i++)
