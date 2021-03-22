@@ -96,6 +96,7 @@ class NodeProcessor
 			void EnsureReserve();
 
 			void Toggle(const Blob& key, const Blob& data, bool bAdd);
+			static bool IsStored(const Blob& key);
 
 			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
 		} m_Contract;
@@ -677,6 +678,10 @@ public:
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);
+
+	static bool IsContractVarStoredInMmr(const Blob& key) {
+		return Mapped::Contract::IsStored(key);
+	}
 
 	struct Mmr
 	{

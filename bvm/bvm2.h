@@ -102,12 +102,13 @@ namespace bvm2 {
 			static const uint32_t HeapOp			= ChargeFor<1000*1000>::V;
 			static const uint32_t LoadVar			= ChargeFor<20*1000>::V;
 			static const uint32_t LoadVarPerByte	= ChargeFor<2*1000*1000>::V;
-			static const uint32_t SaveVar			= ChargeFor<2*1000>::V;
+			static const uint32_t SaveVar			= ChargeFor<5*1000>::V;
 			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
 			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
 			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
 			static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
+			static const uint32_t FundsLock			= ChargeFor<50*1000>::V;
 			static const uint32_t HashOp			= ChargeFor<100*1000>::V;
 			static const uint32_t HashOpPerByte		= ChargeFor<1000*1000>::V;
 
@@ -330,7 +331,6 @@ namespace bvm2 {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
-		void SetVarKeyInternal(VarKey&, const void* pKey, Wasm::Word nKey);
 
 		struct FarCalls
 		{
@@ -347,7 +347,7 @@ namespace bvm2 {
 		} m_FarCalls;
 
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
-		bool SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
+		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
 
 		template <uint32_t nBytes>
 		bool Load_T(const VarKey& vk, uintBig_t<nBytes>& x) {
@@ -355,7 +355,7 @@ namespace bvm2 {
 		}
 
 		template <uint32_t nBytes>
-		bool Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
+		uint32_t Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
 
@@ -368,7 +368,7 @@ namespace bvm2 {
 
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
-		virtual bool SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return false; }
+		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
