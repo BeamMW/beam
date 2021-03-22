@@ -350,7 +350,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 26;
+	const uint64_t nVersionTop = 27;
 
 
 	Transaction t(*this);
@@ -399,10 +399,13 @@ void NodeDB::Open(const char* szPath)
 
 		case 24:
 		case 25:
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			ParamDelSafe(ParamID::Deprecated_1);
 			ParamDelSafe(ParamID::Deprecated_2);
 			ParamDelSafe(ParamID::Deprecated_3);
+			// no break;
+
+		case 26: // ShieldedState stream added
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);

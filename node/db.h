@@ -213,6 +213,7 @@ public:
 			Shielded,
 			ShieldedMmr,
 			AssetsMmr,
+			ShieldedState,
 
 			count
 		};
@@ -541,6 +542,18 @@ public:
 
 	void ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount) {
 		StreamIO_T(StreamType::Shielded, pos, p, nCount, false);
+	}
+
+	void ShieldedStateResize(uint64_t n, uint64_t n0) {
+		StreamResize_T<ECC::Hash::Value>(StreamType::ShieldedState, n, n0);
+	}
+
+	void ShieldedStateWrite(uint64_t pos, const ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, Cast::NotConst(p), nCount, true);
+	}
+
+	void ShieldedStateRead(uint64_t pos, ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, p, nCount, false);
 	}
 
 	void ShieldedOutpSet(Height h, uint64_t count);
