@@ -199,7 +199,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::updateAddress, id, name, status);
     }
 
-    void updateAddress(const std::string& token, const std::string& name, std::time_t expiration)
+    void updateAddress(const std::string& token, const std::string& name, std::time_t expiration) override
     {
         typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, std::time_t);
         call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expiration);
