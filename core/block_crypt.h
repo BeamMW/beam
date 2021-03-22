@@ -592,6 +592,8 @@ namespace beam
 
 	struct ShieldedTxo
 	{
+		static void UpdateState(ECC::Hash::Value&, const ECC::Point::Storage&);
+
 		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded

@@ -3419,9 +3419,21 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 			ECC::Point::Storage pt_s;
 			pt.Export(pt_s);
 
-			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
 			// Append to cmList
+			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
 			m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
+
+			// Append state hash
+			ECC::Hash::Value hvState;
+			if (m_Extra.m_ShieldedOutputs)
+				m_DB.ShieldedStateRead(m_Extra.m_ShieldedOutputs - 1, &hvState, 1);
+			else
+				hvState = Zero;
+
+			ShieldedTxo::UpdateState(hvState, pt_s);
+
+			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
+			m_DB.ShieldedStateWrite(m_Extra.m_ShieldedOutputs, &hvState, 1);
 		}
 
 		if (!bic.m_SkipDefinition)
@@ -3447,7 +3459,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		ValidateUniqueNoDup(bic, blobKey, nullptr);
 
 		if (!bic.m_Temporary)
+		{
 			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+		}
 
 		if (!bic.m_SkipDefinition)
 			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
