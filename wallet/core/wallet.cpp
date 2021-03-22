@@ -874,7 +874,8 @@ namespace beam::wallet
                 LOG_WARNING() << "Special msg failed: " << exc.what();
             }
         }
-        else {
+        else
+        {
             OnTransactionMsg(myID, msg);
         }
     }
@@ -1994,6 +1995,21 @@ namespace beam::wallet
 
     void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
     {
+        //
+        // Extend Auto addresses
+        //
+        if (auto addr = m_WalletDB->getAddress(myID); addr)
+        {
+            if (!addr->isPermanent())
+            {
+                addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
+                m_WalletDB->saveAddress(*addr);
+            }
+        }
+
+        //
+        // Process transaction request
+        //
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
