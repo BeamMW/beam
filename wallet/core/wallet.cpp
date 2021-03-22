@@ -71,8 +71,10 @@ namespace beam::wallet
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
     bool CheckReceiverAddress(const std::string& addr)
     {
-        auto p = ParseParameters(addr);
-        return !!p;
+        WalletID walletID;
+        return
+            walletID.FromHex(addr) &&
+            walletID.IsValid();
     }
 
     void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)

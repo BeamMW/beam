@@ -101,13 +101,13 @@ namespace beam::wallet
     // Used for SBBS Address management in the wallet
     struct WalletAddress
     {
-        WalletID m_walletID; // derived from SBBS
+        WalletID   m_walletID; // derived from SBBS
         std::string m_label;
         std::string m_category;
-        Timestamp m_createTime;
-        uint64_t  m_duration;   // if equals to "AddressExpirationNever" then address never expires
-        uint64_t  m_OwnID;      // set for own address
-        PeerID    m_Identity;   // derived from master. Different from m_walletID
+        Timestamp   m_createTime;
+        uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
+        uint64_t    m_OwnID;      // set for own address
+        PeerID      m_Identity;   // derived from master. Different from m_walletID
         std::string m_Address;  // base58 address representation
         
         WalletAddress();

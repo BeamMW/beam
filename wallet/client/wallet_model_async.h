@@ -61,9 +61,13 @@ namespace beam::wallet
         // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
         virtual void acceptDexOrder(const DexOrderID&) = 0;
 
+        //
+        // If address function accepts std::strig it means token (WalletAddres::m_Address)
+        //
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void deleteAddress(const std::string& addr) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
+        virtual void updateAddress(const std::string& token, const std::string& name, std::time_t expiration) = 0;
         virtual void activateAddress(const WalletID& id) = 0;
         virtual void getAddress(const WalletID& id) = 0;
         virtual void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
