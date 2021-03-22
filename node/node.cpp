@@ -3771,27 +3771,29 @@ void Node::Peer::OnMsg(proto::GetContractVar&& msg)
     {
         val.Export(msgOut.m_Value);
 
-        Merkle::Hash hv;
-        Block::get_HashContractVar(hv, msg.m_Key, val);
-
-        RadixHashOnlyTree& t = p.get_Contracts();
-        RadixHashOnlyTree::Cursor cu;
-        bool bCreate = false;
-        if (!t.Find(cu, hv, bCreate))
-            NodeProcessor::OnCorrupted();
-
-        t.get_Proof(msgOut.m_Proof, cu);
-
-        struct MyProofBuilder
-            :public NodeProcessor::ProofBuilder
+        if (p.IsContractVarStoredInMmr(msg.m_Key))
         {
-            using ProofBuilder::ProofBuilder;
-            virtual bool get_Contracts(Merkle::Hash&) override { return false; }
-        };
+            Merkle::Hash hv;
+            Block::get_HashContractVar(hv, msg.m_Key, val);
 
-        MyProofBuilder pb(p, msgOut.m_Proof);
-        pb.GenerateProof();
+            RadixHashOnlyTree& t = p.get_Contracts();
+            RadixHashOnlyTree::Cursor cu;
+            bool bCreate = false;
+            if (!t.Find(cu, hv, bCreate))
+                NodeProcessor::OnCorrupted();
 
+            t.get_Proof(msgOut.m_Proof, cu);
+
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
+        }
     }
 
     Send(msgOut);

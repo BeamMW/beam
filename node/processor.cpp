@@ -2048,7 +2048,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
-		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
+		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -2062,7 +2062,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
-		bool SaveVar(const Blob& key, const Blob& data);
+		uint32_t SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 
@@ -4091,15 +4091,15 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, B
 	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
 {
 	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
 {
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
-	bool bExisted = !e.m_Data.empty();
+	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
 	if (Blob(e.m_Data) != data)
 	{
@@ -4107,7 +4107,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 		if (data.n)
 		{
-			if (bExisted)
+			if (nOldSize)
 			{
 				nTag = RecoveryTag::Update;
 				ContractDataUpdate(key, data, e.m_Data);
@@ -4120,7 +4120,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 		}
 		else
 		{
-			assert(bExisted);
+			assert(nOldSize);
 			ContractDataDel(key, e.m_Data);
 		}
 
@@ -4128,13 +4128,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 		ser & nTag;
 		ser & key.n;
 		ser.WriteRaw(key.p, key.n);
-		if (bExisted)
+		if (nOldSize)
 			ser & e.m_Data;
 
 		data.Export(e.m_Data);
 	}
 
-	return bExisted;
+	return nOldSize;
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
@@ -4159,8 +4159,23 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob&
 		m_Proc.m_DB.ContractDataDel(key);
 }
 
+bool NodeProcessor::Mapped::Contract::IsStored(const Blob& key)
+{
+	if (key.n > bvm2::ContractID::nBytes)
+	{
+		uint8_t nTag = reinterpret_cast<const uint8_t*>(key.p)[bvm2::ContractID::nBytes];
+		if (Shaders::KeyTag::InternalStealth == nTag)
+			return false;
+	}
+
+	return true;
+}
+
 void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, bool bAdd)
 {
+	if (!IsStored(key))
+		return;
+
 	Merkle::Hash hv;
 	Block::get_HashContractVar(hv, key, data);
 

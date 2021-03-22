@@ -424,7 +424,7 @@ namespace bvm2 {
 				res.clear();
 		}
 
-		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override
+		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override
 		{
 			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
 		}
@@ -441,19 +441,19 @@ namespace bvm2 {
 			}
 		};
 
-		bool SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
+		uint32_t SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
 		{
 			auto pUndo = std::make_unique<Action_Var>();
-			bool bRet = SaveVar2(key, pVal, nVal, pUndo.get());
+			uint32_t nRet = SaveVar2(key, pVal, nVal, pUndo.get());
 
 			m_lstUndo.push_back(*pUndo.release());
-			return bRet;
+			return nRet;
 		}
 
-		bool SaveVar2(const Blob& key, const uint8_t* pVal, uint32_t nVal, Action_Var* pAction)
+		uint32_t SaveVar2(const Blob& key, const uint8_t* pVal, uint32_t nVal, Action_Var* pAction)
 		{
 			auto* pE = m_Vars.Find(key);
-			bool bNew = !pE;
+			auto nOldSize = pE ? static_cast<uint32_t>(pE->m_Data.size()) : 0;
 
 			if (pAction)
 			{
@@ -475,7 +475,7 @@ namespace bvm2 {
 					m_Vars.Delete(*pE);
 			}
 
-			return !bNew;
+			return nOldSize;
 		}
 
 		Height m_Height = 0;
