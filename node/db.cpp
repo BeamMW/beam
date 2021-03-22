@@ -400,9 +400,9 @@ void NodeDB::Open(const char* szPath)
 		case 24:
 		case 25:
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
-			ParamDelSafe(ParamID::ShieldedOutputs);
-			ParamDelSafe(ParamID::SyncTarget);
+			ParamDelSafe(ParamID::Deprecated_1);
 			ParamDelSafe(ParamID::Deprecated_2);
+			ParamDelSafe(ParamID::Deprecated_3);
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -2411,11 +2411,6 @@ void NodeDB::StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1)
 	StreamShrinkInternal(StreamType::Key(0, t0), StreamType::Key(std::numeric_limits<uint32_t>::max(), t1));
 }
 
-void NodeDB::ShieldedResize(uint64_t n, uint64_t n0)
-{
-	StreamResize(StreamType::Shielded, n * sizeof(ECC::Point::Storage), n0 * sizeof(ECC::Point::Storage));
-}
-
 void NodeDB::StreamIO(StreamType::Enum eType, uint64_t pos, uint8_t* p, uint64_t nCount, bool bWrite)
 {
 	struct Guard
@@ -2453,21 +2448,6 @@ void NodeDB::StreamIO(StreamType::Enum eType, uint64_t pos, uint8_t* p, uint64_t
 		nOffs = 0;
 		nBlob0++;
 	}
-}
-
-void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
-{
-	StreamIO(StreamType::Shielded, pos * sizeof(ECC::Point::Storage), reinterpret_cast<uint8_t*>(p), nCount * sizeof(ECC::Point::Storage), bWrite);
-}
-
-void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount)
-{
-	ShieldeIO(pos, Cast::NotConst(p), nCount, true);
-}
-
-void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
-{
-	ShieldeIO(pos, p, nCount, false);
 }
 
 void NodeDB::ShieldedOutpSet(Height h, uint64_t count)
