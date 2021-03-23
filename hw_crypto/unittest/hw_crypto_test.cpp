@@ -1043,6 +1043,7 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 			m.m_pKernel->m_WindowEnd = 300500;
 			m.m_pKernel->m_SpendProof.m_Cfg = cfg;
 			m.m_pList = &lst;
+			m.m_pKernel->m_NotSerialized.m_hvShieldedState = 774U;
 
 			verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 
@@ -1284,6 +1285,7 @@ void TestShielded()
 		krn.m_Fee = 1000000;
 		krn.m_SpendProof.m_Cfg = cfg;
 		krn.m_WindowEnd = 423125;
+		krn.m_NotSerialized.m_hvShieldedState = 145U;
 
 		{
 			// get the input commitment (normally this is not necessary, but this is a test, we'll substitute the correct to-be-withdrawn commitment)
@@ -1315,6 +1317,9 @@ void TestShielded()
 
 		ECC::Oracle oracle;
 		oracle << krn.m_Msg;
+
+		if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+			oracle << krn.m_NotSerialized.m_hvShieldedState;
 
 		ECC::Point::Native hGen;
 		if (krn.m_pAsset)

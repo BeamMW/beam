@@ -1112,11 +1112,11 @@ private:
             const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
 
             proto::ShieldedList msgOut;
-            msgOut.m_ShieldedOuts = v.size();
+            auto nShieldedOuts = v.size();
 
-            if (msg.m_Id0 < msgOut.m_ShieldedOuts)
+            if (msg.m_Id0 < nShieldedOuts)
             {
-                size_t n = msgOut.m_ShieldedOuts - msg.m_Id0;
+                size_t n = nShieldedOuts - msg.m_Id0;
                 std::setmin(n, msg.m_Count);
                 std::setmin(n, Rules::get().Shielded.m_ProofMax.get_N() * 2);
 
@@ -1244,7 +1244,7 @@ public:
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        int completedCount = 2 * m_TxCount;
+        auto completedCount = 2 * m_TxCount;
         auto f = [&completedCount, mainReactor, count = 2 * m_TxCount](auto)
         {
             --completedCount;
@@ -1256,7 +1256,7 @@ public:
         };
 
         TestNode node;
-        TestWalletRig sender(createSenderWalletDB(m_TxCount, 6), f);
+        TestWalletRig sender(createSenderWalletDB((int)m_TxCount, 6), f);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -1283,11 +1283,11 @@ public:
 
         io::Timer::Ptr sendTimer = io::Timer::create(*mainReactor);
 
-        int sendCount = m_TxCount;
+        size_t sendCount = m_TxCount;
         io::AsyncEvent::Ptr sendEvent;
         sendEvent = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, &sendCount, &sendEvent, this]()
         {
-            for (int i = 0; i < m_TxPerCall && sendCount; ++i)
+            for (size_t i = 0; i < m_TxPerCall && sendCount; ++i)
             {
                 if (sendCount--)
                 {
@@ -1331,20 +1331,20 @@ public:
         return m_MaxLatency;
     }
 
-    int GetTxCount() const
+    size_t GetTxCount() const
     {
         return m_TxCount;
     }
 
-    int GetTxPerCall() const
+    size_t GetTxPerCall() const
     {
         return m_TxPerCall;
     }
 
 
 private:
-    int m_TxCount;
-    int m_TxPerCall;
+    size_t m_TxCount;
+    size_t m_TxPerCall;
     uint32_t m_MaxLatency = 0;
     uint64_t m_TotalTime = 0;
 };

@@ -2717,6 +2717,9 @@ PROTO_METHOD(CreateShieldedInput)
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
 
+	if (!IsUintBigZero(&pIn->m_ShieldedState))
+		secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_n);
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_M);
 

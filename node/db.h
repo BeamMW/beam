@@ -46,7 +46,7 @@ public:
 			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
-			SyncTarget, // deprecated
+			Deprecated_1, // SyncTarget
 			Deprecated_2,
 			Treasury,
 			EventsOwnerID, // hash of keys used to scan and record events
@@ -55,7 +55,7 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			MappingStamp,
-			ShieldedOutputs, // deprecated
+			Deprecated_3, // ShieldedOutputs
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
@@ -213,6 +213,7 @@ public:
 			Shielded,
 			ShieldedMmr,
 			AssetsMmr,
+			ShieldedState,
 
 			count
 		};
@@ -531,9 +532,29 @@ public:
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
-	void ShieldedResize(uint64_t n, uint64_t n0);
-	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
-	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
+	void ShieldedResize(uint64_t n, uint64_t n0) {
+		StreamResize_T<ECC::Point::Storage>(StreamType::Shielded, n, n0);
+	}
+
+	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount) {
+		StreamIO_T(StreamType::Shielded, pos, Cast::NotConst(p), nCount, true);
+	}
+
+	void ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount) {
+		StreamIO_T(StreamType::Shielded, pos, p, nCount, false);
+	}
+
+	void ShieldedStateResize(uint64_t n, uint64_t n0) {
+		StreamResize_T<ECC::Hash::Value>(StreamType::ShieldedState, n, n0);
+	}
+
+	void ShieldedStateWrite(uint64_t pos, const ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, Cast::NotConst(p), nCount, true);
+	}
+
+	void ShieldedStateRead(uint64_t pos, ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, p, nCount, false);
+	}
 
 	void ShieldedOutpSet(Height h, uint64_t count);
 	uint64_t ShieldedOutpGet(Height h);
@@ -716,7 +737,16 @@ private:
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
 	void StreamShrinkInternal(uint64_t k0, uint64_t k1);
 
-	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
+	template <typename T>
+	void StreamIO_T(StreamType::Enum eType, uint64_t pos, T* p, uint64_t nCount, bool bWrite) {
+		StreamIO(eType, pos * sizeof(T), reinterpret_cast<uint8_t*>(p), nCount * sizeof(T), bWrite);
+	}
+
+	template <typename T>
+	void StreamResize_T(StreamType::Enum eType, uint64_t n, uint64_t n0) {
+		StreamResize(eType, n * sizeof(T), n0 * sizeof(T));
+	}
+
 
 	static const Asset::ID s_AssetEmpty0;
 	void AssetInsertRaw(Asset::ID, const Asset::Full*);

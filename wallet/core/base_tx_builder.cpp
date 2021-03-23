@@ -727,6 +727,7 @@ namespace beam::wallet
         m_Lst.m_vec.swap(msg.m_Items);
 
         m_Method.m_pList = &m_Lst;
+        m_Method.m_pKernel->m_NotSerialized.m_hvShieldedState = msg.m_State1;
 
         m_Method.m_pKernel->m_Height = b.m_Height;
         m_Method.m_pKernel->m_WindowEnd = m_Wnd0 + nItems;
