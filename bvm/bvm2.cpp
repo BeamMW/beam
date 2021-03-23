@@ -309,12 +309,6 @@ namespace bvm2 {
 		vk.Append(nTag, blob);
 	}
 
-	void ProcessorContract::SetVarKeyInternal(VarKey& vk, const void* pKey, Wasm::Word nKey)
-	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
-		SetVarKey(vk, VarKey::Tag::Internal, Blob(pKey, nKey));
-	}
-
 	/////////////////////////////////////////////
 	// Compilation
 
@@ -1095,7 +1089,7 @@ namespace bvm2 {
 
 	BVM_METHOD(LoadVar)
 	{
-		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal);
+		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
 
 		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerByte * std::min(nVal, ret));
 
@@ -1103,8 +1097,9 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
+		Wasm::Test(nKey <= Limits::VarKeySize);
 		VarKey vk;
-		SetVarKeyInternal(vk, pKey, nKey);
+		SetVarKey(vk, nType, Blob(pKey, nKey));
 
 		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
 		return nVal;
@@ -1113,15 +1108,27 @@ namespace bvm2 {
 	BVM_METHOD(SaveVar)
 	{
 		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerByte * nVal);
-		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
+		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		VarKey vk;
-		SetVarKeyInternal(vk, pKey, nKey);
-
+		Wasm::Test(nKey <= Limits::VarKeySize);
 		Wasm::Test(nVal <= Limits::VarSize);
-		SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
+
+		switch (nType)
+		{
+		case VarKey::Tag::Internal:
+		case VarKey::Tag::InternalStealth:
+			break; // ok
+
+		default:
+			Wasm::Fail(); // not allowed to modify
+		}
+
+		VarKey vk;
+		SetVarKey(vk, nType, Blob(pKey, nKey));
+
+		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
 	BVM_METHOD(CallFar)
@@ -1333,6 +1340,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_HdrInfo)
 	{
+		DischargeUnits(Limits::Cost::LoadVar);
 		auto& hdr_ = get_AddrAsW<BlockHeader::Info>(hdr); // currently ignore alignment
 		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
 		OnHost_get_HdrInfo(hdr_);
@@ -1350,6 +1358,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_HdrFull)
 	{
+		DischargeUnits(Limits::Cost::LoadVar);
 		auto& hdr_ = get_AddrAsW<BlockHeader::Full>(hdr); // currently ignore alignment
 		hdr_.m_Height = Wasm::from_wasm(hdr_.m_Height);
 		OnHost_get_HdrFull(hdr_);
@@ -2411,13 +2420,15 @@ namespace bvm2 {
 		return false;
 	}
 
-	bool ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
+	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
 		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
 	}
 
 	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
 	{
+		DischargeUnits(Limits::Cost::FundsLock);
+
 		HandleAmountInner(amount, aid, bLock);
 		HandleAmountOuter(amount, aid, bLock);
 	}

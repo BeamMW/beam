@@ -104,6 +104,7 @@ namespace beam::wallet
                 //  Fee, min/max Heights
                 //  m_WindowEnd
                 //  m_SpendProof.m_Cfg
+                //  m_pKernel/m_hvShieldedState
             };
 
             struct CreateVoucherShielded

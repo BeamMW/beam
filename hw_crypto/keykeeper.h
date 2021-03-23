@@ -198,6 +198,7 @@ typedef struct
 	macro(1, uint64_t, WindowEnd) \
 	macro(1, uint32_t, Sigma_M) \
 	macro(1, uint32_t, Sigma_n) \
+	macro(0, BeamCrypto_UintBig, ShieldedState) \
 	macro(0, BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
 	macro(0, BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
 	macro(0, BeamCrypto_CompactPoint, pABCD[4]) \

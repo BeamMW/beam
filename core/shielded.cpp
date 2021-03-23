@@ -70,6 +70,16 @@ namespace beam
 			m_pAsset.reset();
 	}
 
+	void ShieldedTxo::UpdateState(ECC::Hash::Value& hv, const ECC::Point::Storage& pt_s)
+	{
+		ECC::Hash::Processor()
+			<< "shielded.el"
+			<< hv
+			<< pt_s.m_X
+			<< pt_s.m_Y
+			>> hv;
+	}
+
 	void ShieldedTxo::Voucher::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()

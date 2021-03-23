@@ -911,12 +911,14 @@ struct NodeProcessor::MultiShieldedContext
 		vc.ShrinkTo(10 * 1024);
 	}
 
-	bool IsValid(const TxVectors::Eternal&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
+	bool IsValid(const TxVectors::Eternal&, Height, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
+	void Prepare(const TxVectors::Eternal&, NodeProcessor&, Height);
+
 private:
 
 	Sigma::CmListVec m_Lst;
 
-	bool IsValid(const TxKernelShieldedInput&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const TxKernelShieldedInput&, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -928,9 +930,23 @@ private:
 		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
 		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
 	}
+
+	struct Walker
+		:public TxKernel::IWalker
+	{
+		virtual bool OnKrn(const TxKernelShieldedInput&) = 0;
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
+				return true;
+			return OnKrn(Cast::Up<TxKernelShieldedInput>(krn));
+		}
+
+	};
 };
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
@@ -946,6 +962,10 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
+
+	if (bUseShieldedState)
+		oracle << krn.m_NotSerialized.m_hvShieldedState;
+
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;
 
@@ -958,10 +978,10 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	return true;
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, Height h, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
 {
-	struct Walker
-		:public TxKernel::IWalker
+	struct MyWalker
+		:public Walker
 	{
 		std::vector<ECC::Scalar::Native> m_vKs;
 		MultiShieldedContext* m_pThis;
@@ -969,20 +989,21 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		ECC::InnerProduct::BatchContext* m_pBc;
 		uint32_t m_iVerifier;
 		uint32_t m_Total;
+		Height m_Height;
 
-		virtual bool OnKrn(const TxKernel& krn) override
+		virtual bool OnKrn(const TxKernelShieldedInput& v) override
 		{
-			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
-				return true;
-
-			const TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(krn);
-
 			if (!m_iVerifier)
 			{
+				bool bUseShieldedState = (m_Height >= Rules::get().pForks[3].m_Height);
+
 				ECC::Hash::Value hv;
-				ECC::Hash::Processor()
-					.Serialize(v)
-					>> hv;
+				{
+					ECC::Hash::Processor hp;
+					hp.Serialize(v);
+					hp << v.m_NotSerialized.m_hvShieldedState;
+					hp >> hv;
+				}
 
 				bool bFound;
 				{
@@ -996,7 +1017,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 						m_pThis->m_Vc.Insert(hv, v.m_WindowEnd);
 				}
 
-				if (!bFound && !m_pThis->IsValid(v, m_vKs, *m_pBc))
+				if (!bFound && !m_pThis->IsValid(v, bUseShieldedState, m_vKs, *m_pBc))
 					return false;
 			}
 
@@ -1012,8 +1033,40 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 	wlk.m_pBc = &bc;
 	wlk.m_iVerifier = iVerifier;
 	wlk.m_Total = nTotal;
+	wlk.m_Height = h;
 
 	return wlk.Process(txve.m_vKernels);
+}
+
+void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h)
+{
+	if (h < Rules::get().pForks[3].m_Height)
+		return;
+
+	struct MyWalker
+		:public Walker
+	{
+		NodeProcessor* m_pProc;
+
+		virtual bool OnKrn(const TxKernelShieldedInput& v) override
+		{
+			auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
+			// set it anyway, even if below HF3. This way the caching is more robust.
+
+			auto nStatePos = v.m_WindowEnd - 1;
+			if (nStatePos < m_pProc->m_Extra.m_ShieldedOutputs)
+				m_pProc->get_DB().ShieldedStateRead(nStatePos, &hv, 1);
+			else
+				hv = Zero;
+
+			return true;
+		}
+
+	} wlk;
+
+	wlk.m_pProc = &np;
+
+	wlk.Process(txve.m_vKernels);
 }
 
 struct NodeProcessor::MultiAssetContext
@@ -1323,6 +1376,8 @@ struct NodeProcessor::MultiblockContext
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = ex.get_Threads();
 
+		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
+
 		PushTasks(pShared, pShared->m_Pars);
 	}
 
@@ -1401,7 +1456,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	if (bValid)
-		bValid = m_Mbc.m_Msc.IsValid(m_Body, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache);
+		bValid = m_Mbc.m_Msc.IsValid(m_Body, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache);
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -2048,7 +2103,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
-		virtual bool SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
+		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -2062,7 +2117,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
-		bool SaveVar(const Blob& key, const Blob& data);
+		uint32_t SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 
@@ -3419,9 +3474,21 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 			ECC::Point::Storage pt_s;
 			pt.Export(pt_s);
 
-			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
 			// Append to cmList
+			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
 			m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
+
+			// Append state hash
+			ECC::Hash::Value hvState;
+			if (m_Extra.m_ShieldedOutputs)
+				m_DB.ShieldedStateRead(m_Extra.m_ShieldedOutputs - 1, &hvState, 1);
+			else
+				hvState = Zero;
+
+			ShieldedTxo::UpdateState(hvState, pt_s);
+
+			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
+			m_DB.ShieldedStateWrite(m_Extra.m_ShieldedOutputs, &hvState, 1);
 		}
 
 		if (!bic.m_SkipDefinition)
@@ -3447,7 +3514,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		ValidateUniqueNoDup(bic, blobKey, nullptr);
 
 		if (!bic.m_Temporary)
+		{
 			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+		}
 
 		if (!bic.m_SkipDefinition)
 			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
@@ -4091,15 +4161,15 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, B
 	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
 {
 	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
 {
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
-	bool bExisted = !e.m_Data.empty();
+	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
 	if (Blob(e.m_Data) != data)
 	{
@@ -4107,7 +4177,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 
 		if (data.n)
 		{
-			if (bExisted)
+			if (nOldSize)
 			{
 				nTag = RecoveryTag::Update;
 				ContractDataUpdate(key, data, e.m_Data);
@@ -4120,7 +4190,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 		}
 		else
 		{
-			assert(bExisted);
+			assert(nOldSize);
 			ContractDataDel(key, e.m_Data);
 		}
 
@@ -4128,13 +4198,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, co
 		ser & nTag;
 		ser & key.n;
 		ser.WriteRaw(key.p, key.n);
-		if (bExisted)
+		if (nOldSize)
 			ser & e.m_Data;
 
 		data.Export(e.m_Data);
 	}
 
-	return bExisted;
+	return nOldSize;
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
@@ -4159,8 +4229,23 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob&
 		m_Proc.m_DB.ContractDataDel(key);
 }
 
+bool NodeProcessor::Mapped::Contract::IsStored(const Blob& key)
+{
+	if (key.n > bvm2::ContractID::nBytes)
+	{
+		uint8_t nTag = reinterpret_cast<const uint8_t*>(key.p)[bvm2::ContractID::nBytes];
+		if (Shaders::KeyTag::InternalStealth == nTag)
+			return false;
+	}
+
+	return true;
+}
+
 void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, bool bAdd)
 {
+	if (!IsStored(key))
+		return;
+
 	Merkle::Hash hv;
 	Block::get_HashContractVar(hv, key, data);
 
@@ -4925,7 +5010,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		ECC::InnerProduct::BatchContextEx<4> bc;
 		MultiShieldedContext msc;
 
-		if (!msc.IsValid(tx, bc, 0, 1, m_ValCache))
+		msc.Prepare(tx, *this, h);
+
+		if (!msc.IsValid(tx, h, bc, 0, 1, m_ValCache))
 			return proto::TxStatus::InvalidInput;
 
 		msc.Calculate(bc.m_Sum, *this);

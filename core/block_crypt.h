@@ -127,7 +127,7 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value = {};
+			ByteBuffer m_Value;
 			ECC::Hash::Value m_Hash = Zero; // not serialized
 
 			void Reset();
@@ -592,6 +592,8 @@ namespace beam
 
 	struct ShieldedTxo
 	{
+		static void UpdateState(ECC::Hash::Value&, const ECC::Point::Storage&);
+
 		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded
@@ -1003,6 +1005,10 @@ namespace beam
 		TxoID m_WindowEnd; // ID of the 1st element outside the window
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
+
+		struct NotSerialized {
+			ECC::Hash::Value m_hvShieldedState;
+		} m_NotSerialized;
 
 		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
 
