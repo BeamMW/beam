@@ -96,7 +96,6 @@ namespace beam::wallet
             struct CreateInputShielded
                 :public ShieldedTxo::ID
             {
-                ECC::Hash::Value m_hvShieldedState;
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
 
@@ -105,7 +104,7 @@ namespace beam::wallet
                 //  Fee, min/max Heights
                 //  m_WindowEnd
                 //  m_SpendProof.m_Cfg
-                //  m_hvShieldedState
+                //  m_pKernel/m_hvShieldedState
             };
 
             struct CreateVoucherShielded

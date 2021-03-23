@@ -306,7 +306,7 @@ namespace beam::wallet
 
         ExecutorMT_R exec;
         Executor::Scope scope(exec);
-        x.m_pKernel->Sign(prover, x.m_hvShieldedState, x.m_AssetID);
+        x.m_pKernel->Sign(prover, x.m_AssetID);
 
         return Status::Success;
     }

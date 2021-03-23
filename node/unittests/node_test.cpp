@@ -1941,7 +1941,8 @@ namespace beam
 
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
-				pKrn->Sign(p, msg.m_State1, 0, true); // hide asset, although it's beam
+				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
+				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 

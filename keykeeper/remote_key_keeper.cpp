@@ -769,7 +769,7 @@ namespace beam::wallet
             m_Msg.m_Out.m_Inp.m_Fee = krn.m_Fee;
 
             if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
-                m_Msg.m_Out.m_ShieldedState = Ecc2BC(m.m_hvShieldedState);
+                m_Msg.m_Out.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
             else
                 ZeroObject(m_Msg.m_Out.m_ShieldedState);
 
@@ -816,7 +816,7 @@ namespace beam::wallet
             m_Oracle << krn.m_Msg;
 
             if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
-                m_Oracle << m.m_hvShieldedState;
+                m_Oracle << krn.m_NotSerialized.m_hvShieldedState;
 
             // generate seed for Sigma proof blinding. Use mix of deterministic + random params
             //ECC::GenRandom(m_hvSigmaSeed);

@@ -877,15 +877,14 @@ struct Context
         ShieldedTxo::Viewer::GenerateSerPrivate(pShPriv, *m_pKdf, txo.m_Key.m_nIdx);
         pShPriv->DeriveKey(p.m_Witness.m_SpendSk, sdp.m_Ticket.m_SerialPreimage);
 
+        m_pProc->get_DB().ShieldedStateRead(pKrn->m_WindowEnd - 1, &pKrn->m_NotSerialized.m_hvShieldedState, 1);
+
         pKrn->UpdateMsg();
         txo.get_SkOut(p.m_Witness.m_R_Output, pKrn->m_Fee, *m_pKdf);
 
         {
-            ECC::Hash::Value hvShieldedState;
-            m_pProc->get_DB().ShieldedStateRead(pKrn->m_WindowEnd - 1, &hvShieldedState, 1);
-
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, hvShieldedState, txo.m_AssetID, true);
+            pKrn->Sign(p, txo.m_AssetID, true);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));

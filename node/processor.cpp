@@ -911,14 +911,14 @@ struct NodeProcessor::MultiShieldedContext
 		vc.ShrinkTo(10 * 1024);
 	}
 
-	bool IsValid(const TxVectors::Eternal&, const std::vector<ECC::Hash::Value>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
-	void Prepare(const TxVectors::Eternal&, NodeProcessor&, Height, std::vector<ECC::Hash::Value>& vShieldedState);
+	bool IsValid(const TxVectors::Eternal&, Height, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
+	void Prepare(const TxVectors::Eternal&, NodeProcessor&, Height);
 
 private:
 
 	Sigma::CmListVec m_Lst;
 
-	bool IsValid(const TxKernelShieldedInput&, const ECC::Hash::Value* pShieldedState, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const TxKernelShieldedInput&, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -946,7 +946,7 @@ private:
 	};
 };
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, const ECC::Hash::Value* pShieldedState, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
@@ -963,8 +963,8 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
 
-	if (pShieldedState)
-		oracle << *pShieldedState;
+	if (bUseShieldedState)
+		oracle << krn.m_NotSerialized.m_hvShieldedState;
 
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;
@@ -978,7 +978,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	return true;
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, const std::vector<ECC::Hash::Value>& vShieldedStates, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, Height h, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
 {
 	struct MyWalker
 		:public Walker
@@ -989,18 +989,21 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		ECC::InnerProduct::BatchContext* m_pBc;
 		uint32_t m_iVerifier;
 		uint32_t m_Total;
-		const ECC::Hash::Value* m_pShieldedState;
+		Height m_Height;
 
 		virtual bool OnKrn(const TxKernelShieldedInput& v) override
 		{
 			if (!m_iVerifier)
 			{
+				bool bUseShieldedState = (m_Height >= Rules::get().pForks[3].m_Height);
+
 				ECC::Hash::Value hv;
 				{
 					ECC::Hash::Processor hp;
 					hp.Serialize(v);
-					if (m_pShieldedState)
-						hp << *m_pShieldedState;
+
+					if (bUseShieldedState)
+						hp << v.m_NotSerialized.m_hvShieldedState;
 					hp >> hv;
 				}
 
@@ -1016,12 +1019,9 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 						m_pThis->m_Vc.Insert(hv, v.m_WindowEnd);
 				}
 
-				if (!bFound && !m_pThis->IsValid(v, m_pShieldedState, m_vKs, *m_pBc))
+				if (!bFound && !m_pThis->IsValid(v, bUseShieldedState, m_vKs, *m_pBc))
 					return false;
 			}
-
-			if (m_pShieldedState)
-				m_pShieldedState++;
 
 			if (++m_iVerifier == m_Total)
 				m_iVerifier = 0;
@@ -1035,12 +1035,12 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 	wlk.m_pBc = &bc;
 	wlk.m_iVerifier = iVerifier;
 	wlk.m_Total = nTotal;
-	wlk.m_pShieldedState = vShieldedStates.empty() ? nullptr : &vShieldedStates.front();
+	wlk.m_Height = h;
 
 	return wlk.Process(txve.m_vKernels);
 }
 
-void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h, std::vector<ECC::Hash::Value>& vShieldedState)
+void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h)
 {
 	if (h < Rules::get().pForks[3].m_Height)
 		return;
@@ -1049,11 +1049,10 @@ void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve
 		:public Walker
 	{
 		NodeProcessor* m_pProc;
-		std::vector<ECC::Hash::Value>* m_pRes;
 
 		virtual bool OnKrn(const TxKernelShieldedInput& v) override
 		{
-			auto& hv = m_pRes->emplace_back();
+			auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
 
 			auto nStatePos = v.m_WindowEnd - 1;
 			if (nStatePos < m_pProc->m_Extra.m_ShieldedOutputs)
@@ -1067,7 +1066,6 @@ void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve
 	} wlk;
 
 	wlk.m_pProc = &np;
-	wlk.m_pRes = &vShieldedState;
 
 	wlk.Process(txve.m_vKernels);
 }
@@ -1210,8 +1208,6 @@ struct NodeProcessor::MultiblockContext
 			size_t m_Size;
 			TxBase::Context::Params m_Pars;
 			TxBase::Context m_Ctx;
-
-			std::vector<ECC::Hash::Value> m_vShieldedState;
 
 			SharedBlock(MultiblockContext& mbc)
 				:Shared(mbc)
@@ -1381,7 +1377,7 @@ struct NodeProcessor::MultiblockContext
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = ex.get_Threads();
 
-		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min, pShared->m_vShieldedState);
+		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
 
 		PushTasks(pShared, pShared->m_Pars);
 	}
@@ -1461,7 +1457,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	if (bValid)
-		bValid = m_Mbc.m_Msc.IsValid(m_Body, m_vShieldedState, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache);
+		bValid = m_Mbc.m_Msc.IsValid(m_Body, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache);
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -5015,10 +5011,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		ECC::InnerProduct::BatchContextEx<4> bc;
 		MultiShieldedContext msc;
 
-		std::vector<ECC::Hash::Value> vShieldedState;
-		msc.Prepare(tx, *this, h, vShieldedState);
+		msc.Prepare(tx, *this, h);
 
-		if (!msc.IsValid(tx, vShieldedState, bc, 0, 1, m_ValCache))
+		if (!msc.IsValid(tx, h, bc, 0, 1, m_ValCache))
 			return proto::TxStatus::InvalidInput;
 
 		msc.Calculate(bc.m_Sum, *this);
