@@ -1941,7 +1941,7 @@ namespace beam
 
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
-				pKrn->Sign(p, 0, true); // hide asset, although it's beam
+				pKrn->Sign(p, msg.m_State1, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
@@ -3351,7 +3351,7 @@ void TestAll()
 	}
 
 	beam::Rules::get().pForks[2].m_Height = 17;
-	beam::Rules::get().pForks[3].m_Height = 32;
+	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
 	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K

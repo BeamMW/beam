@@ -1279,10 +1279,13 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
-	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, const ECC::Hash::Value& hvShieldedState, Asset::ID aid, bool bHideAssetAlways /* = false */)
 	{
 		ECC::Oracle oracle;
 		oracle << m_Msg;
+
+		if (m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+			oracle << hvShieldedState;
 
 		// auto-generate seed for sigma proof and m_R_Output
 		ECC::NoLeak<ECC::uintBig> hvSeed;

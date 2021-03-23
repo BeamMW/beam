@@ -1006,7 +1006,7 @@ namespace beam
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
 
-		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
+		void Sign(Lelantus::Prover&, const ECC::Hash::Value& hvShieldedState, Asset::ID aid, bool bHideAssetAlways = false);
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
