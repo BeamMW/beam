@@ -1001,9 +1001,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 				{
 					ECC::Hash::Processor hp;
 					hp.Serialize(v);
-
-					if (bUseShieldedState)
-						hp << v.m_NotSerialized.m_hvShieldedState;
+					hp << v.m_NotSerialized.m_hvShieldedState;
 					hp >> hv;
 				}
 
@@ -1053,6 +1051,7 @@ void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve
 		virtual bool OnKrn(const TxKernelShieldedInput& v) override
 		{
 			auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
+			// set it anyway, even if below HF3. This way the caching is more robust.
 
 			auto nStatePos = v.m_WindowEnd - 1;
 			if (nStatePos < m_pProc->m_Extra.m_ShieldedOutputs)
