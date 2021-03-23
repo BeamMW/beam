@@ -32,6 +32,7 @@ namespace beam::wallet {
         const char OPT_LDESC_KEY[]     = "OPT_LONG_DESC";
         const char OPT_SITE_URL[]      = "OPT_SITE_URL";
         const char OPT_PAPER_URL[]     = "OPT_PDF_URL";
+        const char OPT_COLOR[]         = "OPT_COLOR";
         const char ALLOWED_SYMBOLS[]   = " .,-_";
         const unsigned CURRENT_META_VERSION = 1;
     }
@@ -122,7 +123,15 @@ namespace beam::wallet {
             return it->second.length () <= 1024;
         };
 
-        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid();
+        const auto optColorValid = [&] () -> bool {
+            const auto it = _values.find(OPT_COLOR);
+            if (it == _values.end()) return true;
+
+            std::regex rg{R"(^#(?:[0-9a-fA-F]{3}){1,2}$)"};
+            return std::regex_match(it->second, rg);
+        };
+
+        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
@@ -203,6 +212,12 @@ namespace beam::wallet {
     std::string WalletAssetMeta::GetPaperUrl() const
     {
         const auto it = _values.find(OPT_PAPER_URL);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetColor() const
+    {
+        const auto it = _values.find(OPT_COLOR);
         return it != _values.end() ? it->second : std::string("");
     }
 

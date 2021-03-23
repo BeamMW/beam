@@ -35,6 +35,7 @@ namespace beam::wallet {
         std::string GetLongDesc() const;
         std::string GetSiteUrl() const;
         std::string GetPaperUrl() const;
+        std::string GetColor() const;
         unsigned GetSchemaVersion() const;
 
     private:
