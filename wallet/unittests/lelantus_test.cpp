@@ -1437,10 +1437,10 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
-    Height fork1Height = 6;
-    Height fork2Height = 12;
-    Rules::get().pForks[1].m_Height = fork1Height;
-    Rules::get().pForks[2].m_Height = fork2Height;
+
+    Rules::get().pForks[1].m_Height = 6;
+    Rules::get().pForks[2].m_Height = 12;
+    Rules::get().pForks[3].m_Height = 800;
 
 
     //TestUnlinkTx();
