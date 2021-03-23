@@ -893,38 +893,40 @@ namespace beam::wallet
         try
         {
             _ccallId = id;
-            contracts->Start(data.args, data.args.empty() ? 0 : 1, *this);
+            std::weak_ptr<bool> wguard = _contractsGuard;
+
+            contracts->Start(data.args, data.args.empty() ? 0 : 1, [this, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before shader response received.";
+                    return;
+                }
+
+                //
+                // N.B
+                //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+                //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+                //  - this function is called in the reactor context
+                //
+                if (error)
+                {
+                    return sendError(_ccallId, ApiError::ContractError, *error);
+                }
+
+                InvokeContract::Response response;
+                response.output = result ? *result : "";
+                response.txid   = txid ? *txid : TxID();
+
+                const auto callid = _ccallId;
+                _ccallId = JsonRpcId();
+
+                doResponse(callid, response);
+            });
         }
         catch(std::runtime_error& err)
         {
             throw jsonrpc_exception(ApiError::ContractError, err.what());
         }
-    }
-
-    void WalletApi::onShaderDone(
-            boost::optional<TxID> txid,
-            boost::optional<std::string> result,
-            boost::optional<std::string> error
-        )
-    {
-        //
-        // N.B
-        //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
-        //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
-        //  - this function is called in the reactor context
-        //
-        if (error)
-        {
-            return sendError(_ccallId, ApiError::ContractError, *error);
-        }
-
-        InvokeContract::Response response;
-        response.output = result ? *result : "";
-        response.txid   = txid ? *txid : TxID();
-
-        const auto callid = _ccallId;
-        _ccallId = JsonRpcId();
-
-        doResponse(callid, response);
     }
 }

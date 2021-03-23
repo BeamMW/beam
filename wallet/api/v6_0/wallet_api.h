@@ -23,7 +23,6 @@ namespace beam::wallet
 {
     class WalletApi
         : public ApiBase
-        , public IShadersManager::IDone
     {
     public:
         WalletApi(IWalletApiHandler& handler,
@@ -73,12 +72,6 @@ namespace beam::wallet
         {
             return getWallet()->get_CurrentHeight();
         }
-
-        void onShaderDone(
-            boost::optional<TxID> txid,
-            boost::optional<std::string> result,
-            boost::optional<std::string> error
-        ) override;
 
         #define RESPONSE_FUNC(api, name, ...) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -148,7 +141,9 @@ namespace beam::wallet
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
 
-        IShadersManager::Ptr _contracts;
+        std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
+        IShadersManager::Ptr  _contracts;
+
         JsonRpcId _ccallId;
     };
 }

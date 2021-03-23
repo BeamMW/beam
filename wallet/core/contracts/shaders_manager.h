@@ -33,7 +33,7 @@ namespace beam::wallet {
         }
 
         void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
-        void Start(const std::string &args, unsigned method, IDone& doneHandler) override; // throws
+        void Start(const std::string &args, unsigned method, DoneHandler doneHandler) override; // throws
 
     protected:
         void OnDone(const std::exception *pExc) override;
@@ -44,6 +44,6 @@ namespace beam::wallet {
 
         beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
-        IDone* _doneHandler = nullptr;
+        DoneHandler _doneHandler;
     };
 }

@@ -1927,7 +1927,30 @@ namespace beam::wallet
 
         try
         {
-            smgr->Start(args, args.empty() ? 0 : 1, *this);
+            smgr->Start(args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
+
+                if (!_clientShadersCback)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
+
+                postFunctionToClientContext([
+                        txid = std::move(txid),
+                        res = std::move(result),
+                        err = std::move(error),
+                        cb = std::move(_clientShadersCback)
+                        ] () {
+                            cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                        });
+            });
         }
         catch(const std::runtime_error& err)
         {
@@ -1938,33 +1961,5 @@ namespace beam::wallet
             decltype(_clientShadersCback)().swap(_clientShadersCback);
             return;
         }
-    }
-
-    void WalletClient::onShaderDone(boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error)
-    {
-        if (!_clientShadersCback)
-        {
-            assert(false);
-            LOG_ERROR() << "onShaderDone but empty callback";
-            return;
-        }
-
-        auto smgr = _clientShaders.lock();
-        if (!smgr)
-        {
-            assert(false);
-            return postFunctionToClientContext([cb = std::move(_clientShadersCback)]() {
-                cb("onShaderDone but empty manager", "", TxID());
-            });
-        }
-
-        postFunctionToClientContext([
-                txid = std::move(txid),
-                res = std::move(result),
-                err = std::move(error),
-                cb = std::move(_clientShadersCback)
-                ] () {
-                    cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
-                });
     }
 }

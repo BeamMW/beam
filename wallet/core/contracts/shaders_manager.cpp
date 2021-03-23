@@ -51,7 +51,7 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::Start(const std::string &args, unsigned method, IShadersManager::IDone& doneHandler)
+    void ShadersManager::Start(const std::string &args, unsigned method, DoneHandler doneHandler)
     {
         if (!IsDone())
         {
@@ -72,7 +72,7 @@ namespace beam::wallet {
 
         _done = false;
         _async = false;
-        _doneHandler = &doneHandler;
+        _doneHandler = std::move(doneHandler);
 
         StartRun(method);
         _async = !_done;
@@ -83,7 +83,7 @@ namespace beam::wallet {
         auto handler = _doneHandler;
 
         _done = true;
-        _doneHandler = nullptr;
+        decltype(_doneHandler)().swap(_doneHandler);
 
         if (pExc != nullptr)
         {
@@ -97,7 +97,7 @@ namespace beam::wallet {
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            return handler->onShaderDone(boost::none, boost::none, error);
+            return handler(boost::none, boost::none, error);
         }
 
         boost::optional<std::string> result = m_Out.str();
@@ -105,7 +105,7 @@ namespace beam::wallet {
 
         if (m_vInvokeData.empty())
         {
-            return handler->onShaderDone(boost::none, result, boost::none);
+            return handler(boost::none, result, boost::none);
         }
 
         std::string sComment;
@@ -124,12 +124,12 @@ namespace beam::wallet {
         try
         {
             auto txid = _wallet->StartTransaction(params);
-            handler->onShaderDone(txid, result, boost::none);
+            handler(txid, result, boost::none);
         }
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            handler->onShaderDone(boost::none, result, error);
+            handler(boost::none, result, error);
         }
     }
 

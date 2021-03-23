@@ -93,7 +93,6 @@ namespace beam::wallet
         , private INodeConnectionObserver
         , private IExchangeRateObserver
         , private INotificationsObserver
-        , private IShadersManager::IDone
         , private DexBoard::IObserver
     {
     public:
@@ -286,10 +285,6 @@ namespace beam::wallet
         IShadersManager::WeakPtr _appsShaders;   // this is used only for applications support
         IShadersManager::WeakPtr _clientShaders; // this is used internally in the wallet client (callShader method)
         ShaderCallback _clientShadersCback;
-
-        void onShaderDone(boost::optional<TxID> txid,
-                          boost::optional<std::string> result,
-                          boost::optional<std::string> error) override;
 
         // Asset info can be requested multiple times for the same ID
         // We collect all such events and process them in bulk at

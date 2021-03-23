@@ -22,14 +22,7 @@ namespace beam::wallet
     class IShadersManager
     {
     public:
-        struct IDone {
-            typedef decltype(beam::bvm2::ManagerStd::m_vInvokeData) InvokeData;
-            virtual void onShaderDone(
-                    boost::optional<TxID> txid,
-                    boost::optional<std::string> result,
-                    boost::optional<std::string> error) = 0;
-        };
-
+        typedef std::function <void (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error)> DoneHandler;
         typedef std::shared_ptr<IShadersManager> Ptr;
         typedef std::weak_ptr<IShadersManager> WeakPtr;
 
@@ -41,7 +34,7 @@ namespace beam::wallet
         virtual ~IShadersManager() = default;
 
         virtual void CompileAppShader(const std::vector<uint8_t>& shader) = 0; // throws
-        virtual void Start(const std::string& args, unsigned method, IDone& doneHandler) = 0; // throws
+        virtual void Start(const std::string& args, unsigned method, DoneHandler doneHandler) = 0; // throws
         virtual bool IsDone() const = 0;
     };
 }
