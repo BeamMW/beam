@@ -1158,8 +1158,8 @@ void TestMultiSigOutput()
 
     std::unique_ptr<beam::TxKernelStd> pKernel(new beam::TxKernelStd);
     pKernel->m_Fee = 0;
-    pKernel->m_Height.m_Min = 100;
-    pKernel->m_Height.m_Max = 220;
+    pKernel->m_Height.m_Min = g_hFork;
+    pKernel->m_Height.m_Max = g_hFork + 150;
     pKernel->m_Commitment = blindingExcessPublicA + blindingExcessPublicB;
     pKernel->UpdateID();
 	const Hash::Value& message = pKernel->m_Internal.m_ID;

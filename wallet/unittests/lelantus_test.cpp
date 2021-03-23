@@ -1025,9 +1025,9 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     Node node;
     NodeObserver observer([&]()
         {
-            if (nTxsPending)
-                return;
             const auto& cursor = node.get_Processor().m_Cursor;
+            if (nTxsPending && cursor.m_Sid.m_Height <= 200)
+                return;
 
             // create txCount coins(split TX)
             if (!bTxSplit)
@@ -1091,6 +1091,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 return;
             }
 
+
             mainReactor->stop();
         });
 
@@ -1098,11 +1099,10 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
     mainReactor->run();
     
-    // TODO: commented PullTransaction is outdated doesn't work
-    //auto pullTxHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
-    //
-    //WALLET_CHECK(pullTxHistory.size() == pullTxCount);
-    //WALLET_CHECK(std::all_of(pullTxHistory.begin(), pullTxHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed; }));
+    auto pullTxHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
+    
+    WALLET_CHECK(pullTxHistory.size() == pullTxCount);
+    WALLET_CHECK(std::all_of(pullTxHistory.begin(), pullTxHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed; }));
 }
 
 void TestShieldedUTXORollback()
@@ -1437,10 +1437,10 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
-    Height fork1Height = 6;
-    Height fork2Height = 12;
-    Rules::get().pForks[1].m_Height = fork1Height;
-    Rules::get().pForks[2].m_Height = fork2Height;
+
+    Rules::get().pForks[1].m_Height = 6;
+    Rules::get().pForks[2].m_Height = 12;
+    Rules::get().pForks[3].m_Height = 800;
 
 
     //TestUnlinkTx();

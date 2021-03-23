@@ -3263,10 +3263,18 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 
 		msgOut.m_Items.resize(msg.m_Count);
 		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
-	}
+        p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
+    }
 
-    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
-	Send(msgOut);
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8) {
+        Send(msgOut);
+    } else
+    {
+        proto::ShieldedList0 msgOut0;
+        msgOut0.m_Items = std::move(msgOut.m_Items);
+        msgOut0.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+        Send(msgOut0);
+    }
 }
 
 bool Node::Processor::BuildCwp()
@@ -3771,27 +3779,29 @@ void Node::Peer::OnMsg(proto::GetContractVar&& msg)
     {
         val.Export(msgOut.m_Value);
 
-        Merkle::Hash hv;
-        Block::get_HashContractVar(hv, msg.m_Key, val);
-
-        RadixHashOnlyTree& t = p.get_Contracts();
-        RadixHashOnlyTree::Cursor cu;
-        bool bCreate = false;
-        if (!t.Find(cu, hv, bCreate))
-            NodeProcessor::OnCorrupted();
-
-        t.get_Proof(msgOut.m_Proof, cu);
-
-        struct MyProofBuilder
-            :public NodeProcessor::ProofBuilder
+        if (p.IsContractVarStoredInMmr(msg.m_Key))
         {
-            using ProofBuilder::ProofBuilder;
-            virtual bool get_Contracts(Merkle::Hash&) override { return false; }
-        };
+            Merkle::Hash hv;
+            Block::get_HashContractVar(hv, msg.m_Key, val);
 
-        MyProofBuilder pb(p, msgOut.m_Proof);
-        pb.GenerateProof();
+            RadixHashOnlyTree& t = p.get_Contracts();
+            RadixHashOnlyTree::Cursor cu;
+            bool bCreate = false;
+            if (!t.Find(cu, hv, bCreate))
+                NodeProcessor::OnCorrupted();
 
+            t.get_Proof(msgOut.m_Proof, cu);
+
+            struct MyProofBuilder
+                :public NodeProcessor::ProofBuilder
+            {
+                using ProofBuilder::ProofBuilder;
+                virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+            };
+
+            MyProofBuilder pb(p, msgOut.m_Proof);
+            pb.GenerateProof();
+        }
     }
 
     Send(msgOut);

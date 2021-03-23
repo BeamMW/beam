@@ -130,6 +130,7 @@ struct BlockHeader
 struct KeyTag
 {
 	static const uint8_t Internal = 0;
+	static const uint8_t InternalStealth = 8;
 	static const uint8_t LockedAmount = 1;
 	static const uint8_t Refs = 2;
 	static const uint8_t OwnedAsset = 3;

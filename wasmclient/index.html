@@ -14,8 +14,11 @@
                 {
                     console.log("mounted");
                     //Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
-                    var walletClient = new Module.WasmWalletClient("/beam_wallet/wallet.db", "123", "127.0.0.1:8101")//"eu-node03.masternet.beam.mw:8100");
+                    var walletClient = new Module.WasmWalletClient("/beam_wallet/wallet.db", "123", "eu-node01.masternet.beam.mw:8200");
                     {
+                        walletClient.setSyncHandler((done, total) => {
+                            console.log("sync [" + done + "/" + total + "]");
+                        })
                         console.log("starting wallet...");
                         walletClient.startWallet();
                         var i = walletClient.subscribe((r)=> {

@@ -1266,6 +1266,7 @@ namespace beam
 		v.CopyFrom(*this);
 		v.m_WindowEnd = m_WindowEnd;
 		v.m_SpendProof = m_SpendProof;
+		v.m_NotSerialized = m_NotSerialized;
 
 		if (m_pAsset)
 			m_pAsset->Clone(v.m_pAsset);
@@ -1283,6 +1284,9 @@ namespace beam
 	{
 		ECC::Oracle oracle;
 		oracle << m_Msg;
+
+		if (m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+			oracle << m_NotSerialized.m_hvShieldedState;
 
 		// auto-generate seed for sigma proof and m_R_Output
 		ECC::NoLeak<ECC::uintBig> hvSeed;
@@ -1853,7 +1857,7 @@ namespace beam
 
 		pForks[1].m_Height = 30;
 		pForks[2].m_Height = 30;
-		pForks[3].m_Height = 8500;
+		pForks[3].m_Height = 1500;
 
 		// future forks
 		for (size_t i = 4; i < _countof(pForks); i++)
@@ -2035,7 +2039,7 @@ namespace beam
 		oracle
 			<< "fork3"
 			<< pForks[3].m_Height
-			<< (uint32_t) 2 // bvm version
+			<< (uint32_t) 3 // bvm version
 			// TODO: bvm contraints
 			>> pForks[3].m_Hash;
 	}
