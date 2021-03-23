@@ -928,6 +928,20 @@ private:
 		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
 		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
 	}
+
+	struct Walker
+		:public TxKernel::IWalker
+	{
+		virtual bool OnKrn(const TxKernelShieldedInput&) = 0;
+
+		virtual bool OnKrn(const TxKernel& krn) override
+		{
+			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
+				return true;
+			return OnKrn(Cast::Up<TxKernelShieldedInput>(krn));
+		}
+
+	};
 };
 
 bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
@@ -962,6 +976,8 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 {
 	struct Walker
 		:public TxKernel::IWalker
+	struct MyWalker
+		:public Walker
 	{
 		std::vector<ECC::Scalar::Native> m_vKs;
 		MultiShieldedContext* m_pThis;
@@ -970,13 +986,8 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		uint32_t m_iVerifier;
 		uint32_t m_Total;
 
-		virtual bool OnKrn(const TxKernel& krn) override
+		virtual bool OnKrn(const TxKernelShieldedInput& v) override
 		{
-			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
-				return true;
-
-			const TxKernelShieldedInput& v = Cast::Up<TxKernelShieldedInput>(krn);
-
 			if (!m_iVerifier)
 			{
 				ECC::Hash::Value hv;
