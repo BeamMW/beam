@@ -1025,9 +1025,9 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     Node node;
     NodeObserver observer([&]()
         {
-            if (nTxsPending)
-                return;
             const auto& cursor = node.get_Processor().m_Cursor;
+            if (nTxsPending && cursor.m_Sid.m_Height <= 200)
+                return;
 
             // create txCount coins(split TX)
             if (!bTxSplit)
@@ -1091,6 +1091,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 return;
             }
 
+
             mainReactor->stop();
         });
 
@@ -1098,11 +1099,10 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
     mainReactor->run();
     
-    // TODO: commented PullTransaction is outdated doesn't work
-    //auto pullTxHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
-    //
-    //WALLET_CHECK(pullTxHistory.size() == pullTxCount);
-    //WALLET_CHECK(std::all_of(pullTxHistory.begin(), pullTxHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed; }));
+    auto pullTxHistory = sender.m_WalletDB->getTxHistory(TxType::PullTransaction);
+    
+    WALLET_CHECK(pullTxHistory.size() == pullTxCount);
+    WALLET_CHECK(std::all_of(pullTxHistory.begin(), pullTxHistory.end(), [](const auto& tx) { return tx.m_status == TxStatus::Completed; }));
 }
 
 void TestShieldedUTXORollback()
