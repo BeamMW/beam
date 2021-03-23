@@ -135,7 +135,7 @@ namespace proto {
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items) \
-    macro(ECC::Hash::Value, State0)
+    macro(ECC::Hash::Value, State1)
 
 #define BeamNodeMsg_ProofState(macro) \
     macro(Merkle::HardProof, Proof)

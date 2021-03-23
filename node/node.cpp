@@ -3263,16 +3263,12 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 
 		msgOut.m_Items.resize(msg.m_Count);
 		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
-	}
-
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8)
-    {
-        if (msg.m_Id0)
-            p.get_DB().ShieldedStateRead(msg.m_Id0 - 1, &msgOut.m_State0, 1);
-
-        Send(msgOut);
+        p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
     }
-    else
+
+    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8) {
+        Send(msgOut);
+    } else
     {
         proto::ShieldedList0 msgOut0;
         msgOut0.m_Items = std::move(msgOut.m_Items);
