@@ -958,6 +958,9 @@ namespace
         beam::AmountBig::Type unspent = totals.Unspent;
         unspent += totals.UnspentShielded;
 
+        beam::AmountBig::Type maturing = totals.Maturing;
+        maturing += totals.MaturingShielded;
+
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetIDFormat) % totals.AssetId
@@ -967,7 +970,7 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetEmissionFormat) % emission
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetOwnerFormat) % ownerStr
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(available, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, unitName, nthName));
