@@ -826,7 +826,7 @@ namespace bvm2 {
 				:m_This(x)
 			{
 				m_Frame.m_Cid = cid;
-				m_Frame.m_LocalDepth = 0;
+				m_Frame.m_FarRetAddr = 0;
 				m_This.m_FarCalls.m_Stack.push_back(m_Frame);
 			}
 
@@ -2151,9 +2151,8 @@ namespace bvm2 {
 			Shaders::Env::g_pEnv = this;
 
 			uint32_t nCycles = 0;
-			uint32_t nDepth = m_LocalDepth;
 
-			for (CallMethod(iMethod); m_LocalDepth != nDepth; nCycles++)
+			for (CallMethod(iMethod); !IsDone(); nCycles++)
 			{
 				RunOnce();
 

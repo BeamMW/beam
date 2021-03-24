@@ -227,7 +227,7 @@ namespace bvm2 {
 
 	void ManagerStd::RunSync()
 	{
-		while (m_LocalDepth)
+		while (!IsDone())
 		{
 			if (m_Freeze)
 				return;

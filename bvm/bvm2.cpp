@@ -189,7 +189,6 @@ namespace bvm2 {
 
 		ZeroObject(m_AuxAlloc);
 		m_EnumVars = false;
-		m_LocalDepth = 0;
 		m_NeedComma = false;
 	}
 
@@ -219,13 +218,13 @@ namespace bvm2 {
 	{
 		DischargeUnits(Limits::Cost::CallFar);
 
-		uint32_t nRetAddr = get_Ip();
+		auto nRetAddr = get_Ip();
 
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 		auto& x = *m_FarCalls.m_Stack.Create_back();
 
 		x.m_Cid = cid;
-		x.m_LocalDepth = 0;
+		x.m_FarRetAddr = nRetAddr;
 
 		VarKey vk;
 		SetVarKey(vk);
@@ -236,26 +235,20 @@ namespace bvm2 {
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
 		m_Stack.Push(pArgs);
-		m_Stack.Push(nRetAddr);
+		m_Stack.Push(0); // retaddr, set dummy for far call
 
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
 		Jmp(nAddr);
 	}
 
-	void ProcessorContract::OnCall(Wasm::Word nAddr)
-	{
-		m_FarCalls.m_Stack.back().m_LocalDepth++;
-		Processor::OnCall(nAddr);
-	}
-
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
-		auto& nDepth = m_FarCalls.m_Stack.back().m_LocalDepth;
-		if (nDepth)
-			nDepth--;
-		else
+		if (!nRetAddr)
 		{
-			m_FarCalls.m_Stack.Delete(m_FarCalls.m_Stack.back());
+			auto& x = m_FarCalls.m_Stack.back();
+			nRetAddr = x.m_FarRetAddr;
+
+			m_FarCalls.m_Stack.Delete(x);
 			if (m_FarCalls.m_Stack.empty())
 				return; // finished
 
@@ -263,18 +256,6 @@ namespace bvm2 {
 			ParseMod(); // restore code/data sections
 		}
 
-		Processor::OnRet(nRetAddr);
-	}
-
-	void ProcessorManager::OnCall(Wasm::Word nAddr)
-	{
-		m_LocalDepth++;
-		Processor::OnCall(nAddr);
-	}
-
-	void ProcessorManager::OnRet(Wasm::Word nRetAddr)
-	{
-		m_LocalDepth--;
 		Processor::OnRet(nRetAddr);
 	}
 

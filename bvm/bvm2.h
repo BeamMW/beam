@@ -339,7 +339,7 @@ namespace bvm2 {
 			{
 				ContractID m_Cid;
 				ByteBuffer m_Body;
-				uint32_t m_LocalDepth;
+				Wasm::Word m_FarRetAddr;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
@@ -361,7 +361,6 @@ namespace bvm2 {
 
 
 		virtual void InvokeExt(uint32_t) override;
-		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
@@ -418,8 +417,6 @@ namespace bvm2 {
 
 		std::vector<Wasm::Word> m_vStack; // too large to have it as a member (this obj may be allocated on stack)
 
-		uint32_t m_LocalDepth;
-
 		// aux mem we've allocated on heap
 		struct AuxAlloc {
 			Wasm::Word m_pPtr;
@@ -442,8 +439,6 @@ namespace bvm2 {
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 
 		virtual void InvokeExt(uint32_t) override;
-		virtual void OnCall(Wasm::Word nAddr) override;
-		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
@@ -462,6 +457,8 @@ namespace bvm2 {
 		uint32_t AddArgs(char* szCommaSeparatedPairs);
 
 		Kind get_Kind() override { return Kind::Manager; }
+
+		bool IsDone() const { return m_Instruction.m_p0 == (const uint8_t*)m_Code.p; }
 
 		void InitMem();
 		void Call(Wasm::Word addr);
