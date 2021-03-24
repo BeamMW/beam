@@ -115,7 +115,8 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
         LOG_ERROR() << kErrorReceiverAddrMissing;
         return false;
     }
-    if (!LoadReceiverParams(*receiverParams, params))
+    const auto type = GetAddressType(addressOrToken);
+    if (!LoadReceiverParams(*receiverParams, params, type))
     {
         return false;
     }

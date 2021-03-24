@@ -290,6 +290,7 @@ namespace beam::wallet
         WalletID address;
         std::string comment;
         TxParameters txParameters;
+        TxAddressType addressType = TxAddressType::Unknown;
 
         struct Response
         {

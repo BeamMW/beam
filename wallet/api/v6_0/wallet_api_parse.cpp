@@ -500,7 +500,7 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address or token.");
         }
-
+        send.addressType = GetAddressType(addressOrToken);
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
         send.assetId = readAssetIdParameter(id, params);
 
