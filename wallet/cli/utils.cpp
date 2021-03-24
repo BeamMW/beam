@@ -108,18 +108,42 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
         LOG_ERROR() << kErrorReceiverAddrMissing;
         return false;
     }
+
     auto addressOrToken = vm[cli::RECEIVER_ADDR].as<string>();
     auto receiverParams = ParseParameters(addressOrToken);
+
     if (!receiverParams)
     {
         LOG_ERROR() << kErrorReceiverAddrMissing;
         return false;
     }
-    const auto type = GetAddressType(addressOrToken);
+
+    auto type = GetAddressType(addressOrToken);
+
+    switch(type)
+    {
+    case TxAddressType::PublicOffline:
+    case TxAddressType::MaxPrivacy:
+    case TxAddressType::Regular:
+        break;
+    case TxAddressType::Offline:
+        if (!vm[cli::SEND_OFFLINE].as<bool>())
+        {
+            // Since v6.0 by default offline address triggers the regular online transaction
+            // To execute and offline payment the --offline switch should be specified
+            type = TxAddressType::Regular;
+        }
+        break;
+    default:
+        LOG_ERROR() << kErrorReceiverAddrMissing;
+        return false;
+    }
+
     if (!LoadReceiverParams(*receiverParams, params, type))
     {
         return false;
     }
+
     if (auto peerID = params.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); !peerID || std::to_string(*peerID) != addressOrToken)
     {
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);

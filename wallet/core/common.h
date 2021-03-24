@@ -791,7 +791,7 @@ namespace beam::wallet
         std::shared_ptr<Notifier> m_notifier;
     };
  
-    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params, TxAddressType forcedType = TxAddressType::Unknown);
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params, TxAddressType addressType);
 
     // Check current time with the timestamp of last received block
     // If it is more than 10 minutes, the walelt is considered not in sync

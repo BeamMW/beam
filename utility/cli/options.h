@@ -227,10 +227,10 @@ namespace beam
 
         // lelantus
         extern const char* MAX_PRIVACY_ADDRESS;
-        extern const char* OFFLINE_ADDRESS;
+        extern const char* OFFLINE_COUNT;
         extern const char* PUBLIC_OFFLINE;
         extern const char* ENABLE_LELANTUS;
-        extern const char* CHOICE_TOKEN;
+        extern const char* SEND_OFFLINE;
 
         // shaders
         extern const char* SHADER_INVOKE;

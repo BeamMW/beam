@@ -749,22 +749,8 @@ namespace
         return InitDataBase(vm, false);
     }
 
-    void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
-    {
-        if (auto it = vm.find(cli::OFFLINE_ADDRESS); it != vm.end())
-        {
-            auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
-            if (!vouchers.empty())
-            {
-                // add voucher parameter
-                params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-            }
-        }
-    }
-
    int GetAddress(const po::variables_map& vm)
-    {
+   {
         auto walletDB = OpenDataBase(vm);
 
         auto type = TokenType::RegularNewStyle;
@@ -779,12 +765,7 @@ namespace
         {
             type = TokenType::MaxPrivacy;
         }
-        else if (it2 = vm.find(cli::CHOICE_TOKEN); it2 != vm.end() && it2->second.as<bool>())
-        {
-            type = TokenType::Offline;
-            offlineCount = 1;
-        }
-        else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
+        else if (it2 = vm.find(cli::OFFLINE_COUNT); it2 != vm.end())
         {
             type = TokenType::Offline;
             offlineCount = it2->second.as<Positive<uint32_t>>().value;

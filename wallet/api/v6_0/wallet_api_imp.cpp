@@ -303,7 +303,10 @@ namespace beam::wallet
             }
 
             auto params = CreateSimpleTransactionParameters(data.txId);
-            LoadReceiverParams(data.txParameters, params, data.addressType);
+            if (!LoadReceiverParams(data.txParameters, params, data.addressType))
+            {
+                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Cannot load transaction parameters.");
+            }
 
             if (auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken); token)
             {

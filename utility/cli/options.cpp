@@ -326,10 +326,10 @@ namespace beam
 
         // lelantus
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
-        const char* OFFLINE_ADDRESS     = "offline";
+        const char* OFFLINE_COUNT       = "offline_count";
         const char* PUBLIC_OFFLINE      = "public_offline";
         const char* ENABLE_LELANTUS     = "enable_lelantus";
-        const char* CHOICE_TOKEN        = "choice";
+        const char* SEND_OFFLINE        = "offline";
 
         // shaders
         const char* SHADER_INVOKE       = "shader";
@@ -446,9 +446,9 @@ namespace beam
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
-            (cli::OFFLINE_ADDRESS, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
+            (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
-            (cli::CHOICE_TOKEN, po::bool_switch()->default_value(false), "generate `choice` address which gives sender an option to send tx as regular or offline (default address in ui since v6");
+            (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

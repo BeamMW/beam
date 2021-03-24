@@ -405,7 +405,6 @@ namespace beam::wallet
                     {"offline",         TokenType::Offline},
                     {"max_privacy",     TokenType::MaxPrivacy},
                     {"public_offline",  TokenType::Public},
-                    {"choice",          TokenType::Offline},
                     {"regular_new",     TokenType::RegularNewStyle}
                 }
             };
@@ -413,10 +412,6 @@ namespace beam::wallet
             if (t != types.end())
             {
                 createAddress.type = t->second;
-                if (t->first == "choice")
-                {
-                    createAddress.offlinePayments = 1;
-                }
             }
         }
 
@@ -500,7 +495,18 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address or token.");
         }
+
         send.addressType = GetAddressType(addressOrToken);
+        if(send.addressType == TxAddressType::Offline)
+        {
+            // Since v6.0 offline address by default trigger the regular online transaction
+            // To trigger an offline tx flag should be provided
+            if (auto offline = getOptionalParam<bool>(params, "offline"); !offline)
+            {
+                send.addressType = TxAddressType::Regular;
+            }
+        }
+
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
         send.assetId = readAssetIdParameter(id, params);
 
