@@ -81,6 +81,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Aid);
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
+	template <bool bToShader> void Convert(Dummy::TestFarCall& x) {
+	}
 	template <bool bToShader> void Convert(Dummy::MathTest1& x) {
 		ConvertOrd<bToShader>(x.m_Value);
 		ConvertOrd<bToShader>(x.m_Rate);
@@ -1257,6 +1259,26 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
 		m_cidDummy = cid;
+
+		{
+			Shaders::Dummy::TestFarCall args;
+			args.m_Variant = 0;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 1;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 2;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 3;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 4;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 5;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 6;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 7;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
 
 		{
 			Shaders::Dummy::MathTest1 args;

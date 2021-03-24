@@ -16,12 +16,55 @@ export void Dtor(void*)
     Env::RefRelease(Vault::s_CID);
 }
 
-export void Method_2(void*)
+export void Method_2(Dummy::TestFarCall& r)
 {
-    Vault::Deposit r;
-    _POD_(r).SetZero();
-    r.m_Amount = 318;
-    Env::CallFar_T(Vault::s_CID, r);
+    Vault::Deposit r_Stack;
+    _POD_(r_Stack).SetZero();
+    r_Stack.m_Amount = 318;
+
+    Env::Heap_Alloc(700); // make sure the next heap address is not the heap start address, this is better for testing
+
+    Vault::Deposit* pR_Heap = (Vault::Deposit*) Env::Heap_Alloc(sizeof(Vault::Deposit));
+    _POD_(*pR_Heap) = r_Stack;
+
+    auto* pR = &r_Stack;
+
+    switch (r.m_Variant)
+    {
+    case 1:
+        ((uint8_t*&) pR) += 1000;
+        break;
+
+    case 2:
+        ((uint8_t*&) pR) -= 100;
+        break;
+
+    case 3:
+        pR = pR_Heap;
+        break;
+
+    case 4:
+        pR = pR_Heap;
+        ((uint8_t*&) pR) += 16;
+        break;
+
+    case 5:
+        pR = pR_Heap;
+        ((uint8_t*&) pR)--;
+        break;
+
+    case 6:
+        {
+            static const uint8_t s_pReq[sizeof(Vault::Deposit)] = { 0 };
+            pR = (Vault::Deposit*) s_pReq;
+        }
+        break;
+
+    case 7:
+        pR = nullptr;
+    }
+
+    Env::CallFar_T(Vault::s_CID, *pR);
 }
 
 export void Method_3(Dummy::MathTest1& r)

@@ -4,6 +4,12 @@ namespace Dummy
 {
 #pragma pack (push, 1)
 
+    struct TestFarCall
+    {
+        static const uint32_t s_iMethod = 2;
+        uint8_t m_Variant; // stack, stack-inv1, stack-inv2, heap, heap-inv1, heap-inv2, data, inv
+    };
+
     struct MathTest1
     {
         static const uint32_t s_iMethod = 3;
