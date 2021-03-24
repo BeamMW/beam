@@ -50,8 +50,7 @@
 
                     setTimeout((wc)=>{
                         console.log("is running: " + wc.isRunning())
-                        wc.stopWallet();
-                        setTimeout((wc)=> {
+                        wc.stopWallet(()=> {
                             console.log("is running: " + wc.isRunning())
                             wc.setSyncHandler((done, total) => {
                                 console.log("sync 2 [" + done + "/" + total + "]");
@@ -67,7 +66,18 @@
                                   method: 'wallet_status'
                                 }));
 
-                        }, 2000, wc)
+
+                            setTimeout((wc)=>{
+                                console.log("is running: " + wc.isRunning())
+                                wc.stopWallet(null);
+                                setTimeout((wc)=>{
+                                    console.log("is running: " + wc.isRunning())
+                                    //wc.stopWallet(null);
+                                }, 2000, wc)
+                            }, 2000, wc)
+
+
+                        });
 
                     }, 2000, walletClient)
 

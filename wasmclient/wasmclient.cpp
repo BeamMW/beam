@@ -89,6 +89,11 @@ class WalletClient2 : public WalletClient
 public:
     using WalletClient::WalletClient;
 
+    virtual ~WalletClient2()
+    {
+        stopReactor(true);
+    }
+
     uint32_t AddCallback(val&& callback)
     {
         for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
@@ -136,9 +141,10 @@ public:
         m_SyncHandler = std::make_unique<val>(handler);
     }
 
-    void Stop()
+    void Stop(val handler)
     {
-        stopReactor();
+        m_StoppedHandler = std::make_unique<val>(handler);
+        stopReactor(true);
     }
 
 private:
@@ -165,6 +171,17 @@ private:
             reinterpret_cast<int>(this));
     }
 
+    void onStopped() override
+    {
+        postFunctionToClientContext([this]()
+        {
+            if (m_StoppedHandler && !m_StoppedHandler->isNull())
+            {
+                (*m_StoppedHandler)();
+            }
+        });
+    }
+
     static void ProsessMessageOnMainThread(int pThis)
     {
         reinterpret_cast<WalletClient2*>(pThis)->ProsessMessageOnMainThread2();
@@ -180,12 +197,12 @@ private:
         }
     }
 
-
 private:
     std::mutex m_Mutex;
     std::queue<MessageFunction> m_Messages;
     std::vector<val> m_Callbacks;
     std::unique_ptr<val> m_SyncHandler;
+    std::unique_ptr<val> m_StoppedHandler;
 };
 
 class WasmWalletClient : public IWalletApiHandler
@@ -248,9 +265,9 @@ public:
         m_Client.start({}, true, additionalTxCreators);
     }
 
-    void StopWallet()
+    void StopWallet(val handler = val::null())
     {
-        m_Client.Stop();
+        m_Client.Stop(handler);
     }
 
     bool IsRunning() const

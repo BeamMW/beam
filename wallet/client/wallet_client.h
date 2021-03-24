@@ -129,7 +129,7 @@ namespace beam::wallet
     protected:
         // Call this before derived class is destructed to ensure
         // that no virtual function calls below will result in purecall
-        void stopReactor();
+        void stopReactor(bool detachThread = false);
 
         // use this function to post function call to client's main loop
         using MessageFunction = std::function<void()>;
@@ -165,6 +165,7 @@ namespace beam::wallet
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        virtual void onStopped() {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;

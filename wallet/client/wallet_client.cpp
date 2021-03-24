@@ -416,7 +416,7 @@ namespace beam::wallet
         stopReactor();
     }
 
-    void WalletClient::stopReactor()
+    void WalletClient::stopReactor(bool detachThread/* = false*/)
     {
         try
         {
@@ -424,7 +424,14 @@ namespace beam::wallet
             m_reactor->stop();
             if (isRunning())
             {
-                m_thread->join();
+                if (!detachThread)
+                {
+                    m_thread->join();
+                }
+                else
+                {
+                    m_thread->detach();
+                }
             }
             m_thread.reset();
         }
@@ -629,6 +636,7 @@ namespace beam::wallet
             /*catch (...) {
                 LOG_UNHANDLED_EXCEPTION();
             }*/
+            onStopped();
         });
     }
 
