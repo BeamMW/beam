@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define ENABLE_MINING
+
 #include "core/block_crypt.h"
 #include <iostream>
 #include "3rdparty/crypto/equihashR.h"
