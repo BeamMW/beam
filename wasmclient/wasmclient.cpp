@@ -116,17 +116,6 @@ public:
         }
     }
 
-    std::unique_ptr<IWalletApi::InitData> GetApiInitData(IWalletDB::Ptr wdb)
-    {
-        auto walletData = std::make_unique<IWalletApi::InitData>();
-        walletData->walletDB = wdb;
-        walletData->wallet = getWallet();
-       // walletData->swaps = _swapsProvider;
-      //  walletData->acl = _acl;
-        //walletData->contracts = IShadersManager::CreateInstance(getWallet(), wdb, _network);
-        return walletData;
-    }
-
     void SendResult(const json& result)
     {
         postFunctionToClientContext([this, result]()
@@ -145,6 +134,11 @@ public:
     void SetSyncHandler(val handler)
     {
         m_SyncHandler = std::make_unique<val>(handler);
+    }
+
+    void Stop()
+    {
+        stopReactor();
     }
 
 private:
@@ -185,6 +179,7 @@ private:
             m_Messages.pop();
         }
     }
+
 
 private:
     std::mutex m_Mutex;
@@ -229,8 +224,13 @@ public:
         {
             if (!m_WalletApi)
             {
-                m_WalletData = m_Client.GetApiInitData(m_Db);
-                m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, *m_WalletData);
+                IWalletApi::InitData initData;
+                initData.walletDB = m_Db;
+                initData.wallet = m_Client.getWallet();
+                // initData.swaps = _swapsProvider;
+               //  initData.acl = _acl;
+                initData.contracts = m_Client.getAppsShaders();
+                m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, initData);
             }
 
             m_WalletApi->executeAPIRequest(request.data(), request.size());
@@ -246,6 +246,16 @@ public:
         additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(m_Db));
         m_Client.getAsync()->enableBodyRequests(true);
         m_Client.start({}, true, additionalTxCreators);
+    }
+
+    void StopWallet()
+    {
+        m_Client.Stop();
+    }
+
+    bool IsRunning() const
+    {
+        return m_Client.isRunning();
     }
 
     static std::string GeneratePhrase()
@@ -315,7 +325,6 @@ private:
     io::Reactor::Ptr m_Reactor;
     IWalletDB::Ptr m_Db;
     WalletClient2 m_Client;
-    std::unique_ptr<IWalletApi::InitData> m_WalletData;
     IWalletApi::Ptr m_WalletApi;
 };
 
@@ -327,6 +336,8 @@ EMSCRIPTEN_BINDINGS()
     class_<WasmWalletClient>("WasmWalletClient")
         .constructor<const std::string&, const std::string&, const std::string&>()
         .function("startWallet",                     &WasmWalletClient::StartWallet)
+        .function("stopWallet",                      &WasmWalletClient::StopWallet)
+        .function("isRunning",                       &WasmWalletClient::IsRunning)
         .function("sendRequest",                     &WasmWalletClient::ExecuteAPIRequest)
         .function("subscribe",                       &WasmWalletClient::Subscribe)
         .function("unsubscribe",                     &WasmWalletClient::Unsubscribe)

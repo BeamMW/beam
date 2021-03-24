@@ -13,7 +13,7 @@
             Module.WasmWalletClient.MountFS(function()
                 {
                     console.log("mounted");
-                    //Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
+                   // Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
                     var walletClient = new Module.WasmWalletClient("/beam_wallet/wallet.db", "123", "eu-node01.masternet.beam.mw:8200");
                     {
                         walletClient.setSyncHandler((done, total) => {
@@ -47,6 +47,30 @@
                               }
                             }) + '\n');
                     }
+
+                    setTimeout((wc)=>{
+                        console.log("is running: " + wc.isRunning())
+                        wc.stopWallet();
+                        setTimeout((wc)=> {
+                            console.log("is running: " + wc.isRunning())
+                            wc.setSyncHandler((done, total) => {
+                                console.log("sync 2 [" + done + "/" + total + "]");
+                            })
+                            console.log("starting wallet2...");
+                            wc.startWallet();
+                            var i = walletClient.subscribe((r)=> {
+                                console.log("response2: " + r)
+                            });
+                            wc.sendRequest(JSON.stringify({
+                                  jsonrpc: '2.0',
+                                  id: 5,
+                                  method: 'wallet_status'
+                                }));
+
+                        }, 2000, wc)
+
+                    }, 2000, walletClient)
+
                 });
            
         })

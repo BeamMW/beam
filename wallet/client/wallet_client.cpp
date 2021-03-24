@@ -420,16 +420,13 @@ namespace beam::wallet
     {
         try
         {
-            if (m_reactor)
+            assert(m_reactor);
+            m_reactor->stop();
+            if (isRunning())
             {
-                if (m_thread)
-                {
-                    m_reactor->stop();
-                    m_thread->join();
-                    m_thread.reset();
-                }
-                m_reactor.reset();
+                m_thread->join();
             }
+            m_thread.reset();
         }
         catch (const std::exception& e)
         {
@@ -466,6 +463,10 @@ namespace beam::wallet
                               bool withExchangeRates,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
+        if (isRunning())
+        {
+            return;
+        }
         m_thread = std::make_shared<std::thread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
