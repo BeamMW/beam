@@ -341,6 +341,8 @@ namespace bvm2 {
 				ContractID m_Cid;
 				ByteBuffer m_Body;
 				Wasm::Word m_FarRetAddr;
+				Wasm::Word m_StackPosMin;
+				Wasm::Word m_StackBytesMax;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;

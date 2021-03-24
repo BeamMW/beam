@@ -247,9 +247,10 @@ namespace Wasm {
 		struct Stack
 		{
 			Word* m_pPtr;
-			Word m_Pos = 0;
-			Word m_BytesMax = 0; // total stack size
-			Word m_BytesCurrent = 0; // operand stack remaining, before it collides with alias stack
+			Word m_Pos;
+			Word m_PosMin;
+			Word m_BytesMax; // total stack size
+			Word m_BytesCurrent; // operand stack remaining, before it collides with alias stack
 
 			static const Word s_Alignment = 16;
 			static Word AlignUp(Word);

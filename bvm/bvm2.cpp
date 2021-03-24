@@ -166,6 +166,7 @@ namespace bvm2 {
 		m_Stack.m_BytesMax = nStackBytes;
 		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
 		m_Stack.m_Pos = 0;
+		m_Stack.m_PosMin = 0;
 
 		memset(pStack, nFill, nStackBytes);
 
@@ -245,8 +246,13 @@ namespace bvm2 {
 	{
 		if (!nRetAddr)
 		{
+			Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
+
 			auto& x = m_FarCalls.m_Stack.back();
 			nRetAddr = x.m_FarRetAddr;
+
+			m_Stack.m_PosMin = x.m_StackPosMin;
+			m_Stack.m_BytesMax = x.m_StackBytesMax;
 
 			m_FarCalls.m_Stack.Delete(x);
 			if (m_FarCalls.m_Stack.empty())
@@ -1132,6 +1138,10 @@ namespace bvm2 {
 		//
 		// Note: using 'Global' (heap) is not allowed either, since there's no reliable and simple way to verify it.
 		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocated later by the callee.
+
+		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
+		auto nCallStackPosMin = m_Stack.m_Pos;
+
 		if (nArgs)
 		{
 			switch (Wasm::MemoryType::Mask & pArgs)
@@ -1139,6 +1149,8 @@ namespace bvm2 {
 			case Wasm::MemoryType::Stack:
 				get_AddrR(pArgs, nArgs); // ensure it's a valid alias stack pointer (i.e. between current and max stack pointers)
 				assert(pArgs >= m_Stack.get_AlasSp());
+
+				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + nArgs;
 				break;
 
 			case Wasm::MemoryType::Global:
@@ -1159,6 +1171,14 @@ namespace bvm2 {
 		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
 
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
+
+		auto& x = m_FarCalls.m_Stack.back();
+		x.m_StackBytesMax = m_Stack.m_BytesMax;
+		x.m_StackPosMin = m_Stack.m_PosMin;
+
+		m_Stack.m_PosMin = nCallStackPosMin;
+		m_Stack.m_BytesMax = nCalleeStackMax;
+
 	}
 	BVM_METHOD_HOST(CallFar)
 	{

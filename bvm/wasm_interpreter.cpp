@@ -1343,7 +1343,7 @@ namespace Wasm {
 	// Processor
 	Word Processor::Stack::Pop1()
 	{
-		Test(m_Pos);
+		Test(m_Pos > m_PosMin);
 		return m_pPtr[--m_Pos];
 	}
 
@@ -1419,6 +1419,7 @@ namespace Wasm {
 
 	void Processor::Stack::TestSelf() const
 	{
+		// Test(m_Pos >= m_PosMin); - this test is not needed
 		Test(m_BytesCurrent <= m_BytesMax);
 		Test(m_Pos <= m_BytesCurrent / sizeof(Word));
 		assert(AlignUp(m_BytesCurrent) == m_BytesCurrent);
@@ -1515,7 +1516,7 @@ namespace Wasm {
 
 			nOffset /= sizeof(Word);
 
-			Test((nOffset >= nWords) && (nOffset <= m_Stack.m_Pos));
+			Test((nOffset >= nWords) && (nOffset <= m_Stack.m_Pos - m_Stack.m_PosMin));
 
 			uint32_t* pSrc = m_Stack.m_pPtr + m_Stack.m_Pos;
 			uint32_t* pDst = pSrc - nOffset;
@@ -1769,7 +1770,7 @@ namespace Wasm {
 	void ProcessorPlus::On_drop()
 	{
 		uint32_t nWords = Type::Words(m_Instruction.Read1());
-		Test(m_Stack.m_Pos >= nWords);
+		Test(m_Stack.m_Pos - m_Stack.m_PosMin >= nWords);
 		m_Stack.m_Pos -= nWords;
 	}
 
@@ -1778,7 +1779,7 @@ namespace Wasm {
 		uint32_t nWords = Type::Words(m_Instruction.Read1());
 		auto nSel = m_Stack.Pop<Word>();
 
-		Test(m_Stack.m_Pos >= (nWords << 1)); // must be at least 2 such operands
+		Test(m_Stack.m_Pos - m_Stack.m_PosMin >= (nWords << 1)); // must be at least 2 such operands
 		m_Stack.m_Pos -= nWords;
 
 		if (!nSel)
@@ -1920,6 +1921,7 @@ namespace Wasm {
 
 		uint32_t nPosRetDst = nPosAddr - nArgs;
 		Test(nPosRetDst <= nPosAddr);
+		Test(nPosRetDst >= m_Stack.m_PosMin);
 
 		Word nRetAddr = m_Stack.m_pPtr[nPosAddr];
 
