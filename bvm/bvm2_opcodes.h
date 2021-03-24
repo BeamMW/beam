@@ -178,7 +178,8 @@
 #define BVMOp_CallFar(macro, sep) \
 	macro(const ContractID&, cid) sep \
 	macro(uint32_t, iMethod) sep \
-	macro(void*, pArgs)
+	macro(void*, pArgs) sep \
+	macro(uint32_t, nArgs)
 
 #define BVMOp_get_CallDepth(macro, sep)
 

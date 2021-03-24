@@ -129,7 +129,7 @@ namespace Env {
     template <typename T>
     void CallFar_T(const ContractID& cid, T& args)
     {
-        CallFar(cid, args.s_iMethod, &args);
+        CallFar(cid, args.s_iMethod, &args, sizeof(args));
     }
 #endif // HOST_BUILD
 
