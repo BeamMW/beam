@@ -174,6 +174,7 @@ namespace bvm2 {
 
 			bool Alloc(uint32_t&, uint32_t size);
 			void Free(uint32_t);
+			void Test(uint32_t ptr, uint32_t size);
 			void Clear();
 			void OnGrow(uint32_t nOld, uint32_t nNew);
 

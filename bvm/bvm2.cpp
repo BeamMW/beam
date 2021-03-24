@@ -983,6 +983,19 @@ namespace bvm2 {
 		}
 	}
 
+	void Processor::Heap::Test(uint32_t ptr, uint32_t size)
+	{
+		auto it = m_mapAllocated.upper_bound(ptr, Entry::Pos::Comparator());
+		Wasm::Test(m_mapAllocated.begin() != it);
+		--it;
+
+		auto& e = it->get_ParentObj();
+		assert(ptr >= e.m_Pos.m_Key);
+		
+		ptr += size;
+		Wasm::Test((ptr >= size) && (ptr <= e.m_Pos.m_Key + e.m_Size.m_Key));
+	}
+
 	void Processor::Heap::UpdateSizeFree(Entry& e, uint32_t newVal)
 	{
 		m_mapSize.erase(MapSize::s_iterator_to(e.m_Size));
@@ -1118,16 +1131,29 @@ namespace bvm2 {
 		// Attacker may try to cause the target shader to overwrite its future stack operands, or const data in its data section.
 		//
 		// Note: using 'Global' (heap) is not allowed either, since there's no reliable and simple way to verify it.
-		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocater later by the callee.
-		switch (Wasm::MemoryType::Mask & pArgs)
+		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocated later by the callee.
+		if (nArgs)
 		{
-		case Wasm::MemoryType::Stack:
-			Wasm::Test(pArgs >= m_Stack.get_AlasSp());
-			break;
+			switch (Wasm::MemoryType::Mask & pArgs)
+			{
+			case Wasm::MemoryType::Stack:
+				get_AddrR(pArgs, nArgs); // ensure it's a valid alias stack pointer (i.e. between current and max stack pointers)
+				assert(pArgs >= m_Stack.get_AlasSp());
+				break;
 
-		default:
-			// invalid, null, heap or current data section pointer. NOT allowed!
-			Wasm::Fail();
+			case Wasm::MemoryType::Global:
+				// In case of heap pointers - ensure it's a valid heap pointer
+				m_Heap.Test(pArgs & ~Wasm::MemoryType::Global, nArgs);
+				break;
+
+			case Wasm::MemoryType::Data:
+				// data section pointer is not allowed, because during farcall the callee data segment replaces the current one
+				// no break;
+
+			default:
+				// NOT allowed!
+				Wasm::Fail();
+			}
 		}
 
 		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
