@@ -6043,11 +6043,10 @@ namespace beam::wallet
 
             std::ostringstream s;
             s
-                << "Sender:   " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, names.first, names.second) << std::endl
-                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
-
+                << "Sender:            " << std::to_string(m_Sender) << "\n"
+                << "Receiver:          " << std::to_string(m_Receiver) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
 
@@ -6093,11 +6092,10 @@ namespace beam::wallet
 
             std::ostringstream s;
             s
-                << "Sender:   " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, names.first, names.second) << std::endl
-                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
-
+                << "Sender:            " << std::to_string(m_Sender) << "\n"
+                << "Receiver:          " << std::to_string(m_Receiver) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
 
@@ -6155,7 +6153,7 @@ namespace beam::wallet
             ByteBuffer ExportSimplePaymentProof(const IWalletDB& walletDB, const TxID& txID)
             {
                 PaymentInfo pi;
-                uint64_t nAddrOwnID;
+                uint64_t nAddrOwnID = 0;
 
                 bool bSuccess =
                     (
@@ -6183,8 +6181,8 @@ namespace beam::wallet
 
                 if (bSuccess)
                 {
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(walletDB);
-                    LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
+                    std::cout << "Payment tx details:\n" << pi.to_string(walletDB) << "\n";
+                    std::cout << "Sender address own ID: " << nAddrOwnID << std::endl;
 
                     Serializer ser;
                     ser& pi;
@@ -6241,7 +6239,7 @@ namespace beam::wallet
                     }
                     pi.m_HideAssetAlways = ((pi.m_AssetID == Asset::s_InvalidID) && nestedKernel.m_Txo.m_pAsset);
                     pi.RestoreKernelID();
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(walletDB);
+                    std::cout << "Payment tx details:\n" << pi.to_string(walletDB) << std::endl;
 
                     Serializer ser;
                     ser& pi;
@@ -6269,7 +6267,7 @@ namespace beam::wallet
                         return false;
                     }
 
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string(wdb) << "Verified.";
+                    std::cout << "Payment tx details:\n" << pi.to_string(wdb) << "Verified." << std::endl;
 
                     return true;
                 }

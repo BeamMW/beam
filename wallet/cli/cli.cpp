@@ -140,12 +140,12 @@ namespace
                 {
                     std::ostringstream s;
 
-                    s << "Type:        " << "atomic swap" << std::endl;
-                    s << "Swap coin:   " << std::to_string(swapCoin) << std::endl;
-                    s << "Beam side:   " << isBeamSide << std::endl;
-                    s << "Beam amount: " << PrintableAmount(desc.m_amount) << std::endl;
-                    s << "Swap amount: " << std::to_string(swapAmount) << std::endl;
-                    s << "Swap token:  " << *swapToken << std::endl;
+                    s << "Type:              " << "atomic swap" << std::endl;
+                    s << "Swap coin:         " << std::to_string(swapCoin) << std::endl;
+                    s << "Beam side:         " << isBeamSide << std::endl;
+                    s << "Beam amount:       " << PrintableAmount(desc.m_amount) << std::endl;
+                    s << "Swap amount:       " << std::to_string(swapAmount) << std::endl;
+                    s << "Swap token:        " << *swapToken << std::endl;
 
                     return s.str();
                 }
