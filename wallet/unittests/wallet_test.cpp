@@ -2109,7 +2109,7 @@ namespace
         WALLET_CHECK(rtx->m_sender == false);
     }
 
-    void StoreShieldedCoins(uint32_t nShieldedCoins, Amount nValNetto, const IWalletDB::Ptr walletDb, TestNode& node)
+    void StoreShieldedCoins(uint32_t nShieldedCoins, Amount nValNetto, const IWalletDB::Ptr walletDb, TestNode& node, Asset::ID assetID = 0)
     {
 
         ECC::Point::Native ptN = ECC::Context::get().H * 1234U; // random point
@@ -2132,7 +2132,7 @@ namespace
             ShieldedTxo::DataParams sdp;
             sdp.m_Ticket.Generate(tkt, viewer, 12323U + i);
             sc.m_CoinID.m_Key.m_kSerG = sdp.m_Ticket.m_pK[0];
-
+            sc.m_CoinID.m_AssetID = assetID;
             sdp.m_Output.m_Value = sc.m_CoinID.m_Value;
             sdp.m_Output.m_AssetID = sc.m_CoinID.m_AssetID;
             sdp.m_Output.m_User = sc.m_CoinID.m_User;
@@ -2253,6 +2253,99 @@ namespace
 
         WALLET_CHECK(csi.get_NettoValue() == 3000000);
         WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+        WALLET_CHECK(csi.m_explicitFee > beforehandFee);
+
+        // assets
+
+        csi.m_requestedSum = 1000;
+        csi.m_assetID = 12;
+        csi.m_explicitFee = 0;
+
+        csi.Calculate(1, walletDB);
+        WALLET_CHECK(!csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() < 1000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal);
+
+        csi.Calculate(1, walletDB, true);
+        WALLET_CHECK(!csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() < 1000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal);
+
+        for (int i = 0; i < 10; ++i)
+        {
+            Coin coin = CreateAvailCoin(300, 0);
+            coin.m_ID.m_AssetID = 12;
+            walletDB->storeCoin(coin);
+        }
+
+        csi.m_requestedSum = 1000;
+        csi.m_assetID = 12;
+        csi.m_explicitFee = 0;
+
+        csi.Calculate(1, walletDB);
+        WALLET_CHECK(csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() == 1000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal);
+        WALLET_CHECK(csi.m_changeAsset == 200);
+        WALLET_CHECK(csi.m_explicitFee == fs.get_DefaultStd());
+
+
+        csi.Calculate(1, walletDB, true);
+        WALLET_CHECK(csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() == 1000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal);
+        WALLET_CHECK(csi.m_changeAsset == 200);
+        WALLET_CHECK(csi.m_explicitFee == fs.get_DefaultShieldedOut());
+
+        cout << "\nCoins selection tested\n";
+    }
+
+    void TestCalculateAssetCoinsSelection()
+    {
+        cout << "\nTesting asset coins selection...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+        AmountList lst = {3000000, 3000000, 3000000};
+        auto walletDB = createSenderWalletDB(false, lst);
+        StoreShieldedCoins(3, 3000000, walletDB, node, 12);
+        auto& fs = Transaction::FeeSettings::get(1);
+        Amount beforehandFee = 100;
+
+        wallet::CoinsSelectionInfo csi;
+        csi.m_assetID = 12;
+        csi.m_requestedSum = 10000000;
+        csi.m_explicitFee = beforehandFee;
+        csi.Calculate(1, walletDB);
+
+        WALLET_CHECK(!csi.m_isEnought);
+        WALLET_CHECK(csi.get_NettoValue() < 10000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 3);
+
+        csi.m_requestedSum = 4000000;
+        csi.Calculate(1, walletDB);
+        WALLET_CHECK(csi.get_NettoValue() == 4000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 2);
+        WALLET_CHECK(csi.m_changeBeam != 0);
+
+        csi.m_requestedSum = 3000000;
+        csi.Calculate(1, walletDB, true);
+
+        WALLET_CHECK(csi.get_NettoValue() == 3000000);
+        WALLET_CHECK(csi.m_involuntaryFee == fs.m_ShieldedInputTotal * 1);
         WALLET_CHECK(csi.m_explicitFee > beforehandFee);
 
         cout << "\nCoins selection tested\n";
@@ -3296,6 +3389,7 @@ int main()
 
     TestSendingShielded();
     TestCalculateCoinsSelection();
+    TestCalculateAssetCoinsSelection();
 
     TestContractInvoke();
 
