@@ -250,6 +250,9 @@ class NodeProcessor
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
 
+	void AdjustManualRollbackHeight(Height&);
+	void ManualRollbackInternal(Height);
+
 public:
 
 	static void OnCorrupted();
@@ -271,6 +274,7 @@ public:
 	virtual ~NodeProcessor();
 
 	void ManualRollbackTo(Height);
+	void ManualSelect(const Block::SystemState::ID&);
 
 	struct Horizon {
 

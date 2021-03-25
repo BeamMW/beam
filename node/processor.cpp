@@ -4657,10 +4657,17 @@ void NodeProcessor::RollbackTo(Height h)
 	OnRolledBack();
 }
 
-void NodeProcessor::ManualRollbackTo(Height h)
+void NodeProcessor::AdjustManualRollbackHeight(Height& h)
 {
-	LOG_INFO() << "Manual rollback to " << h << "...";
+	if (h < m_Extra.m_TxoHi)
+	{
+		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
+		h = m_Extra.m_TxoHi;
+	}
+}
 
+void NodeProcessor::ManualRollbackInternal(Height h)
+{
 	bool bChanged = false;
 
 	if (IsFastSync() && (m_SyncData.m_Target.m_Height > h))
@@ -4676,30 +4683,68 @@ void NodeProcessor::ManualRollbackTo(Height h)
 		bChanged = true;
 	}
 
-	if (h < m_Extra.m_TxoHi)
-	{
-		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
-		h = m_Extra.m_TxoHi;
-	}
-
 	if (m_Cursor.m_ID.m_Height > h)
 	{
-		NodeDB::StateID sid;
-		sid.m_Height = h + 1;
-		sid.m_Row = FindActiveAtStrict(sid.m_Height);
-
-		m_DB.get_StateID(sid, m_ManualSelection.m_Sid);
-		m_ManualSelection.m_Forbidden = true;
-
-		m_ManualSelection.Save();
-		m_ManualSelection.Log();
-
 		RollbackTo(h);
 		bChanged = true;
 	}
 
 	if (bChanged)
 		OnNewState();
+}
+
+void NodeProcessor::ManualRollbackTo(Height h)
+{
+	LOG_INFO() << "Manual rollback to " << h << "...";
+
+	AdjustManualRollbackHeight(h);
+
+	if (m_Cursor.m_ID.m_Height > h)
+	{
+		m_ManualSelection.m_Sid.m_Height = h + 1;
+		m_DB.get_StateHash(FindActiveAtStrict(m_ManualSelection.m_Sid.m_Height), m_ManualSelection.m_Sid.m_Hash);
+
+		m_ManualSelection.m_Forbidden = true;
+
+		m_ManualSelection.Save();
+		m_ManualSelection.Log();
+	}
+
+	ManualRollbackInternal(h);
+}
+
+void NodeProcessor::ManualSelect(const Block::SystemState::ID& sid)
+{
+	if ((MaxHeight == sid.m_Height) || (sid.m_Height < Rules::HeightGenesis))
+		return; // ignore
+
+	m_ManualSelection.m_Sid = sid;
+	m_ManualSelection.m_Forbidden = false;
+	m_ManualSelection.Save();
+	m_ManualSelection.Log();
+
+	if (m_Cursor.m_ID.m_Height >= sid.m_Height)
+	{
+		Merkle::Hash hv;
+		m_DB.get_StateHash(FindActiveAtStrict(sid.m_Height), hv);
+
+		if (hv == sid.m_Hash) {
+			LOG_INFO() << "Already at correct branch";
+		}
+		else
+		{
+			Height h = sid.m_Height - 1;
+			AdjustManualRollbackHeight(h);
+
+			if (h == sid.m_Height - 1) {
+				LOG_INFO() << "Rolling back to " << h;
+				ManualRollbackInternal(h);
+			}
+			else {
+				LOG_INFO() << "Unable to rollback below incorrect branch. Please resync from the beginning";
+			}
+		}
+	}
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
