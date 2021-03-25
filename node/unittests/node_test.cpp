@@ -2980,7 +2980,8 @@ namespace beam
 		NodeProcessor& proc = node.get_Processor();
 		proc.ManualRollbackTo(3);
 		verify_test(proc.m_Cursor.m_ID.m_Height >= 3); // it won't necessarily reach 3
-		verify_test(proc.m_sidForbidden.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
+		verify_test(proc.m_ManualSelection.m_Sid.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
+		verify_test(proc.m_ManualSelection.m_Forbidden);
 	}
 
 

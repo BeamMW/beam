@@ -270,7 +270,6 @@ public:
 	NodeProcessor();
 	virtual ~NodeProcessor();
 
-	bool ForbidActiveAt(Height);
 	void ManualRollbackTo(Height);
 
 	struct Horizon {
@@ -329,9 +328,22 @@ public:
 
 	} m_SyncData;
 
-	Block::SystemState::ID m_sidForbidden;
-	void LogForbiddenState();
-	void ResetForbiddenStateVar();
+	struct ManualSelection
+	{
+		Block::SystemState::ID m_Sid; // set to MaxHeight if inactive
+		bool m_Forbidden; // if not forbidden - this is the only valid state at the specified height
+
+		bool Load();
+		void Save() const;
+		void Log() const;
+		void Reset();
+		void ResetAndSave();
+
+		bool IsAllowed(Height, const Merkle::Hash&) const;
+		bool IsAllowed(const Merkle::Hash&) const;
+
+		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_ManualSelection)
+	} m_ManualSelection;
 
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
 

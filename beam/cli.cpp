@@ -497,7 +497,7 @@ int main_impl(int argc, char* argv[])
 						if (h >= Rules::HeightGenesis)
 							node.get_Processor().ManualRollbackTo(h);
 						else
-							node.get_Processor().ForbidActiveAt(0);
+							node.get_Processor().m_ManualSelection.ResetAndSave();
 
 						node.RefreshCongestions();
 					}

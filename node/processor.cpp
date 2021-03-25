@@ -186,13 +186,86 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_Vacuum)
 		Vacuum();
 
-	blob = m_sidForbidden.m_Hash;
-	if (m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob))
-		LogForbiddenState();
+	if (m_ManualSelection.Load())
+		m_ManualSelection.Log();
 	else
-		ResetForbiddenStateVar();
+		m_ManualSelection.Reset();
 
 	TryGoUp();
+}
+
+void NodeProcessor::ManualSelection::Reset()
+{
+	m_Sid.m_Height = MaxHeight; // don't set it to 0, it may interfer with treasury in RequestData()
+	m_Sid.m_Hash = Zero;
+	m_Forbidden = false;
+}
+
+void NodeProcessor::ManualSelection::ResetAndSave()
+{
+	Reset();
+	Save();
+	Log();
+}
+
+bool NodeProcessor::ManualSelection::Load()
+{
+	Blob blob(m_Sid.m_Hash);
+	if (!get_ParentObj().m_DB.ParamGet(NodeDB::ParamID::ForbiddenState, &m_Sid.m_Height, &blob))
+		return false;
+
+	const Height flag = (MaxHeight >> 1) + 1;
+	m_Forbidden = !(flag & m_Sid.m_Height);
+
+	if (!m_Forbidden)
+		m_Sid.m_Height &= ~flag;
+
+	return true;
+}
+
+void NodeProcessor::ManualSelection::Save() const
+{
+	Height h = m_Sid.m_Height;
+	if (MaxHeight == h)
+		get_ParentObj().m_DB.ParamDelSafe(NodeDB::ParamID::ForbiddenState);
+	else
+	{
+		if (!m_Forbidden)
+		{
+			const Height flag = (MaxHeight >> 1) + 1;
+			h |= flag;
+		}
+
+		Blob blob(m_Sid.m_Hash);
+		get_ParentObj().m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, &h, &blob);
+	}
+}
+
+void NodeProcessor::ManualSelection::Log() const
+{
+	if (MaxHeight == m_Sid.m_Height) {
+		LOG_INFO() << "Manual selection state reset";
+	} else {
+		LOG_INFO() << (m_Forbidden ? "Forbidden" : "Selected") << " state: " << m_Sid;
+	}
+}
+
+bool NodeProcessor::ManualSelection::IsAllowed(Height h, const Merkle::Hash& hv) const
+{
+	return (m_Sid.m_Height == h) ? IsAllowed(hv) : true;
+}
+
+bool NodeProcessor::ManualSelection::IsAllowed(const Merkle::Hash& hv) const
+{
+	bool bMatch = (hv == m_Sid.m_Hash);
+	if (bMatch != m_Forbidden)
+		return true;
+
+	Block::SystemState::ID sid;
+	sid.m_Height = m_Sid.m_Height;
+	sid.m_Hash = hv;
+	LOG_WARNING() << sid << " State forbidden";
+	return false;
 }
 
 void NodeProcessor::InitializeMapped(const char* sz)
@@ -299,16 +372,6 @@ void NodeProcessor::LogSyncData()
 	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
 }
 
-void NodeProcessor::LogForbiddenState()
-{
-	LOG_INFO() << "Forbidden state: " << m_sidForbidden;
-}
-
-void NodeProcessor::ResetForbiddenStateVar()
-{
-	m_sidForbidden.m_Height = MaxHeight; // don't set it to 0, it may interfer with treasury in RequestData()
-	m_sidForbidden.m_Hash = Zero;
-}
 
 void NodeProcessor::SaveSyncData()
 {
@@ -742,8 +805,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 		return;
 	}
 
-	if (id == m_sidForbidden) {
-		LOG_WARNING() << id << " State forbidden";
+	if (!m_ManualSelection.IsAllowed(id.m_Height, id.m_Hash)) {
 		return;
 	}
 
@@ -2364,15 +2426,13 @@ struct NodeProcessor::MyRecognizer
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
-	if (s.m_Height == m_sidForbidden.m_Height)
+	if (s.m_Height == m_ManualSelection.m_Sid.m_Height)
 	{
 		Merkle::Hash hv;
 		s.get_Hash(hv);
-		if (hv == m_sidForbidden.m_Hash)
-		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Forbidden";
+
+		if (!m_ManualSelection.IsAllowed(hv))
 			return false;
-		}
 	}
 
 	ByteBuffer bbP, bbE;
@@ -4597,35 +4657,6 @@ void NodeProcessor::RollbackTo(Height h)
 	OnRolledBack();
 }
 
-bool NodeProcessor::ForbidActiveAt(Height h)
-{
-	if (h >= Rules::HeightGenesis)
-	{
-		if (m_Cursor.m_Sid.m_Height < h)
-		{
-			LOG_WARNING() << "Can't forbid a state above cursor";
-			return false;
-		}
-
-		NodeDB::StateID sid;
-		sid.m_Height = h;
-		sid.m_Row = FindActiveAtStrict(sid.m_Height);
-		m_DB.get_StateID(sid, m_sidForbidden);
-
-		Blob blob = m_sidForbidden.m_Hash;
-		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, &m_sidForbidden.m_Height, &blob);
-		LogForbiddenState();
-	}
-	else
-	{
-		LOG_INFO() << "Forbidden state reset";
-		m_DB.ParamSet(NodeDB::ParamID::ForbiddenState, nullptr, nullptr);
-		ResetForbiddenStateVar();
-	}
-
-	return true;
-}
-
 void NodeProcessor::ManualRollbackTo(Height h)
 {
 	LOG_INFO() << "Manual rollback to " << h << "...";
@@ -4653,7 +4684,16 @@ void NodeProcessor::ManualRollbackTo(Height h)
 
 	if (m_Cursor.m_ID.m_Height > h)
 	{
-		ForbidActiveAt(h + 1);
+		NodeDB::StateID sid;
+		sid.m_Height = h + 1;
+		sid.m_Row = FindActiveAtStrict(sid.m_Height);
+
+		m_DB.get_StateID(sid, m_ManualSelection.m_Sid);
+		m_ManualSelection.m_Forbidden = true;
+
+		m_ManualSelection.Save();
+		m_ManualSelection.Log();
+
 		RollbackTo(h);
 		bChanged = true;
 	}
