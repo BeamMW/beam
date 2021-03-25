@@ -2706,7 +2706,7 @@ namespace beam
 		}
 	}
 
-	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)
+	std::ostream& operator << (std::ostream& s, const HeightHash& id)
 	{
 		s << id.m_Height << "-" << id.m_Hash;
 		return s;
