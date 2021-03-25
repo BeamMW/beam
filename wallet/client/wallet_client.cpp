@@ -97,9 +97,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getTransactions, callback);
     }
 
-    void getUtxosStatus(beam::Asset::ID id) override
+    void getAllUtxosStatus() override
     {
-        call_async(&IWalletModelAsync::getUtxosStatus, id);
+        call_async(&IWalletModelAsync::getAllUtxosStatus);
     }
 
     void getAddresses(bool own) override
@@ -351,15 +351,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
-    void getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback) override
-    {
-        call_async(&IWalletModelAsync::getCoins, assetId, std::move(callback));
-    }
-
-    void getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback) override
-    {
-        call_async(&IWalletModelAsync::getShieldedCoins, assetId, std::move(callback));
-    }
 
     void enableBodyRequests(bool value) override
     {
@@ -398,7 +389,7 @@ namespace beam::wallet
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
-        , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
+        , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
         , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
@@ -1024,10 +1015,10 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::getUtxosStatus(beam::Asset::ID id)
+    void WalletClient::getAllUtxosStatus()
     {
-        onCoinsChanged(ChangeAction::Reset, getUtxos(id));
-        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getShieldedCoins(id));
+        onCoinsChanged(ChangeAction::Reset, m_walletDB->getAllNormalCoins());
+        onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getAllShieldedCoins());
     }
 
     void WalletClient::getAddresses(bool own)
@@ -1595,24 +1586,6 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback)
-    {
-        auto coins = getUtxos(assetId);
-        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
-        {
-            cb(coins);
-        });
-    }
-
-    void WalletClient::getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback)
-    {
-        auto coins = m_walletDB->getShieldedCoins(assetId);
-        postFunctionToClientContext([coins = std::move(coins), cb = std::move(callback)]()
-        {
-            cb(coins);
-        });
-    }
-
     void WalletClient::enableBodyRequests(bool value)
     {
         auto s = m_wallet.lock();
@@ -1626,20 +1599,6 @@ namespace beam::wallet
     {
         onImportRecoveryProgress(done, total);
         return true;
-    }
-
-    vector<Coin> WalletClient::getUtxos(Asset::ID assetId) const
-    {
-        vector<Coin> utxos;
-        m_walletDB->visitCoins([&utxos, assetId](const Coin& c)->bool
-            {
-                if (assetId == beam::Asset::s_InvalidID || c.m_ID.m_AssetID == assetId)
-                {
-                    utxos.push_back(c);
-                }
-                return true;
-            });
-        return utxos;
     }
 
     WalletStatus WalletClient::getStatus() const
@@ -1713,7 +1672,6 @@ namespace beam::wallet
         onStatus(status);
         updateMaxPrivacyStats(status);
         updateClientState(std::move(status));
-
     }
 
     void WalletClient::updateClientState(WalletStatus&& status)

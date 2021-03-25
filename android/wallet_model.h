@@ -39,7 +39,8 @@ private:
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) override;
     void onCoinsSelectionCalculated(const beam::wallet::CoinsSelectionInfo&) override;
-    void onAllUtxoChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>& utxos) override;
+    void onNormalCoinsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>&) override;
+    void onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>&) override;
     void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -65,6 +66,5 @@ private:
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
-    void onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) override;
     void onPublicAddress(const std::string& publicAddr) override;
 };

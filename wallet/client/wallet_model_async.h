@@ -40,7 +40,7 @@ namespace beam::wallet
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
-        virtual void getUtxosStatus(beam::Asset::ID) = 0;
+        virtual void getAllUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) = 0;
         virtual void cancelTx(const TxID& id) = 0;
@@ -111,8 +111,6 @@ namespace beam::wallet
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
 
-        virtual void getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback) = 0;
-        virtual void getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback) = 0;
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() {}
     };

@@ -494,15 +494,15 @@ void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selection
     env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.m_explicitFee, selectionRes.m_changeBeam, 0);
 }
 
-void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
+void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
-    LOG_DEBUG() << "onAllUtxoChanged()";
+    LOG_DEBUG() << "onNormalCoinsChanged()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jobjectArray utxos = convertCoinsToJObject(env, utxosVec);
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNormalUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
 
     env->DeleteLocalRef(utxos);

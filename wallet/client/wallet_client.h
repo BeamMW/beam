@@ -141,7 +141,7 @@ namespace beam::wallet
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
         virtual void onCoinsSelectionCalculated(const CoinsSelectionInfo&) {}
-        virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
+        virtual void onNormalCoinsChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
@@ -196,7 +196,7 @@ namespace beam::wallet
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
-        void getUtxosStatus(beam::Asset::ID) override;
+        void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
         void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -251,18 +251,12 @@ namespace beam::wallet
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
-
-        void getCoins(Asset::ID assetId, AsyncCallback<const std::vector<Coin>&>&& callback) override;
-        void getShieldedCoins(Asset::ID assetId, AsyncCallback<const std::vector<ShieldedCoin>&>&& callback) override;
-
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
-        std::vector<Coin> getUtxos(Asset::ID assetId) const;
-        
         void updateStatus();
         void updateClientState(WalletStatus&&);
         void updateMaxPrivacyStats(const WalletStatus& status);

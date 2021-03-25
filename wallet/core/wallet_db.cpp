@@ -2778,6 +2778,29 @@ namespace beam::wallet
         return coinsSel;
     }
 
+    std::vector<Coin> WalletDB::getNormalCoins(Asset::ID assetId) const
+    {
+        std::vector<Coin> coins;
+        visitCoins([&coins, assetId](const Coin& coin) -> bool {
+            if (coin.m_ID.m_AssetID == assetId)
+            {
+                coins.push_back(coin);
+            }
+            return true;
+        });
+        return coins;
+    }
+
+    std::vector<Coin> WalletDB::getAllNormalCoins() const
+    {
+        std::vector<Coin> coins;
+        visitCoins([&coins](const Coin& coin) -> bool const {
+            coins.push_back(coin);
+            return true;
+        });
+        return coins;
+    }
+
     std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId) const
     {
         // select all coins for TxID
@@ -3038,12 +3061,6 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::removeCoin(const Coin::ID& cid)
-    {
-        removeCoinImpl(cid);
-        notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins({cid}));
-    }
-
     void WalletDB::clearCoins()
     {
         sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
@@ -3091,11 +3108,11 @@ namespace beam::wallet
         }
     };
 
-    void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func)
+    void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const
     {
         ShieldedStatusCtx ssc(*this);
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY Key;"); // the order is not importantt, but at least it should be by indexed field
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
         while (stm.step())
         {
             ShieldedCoin coin;
@@ -3109,11 +3126,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func)
+    void WalletDB::visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const
     {
         ShieldedStatusCtx ssc(*this);
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight <0;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight <0 ORDER BY ID;");
         while (stm.step())
         {
             ShieldedCoin coin;
@@ -3127,7 +3144,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::visitCoins(function<bool(const Coin& coin)> func)
+    void WalletDB::visitCoins(function<bool(const Coin& coin)> func) const
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
         sqlite::Statement stm(this, req);
@@ -3280,31 +3297,26 @@ namespace beam::wallet
         }
     }
 
+    std::vector<ShieldedCoin> WalletDB::getAllShieldedCoins() const
+    {
+        std::vector<ShieldedCoin> coins;
+        visitShieldedCoins([&coins] (const ShieldedCoin& coin) -> bool {
+            coins.push_back(coin);
+            return true;
+        });
+        return coins;
+    }
+
     std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
-        ShieldedStatusCtx  ssc(*this);
-        std::unique_ptr<sqlite::Statement> pstm;
-
-        if (assetId != beam::Asset::s_InvalidID)
-        {
-            pstm = std::make_unique<sqlite::Statement>(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
-            pstm->bind(1, assetId);
-        }
-        else
-        {
-            pstm = std::make_unique<sqlite::Statement>(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
-        }
-
-        auto& stm = *pstm;
         std::vector<ShieldedCoin> coins;
-        while (stm.step())
-        {
-            auto& coin = coins.emplace_back();
-            int colIdx = 0;
-            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            storage::DeduceStatus(*this, coin, ssc.m_hTip);
-        }
-
+        visitShieldedCoins([&coins, assetId] (const ShieldedCoin& coin) -> bool {
+            if (coin.m_CoinID.m_AssetID == assetId)
+            {
+                coins.push_back(coin);
+            }
+            return true;
+        });
         return coins;
     }
 
@@ -4033,7 +4045,7 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor)
+    void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
     {
         const char* select = "SELECT * FROM " ASSETS_NAME " ORDER BY ID;";
         sqlite::Statement stm(this, select);
@@ -6175,8 +6187,8 @@ namespace beam::wallet
                 // There might be old transactions without asset id
                 if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
                 {
-                    pi.m_AssetID = Asset::s_InvalidID;
-                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+                    pi.m_AssetID = Asset::s_BeamID;
+                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0 (BEAM)";
                 }
 
                 if (bSuccess)

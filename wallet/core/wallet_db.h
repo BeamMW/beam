@@ -64,7 +64,7 @@ namespace beam::wallet
             count
         };
 
-        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = Asset::s_InvalidID);
+        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = Asset::s_BeamID);
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
@@ -452,11 +452,12 @@ namespace beam::wallet
         virtual Coin generateNewCoin(Amount amount, Asset::ID) = 0;
 
         // Set of basic coin related database methods
+        virtual std::vector<Coin> getNormalCoins(Asset::ID assetId) const = 0;
+        virtual std::vector<Coin> getAllNormalCoins() const = 0;
         virtual void storeCoin(Coin& coin) = 0;
         virtual void storeCoins(std::vector<Coin>&) = 0;
         virtual void saveCoin(const Coin& coin) = 0;
         virtual void saveCoins(const std::vector<Coin>& coins) = 0;
-        virtual void removeCoin(const Coin::ID&) = 0;
         virtual void removeCoins(const std::vector<Coin::ID>&) = 0;
         virtual bool findCoin(Coin& coin) = 0;
         virtual void clearCoins() = 0;
@@ -464,10 +465,10 @@ namespace beam::wallet
         virtual uint32_t getCoinConfirmationsOffset() const = 0;
 
         // Generic visitors
-        virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
-        virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
-        virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) = 0;
-        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) = 0;
+        virtual void visitCoins(std::function<bool(const Coin& coin)> func) const = 0;
+        virtual void visitAssets(std::function<bool(const WalletAsset&)> func) const = 0;
+        virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const = 0;
+        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const = 0;
 
         // Used in split API for session management
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
@@ -483,6 +484,7 @@ namespace beam::wallet
 
         // Shielded coins
         virtual std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const = 0;
+        virtual std::vector<ShieldedCoin> getAllShieldedCoins() const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
@@ -626,6 +628,8 @@ namespace beam::wallet
         void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
+        std::vector<Coin> getNormalCoins(Asset::ID assetId) const override;
+        std::vector<Coin> getAllNormalCoins() const override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) const override;
@@ -634,17 +638,16 @@ namespace beam::wallet
         void storeCoins(std::vector<Coin>&) override;
         void saveCoin(const Coin& coin) override;
         void saveCoins(const std::vector<Coin>& coins) override;
-        void removeCoin(const Coin::ID&) override;
         void removeCoins(const std::vector<Coin::ID>&) override;
         bool findCoin(Coin& coin) override;
         void clearCoins() override;
         void setCoinConfirmationsOffset(uint32_t offset) override;
         uint32_t getCoinConfirmationsOffset() const override;
 
-        void visitCoins(std::function<bool(const Coin& coin)> func) override;
-        void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
-        void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) override;
-        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) override;
+        void visitCoins(std::function<bool(const Coin& coin)> func) const override;
+        void visitAssets(std::function<bool(const WalletAsset& info)> func) const override;
+        void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const override;
+        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -659,6 +662,7 @@ namespace beam::wallet
         void rollbackAssets(Height minHeight) override;
 
         std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const override;
+        std::vector<ShieldedCoin> getAllShieldedCoins() const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
@@ -946,7 +950,7 @@ namespace beam::wallet
         struct Totals
         {
             struct AssetTotals {
-                Asset::ID AssetId = Asset::s_InvalidID;
+                Asset::ID AssetId = Asset::s_BeamID;
                 AmountBig::Type Avail = 0U;
                 AmountBig::Type Maturing = 0U;
                 AmountBig::Type Incoming = 0U;

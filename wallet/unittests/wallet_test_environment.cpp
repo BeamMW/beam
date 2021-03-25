@@ -103,8 +103,7 @@ public:
     void saveCoin(const Coin&) override {}
     void saveCoins(const std::vector<Coin>&) override {}
     void removeCoins(const std::vector<Coin::ID>&) override {}
-    void removeCoin(const Coin::ID&) override {}
-    void visitCoins(std::function<bool(const Coin& coin)>) override {}
+    void visitCoins(std::function<bool(const Coin& coin)>) const override {}
     void setVarRaw(const char*, const void*, size_t) override {}
     bool getVarRaw(const char*, void*, int) const override { return false; }
     bool getBlob(const char* name, ByteBuffer& var) const override { return false; }

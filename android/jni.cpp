@@ -569,11 +569,10 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactions)(JNIEnv *env, 
     walletModel->getAsync()->getTransactions();
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, jobject thiz)
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAllUtxosStatus)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "getUtxosStatus()";
-
-    walletModel->getAsync()->getUtxosStatus(beam::Asset::s_BeamID);
+    LOG_DEBUG() << "getAllUtxosStatus()";
+    walletModel->getAsync()->getAllUtxosStatus();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, jobject thiz)
