@@ -27,36 +27,36 @@ export void Method_2(Dummy::TestFarCall& r)
     Vault::Deposit* pR_Heap = (Vault::Deposit*) Env::Heap_Alloc(sizeof(Vault::Deposit));
     _POD_(*pR_Heap) = r_Stack;
 
-    auto* pR = &r_Stack;
+    uint8_t* pR = reinterpret_cast<uint8_t*>(&r_Stack);
 
     switch (r.m_Variant)
     {
     case 1:
-        ((uint8_t*&) pR) += 1000;
+        pR += 1000;
         break;
 
     case 2:
-        ((uint8_t*&) pR) -= 100;
+        pR -= 100;
         break;
 
     case 3:
-        pR = pR_Heap;
+        pR = reinterpret_cast<uint8_t*>(pR_Heap);
         break;
 
     case 4:
-        pR = pR_Heap;
-        ((uint8_t*&) pR) += 16;
+        pR = reinterpret_cast<uint8_t*>(pR_Heap);
+        pR += 16;
         break;
 
     case 5:
-        pR = pR_Heap;
-        ((uint8_t*&) pR)--;
+        pR = reinterpret_cast<uint8_t*>(pR_Heap);
+        pR--;
         break;
 
     case 6:
         {
             static const uint8_t s_pReq[sizeof(Vault::Deposit)] = { 0 };
-            pR = (Vault::Deposit*) s_pReq;
+            pR = Cast::NotConst(s_pReq);
         }
         break;
 
@@ -64,7 +64,7 @@ export void Method_2(Dummy::TestFarCall& r)
         pR = nullptr;
     }
 
-    Env::CallFar_T(Vault::s_CID, *pR);
+    Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR));
 }
 
 export void Method_3(Dummy::MathTest1& r)
