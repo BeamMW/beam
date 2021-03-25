@@ -2794,7 +2794,7 @@ namespace beam::wallet
     std::vector<Coin> WalletDB::getAllNormalCoins() const
     {
         std::vector<Coin> coins;
-        visitCoins([&coins](const Coin& coin) -> bool const {
+        visitCoins([&coins](const Coin& coin) -> bool {
             coins.push_back(coin);
             return true;
         });
