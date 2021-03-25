@@ -412,7 +412,7 @@ namespace beam::wallet
     {
         // reactor should be already stopped here, but just in case
         // this call is unsafe and may result in crash if reactor is not stopped
-        assert(!m_thread && !m_reactor);
+        assert(!m_thread);
         stopReactor();
     }
 
@@ -420,10 +420,10 @@ namespace beam::wallet
     {
         try
         {
-            assert(m_reactor);
-            m_reactor->stop();
             if (isRunning())
             {
+                assert(m_reactor);
+                m_reactor->stop();
                 if (!detachThread)
                 {
                     m_thread->join();
