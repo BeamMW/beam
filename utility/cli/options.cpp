@@ -171,6 +171,7 @@ namespace beam
         const char* PRINT_TXO = "print_txo";
         const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
+        const char* MANUAL_SELECT = "manual_select";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -395,6 +396,7 @@ namespace beam
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
             (cli::PRINT_ROLLBACK_STATS, po::value<bool>()->default_value(false), "Analyze and print recent reverted branches, check if there were double-spends.")
             (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
+            (cli::MANUAL_SELECT, po::value<std::string>(), "Explicit correct block selection at the specified height. Auto-rollback below this height if current branch is different")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")

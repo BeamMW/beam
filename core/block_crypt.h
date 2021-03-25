@@ -106,6 +106,8 @@ namespace beam
 		COMPARISON_VIA_CMP
 	};
 
+	std::ostream& operator << (std::ostream&, const HeightHash&);
+
 	struct Asset
 	{
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
@@ -1446,8 +1448,6 @@ namespace beam
 				& m_Outer;
 		}
 	};
-
-	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
 
 	class TxBase::Context
 	{

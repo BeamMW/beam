@@ -597,7 +597,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
-    auto txParameters = beam::wallet::ParseParameters(JString(env, receiverAddr).value());
+    auto address = JString(env, receiverAddr).value();
+    auto txParameters = beam::wallet::ParseParameters(address);
     if (!txParameters)
     {
         LOG_ERROR() << "Receiver Address is not valid!!!";
@@ -634,7 +635,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     }
 
     auto params = CreateSimpleTransactionParameters();
-    LoadReceiverParams(_txParameters, params);
+    LoadReceiverParams(_txParameters, params, GetAddressType(address));
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)

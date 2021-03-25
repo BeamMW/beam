@@ -2978,9 +2978,11 @@ namespace beam
 		node.PrintTxos();
 
 		NodeProcessor& proc = node.get_Processor();
-		proc.ManualRollbackTo(3);
-		verify_test(proc.m_Cursor.m_ID.m_Height >= 3); // it won't necessarily reach 3
-		verify_test(proc.m_sidForbidden.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
+		Height h0 = proc.m_Cursor.m_Full.m_Height;
+		proc.ManualRollbackTo(h0 - 5);
+		verify_test(proc.m_Cursor.m_ID.m_Height >= h0 - 5); // it can be adjusted up
+		verify_test(proc.m_Cursor.m_Full.m_Height < h0); // some rollback with forbidden state update must take place
+		verify_test(proc.m_ManualSelection.m_Forbidden);
 	}
 
 
@@ -3365,6 +3367,8 @@ void TestAll()
 	beam::TestNodeClientProto();
 
 	{
+		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
 		{
 			// test migration
 			beam::NodeDB db;
@@ -3383,6 +3387,23 @@ void TestAll()
 		beam::Node node;
 		node.m_Cfg.m_sPathLocal = beam::g_sz;
 		node.Initialize();
+
+		auto& p = node.get_Processor();
+
+		beam::Block::SystemState::ID sid;
+		sid.m_Height = 15;
+		sid.m_Hash = beam::Zero;
+
+		p.ManualSelect(sid); // won't go down, can't rollback that deep
+
+		sid.m_Height = p.m_Cursor.m_Full.m_Height;
+		p.get_DB().get_StateHash(p.FindActiveAtStrict(sid.m_Height), sid.m_Hash);
+		p.ManualSelect(sid); // already at correct branch, won't go down
+		verify_test(sid.m_Height == p.m_Cursor.m_Full.m_Height);
+
+		sid.m_Hash.Inv();
+		p.ManualSelect(sid); // should go down
+		verify_test(sid.m_Height > p.m_Cursor.m_Full.m_Height);
 	}
 
 	beam::DeleteFile(beam::g_sz);
