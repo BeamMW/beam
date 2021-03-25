@@ -502,6 +502,27 @@ int main_impl(int argc, char* argv[])
 						node.RefreshCongestions();
 					}
 
+					if (vm.count(cli::MANUAL_SELECT))
+					{
+						node.get_Processor().m_ManualSelection.Reset();
+
+						auto s = vm[cli::MANUAL_SELECT].as<std::string>();
+
+						Block::SystemState::ID sid;
+						auto iPos = s.find('-');
+						if ((s.npos != iPos) && (s.size() > iPos + sid.m_Hash.nTxtLen))
+						{
+							sid.m_Height = std::stoull(s);
+							sid.m_Hash.Scan(&s.front() + iPos + 1);
+
+							node.get_Processor().ManualSelect(sid);
+						}
+						else
+							node.get_Processor().m_ManualSelection.ResetAndSave();
+
+						node.RefreshCongestions();
+					}
+
 					reactor->run();
 				}
 			}

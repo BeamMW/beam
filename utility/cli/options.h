@@ -71,6 +71,7 @@ namespace beam
         extern const char* PRINT_TXO;
         extern const char* PRINT_ROLLBACK_STATS;
         extern const char* MANUAL_ROLLBACK;
+        extern const char* MANUAL_SELECT;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;
