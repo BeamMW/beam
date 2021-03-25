@@ -410,7 +410,7 @@ namespace beam::wallet
 
     WalletClient::~WalletClient()
     {
-        // reactor should be already stopped here, but just in case
+        // reactor thread should be already stopped here, but just in case
         // this call is unsafe and may result in crash if reactor is not stopped
         assert(!m_thread);
         stopReactor();
