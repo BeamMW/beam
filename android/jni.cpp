@@ -635,7 +635,17 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     }
 
     auto params = CreateSimpleTransactionParameters();
-    LoadReceiverParams(_txParameters, params, GetAddressType(address));
+
+    auto type = GetAddressType(address);
+    if (type == TxAddressType::Offline)
+    {
+        // TODO: give an opportunity to send offline transactions
+        // By default since v6.0 offline token triggers regular tx, user needs to be given a choice to
+        // send offline in UI
+        type = TxAddressType::Regular;
+    }
+
+    LoadReceiverParams(_txParameters, params, type);
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
