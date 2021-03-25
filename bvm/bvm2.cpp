@@ -226,6 +226,9 @@ namespace bvm2 {
 
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
+		x.m_StackBytesMax = m_Stack.m_BytesMax;
+		x.m_StackPosMin = m_Stack.m_PosMin;
+
 
 		VarKey vk;
 		SetVarKey(vk);
@@ -1171,10 +1174,6 @@ namespace bvm2 {
 		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
 
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
-
-		auto& x = m_FarCalls.m_Stack.back();
-		x.m_StackBytesMax = m_Stack.m_BytesMax;
-		x.m_StackPosMin = m_Stack.m_PosMin;
 
 		m_Stack.m_PosMin = nCallStackPosMin;
 		m_Stack.m_BytesMax = nCalleeStackMax;
