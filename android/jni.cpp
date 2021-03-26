@@ -584,7 +584,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, job
 
 void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxParameters& input, beam::wallet::TxParameters& dest)
 {
-    beam::wallet::ByteBuffer buf;
+    beam::ByteBuffer buf;
     if (input.GetParameter(paramID, buf))
     {
         dest.SetParameter(paramID, buf);
@@ -619,7 +619,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     _txParameters = *txParameters;
 
-    beam::wallet::PeerID _receiverIdentity = beam::Zero;
+    beam::PeerID _receiverIdentity = beam::Zero;
 
     if (auto peerIdentity = _txParameters.GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); peerIdentity) {
         _receiverIdentity = *peerIdentity;
