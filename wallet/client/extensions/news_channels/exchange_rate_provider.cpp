@@ -136,7 +136,7 @@ namespace beam::wallet
         return true;
     }
 
-    void ExchangeRateProvider::Subscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Subscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -145,7 +145,7 @@ namespace beam::wallet
         if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
-    void ExchangeRateProvider::Unsubscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Unsubscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -154,7 +154,7 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void ExchangeRateProvider::notifySubscribers(const std::vector<ExchangeRate>& rates) const
+    void ExchangeRateProvider::notifySubscribers(const ExchangeRates& rates) const
     {
         for (const auto sub : m_subscribers)
         {

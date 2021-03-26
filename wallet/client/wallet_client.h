@@ -91,7 +91,7 @@ namespace beam::wallet
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private INodeConnectionObserver
-        , private IExchangeRateObserver
+        , private IExchangeRatesObserver
         , private INotificationsObserver
         , private DexBoard::IObserver
     {
@@ -169,7 +169,7 @@ namespace beam::wallet
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
-        void onExchangeRates(const std::vector<ExchangeRate>&) override {}
+        void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

@@ -566,11 +566,11 @@ namespace beam::wallet
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
-                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRateObserver, ExchangeRateProvider>;
+                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
                 auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
                     m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
-                    static_cast<IExchangeRateObserver*>(this), exchangeRateProvider);
+                    static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
                     static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
 

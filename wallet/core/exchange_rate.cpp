@@ -28,6 +28,7 @@ namespace beam::wallet
         return !(*this == other);
     }
 
-    const std::string ExchangeRate::USD = std::string("usd");
-    const std::string ExchangeRate::BTC = std::string("btc");
+    const std::string ExchangeRate::BEAM = std::string("beam");
+    const std::string ExchangeRate::USD  = std::string("usd");
+    const std::string ExchangeRate::BTC  = std::string("btc");
 }

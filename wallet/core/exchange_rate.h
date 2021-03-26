@@ -20,6 +20,7 @@ namespace beam::wallet
 {
     struct ExchangeRate
     {
+        static const std::string BEAM;
         static const std::string USD;
         static const std::string BTC;
 
