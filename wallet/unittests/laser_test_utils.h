@@ -22,6 +22,7 @@
 #include "wallet/laser/mediator.h"
 
 using namespace beam::wallet;
+using namespace beam;
 
 const uint16_t kDefaultTestNodePort = 32125;
 const Height kMaxTestHeight = 180;

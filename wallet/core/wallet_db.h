@@ -568,11 +568,11 @@ namespace beam::wallet
         virtual void saveNotification(const Notification&) = 0;
 
         // Exchange rates management
-        virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
+        virtual ExchangeRates getLatestExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
-        virtual ExchangeRateHistoryEntity getExchangeRateHistoryEntity(std::string from, std::string to, uint64_t height) const = 0;
-        virtual std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
-        virtual void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) = 0;
+        virtual void saveExchangeRate(const ExchangeRateAtPoint&) = 0;
+        virtual ExchangeRateAtPoint getExchangeRateAtPoint(std::string from, std::string to, uint64_t height) const = 0;
+        virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -734,11 +734,11 @@ namespace beam::wallet
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;
         
-        std::vector<ExchangeRate> getExchangeRates() const override;
-        void saveExchangeRate(const ExchangeRate&) override;
-        ExchangeRateHistoryEntity getExchangeRateHistoryEntity(std::string from, std::string to, uint64_t height) const override;
-        std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
-        void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) override;
+        virtual ExchangeRates getLatestExchangeRates() const override;
+        virtual void saveExchangeRate(const ExchangeRate&) override;
+        virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+        virtual ExchangeRateAtPoint getExchangeRateAtPoint(std::string from, std::string to, uint64_t height) const override;
+        virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;

@@ -74,7 +74,7 @@ namespace
 
     bool CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxParameters& input, beam::wallet::TxParameters& dest)
     {
-        beam::wallet::ByteBuffer buf;
+        ByteBuffer buf;
         if (input.GetParameter(paramID, buf))
         {
             dest.SetParameter(paramID, buf);

@@ -4330,7 +4330,7 @@ namespace beam::wallet
         }
     }
 
-    std::vector<ExchangeRate> WalletDB::getExchangeRates() const
+    std::vector<ExchangeRate> WalletDB::getLatestExchangeRates() const
     {
         std::vector<ExchangeRate> res;
         /*const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
@@ -4373,7 +4373,7 @@ namespace beam::wallet
         }*/
     }
 
-    ExchangeRateHistoryEntity WalletDB::getExchangeRateHistoryEntity(
+    ExchangeRateAtPoint WalletDB::getExchangeRateAtPoint(
         std::string from, std::string to, uint64_t height) const
     {
         /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
@@ -4389,13 +4389,13 @@ namespace beam::wallet
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
         }*/
 
-        ExchangeRateHistoryEntity rate;
+        ExchangeRateAtPoint rate(ExchangeRate(), 0);
         return rate;
     }
 
-    std::vector<ExchangeRateHistoryEntity> WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
+    ExchangeRatesHistory WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
     {
-        std::vector<ExchangeRateHistoryEntity> res;
+        ExchangeRatesHistory res;
         /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
         stm.bind(1, endHeight);
@@ -4410,7 +4410,7 @@ namespace beam::wallet
         return res;
     }
 
-    void WalletDB::saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity& rate)
+    void WalletDB::saveExchangeRate(const ExchangeRateAtPoint& rate)
     {
         /*const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, insertReq);
