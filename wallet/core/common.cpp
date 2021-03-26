@@ -922,9 +922,9 @@ namespace beam::wallet
     }
 
     /// Return empty string if exchange rate is not available
-    std::string TxDescription::getAmount(ExchangeRate::Currency target) const
+    std::string TxDescription::getConvertedAmount(std::string targetCurrency) const
     {
-        auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+        /*auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
         {
             std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
@@ -950,7 +950,7 @@ namespace beam::wallet
                     return oss.str();
                 }
             }
-        }
+        }*/
         return "";
     }
 

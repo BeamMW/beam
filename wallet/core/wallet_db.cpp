@@ -4333,7 +4333,7 @@ namespace beam::wallet
     std::vector<ExchangeRate> WalletDB::getExchangeRates() const
     {
         std::vector<ExchangeRate> res;
-        const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
+        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
 
         while (stm.step())
@@ -4341,13 +4341,13 @@ namespace beam::wallet
             auto& rate = res.emplace_back();
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_FIELDS(STM_GET_LIST, NOSEP, rate);
-        }
+        }*/
         return res;
     }
 
     void WalletDB::saveExchangeRate(const ExchangeRate& rate)
     {
-        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE currency=?1 AND unit=?2;";
+        /*const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE currency=?1 AND unit=?2;";
         sqlite::Statement selectStm(this, selectReq);
         selectStm.bind(1, rate.m_currency);
         selectStm.bind(2, rate.m_unit);
@@ -4370,13 +4370,13 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_FIELDS(STM_BIND_LIST, NOSEP, rate);
             stm.step();
-        }
+        }*/
     }
 
     ExchangeRateHistoryEntity WalletDB::getExchangeRateHistoryEntity(
-        ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const
+        std::string from, std::string to, uint64_t height) const
     {
-        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
         stm.bind(1, currency);
         stm.bind(2, unit);
@@ -4387,15 +4387,16 @@ namespace beam::wallet
         {
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
-        }
+        }*/
 
+        ExchangeRateHistoryEntity rate;
         return rate;
     }
 
     std::vector<ExchangeRateHistoryEntity> WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
     {
         std::vector<ExchangeRateHistoryEntity> res;
-        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
+        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
         stm.bind(1, endHeight);
         stm.bind(2, startHeight);
@@ -4405,17 +4406,17 @@ namespace beam::wallet
             auto& rate = res.emplace_back();
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
-        }
+        }*/
         return res;
     }
 
     void WalletDB::saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity& rate)
     {
-        const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
+        /*const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, insertReq);
         int colIdx = 0;
         ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, rate);
-        stm.step();
+        stm.step();*/
     }
 
     boost::optional<ShieldedTxo::Voucher> WalletDB::grabVoucher(const WalletID& peerID)
@@ -6376,8 +6377,8 @@ namespace beam::wallet
                     beam::to_hex(strProof.data(), proof.data(), proof.size());
                 }
 
-                std::string amountInUsd = tx.getAmount(ExchangeRate::Currency::Usd);
-                std::string amountInBtc = tx.getAmount(ExchangeRate::Currency::Bitcoin);
+                std::string amountInUsd = tx.getConvertedAmount(ExchangeRate::USD);
+                std::string amountInBtc = tx.getConvertedAmount(ExchangeRate::BTC);
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type

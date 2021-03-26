@@ -11,23 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "broadcaster.h"
-
 #include "version.h"
-
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/string_helpers.h"
-
 #include "mnemonic/mnemonic.h"
 #include "core/ecc.h"
-
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -123,30 +119,25 @@ bool parseWalletUpdateInfo(const std::string& versionString, const std::string& 
     return true;
 }
 
-bool parseExchangeRateInfo(const std::string& currencyString, const Amount& rate, const std::string& unitString, std::vector<ExchangeRate>& result)
+bool parseExchangeRateInfo(const std::string& from, const std::string& to, const Amount& rate, std::vector<ExchangeRate>& result)
 {
-    auto currency = ExchangeRate::from_string(currencyString);
-    auto unit = ExchangeRate::from_string(unitString);
-    if (rate == 0 ||
-        currency == ExchangeRate::Currency::Unknown ||
-        unit == ExchangeRate::Currency::Unknown)
+    if (!rate)
     {
         return false;
     }
 
-    result = { {currency, unit, rate, getTimestamp()} };
+    result = {{from,  to, rate, getTimestamp()}};
     return true;
 }
 
-ByteBuffer generateExchangeRates(const std::string& currencyString, const Amount& rate, const std::string& unitString)
+ByteBuffer generateExchangeRates(const std::string& from, const std::string& to, const Amount& rate)
 {
     std::vector<ExchangeRate> result;
-    bool res = parseExchangeRateInfo(currencyString, rate, unitString, result);
-    if (!res)
+    if (parseExchangeRateInfo(from, to, rate, result))
     {
-        return ByteBuffer();
+        toByteBuffer(result);
     }
-    return toByteBuffer(result);
+    return ByteBuffer();
 }
 
 namespace
@@ -342,7 +333,7 @@ namespace
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.rate, options.exchangeRate.unit);
+            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.unit, options.exchangeRate.rate);
             contentType = BroadcastContentType::ExchangeRates;
         }
         else
@@ -351,7 +342,7 @@ namespace
             return -1;
         }
 
-        if (rawMessage.size())
+        if (!rawMessage.empty())
         {
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(rawMessage, key);
             broadcastRouter.sendMessage(contentType, msg);

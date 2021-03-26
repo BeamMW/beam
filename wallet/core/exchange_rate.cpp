@@ -16,7 +16,7 @@
 
 namespace beam::wallet
 {
-    std::string ExchangeRate::to_string(const ExchangeRate::Currency& currency)
+    /*std::string ExchangeRate::to_string(const ExchangeRate::Currency& currency)
     {
         switch (currency)
         {
@@ -49,9 +49,9 @@ namespace beam::wallet
             default:
                 return std::string(unknownCurrencyStr);
         }
-    }
+    }*/
 
-    ExchangeRate::Currency ExchangeRate::from_string(const std::string& c)
+    /*ExchangeRate::Currency ExchangeRate::from_string(const std::string& c)
     {
         if (c == beamCurrencyStr)
             return Currency::Beam;
@@ -80,12 +80,12 @@ namespace beam::wallet
             return Currency::Bitcoin_Cash;
 #endif // BITCOIN_CASH_SUPPORT
         else return Currency::Unknown;
-    }
+    }*/
 
     bool ExchangeRate::operator==(const ExchangeRate& other) const
     {
-        return m_currency == other.m_currency
-            && m_unit == other.m_unit
+        return m_from == other.m_from
+            && m_to == other.m_to
             && m_rate == other.m_rate
             && m_updateTime == other.m_updateTime;
     }
@@ -95,4 +95,6 @@ namespace beam::wallet
         return !(*this == other);
     }
 
+    const std::string ExchangeRate::USD = std::string("USD");
+    const std::string ExchangeRate::BTC = std::string("BTC");
 } // namespace beam::wallet

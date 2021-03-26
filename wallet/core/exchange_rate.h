@@ -38,7 +38,9 @@ namespace beam::wallet
 
     struct ExchangeRate
     {
-        enum class Currency : uint32_t
+        static const std::string USD;
+        static const std::string BTC;
+       /* enum class Currency : uint32_t
         {
             Beam,
             Bitcoin,
@@ -54,17 +56,14 @@ namespace beam::wallet
             Bitcoin_Cash,
             Unknown
         };
+       */
     
-        Currency m_currency;
-        Currency m_unit;            // unit of m_rate measurment, e.g. USD or any other currency
-        Amount m_rate;              // value as decimal fixed point. m_rate = 100,000,000 is 1 unit
-        Timestamp m_updateTime;
+        std::string m_from;
+        std::string m_to;
+        Amount      m_rate;
+        Timestamp   m_updateTime;
 
-        SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
-
-        static std::string to_string(const Currency&);
-        static Currency from_string(const std::string&);
-
+        SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         bool operator==(const ExchangeRate& other) const;
         bool operator!=(const ExchangeRate& other) const;
     };
@@ -72,7 +71,7 @@ namespace beam::wallet
     struct ExchangeRateHistoryEntity : public ExchangeRate
     {
         ExchangeRateHistoryEntity() = default;
-        ExchangeRateHistoryEntity(const ExchangeRate& rate) : ExchangeRate(rate) {}
+        explicit ExchangeRateHistoryEntity(const ExchangeRate& rate) : ExchangeRate(rate) {}
         Height m_height = 0;
     };
 
