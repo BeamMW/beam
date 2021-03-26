@@ -158,9 +158,9 @@ namespace
         } walletUpdateInfo;
 
         struct ExchangeRate {
-            std::string currency;
+            std::string  from;
+            std::string  to;
             beam::Amount rate;
-            std::string unit;
         } exchangeRate;
     };
 
@@ -333,7 +333,7 @@ namespace
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.currency, options.exchangeRate.unit, options.exchangeRate.rate);
+            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
             contentType = BroadcastContentType::ExchangeRates;
         }
         else
@@ -403,10 +403,10 @@ int main_impl(int argc, char* argv[])
 #if defined(BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum', 'doge', 'dash', 'ethereum', 'dai', 'usdt', 'wbtc', 'bch'")
 #else
-                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.currency), "currency: 'beam', 'btc', 'ltc', 'qtum', 'doge', 'dash', 'ethereum', 'dai', 'usdt', 'wbtc'")
+                (cli::EXCHANGE_CURR, po::value<std::string>(&options.exchangeRate.from), "currency: 'beam', 'btc', 'ltc', 'qtum', 'doge', 'dash', 'ethereum', 'dai', 'usdt', 'wbtc', and so on")
 #endif // BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
-                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.unit)->default_value("usd"), "unit currency: 'btc', 'usd'")
+                (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.to)->default_value("usd"), "unit currency: 'btc', 'usd'")
             ;
             
             desc.add(messageDesc);
