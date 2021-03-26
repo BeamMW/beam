@@ -202,8 +202,8 @@ namespace fs = std::filesystem;
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
-    each(from,          from,           TEXT NOT NULL,      obj) sep \
-    each(to,            to,             TEXT NOT NULL,      obj) sep \
+    each(cfrom,         from,           TEXT NOT NULL,      obj) sep \
+    each(cto,           to,             TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -211,8 +211,8 @@ namespace fs = std::filesystem;
 
 #define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
     each(height,        height,         INTEGER,            obj) sep \
-    each(from,          from,           TEXT NOT NULL,      obj) sep \
-    each(to,            to,             TEXT NOT NULL,      obj) sep \
+    each(cfrom,         from,           TEXT NOT NULL,      obj) sep \
+    each(cto,           to,             TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -974,7 +974,8 @@ namespace beam::wallet
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 29;
+        const int DbVersion   =30;
+        const int DbVersion29 = 29;
         const int DbVersion28 = 28;
         const int DbVersion27 = 27;
         const int DbVersion26 = 26;
@@ -1312,14 +1313,14 @@ namespace beam::wallet
 
         void CreateExchangeRatesTable(sqlite3* db)
         {
-            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
 
         void CreateExchangeRatesHistoryTable(sqlite3* db)
         {
-            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto, updateTime)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1383,7 +1384,6 @@ namespace beam::wallet
 
         void MigrateAddressesFrom24(WalletDB* walletDB, sqlite3* db, const std::string& tableName)
         {
-
             // move old data to temp table
             if (!IsTableCreated(walletDB, (tableName + "_del").c_str()))
             {
@@ -1450,6 +1450,110 @@ namespace beam::wallet
                     auto addressType = GetAddressType(originalAddress);
                     storage::setTxParameter(*walletDB, txID, TxParameterID::AddressType, addressType, false);
                 }
+            }
+        }
+
+        std::string exchangeCurr29to30(int curr28)
+        {
+            switch(curr28) {
+                case 0: return  "beam";
+                case 1: return  "btc";
+                case 2: return  "ltc";
+                case 3: return  "qtum";
+                case 4: return  "usd";
+                case 5: return  "doge";
+                case 6: return  "dash";
+                case 7: return  "eth";
+                case 8: return  "dai";
+                case 9: return  "usdt";
+                case 10: return "wbtc";
+                case 11: return "bch";
+                default: return "unknown";
+            }
+        }
+
+        void MigrateRatesFrom29 (WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME "_del"))
+            {
+                const char* req = "ALTER TABLE " EXCHANGE_RATES_NAME " RENAME TO " EXCHANGE_RATES_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME))
+            {
+                CreateExchangeRatesTable(db);
+            }
+
+            {
+                const char* req = "SELECT currency, unit, rate, updateTime FROM " EXCHANGE_RATES_NAME "_del;";
+                for (sqlite::Statement stm(walletDB, req); stm.step();)
+                {
+                    ExchangeRate rate;
+
+                    int from29 = 0;
+                    int to29 = 0;
+
+                    stm.get(0, from29);
+                    stm.get(1, to29);
+                    stm.get(2, rate.m_rate);
+                    stm.get(3, rate.m_updateTime);
+
+                    rate.m_from = exchangeCurr29to30(from29);
+                    rate.m_to   = exchangeCurr29to30(to29);
+
+                    walletDB->saveExchangeRate(rate);
+                }
+            }
+
+            {
+                const char* req = "DROP TABLE " EXCHANGE_RATES_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+        }
+
+        void MigrateRatesHistoryFrom29 (WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME "_del"))
+            {
+                const char* req = "ALTER TABLE " EXCHANGE_RATES_HISTORY_NAME " RENAME TO " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_HISTORY_NAME))
+            {
+                CreateExchangeRatesTable(db);
+            }
+
+            {
+                const char* req = "SELECT currency, unit, rate, updateTime, height FROM " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                for (sqlite::Statement stm(walletDB, req); stm.step();)
+                {
+                    ExchangeRateAtPoint rate;
+
+                    int from29 = 0;
+                    int to29 = 0;
+
+                    stm.get(0, from29);
+                    stm.get(1, to29);
+                    stm.get(2, rate.m_rate);
+                    stm.get(3, rate.m_updateTime);
+                    stm.get(4, rate.m_height);
+
+                    rate.m_from = exchangeCurr29to30(from29);
+                    rate.m_to   = exchangeCurr29to30(to29);
+
+                    walletDB->saveExchangeRate(rate);
+                }
+            }
+
+            {
+                const char* req = "DROP TABLE " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
             }
         }
 
@@ -2072,9 +2176,15 @@ namespace beam::wallet
                 case DbVersion28:
                     LOG_INFO() << "Converting DB from format 28...";
                     CreateEventsTable(walletDB->_db);
-
-                    storage::setVar(*walletDB, Version, DbVersion);
                     // no break
+
+                case DbVersion29:
+                    LOG_INFO() << "Converting DB from format 29...";
+                    MigrateRatesFrom29(walletDB.get(), walletDB->_db);
+                    MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
+
+                    // no break
+                    storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
                     CreateTxParamsIndex(walletDB->_db);
@@ -4349,14 +4459,14 @@ namespace beam::wallet
 
     void WalletDB::saveExchangeRate(const ExchangeRate& rate)
     {
-        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE from=?1 AND to=?2;";
+        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE cfrom=?1 AND cto=?2;";
         sqlite::Statement selectStm(this, selectReq);
         selectStm.bind(1, rate.m_from);
         selectStm.bind(2, rate.m_to);
 
         if (selectStm.step())
         {
-            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE from=?3 AND to=?4;";
+            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE cfrom=?3 AND cto=?4;";
             sqlite::Statement updateStm(this, updateReq);
 
             updateStm.bind(1, rate.m_rate);
@@ -4377,7 +4487,7 @@ namespace beam::wallet
 
     boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(std::string from, std::string to, uint64_t maxHeight) const
     {
-        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE from=?1 AND to=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE cfrom=?1 AND cto=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
         stm.bind(1, from);
         stm.bind(2, to);
