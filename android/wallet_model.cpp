@@ -263,7 +263,8 @@ namespace
     {
         jobjectArray ratesArray = 0;
 
-        if (!rates.empty())
+        /* TODO: support new rates
+         * if (!rates.empty())
         {
             ratesArray = env->NewObjectArray(static_cast<jsize>(rates.size()), ExchangeRateClass, NULL);
 
@@ -282,7 +283,7 @@ namespace
 
                 env->DeleteLocalRef(rate);
             }
-        }
+        }*/
         return ratesArray;
     }
 
