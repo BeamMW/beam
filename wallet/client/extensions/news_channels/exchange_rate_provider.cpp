@@ -54,7 +54,7 @@ namespace beam::wallet
         const auto& rates = m_storage.getLatestExchangeRates();
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.from, rate.to);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             m_cache[uniqID] = rate;
         }
     }
@@ -74,10 +74,10 @@ namespace beam::wallet
         std::vector<ExchangeRate> changedRates;
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.from, rate.to);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             const auto storedRateIt = m_cache.find(uniqID);
             if (storedRateIt == std::cend(m_cache)
-            || storedRateIt->second.updateTime < rate.updateTime)
+            || storedRateIt->second.m_updateTime < rate.m_updateTime)
             {
                 m_cache[uniqID] = rate;
                 m_storage.saveExchangeRate(rate);

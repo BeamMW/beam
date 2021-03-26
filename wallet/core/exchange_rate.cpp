@@ -17,10 +17,10 @@ namespace beam::wallet
 {
     bool ExchangeRate::operator==(const ExchangeRate& other) const
     {
-        return from == other.from
-            && to   == other.to
-            && rate == other.rate
-            && updateTime == other.updateTime;
+        return m_from == other.m_from
+            && m_to   == other.m_to
+            && m_rate == other.m_rate
+            && m_updateTime == other.m_updateTime;
     }
 
     bool ExchangeRate::operator!=(const ExchangeRate& other) const

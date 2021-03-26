@@ -202,8 +202,8 @@ namespace fs = std::filesystem;
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
-    each(currency,      currency,       INTEGER,            obj) sep \
-    each(unit,          unit,           INTEGER,            obj) sep \
+    each(from,          from,           TEXT NOT NULL,      obj) sep \
+    each(to,            to,             TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -211,8 +211,8 @@ namespace fs = std::filesystem;
 
 #define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
     each(height,        height,         INTEGER,            obj) sep \
-    each(currency,      currency,       INTEGER,            obj) sep \
-    each(unit,          unit,           INTEGER,            obj) sep \
+    each(from,          from,           TEXT NOT NULL,      obj) sep \
+    each(to,            to,             TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -4332,8 +4332,9 @@ namespace beam::wallet
 
     std::vector<ExchangeRate> WalletDB::getLatestExchangeRates() const
     {
-        std::vector<ExchangeRate> res;
-        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
+        ExchangeRates res;
+
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
 
         while (stm.step())
@@ -4341,26 +4342,27 @@ namespace beam::wallet
             auto& rate = res.emplace_back();
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_FIELDS(STM_GET_LIST, NOSEP, rate);
-        }*/
+        }
+
         return res;
     }
 
     void WalletDB::saveExchangeRate(const ExchangeRate& rate)
     {
-        /*const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE currency=?1 AND unit=?2;";
+        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE from=?1 AND to=?2;";
         sqlite::Statement selectStm(this, selectReq);
-        selectStm.bind(1, rate.m_currency);
-        selectStm.bind(2, rate.m_unit);
+        selectStm.bind(1, rate.m_from);
+        selectStm.bind(2, rate.m_to);
 
         if (selectStm.step())
         {
-            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE currency=?3 AND unit=?4;";
+            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE from=?3 AND to=?4;";
             sqlite::Statement updateStm(this, updateReq);
 
             updateStm.bind(1, rate.m_rate);
             updateStm.bind(2, rate.m_updateTime);
-            updateStm.bind(3, rate.m_currency);
-            updateStm.bind(4, rate.m_unit);
+            updateStm.bind(3, rate.m_from);
+            updateStm.bind(4, rate.m_to);
             updateStm.step();
         }
         else
@@ -4370,12 +4372,12 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_FIELDS(STM_BIND_LIST, NOSEP, rate);
             stm.step();
-        }*/
+        }
     }
 
     boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(std::string from, std::string to, uint64_t maxHeight) const
     {
-        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE from=?1 AND to=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE from=?1 AND to=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
         stm.bind(1, from);
         stm.bind(2, to);
@@ -4387,7 +4389,7 @@ namespace beam::wallet
             ExchangeRateAtPoint rate;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
             return rate;
-        }*/
+        }
 
         return boost::none;
     }
@@ -4396,7 +4398,7 @@ namespace beam::wallet
     {
         ExchangeRatesHistory res;
 
-        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
         stm.bind(1, endHeight);
         stm.bind(2, startHeight);
@@ -4406,18 +4408,18 @@ namespace beam::wallet
             auto& rate = res.emplace_back();
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
-        }*/
+        }
 
         return res;
     }
 
     void WalletDB::saveExchangeRate(const ExchangeRateAtPoint& rate)
     {
-        /*const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
+        const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, insertReq);
         int colIdx = 0;
         ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, rate);
-        stm.step();*/
+        stm.step();
     }
 
     boost::optional<ShieldedTxo::Voucher> WalletDB::grabVoucher(const WalletID& peerID)

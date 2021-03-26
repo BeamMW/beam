@@ -155,18 +155,18 @@ public:
             auto it = std::find_if(
                 _ratesCache.begin(), _ratesCache.end(),
                 [toCurrency, height] (const wallet::ExchangeRateAtPoint& rate) {
-                    return rate.from == wallet::ExchangeRate::BEAM
-                        && rate.to == toCurrency
-                        && rate.height <= height;
+                    return rate.m_from == wallet::ExchangeRate::BEAM
+                        && rate.m_to == toCurrency
+                        && rate.m_height <= height;
                 });
             return it != _ratesCache.end()
-                ? std::to_string(wallet::PrintableAmount(it->rate, true))
+                ? std::to_string(wallet::PrintableAmount(it->m_rate, true))
                 : "-";
         }
         else
         {
             const auto rate = _walletDB->getExchangeRateNearPoint(wallet::ExchangeRate::BEAM, toCurrency, height);
-            return rate ? std::to_string(wallet::PrintableAmount(rate->rate, true)) : "-";
+            return rate ? std::to_string(wallet::PrintableAmount(rate->m_rate, true)) : "-";
         }
     }
 
@@ -186,7 +186,7 @@ public:
             wallet::ExchangeRate::BTC,
             startHeight);
 
-        auto minHeight = std::min(btcFirstRate ? btcFirstRate->height : 0, usdFirstRate ? usdFirstRate->height : 0);
+        auto minHeight = std::min(btcFirstRate ? btcFirstRate->m_height : 0, usdFirstRate ? usdFirstRate->m_height : 0);
         _ratesCache = _walletDB->getExchangeRatesHistory(minHeight, endHeight);
     }
 

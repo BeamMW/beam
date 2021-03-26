@@ -24,12 +24,12 @@ namespace beam::wallet
         static const std::string USD;
         static const std::string BTC;
 
-        std::string from;
-        std::string to;
-        Amount      rate = 0;
-        Timestamp   updateTime = 0;
+        std::string m_from;
+        std::string m_to;
+        Amount      m_rate = 0;
+        Timestamp   m_updateTime = 0;
 
-        SERIALIZE(from, to, rate, updateTime);
+        SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         bool operator==(const ExchangeRate& other) const;
         bool operator!=(const ExchangeRate& other) const;
     };
@@ -40,10 +40,10 @@ namespace beam::wallet
     {
         explicit ExchangeRateAtPoint(const ExchangeRate& rate = ExchangeRate(), Height h = 0)
             : ExchangeRate(rate)
-            , height(h)
+            , m_height(h)
         {
         }
-        Height height = 0;
+        Height m_height = 0;
     };
 
     typedef std::vector<ExchangeRateAtPoint> ExchangeRatesHistory;
