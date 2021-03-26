@@ -38,7 +38,7 @@ namespace beam::wallet
 
     struct ExchangeRateAtPoint: public ExchangeRate
     {
-        explicit ExchangeRateAtPoint(const ExchangeRate& rate, Height h)
+        explicit ExchangeRateAtPoint(const ExchangeRate& rate = ExchangeRate(), Height h = 0)
             : ExchangeRate(rate)
             , height(h)
         {

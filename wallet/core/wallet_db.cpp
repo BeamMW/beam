@@ -4373,29 +4373,29 @@ namespace beam::wallet
         }*/
     }
 
-    ExchangeRateAtPoint WalletDB::getExchangeRateAtPoint(
-        std::string from, std::string to, uint64_t height) const
+    boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(std::string from, std::string to, uint64_t maxHeight) const
     {
-        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE from=?1 AND to=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
-        stm.bind(1, currency);
-        stm.bind(2, unit);
-        stm.bind(3, height);
+        stm.bind(1, from);
+        stm.bind(2, to);
+        stm.bind(3, maxHeight);
 
-        ExchangeRateHistoryEntity rate;
         while (stm.step())
         {
             int colIdx = 0;
+            ExchangeRateAtPoint rate;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
+            return rate;
         }*/
 
-        ExchangeRateAtPoint rate(ExchangeRate(), 0);
-        return rate;
+        return boost::none;
     }
 
     ExchangeRatesHistory WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
     {
         ExchangeRatesHistory res;
+
         /*const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
         stm.bind(1, endHeight);
@@ -4407,6 +4407,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
         }*/
+
         return res;
     }
 

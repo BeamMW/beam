@@ -42,7 +42,7 @@ namespace beam::wallet
             }
             else
             {
-                //m_cache.clear();
+                m_cache.clear();
             }
 
             m_isEnabled = isEnabled;
@@ -51,33 +51,33 @@ namespace beam::wallet
 
     void ExchangeRateProvider::loadRatesToCache()
     {
-       // const auto& rates = m_storage.getExchangeRates();
-       // for (const auto& rate : rates)
+        const auto& rates = m_storage.getLatestExchangeRates();
+        for (const auto& rate : rates)
         {
-            //const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
-            //m_cache[uniqID] = rate;
+            const auto uniqID = std::make_pair(rate.from, rate.to);
+            m_cache[uniqID] = rate;
         }
     }
 
     std::vector<ExchangeRate> ExchangeRateProvider::getRates()
     {
         std::vector<ExchangeRate> rates; 
-       // for (const auto& r : m_cache)
-   //     {
-      //      rates.push_back(r.second);
-      //  }
+        for (const auto& r : m_cache)
+        {
+            rates.push_back(r.second);
+        }
         return rates;
     }
 
     void ExchangeRateProvider::processRates(const std::vector<ExchangeRate>& rates)
     {
         std::vector<ExchangeRate> changedRates;
-        /*for (const auto& rate : rates)
+        for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            const auto uniqID = std::make_pair(rate.from, rate.to);
             const auto storedRateIt = m_cache.find(uniqID);
             if (storedRateIt == std::cend(m_cache)
-            || storedRateIt->second.m_updateTime < rate.m_updateTime)
+            || storedRateIt->second.updateTime < rate.updateTime)
             {
                 m_cache[uniqID] = rate;
                 m_storage.saveExchangeRate(rate);
@@ -87,7 +87,7 @@ namespace beam::wallet
         if (!changedRates.empty())
         {
             notifySubscribers(changedRates);
-        }*/
+        }
     }
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)

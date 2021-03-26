@@ -47,12 +47,11 @@ namespace beam::wallet
         void processRates(const ExchangeRates& rates);
         void notifySubscribers(const ExchangeRates&) const;
 
-        bool m_isEnabled;                           /// Shows if provider is working or turned OFF
+        bool m_isEnabled;
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
         IWalletDB& m_storage;
         std::vector<IExchangeRatesObserver*> m_subscribers;
-        //std::map<std::pair<ExchangeRate::Currency,ExchangeRate::Currency>,
-          //       ExchangeRate> m_cache;
+        std::map<std::pair<std::string, std::string>, ExchangeRate> m_cache;
     };
 } // namespace beam::wallet
