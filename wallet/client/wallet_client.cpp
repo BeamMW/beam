@@ -801,7 +801,7 @@ namespace beam::wallet
                     {
                         m_walletDB->setTxParameter(tx.m_txId,
                             kDefaultSubTxID,
-                            TxParameterID::ExchangeRates,
+                            TxParameterID::ExchangeRates1,
                             toByteBuffer(p->getRates()),
                             false);
                     }

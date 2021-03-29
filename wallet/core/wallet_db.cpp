@@ -1453,9 +1453,22 @@ namespace beam::wallet
             }
         }
 
-        Currency exchangeCurr29to30(int curr28)
+        struct ExchangeRate29
         {
-            switch(curr28) {
+            enum class CurrType: uint32_t
+            {};
+
+            CurrType    m_from = CurrType(0);
+            CurrType    m_to   = CurrType(0);
+            Amount      m_rate = 0;
+            Timestamp   m_updateTime = 0;
+            SERIALIZE(m_from, m_to, m_rate, m_updateTime);
+        };
+
+
+        Currency exchangeCurr29to30(ExchangeRate29::CurrType curr29)
+        {
+            switch(static_cast<uint32_t>(curr29)) {
                 case 0: return  Currency::BEAM;
                 case 1: return  Currency::BEAM;
                 case 2: return  Currency::LTC;
@@ -1492,8 +1505,8 @@ namespace beam::wallet
                 {
                     ExchangeRate rate;
 
-                    int from29 = 0;
-                    int to29 = 0;
+                    ExchangeRate29::CurrType from29;
+                    ExchangeRate29::CurrType to29;
 
                     stm.get(0, from29);
                     stm.get(1, to29);
@@ -1516,7 +1529,7 @@ namespace beam::wallet
 
         void MigrateRatesHistoryFrom29 (WalletDB* walletDB, sqlite3* db)
         {
-            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME "_del"))
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_HISTORY_NAME "_del"))
             {
                 const char* req = "ALTER TABLE " EXCHANGE_RATES_HISTORY_NAME " RENAME TO " EXCHANGE_RATES_HISTORY_NAME "_del;";
                 int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
@@ -1525,7 +1538,7 @@ namespace beam::wallet
 
             if (!IsTableCreated(walletDB, EXCHANGE_RATES_HISTORY_NAME))
             {
-                CreateExchangeRatesTable(db);
+                CreateExchangeRatesHistoryTable(db);
             }
 
             {
@@ -1534,8 +1547,8 @@ namespace beam::wallet
                 {
                     ExchangeRateAtPoint rate;
 
-                    int from29 = 0;
-                    int to29 = 0;
+                    ExchangeRate29::CurrType from29;
+                    ExchangeRate29::CurrType to29;
 
                     stm.get(0, from29);
                     stm.get(1, to29);
@@ -1554,6 +1567,53 @@ namespace beam::wallet
                 const char* req = "DROP TABLE " EXCHANGE_RATES_HISTORY_NAME "_del;";
                 int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, db);
+            }
+        }
+
+        void MigrateTxRatesFrom29to30(WalletDB* walletDB, sqlite3* db)
+        {
+            struct UpdateInfo
+            {
+                TxID txID = TxID();
+                uint64_t subTxID = kDefaultSubTxID;
+                std::vector<ExchangeRate> rates;
+            };
+
+            std::vector<UpdateInfo> updates;
+
+            sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, subTxID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1;");
+            stm.bind(1, TxParameterID::ExchangeRates1);
+            while (stm.step())
+            {
+                UpdateInfo update;
+                ByteBuffer buffer;
+
+                stm.get(0, update.txID);
+                stm.get(1, update.subTxID);
+                stm.get(2, buffer);
+
+                std::vector<ExchangeRate29> rates29;
+                if (fromByteBuffer(buffer, rates29))
+                {
+                    for (const auto& rate29: rates29)
+                    {
+                        ExchangeRate rate30;
+                        rate30.m_from       = exchangeCurr29to30(rate29.m_from);
+                        rate30.m_to         = exchangeCurr29to30(rate29.m_to);
+                        rate30.m_rate       = rate29.m_rate;
+                        rate30.m_updateTime = rate29.m_updateTime;
+                        update.rates.push_back(rate30);
+                    }
+                }
+                else
+                {
+                    throw std::runtime_error("MigrateTxRatesFrom29to30 - failed to read v29 rates vector");
+                }
+            }
+
+            for (const auto& update: updates)
+            {
+                storage::setTxParameter(*walletDB, update.txID, update.subTxID, TxParameterID::ExchangeRates1, update.rates, false);
             }
         }
 
@@ -2182,6 +2242,7 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 29...";
                     MigrateRatesFrom29(walletDB.get(), walletDB->_db);
                     MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
+                    MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
 
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);

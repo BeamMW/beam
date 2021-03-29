@@ -320,7 +320,7 @@ namespace beam::wallet
     MACRO(PeerLockImage,                   115, Hash::Value) \
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
-    MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
+    MACRO(ExchangeRates1,                  120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
     MACRO(ShieldedOutputId,                122, TxoID) \

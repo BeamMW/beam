@@ -16,8 +16,10 @@
 #include <boost/serialization/strong_typedef.hpp>
 #include <string>
 
-namespace beam::wallet {
-    struct Currency {
+namespace beam::wallet
+{
+    struct Currency
+    {
         explicit Currency(std::string val):
             m_value(std::move(val))
         {
@@ -32,6 +34,11 @@ namespace beam::wallet {
         bool operator == (const Currency& rhs) const
         {
             return m_value == rhs.m_value;
+        }
+
+        bool operator != (const Currency& rhs) const
+        {
+            return !operator==(rhs);
         }
 
         bool operator < (const Currency& rhs) const
