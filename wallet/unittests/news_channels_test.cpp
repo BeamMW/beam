@@ -255,7 +255,7 @@ namespace
             1234
             };
 
-        std::vector<ExchangeRate> rates {{ ExchangeRate::BEAM, ExchangeRate::USD, 147852369, getTimestamp() }};
+        std::vector<ExchangeRate> rates {{ Currency::BEAM, Currency::USD, 147852369, getTimestamp() }};
         const auto& [pk, sk] = deriveKeypair(storage, 321);
         BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
         BroadcastMsg msgWV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
@@ -366,7 +366,7 @@ namespace
             WALLET_CHECK(rateProvider.getRates().empty());
         }
 
-        const std::vector<ExchangeRate> rate {{ExchangeRate::BEAM, ExchangeRate::USD, 147852369, getTimestamp()}};
+        const std::vector<ExchangeRate> rate {{Currency::BEAM, Currency::USD, 147852369, getTimestamp()}};
         // add rate
         {
             cout << "Case: add rates" << endl;
@@ -380,7 +380,7 @@ namespace
         // update rate
         {
             cout << "Case: not update if rates older" << endl;
-            const std::vector<ExchangeRate> rateOlder {{ ExchangeRate::BEAM, ExchangeRate::USD, 14785238554, getTimestamp()-100 }};
+            const std::vector<ExchangeRate> rateOlder {{ Currency::BEAM, Currency::USD, 14785238554, getTimestamp()-100 }};
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateOlder), sk);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
 
@@ -388,7 +388,7 @@ namespace
             WALLET_CHECK(testRates.size() == 1);
             WALLET_CHECK(testRates[0] == rate[0]);
         }
-        const std::vector<ExchangeRate> rateNewer {{ ExchangeRate::BEAM, ExchangeRate::USD, 14785238554, getTimestamp()+100 }};
+        const std::vector<ExchangeRate> rateNewer {{ Currency::BEAM, Currency::USD, 14785238554, getTimestamp()+100 }};
         {
             cout << "Case: update rates" << endl;
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateNewer), sk);
@@ -401,7 +401,7 @@ namespace
         // add more rate
         {
             cout << "Case: add more rates" << endl;
-            const std::vector<ExchangeRate> rateAdded {{ ExchangeRate::BEAM, ExchangeRate::BTC, 987, getTimestamp()+100 }};
+            const std::vector<ExchangeRate> rateAdded {{ Currency::BEAM, Currency::BTC, 987, getTimestamp()+100 }};
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateAdded), sk);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
 

@@ -126,7 +126,7 @@ bool parseExchangeRateInfo(const std::string& from, const std::string& to, const
         return false;
     }
 
-    result = {{from,  to, rate, getTimestamp()}};
+    result = {{Currency(from),  Currency(to), rate, getTimestamp()}};
     return true;
 }
 

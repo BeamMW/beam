@@ -202,8 +202,8 @@ namespace fs = std::filesystem;
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
-    each(cfrom,         from,           TEXT NOT NULL,      obj) sep \
-    each(cto,           to,             TEXT NOT NULL,      obj) sep \
+    each(cfrom,         from.m_value,   TEXT NOT NULL,      obj) sep \
+    each(cto,           to.m_value,     TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -211,8 +211,8 @@ namespace fs = std::filesystem;
 
 #define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
     each(height,        height,         INTEGER,            obj) sep \
-    each(cfrom,         from,           TEXT NOT NULL,      obj) sep \
-    each(cto,           to,             TEXT NOT NULL,      obj) sep \
+    each(cfrom,         from.m_value,   TEXT NOT NULL,      obj) sep \
+    each(cto,           to.m_value,     TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -1453,22 +1453,22 @@ namespace beam::wallet
             }
         }
 
-        std::string exchangeCurr29to30(int curr28)
+        Currency exchangeCurr29to30(int curr28)
         {
             switch(curr28) {
-                case 0: return  "beam";
-                case 1: return  "btc";
-                case 2: return  "ltc";
-                case 3: return  "qtum";
-                case 4: return  "usd";
-                case 5: return  "doge";
-                case 6: return  "dash";
-                case 7: return  "eth";
-                case 8: return  "dai";
-                case 9: return  "usdt";
-                case 10: return "wbtc";
-                case 11: return "bch";
-                default: return "unknown";
+                case 0: return  Currency::BEAM;
+                case 1: return  Currency::BEAM;
+                case 2: return  Currency::LTC;
+                case 3: return  Currency::QTUM;
+                case 4: return  Currency::USD;
+                case 5: return  Currency::DOGE;
+                case 6: return  Currency::DASH;
+                case 7: return  Currency::ETH;
+                case 8: return  Currency::DAI;
+                case 9: return  Currency::USDT;
+                case 10: return Currency::WBTC;
+                case 11: return Currency::BCH;
+                default: return Currency::UNKNOWN;
             }
         }
 
@@ -4461,8 +4461,8 @@ namespace beam::wallet
     {
         const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE cfrom=?1 AND cto=?2;";
         sqlite::Statement selectStm(this, selectReq);
-        selectStm.bind(1, rate.m_from);
-        selectStm.bind(2, rate.m_to);
+        selectStm.bind(1, rate.m_from.m_value);
+        selectStm.bind(2, rate.m_to.m_value);
 
         if (selectStm.step())
         {
@@ -4471,8 +4471,8 @@ namespace beam::wallet
 
             updateStm.bind(1, rate.m_rate);
             updateStm.bind(2, rate.m_updateTime);
-            updateStm.bind(3, rate.m_from);
-            updateStm.bind(4, rate.m_to);
+            updateStm.bind(3, rate.m_from.m_value);
+            updateStm.bind(4, rate.m_to.m_value);
             updateStm.step();
         }
         else
@@ -4485,12 +4485,12 @@ namespace beam::wallet
         }
     }
 
-    boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(std::string from, std::string to, uint64_t maxHeight) const
+    boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const
     {
         const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE cfrom=?1 AND cto=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
-        stm.bind(1, from);
-        stm.bind(2, to);
+        stm.bind(1, from.m_value);
+        stm.bind(2, to.m_value);
         stm.bind(3, maxHeight);
 
         while (stm.step())
@@ -6490,8 +6490,8 @@ namespace beam::wallet
                     beam::to_hex(strProof.data(), proof.data(), proof.size());
                 }
 
-                std::string amountInUsd = tx.getConvertedAmount(ExchangeRate::USD);
-                std::string amountInBtc = tx.getConvertedAmount(ExchangeRate::BTC);
+                std::string amountInUsd = tx.getConvertedAmount(Currency::USD);
+                std::string amountInBtc = tx.getConvertedAmount(Currency::BTC);
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type

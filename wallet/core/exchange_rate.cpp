@@ -13,22 +13,17 @@
 // limitations under the License.
 #include "exchange_rate.h"
 
-namespace beam::wallet
-{
-    bool ExchangeRate::operator==(const ExchangeRate& other) const
+namespace beam::wallet {
+    bool ExchangeRate::operator==(const ExchangeRate &other) const
     {
         return m_from == other.m_from
-            && m_to   == other.m_to
-            && m_rate == other.m_rate
-            && m_updateTime == other.m_updateTime;
+               && m_to == other.m_to
+               && m_rate == other.m_rate
+               && m_updateTime == other.m_updateTime;
     }
 
-    bool ExchangeRate::operator!=(const ExchangeRate& other) const
+    bool ExchangeRate::operator!=(const ExchangeRate &other) const
     {
         return !(*this == other);
     }
-
-    const std::string ExchangeRate::BEAM = std::string("beam");
-    const std::string ExchangeRate::USD  = std::string("usd");
-    const std::string ExchangeRate::BTC  = std::string("btc");
 }

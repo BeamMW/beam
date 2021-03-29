@@ -148,14 +148,14 @@ public:
 
     virtual ~ExchangeRateProvider() = default;
 
-    std::string getBeamTo(const std::string& toCurrency, uint64_t height)
+    std::string getBeamTo(const wallet::Currency& toCurrency, uint64_t height)
     {
         if (height >= _preloadStartHeight && height <= _preloadEndHeight)
         {
             auto it = std::find_if(
                 _ratesCache.begin(), _ratesCache.end(),
                 [toCurrency, height] (const wallet::ExchangeRateAtPoint& rate) {
-                    return rate.m_from == wallet::ExchangeRate::BEAM
+                    return rate.m_from == wallet::Currency::BEAM
                         && rate.m_to == toCurrency
                         && rate.m_height <= height;
                 });
@@ -165,7 +165,7 @@ public:
         }
         else
         {
-            const auto rate = _walletDB->getExchangeRateNearPoint(wallet::ExchangeRate::BEAM, toCurrency, height);
+            const auto rate = _walletDB->getExchangeRateNearPoint(wallet::Currency::BEAM, toCurrency, height);
             return rate ? std::to_string(wallet::PrintableAmount(rate->m_rate, true)) : "-";
         }
     }
@@ -177,13 +177,13 @@ public:
         _preloadEndHeight = endHeight;
 
         const auto btcFirstRate = _walletDB->getExchangeRateNearPoint(
-            wallet::ExchangeRate::BEAM,
-            wallet::ExchangeRate::BTC,
+            wallet::Currency::BEAM,
+            wallet::Currency::BTC,
             startHeight);
 
         const auto usdFirstRate = _walletDB->getExchangeRateNearPoint(
-            wallet::ExchangeRate::BEAM,
-            wallet::ExchangeRate::BTC,
+            wallet::Currency::BEAM,
+            wallet::Currency::BTC,
             startHeight);
 
         auto minHeight = std::min(btcFirstRate ? btcFirstRate->m_height : 0, usdFirstRate ? usdFirstRate->m_height : 0);
@@ -703,8 +703,8 @@ private:
                 }
             }
 
-            auto btcRate = _exchangeRateProvider->getBeamTo(wallet::ExchangeRate::BTC, blockState.m_Height);
-            auto usdRate = _exchangeRateProvider->getBeamTo(wallet::ExchangeRate::USD, blockState.m_Height);
+            auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC, blockState.m_Height);
+            auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD, blockState.m_Height);
 
             out = json{
                 {"found",      true},

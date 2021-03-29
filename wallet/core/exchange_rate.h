@@ -15,17 +15,14 @@
 
 #include "utility/common.h"
 #include "utility/serialize_fwd.h"
+#include "currency.h"
 
 namespace beam::wallet
 {
     struct ExchangeRate
     {
-        static const std::string BEAM;
-        static const std::string USD;
-        static const std::string BTC;
-
-        std::string m_from;
-        std::string m_to;
+        Currency    m_from = Currency::UNKNOWN;
+        Currency    m_to   = Currency::UNKNOWN;
         Amount      m_rate = 0;
         Timestamp   m_updateTime = 0;
 
@@ -35,7 +32,6 @@ namespace beam::wallet
     };
 
     typedef std::vector<ExchangeRate> ExchangeRates;
-
     struct ExchangeRateAtPoint: public ExchangeRate
     {
         explicit ExchangeRateAtPoint(const ExchangeRate& rate = ExchangeRate(), Height h = 0)

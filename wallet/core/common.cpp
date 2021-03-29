@@ -922,7 +922,7 @@ namespace beam::wallet
     }
 
     /// Return empty string if exchange rate is not available
-    std::string TxDescription::getConvertedAmount(std::string targetCurrency) const
+    std::string TxDescription::getConvertedAmount(const Currency& targetCurrency) const
     {
         /*auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)

@@ -20,6 +20,7 @@ target_sources(wallet
         bbs_miner.cpp
         version.cpp
         exchange_rate.cpp
+        currency.cpp
         assets_utils.cpp
         dex.cpp
     PUBLIC

@@ -52,6 +52,6 @@ namespace beam::wallet
         BroadcastMsgValidator& m_validator;
         IWalletDB& m_storage;
         std::vector<IExchangeRatesObserver*> m_subscribers;
-        std::map<std::pair<std::string, std::string>, ExchangeRate> m_cache;
+        std::map<std::pair<Currency, Currency>, ExchangeRate> m_cache;
     };
 } // namespace beam::wallet
