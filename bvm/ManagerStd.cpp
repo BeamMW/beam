@@ -60,7 +60,8 @@ namespace bvm2 {
 		auto& r = *m_pRequest;
 
 		r.m_Consumed = 0;
-		if (r.m_Res.m_Result.empty())
+		r.m_Buf = std::move(r.m_Res.m_Result);
+		if (r.m_Buf.empty())
 			r.m_Res.m_bMore = 0;
 
 		get_ParentObj().Unfreeze();
@@ -87,22 +88,22 @@ namespace bvm2 {
 			return false; // enum was not called
 		auto& r = *m_VarsRead.m_pRequest;
 
-		if (r.m_Consumed == r.m_Res.m_Result.size())
+		if (r.m_Consumed == r.m_Buf.size())
 		{
 			m_VarsRead.Abort();
 			return false;
 		}
 
-		auto* pBuf = &r.m_Res.m_Result.front();
+		auto* pBuf = &r.m_Buf.front();
 
 		Deserializer der;
-		der.reset(pBuf + r.m_Consumed, r.m_Res.m_Result.size() - r.m_Consumed);
+		der.reset(pBuf + r.m_Consumed, r.m_Buf.size() - r.m_Consumed);
 
 		der
 			& key.n
 			& val.n;
 
-		r.m_Consumed = r.m_Res.m_Result.size() - der.bytes_left();
+		r.m_Consumed = r.m_Buf.size() - der.bytes_left();
 
 		uint32_t nTotal = key.n + val.n;
 		Wasm::Test(nTotal >= key.n); // no overflow
@@ -114,10 +115,9 @@ namespace bvm2 {
 		val.p = pBuf + r.m_Consumed;
 		r.m_Consumed += val.n;
 
-		if ((r.m_Consumed == r.m_Res.m_Result.size()) && r.m_Res.m_bMore)
+		if ((r.m_Consumed == r.m_Buf.size()) && r.m_Res.m_bMore)
 		{
 			r.m_Res.m_bMore = false;
-			r.m_Res.m_Result.clear();
 
 			// ask for more
 			key.Export(r.m_Msg.m_KeyMin);
