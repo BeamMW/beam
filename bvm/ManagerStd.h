@@ -90,6 +90,7 @@ namespace bvm2 {
 				virtual ~Request() {}
 
 				size_t m_Consumed;
+				ByteBuffer m_Buf;
 			};
 
 			Request::Ptr m_pRequest;
