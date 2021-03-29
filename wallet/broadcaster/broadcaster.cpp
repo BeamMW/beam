@@ -135,7 +135,7 @@ ByteBuffer generateExchangeRates(const std::string& from, const std::string& to,
     std::vector<ExchangeRate> result;
     if (parseExchangeRateInfo(from, to, rate, result))
     {
-        toByteBuffer(result);
+        return toByteBuffer(result);
     }
     return ByteBuffer();
 }
