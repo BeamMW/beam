@@ -19,7 +19,7 @@ endif()
 
 add_library(pow STATIC ${POW_SRC})
 
-target_compile_definitions(pow PRIVATE ENABLE_MINING)
+target_compile_definitions(pow PUBLIC ENABLE_MINING)
 
 target_link_libraries(pow 
     PRIVATE
