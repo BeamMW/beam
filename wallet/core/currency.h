@@ -15,6 +15,7 @@
 
 #include <string>
 #include "utility/serialize_fwd.h"
+#include "core/block_crypt.h"
 
 namespace beam::wallet
 {
@@ -24,6 +25,8 @@ namespace beam::wallet
             : m_value(val)
         {
         }
+
+        explicit Currency(beam::Asset::ID assetId);
 
         Currency(const Currency& rhs)
             : m_value(rhs.m_value)

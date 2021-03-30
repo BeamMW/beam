@@ -14,6 +14,20 @@
 #include "currency.h"
 
 namespace beam::wallet {
+
+    Currency::Currency(beam::Asset::ID assetId)
+    {
+        if (assetId == beam::Asset::s_BeamID)
+        {
+            m_value = Currency::BEAM().m_value;
+            return;
+        }
+
+        std::stringstream ss;
+        ss << "asset_" << assetId;
+        m_value = ss.str();
+    }
+
     const Currency& Currency::BEAM() {
         static const Currency beam("beam");
         return beam;
