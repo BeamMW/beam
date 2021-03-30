@@ -1470,7 +1470,7 @@ namespace beam::wallet
         {
             switch(static_cast<uint32_t>(curr29)) {
                 case 0: return  Currency::BEAM();
-                case 1: return  Currency::BEAM();
+                case 1: return  Currency::BTC();
                 case 2: return  Currency::LTC();
                 case 3: return  Currency::QTUM();
                 case 4: return  Currency::USD();
