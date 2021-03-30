@@ -131,6 +131,8 @@ namespace beam::wallet
         // that no virtual function calls below will result in purecall
         void stopReactor(bool detachThread = false);
 
+        IWalletDB::Ptr getWalletDB();
+
         // use this function to post function call to client's main loop
         using MessageFunction = std::function<void()>;
         void postFunctionToClientContext(MessageFunction&& func);
