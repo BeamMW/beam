@@ -92,6 +92,12 @@ public:
     using Callback = std::function<void()>;
     using WeakPtr = std::weak_ptr<WalletClient2>;
 
+    struct ICallbackHandler
+    {
+        virtual void OnSyncProgress(int done, int total) {}
+        virtual void OnResult(const json&) {}
+    };
+
     using WalletClient::WalletClient;
 
     virtual ~WalletClient2()
@@ -99,51 +105,20 @@ public:
         stopReactor(true);
     }
 
-    uint32_t AddCallback(val&& callback)
+    void SetHandler(ICallbackHandler* cb)
     {
-        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
-        {
-            auto& cb = m_Callbacks[i];
-            if (cb.isNull())
-            {
-                cb = std::move(callback);
-                return i;
-            }
-        }
-        m_Callbacks.push_back(std::move(callback));
-        return static_cast<uint32_t>(m_Callbacks.size()-1);
-    }
-
-    void RemoveCallback(uint32_t key)
-    {
-        if (key == m_Callbacks.size() - 1)
-        {
-            m_Callbacks.pop_back();
-        }
-        else if (key < m_Callbacks.size() - 1)
-        {
-            m_Callbacks[key] = val::null();
-        }
+        m_CbHandler = cb;
     }
 
     void SendResult(const json& result)
     {
         postFunctionToClientContext([this, result]()
         {
-            auto r = result.dump();
-            for (auto& cb : m_Callbacks)
+            if (m_CbHandler)
             {
-                if (!cb.isNull())
-                {
-                    cb(r);
-                }
+                m_CbHandler->OnResult(result);
             }
         });
-    }
-
-    void SetSyncHandler(val handler)
-    {
-        m_SyncHandler = std::make_unique<val>(handler);
     }
 
     void Stop(Callback&& handler)
@@ -162,9 +137,9 @@ private:
     {
         postFunctionToClientContext([this, done, total]()
         {
-            if (m_SyncHandler && !m_SyncHandler->isNull())
+            if (m_CbHandler)
             {
-                (*m_SyncHandler)(done, total);
+                m_CbHandler->OnSyncProgress(done, total);
             }
         });
     }
@@ -215,13 +190,14 @@ private:
 private:
     std::mutex m_Mutex;
     std::queue<MessageFunction> m_Messages;
-    std::vector<val> m_Callbacks;
-    std::unique_ptr<val> m_SyncHandler;
+    ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
     IWalletApi::Ptr m_WalletApi;
 };
 
-class WasmWalletClient : public IWalletApiHandler
+class WasmWalletClient 
+    : public IWalletApiHandler
+    , private WalletClient2::ICallbackHandler
 {
 public:
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
@@ -237,19 +213,51 @@ public:
         m_Client->SendResult(result);
     }
 
-    int Subscribe(val callback)
+    uint32_t AddCallback(val&& callback)
     {
-        return m_Client->AddCallback(std::move(callback));
+        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
+        {
+            auto& cb = m_Callbacks[i];
+            if (cb.isNull())
+            {
+                cb = std::move(callback);
+                return i;
+            }
+        }
+        m_Callbacks.push_back(std::move(callback));
+        return static_cast<uint32_t>(m_Callbacks.size() - 1);
     }
 
-    void Unsubscribe(int i)
+    int Subscribe(val callback)
     {
-        m_Client->RemoveCallback(i);
+        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
+        {
+            auto& cb = m_Callbacks[i];
+            if (cb.isNull())
+            {
+                cb = std::move(callback);
+                return i;
+            }
+        }
+        m_Callbacks.push_back(std::move(callback));
+        return static_cast<uint32_t>(m_Callbacks.size() - 1);
+    }
+
+    void Unsubscribe(int key)
+    {
+        if (key == m_Callbacks.size() - 1)
+        {
+            m_Callbacks.pop_back();
+        }
+        else if (key < m_Callbacks.size() - 1)
+        {
+            m_Callbacks[key] = val::null();
+        }
     }
 
     void SetSyncHandler(val handler)
     {
-        m_Client->SetSyncHandler(handler);
+        m_SyncHandler = std::make_unique<val>(handler);
     }
 
     void ExecuteAPIRequest(const std::string& request)
@@ -282,6 +290,7 @@ public:
         {
             auto db = OpenWallet(m_DbPath, m_Pass);
             m_Client = std::make_shared<WalletClient2>(Rules::get(), db, m_Node, m_Reactor);
+            m_Client->SetHandler(this);
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
             m_Client->getAsync()->enableBodyRequests(true);
@@ -313,6 +322,26 @@ public:
             }
 
         });
+    }
+
+    void OnSyncProgress(int done, int total) override
+    {
+        if (m_SyncHandler && !m_SyncHandler->isNull())
+        {
+            (*m_SyncHandler)(done, total);
+        }
+    }
+
+    void OnResult(const json& result) override
+    {
+        auto r = result.dump();
+        for (auto& cb : m_Callbacks)
+        {
+            if (!cb.isNull())
+            {
+                cb(r);
+            }
+        }
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -398,6 +427,8 @@ private:
     std::string m_DbPath;
     std::string m_Pass;
     std::string m_Node;
+    std::vector<val> m_Callbacks;
+    std::unique_ptr<val> m_SyncHandler;
     std::shared_ptr<WalletClient2> m_Client;
     IWalletApi::Ptr m_WalletApi;
 };
