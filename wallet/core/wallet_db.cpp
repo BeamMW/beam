@@ -1582,7 +1582,7 @@ namespace beam::wallet
             std::vector<UpdateInfo> updates;
 
             sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, subTxID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1;");
-            stm.bind(1, TxParameterID::ExchangeRates1);
+            stm.bind(1, TxParameterID::ExchangeRates);
             while (stm.step())
             {
                 UpdateInfo update;
@@ -1613,7 +1613,7 @@ namespace beam::wallet
 
             for (const auto& update: updates)
             {
-                storage::setTxParameter(*walletDB, update.txID, update.subTxID, TxParameterID::ExchangeRates1, update.rates, false);
+                storage::setTxParameter(*walletDB, update.txID, update.subTxID, TxParameterID::ExchangeRates, update.rates, false);
             }
         }
 
