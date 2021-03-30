@@ -435,6 +435,11 @@ namespace beam::wallet
         }
     }
 
+    IWalletDB::Ptr WalletClient::getWalletDB()
+    {
+        return m_walletDB;
+    }
+
     void WalletClient::postFunctionToClientContext(MessageFunction&& func)
     {
         onPostFunctionToClientContext(move(func));

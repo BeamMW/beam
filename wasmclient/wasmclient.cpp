@@ -84,9 +84,14 @@ namespace
     }
 }
 
-class WalletClient2 : public WalletClient
+class WalletClient2 
+    : public WalletClient
+    , public std::enable_shared_from_this<WalletClient2>
 {
 public:
+    using Callback = std::function<void()>;
+    using WeakPtr = std::weak_ptr<WalletClient2>;
+
     using WalletClient::WalletClient;
 
     virtual ~WalletClient2()
@@ -141,10 +146,15 @@ public:
         m_SyncHandler = std::make_unique<val>(handler);
     }
 
-    void Stop(val handler)
+    void Stop(Callback&& handler)
     {
-        m_StoppedHandler = std::make_unique<val>(handler);
+        m_StoppedHandler = std::move(handler);
         stopReactor(true);
+    }
+
+    IWalletDB::Ptr GetWalletDB()
+    {
+        return getWalletDB();
     }
 
 private:
@@ -165,26 +175,31 @@ private:
             std::unique_lock<std::mutex> lock(m_Mutex);
             m_Messages.push(std::move(func));
         }
+        auto thisWeakPtr = std::make_unique<WeakPtr>(shared_from_this());
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
             &WalletClient2::ProsessMessageOnMainThread,
-            reinterpret_cast<int>(this));
+            reinterpret_cast<int>(thisWeakPtr.release()));
     }
 
     void onStopped() override
     {
         postFunctionToClientContext([this]()
         {
-            if (m_StoppedHandler && !m_StoppedHandler->isNull())
+            if (m_StoppedHandler)
             {
-                (*m_StoppedHandler)();
+                m_StoppedHandler();
             }
         });
     }
 
     static void ProsessMessageOnMainThread(int pThis)
     {
-        reinterpret_cast<WalletClient2*>(pThis)->ProsessMessageOnMainThread2();
+        std::unique_ptr<WeakPtr> p(reinterpret_cast<WeakPtr*>(pThis));
+        if (auto sp = p->lock())
+        {
+            sp->ProsessMessageOnMainThread2();
+        }
     }
 
     void ProsessMessageOnMainThread2()
@@ -202,7 +217,8 @@ private:
     std::queue<MessageFunction> m_Messages;
     std::vector<val> m_Callbacks;
     std::unique_ptr<val> m_SyncHandler;
-    std::unique_ptr<val> m_StoppedHandler;
+    Callback m_StoppedHandler;
+    IWalletApi::Ptr m_WalletApi;
 };
 
 class WasmWalletClient : public IWalletApiHandler
@@ -211,42 +227,43 @@ public:
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
         : m_Logger(beam::Logger::create(LOG_LEVEL_VERBOSE, LOG_LEVEL_VERBOSE))
         , m_Reactor(io::Reactor::create())
-        , m_Db(OpenWallet(dbName, pass))
-        , m_Client(Rules::get(), m_Db, node, m_Reactor)
+        , m_DbPath(dbName)
+        , m_Pass(pass)
+        , m_Node(node)
     {}
 
     void sendAPIResponse(const json& result) override
     {
-        m_Client.SendResult(result);
+        m_Client->SendResult(result);
     }
 
     int Subscribe(val callback)
     {
-        return m_Client.AddCallback(std::move(callback));
+        return m_Client->AddCallback(std::move(callback));
     }
 
     void Unsubscribe(int i)
     {
-        m_Client.RemoveCallback(i);
+        m_Client->RemoveCallback(i);
     }
 
     void SetSyncHandler(val handler)
     {
-        m_Client.SetSyncHandler(handler);
+        m_Client->SetSyncHandler(handler);
     }
 
     void ExecuteAPIRequest(const std::string& request)
     {
-        m_Client.getAsync()->makeIWTCall([this, request]()
+        m_Client->getAsync()->makeIWTCall([this, request]()
         {
             if (!m_WalletApi)
             {
                 IWalletApi::InitData initData;
-                initData.walletDB = m_Db;
-                initData.wallet = m_Client.getWallet();
+                initData.walletDB = m_Client->GetWalletDB();
+                initData.wallet = m_Client->getWallet();
                 // initData.swaps = _swapsProvider;
                //  initData.acl = _acl;
-                initData.contracts = m_Client.getAppsShaders();
+                initData.contracts = m_Client->getAppsShaders();
                 m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, initData);
             }
 
@@ -259,20 +276,58 @@ public:
 
     void StartWallet()
     {
-        auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
-        additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(m_Db));
-        m_Client.getAsync()->enableBodyRequests(true);
-        m_Client.start({}, true, additionalTxCreators);
+        if (m_Client)
+            return;
+        try
+        {
+            auto db = OpenWallet(m_DbPath, m_Pass);
+            m_Client = std::make_shared<WalletClient2>(Rules::get(), db, m_Node, m_Reactor);
+            auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
+            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
+            m_Client->getAsync()->enableBodyRequests(true);
+            m_Client->start({}, true, additionalTxCreators);
+        }
+        catch (const std::exception& ex)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
+        }
     }
 
     void StopWallet(val handler = val::null())
     {
-        m_Client.Stop(handler);
+        m_Client->Stop([this, handler]() 
+        {
+            val handlerCopy = handler;
+            m_Client.reset();
+            m_WalletApi.reset();
+            if (!handlerCopy.isNull())
+            {
+                
+                auto handlerPtr = std::make_unique<val>(std::move(handlerCopy));
+                emscripten_dispatch_to_thread_async(
+                    get_thread_id(),
+                    EM_FUNC_SIG_VI,
+                    &WasmWalletClient::DoCallbackOnMainThread,
+                    nullptr,
+                    handlerPtr.release());
+            }
+
+        });
+    }
+
+    static void DoCallbackOnMainThread(val* h)
+    {
+        std::unique_ptr<val> handler(h);
+        if (!handler->isNull())
+        {
+            (*handler)();
+        }
+        
     }
 
     bool IsRunning() const
     {
-        return m_Client.isRunning();
+        return m_Client->isRunning();
     }
 
     static std::string GeneratePhrase()
@@ -340,8 +395,10 @@ private:
     static val m_MountCB;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
-    IWalletDB::Ptr m_Db;
-    WalletClient2 m_Client;
+    std::string m_DbPath;
+    std::string m_Pass;
+    std::string m_Node;
+    std::shared_ptr<WalletClient2> m_Client;
     IWalletApi::Ptr m_WalletApi;
 };
 
