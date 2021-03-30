@@ -117,7 +117,7 @@ namespace beam::wallet
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
     {
-        if (m_isEnabled && m_validator.isSignatureValid(msg))
+        /*if (m_isEnabled && m_validator.isSignatureValid(msg))
         {
             try
             {
@@ -132,7 +132,7 @@ namespace beam::wallet
                 LOG_WARNING() << "broadcast message processing exception";
                 return false;
             }
-        }
+        }*/
         return true;
     }
 

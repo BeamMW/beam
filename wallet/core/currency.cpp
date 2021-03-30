@@ -14,19 +14,68 @@
 #include "currency.h"
 
 namespace beam::wallet {
-    const Currency Currency::BEAM    = Currency("beam");
-    const Currency Currency::USD     = Currency("usd");
-    const Currency Currency::BTC     = Currency("btc");
-    const Currency Currency::LTC     = Currency("ltc");
-    const Currency Currency::QTUM    = Currency("qtum");
-    const Currency Currency::DOGE    = Currency("doge");
-    const Currency Currency::DASH    = Currency("dash");
-    const Currency Currency::ETH     = Currency("eth");
-    const Currency Currency::DAI     = Currency("dai");
-    const Currency Currency::USDT    = Currency("usdt");
-    const Currency Currency::WBTC    = Currency("wbtc");
-    const Currency Currency::BCH     = Currency("bch");
-    const Currency Currency::UNKNOWN = Currency("unknown");
+    const Currency& Currency::BEAM() {
+        static const Currency beam("beam");
+        return beam;
+    }
 
+    const Currency& Currency::USD() {
+        static const Currency usd("usd");
+        return usd;
+    }
 
+    const Currency& Currency::BTC() {
+        static const Currency btc("btc");
+        return btc;
+    }
+
+    const Currency& Currency::LTC() {
+        static const Currency ltc("ltc");
+        return ltc;
+    }
+
+    const Currency& Currency::QTUM() {
+        static const Currency qtum("qtum");
+        return qtum;
+    }
+
+    const Currency& Currency::DOGE() {
+        static const Currency doge("doge");
+        return doge;
+    }
+
+    const Currency& Currency::DASH() {
+        static const Currency dash("dash");
+        return dash;
+    }
+
+    const Currency& Currency::ETH() {
+        static const Currency eth("eth");
+        return eth;
+    }
+
+    const Currency& Currency::DAI() {
+        static const Currency dai("dai");
+        return dai;
+    }
+
+    const Currency& Currency::USDT() {
+        static const Currency usdt("usdt");
+        return usdt;
+    }
+
+    const Currency& Currency::WBTC() {
+        static const Currency wbtc("wbtc");
+        return wbtc;
+    }
+
+    const Currency& Currency::BCH() {
+        static const Currency bch("bch");
+        return bch;
+    }
+
+    const Currency& Currency::UNKNOWN() {
+        static const Currency unknown("unknown");
+        return unknown;
+    }
 }

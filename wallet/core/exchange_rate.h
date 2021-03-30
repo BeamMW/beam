@@ -21,8 +21,8 @@ namespace beam::wallet
 {
     struct ExchangeRate
     {
-        Currency    m_from = Currency::UNKNOWN;
-        Currency    m_to   = Currency::UNKNOWN;
+        Currency    m_from = Currency::UNKNOWN();
+        Currency    m_to   = Currency::UNKNOWN();
         Amount      m_rate = 0;
         Timestamp   m_updateTime = 0;
 

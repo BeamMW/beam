@@ -13,22 +13,27 @@
 // limitations under the License.
 #pragma once
 
-#include <boost/serialization/strong_typedef.hpp>
 #include <string>
+#include "utility/serialize_fwd.h"
 
 namespace beam::wallet
 {
     struct Currency
     {
-        explicit Currency(std::string val):
-            m_value(std::move(val))
+        explicit Currency(const std::string& val)
+            : m_value(val)
         {
         }
 
-        template <typename Archive>
-        void serialize(Archive& ar)
+        Currency(const Currency& rhs)
+            : m_value(rhs.m_value)
         {
-            ar & m_value;
+        }
+
+        Currency& operator=(const Currency& rhs)
+        {
+            m_value = rhs.m_value;
+            return *this;
         }
 
         bool operator == (const Currency& rhs) const
@@ -46,19 +51,21 @@ namespace beam::wallet
             return m_value < rhs.m_value;
         }
 
-        static const Currency UNKNOWN;
-        static const Currency BEAM;
-        static const Currency USD;
-        static const Currency BTC;
-        static const Currency LTC;
-        static const Currency QTUM;
-        static const Currency DOGE;
-        static const Currency DASH;
-        static const Currency ETH;
-        static const Currency DAI;
-        static const Currency USDT;
-        static const Currency WBTC;
-        static const Currency BCH;
+        SERIALIZE(m_value);
+
+        static const Currency& UNKNOWN();
+        static const Currency& BEAM();
+        static const Currency& USD();
+        static const Currency& BTC();
+        static const Currency& LTC();
+        static const Currency& QTUM();
+        static const Currency& DOGE();
+        static const Currency& DASH();
+        static const Currency& ETH();
+        static const Currency& DAI();
+        static const Currency& USDT();
+        static const Currency& WBTC();
+        static const Currency& BCH();
 
         std::string m_value;
     };

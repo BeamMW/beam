@@ -1469,19 +1469,19 @@ namespace beam::wallet
         Currency exchangeCurr29to30(ExchangeRate29::CurrType curr29)
         {
             switch(static_cast<uint32_t>(curr29)) {
-                case 0: return  Currency::BEAM;
-                case 1: return  Currency::BEAM;
-                case 2: return  Currency::LTC;
-                case 3: return  Currency::QTUM;
-                case 4: return  Currency::USD;
-                case 5: return  Currency::DOGE;
-                case 6: return  Currency::DASH;
-                case 7: return  Currency::ETH;
-                case 8: return  Currency::DAI;
-                case 9: return  Currency::USDT;
-                case 10: return Currency::WBTC;
-                case 11: return Currency::BCH;
-                default: return Currency::UNKNOWN;
+                case 0: return  Currency::BEAM();
+                case 1: return  Currency::BEAM();
+                case 2: return  Currency::LTC();
+                case 3: return  Currency::QTUM();
+                case 4: return  Currency::USD();
+                case 5: return  Currency::DOGE();
+                case 6: return  Currency::DASH();
+                case 7: return  Currency::ETH();
+                case 8: return  Currency::DAI();
+                case 9: return  Currency::USDT();
+                case 10: return Currency::WBTC();
+                case 11: return Currency::BCH();
+                default: return Currency::UNKNOWN();
             }
         }
 
@@ -1585,11 +1585,11 @@ namespace beam::wallet
             stm.bind(1, TxParameterID::ExchangeRates);
             while (stm.step())
             {
-                UpdateInfo update;
+                UpdateInfo updateInfo;
                 ByteBuffer buffer;
 
-                stm.get(0, update.txID);
-                stm.get(1, update.subTxID);
+                stm.get(0, updateInfo.txID);
+                stm.get(1, updateInfo.subTxID);
                 stm.get(2, buffer);
 
                 std::vector<ExchangeRate29> rates29;
@@ -1602,8 +1602,9 @@ namespace beam::wallet
                         rate30.m_to         = exchangeCurr29to30(rate29.m_to);
                         rate30.m_rate       = rate29.m_rate;
                         rate30.m_updateTime = rate29.m_updateTime;
-                        update.rates.push_back(rate30);
+                        updateInfo.rates.push_back(rate30);
                     }
+                    updates.push_back(updateInfo);
                 }
                 else
                 {
@@ -1611,9 +1612,10 @@ namespace beam::wallet
                 }
             }
 
-            for (const auto& update: updates)
+            for (const auto& updateInfo: updates)
             {
-                storage::setTxParameter(*walletDB, update.txID, update.subTxID, TxParameterID::ExchangeRates, update.rates, false);
+                storage::setTxParameter(*walletDB, updateInfo.txID, updateInfo.subTxID, TxParameterID::ExchangeRates, updateInfo.rates, false);
+                LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
         }
 
@@ -6551,8 +6553,8 @@ namespace beam::wallet
                     beam::to_hex(strProof.data(), proof.data(), proof.size());
                 }
 
-                std::string amountInUsd = tx.getConvertedAmount(Currency::USD);
-                std::string amountInBtc = tx.getConvertedAmount(Currency::BTC);
+                std::string amountInUsd = tx.getConvertedAmount(Currency::USD());
+                std::string amountInBtc = tx.getConvertedAmount(Currency::BTC());
 
                 auto statusInterpreter = db.getStatusInterpreter(tx);
                 ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
