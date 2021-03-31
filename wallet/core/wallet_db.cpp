@@ -1614,7 +1614,7 @@ namespace beam::wallet
 
             for (const auto& updateInfo: updates)
             {
-                storage::setTxParameter(*walletDB, updateInfo.txID, updateInfo.subTxID, TxParameterID::ExchangeRates, updateInfo.rates, false);
+                storage::setTxParameter(*walletDB, updateInfo.txID, static_cast<SubTxID>(updateInfo.subTxID), TxParameterID::ExchangeRates, updateInfo.rates, false);
                 LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
         }
