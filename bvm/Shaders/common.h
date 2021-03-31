@@ -127,9 +127,9 @@ namespace Env {
 
 #ifndef HOST_BUILD
     template <typename T>
-    void CallFar_T(const ContractID& cid, T& args)
+    void CallFar_T(const ContractID& cid, T& args, uint8_t bInheritContext = 0)
     {
-        CallFar(cid, args.s_iMethod, &args, sizeof(args));
+        CallFar(cid, args.s_iMethod, &args, sizeof(args), bInheritContext);
     }
 #endif // HOST_BUILD
 

@@ -179,7 +179,8 @@
 	macro(const ContractID&, cid) sep \
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs) sep \
-	macro(uint32_t, nArgs)
+	macro(uint32_t, nArgs) sep \
+	macro(uint8_t, bInheritContext)
 
 #define BVMOp_get_CallDepth(macro, sep)
 
