@@ -1178,6 +1178,14 @@ namespace bvm2 {
 		m_Stack.m_PosMin = nCallStackPosMin;
 		m_Stack.m_BytesMax = nCalleeStackMax;
 
+		if (bInheritContext)
+		{
+			auto it = m_FarCalls.m_Stack.rbegin();
+			auto& fr0 = *it;
+			auto& fr1 = *(++it);
+			fr0.m_Cid = fr1.m_Cid;
+		}
+
 	}
 	BVM_METHOD_HOST(CallFar)
 	{
