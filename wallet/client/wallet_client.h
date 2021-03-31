@@ -219,7 +219,7 @@ namespace beam::wallet
         void deleteAddress(const WalletID& id) override;
         void deleteAddress(const std::string& addr) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
-        void updateAddress(const std::string& token, const std::string& name, std::time_t expirationTime) override;
+        void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override;
         void activateAddress(const WalletID& id) override;
         void getAddress(const WalletID& id) override;
         void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;

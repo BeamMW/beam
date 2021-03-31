@@ -6673,6 +6673,19 @@ namespace beam::wallet
         m_label = label;
     }
 
+    void WalletAddress::setExpiration(beam::Timestamp expirationTime)
+    {
+        if (m_createTime <= expirationTime)
+        {
+            m_duration = expirationTime - getCreateTime();
+        }
+        else
+        {
+            assert(!"invalid expiration time");
+            setExpiration(ExpirationStatus::Expired);
+        }
+    }
+
     void WalletAddress::setExpiration(WalletAddress::ExpirationStatus status)
     {
         switch (status)

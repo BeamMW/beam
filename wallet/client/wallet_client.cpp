@@ -199,10 +199,10 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::updateAddress, id, name, status);
     }
 
-    void updateAddress(const std::string& token, const std::string& name, std::time_t expiration) override
+    void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, std::time_t);
-        call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expiration);
+        typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, beam::Timestamp);
+        call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationTime);
     }
 
     void activateAddress(const wallet::WalletID& id) override
@@ -1236,7 +1236,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::updateAddress(const std::string& token, const std::string& name, std::time_t expiration)
+    void WalletClient::updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime)
     {
         try
         {
@@ -1246,7 +1246,7 @@ namespace beam::wallet
             {
                 if (addr->isOwn())
                 {
-                    addr->m_duration = expiration;
+                    addr->setExpiration(expirationTime);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);

@@ -138,6 +138,7 @@ namespace beam::wallet
 
         void setLabel(const std::string& label);
         void setExpiration(ExpirationStatus status);
+        void setExpiration(beam::Timestamp);
 
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
