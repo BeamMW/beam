@@ -1730,7 +1730,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[8]; // ctor, list, deposit, proof, print, withdraw, print, dtor
+				Height m_pStage[9]; // ctor, list, deposit, proof, print, withdraw, print, dtor, logs
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 				bool m_VarProof = false;
@@ -2568,6 +2568,11 @@ namespace beam
 				case 7: // dtor
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "destroy";
+					break;
+
+				case 8: // logs
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "view_logs";
 					break;
 
 				default: // print
