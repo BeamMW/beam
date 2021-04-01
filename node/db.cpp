@@ -16,6 +16,7 @@
 #include <algorithm> // sort
 #include "../core/peer_manager.h"
 #include "../utility/logger.h"
+#include "../utility/byteorder.h"
 #include <algorithm>
 
 namespace beam {
@@ -116,8 +117,7 @@ namespace beam {
 #define TblContracts_Value		"Value"
 
 #define TblContractLogs			"ContractLogs"
-#define TblContractLogs_Height	"Height"
-#define TblContractLogs_Idx		"Idx"
+#define TblContractLogs_Pos		"Pos"
 #define TblContractLogs_Cid		"Cid"
 #define TblContractLogs_Data	"Data"
 
@@ -592,14 +592,12 @@ void NodeDB::CreateTables23()
 void NodeDB::CreateTables27()
 {
 	ExecQuick("CREATE TABLE [" TblContractLogs "] ("
-		"[" TblContractLogs_Height		"] INTEGER NOT NULL,"
-		"[" TblContractLogs_Idx			"] INTEGER NOT NULL,"
+		"[" TblContractLogs_Pos			"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblContractLogs_Cid			"] BLOB NOT NULL,"
-		"[" TblContractLogs_Data		"] BLOB NOT NULL,"
-		"PRIMARY KEY(" TblContractLogs_Height "," TblContractLogs_Idx ")"
+		"[" TblContractLogs_Data		"] BLOB NOT NULL"
 		") WITHOUT ROWID");
 
-	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Cid" "] ON [" TblContractLogs "] ([" TblContractLogs_Cid "],[" TblContractLogs_Height "],[" TblContractLogs_Idx "]);");
+	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Cid" "] ON [" TblContractLogs "] ([" TblContractLogs_Cid "],[" TblContractLogs_Pos "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2903,64 +2901,69 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
-void NodeDB::ContractLogInsert(const WalkerContractLog::Data& x)
+void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const NodeDB::ContractLog::Pos& pos, NodeDB::ContractLog::Pos& buf)
 {
-	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Height "," TblContractLogs_Idx "," TblContractLogs_Cid "," TblContractLogs_Data ") VALUES(?,?,?,?)");
-	rs.put(0, x.m_Height);
-	rs.put(1, x.m_Idx);
-	rs.put(2, *x.m_pCid);
-	rs.put(3, x.m_Val);
+	buf.m_Height = ByteOrder::to_be(pos.m_Height);
+	buf.m_Idx = ByteOrder::to_be(pos.m_Idx);
+
+	rs.put(iCol, Blob(&buf, sizeof(buf)));
+}
+
+void NodeDB::ContractLogInsert(const ContractLog::Entry& x)
+{
+	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Cid "," TblContractLogs_Data ") VALUES(?,?,?)");
+
+	NodeDB::ContractLog::Pos buf;
+	put_ContractLogPos(rs, 0, x.m_Pos, buf);
+
+	rs.put(1, *x.m_pCid);
+	rs.put(2, x.m_Val);
 
 	rs.Step();
 	TestChanged1Row();
 }
 
-Height FixHeightToDB(Height h)
+void NodeDB::ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
 {
-	return std::min(h, MaxHeight / 2);
-}
+	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ?");
 
-void NodeDB::ContractLogDel(const HeightRange& hr)
-{
-	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=?");
-	rs.put(0, FixHeightToDB(hr.m_Min));
-	rs.put(1, FixHeightToDB(hr.m_Max));
+	NodeDB::ContractLog::Pos bufMin, bufMax;
+	put_ContractLogPos(rs, 0, posMin, bufMin);
+	put_ContractLogPos(rs, 1, posMax, bufMax);
+
 	rs.Step();
 }
 
-void NodeDB::ContractLogEnum(WalkerContractLog& wlk, const HeightRange& hr)
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
 {
-	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs
-		" WHERE " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=? ORDER BY " TblContractLogs_Height "," TblContractLogs_Idx);
-	wlk.m_Rs.put(0, FixHeightToDB(hr.m_Min));
-	wlk.m_Rs.put(1, FixHeightToDB(hr.m_Max));
+	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Pos);
+
+	put_ContractLogPos(wlk.m_Rs, 0, posMin, wlk.m_bufMin);
+	put_ContractLogPos(wlk.m_Rs, 1, posMax, wlk.m_bufMax);
 }
 
-void NodeDB::ContractLogEnum(WalkerContractLog& wlk, const HeightRange& hr, const WalkerContractLog::Data::Cid& cid)
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid& cid)
 {
 	wlk.m_Rs.Reset(*this, Query::ContractLogEnumCid, "SELECT * FROM " TblContractLogs
-		" WHERE " TblContractLogs_Cid "=? AND " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=? ORDER BY " TblContractLogs_Cid "," TblContractLogs_Height "," TblContractLogs_Idx);
+		" WHERE " TblContractLogs_Cid "=? AND " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Cid "," TblContractLogs_Pos);
 	wlk.m_Rs.put(0, cid);
-	wlk.m_Rs.put(1, FixHeightToDB(hr.m_Min));
-	wlk.m_Rs.put(2, FixHeightToDB(hr.m_Max));
+
+	put_ContractLogPos(wlk.m_Rs, 1, posMin, wlk.m_bufMin);
+	put_ContractLogPos(wlk.m_Rs, 2, posMax, wlk.m_bufMax);
 }
 
-bool NodeDB::WalkerContractLog::MoveNext()
+bool NodeDB::ContractLog::Walker::MoveNext()
 {
 	if (!m_Rs.Step())
 		return false;
 
-	m_Rs.get(0, m_Data.m_Height);
-	m_Rs.get(1, m_Data.m_Idx);
+	m_Rs.get_As(0, m_Entry.m_Pos);
+	m_Entry.m_Pos.m_Height = ByteOrder::from_be(m_Entry.m_Pos.m_Height);
+	m_Entry.m_Pos.m_Idx = ByteOrder::from_be(m_Entry.m_Pos.m_Idx);
 
-	Blob cid;
-	m_Rs.get(2, cid);
-	if (Data::Cid::nBytes != cid.n)
-		ThrowInconsistent();
+	m_Entry.m_pCid = &m_Rs.get_As<Cid>(1);
 
-	m_Data.m_pCid = reinterpret_cast<Data::Cid*>(cid.p);
-
-	m_Rs.get(3, m_Data.m_Val);
+	m_Rs.get(2, m_Entry.m_Val);
 	return true;
 }
 

@@ -686,27 +686,44 @@ public:
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
-	struct WalkerContractLog
+	struct ContractLog
 	{
-		Recordset m_Rs;
-
-		struct Data
-		{
-			typedef const ECC::Hash::Value Cid;
-
+#pragma pack (push, 1)
+		struct Pos {
 			Height m_Height;
 			uint32_t m_Idx;
+
+			Pos() {}
+			Pos(Height h, uint32_t nIdx = 0)
+				:m_Height(h)
+				,m_Idx(nIdx)
+			{}
+		};
+#pragma pack (pop)
+
+		typedef const ECC::Hash::Value Cid;
+
+		struct Entry
+		{
+			Pos m_Pos;
 			const Cid* m_pCid;
 			Blob m_Val;
-		} m_Data;
+		};
 
-		bool MoveNext();
+		struct Walker
+		{
+			Pos m_bufMin, m_bufMax;
+
+			Recordset m_Rs;
+			Entry m_Entry;
+			bool MoveNext();
+		};
 	};
 
-	void ContractLogInsert(const WalkerContractLog::Data&);
-	void ContractLogDel(const HeightRange&);
-	void ContractLogEnum(WalkerContractLog&, const HeightRange&);
-	void ContractLogEnum(WalkerContractLog&, const HeightRange&, const WalkerContractLog::Data::Cid&);
+	void ContractLogInsert(const ContractLog::Entry&);
+	void ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid&);
 
 private:
 
