@@ -37,19 +37,6 @@ namespace beam::wallet
     public:
         virtual ~IWalletApiHandler() = default;
         virtual void sendAPIResponse(const json& result) = 0;
-
-        virtual void onParseError(const json& msg)
-        {
-            LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
-            sendAPIResponse(msg);
-        }
-    };
-
-    struct bad_api_version: public std::runtime_error {
-        bad_api_version()
-            : std::runtime_error("unsupported version of API requested")
-        {
-        }
     };
 
     class IWalletApi
@@ -68,10 +55,9 @@ namespace beam::wallet
             Wallet::Ptr wallet;
         };
 
-        static uint32_t SApiVer2NApiVer(std::string version);
         static bool ValidateAPIVersion(const std::string& version);
 
-        // throws std::runtime_error
+        // can return nullptr if wrong API version requested
         static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 

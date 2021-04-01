@@ -20,17 +20,17 @@ namespace beam::wallet
     namespace
     {
         const std::string kVerCurrent = "current";
-    }
 
-    uint32_t IWalletApi::SApiVer2NApiVer(std::string sver)
-    {
-        if (sver.empty() || sver == kVerCurrent)
+        uint32_t SApiVer2NApiVer(std::string sver)
         {
-            return ApiVerCurrent;
-        }
+            if (sver.empty() || sver == kVerCurrent)
+            {
+                return ApiVerCurrent;
+            }
 
-        sver.erase(std::remove(sver.begin(), sver.end(), '.'), sver.end());
-        return std::stoul(sver);
+            sver.erase(std::remove(sver.begin(), sver.end(), '.'), sver.end());
+            return std::stoul(sver);
+        }
     }
 
     bool IWalletApi::ValidateAPIVersion(const std::string& sver)
@@ -52,7 +52,7 @@ namespace beam::wallet
         case ApiVer6_0:
             return std::make_shared<WalletApi>(handler, data.acl, data.walletDB, data.wallet, data.swaps, data.contracts);
         default:
-            throw bad_api_version();
+            return nullptr;
         }
     }
 }

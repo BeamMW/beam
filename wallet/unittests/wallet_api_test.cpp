@@ -84,12 +84,32 @@ namespace
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
 
-        void sendAPIResponse(const json&) override
+        void sendAPIResponse(const json& resp) override
         {
-            assert(false);
+            if (resp["error"].empty())
+            {
+                onAPISuccess(resp);
+            }
+            else
+            {
+                onAPIError(resp);
+            }
         }
 
-        Height get_CurrentHeight() const override {
+        virtual void onAPISuccess(const json&)
+        {
+            assert(false);
+            WALLET_CHECK(!"invalid api test - success");
+        }
+
+        virtual void onAPIError(const json&)
+        {
+            assert(false);
+            WALLET_CHECK(!"invalid api test - error");
+        }
+
+        Height get_CurrentHeight() const override
+        {
             return 18;
         }
     };
@@ -101,7 +121,7 @@ namespace
         public:
             jsonFunc func;
 
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg << endl;
                 func(msg);
@@ -118,7 +138,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid create_address api json!!!");
                 cout << msg["error"] << endl;
@@ -160,7 +180,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid get_utxo api json!!!");
                 cout << msg["error"] << endl;
@@ -215,7 +235,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid send api json!!!");
                 cout << msg["error"] << endl;
@@ -267,7 +287,7 @@ namespace
             ApiTest(TestErrorFunc onError, std::function<void(const JsonRpcId& id, const T& data)> onSuccess) 
                 : _onError(onError), _onSuccess(onSuccess) {}
 
-            void onParseError(const json& msg) override { _onError(msg); }
+            void onAPIError(const json& msg) override { _onError(msg); }
             void onMessage(const JsonRpcId& id, const T& data) override { _onSuccess(id, data); }
 
             TestErrorFunc _onError;
@@ -294,7 +314,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -314,7 +334,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -335,7 +355,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -356,7 +376,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid issue/consume api json!!!");
                 cout << msg["error"] << endl;
@@ -389,7 +409,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid asset info api json!!!");
                 cout << msg["error"] << endl;
@@ -421,7 +441,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid GetAssetInfo api json!!!");
                 cout << msg["error"] << endl;
@@ -465,7 +485,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid status api json!!!");
                 cout << msg["error"] << endl;
@@ -497,7 +517,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
                 WALLET_CHECK(!"invalid split api json!!!");
@@ -537,7 +557,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
@@ -558,7 +578,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -591,7 +611,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -618,7 +638,7 @@ namespace
             explicit ApiTest(bool valid_) : _valid(valid_)
             {}
 
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid validate_address api json!!!");
                 cout << msg["error"] << endl;
@@ -657,7 +677,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -692,7 +712,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -728,7 +748,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -771,7 +791,7 @@ namespace
         public:
             ApiTest(const T& value) : _value(value) {}
 
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid api json!!!");
                 cout << msg["error"] << endl;
@@ -795,7 +815,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -838,7 +858,7 @@ namespace
                 : _value(value)
             {}
 
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
@@ -897,7 +917,7 @@ namespace
                 : _value(value)
             {}
 
-            void onParseError(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
