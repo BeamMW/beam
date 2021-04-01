@@ -232,6 +232,22 @@ namespace Env {
 
     }
 
+    template <typename TValue>
+    inline bool LogsMoveNext_T(const TValue*& pValue, Height* pHeight = nullptr)
+    {
+        while (true)
+        {
+            uint32_t nVal;
+            if (!LogsMoveNext(nullptr, pHeight, (const void**) &pValue, &nVal))
+                return false;
+
+            if (sizeof(TValue) == nVal)
+                break;
+        }
+
+        return true;
+    }
+
 } // namespace Env
 
 namespace Utils {

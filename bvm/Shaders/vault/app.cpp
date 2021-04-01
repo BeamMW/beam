@@ -6,6 +6,7 @@
 #define Vault_manager_view(macro)
 #define Vault_manager_destroy(macro) macro(ContractID, cid)
 #define Vault_manager_view_accounts(macro) macro(ContractID, cid)
+#define Vault_manager_view_logs(macro) macro(ContractID, cid)
 
 #define Vault_manager_view_account(macro) \
     macro(ContractID, cid) \
@@ -15,6 +16,7 @@
     macro(manager, create) \
     macro(manager, destroy) \
     macro(manager, view) \
+    macro(manager, view_logs) \
     macro(manager, view_accounts) \
     macro(manager, view_account)
 
@@ -121,6 +123,30 @@ ON_METHOD(manager, destroy)
 {
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Vault contract", 0);
 }
+
+ON_METHOD(manager, view_logs)
+{
+    Env::LogsEnum(&cid, 0, static_cast<Height>(-1));
+
+    Env::DocArray gr("logs");
+
+    while (true)
+    {
+        Height h;
+        const Vault::Request* pVal;
+
+        if (!Env::LogsMoveNext_T(pVal, &h))
+            break;
+
+        Env::DocGroup gr("");
+
+        Env::DocAddNum("Height", h);
+        Env::DocAddBlob_T("Account", pVal->m_Account);
+        Env::DocAddNum("AssetID", pVal->m_Aid);
+        Env::DocAddNum("Amount", pVal->m_Amount);
+    }
+}
+
 
 ON_METHOD(manager, view_accounts)
 {
