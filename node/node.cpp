@@ -3784,19 +3784,21 @@ void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
     proto::ContractLogs msgOut;
     Serializer ser;
 
-    Height hPrev = msg.m_Height.m_Min;
-
-    while (true)
+    for (Height hPrev = msg.m_Height.m_Min; ; )
     {
         if (!wlk.MoveNext())
             break;
 
         auto dh = wlk.m_Entry.m_Pos.m_Height - hPrev;
-
-        if (dh && IsChocking(ser.buffer().second))
+        if (dh)
         {
-            msgOut.m_bMore = true;
-            break;
+            if (IsChocking(ser.buffer().second))
+            {
+                msgOut.m_bMore = true;
+                break;
+            }
+
+            hPrev = wlk.m_Entry.m_Pos.m_Height;
         }
 
         ser & dh;
