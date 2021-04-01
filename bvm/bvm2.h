@@ -429,7 +429,12 @@ namespace bvm2 {
 			uint32_t m_Size;
 		} m_AuxAlloc;
 
-		bool m_EnumVars;
+		enum EnumType {
+			None,
+			Vars,
+		};
+
+		EnumType m_EnumType;
 
 		uint8_t* ResizeAux(uint32_t);
 		void FreeAuxAllocGuarded();

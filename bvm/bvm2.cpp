@@ -189,7 +189,7 @@ namespace bvm2 {
 		InitBase(&m_vStack.front(), nStackBytes, 0);
 
 		ZeroObject(m_AuxAlloc);
-		m_EnumVars = false;
+		m_EnumType = EnumType::None;
 		m_NeedComma = false;
 	}
 
@@ -1974,7 +1974,7 @@ namespace bvm2 {
 	{
 		FreeAuxAllocGuarded();
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1));
-		m_EnumVars = true;
+		m_EnumType = EnumType::Vars;
 	}
 
 	BVM_METHOD(VarsMoveNext)
@@ -2004,13 +2004,13 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(VarsMoveNext)
 	{
-		Wasm::Test(m_EnumVars); // illegal to call this method before VarsEnum
+		Wasm::Test(EnumType::Vars == m_EnumType); // illegal to call this method before VarsEnum
 
 		Blob key, data;
 		if (!VarsMoveNext(key, data))
 		{
 			FreeAuxAllocGuarded();
-			m_EnumVars = false;
+			m_EnumType = EnumType::None;
 			return 0;
 		}
 
