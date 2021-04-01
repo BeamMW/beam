@@ -104,6 +104,8 @@ namespace bvm2 {
 			static const uint32_t LoadVarPerByte	= ChargeFor<2*1000*1000>::V;
 			static const uint32_t SaveVar			= ChargeFor<5*1000>::V;
 			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
+			static const uint32_t Log				= ChargeFor<20*1000>::V;
+			static const uint32_t LogPerByte		= ChargeFor<1000*1000>::V;
 			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
 			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
@@ -371,6 +373,7 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
+		virtual void OnLog(const Blob&) {}
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

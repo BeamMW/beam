@@ -1134,6 +1134,17 @@ namespace bvm2 {
 		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
+	BVM_METHOD(EmitLog)
+	{
+		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
+		return OnHost_EmitLog(get_AddrR(pVal, nVal), nVal);
+	}
+	BVM_METHOD_HOST(EmitLog)
+	{
+		Wasm::Test(nVal <= Limits::VarSize);
+		OnLog(Blob(pVal, nVal));
+	}
+
 	BVM_METHOD(CallFar)
 	{
 		// make sure the pArgs is not malicious.
