@@ -96,6 +96,11 @@ namespace
             }
         }
 
+        void onParseError(const json& msg) override
+        {
+            onAPIError(msg);
+        }
+
         virtual void onAPISuccess(const json&)
         {
             assert(false);

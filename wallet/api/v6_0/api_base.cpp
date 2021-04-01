@@ -73,7 +73,7 @@ namespace beam::wallet {
         if (size == 0)
         {
             const auto errEmptyJSON = formError(JsonRpcId(), ApiError::InvalidJsonRpc, "Empty JSON request.");
-            _handler.sendAPIResponse(errEmptyJSON);
+            _handler.onParseError(errEmptyJSON);
             return ApiSyncMode::NotStartedAndFailed;
         }
 
@@ -151,19 +151,19 @@ namespace beam::wallet {
         catch (const jsonrpc_exception& e)
         {
             const auto error = formError(id, e.code(), e.whatstr());
-            _handler.sendAPIResponse(error);
+            _handler.onParseError(error);
             return ApiSyncMode::DoneSync;
         }
         catch (const std::exception& e)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, e.what());
-            _handler.sendAPIResponse(error);
+            _handler.onParseError(error);
             return ApiSyncMode::DoneSync;
         }
         catch (...)
         {
             const auto error = formError(id, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
-            _handler.sendAPIResponse(error);
+            _handler.onParseError(error);
             return ApiSyncMode::DoneSync;
         }
     }

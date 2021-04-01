@@ -37,6 +37,12 @@ namespace beam::wallet
     public:
         virtual ~IWalletApiHandler() = default;
         virtual void sendAPIResponse(const json& result) = 0;
+
+        virtual void onParseError(const json& msg)
+        {
+            LOG_DEBUG() << "on API parse error: " << msg;
+            sendAPIResponse(msg);
+        }
     };
 
     class IWalletApi
@@ -57,12 +63,26 @@ namespace beam::wallet
 
         static bool ValidateAPIVersion(const std::string& version);
 
-        // can return nullptr if wrong API version requested
+        // returns nullptr if wrong API version requested
         static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
+
+        // returns nullptr if wrong API version requested
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
+        struct ParseInfo {
+            std::string method;
+            json rpcid;
+        };
+
+        // this should be safe to call in any thread.
+        // returns info on success / calls sendAPIResponse on parse error
+        //boost::optional<ParseInfo> parseAPIRequest(const char& data, size_t size) = 0;
+
         // doesn't throw
+        // should be called in API's/InitData's reactor thread
+        // calls handler::sendAPIResponse on result (can be async)
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
+
         virtual ~IWalletApi() = default;
     };
 }
