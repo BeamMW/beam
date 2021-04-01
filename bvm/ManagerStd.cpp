@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ManagerStd.h"
+#include "../core/serialization_adapters.h"
 
 namespace beam {
 namespace bvm2 {
@@ -73,7 +74,7 @@ namespace bvm2 {
 
 	void ManagerStd::VarsEnum(const Blob& kMin, const Blob& kMax)
 	{
-		boost::intrusive_ptr< RemoteRead::RequestVars> pReq(new RemoteRead::RequestVars);
+		boost::intrusive_ptr<RemoteRead::RequestVars> pReq(new RemoteRead::RequestVars);
 		auto& r = *pReq;
 
 		kMin.Export(r.m_Msg.m_KeyMin);
@@ -131,6 +132,84 @@ namespace bvm2 {
 			// ask for more
 			key.Export(r.m_Msg.m_KeyMin);
 			r.m_Msg.m_bSkipMin = true;
+
+			m_Freeze++;
+			m_pNetwork->PostRequest(r, m_RemoteRead);
+		}
+
+		return true;
+	}
+
+	void ManagerStd::LogsEnum(const ContractID* pCid, const HeightRange& hr)
+	{
+		boost::intrusive_ptr<RemoteRead::RequestLogs> pReq(new RemoteRead::RequestLogs);
+		auto& r = *pReq;
+
+		r.m_AllCids = !pCid || (*pCid == Zero);
+		if (!r.m_AllCids)
+			r.m_Msg.m_Cid = *pCid;
+
+		r.m_Msg.m_Height = hr;
+
+		m_RemoteRead.Post(r);
+	}
+
+	bool ManagerStd::LogsMoveNext(ContractID* pCid, Height& h, Blob& val)
+	{
+		if (!m_RemoteRead.m_pRequest || (proto::FlyClient::Request::Type::ContractLogs != m_RemoteRead.m_pRequest->get_Type()))
+			return false; // enum was not called
+		auto& r = Cast::Up<RemoteRead::RequestLogs>(*m_RemoteRead.m_pRequest);
+
+		if (r.m_pTrg)
+		{
+			r.m_pTrg = nullptr;
+			r.m_Consumed = 0;
+			r.m_Buf = std::move(r.m_Res.m_Result);
+			if (r.m_Buf.empty())
+				r.m_Res.m_bMore = false;
+		}
+
+		if (r.m_Consumed == r.m_Buf.size())
+		{
+			m_RemoteRead.Abort();
+			return false;
+		}
+
+		auto* pBuf = &r.m_Buf.front();
+
+		Deserializer der;
+		der.reset(pBuf + r.m_Consumed, r.m_Buf.size() - r.m_Consumed);
+
+		der & h;
+		r.m_Msg.m_Height.m_Min += h;
+		h = r.m_Msg.m_Height.m_Min;
+
+		if (r.m_AllCids)
+		{
+			ContractID cidDummy;
+			der & (pCid ? *pCid : cidDummy);
+		}
+		else
+		{
+			if (pCid)
+				*pCid = r.m_Msg.m_Cid;
+		}
+
+
+		der & val.n;
+
+		r.m_Consumed = r.m_Buf.size() - der.bytes_left();
+
+		Wasm::Test(val.n <= der.bytes_left());
+
+		val.p = pBuf + r.m_Consumed;
+		r.m_Consumed += val.n;
+
+		if ((r.m_Consumed == r.m_Buf.size()) && r.m_Res.m_bMore)
+		{
+			// ask for more
+			r.m_Res.m_bMore = false;
+			r.m_Msg.m_Height.m_Min++;
 
 			m_Freeze++;
 			m_pNetwork->PostRequest(r, m_RemoteRead);

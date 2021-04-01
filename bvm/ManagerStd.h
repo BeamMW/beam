@@ -93,6 +93,18 @@ namespace bvm2 {
 				ByteBuffer m_Buf;
 			};
 
+			struct RequestLogs
+				:public proto::FlyClient::RequestContractLogs
+			{
+				typedef boost::intrusive_ptr<Request> Ptr;
+
+				virtual ~RequestLogs() {}
+
+				bool m_AllCids;
+				size_t m_Consumed;
+				ByteBuffer m_Buf;
+			};
+
 			proto::FlyClient::Request::Ptr m_pRequest;
 
 			~RemoteRead() { Abort(); }
@@ -113,6 +125,8 @@ namespace bvm2 {
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
+		void LogsEnum(const ContractID*, const HeightRange&) override;
+		bool LogsMoveNext(ContractID*, Height&, Blob& val) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
 		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
