@@ -2022,6 +2022,56 @@ namespace bvm2 {
 		return 1;
 	}
 
+	BVM_METHOD(LogsEnum)
+	{
+		OnHost_LogsEnum(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, hMin, hMax);
+	}
+	BVM_METHOD_HOST(LogsEnum)
+	{
+		FreeAuxAllocGuarded();
+		LogsEnum(pCid, HeightRange(hMin, hMax));
+		m_EnumType = EnumType::Logs;
+	}
+
+	BVM_METHOD(LogsMoveNext)
+	{
+		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
+		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
+
+		const void *pVal;
+		uint32_t nVal;
+
+		if (!OnHost_LogsMoveNext(pCid ? &get_AddrAsW<ContractID>(pCid) : nullptr, pHeight ? &get_AddrAsW<Height>(pHeight) : nullptr, &pVal, &nVal))
+			return 0;
+
+		uint8_t* pDst = ResizeAux(nVal);
+		memcpy(pDst, pVal, nVal);
+
+		Wasm::to_wasm(pnVal_, nVal);
+		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr);
+
+		return 1;
+	}
+	BVM_METHOD_HOST(LogsMoveNext)
+	{
+		Wasm::Test(EnumType::Logs == m_EnumType); // illegal to call this method before LogsEnum
+
+		ContractID cid;
+		Height h;
+		Blob data;
+		if (!LogsMoveNext(pCid, pHeight ? *pHeight : h, data))
+		{
+			FreeAuxAllocGuarded();
+			m_EnumType = EnumType::None;
+			return 0;
+		}
+
+		*ppVal = data.p;
+		*pnVal = data.n;
+
+		return 1;
+	}
+
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
 	{
 		ByteBuffer val;

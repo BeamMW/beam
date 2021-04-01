@@ -247,6 +247,17 @@
 	macro(const void**, ppVal) sep \
 	macro(uint32_t*, pnVal)
 
+#define BVMOp_LogsEnum(macro, sep) \
+	macro(const ContractID*, pCid) sep \
+	macro(Height, hMin) sep \
+	macro(Height, hMax)
+
+#define BVMOp_LogsMoveNext(macro, sep) \
+	macro(ContractID*, pCid) sep \
+	macro(Height*, pHeight) sep \
+	macro(const void**, ppVal) sep \
+	macro(uint32_t*, pnVal)
+
 #define BVMOp_VarGetProof(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -380,6 +391,8 @@
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
 	macro(0x53, uint32_t , VarGetProof) \
+	macro(0x54, void     , LogsEnum) \
+	macro(0x55, uint8_t  , LogsMoveNext) \
 	macro(0x58, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \
