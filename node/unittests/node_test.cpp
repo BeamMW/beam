@@ -2416,6 +2416,10 @@ namespace beam
 						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVars>(r).m_Msg);
 						break;
 
+					case proto::FlyClient::Request::Type::ContractLogs:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractLogs>(r).m_Msg);
+						break;
+
 					case proto::FlyClient::Request::Type::ContractVar:
 						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVar>(r).m_Msg);
 						break;
@@ -2429,9 +2433,8 @@ namespace beam
 
 				void OnComplete2()
 				{
-					auto pHandler = m_pReq->m_pTrg;
-					m_pReq->m_pTrg = nullptr;
-					pHandler->OnComplete(*m_pReq);
+					auto pReq = std::move(m_pReq);
+					pReq->m_pTrg->OnComplete(*pReq);
 				}
 
 				void OnMsg(proto::ContractVars&& msg)
@@ -2439,6 +2442,16 @@ namespace beam
 					if (m_pReq && m_pReq->m_pTrg)
 					{
 						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
+
+				void OnMsg(proto::ContractLogs&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pReq);
 						x.m_Res = std::move(msg);
 						OnComplete2();
 					}
@@ -2573,6 +2586,12 @@ namespace beam
 			}
 
 			virtual void OnMsg(proto::ContractVars&& msg) override
+			{
+				if (m_pMyNetwork)
+					m_pMyNetwork->OnMsg(std::move(msg));
+			}
+
+			virtual void OnMsg(proto::ContractLogs&& msg) override
 			{
 				if (m_pMyNetwork)
 					m_pMyNetwork->OnMsg(std::move(msg));
