@@ -604,6 +604,7 @@ private:
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 		virtual void OnMsg(proto::GetStateSummary&&) override;
 		virtual void OnMsg(proto::ContractVarsEnum&&) override;
+		virtual void OnMsg(proto::ContractLogsEnum&&) override;
 		virtual void OnMsg(proto::GetContractVar&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 	};

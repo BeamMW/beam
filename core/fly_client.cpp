@@ -932,6 +932,15 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogs& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogs& req)
+{
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
 {
     return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
