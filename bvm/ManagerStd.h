@@ -79,29 +79,31 @@ namespace bvm2 {
 		} m_UnfreezeEvt;
 
 		// params readout
-		struct VarsRead
+		struct RemoteRead
 			:public proto::FlyClient::Request::IHandler
 		{
-			struct Request
+			struct RequestVars
 				:public proto::FlyClient::RequestContractVars
 			{
 				typedef boost::intrusive_ptr<Request> Ptr;
 
-				virtual ~Request() {}
+				virtual ~RequestVars() {}
 
 				size_t m_Consumed;
 				ByteBuffer m_Buf;
 			};
 
-			Request::Ptr m_pRequest;
+			proto::FlyClient::Request::Ptr m_pRequest;
 
-			~VarsRead() { Abort(); }
+			~RemoteRead() { Abort(); }
+
+			void Post(proto::FlyClient::Request&);
 			void Abort();
 
 			virtual void OnComplete(proto::FlyClient::Request&) override;
 
-			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_VarsRead)
-		} m_VarsRead;
+			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_RemoteRead)
+		} m_RemoteRead;
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
