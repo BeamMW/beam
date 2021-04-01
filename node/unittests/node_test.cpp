@@ -707,6 +707,45 @@ namespace beam
 
 		db.ContractDataDel(hvKey);
 		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
+
+		// contract logs
+		NodeDB::WalkerContractLog::Data cdl;
+		bvm2::ContractID cid = 15U;
+		cdl.m_pCid = &cid;
+
+		hvKey = 1043U;
+		hvKey2 = 1045U;
+
+		cdl.m_Val = hvKey;
+
+		cdl.m_Height = 15;
+		cdl.m_Idx = 0;
+		db.ContractLogInsert(cdl);
+
+		cdl.m_Height = 16;
+		db.ContractLogInsert(cdl);
+
+		cid = 19U;
+		cdl.m_Height = 17;
+		cdl.m_Idx = 4;
+		db.ContractLogInsert(cdl);
+
+		NodeDB::WalkerContractLog wlkCdl;
+		db.ContractLogEnum(wlkCdl, HeightRange(0, MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogEnum(wlkCdl, HeightRange(0, MaxHeight), cid);
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogDel(HeightRange(0, 16));
+
+		db.ContractLogEnum(wlkCdl, HeightRange(0, MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
 	}
 
 #ifdef WIN32

@@ -115,6 +115,12 @@ namespace beam {
 #define TblContracts_Key		"Key"
 #define TblContracts_Value		"Value"
 
+#define TblContractLogs			"ContractLogs"
+#define TblContractLogs_Height	"Height"
+#define TblContractLogs_Idx		"Idx"
+#define TblContractLogs_Cid		"Cid"
+#define TblContractLogs_Data	"Data"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -350,7 +356,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 27;
+	const uint64_t nVersionTop = 28;
 
 
 	Transaction t(*this);
@@ -406,6 +412,10 @@ void NodeDB::Open(const char* szPath)
 
 		case 26: // ShieldedState stream added
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			// no break;
+
+		case 27:
+			CreateTables27();
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -530,6 +540,7 @@ void NodeDB::Create()
 	CreateTables21();
 	CreateTables22();
 	CreateTables23();
+	CreateTables27();
 }
 
 void NodeDB::CreateTables20()
@@ -576,6 +587,19 @@ void NodeDB::CreateTables23()
 	ExecQuick("CREATE TABLE [" TblContracts "] ("
 		"[" TblContracts_Key		"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblContracts_Value		"] BLOB NOT NULL)");
+}
+
+void NodeDB::CreateTables27()
+{
+	ExecQuick("CREATE TABLE [" TblContractLogs "] ("
+		"[" TblContractLogs_Height		"] INTEGER NOT NULL,"
+		"[" TblContractLogs_Idx			"] INTEGER NOT NULL,"
+		"[" TblContractLogs_Cid			"] BLOB NOT NULL,"
+		"[" TblContractLogs_Data		"] BLOB NOT NULL,"
+		"PRIMARY KEY(" TblContractLogs_Height "," TblContractLogs_Idx ")"
+		") WITHOUT ROWID");
+
+	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Cid" "] ON [" TblContractLogs "] ([" TblContractLogs_Cid "],[" TblContractLogs_Height "],[" TblContractLogs_Idx "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2879,5 +2903,65 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
+void NodeDB::ContractLogInsert(const WalkerContractLog::Data& x)
+{
+	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Height "," TblContractLogs_Idx "," TblContractLogs_Cid "," TblContractLogs_Data ") VALUES(?,?,?,?)");
+	rs.put(0, x.m_Height);
+	rs.put(1, x.m_Idx);
+	rs.put(2, *x.m_pCid);
+	rs.put(3, x.m_Val);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+Height FixHeightToDB(Height h)
+{
+	return std::min(h, MaxHeight / 2);
+}
+
+void NodeDB::ContractLogDel(const HeightRange& hr)
+{
+	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=?");
+	rs.put(0, FixHeightToDB(hr.m_Min));
+	rs.put(1, FixHeightToDB(hr.m_Max));
+	rs.Step();
+}
+
+void NodeDB::ContractLogEnum(WalkerContractLog& wlk, const HeightRange& hr)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs
+		" WHERE " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=? ORDER BY " TblContractLogs_Height "," TblContractLogs_Idx);
+	wlk.m_Rs.put(0, FixHeightToDB(hr.m_Min));
+	wlk.m_Rs.put(1, FixHeightToDB(hr.m_Max));
+}
+
+void NodeDB::ContractLogEnum(WalkerContractLog& wlk, const HeightRange& hr, const WalkerContractLog::Data::Cid& cid)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractLogEnumCid, "SELECT * FROM " TblContractLogs
+		" WHERE " TblContractLogs_Cid "=? AND " TblContractLogs_Height ">=? AND " TblContractLogs_Height "<=? ORDER BY " TblContractLogs_Cid "," TblContractLogs_Height "," TblContractLogs_Idx);
+	wlk.m_Rs.put(0, cid);
+	wlk.m_Rs.put(1, FixHeightToDB(hr.m_Min));
+	wlk.m_Rs.put(2, FixHeightToDB(hr.m_Max));
+}
+
+bool NodeDB::WalkerContractLog::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_Data.m_Height);
+	m_Rs.get(1, m_Data.m_Idx);
+
+	Blob cid;
+	m_Rs.get(2, cid);
+	if (Data::Cid::nBytes != cid.n)
+		ThrowInconsistent();
+
+	m_Data.m_pCid = reinterpret_cast<Data::Cid*>(cid.p);
+
+	m_Rs.get(3, m_Data.m_Val);
+	return true;
+}
 
 } // namespace beam
