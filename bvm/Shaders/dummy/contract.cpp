@@ -64,7 +64,7 @@ export void Method_2(Dummy::TestFarCall& r)
         pR = nullptr;
     }
 
-    Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR));
+    Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_InheritCtx);
 }
 
 export void Method_3(Dummy::MathTest1& r)

@@ -127,9 +127,9 @@ namespace Env {
 
 #ifndef HOST_BUILD
     template <typename T>
-    void CallFar_T(const ContractID& cid, T& args)
+    void CallFar_T(const ContractID& cid, T& args, uint8_t bInheritContext = 0)
     {
-        CallFar(cid, args.s_iMethod, &args, sizeof(args));
+        CallFar(cid, args.s_iMethod, &args, sizeof(args), bInheritContext);
     }
 #endif // HOST_BUILD
 
@@ -230,6 +230,22 @@ namespace Env {
         const TValue* pValue;
         return VarRead_T(key, pValue) ? pValue : nullptr;
 
+    }
+
+    template <typename TValue>
+    inline bool LogsMoveNext_T(const TValue*& pValue, Height* pHeight = nullptr)
+    {
+        while (true)
+        {
+            uint32_t nVal;
+            if (!LogsMoveNext(nullptr, pHeight, (const void**) &pValue, &nVal))
+                return false;
+
+            if (sizeof(TValue) == nVal)
+                break;
+        }
+
+        return true;
     }
 
 } // namespace Env

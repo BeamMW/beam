@@ -175,11 +175,16 @@
 	macro(uint32_t, nVal) sep \
 	macro(uint8_t, nType)
 
+#define BVMOp_EmitLog(macro, sep) \
+	macro(const void*, pVal) sep \
+	macro(uint32_t, nVal)
+
 #define BVMOp_CallFar(macro, sep) \
 	macro(const ContractID&, cid) sep \
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs) sep \
-	macro(uint32_t, nArgs)
+	macro(uint32_t, nArgs) sep \
+	macro(uint8_t, bInheritContext)
 
 #define BVMOp_get_CallDepth(macro, sep)
 
@@ -239,6 +244,17 @@
 #define BVMOp_VarsMoveNext(macro, sep) \
 	macro(const void**, ppKey) sep \
 	macro(uint32_t*, pnKey) sep \
+	macro(const void**, ppVal) sep \
+	macro(uint32_t*, pnVal)
+
+#define BVMOp_LogsEnum(macro, sep) \
+	macro(const ContractID*, pCid) sep \
+	macro(Height, hMin) sep \
+	macro(Height, hMax)
+
+#define BVMOp_LogsMoveNext(macro, sep) \
+	macro(ContractID*, pCid) sep \
+	macro(Height*, pHeight) sep \
 	macro(const void**, ppVal) sep \
 	macro(uint32_t*, pnVal)
 
@@ -358,6 +374,7 @@
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, uint32_t , SaveVar) \
+	macro(0x22, void     , EmitLog) \
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
@@ -374,6 +391,8 @@
 	macro(0x51, void     , VarsEnum) \
 	macro(0x52, uint8_t  , VarsMoveNext) \
 	macro(0x53, uint32_t , VarGetProof) \
+	macro(0x54, void     , LogsEnum) \
+	macro(0x55, uint8_t  , LogsMoveNext) \
 	macro(0x58, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \

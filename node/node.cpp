@@ -3767,6 +3767,53 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
+{
+    auto& db = m_This.m_Processor.get_DB();
+    NodeDB::ContractLog::Pos posMin(msg.m_Height.m_Min);
+    NodeDB::ContractLog::Pos posMax(msg.m_Height.m_Max, static_cast<uint32_t>(-1));
+
+    bool bAllCids = (msg.m_Cid == Zero);
+
+    NodeDB::ContractLog::Walker wlk;
+    if (bAllCids)
+        db.ContractLogEnum(wlk, posMin, posMax);
+    else
+        db.ContractLogEnum(wlk, posMin, posMax, msg.m_Cid);
+
+    proto::ContractLogs msgOut;
+    Serializer ser;
+
+    for (Height hPrev = msg.m_Height.m_Min; ; )
+    {
+        if (!wlk.MoveNext())
+            break;
+
+        auto dh = wlk.m_Entry.m_Pos.m_Height - hPrev;
+        if (dh)
+        {
+            if (IsChocking(ser.buffer().second))
+            {
+                msgOut.m_bMore = true;
+                break;
+            }
+
+            hPrev = wlk.m_Entry.m_Pos.m_Height;
+        }
+
+        ser & dh;
+
+        if (bAllCids)
+            ser & *wlk.m_Entry.m_pCid;
+
+        ser & wlk.m_Entry.m_Val.n;
+        ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+    }
+
+    ser.swap_buf(msgOut.m_Result);
+    Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetContractVar&& msg)
 {
     proto::ContractVar msgOut;

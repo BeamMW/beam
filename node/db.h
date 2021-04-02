@@ -191,6 +191,11 @@ public:
 			ContractDataEnumAll,
 			ContractDataDelAll,
 
+			ContractLogInsert,
+			ContractLogDel,
+			ContractLogEnum,
+			ContractLogEnumCid,
+
 			ShieldedStatisticSel,
 			ShieldedStatisticIns,
 			ShieldedStatisticDel,
@@ -681,6 +686,45 @@ public:
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
+	struct ContractLog
+	{
+#pragma pack (push, 1)
+		struct Pos {
+			Height m_Height;
+			uint32_t m_Idx;
+
+			Pos() {}
+			Pos(Height h, uint32_t nIdx = 0)
+				:m_Height(h)
+				,m_Idx(nIdx)
+			{}
+		};
+#pragma pack (pop)
+
+		typedef const ECC::Hash::Value Cid;
+
+		struct Entry
+		{
+			Pos m_Pos;
+			const Cid* m_pCid;
+			Blob m_Val;
+		};
+
+		struct Walker
+		{
+			Pos m_bufMin, m_bufMax;
+
+			Recordset m_Rs;
+			Entry m_Entry;
+			bool MoveNext();
+		};
+	};
+
+	void ContractLogInsert(const ContractLog::Entry&);
+	void ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid&);
+
 private:
 
 	sqlite3* m_pDb;
@@ -708,6 +752,7 @@ private:
 	void CreateTables21();
 	void CreateTables22();
 	void CreateTables23();
+	void CreateTables27();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

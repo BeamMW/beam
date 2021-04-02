@@ -258,6 +258,14 @@ namespace proto {
     macro(ByteBuffer, Result) \
     macro(bool, bMore)
 
+#define BeamNodeMsg_ContractLogsEnum(macro) \
+    macro(HeightRange, Height) \
+    macro(ECC::uintBig, Cid)
+
+#define BeamNodeMsg_ContractLogs(macro) \
+    macro(ByteBuffer, Result) \
+    macro(bool, bMore)
+
 #define BeamNodeMsg_GetContractVar(macro) \
     macro(ByteBuffer, Key)
 
@@ -315,6 +323,8 @@ namespace proto {
     macro(0x3d, ShieldedList) \
     macro(0x1f, ContractVarsEnum) \
     macro(0x2d, ContractVars) \
+    macro(0x40, ContractLogsEnum) \
+    macro(0x41, ContractLogs) \
     macro(0x38, GetContractVar) \
     macro(0x3c, ContractVar) \
     macro(0x33, EnumHdrs) \
@@ -362,7 +372,7 @@ namespace proto {
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
             // 7 - GetShieldedOutputsAt
-            // 8 - Contract vars, flexible hdr request, newer ShieldedList
+            // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 8;

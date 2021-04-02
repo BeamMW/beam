@@ -189,7 +189,7 @@ namespace bvm2 {
 		InitBase(&m_vStack.front(), nStackBytes, 0);
 
 		ZeroObject(m_AuxAlloc);
-		m_EnumVars = false;
+		m_EnumType = EnumType::None;
 		m_NeedComma = false;
 	}
 
@@ -1134,6 +1134,17 @@ namespace bvm2 {
 		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
 
+	BVM_METHOD(EmitLog)
+	{
+		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
+		return OnHost_EmitLog(get_AddrR(pVal, nVal), nVal);
+	}
+	BVM_METHOD_HOST(EmitLog)
+	{
+		Wasm::Test(nVal <= Limits::VarSize);
+		OnLog(Blob(pVal, nVal));
+	}
+
 	BVM_METHOD(CallFar)
 	{
 		// make sure the pArgs is not malicious.
@@ -1177,6 +1188,14 @@ namespace bvm2 {
 
 		m_Stack.m_PosMin = nCallStackPosMin;
 		m_Stack.m_BytesMax = nCalleeStackMax;
+
+		if (bInheritContext)
+		{
+			auto it = m_FarCalls.m_Stack.rbegin();
+			auto& fr0 = *it;
+			auto& fr1 = *(++it);
+			fr0.m_Cid = fr1.m_Cid;
+		}
 
 	}
 	BVM_METHOD_HOST(CallFar)
@@ -1955,7 +1974,7 @@ namespace bvm2 {
 	{
 		FreeAuxAllocGuarded();
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1));
-		m_EnumVars = true;
+		m_EnumType = EnumType::Vars;
 	}
 
 	BVM_METHOD(VarsMoveNext)
@@ -1985,18 +2004,68 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(VarsMoveNext)
 	{
-		Wasm::Test(m_EnumVars); // illegal to call this method before VarsEnum
+		Wasm::Test(EnumType::Vars == m_EnumType); // illegal to call this method before VarsEnum
 
 		Blob key, data;
 		if (!VarsMoveNext(key, data))
 		{
 			FreeAuxAllocGuarded();
-			m_EnumVars = false;
+			m_EnumType = EnumType::None;
 			return 0;
 		}
 
 		*ppKey = key.p;
 		*pnKey = key.n;
+		*ppVal = data.p;
+		*pnVal = data.n;
+
+		return 1;
+	}
+
+	BVM_METHOD(LogsEnum)
+	{
+		OnHost_LogsEnum(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, hMin, hMax);
+	}
+	BVM_METHOD_HOST(LogsEnum)
+	{
+		FreeAuxAllocGuarded();
+		LogsEnum(pCid, HeightRange(hMin, hMax));
+		m_EnumType = EnumType::Logs;
+	}
+
+	BVM_METHOD(LogsMoveNext)
+	{
+		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
+		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
+
+		const void *pVal;
+		uint32_t nVal;
+
+		if (!OnHost_LogsMoveNext(pCid ? &get_AddrAsW<ContractID>(pCid) : nullptr, pHeight ? &get_AddrAsW<Height>(pHeight) : nullptr, &pVal, &nVal))
+			return 0;
+
+		uint8_t* pDst = ResizeAux(nVal);
+		memcpy(pDst, pVal, nVal);
+
+		Wasm::to_wasm(pnVal_, nVal);
+		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr);
+
+		return 1;
+	}
+	BVM_METHOD_HOST(LogsMoveNext)
+	{
+		Wasm::Test(EnumType::Logs == m_EnumType); // illegal to call this method before LogsEnum
+
+		ContractID cid;
+		Height h;
+		Blob data;
+		if (!LogsMoveNext(pCid, pHeight ? *pHeight : h, data))
+		{
+			FreeAuxAllocGuarded();
+			m_EnumType = EnumType::None;
+			return 0;
+		}
+
 		*ppVal = data.p;
 		*pnVal = data.n;
 

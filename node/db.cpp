@@ -16,6 +16,7 @@
 #include <algorithm> // sort
 #include "../core/peer_manager.h"
 #include "../utility/logger.h"
+#include "../utility/byteorder.h"
 #include <algorithm>
 
 namespace beam {
@@ -114,6 +115,11 @@ namespace beam {
 #define TblContracts			"Contracts"
 #define TblContracts_Key		"Key"
 #define TblContracts_Value		"Value"
+
+#define TblContractLogs			"ContractLogs"
+#define TblContractLogs_Pos		"Pos"
+#define TblContractLogs_Cid		"Cid"
+#define TblContractLogs_Data	"Data"
 
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
@@ -350,7 +356,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 27;
+	const uint64_t nVersionTop = 28;
 
 
 	Transaction t(*this);
@@ -406,6 +412,10 @@ void NodeDB::Open(const char* szPath)
 
 		case 26: // ShieldedState stream added
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			// no break;
+
+		case 27:
+			CreateTables27();
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -530,6 +540,7 @@ void NodeDB::Create()
 	CreateTables21();
 	CreateTables22();
 	CreateTables23();
+	CreateTables27();
 }
 
 void NodeDB::CreateTables20()
@@ -576,6 +587,17 @@ void NodeDB::CreateTables23()
 	ExecQuick("CREATE TABLE [" TblContracts "] ("
 		"[" TblContracts_Key		"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblContracts_Value		"] BLOB NOT NULL)");
+}
+
+void NodeDB::CreateTables27()
+{
+	ExecQuick("CREATE TABLE [" TblContractLogs "] ("
+		"[" TblContractLogs_Pos			"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblContractLogs_Cid			"] BLOB NOT NULL,"
+		"[" TblContractLogs_Data		"] BLOB NOT NULL"
+		") WITHOUT ROWID");
+
+	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Cid" "] ON [" TblContractLogs "] ([" TblContractLogs_Cid "],[" TblContractLogs_Pos "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2879,5 +2901,70 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
+void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const NodeDB::ContractLog::Pos& pos, NodeDB::ContractLog::Pos& buf)
+{
+	buf.m_Height = ByteOrder::to_be(pos.m_Height);
+	buf.m_Idx = ByteOrder::to_be(pos.m_Idx);
+
+	rs.put(iCol, Blob(&buf, sizeof(buf)));
+}
+
+void NodeDB::ContractLogInsert(const ContractLog::Entry& x)
+{
+	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Cid "," TblContractLogs_Data ") VALUES(?,?,?)");
+
+	NodeDB::ContractLog::Pos buf;
+	put_ContractLogPos(rs, 0, x.m_Pos, buf);
+
+	rs.put(1, *x.m_pCid);
+	rs.put(2, x.m_Val);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
+{
+	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ?");
+
+	NodeDB::ContractLog::Pos bufMin, bufMax;
+	put_ContractLogPos(rs, 0, posMin, bufMin);
+	put_ContractLogPos(rs, 1, posMax, bufMax);
+
+	rs.Step();
+}
+
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Pos);
+
+	put_ContractLogPos(wlk.m_Rs, 0, posMin, wlk.m_bufMin);
+	put_ContractLogPos(wlk.m_Rs, 1, posMax, wlk.m_bufMax);
+}
+
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid& cid)
+{
+	wlk.m_Rs.Reset(*this, Query::ContractLogEnumCid, "SELECT * FROM " TblContractLogs
+		" WHERE " TblContractLogs_Cid "=? AND " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Cid "," TblContractLogs_Pos);
+	wlk.m_Rs.put(0, cid);
+
+	put_ContractLogPos(wlk.m_Rs, 1, posMin, wlk.m_bufMin);
+	put_ContractLogPos(wlk.m_Rs, 2, posMax, wlk.m_bufMax);
+}
+
+bool NodeDB::ContractLog::Walker::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get_As(0, m_Entry.m_Pos);
+	m_Entry.m_Pos.m_Height = ByteOrder::from_be(m_Entry.m_Pos.m_Height);
+	m_Entry.m_Pos.m_Idx = ByteOrder::from_be(m_Entry.m_Pos.m_Idx);
+
+	m_Entry.m_pCid = &m_Rs.get_As<Cid>(1);
+
+	m_Rs.get(2, m_Entry.m_Val);
+	return true;
+}
 
 } // namespace beam

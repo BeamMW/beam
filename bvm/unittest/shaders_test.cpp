@@ -249,13 +249,13 @@ namespace Shaders {
 #undef PAR_PASS
 #undef PAR_DECL
 
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs);
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
 		template <typename T>
-		void CallFar_T(const ContractID& cid, T& args)
+		void CallFar_T(const ContractID& cid, T& args, uint8_t bInheritContext = 0)
 		{
 			Convert<true>(args);
-			CallFarN(cid, args.s_iMethod, &args, sizeof(args));
+			CallFarN(cid, args.s_iMethod, &args, sizeof(args), bInheritContext);
 			Convert<false>(args);
 		}
 
@@ -633,7 +633,7 @@ namespace bvm2 {
 
 		uint32_t m_Cycles;
 
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs)
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
 		{
 			m_Stack.AliasAlloc(nArgs);
 			memcpy(m_Stack.get_AliasPtr(), pArgs, nArgs);
@@ -642,6 +642,14 @@ namespace bvm2 {
 
 			Wasm::Word nSp = m_Stack.get_AlasSp();
 			CallFar(cid, iMethod, nSp);
+
+			if (bInheritContext)
+			{
+				auto it = m_FarCalls.m_Stack.rbegin();
+				auto& fr0 = *it;
+				auto& fr1 = *(++it);
+				fr0.m_Cid = fr1.m_Cid;
+			}
 
 			bool bWasm = false;
 			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)
@@ -691,7 +699,7 @@ namespace bvm2 {
 			Shaders::Env::g_pEnv = this;
 			m_Cycles = 0;
 
-			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n);
+			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n, 0);
 
 			os << "Done in " << m_Cycles << " cycles, Discharge=" << (nUnitsMax - m_Charge) << std::endl << std::endl;
 			std::cout << os.str();
@@ -1263,6 +1271,7 @@ namespace bvm2 {
 		{
 			Shaders::Dummy::TestFarCall args;
 			args.m_Variant = 0;
+			args.m_InheritCtx = 0;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 			args.m_Variant = 1;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
@@ -1278,6 +1287,10 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 			args.m_Variant = 7;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+
+			args.m_Variant = 0;
+			args.m_InheritCtx = 1;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
 		}
 
 		{
@@ -2210,9 +2223,9 @@ namespace bvm2 {
 } // namespace bvm2
 } // namespace beam
 
-void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs)
+void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
 {
-	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs);
+	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
 }
 
 int main()

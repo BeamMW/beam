@@ -707,6 +707,45 @@ namespace beam
 
 		db.ContractDataDel(hvKey);
 		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
+
+		// contract logs
+		NodeDB::ContractLog::Entry cdl;
+		bvm2::ContractID cid = 15U;
+		cdl.m_pCid = &cid;
+
+		hvKey = 1043U;
+		hvKey2 = 1045U;
+
+		cdl.m_Val = hvKey;
+
+		cdl.m_Pos.m_Height = 15;
+		cdl.m_Pos.m_Idx = 3;
+		db.ContractLogInsert(cdl);
+
+		cdl.m_Pos.m_Height = 16;
+		db.ContractLogInsert(cdl);
+
+		cid = 19U;
+		cdl.m_Pos.m_Height = 17;
+		cdl.m_Pos.m_Idx = 4;
+		db.ContractLogInsert(cdl);
+
+		NodeDB::ContractLog::Walker wlkCdl;
+		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight), cid);
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogDel(NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(16, 0xffff));
+
+		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
 	}
 
 #ifdef WIN32
@@ -1691,7 +1730,7 @@ namespace beam
 
 			struct
 			{
-				Height m_pStage[8]; // ctor, list, deposit, proof, print, withdraw, print, dtor
+				Height m_pStage[9]; // ctor, list, deposit, proof, print, withdraw, print, dtor, logs
 				uint32_t m_Done = 0;
 				bvm2::ContractID m_Cid;
 				bool m_VarProof = false;
@@ -2377,6 +2416,10 @@ namespace beam
 						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVars>(r).m_Msg);
 						break;
 
+					case proto::FlyClient::Request::Type::ContractLogs:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractLogs>(r).m_Msg);
+						break;
+
 					case proto::FlyClient::Request::Type::ContractVar:
 						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVar>(r).m_Msg);
 						break;
@@ -2390,9 +2433,8 @@ namespace beam
 
 				void OnComplete2()
 				{
-					auto pHandler = m_pReq->m_pTrg;
-					m_pReq->m_pTrg = nullptr;
-					pHandler->OnComplete(*m_pReq);
+					auto pReq = std::move(m_pReq);
+					pReq->m_pTrg->OnComplete(*pReq);
 				}
 
 				void OnMsg(proto::ContractVars&& msg)
@@ -2400,6 +2442,16 @@ namespace beam
 					if (m_pReq && m_pReq->m_pTrg)
 					{
 						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
+
+				void OnMsg(proto::ContractLogs&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pReq);
 						x.m_Res = std::move(msg);
 						OnComplete2();
 					}
@@ -2518,6 +2570,11 @@ namespace beam
 					proc.m_Args["action"] = "destroy";
 					break;
 
+				case 8: // logs
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "view_logs";
+					break;
+
 				default: // print
 					proc.m_Args["role"] = "my_account";
 					proc.m_Args["action"] = "view";
@@ -2534,6 +2591,12 @@ namespace beam
 			}
 
 			virtual void OnMsg(proto::ContractVars&& msg) override
+			{
+				if (m_pMyNetwork)
+					m_pMyNetwork->OnMsg(std::move(msg));
+			}
+
+			virtual void OnMsg(proto::ContractLogs&& msg) override
 			{
 				if (m_pMyNetwork)
 					m_pMyNetwork->OnMsg(std::move(msg));
