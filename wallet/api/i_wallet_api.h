@@ -72,11 +72,13 @@ namespace beam::wallet
         struct ParseInfo {
             std::string method;
             json rpcid;
+            json message;
+            json params;
         };
 
         // this should be safe to call in any thread.
         // returns info on success / calls sendAPIResponse on parse error
-        //boost::optional<ParseInfo> parseAPIRequest(const char& data, size_t size) = 0;
+        virtual boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) = 0;
 
         // doesn't throw
         // should be called in API's/InitData's reactor thread

@@ -16,8 +16,7 @@
 namespace beam::wallet
 {
     enum ApiSyncMode {
-        NotStartedAndFailed = 0,
-        DoneSync,
+        DoneSync = 0,
         RunningAsync,
     };
 }

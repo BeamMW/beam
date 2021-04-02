@@ -62,110 +62,78 @@ namespace beam::wallet {
         _handler.sendAPIResponse(error);
     }
 
-    ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
+    boost::optional<IWalletApi::ParseInfo> ApiBase::parseAPIRequest(const char* data, size_t size)
     {
-        {
-            std::string s(data, size);
-            static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
-            LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
-        }
+        JsonRpcId rpcid;
+        return callGuarded<IWalletApi::ParseInfo>(rpcid, [this, &rpcid, data, size] () -> IWalletApi::ParseInfo {
+            {
+                std::string s(data, size);
+                static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
+                LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
+            }
 
-        if (size == 0)
-        {
-            const auto errEmptyJSON = formError(JsonRpcId(), ApiError::InvalidJsonRpc, "Empty JSON request.");
-            _handler.onParseError(errEmptyJSON);
-            return ApiSyncMode::NotStartedAndFailed;
-        }
+            if (size == 0)
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
+            }
 
-        JsonRpcId id = JsonRpcId();
+            ParseInfo result;
+            result.message = json::parse(data, data + size);
 
-        try
-        {
-            json msg = json::parse(data, data + size);
-
-            if(!msg["id"].is_number_integer() && !msg["id"].is_string())
+            if(!result.message["id"].is_number_integer() && !result.message["id"].is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "ID can be integer or string only.");
             }
-            else
-            {
-                id = msg["id"];
-            }
 
-            if (msg[JsonRpcHeader] != JsonRpcVersion)
+            result.rpcid = result.message["id"];
+            rpcid = result.rpcid;
+
+            if (result.message[JsonRpcHeader] != JsonRpcVersion)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.");
             }
 
+            result.method = getMandatoryParam<NonEmptyString>(result.message, "method");
+            if (_methods.find(result.method) == _methods.end())
+            {
+                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, result.method);
+            }
+
+            result.params = result.message["params"];
+            return result;
+        });
+    }
+
+    ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
+    {
+        const auto pinfo = parseAPIRequest(data, size);
+        if (pinfo == boost::none)
+        {
+            return ApiSyncMode::DoneSync;
+        }
+
+        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
+            const auto& minfo = _methods[pinfo->method];
+
             if (_acl)
             {
-                const json key = msg["key"];
-
-                if (key.is_null())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "API key not specified.");
-                }
-
+                const std::string key = getMandatoryParam<NonEmptyString>(pinfo->message, "key");
                 if (_acl->count(key) == 0)
                 {
                     throw jsonrpc_exception(ApiError::UnknownApiKey, key);
                 }
-            }
 
-            const auto method = getMandatoryParam<const JsonRpcId&>(msg, "method");
-            if (_methods.find(method) == _methods.end())
-            {
-                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, method);
-            }
-
-            bool isAsync = false;
-
-            try
-            {
-                const auto& minfo = _methods[method];
-                if(_acl && minfo.writeAccess && !_acl.get()[msg["key"]])
+                if(minfo.writeAccess && !_acl.get()[key])
                 {
-                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,"User doesn't have permissions to call this method.");
+                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc,"User doesn't have permissions to call this method.");
                 }
-
-                minfo.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
-                isAsync = minfo.isAsync;
-            }
-            catch (const jsonrpc_exception&)
-            {
-                throw;
-            }
-            catch (const nlohmann::detail::exception& e)
-            {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, e.what());
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << "error while calling " << method << ": " << e.what();
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, e.what());
             }
 
-            return isAsync ? ApiSyncMode::RunningAsync : ApiSyncMode::DoneSync;
-        }
-        catch (const jsonrpc_exception& e)
-        {
-            const auto error = formError(id, e.code(), e.whatstr());
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
-        }
-        catch (const std::exception& e)
-        {
-            const auto error = formError(id, ApiError::InternalErrorJsonRpc, e.what());
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
-        }
-        catch (...)
-        {
-            const auto error = formError(id, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
-            _handler.onParseError(error);
-            return ApiSyncMode::DoneSync;
-        }
+            minfo.func(pinfo->rpcid, pinfo->params);
+            return minfo.isAsync ? ApiSyncMode::RunningAsync : ApiSyncMode::DoneSync;
+        });
+
+        return result ? *result : ApiSyncMode::DoneSync;
     }
 
     template<>

@@ -135,7 +135,7 @@ namespace
 
         ApiTest api;
         api.func = std::move(func);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testCreateAddressJsonRpc(const std::string& msg)
@@ -156,7 +156,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             std::string addr = "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67";
@@ -199,7 +199,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -262,7 +262,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -300,7 +300,7 @@ namespace
         };
 
         ApiTest api(onError, onSuccess);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -331,7 +331,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testInvalidInvokeContractJsonRpc(const std::string& msg)
@@ -351,7 +351,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -372,7 +372,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
@@ -396,7 +396,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -428,7 +428,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -472,7 +472,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -504,7 +504,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -543,7 +543,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -575,7 +575,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testTxListJsonRpc(const std::string& msg)
@@ -598,7 +598,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -632,7 +632,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testValidateAddressJsonRpc(const std::string& msg, bool valid)
@@ -659,7 +659,7 @@ namespace
         };
 
         ApiTest api(valid);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -695,7 +695,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -730,7 +730,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -766,7 +766,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -811,7 +811,7 @@ namespace
         };
 
         ApiTest api(value);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -834,7 +834,7 @@ namespace
         };
 
         ApiTest api;
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -880,7 +880,7 @@ namespace
         };
 
         ApiTest api(kToken);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -939,7 +939,7 @@ namespace
         };
 
         ApiTest api(kTxId);
-        WALLET_CHECK(api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;

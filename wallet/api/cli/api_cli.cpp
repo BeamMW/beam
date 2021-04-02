@@ -275,7 +275,8 @@ namespace
 
             bool on_raw_message(void* data, size_t size)
             {
-                return static_cast<bool>(_walletApi->executeAPIRequest(static_cast<const char*>(data), size));
+                _walletApi->executeAPIRequest(static_cast<const char*>(data), size);
+                return size > 0;
             }
 
             bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
@@ -362,8 +363,8 @@ namespace
                     size_t size = 0;
                     auto data = msg.msg->get_body(size);
 
-                    const auto parseResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
-                    _keepalive = parseResult == ApiSyncMode::RunningAsync;
+                    const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
+                    _keepalive = asyncResult == ApiSyncMode::RunningAsync;
                 }
 
                 if (!_keepalive)

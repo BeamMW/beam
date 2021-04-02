@@ -34,9 +34,11 @@ namespace beam::wallet
         // user api key and read/write access
         ApiBase(IWalletApiHandler& handler, ACL acl = boost::none);
 
-        // TODO: review error codes and returned results
-        ApiSyncMode executeAPIRequest(const char *data, size_t size);
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+
+        boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) override;
+        // TODO: review error codes and returned results
+        ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
 
         //
         // getMandatory....
@@ -81,6 +83,50 @@ namespace beam::wallet
 
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+
+        template<typename TRes>
+        boost::optional<TRes> callGuarded(const JsonRpcId& rpcid, std::function<TRes (void)> func)
+        {
+            try
+            {
+                return func();
+            }
+            catch (const nlohmann::detail::exception& e)
+            {
+                auto error = formError(rpcid, ApiError::InvalidJsonRpc, e.what());
+                _handler.onParseError(error);
+            }
+            catch (const jsonrpc_exception& e)
+            {
+                auto error = formError(rpcid, e.code(), e.whatstr());
+                switch(e.code())
+                {
+                case ApiError::InvalidJsonRpc:
+                case ApiError::InvalidParamsJsonRpc:
+                    _handler.onParseError(error);
+                    break;
+                default:
+                    _handler.sendAPIResponse(error);
+                }
+            }
+            catch (const std::runtime_error& e)
+            {
+                auto error = formError(rpcid, ApiError::InternalErrorJsonRpc, e.what());
+                _handler.sendAPIResponse(error);
+            }
+            catch (const std::exception& e)
+            {
+                auto error = formError(rpcid, ApiError::InternalErrorJsonRpc, e.what());
+                _handler.sendAPIResponse(error);
+            }
+            catch (...)
+            {
+                auto error = formError(rpcid, ApiError::InternalErrorJsonRpc, "API call failed, please take a look at logs");
+                _handler.sendAPIResponse(error);
+            }
+
+            return boost::none;
+        }
     };
 
     // boost::optional<json> is not defined intentionally, use const json& instead
