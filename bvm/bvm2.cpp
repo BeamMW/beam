@@ -1137,12 +1137,19 @@ namespace bvm2 {
 	BVM_METHOD(EmitLog)
 	{
 		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
-		return OnHost_EmitLog(get_AddrR(pVal, nVal), nVal);
+		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
 		Wasm::Test(nVal <= Limits::VarSize);
-		OnLog(Blob(pVal, nVal));
+
+		uint8_t pKeyFull[ContractID::nBytes + Limits::VarKeySize];
+
+		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+		memcpy(pKeyFull, cid.m_pData, cid.nBytes);
+		memcpy(pKeyFull + cid.nBytes, pKey, nKey);
+
+		return OnLog(Blob(pKeyFull, nKey + cid.nBytes), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)

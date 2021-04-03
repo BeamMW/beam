@@ -2169,7 +2169,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
-		virtual void OnLog(const Blob&) override;
+		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -4340,24 +4340,26 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& data)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
 {
 	assert(m_Bic.m_Fwd);
 	if (!m_Bic.m_Temporary)
 	{
-		BlockInterpretCtx::Ser ser(m_Bic);
-		RecoveryTag::Type nTag = RecoveryTag::Log;
-		ser & nTag;
-		ser & m_Bic.m_ContractLogs;
 
 		NodeDB::ContractLog::Entry x;
 		x.m_Pos.m_Height = m_Bic.m_Height;
-		x.m_Pos.m_Idx = m_Bic.m_ContractLogs++;
-		x.m_Val = data;
-		x.m_pCid = &m_FarCalls.m_Stack.begin()->m_Cid;
-
+		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
+		x.m_Key = key;
+		x.m_Val = val;
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
+
+	BlockInterpretCtx::Ser ser(m_Bic);
+	RecoveryTag::Type nTag = RecoveryTag::Log;
+	ser & nTag;
+	ser & m_Bic.m_ContractLogs;
+
+	return m_Bic.m_ContractLogs++;
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
@@ -4498,11 +4500,11 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			der & m_Bic.m_ContractLogs;
 
-			NodeDB::ContractLog::Pos pos;
-			pos.m_Height = m_Bic.m_Height;
-			pos.m_Idx = m_Bic.m_ContractLogs;
-
-			m_Proc.m_DB.ContractLogDel(pos, pos);
+			if (!m_Bic.m_Temporary)
+			{
+				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
+				m_Proc.m_DB.ContractLogDel(pos, pos);
+			}
 		}
 		break;
 
@@ -5994,7 +5996,7 @@ void NodeProcessor::RebuildNonStd()
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_Mapped.m_Contract.Clear();
 	m_DB.ContractDataDelAll();
-	m_DB.ContractLogDel(NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight));
+	m_DB.ContractLogDel(HeightPos(0), HeightPos(MaxHeight));
 	m_DB.ShieldedOutpDelFrom(0);
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();

@@ -176,6 +176,8 @@
 	macro(uint8_t, nType)
 
 #define BVMOp_EmitLog(macro, sep) \
+	macro(const void*, pKey) sep \
+	macro(uint32_t, nKey) sep \
 	macro(const void*, pVal) sep \
 	macro(uint32_t, nVal)
 
@@ -374,7 +376,7 @@
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, uint32_t , SaveVar) \
-	macro(0x22, void     , EmitLog) \
+	macro(0x22, uint32_t , EmitLog) \
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
