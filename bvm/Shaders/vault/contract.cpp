@@ -13,14 +13,7 @@ Amount LoadAccount(const Vault::Key& key)
 
 void SaveAccount(const Vault::Key& key, Amount amount)
 {
-    {
-        Vault::Request rr;
-        Cast::Down<Vault::Key>(rr) = key;
-        rr.m_Amount = amount;
-
-        Env::EmitLog(&rr, sizeof(rr));
-    }
-
+    Env::EmitLog(&key, sizeof(key), &amount, sizeof(amount));
 
     if (amount)
         Env::SaveVar_T(key, amount);
