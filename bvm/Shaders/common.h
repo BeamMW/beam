@@ -46,6 +46,12 @@ struct Secp_point_data {
 
 #pragma pack (pop)
 
+struct HeightPos
+{
+    Height m_Height;
+    uint32_t m_Pos;
+};
+
 typedef Secp_point_data PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;

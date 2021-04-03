@@ -2022,6 +2022,18 @@ namespace bvm2 {
 		return 1;
 	}
 
+	const HeightPos* Processor::FromWasmOpt(Wasm::Word pPos, HeightPos& buf)
+	{
+		if (!pPos)
+			return nullptr;
+
+		auto& pos_ = get_AddrAsR<HeightPos>(pPos);
+		buf.m_Height = Wasm::from_wasm(pos_.m_Height);
+		buf.m_Pos = Wasm::from_wasm(pos_.m_Pos);
+
+		return &buf;
+	}
+
 	BVM_METHOD(LogsEnum)
 	{
 		OnHost_LogsEnum(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, hMin, hMax);

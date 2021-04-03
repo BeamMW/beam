@@ -29,6 +29,7 @@ namespace Shaders {
     using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
+	using beam::HeightPos;
 
     template<bool bToShader, typename T>
     inline void ConvertOrd(T& x)
@@ -292,6 +293,8 @@ namespace bvm2 {
 			} m_Point;
 
 		} m_Secp;
+
+		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
 
 	public:
 

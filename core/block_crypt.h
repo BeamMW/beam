@@ -108,6 +108,26 @@ namespace beam
 
 	std::ostream& operator << (std::ostream&, const HeightHash&);
 
+    struct HeightPos
+    {
+        Height m_Height;
+        uint32_t m_Pos;
+
+		HeightPos() {}
+		HeightPos(Height h, uint32_t pos = 0)
+			:m_Height(h)
+			,m_Pos(pos)
+		{}
+
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_Height
+                & m_Pos;
+        }
+    };
+
 	struct Asset
 	{
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
