@@ -140,21 +140,26 @@ namespace bvm2 {
 		return true;
 	}
 
-	void ManagerStd::LogsEnum(const ContractID* pCid, const HeightRange& hr)
+	void ManagerStd::LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax)
 	{
 		boost::intrusive_ptr<RemoteRead::RequestLogs> pReq(new RemoteRead::RequestLogs);
 		auto& r = *pReq;
 
-		r.m_AllCids = !pCid || (*pCid == Zero);
-		if (!r.m_AllCids)
-			r.m_Msg.m_Cid = *pCid;
+		kMin.Export(r.m_Msg.m_KeyMin);
+		kMax.Export(r.m_Msg.m_KeyMax);
 
-		r.m_Msg.m_Height = hr;
+		if (pPosMin)
+			r.m_Msg.m_PosMin = *pPosMin;
+
+		if (pPosMax)
+			r.m_Msg.m_PosMax = *pPosMax;
+		else
+			r.m_Msg.m_PosMax.m_Height = MaxHeight;
 
 		m_RemoteRead.Post(r);
 	}
 
-	bool ManagerStd::LogsMoveNext(ContractID* pCid, Height& h, Blob& val)
+	bool ManagerStd::LogsMoveNext(Blob& key, Blob& val, HeightPos& pos)
 	{
 		if (!m_RemoteRead.m_pRequest || (proto::FlyClient::Request::Type::ContractLogs != m_RemoteRead.m_pRequest->get_Type()))
 			return false; // enum was not called
@@ -180,27 +185,28 @@ namespace bvm2 {
 		Deserializer der;
 		der.reset(pBuf + r.m_Consumed, r.m_Buf.size() - r.m_Consumed);
 
-		der & h;
-		r.m_Msg.m_Height.m_Min += h;
-		h = r.m_Msg.m_Height.m_Min;
+		der
+			& pos
+			& key.n
+			& val.n;
 
-		if (r.m_AllCids)
+		if (pos.m_Height)
 		{
-			ContractID cidDummy;
-			der & (pCid ? *pCid : cidDummy);
-		}
-		else
-		{
-			if (pCid)
-				*pCid = r.m_Msg.m_Cid;
+			r.m_Msg.m_PosMin.m_Height += pos.m_Height;
+			r.m_Msg.m_PosMin.m_Pos = 0;
 		}
 
-
-		der & val.n;
+		r.m_Msg.m_PosMin.m_Pos += pos.m_Pos;
+		pos = r.m_Msg.m_PosMin;
 
 		r.m_Consumed = r.m_Buf.size() - der.bytes_left();
 
-		Wasm::Test(val.n <= der.bytes_left());
+		uint32_t nTotal = key.n + val.n;
+		Wasm::Test(nTotal >= key.n); // no overflow
+		Wasm::Test(nTotal <= der.bytes_left());
+
+		key.p = pBuf + r.m_Consumed;
+		r.m_Consumed += key.n;
 
 		val.p = pBuf + r.m_Consumed;
 		r.m_Consumed += val.n;
@@ -209,7 +215,7 @@ namespace bvm2 {
 		{
 			// ask for more
 			r.m_Res.m_bMore = false;
-			r.m_Msg.m_Height.m_Min++;
+			r.m_Msg.m_PosMin.m_Pos++;
 
 			m_Freeze++;
 			m_pNetwork->PostRequest(r, m_RemoteRead);

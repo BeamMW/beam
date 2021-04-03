@@ -125,8 +125,8 @@ namespace bvm2 {
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
 		bool VarsMoveNext(Blob& key, Blob& val) override;
-		void LogsEnum(const ContractID*, const HeightRange&) override;
-		bool LogsMoveNext(ContractID*, Height&, Blob& val) override;
+		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) override;
+		bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
 		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;

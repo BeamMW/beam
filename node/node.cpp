@@ -3770,44 +3770,45 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 {
     auto& db = m_This.m_Processor.get_DB();
-    NodeDB::ContractLog::Pos posMin(msg.m_Height.m_Min);
-    NodeDB::ContractLog::Pos posMax(msg.m_Height.m_Max, static_cast<uint32_t>(-1));
-
-    bool bAllCids = (msg.m_Cid == Zero);
 
     NodeDB::ContractLog::Walker wlk;
-    if (bAllCids)
-        db.ContractLogEnum(wlk, posMin, posMax);
+    if (msg.m_KeyMin.empty() && msg.m_KeyMax.empty())
+        db.ContractLogEnum(wlk, msg.m_PosMin, msg.m_PosMax);
     else
-        db.ContractLogEnum(wlk, posMin, posMax, msg.m_Cid);
+        db.ContractLogEnum(wlk, msg.m_KeyMin, msg.m_KeyMax, msg.m_PosMin, msg.m_PosMax);
 
     proto::ContractLogs msgOut;
     Serializer ser;
 
-    for (Height hPrev = msg.m_Height.m_Min; ; )
+    while (true)
     {
         if (!wlk.MoveNext())
             break;
 
-        auto dh = wlk.m_Entry.m_Pos.m_Height - hPrev;
-        if (dh)
+        HeightPos dp;
+        dp.m_Height = wlk.m_Entry.m_Pos.m_Height - msg.m_PosMin.m_Height;
+        if (dp.m_Height)
         {
-            if (IsChocking(ser.buffer().second))
-            {
-                msgOut.m_bMore = true;
-                break;
-            }
-
-            hPrev = wlk.m_Entry.m_Pos.m_Height;
+            msg.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
+            msg.m_PosMin.m_Pos = 0;
         }
 
-        ser & dh;
+        dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - msg.m_PosMin.m_Pos;
+        msg.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
 
-        if (bAllCids)
-            ser & *wlk.m_Entry.m_pCid;
+        ser
+            & dp
+            & wlk.m_Entry.m_Key.n
+            & wlk.m_Entry.m_Val.n;
 
-        ser & wlk.m_Entry.m_Val.n;
+        ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
         ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+
+        if (IsChocking(ser.buffer().second))
+        {
+            msgOut.m_bMore = true;
+            break;
+        }
     }
 
     ser.swap_buf(msgOut.m_Result);

@@ -250,15 +250,19 @@
 	macro(uint32_t*, pnVal)
 
 #define BVMOp_LogsEnum(macro, sep) \
-	macro(const ContractID*, pCid) sep \
-	macro(Height, hMin) sep \
-	macro(Height, hMax)
+	macro(const void*, pKey0) sep \
+	macro(uint32_t, nKey0) sep \
+	macro(const void*, pKey1) sep \
+	macro(uint32_t, nKey1) sep \
+	macro(const HeightPos*, pPosMin) sep \
+	macro(const HeightPos*, pPosMax)
 
 #define BVMOp_LogsMoveNext(macro, sep) \
-	macro(ContractID*, pCid) sep \
-	macro(Height*, pHeight) sep \
+	macro(const void**, ppKey) sep \
+	macro(uint32_t*, pnKey) sep \
 	macro(const void**, ppVal) sep \
-	macro(uint32_t*, pnVal)
+	macro(uint32_t*, pnVal) sep \
+	macro(HeightPos*, pPos)
 
 #define BVMOp_VarGetProof(macro, sep) \
 	macro(const void*, pKey) sep \

@@ -458,8 +458,8 @@ namespace bvm2 {
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
-		virtual void LogsEnum(const ContractID*, const HeightRange&) {}
-		virtual bool LogsMoveNext(ContractID*, Height&, Blob& val) { return false; }
+		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) {}
+		virtual bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) { return false; }
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
