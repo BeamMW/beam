@@ -711,7 +711,7 @@ namespace beam
 		// contract logs
 		NodeDB::ContractLog::Entry cdl;
 		bvm2::ContractID cid = 15U;
-		cdl.m_pCid = &cid;
+		cdl.m_Key = cid;
 
 		hvKey = 1043U;
 		hvKey2 = 1045U;
@@ -719,7 +719,7 @@ namespace beam
 		cdl.m_Val = hvKey;
 
 		cdl.m_Pos.m_Height = 15;
-		cdl.m_Pos.m_Idx = 3;
+		cdl.m_Pos.m_Pos = 3;
 		db.ContractLogInsert(cdl);
 
 		cdl.m_Pos.m_Height = 16;
@@ -727,23 +727,23 @@ namespace beam
 
 		cid = 19U;
 		cdl.m_Pos.m_Height = 17;
-		cdl.m_Pos.m_Idx = 4;
+		cdl.m_Pos.m_Pos = 4;
 		db.ContractLogInsert(cdl);
 
 		NodeDB::ContractLog::Walker wlkCdl;
-		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight));
+		db.ContractLogEnum(wlkCdl, HeightPos(0), HeightPos(MaxHeight));
 		verify_test(wlkCdl.MoveNext());
 		verify_test(wlkCdl.MoveNext());
 		verify_test(wlkCdl.MoveNext());
 		verify_test(!wlkCdl.MoveNext());
 
-		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight), cid);
+		db.ContractLogEnum(wlkCdl, cid, cid, HeightPos(0), HeightPos(MaxHeight));
 		verify_test(wlkCdl.MoveNext());
 		verify_test(!wlkCdl.MoveNext());
 
-		db.ContractLogDel(NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(16, 0xffff));
+		db.ContractLogDel(HeightPos(0), HeightPos(16, 0xffff));
 
-		db.ContractLogEnum(wlkCdl, NodeDB::ContractLog::Pos(0), NodeDB::ContractLog::Pos(MaxHeight));
+		db.ContractLogEnum(wlkCdl, HeightPos(0), HeightPos(MaxHeight));
 		verify_test(wlkCdl.MoveNext());
 		verify_test(!wlkCdl.MoveNext());
 	}

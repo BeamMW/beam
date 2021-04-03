@@ -689,15 +689,9 @@ public:
 	struct ContractLog
 	{
 #pragma pack (push, 1)
-		struct Pos {
-			Height m_Height;
-			uint32_t m_Idx;
-
-			Pos() {}
-			Pos(Height h, uint32_t nIdx = 0)
-				:m_Height(h)
-				,m_Idx(nIdx)
-			{}
+		struct PosPacked {
+			uintBigFor<Height>::Type m_Height;
+			uintBigFor<uint32_t>::Type m_Idx;
 		};
 #pragma pack (pop)
 
@@ -705,14 +699,14 @@ public:
 
 		struct Entry
 		{
-			Pos m_Pos;
-			const Cid* m_pCid;
+			HeightPos m_Pos;
+			Blob m_Key;
 			Blob m_Val;
 		};
 
 		struct Walker
 		{
-			Pos m_bufMin, m_bufMax;
+			PosPacked m_bufMin, m_bufMax;
 
 			Recordset m_Rs;
 			Entry m_Entry;
@@ -721,9 +715,9 @@ public:
 	};
 
 	void ContractLogInsert(const ContractLog::Entry&);
-	void ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
-	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax);
-	void ContractLogEnum(ContractLog::Walker&, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid&);
+	void ContractLogDel(const HeightPos& posMin, const HeightPos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
 
 private:
 
