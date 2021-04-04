@@ -336,7 +336,7 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
+	uint32_t get_StateExtra(uint64_t rowid, void*, uint32_t nSize);
 	TxoID get_StateTxos(uint64_t rowid);
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);

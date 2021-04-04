@@ -376,7 +376,7 @@ void NodeDB::Open(const char* szPath)
 
 		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 
-			LOG_INFO() << "DB migrate from" << 18;
+			LOG_INFO() << "DB migrate from " << 18;
 			MigrateFrom18();
 			// no break;
 
@@ -387,7 +387,7 @@ void NodeDB::Open(const char* szPath)
 		case 20: // Deprecated Shielded table created.
 			CreateTables20();
 
-			LOG_INFO() << "DB migrate from" << 20;
+			LOG_INFO() << "DB migrate from " << 20;
 			MigrateFrom20();
 			// no break;
 
@@ -1332,31 +1332,23 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
+uint32_t NodeDB::get_StateExtra(uint64_t rowid, void* pOut, uint32_t nSize)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
-	if (rs.IsNull(0))
-		return false;
+	memset0(pOut, nSize);
 
+	if (rs.IsNull(0))
+		return 0;
+
+	// the actual data size may be less than requested
 	Blob b;
 	rs.get(0, b);
 
-	if (b.n < val.m_Value.nBytes)
-		return false;
-	val.m_Value = b;
-
-	if (p)
-	{
-		((const uint8_t*&) b.p) += val.m_Value.nBytes;
-		b.n -= val.m_Value.nBytes;
-
-		b.Export(*p);
-	}
-
-	return true;
+	memcpy(pOut, b.p, std::min(b.n, nSize));
+	return b.n;
 }
 
 void NodeDB::set_StateInputs(uint64_t rowid, StateInput* p, size_t n)

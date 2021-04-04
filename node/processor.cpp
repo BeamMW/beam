@@ -2624,11 +2624,16 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	return bOk;
 }
 
+void NodeProcessor::ReadOffset(ECC::Scalar& offs, uint64_t rowid)
+{
+	if (m_DB.get_StateExtra(rowid, &offs, sizeof(offs)) < sizeof(offs))
+		OnCorrupted();
+}
+
 void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 {
 	ECC::Scalar offsPrev;
-	if (!m_DB.get_StateExtra(rowid, offsPrev))
-		OnCorrupted();
+	ReadOffset(offsPrev, rowid);
 
 	ECC::Scalar::Native s(offsPrev);
 	if (!bAdd)
@@ -5805,8 +5810,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 
 	ByteBuffer bbBlob;
 	TxBase txb;
-	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset))
-		OnCorrupted();
+	ReadOffset(txb.m_Offset, sid.m_Row);
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
