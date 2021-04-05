@@ -42,6 +42,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <regex>
 

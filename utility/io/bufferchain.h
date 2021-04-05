@@ -39,11 +39,11 @@ public:
 
 #ifdef WIN32
     const WSABUF* fragments() const {
-        return (const WSABUF*)iovecs();
+        return reinterpret_cast<const WSABUF*>(iovecs());
     }
 #else
     const iovec* fragments() const {
-        return (const iovec*)iovecs();
+        return reinterpret_cast<const iovec*>(iovecs());
     }
 #endif
 

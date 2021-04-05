@@ -176,6 +176,8 @@
 	macro(uint8_t, nType)
 
 #define BVMOp_EmitLog(macro, sep) \
+	macro(const void*, pKey) sep \
+	macro(uint32_t, nKey) sep \
 	macro(const void*, pVal) sep \
 	macro(uint32_t, nVal)
 
@@ -248,15 +250,19 @@
 	macro(uint32_t*, pnVal)
 
 #define BVMOp_LogsEnum(macro, sep) \
-	macro(const ContractID*, pCid) sep \
-	macro(Height, hMin) sep \
-	macro(Height, hMax)
+	macro(const void*, pKey0) sep \
+	macro(uint32_t, nKey0) sep \
+	macro(const void*, pKey1) sep \
+	macro(uint32_t, nKey1) sep \
+	macro(const HeightPos*, pPosMin) sep \
+	macro(const HeightPos*, pPosMax)
 
 #define BVMOp_LogsMoveNext(macro, sep) \
-	macro(ContractID*, pCid) sep \
-	macro(Height*, pHeight) sep \
+	macro(const void**, ppKey) sep \
+	macro(uint32_t*, pnKey) sep \
 	macro(const void**, ppVal) sep \
-	macro(uint32_t*, pnVal)
+	macro(uint32_t*, pnVal) sep \
+	macro(HeightPos*, pPos)
 
 #define BVMOp_VarGetProof(macro, sep) \
 	macro(const void*, pKey) sep \
@@ -374,7 +380,7 @@
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \
 	macro(0x21, uint32_t , SaveVar) \
-	macro(0x22, void     , EmitLog) \
+	macro(0x22, uint32_t , EmitLog) \
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \

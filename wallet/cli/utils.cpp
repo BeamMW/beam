@@ -19,6 +19,7 @@
 #include "wallet/core/wallet.h"
 
 #include <boost/format.hpp>
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace std;

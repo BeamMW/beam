@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 #ifdef WIN32
-    #include <winsock2.h>
+    #include <WinSock2.h>
 #else
     #include <netinet/ip.h>
 #endif // WIN32
@@ -87,7 +87,7 @@ struct Address {
     }
 
     uint16_t port() const {
-        return (uint16_t)packed;
+        return static_cast<uint16_t>(packed);
     }
 
     Address& port(uint16_t p) {
@@ -107,7 +107,7 @@ struct Address {
 
     std::string str() const;
 
-    SERIALIZE(packed);
+    SERIALIZE(packed)
 
 private:
     Address (uint64_t x) : packed(x) {}

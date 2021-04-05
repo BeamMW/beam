@@ -259,8 +259,10 @@ namespace proto {
     macro(bool, bMore)
 
 #define BeamNodeMsg_ContractLogsEnum(macro) \
-    macro(HeightRange, Height) \
-    macro(ECC::uintBig, Cid)
+    macro(ByteBuffer, KeyMin) \
+    macro(ByteBuffer, KeyMax) \
+    macro(HeightPos, PosMin) \
+    macro(HeightPos, PosMax)
 
 #define BeamNodeMsg_ContractLogs(macro) \
     macro(ByteBuffer, Result) \
@@ -545,6 +547,7 @@ namespace proto {
 	inline void ZeroInit(BodyBuffers&) { }
     inline void ZeroInit(Asset::Info& x) { x.Reset(); }
     inline void ZeroInit(Asset::Full& x) { x.Reset(); }
+    inline void ZeroInit(HeightPos& x) { ZeroObject(x); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

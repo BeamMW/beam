@@ -194,6 +194,7 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
 
+	void ReadOffset(ECC::Scalar&, uint64_t rowid);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor(bool bMovingUp);

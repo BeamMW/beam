@@ -118,7 +118,7 @@ namespace beam {
 
 #define TblContractLogs			"ContractLogs"
 #define TblContractLogs_Pos		"Pos"
-#define TblContractLogs_Cid		"Cid"
+#define TblContractLogs_Key		"Key"
 #define TblContractLogs_Data	"Data"
 
 NodeDB::NodeDB()
@@ -376,7 +376,7 @@ void NodeDB::Open(const char* szPath)
 
 		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 
-			LOG_INFO() << "DB migrate from" << 18;
+			LOG_INFO() << "DB migrate from " << 18;
 			MigrateFrom18();
 			// no break;
 
@@ -387,7 +387,7 @@ void NodeDB::Open(const char* szPath)
 		case 20: // Deprecated Shielded table created.
 			CreateTables20();
 
-			LOG_INFO() << "DB migrate from" << 20;
+			LOG_INFO() << "DB migrate from " << 20;
 			MigrateFrom20();
 			// no break;
 
@@ -593,11 +593,11 @@ void NodeDB::CreateTables27()
 {
 	ExecQuick("CREATE TABLE [" TblContractLogs "] ("
 		"[" TblContractLogs_Pos			"] BLOB NOT NULL PRIMARY KEY,"
-		"[" TblContractLogs_Cid			"] BLOB NOT NULL,"
+		"[" TblContractLogs_Key			"] BLOB NOT NULL,"
 		"[" TblContractLogs_Data		"] BLOB NOT NULL"
 		") WITHOUT ROWID");
 
-	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Cid" "] ON [" TblContractLogs "] ([" TblContractLogs_Cid "],[" TblContractLogs_Pos "]);");
+	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Key" "] ON [" TblContractLogs "] ([" TblContractLogs_Key "],[" TblContractLogs_Pos "]);");
 }
 
 void NodeDB::Vacuum()
@@ -1332,31 +1332,23 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
+uint32_t NodeDB::get_StateExtra(uint64_t rowid, void* pOut, uint32_t nSize)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
-	if (rs.IsNull(0))
-		return false;
+	memset0(pOut, nSize);
 
+	if (rs.IsNull(0))
+		return 0;
+
+	// the actual data size may be less than requested
 	Blob b;
 	rs.get(0, b);
 
-	if (b.n < val.m_Value.nBytes)
-		return false;
-	val.m_Value = b;
-
-	if (p)
-	{
-		((const uint8_t*&) b.p) += val.m_Value.nBytes;
-		b.n -= val.m_Value.nBytes;
-
-		b.Export(*p);
-	}
-
-	return true;
+	memcpy(pOut, b.p, std::min(b.n, nSize));
+	return b.n;
 }
 
 void NodeDB::set_StateInputs(uint64_t rowid, StateInput* p, size_t n)
@@ -2901,40 +2893,40 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
-void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const NodeDB::ContractLog::Pos& pos, NodeDB::ContractLog::Pos& buf)
+void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const HeightPos& pos, NodeDB::ContractLog::PosPacked& buf)
 {
-	buf.m_Height = ByteOrder::to_be(pos.m_Height);
-	buf.m_Idx = ByteOrder::to_be(pos.m_Idx);
+	buf.m_Height = pos.m_Height;
+	buf.m_Idx = pos.m_Pos;
 
 	rs.put(iCol, Blob(&buf, sizeof(buf)));
 }
 
 void NodeDB::ContractLogInsert(const ContractLog::Entry& x)
 {
-	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Cid "," TblContractLogs_Data ") VALUES(?,?,?)");
+	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Key "," TblContractLogs_Data ") VALUES(?,?,?)");
 
-	NodeDB::ContractLog::Pos buf;
+	ContractLog::PosPacked buf;
 	put_ContractLogPos(rs, 0, x.m_Pos, buf);
 
-	rs.put(1, *x.m_pCid);
+	rs.put(1, x.m_Key);
 	rs.put(2, x.m_Val);
 
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::ContractLogDel(const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
+void NodeDB::ContractLogDel(const HeightPos& posMin, const HeightPos& posMax)
 {
 	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ?");
 
-	NodeDB::ContractLog::Pos bufMin, bufMax;
+	NodeDB::ContractLog::PosPacked bufMin, bufMax;
 	put_ContractLogPos(rs, 0, posMin, bufMin);
 	put_ContractLogPos(rs, 1, posMax, bufMax);
 
 	rs.Step();
 }
 
-void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax)
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const HeightPos& posMin, const HeightPos& posMax)
 {
 	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Pos);
 
@@ -2942,14 +2934,15 @@ void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& p
 	put_ContractLogPos(wlk.m_Rs, 1, posMax, wlk.m_bufMax);
 }
 
-void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const ContractLog::Pos& posMin, const ContractLog::Pos& posMax, const ContractLog::Cid& cid)
+void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax)
 {
 	wlk.m_Rs.Reset(*this, Query::ContractLogEnumCid, "SELECT * FROM " TblContractLogs
-		" WHERE " TblContractLogs_Cid "=? AND " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Cid "," TblContractLogs_Pos);
-	wlk.m_Rs.put(0, cid);
+		" WHERE (" TblContractLogs_Key " BETWEEN ? AND ?) AND (" TblContractLogs_Pos " BETWEEN ? AND ?) ORDER BY " TblContractLogs_Key "," TblContractLogs_Pos);
+	wlk.m_Rs.put(0, keyMin);
+	wlk.m_Rs.put(1, keyMax);
 
-	put_ContractLogPos(wlk.m_Rs, 1, posMin, wlk.m_bufMin);
-	put_ContractLogPos(wlk.m_Rs, 2, posMax, wlk.m_bufMax);
+	put_ContractLogPos(wlk.m_Rs, 2, posMin, wlk.m_bufMin);
+	put_ContractLogPos(wlk.m_Rs, 3, posMax, wlk.m_bufMax);
 }
 
 bool NodeDB::ContractLog::Walker::MoveNext()
@@ -2957,12 +2950,11 @@ bool NodeDB::ContractLog::Walker::MoveNext()
 	if (!m_Rs.Step())
 		return false;
 
-	m_Rs.get_As(0, m_Entry.m_Pos);
-	m_Entry.m_Pos.m_Height = ByteOrder::from_be(m_Entry.m_Pos.m_Height);
-	m_Entry.m_Pos.m_Idx = ByteOrder::from_be(m_Entry.m_Pos.m_Idx);
+	const auto& pos = m_Rs.get_As<PosPacked>(0);
+	pos.m_Height.Export(m_Entry.m_Pos.m_Height);
+	pos.m_Idx.Export(m_Entry.m_Pos.m_Pos);
 
-	m_Entry.m_pCid = &m_Rs.get_As<Cid>(1);
-
+	m_Rs.get(1, m_Entry.m_Key);
 	m_Rs.get(2, m_Entry.m_Val);
 	return true;
 }

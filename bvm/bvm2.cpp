@@ -1137,12 +1137,19 @@ namespace bvm2 {
 	BVM_METHOD(EmitLog)
 	{
 		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
-		return OnHost_EmitLog(get_AddrR(pVal, nVal), nVal);
+		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
 		Wasm::Test(nVal <= Limits::VarSize);
-		OnLog(Blob(pVal, nVal));
+
+		uint8_t pKeyFull[ContractID::nBytes + Limits::VarKeySize];
+
+		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+		memcpy(pKeyFull, cid.m_pData, cid.nBytes);
+		memcpy(pKeyFull + cid.nBytes, pKey, nKey);
+
+		return OnLog(Blob(pKeyFull, nKey + cid.nBytes), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)
@@ -1509,7 +1516,7 @@ namespace bvm2 {
 		virtual ~Keccak256() {}
 		virtual void Write(const uint8_t* p, uint32_t n) override
 		{
-			const uint16_t naggle = std::numeric_limits<uint16_t>::max();
+			constexpr uint16_t naggle = std::numeric_limits<uint16_t>::max();
 			while (n > naggle)
 			{
 				keccak_update(&m_State, p, naggle);
@@ -2022,33 +2029,56 @@ namespace bvm2 {
 		return 1;
 	}
 
+	const HeightPos* Processor::FromWasmOpt(Wasm::Word pPos, HeightPos& buf)
+	{
+		if (!pPos)
+			return nullptr;
+
+		auto& pos_ = get_AddrAsR<HeightPos>(pPos);
+		buf.m_Height = Wasm::from_wasm(pos_.m_Height);
+		buf.m_Pos = Wasm::from_wasm(pos_.m_Pos);
+
+		return &buf;
+	}
+
 	BVM_METHOD(LogsEnum)
 	{
-		OnHost_LogsEnum(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, hMin, hMax);
+		HeightPos posMin, posMax;
+		OnHost_LogsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1, FromWasmOpt(pPosMin, posMin), FromWasmOpt(pPosMax, posMax));
 	}
 	BVM_METHOD_HOST(LogsEnum)
 	{
 		FreeAuxAllocGuarded();
-		LogsEnum(pCid, HeightRange(hMin, hMax));
+		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax);
 		m_EnumType = EnumType::Logs;
 	}
 
 	BVM_METHOD(LogsMoveNext)
 	{
+		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
+		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
 		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
 		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
+		auto& pos_ = get_AddrAsW<HeightPos>(pPos);
 
-		const void *pVal;
-		uint32_t nVal;
+		const void *pKey, *pVal;
+		uint32_t nKey, nVal;
 
-		if (!OnHost_LogsMoveNext(pCid ? &get_AddrAsW<ContractID>(pCid) : nullptr, pHeight ? &get_AddrAsW<Height>(pHeight) : nullptr, &pVal, &nVal))
+		if (!OnHost_LogsMoveNext(&pKey, &nKey, &pVal, &nVal, &pos_))
 			return 0;
 
-		uint8_t* pDst = ResizeAux(nVal);
-		memcpy(pDst, pVal, nVal);
+		uint8_t* pDst = ResizeAux(nKey + nVal);
+
+		Wasm::to_wasm(pnKey_, nKey);
+		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
+		memcpy(pDst, pKey, nKey);
 
 		Wasm::to_wasm(pnVal_, nVal);
-		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr);
+		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
+		memcpy(pDst + nKey, pVal, nVal);
+
+		pos_.m_Height = Wasm::to_wasm(pos_.m_Height);
+		pos_.m_Pos = Wasm::to_wasm(pos_.m_Pos);
 
 		return 1;
 	}
@@ -2056,18 +2086,18 @@ namespace bvm2 {
 	{
 		Wasm::Test(EnumType::Logs == m_EnumType); // illegal to call this method before LogsEnum
 
-		ContractID cid;
-		Height h;
-		Blob data;
-		if (!LogsMoveNext(pCid, pHeight ? *pHeight : h, data))
+		Blob key, val;
+		if (!LogsMoveNext(key, val, *pPos))
 		{
 			FreeAuxAllocGuarded();
 			m_EnumType = EnumType::None;
 			return 0;
 		}
 
-		*ppVal = data.p;
-		*pnVal = data.n;
+		*ppKey = key.p;
+		*pnKey = key.n;
+		*ppVal = val.p;
+		*pnVal = val.n;
 
 		return 1;
 	}

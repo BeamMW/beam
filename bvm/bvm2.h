@@ -29,6 +29,7 @@ namespace Shaders {
     using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
+	using beam::HeightPos;
 
     template<bool bToShader, typename T>
     inline void ConvertOrd(T& x)
@@ -293,6 +294,8 @@ namespace bvm2 {
 
 		} m_Secp;
 
+		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
+
 	public:
 
 		enum struct Kind {
@@ -373,7 +376,7 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
-		virtual void OnLog(const Blob&) {}
+		virtual uint32_t OnLog(const Blob& key, const Blob& val) { return 0; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
@@ -455,8 +458,8 @@ namespace bvm2 {
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
 		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
-		virtual void LogsEnum(const ContractID*, const HeightRange&) {}
-		virtual bool LogsMoveNext(ContractID*, Height&, Blob& val) { return false; }
+		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) {}
+		virtual bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) { return false; }
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}

@@ -46,6 +46,12 @@ struct Secp_point_data {
 
 #pragma pack (pop)
 
+struct HeightPos
+{
+    Height m_Height;
+    uint32_t m_Pos;
+};
+
 typedef Secp_point_data PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;
@@ -191,6 +197,13 @@ namespace Env {
         KeyPrefix m_Prefix;
         T m_KeyInContract;
     };
+
+    template <typename T>
+    struct Log_T
+    {
+        ContractID m_Cid;
+        T m_Key;
+    };
 #pragma pack (pop)
 
     template <typename TKey, typename TValue>
@@ -232,16 +245,16 @@ namespace Env {
 
     }
 
-    template <typename TValue>
-    inline bool LogsMoveNext_T(const TValue*& pValue, Height* pHeight = nullptr)
+    template <typename TKey, typename TValue>
+    inline bool LogsMoveNext_T(const TKey*& pKey, const TValue*& pValue, HeightPos& pos)
     {
         while (true)
         {
-            uint32_t nVal;
-            if (!LogsMoveNext(nullptr, pHeight, (const void**) &pValue, &nVal))
+            uint32_t nKey, nVal;
+            if (!LogsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal, &pos))
                 return false;
 
-            if (sizeof(TValue) == nVal)
+            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
                 break;
         }
 
