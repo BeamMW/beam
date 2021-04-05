@@ -2258,30 +2258,47 @@ namespace beam
 		get_Definition(hvDummy);
 	}
 
-	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
-	{
-		bool bUtxo = get_Utxos(hv);
-
-		const Rules& r = Rules::get();
-		if (m_Height < r.pForks[2].m_Height)
-			return bUtxo;
-
-		Merkle::Hash hvShielded, hvAssets;
-
-		bool bShieldedAndAssets = Interpret(hvShielded, hvShielded, get_Shielded(hvShielded), hvAssets, get_Assets(hvAssets));
-
-		if (m_Height >= r.pForks[3].m_Height)
-			bUtxo = Interpret(hv, hv, bUtxo, hvAssets, get_Contracts(hvAssets));
-
-		return Interpret(hv, hv, bUtxo, hvShielded, bShieldedAndAssets);
-	}
-
-	bool Block::SystemState::Evaluator::get_History(Merkle::Hash&)
+	bool Block::SystemState::Evaluator::get_History(Merkle::Hash& hv)
 	{
 		return OnNotImpl();
 	}
 
+	bool Block::SystemState::Evaluator::get_Live(Merkle::Hash& hv)
+	{
+		const Rules& r = Rules::get();
+
+		if (m_Height >= r.pForks[3].m_Height)
+		{
+			Merkle::Hash hvCSA;
+			return Interpret(hv, hv, get_Kernels(hv), hvCSA, get_CSA(hvCSA));
+		}
+
+		bool bUtxo = get_Utxos(hv);
+		if (m_Height < r.pForks[2].m_Height)
+			return bUtxo;
+
+		Merkle::Hash hvSA;
+		return Interpret(hv, hv, bUtxo, hvSA, get_SA(hvSA));
+	}
+
+	bool Block::SystemState::Evaluator::get_SA(Merkle::Hash& hv)
+	{
+		Merkle::Hash hvAssets;
+		return Interpret(hv, hv, get_Shielded(hv), hvAssets, get_Assets(hvAssets));
+	}
+
+	bool Block::SystemState::Evaluator::get_CSA(Merkle::Hash& hv)
+	{
+		Merkle::Hash hvSA;
+		return Interpret(hv, hv, get_Contracts(hv), hvSA, get_SA(hvSA));
+	}
+
 	bool Block::SystemState::Evaluator::get_Utxos(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Kernels(Merkle::Hash&)
 	{
 		return OnNotImpl();
 	}
@@ -2411,18 +2428,24 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
-		struct MyVerifier
-			:public ProofVerifier
-		{
-			virtual bool get_Utxos(Merkle::Hash&) override {
-				return true;
-			}
-		} v;
-
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		return v.Verify(*this, hv, p.m_Proof);
+		if (m_Height < Rules::get().pForks[3].m_Height)
+		{
+			struct MyVerifier
+				:public ProofVerifier
+			{
+				virtual bool get_Utxos(Merkle::Hash&) override {
+					return true;
+				}
+			} v;
+
+			return v.Verify(*this, hv, p.m_Proof);
+		}
+
+		Merkle::Interpret(hv, p.m_Proof);
+		return (hv == m_Kernels);
 	}
 
 	bool Block::SystemState::Full::IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp& d, const Merkle::Proof& p) const
@@ -2492,9 +2515,7 @@ namespace beam
 		if (!proof.m_State.IsValid())
 			return false;
 
-		Merkle::Hash hv = hvID;
-		Merkle::Interpret(hv, proof.m_Inner);
-		if (hv != proof.m_State.m_Kernels)
+		if (!proof.m_State.IsValidProofKernel(hvID, proof.m_Inner))
 			return false;
 
 		if (proof.m_State == *this)
@@ -2505,6 +2526,25 @@ namespace beam
 		ID id;
 		proof.m_State.get_ID(id);
 		return IsValidProofState(id, proof.m_Outer);
+	}
+
+	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof& proof) const
+	{
+		Merkle::Hash hv = hvID;
+		if (m_Height < Rules::get().pForks[3].m_Height)
+		{
+			Merkle::Interpret(hv, proof);
+			return (hv == m_Kernels);
+		}
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Kernels(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		return v.Verify(*this, hv, proof);
 	}
 
 	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const

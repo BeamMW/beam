@@ -345,6 +345,7 @@ namespace beam
 		Merkle::CompactMmr m_Shielded;
 		Merkle::CompactMmr m_Assets;
 		Merkle::Hash m_hvContracts;
+		Merkle::Hash m_hvKernels;
 
 		Context(IParser& p)
 			:m_Parser(p)
@@ -433,6 +434,12 @@ namespace beam
 				hv = m_This.m_hvContracts;
 				return true;
 			}
+
+			virtual bool get_Kernels(Merkle::Hash& hv) override
+			{
+				hv = m_This.m_hvKernels;
+				return true;
+			}
 		};
 
 		Verifier v(*this);
@@ -443,6 +450,13 @@ namespace beam
 
 		if (!(m_Cwp.m_hvRootLive == hv))
 			ThrowBadData();
+
+		if (m_Tip.m_Height >= Rules::get().pForks[3].m_Height)
+		{
+			BEAM_VERIFY(v.get_Utxos(hv));
+			if (m_Tip.m_Kernels != hv)
+				ThrowBadData();
+		}
 	}
 
 	bool RecoveryInfo::IParser::Proceed(const char* sz)
@@ -472,7 +486,11 @@ namespace beam
 				return false;
 
 			if (m_Tip.m_Height >= r.pForks[3].m_Height)
-				m_Der & m_hvContracts;
+			{
+				m_Der
+					& m_hvContracts
+					& m_hvKernels;
+			}
 		}
 
 		Finalyze();

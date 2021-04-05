@@ -195,7 +195,9 @@ class NodeProcessor
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
 
 	void ReadOffset(ECC::Scalar&, uint64_t rowid);
-	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
+	void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
+
+	void ReadKrns(uint64_t rowid, TxVectors::Eternal&);
 
 	void InitCursor(bool bMovingUp);
 	bool InitMapping(const char*, bool bForceReset);
@@ -299,6 +301,21 @@ public:
 
 	} m_Horizon;
 
+#pragma pack (push, 1)
+	struct StateExtra
+	{
+		struct Base {
+			ECC::Scalar m_TotalOffset;
+		};
+
+		struct Full
+			:public Base
+		{
+			Merkle::Hash m_hvCSA;
+		};
+	};
+#pragma pack (pop)
+
 	struct Cursor
 	{
 		// frequently used data
@@ -308,8 +325,12 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-
+		StateExtra::Full m_StateExtra;
+		Merkle::Hash m_hvKernels;
+		bool m_bKernels;
 	} m_Cursor;
+
+	void EnsureCursorKernels();
 
 	struct Extra
 	{
@@ -389,9 +410,22 @@ public:
 
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Kernels(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
 		virtual bool get_Contracts(Merkle::Hash&) override;
+	};
+
+	struct EvaluatorEx
+		:public Evaluator
+	{
+		using Evaluator::Evaluator;
+		void set_Kernels(const TxVectors::Eternal&);
+
+		Merkle::Hash m_hvKernels;
+		Merkle::Hash m_hvCSA;
+		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_CSA(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder

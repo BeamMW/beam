@@ -1283,17 +1283,23 @@ namespace beam
 				// The state Definition is defined as Hash[ History | Live ]
 				// Before Fork2: Live = Utxos
 				// Before Fork3: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
-				// Past Fork3: Live = Hash[ Hash[Utxos | Contracts] | Hash[Shielded | Assets] ]
+				// Past Fork3:
+				//		CSA = Hash[ Contracts | Hash[Shielded | Assets] ]
+				//		Live = Hash[ Kernels | CSA ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
 
 				virtual bool get_History(Merkle::Hash&);
 				virtual bool get_Live(Merkle::Hash&);
+				virtual bool get_CSA(Merkle::Hash&);
 				virtual bool get_Utxos(Merkle::Hash&);
+				virtual bool get_Kernels(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
 				virtual bool get_Assets(Merkle::Hash&);
 				virtual bool get_Contracts(Merkle::Hash&);
+
+				bool get_SA(Merkle::Hash&);
 			};
 
 			struct Sequence
@@ -1306,7 +1312,7 @@ namespace beam
 
 				struct Element
 				{
-					Merkle::Hash	m_Kernels; // of this block only
+					Merkle::Hash	m_Kernels; // Before Fork3: kernels (of this block only), after Fork3: Utxos
 					Merkle::Hash	m_Definition;
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
@@ -1336,6 +1342,7 @@ namespace beam
 
 				bool IsValidProofKernel(const TxKernel&, const TxKernel::LongProof&) const;
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
+				bool IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof&) const;
 
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;

@@ -2695,14 +2695,11 @@ namespace beam
 						ECC::Point::Native exc;
 						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
 
-						Merkle::Hash hv = msg.m_Kernel->m_Internal.m_ID;
-						Merkle::Interpret(hv, msg.m_Proof);
-
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
 						verify_test(s.m_Height == msg.m_Height);
 
-						verify_test(s.m_Kernels == hv);
+						verify_test(s.IsValidProofKernel(msg.m_Kernel->m_Internal.m_ID, msg.m_Proof));
 					}
 				}
 				else

@@ -4692,9 +4692,13 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[3].m_Height)
             {
+                m_Processor.EnsureCursorKernels();
+
                 Merkle::Hash hv;
                 m_Processor.get_Contracts().get_Hash(hv);
-                ser & hv;
+                ser
+                    & hv
+                    & m_Processor.m_Cursor.m_hvKernels;
             }
         }
 
