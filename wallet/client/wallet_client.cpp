@@ -169,6 +169,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::saveAddress, address, bOwn);
     }
 
+    void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getAppAddress, appid, callback);
+    }
+
     void generateNewAddress() override
     {
         typedef void(IWalletModelAsync::* MethodType)();
@@ -179,12 +184,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         typedef void(IWalletModelAsync::* MethodType)(AsyncCallback<const WalletAddress&>&&);
         call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
-    }
-
-    void deleteAddress(const wallet::WalletID& id) override
-    {
-        typedef void(IWalletModelAsync::* MethodType)(const wallet::WalletID&);
-        call_async((MethodType)&IWalletModelAsync::deleteAddress, id);
     }
 
     void deleteAddress(const std::string& addr) override
@@ -1155,13 +1154,47 @@ namespace beam::wallet
         m_walletDB->saveAddress(address);
     }
 
+     void WalletClient::getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback)
+     {
+        const auto appaddrId = std::string("app:") + appid;
+
+        auto addrs = m_walletDB->getAddresses(true);
+        for (const auto& addr: addrs)
+        {
+            if (addr.m_label == appaddrId)
+            {
+                return postFunctionToClientContext([addr, cb = std::move(callback)]()
+                {
+                    cb(addr);
+                });
+            }
+        }
+
+        try
+        {
+            const auto addr = WalletAddress::Generate(*m_walletDB, appaddrId, WalletAddress::ExpirationStatus::Never, true);
+            return postFunctionToClientContext([addr, cb = std::move(callback)]()
+                {
+                    cb(addr);
+                });
+        }
+        catch(const std::exception& e)
+        {
+            LOG_ERROR() << "getAppAddress err = " << e.what();
+        }
+
+        return postFunctionToClientContext([cb = std::move(callback)]()
+            {
+                cb(boost::none);
+            });
+     }
+
     void WalletClient::generateNewAddress()
     {
         try
         {
             WalletAddress address;
             m_walletDB->createAddress(address);
-
             onGeneratedNewAddress(address);
         }
         catch (const CannotGenerateSecretException&)
@@ -1192,25 +1225,6 @@ namespace beam::wallet
         catch (const CannotGenerateSecretException&)
         {
             onNewAddressFailed();
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
-    }
-
-    void WalletClient::deleteAddress(const WalletID& id)
-    {
-        try
-        {
-            auto pVal = m_walletDB->getAddress(id);
-            if (pVal)
-            {
-                m_walletDB->deleteAddress(id);
-            }
         }
         catch (const std::exception& e)
         {

@@ -12,7 +12,6 @@ if(EMSCRIPTEN)
     target_link_libraries(${TARGET_NAME} PRIVATE 
         wallet_client
         mnemonic
-        wallet_api_proto
         wallet_api
     )
 

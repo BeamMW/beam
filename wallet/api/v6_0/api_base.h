@@ -14,13 +14,16 @@
 #pragma once
 
 #include <boost/serialization/strong_typedef.hpp>
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "wallet/core/common.h"
 #include "utility/common.h"
 #include "../i_wallet_api.h"
 
 namespace beam::wallet
 {
+    using json = nlohmann::json;
+    using JsonRpcId = json;
+
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
 
@@ -38,6 +41,7 @@ namespace beam::wallet
 
         boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) override;
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
+        std::string fromError(const std::string& request, ApiError code, const std::string& errorText) override;
 
         //
         // getMandatory....

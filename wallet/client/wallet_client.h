@@ -213,10 +213,10 @@ namespace beam::wallet
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
+        void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) override;
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
-        void deleteAddress(const WalletID& id) override;
         void deleteAddress(const std::string& addr) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override;

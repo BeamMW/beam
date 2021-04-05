@@ -1,17 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
-add_library(wallet_api_proto STATIC
-    v6_0/api_errors.cpp
-    v6_0/api_base.cpp
-)
-
-target_link_libraries(wallet_api_proto
-    PUBLIC 
-        wallet_client
-        utility
-)
-
 add_library(wallet_api STATIC
+    v6_0/api_base.cpp
+    v6_0/api_errors_imp.cpp
     v6_0/wallet_api.cpp
     v6_0/wallet_api_handle.cpp
     v6_0/wallet_api_parse.cpp
@@ -31,7 +22,8 @@ endif()
 target_link_libraries(wallet_api
     PUBLIC 
         wallet 
-        wallet_api_proto
+        wallet_client
+        utility
 )
 
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
@@ -40,13 +32,11 @@ if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(${WALLET_API_NAME} cli/api_cli.cpp cli/api_cli_swap.cpp)
 
     target_link_libraries(${WALLET_API_NAME}
-        PRIVATE 
-            wallet_api_proto
+        PRIVATE
             wallet_api
             http
             cli
     )
-
 
     if(LINUX)
         target_link_libraries(${WALLET_API_NAME} 

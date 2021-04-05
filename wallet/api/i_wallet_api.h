@@ -22,6 +22,7 @@
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
+#include "api_errors.h"
 
 namespace beam::wallet
 {
@@ -55,6 +56,7 @@ namespace beam::wallet
         struct InitData
         {
             ACL acl;
+            std::string appid;
             IShadersManager::Ptr contracts;
             ISwapsProvider::Ptr swaps;
             IWalletDB::Ptr walletDB;
@@ -94,6 +96,9 @@ namespace beam::wallet
         // should be called in API's/InitData's reactor thread
         // calls handler::sendAPIResponse on result (can be async)
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
+
+        // form correct error json for given code and optional message
+        virtual std::string fromError(const std::string& request, ApiError code, const std::string& optionalErrorText) = 0;
 
         virtual ~IWalletApi() = default;
     };

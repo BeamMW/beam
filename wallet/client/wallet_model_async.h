@@ -65,7 +65,7 @@ namespace beam::wallet
         //
         // If address function accepts std::strig it means token (WalletAddres::m_Address)
         //
-        virtual void deleteAddress(const WalletID& id) = 0;
+        virtual void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) = 0;
         virtual void deleteAddress(const std::string& addr) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expiration) = 0;
@@ -82,7 +82,6 @@ namespace beam::wallet
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;
-
         virtual void checkAddress(const std::string& addr) = 0;
 
         virtual void importRecovery(const std::string& path) = 0;

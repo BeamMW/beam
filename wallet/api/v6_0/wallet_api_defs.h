@@ -16,7 +16,7 @@
 #include <boost/optional.hpp>
 #include "wallet/core/wallet.h"
 #include "api_base.h"
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet

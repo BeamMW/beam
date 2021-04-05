@@ -35,8 +35,16 @@ namespace beam::wallet
 
     bool IWalletApi::ValidateAPIVersion(const std::string& sver)
     {
-        const auto version = SApiVer2NApiVer(sver);
-        return ApiVerMin >= version && ApiVerMax <= version;
+        try
+        {
+            const auto version = SApiVer2NApiVer(sver);
+            return ApiVerMin >= version && ApiVerMax <= version;
+        }
+        catch(std::exception& ex)
+        {
+            LOG_WARNING() << "ValidateAPIVersion: " << ex.what();
+            return false;
+        }
     }
 
     IWalletApi::Ptr IWalletApi::CreateInstance(const std::string& sversion, IWalletApiHandler& handler, const InitData& data)

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
 #include <regex>
@@ -54,6 +54,24 @@ namespace beam::wallet {
         }
 
         return error;
+    }
+
+    std::string ApiBase::fromError(const std::string& request, ApiError code, const std::string& errorText)
+    {
+        JsonRpcId rpcId;
+
+        try
+        {
+            const auto parsed = json::parse(request);
+            rpcId = parsed["id"];
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << request;
+        }
+
+        const auto err = formError(rpcId, code, errorText);
+        return err.dump();
     }
 
     void ApiBase::sendError(const JsonRpcId& id, ApiError code, const std::string& data)
