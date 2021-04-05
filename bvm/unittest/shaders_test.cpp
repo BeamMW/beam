@@ -1310,7 +1310,7 @@ namespace bvm2 {
 			args.m_Variant = 2;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 			args.m_Variant = 3;
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 			args.m_Variant = 4;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 			args.m_Variant = 5;
