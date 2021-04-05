@@ -76,6 +76,7 @@ namespace Shaders {
 #include "../Shaders/perpetual/contract.h"
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
+#include "../Shaders/voting/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -223,6 +224,18 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_iCheckpoint);
 		ConvertOrd<bToShader>(x.m_iMsg);
 	}
+	template <bool bToShader> void Convert(Voting::OpenProposal& x) {
+		ConvertOrd<bToShader>(x.m_Params.m_Aid);
+		ConvertOrd<bToShader>(x.m_Params.m_hMin);
+		ConvertOrd<bToShader>(x.m_Params.m_hMax);
+	}
+	template <bool bToShader> void Convert(Voting::Vote& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+		ConvertOrd<bToShader>(x.m_Variant);
+	}
+	template <bool bToShader> void Convert(Voting::Withdraw& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
 
 	namespace Env {
 
@@ -290,6 +303,9 @@ namespace Shaders {
 	}
 	namespace MirrorCoin {
 #include "../Shaders/mirrorcoin/contract.cpp"
+	}
+	namespace Voting {
+#include "../Shaders/voting/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -789,6 +805,7 @@ namespace bvm2 {
 			ByteBuffer m_Perpetual;
 			ByteBuffer m_Pipe;
 			ByteBuffer m_MirrorCoin;
+			ByteBuffer m_Voting;
 
 		} m_Code;
 
@@ -803,6 +820,7 @@ namespace bvm2 {
 		ContractID m_cidPipe;
 		ContractID m_cidMirrorCoin1;
 		ContractID m_cidMirrorCoin2;
+		ContractID m_cidVoting;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -972,6 +990,17 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidVoting)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 2: Shaders::Voting::Method_2(CastArg<Shaders::Voting::OpenProposal>(pArgs)); return;
+				//case 3: Shaders::Voting::Method_3(CastArg<Shaders::Voting::Vote>(pArgs)); return;
+				//case 4: Shaders::Voting::Method_4(CastArg<Shaders::Voting::Withdraw>(pArgs)); return;
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -985,6 +1014,7 @@ namespace bvm2 {
 		void TestPerpetual();
 		void TestPipe();
 		void TestMirrorCoin();
+		void TestVoting();
 
 		void TestAll();
 	};
@@ -1013,10 +1043,12 @@ namespace bvm2 {
 		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
+		AddCode(m_Code.m_Voting, "voting/contract.wasm");
 
 		TestVault();
 		TestFaucet();
 		TestRoulette();
+		TestVoting();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -2106,6 +2138,77 @@ namespace bvm2 {
 		verify_test(!RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // already took
 
 		UndoChanges(); // up to (but not including) contract creation
+	}
+
+	void MyProcessor::TestVoting()
+	{
+		Zero_ zero;
+		verify_test(ContractCreate_T(m_cidVoting, m_Code.m_Voting, zero));
+		verify_test(m_cidVoting == Shaders::Voting::s_CID);
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Voting);
+		verify_test(sid == Shaders::Voting::s_SID);
+
+		m_lstUndo.Clear();
+		m_Height = 10;
+
+		ECC::Hash::Value hvProposal = 443U;
+
+		{
+			Shaders::Voting::OpenProposal args;
+			args.m_ID = hvProposal;
+			args.m_Params.m_Aid = 5;
+			args.m_Params.m_hMin = 0;
+			args.m_Params.m_hMax = 1;
+			args.m_Variants = 12;
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // too late
+
+			args.m_Params.m_hMax = 10;
+			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // duplicated ID
+		}
+
+		ECC::Scalar::Native k;
+		ECC::SetRandom(k);
+		ECC::Point::Native pt_ = ECC::Context::get().G * k;
+		ECC::Point pt = pt_;
+
+		{
+			Shaders::Voting::Vote args;
+			args.m_ID = Zero; // invalid
+			args.m_Pk = pt;
+			args.m_Amount = 100;
+			args.m_Variant = 4;
+
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+
+			args.m_ID = hvProposal;
+			args.m_Variant = 12; // out-of-bounds
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+
+			args.m_Variant = 11;
+			m_Height = 15; // too late
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+
+			m_Height = 5; // ok
+			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Voting::Withdraw args;
+			args.m_ID = hvProposal;
+			args.m_Pk = pt;
+			args.m_Amount = 50;
+
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // voting isn't over yet
+
+			m_Height = 11;
+			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // ok, withdrew half
+			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // withdrew all
+			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // no more left
+		}
 	}
 
 	struct MyManager
