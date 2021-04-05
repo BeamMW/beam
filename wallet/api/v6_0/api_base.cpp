@@ -129,7 +129,7 @@ namespace beam::wallet {
                 }
             }
 
-            minfo.func(pinfo->rpcid, pinfo->params);
+            minfo.execFunc(pinfo->rpcid, pinfo->params);
             return minfo.isAsync ? ApiSyncMode::RunningAsync : ApiSyncMode::DoneSync;
         });
 

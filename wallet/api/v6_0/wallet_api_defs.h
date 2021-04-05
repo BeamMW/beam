@@ -36,7 +36,8 @@ namespace beam::wallet
     macro(OfferStatus,        "swap_offer_status",         API_READ_ACCESS,  API_SYNC)  \
     macro(DecodeToken,        "swap_decode_token",         API_READ_ACCESS,  API_SYNC)  \
     macro(GetBalance,         "swap_get_balance",          API_READ_ACCESS,  API_SYNC)  \
-    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC)
+    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC)  \
+    macro(CancelOffer,        "swap_cancel_offer",         API_WRITE_ACCESS, API_SYNC)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -73,134 +74,6 @@ namespace beam::wallet
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#define WALLET_API_METHODS_ALIASES(macro) \
-    macro("swap_cancel_offer", TxCancel, "tx_cancel", API_WRITE_ACCESS)
-#else  // !BEAM_ATOMIC_SWAP_SUPPORT
-#define WALLET_API_METHODS_ALIASES(macro)
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-
-    struct OfferInput
-    {
-        Amount beamAmount = 0;
-        Amount swapAmount = 0;
-        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-        bool isBeamSide = true;
-        Amount beamFee = 0;
-        Amount swapFeeRate = 0;
-        Height offerLifetime = 15;
-        std::string comment;
-    };
-
-    struct OffersList
-    {
-        struct
-        {
-            boost::optional<AtomicSwapCoin> swapCoin;
-            boost::optional<SwapOfferStatus> status;
-        } filter;
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            std::vector<SwapOffer> list;
-        };
-    };
-
-    struct OffersBoard
-    {
-        struct
-        {
-            boost::optional<AtomicSwapCoin> swapCoin;
-        } filter;
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            std::vector<SwapOffer> list;
-        };
-    };
-
-    struct CreateOffer : public OfferInput
-    {
-        CreateOffer() = default;
-        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            std::string token;
-            TxID txId;
-        };
-    };
-
-    struct PublishOffer
-    {
-        std::string token;
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            SwapOffer offer;
-        };
-    };
-
-    struct AcceptOffer
-    {
-        std::string token;
-        Amount beamFee = 0;
-        Amount swapFeeRate = 0;
-        std::string comment;
-        struct Response
-        {
-            std::vector<WalletAddress> addrList;
-            Height systemHeight;
-            SwapOffer offer;
-        };
-    };
-
-    struct OfferStatus
-    {
-        TxID txId;
-        struct Response
-        {
-            Height systemHeight;
-            SwapOffer offer;
-        };
-    };
-
-    struct DecodeToken
-    {
-        std::string token;
-        struct Response
-        {
-            SwapOffer offer;
-            bool isMyOffer;
-            bool isPublic;
-        };
-    };
-
-    struct GetBalance
-    {
-        AtomicSwapCoin coin;
-        struct Response
-        {
-            Amount available;
-        };
-    };
-
-    struct RecommendedFeeRate
-    {
-        AtomicSwapCoin coin;
-        struct Response
-        {
-            Amount feeRate;
-        };
-    };
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     struct CalcMyChange
     {
@@ -416,7 +289,7 @@ namespace beam::wallet
     struct Lock
     {
         CoinIDList coins;
-        uint64_t session;
+        uint64_t session = 0;
 
         struct Response
         {
@@ -426,7 +299,7 @@ namespace beam::wallet
 
     struct Unlock
     {
-        uint64_t session;
+        uint64_t session = 0;
 
         struct Response
         {
@@ -536,4 +409,131 @@ namespace beam::wallet
             TxID txid = TxID();
         };
     };
+
+    #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+    struct OfferInput
+    {
+        Amount beamAmount = 0;
+        Amount swapAmount = 0;
+        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+        bool isBeamSide = true;
+        Amount beamFee = 0;
+        Amount swapFeeRate = 0;
+        Height offerLifetime = 15;
+        std::string comment;
+    };
+
+    struct OffersList
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
+            boost::optional<SwapOfferStatus> status;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct OffersBoard
+    {
+        struct
+        {
+            boost::optional<AtomicSwapCoin> swapCoin;
+        } filter;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::vector<SwapOffer> list;
+        };
+    };
+
+    struct CreateOffer : public OfferInput
+    {
+        CreateOffer() = default;
+        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            std::string token;
+            TxID txId;
+        };
+    };
+
+    struct PublishOffer
+    {
+        std::string token;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct AcceptOffer
+    {
+        std::string token;
+        Amount beamFee = 0;
+        Amount swapFeeRate = 0;
+        std::string comment;
+        struct Response
+        {
+            std::vector<WalletAddress> addrList;
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct OfferStatus
+    {
+        TxID txId;
+        struct Response
+        {
+            Height systemHeight;
+            SwapOffer offer;
+        };
+    };
+
+    struct DecodeToken
+    {
+        std::string token;
+        struct Response
+        {
+            SwapOffer offer;
+            bool isMyOffer;
+            bool isPublic;
+        };
+    };
+
+    struct GetBalance
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount available;
+        };
+    };
+
+    struct RecommendedFeeRate
+    {
+        AtomicSwapCoin coin;
+        struct Response
+        {
+            Amount feeRate;
+        };
+    };
+
+    struct CancelOffer: public TxCancel
+    {
+        struct Response: public TxCancel::Response
+        {
+        };
+    };
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 }

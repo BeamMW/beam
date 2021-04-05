@@ -37,7 +37,6 @@ namespace beam::wallet
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
         boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) override;
-        // TODO: review error codes and returned results
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
 
         //
@@ -72,7 +71,9 @@ namespace beam::wallet
     protected:
         struct Method
         {
-            std::function<void(const JsonRpcId &id, const json &msg)> func;
+            std::function<void(const JsonRpcId &id, const json &msg)> execFunc;
+            std::function<IWalletApi::FundsInfo(const JsonRpcId &id, const json &msg)> parseFunc;
+
             bool writeAccess;
             bool isAsync;
         };

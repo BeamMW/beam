@@ -195,7 +195,7 @@ namespace
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
-            api.onMessage(1, message);
+            api.onHandleTxList(1, message);
             api.TestTxListResSize(10);
             api.m_Messages.clear();
         }
@@ -204,43 +204,43 @@ namespace
 
         message.count = 10;
         message.skip = 0;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 0;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(64);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 10;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(54);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 10;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 63;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(1);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 64;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 65;
-        api.onMessage(1, message);
+        api.onHandleTxList(1, message);
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
@@ -270,7 +270,7 @@ namespace
             message2.withAssets = false;
             message2.filter.height = p.second;
 
-            api.onMessage(1, message2);
+            api.onHandleTxList(1, message2);
             api.TestTxListResSize(1);
             api.TestTxListResHeight(p.second);
 

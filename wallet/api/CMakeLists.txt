@@ -12,7 +12,8 @@ target_link_libraries(wallet_api_proto
 )
 
 add_library(wallet_api STATIC
-    v6_0/wallet_api_imp.cpp
+    v6_0/wallet_api.cpp
+    v6_0/wallet_api_handle.cpp
     v6_0/wallet_api_parse.cpp
     i_wallet_api.cpp
 )
@@ -20,7 +21,7 @@ add_library(wallet_api STATIC
 if(BEAM_ATOMIC_SWAP_SUPPORT)
     target_sources(wallet_api
         PRIVATE
-            v6_0/wallet_api_swap_imp.cpp
+            v6_0/wallet_api_swap_handle.cpp
             v6_0/wallet_api_swap_parse.cpp
             cli/swap_client.cpp
             cli/swap_eth_client.cpp

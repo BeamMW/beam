@@ -80,7 +80,9 @@ namespace
     public:
         WalletApiTest(): WalletApi(*this, boost::none, nullptr, nullptr, nullptr, nullptr) {}
 
-        #define MESSAGE_FUNC(strct, name, ...) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
+        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
+                WALLET_CHECK(!"error, onHandle should be never called"); };
+
         WALLET_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
 
@@ -143,13 +145,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onAPIError(const json& msg) override
-            {
-                WALLET_CHECK(!"invalid create_address api json!!!");
-                cout << msg["error"] << endl;
-            }
-
-            void onMessage(const JsonRpcId& id, const CreateAddress& data) override 
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -180,6 +176,23 @@ namespace
         }
     }
 
+    void testDefaultCreateAddressJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.type == TokenType::RegularOldStyle);
+                WALLET_CHECK(data.offlinePayments == 10);
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
     void testGetUtxoJsonRpc(const std::string& msg)
     {
         class ApiTest : public WalletApiTest
@@ -191,7 +204,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetUtxo& data) override
+            void onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
@@ -246,7 +259,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Send& data) override
+            void onHandleSend(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.session && *data.session == 15);
@@ -276,44 +289,6 @@ namespace
         }
     }
 
-    using TestErrorFunc = std::function<void(const json& msg)>;
-    template <typename T> using TestSuccessFunc = std::function<void(const JsonRpcId& id, const T& data)>;
-    using TestFinishFunc = std::function<void()>;
-
-    template<typename T> void testJsonRpc(const std::string& msg
-        , TestErrorFunc onError
-        , TestSuccessFunc<T> onSuccess = []() {}
-        , TestFinishFunc onFinish = []() {})
-    {
-        class ApiTest : public WalletApiTest
-        {
-        public:
-
-            ApiTest(TestErrorFunc onError, std::function<void(const JsonRpcId& id, const T& data)> onSuccess) 
-                : _onError(onError), _onSuccess(onSuccess) {}
-
-            void onAPIError(const json& msg) override { _onError(msg); }
-            void onMessage(const JsonRpcId& id, const T& data) override { _onSuccess(id, data); }
-
-            TestErrorFunc _onError;
-            std::function<void(const JsonRpcId& id, const T& data)> _onSuccess;
-        };
-
-        ApiTest api(onError, onSuccess);
-        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
-
-        {
-            json res;
-            typename T::Response response;
-
-            api.getResponse(123, response, res);
-            testResultHeader(res);
-
-            WALLET_CHECK(res["id"] == 123);
-            onFinish();
-        }
-    }
-
     void testInvalidSendJsonRpc(const std::string& msg)
     {
         class ApiTest : public WalletApiTest
@@ -324,7 +299,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Send& data) override 
+            void onHandleSend(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
@@ -344,7 +319,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const InvokeContract& data) override
+            void onHandleInvokeContract(const JsonRpcId& id, const InvokeContract& data) override
             {
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
@@ -364,11 +339,6 @@ namespace
             {
                 cout << msg["error"] << endl;
             }
-
-            void onMessage(const JsonRpcId& id, const T& data) override
-            {
-                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
-            }
         };
 
         ApiTest api;
@@ -387,7 +357,14 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const T& data) override
+            void onHandleIssue(const JsonRpcId& id, const Issue& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.value > 0);
+            }
+
+            void onHandleConsume(const JsonRpcId& id, const Consume& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
@@ -420,7 +397,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxAssetInfo& data) override
+            void onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
@@ -452,7 +429,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetAssetInfo& data) override
+            void onHandleGetAssetInfo(const JsonRpcId& id, const GetAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.assetId.is_initialized() || data.assetMeta.is_initialized());
@@ -496,7 +473,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Status& data) override
+            void onHandleStatus(const JsonRpcId& id, const Status& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == "10c4b760c842433cb58339a0fafef3db");
@@ -528,7 +505,7 @@ namespace
                 WALLET_CHECK(!"invalid split api json!!!");
             }
 
-            void onMessage(const JsonRpcId& id, const Split& data) override
+            void onHandleSplit(const JsonRpcId& id, const Split& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -567,7 +544,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Split& data) override
+            void onHandleSplit(const JsonRpcId& id, const Split& data) override
             {
                 WALLET_CHECK(id >= 0);
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
@@ -589,7 +566,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(*data.filter.status == TxStatus::Completed);
@@ -622,7 +599,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -649,7 +626,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
+            void onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(CheckReceiverAddress(data.address) == _valid);
@@ -688,7 +665,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
+            void onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -723,7 +700,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const ExportPaymentProof& data) override
+            void onHandleExportPaymentProof(const JsonRpcId& id, const ExportPaymentProof& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -759,7 +736,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const VerifyPaymentProof& data) override
+            void onHandleVerifyPaymentProof(const JsonRpcId& id, const VerifyPaymentProof& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -794,7 +771,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            ApiTest(const T& value) : _value(value) {}
+            explicit ApiTest(const T& value) : _value(value) {}
 
             void onAPIError(const json& msg) override
             {
@@ -802,7 +779,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const CreateAddress& data) override
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
             {
                 WALLET_CHECK(id == _value);
             }
@@ -826,7 +803,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetBalance& data) override
+            void onHandleGetBalance(const JsonRpcId& id, const GetBalance& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.coin == AtomicSwapCoin::Litecoin);
@@ -859,7 +836,7 @@ namespace
         {
         public:
 
-            ApiTest(const std::string& value)
+            explicit ApiTest(const std::string& value)
                 : _value(value)
             {}
 
@@ -869,7 +846,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const DecodeToken& data) override
+            void onHandleDecodeToken(const JsonRpcId& id, const DecodeToken& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.token == _value);
@@ -928,7 +905,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const OfferStatus& data) override
+            void onHandleOfferStatus(const JsonRpcId& id, const OfferStatus& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == _value);
@@ -1382,7 +1359,7 @@ int main()
         "params" : "bar"
     }));
 
-    testCreateAddressJsonRpc(JSON_CODE(
+    testDefaultCreateAddressJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1390,23 +1367,6 @@ int main()
         "params" :
         {
             "lifetime" : 24,
-            "metadata" : "<meta>custom user data</meta>"
-        }
-    }));
-
-    testInvalidJsonRpc([](const json& msg)
-    {
-        testErrorHeaderWithId(msg);
-
-        WALLET_CHECK(msg["id"] == 12345);
-        WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidJsonRpc);
-    }, JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "create_address",
-        "params" :
-        {
             "metadata" : "<meta>custom user data</meta>"
         }
     }));
@@ -1468,7 +1428,8 @@ int main()
         }
     }));
 
-    testJsonRpc<Send>(JSON_CODE(
+    // value is too big
+    testInvalidSendJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1481,12 +1442,7 @@ int main()
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
-    }), 
-    [](const json& msg) {},
-    [](const JsonRpcId& id, const Send& data)
-    {
-        WALLET_CHECK(!"The value is invalid!!!");
-    });
+    }));
 
     testInvalidSendJsonRpc(JSON_CODE(
     {

@@ -69,11 +69,21 @@ namespace beam::wallet
         // returns nullptr if wrong API version requested
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
-        struct ParseInfo {
+        struct ParseInfo
+        {
             std::string method;
             json rpcid;
             json message;
             json params;
+        };
+
+        struct FundsInfo
+        {
+            typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
+
+            Funds spend;
+            Funds receive;
+            beam::Amount fee = 0UL;
         };
 
         // this should be safe to call in any thread.
