@@ -1516,7 +1516,7 @@ namespace bvm2 {
 		virtual ~Keccak256() {}
 		virtual void Write(const uint8_t* p, uint32_t n) override
 		{
-			const uint16_t naggle = std::numeric_limits<uint16_t>::max();
+			constexpr uint16_t naggle = std::numeric_limits<uint16_t>::max();
 			while (n > naggle)
 			{
 				keccak_update(&m_State, p, naggle);

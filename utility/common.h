@@ -42,7 +42,7 @@
 #include <sstream>
 
 #ifdef WIN32
-#	include <winsock2.h>
+#	include <WinSock2.h>
 #endif // WIN32
 
 #ifndef BEAM_VERIFY

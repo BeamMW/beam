@@ -31,6 +31,7 @@
 #include "wallet/core/wallet_network.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include <boost/algorithm/string.hpp>
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include "wallet/client/extensions/offers_board/offers_protocol_handler.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"

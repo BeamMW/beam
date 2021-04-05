@@ -43,7 +43,7 @@ private:
 
 struct IdleEvt
 {
-    ~IdleEvt();
+    virtual ~IdleEvt();
 
     void start();
     void cancel();
