@@ -866,7 +866,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
         return;
     }
 
-    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
+    walletModel->getAsync()->updateAddress(JString(env, addr).value(), JString(env, name).value(), expirationStatus);
 }
 
 // don't use it. i don't check it
