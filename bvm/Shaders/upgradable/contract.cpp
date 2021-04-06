@@ -24,7 +24,8 @@ void ResetNext(Upgradable::Next& n)
 void InvokeNext(uint32_t iMethod, void* pArg)
 {
     Upgradable::State s;
-    Env::LoadVar_T(Upgradable::s_SID, s);
+    const uint8_t key = Upgradable::State::s_Key;
+    Env::LoadVar_T(key, s);
 
     if (s.m_hNextActivate <= Env::get_Height())
     {
@@ -33,7 +34,7 @@ void InvokeNext(uint32_t iMethod, void* pArg)
         RefManageSafe<true>(s.m_Cid);
 
         ResetNext(s);
-        Env::SaveVar_T(Upgradable::s_SID, s);
+        Env::SaveVar_T(key, s);
     }
 
     Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);
@@ -45,7 +46,8 @@ export void Ctor(Upgradable::Create& r)
     _POD_(Cast::Down<Upgradable::Current>(s)) = Cast::Down<Upgradable::Current>(r);
     ResetNext(s);
 
-    Env::SaveVar_T(Upgradable::s_SID, s);
+    const uint8_t key = Upgradable::State::s_Key;
+    Env::SaveVar_T(key, s);
 
     if (RefManageSafe<true>(r.m_Cid))
         Env::CallFar(s.m_Cid, 0, &r + 1, 0, 1);
@@ -54,8 +56,10 @@ export void Ctor(Upgradable::Create& r)
 export void Dtor(void* pArg)
 {
     Upgradable::State s;
-    Env::LoadVar_T(Upgradable::s_SID, s);
-    Env::DelVar_T(Upgradable::s_SID);
+    const uint8_t key = Upgradable::State::s_Key;
+
+    Env::LoadVar_T(key, s);
+    Env::DelVar_T(key);
 
     if (RefManageSafe<false>(s.m_Cid))
         Env::CallFar(s.m_Cid, 1, pArg, 0, 1);
@@ -64,12 +68,13 @@ export void Dtor(void* pArg)
 export void Method_2(const Upgradable::ScheduleUpgrade& r)
 {
     Upgradable::State s;
-    Env::LoadVar_T(Upgradable::s_SID, s);
+    const uint8_t key = Upgradable::State::s_Key;
+    Env::LoadVar_T(key, s);
 
     Env::Halt_if(r.m_hNextActivate < Env::get_Height() + s.m_hMinUpgadeDelay);
 
     _POD_(Cast::Down<Upgradable::Next>(s)) = Cast::Down<Upgradable::Next>(r);
-    Env::SaveVar_T(Upgradable::s_SID, s);
+    Env::SaveVar_T(key, s);
 
     Env::AddSig(s.m_Pk);
 }

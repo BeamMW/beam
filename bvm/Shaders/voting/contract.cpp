@@ -79,3 +79,9 @@ export void Method_4(const Voting::Withdraw& r)
     Env::FundsUnlock(p.m_Params.m_Aid, r.m_Amount);
     Env::AddSig(r.m_Pk);
 }
+
+export void Method_5(Voting::Read& r)
+{
+    uint32_t n = Env::LoadVar(&r.m_ID, sizeof(r.m_ID), &r.m_Res, sizeof(Voting::Proposal) + sizeof(Amount) * r.m_Variants, KeyTag::Internal);
+    r.m_Variants = (n <= sizeof(Voting::Proposal)) ? 0 : (n - sizeof(Voting::Proposal)) / sizeof(Amount);
+}

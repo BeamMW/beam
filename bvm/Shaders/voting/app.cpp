@@ -384,6 +384,9 @@ ON_METHOD(my_account, view_staking)
         }
     }
 
+    Env::DocAddNum("total_locked", totalLocked);
+    Env::DocAddNum("total_available", totalAvail);
+
 }
 
 ON_METHOD(my_account, proposal_view)
