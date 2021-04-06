@@ -25,8 +25,9 @@ namespace {
 }
 
 namespace beam::wallet {
-    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl)
+    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid)
         : _acl(std::move(acl))
+        , _appid(std::move(appid))
         , _handler(handler)
     {
     }
@@ -80,10 +81,10 @@ namespace beam::wallet {
         _handler.sendAPIResponse(error);
     }
 
-    boost::optional<IWalletApi::ParseInfo> ApiBase::parseAPIRequest(const char* data, size_t size)
+    boost::optional<IWalletApi::ParseResult> ApiBase::parseAPIRequest(const char* data, size_t size)
     {
         JsonRpcId rpcid;
-        return callGuarded<IWalletApi::ParseInfo>(rpcid, [this, &rpcid, data, size] () -> IWalletApi::ParseInfo {
+        return callGuarded<IWalletApi::ParseResult>(rpcid, [this, &rpcid, data, size] () {
             {
                 std::string s(data, size);
                 static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
@@ -95,29 +96,32 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
             }
 
-            ParseInfo result;
-            result.message = json::parse(data, data + size);
-
-            if(!result.message["id"].is_number_integer() && !result.message["id"].is_string())
+            const auto message = json::parse(data, data + size);
+            if(!message["id"].is_number_integer() && !message["id"].is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "ID can be integer or string only.");
             }
 
-            result.rpcid = result.message["id"];
-            rpcid = result.rpcid;
-
-            if (result.message[JsonRpcHeader] != JsonRpcVersion)
+            rpcid = message["id"];
+            if (message[JsonRpcHeader] != JsonRpcVersion)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.");
             }
 
-            result.method = getMandatoryParam<NonEmptyString>(result.message, "method");
-            if (_methods.find(result.method) == _methods.end())
+            const auto method = getMandatoryParam<NonEmptyString>(message, "method");
+            if (_methods.find(method) == _methods.end())
             {
-                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, result.method);
+                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, method);
             }
 
-            result.params = result.message["params"];
+            const auto& minfo = _methods[method];
+
+            ParseResult result(minfo.parseFunc(rpcid, message));
+            result.params  = result.message["params"];
+            result.rpcid   = rpcid;
+            result.message = message;
+            result.method  = method;
+
             return result;
         });
     }

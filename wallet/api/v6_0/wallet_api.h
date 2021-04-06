@@ -27,6 +27,7 @@ namespace beam::wallet
     public:
         WalletApi(IWalletApiHandler& handler,
                   ACL acl,
+                  std::string appid,
                   IWalletDB::Ptr wdb,
                   Wallet::Ptr wallet,
                   ISwapsProvider::Ptr swaps,
@@ -122,12 +123,12 @@ namespace beam::wallet
 
     private:
         #define PARSE_FUNC(api, name, ...) \
-        [[nodiscard]] std::pair<api, FundsInfo> onParse##api(const JsonRpcId& id, const json& msg);
+        [[nodiscard]] std::pair<api, ParseInfo> onParse##api(const JsonRpcId& id, const json& msg);
         WALLET_API_METHODS(PARSE_FUNC)
         #undef PARSE_FUNC
 
         template<typename T>
-        std::pair<T, IWalletApi::FundsInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
+        std::pair<T, IWalletApi::ParseInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
         void checkCAEnabled(const JsonRpcId& id);
 
         // If no fee read and no min fee provided this function calculates minimum fee itself

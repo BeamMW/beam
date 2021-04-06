@@ -18,12 +18,13 @@ namespace beam::wallet
     WalletApi::WalletApi(
             IWalletApiHandler& handler,
             ACL acl,
+            std::string appid,
             IWalletDB::Ptr wdb,
             Wallet::Ptr wallet,
             ISwapsProvider::Ptr swaps,
             IShadersManager::Ptr contracts
         )
-        : ApiBase(handler, std::move(acl))
+        : ApiBase(handler, std::move(acl), std::move(appid))
         , _wdb(std::move(wdb))
         , _wallet(std::move(wallet))
         , _swaps(std::move(swaps))
@@ -35,7 +36,7 @@ namespace beam::wallet
                 auto parseRes = onParse##api(id, msg);                   \
                 onHandle##api(id, parseRes.first);                       \
             },                                                           \
-            [this] (const JsonRpcId &id, const json &msg) -> FundsInfo { \
+            [this] (const JsonRpcId &id, const json &msg) -> ParseInfo { \
                 auto parseRes = onParse##api(id, msg);                   \
                 return parseRes.second;                                  \
             },                                                           \

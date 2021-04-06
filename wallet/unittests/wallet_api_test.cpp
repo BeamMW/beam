@@ -78,7 +78,7 @@ namespace
         , IWalletApiHandler
     {
     public:
-        WalletApiTest(): WalletApi(*this, boost::none, nullptr, nullptr, nullptr, nullptr) {}
+        WalletApiTest(): WalletApi(*this, boost::none, std::string(), nullptr, nullptr, nullptr, nullptr) {}
 
         #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };

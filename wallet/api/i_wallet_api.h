@@ -73,24 +73,32 @@ namespace beam::wallet
 
         struct ParseInfo
         {
+            static const bool AppsAllowed = true;
+            static const bool AppsBlocked = false;
+
+            typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
+            explicit ParseInfo(bool apps) : handlesApps(apps) {}
+            ParseInfo(const ParseInfo& rhs): spend(rhs.spend), receive(rhs.receive), fee(rhs.fee), handlesApps(rhs.handlesApps) {}
+
+            Funds spend;
+            Funds receive;
+            beam::Amount fee = 0UL;
+            bool handlesApps = false;
+        };
+
+        struct ParseResult: public ParseInfo
+        {
+            explicit ParseResult(const ParseInfo& info) : ParseInfo(info) {}
+
             std::string method;
             json rpcid;
             json message;
             json params;
         };
 
-        struct FundsInfo
-        {
-            typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
-
-            Funds spend;
-            Funds receive;
-            beam::Amount fee = 0UL;
-        };
-
         // this should be safe to call in any thread.
         // returns info on success / calls sendAPIResponse on parse error
-        virtual boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) = 0;
+        virtual boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) = 0;
 
         // doesn't throw
         // should be called in API's/InitData's reactor thread

@@ -35,11 +35,11 @@ namespace beam::wallet
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletApiHandler& handler, ACL acl = boost::none);
+        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid);
 
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
-        boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) override;
+        boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) override;
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
         std::string fromError(const std::string& request, ApiError code, const std::string& errorText) override;
 
@@ -76,7 +76,7 @@ namespace beam::wallet
         struct Method
         {
             std::function<void(const JsonRpcId &id, const json &msg)> execFunc;
-            std::function<IWalletApi::FundsInfo(const JsonRpcId &id, const json &msg)> parseFunc;
+            std::function<IWalletApi::ParseInfo (const JsonRpcId &id, const json &msg)> parseFunc;
 
             bool writeAccess;
             bool isAsync;
@@ -84,6 +84,7 @@ namespace beam::wallet
 
         std::unordered_map <std::string, Method> _methods;
         ACL _acl;
+        std::string _appid;
         IWalletApiHandler& _handler;
 
     private:

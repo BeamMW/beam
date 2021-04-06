@@ -1077,7 +1077,7 @@ namespace bvm2 {
 				p += 2;
 			}
 
-			assert(p - m_szBuf < _countof(m_szBuf));
+			assert(p - m_szBuf < (long int)_countof(m_szBuf));
 			*p = 0;
 		}
 	};

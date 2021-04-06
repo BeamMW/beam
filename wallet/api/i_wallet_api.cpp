@@ -58,7 +58,7 @@ namespace beam::wallet
         switch (version)
         {
         case ApiVer6_0:
-            return std::make_shared<WalletApi>(handler, data.acl, data.walletDB, data.wallet, data.swaps, data.contracts);
+            return std::make_shared<WalletApi>(handler, data.acl, data.appid, data.walletDB, data.wallet, data.swaps, data.contracts);
         default:
             return nullptr;
         }
