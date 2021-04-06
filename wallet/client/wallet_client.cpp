@@ -108,12 +108,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
-    void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override
-    {
-        typedef void(IWalletModelAsync::* MethodType)(bool, AsyncCallback<const std::vector<WalletAddress>&>&&);
-        call_async((MethodType)&IWalletModelAsync::getAddresses, own, std::move(callback));
-    }
-
      void getDexOrders() override
      {
         call_async(&IWalletModelAsync::getDexOrders);
@@ -192,39 +186,20 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::deleteAddress, addr);
     }
 
-    void updateAddress(const wallet::WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override
-    {
-        typedef void(IWalletModelAsync::* MethodType)(const wallet::WalletID&, const std::string&, WalletAddress::ExpirationStatus);
-        call_async((MethodType)&IWalletModelAsync::updateAddress, id, name, status);
-    }
-
     void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override
     {
         typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, beam::Timestamp);
         call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationTime);
     }
 
-    void activateAddress(const wallet::WalletID& id) override
+    void activateAddress(const std::string& address) override
     {
-        call_async(&IWalletModelAsync::activateAddress, id);
-    }
-
-    void getAddress(const WalletID& id) override
-    {
-        typedef void(IWalletModelAsync::* MethodType)(const WalletID&);
-        call_async((MethodType)&IWalletModelAsync::getAddress, id);
-    }
-
-    void getAddress(const WalletID& id, AsyncCallback <const boost::optional<WalletAddress>&, size_t> && callback) override
-    {
-        typedef void(IWalletModelAsync::* MethodType)(const WalletID&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
-        call_async((MethodType)&IWalletModelAsync::getAddress, id, std::move(callback));
+        call_async(&IWalletModelAsync::activateAddress, address);
     }
 
     void getAddress(const std::string& addr, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
-        call_async((MethodType)&IWalletModelAsync::getAddress, addr, std::move(callback));
+        call_async(&IWalletModelAsync::getAddress, addr, std::move(callback));
     }
 
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
@@ -1030,14 +1005,6 @@ namespace beam::wallet
         onAddresses(own, m_walletDB->getAddresses(own));
     }
 
-    void WalletClient::getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback)
-    {
-        postFunctionToClientContext([res= m_walletDB->getAddresses(own), cb = std::move(callback)]()
-        {
-            cb(res);
-        });
-    }
-
     void WalletClient::getDexOrders()
     {
         if (auto dex = _dex.lock())
@@ -1277,41 +1244,11 @@ namespace beam::wallet
 
     }
 
-    void WalletClient::updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status)
+    void WalletClient::activateAddress(const std::string& address)
     {
         try
         {
-            auto addr = m_walletDB->getAddress(id);
-
-            if (addr)
-            {
-                if (addr->isOwn() &&
-                    status != WalletAddress::ExpirationStatus::AsIs)
-                {
-                    addr->setExpiration(status);
-                }
-                addr->setLabel(name);
-                m_walletDB->saveAddress(*addr);
-            }
-            else
-            {
-                LOG_ERROR() << "Address " << to_string(id) << " is absent.";
-            }
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
-    }
-
-    void WalletClient::activateAddress(const WalletID& id)
-    {
-        try
-        {
-            auto addr = m_walletDB->getAddress(id);
+            auto addr = m_walletDB->getAddress(address);
             if (addr)
             {
                 if (addr->isOwn())
@@ -1322,50 +1259,15 @@ namespace beam::wallet
             }
             else
             {
-                LOG_ERROR() << "Address " << to_string(id) << " is absent.";
+                LOG_ERROR() << "Address " << address << " is absent.";
             }
         }
         catch (const std::exception& e)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
-    }
-
-    void WalletClient::getAddress(const WalletID& id) 
-    {
-        try
+        catch (...)
         {
-            onGetAddress(id, m_walletDB->getAddress(id), m_walletDB->getVoucherCount(id));
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
-    }
-
-    void WalletClient::getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
-    {
-        try
-        {
-            auto addr = m_walletDB->getAddress(id);
-            size_t vouchersCount = m_walletDB->getVoucherCount(id);
-
-            postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() 
-            {
-                cb(addr, vouchersCount);
-            });
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
@@ -1390,7 +1292,8 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
@@ -1405,9 +1308,6 @@ namespace beam::wallet
                 return;
             }
             storage::SaveVouchers(*m_walletDB, vouchers, walletID);
-            
-            // notify client about voucher count changes
-            onGetAddress(walletID, m_walletDB->getAddress(walletID), m_walletDB->getVoucherCount(walletID));
         }
         catch (const std::exception& e)
         {

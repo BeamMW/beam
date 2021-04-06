@@ -41,8 +41,6 @@ namespace beam::wallet
         virtual void getTransactions() = 0;
         virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
         virtual void getAllUtxosStatus() = 0;
-        virtual void getAddresses(bool own) = 0;
-        virtual void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;
@@ -63,20 +61,17 @@ namespace beam::wallet
         virtual void acceptDexOrder(const DexOrderID&) = 0;
 
         //
-        // If address function accepts std::strig it means token (WalletAddres::m_Address)
+        // Address functions accepts only token (WalletAddres::m_Address)
         //
-        virtual void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) = 0;
         virtual void deleteAddress(const std::string& addr) = 0;
-        virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
         virtual void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expiration) = 0;
-        virtual void activateAddress(const WalletID& id) = 0;
-        virtual void getAddress(const WalletID& id) = 0;
-        virtual void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+        virtual void activateAddress(const std::string& addr) = 0;
+        virtual void getAddresses(bool own) = 0;
+        virtual void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) = 0;
         virtual void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
-
         virtual void setNodeAddress(const std::string& addr) = 0;
-
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
         virtual void getNetworkStatus() = 0;

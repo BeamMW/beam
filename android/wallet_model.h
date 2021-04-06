@@ -65,6 +65,5 @@ private:
     void onExportTxHistoryToCsv(const std::string& data) override;
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
-    void onGetAddress(const beam::wallet::WalletID& wid, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
     void onPublicAddress(const std::string& publicAddr) override;
 };
