@@ -839,7 +839,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         return;
     }
 
-    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
+    walletModel->getAsync()->updateAddress(JString(env, addr).value(), JString(env, name).value(), expirationStatus);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *env, jobject thiz,
