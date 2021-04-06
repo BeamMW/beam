@@ -64,6 +64,7 @@ namespace beam::wallet
         // Address functions accepts only token (WalletAddres::m_Address)
         //
         virtual void deleteAddress(const std::string& addr) = 0;
+        virtual void updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
         virtual void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expiration) = 0;
         virtual void activateAddress(const std::string& addr) = 0;
         virtual void getAddresses(bool own) = 0;

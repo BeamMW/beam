@@ -217,6 +217,7 @@ namespace beam::wallet
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
         void deleteAddress(const std::string& addr) override;
+        void updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override;
         void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override;
         void activateAddress(const std::string& token) override;
         void getAddress(const std::string& token) override;

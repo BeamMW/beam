@@ -192,6 +192,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationTime);
     }
 
+     void updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override
+     {
+        typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, WalletAddress::ExpirationStatus);
+        call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationStatus);
+     }
+
     void activateAddress(const std::string& address) override
     {
         call_async(&IWalletModelAsync::activateAddress, address);
@@ -1240,6 +1246,32 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus)
+    {
+        try
+        {
+            auto addr = m_walletDB->getAddress(token);
+
+            if (addr)
+            {
+                if (addr->isOwn())
+                {
+                    addr->setExpiration(expirationStatus);
+                }
+                addr->setLabel(name);
+                m_walletDB->saveAddress(*addr);
+            }
+            else
+            {
+                LOG_ERROR() << "Address " << token << " is absent.";
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+    }
+
     void WalletClient::updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime)
     {
         try
@@ -1264,7 +1296,6 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-
     }
 
     void WalletClient::activateAddress(const std::string& address)
