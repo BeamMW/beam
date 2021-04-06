@@ -1058,6 +1058,30 @@ namespace bvm2 {
 		TestMirrorCoin();
 	}
 
+	struct CidTxt
+	{
+		char m_szBuf[Shaders::ContractID::nBytes * 5];
+
+		void Set(const Shaders::ContractID& x)
+		{
+			char* p = m_szBuf;
+			for (uint32_t i = 0; i < x.nBytes; i++)
+			{
+				if (i)
+					*p++ = ',';
+
+				*p++ = '0';
+				*p++ = 'x';
+
+				uintBigImpl::_Print(x.m_pData + i, 1, p);
+				p += 2;
+			}
+
+			assert(p - m_szBuf < _countof(m_szBuf));
+			*p = 0;
+		}
+	};
+
 	void MyProcessor::TestVault()
 	{
 		Zero_ zero;
