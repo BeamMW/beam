@@ -30,17 +30,17 @@ namespace beam::wallet
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
     {
-        #define REG_FUNC(api, name, writeAccess, isAsync)                \
-        _methods[name] = {                                               \
-            [this] (const JsonRpcId &id, const json &msg) {              \
-                auto parseRes = onParse##api(id, msg);                   \
-                onHandle##api(id, parseRes.first);                       \
-            },                                                           \
-            [this] (const JsonRpcId &id, const json &msg) -> ParseInfo { \
-                auto parseRes = onParse##api(id, msg);                   \
-                return parseRes.second;                                  \
-            },                                                           \
-            writeAccess, isAsync                                         \
+        #define REG_FUNC(api, name, writeAccess, isAsync)                 \
+        _methods[name] = {                                                \
+            [this] (const JsonRpcId &id, const json &msg) {               \
+                auto parseRes = onParse##api(id, msg);                    \
+                onHandle##api(id, parseRes.first);                        \
+            },                                                            \
+            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
+                auto parseRes = onParse##api(id, msg);                    \
+                return parseRes.second;                                   \
+            },                                                            \
+            writeAccess, isAsync                                          \
         };
         WALLET_API_METHODS(REG_FUNC)
         #undef REG_FUNC

@@ -81,10 +81,10 @@ namespace beam::wallet {
         _handler.sendAPIResponse(error);
     }
 
-    boost::optional<IWalletApi::ParseResult> ApiBase::parseAPIRequest(const char* data, size_t size)
+    boost::optional<IWalletApi::ApiCallInfo> ApiBase::parseCallInfo(const char* data, size_t size)
     {
         JsonRpcId rpcid;
-        return callGuarded<IWalletApi::ParseResult>(rpcid, [this, &rpcid, data, size] () {
+        return callGuarded<ApiCallInfo>(rpcid, [this, &rpcid, data, size] () {
             {
                 std::string s(data, size);
                 static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
@@ -96,43 +96,59 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
             }
 
-            const auto message = json::parse(data, data + size);
-            if(!message["id"].is_number_integer() && !message["id"].is_string())
+            ApiCallInfo info;
+
+            info.message = json::parse(data, data + size); // do not make const pls, it would throw if no field present
+            if(!info.message["id"].is_number_integer() && !info.message["id"].is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "ID can be integer or string only.");
             }
 
-            rpcid = message["id"];
-            if (message[JsonRpcHeader] != JsonRpcVersion)
+            info.rpcid = info.message["id"];
+            rpcid = info.rpcid;
+
+            if (info.message[JsonRpcHeader] != JsonRpcVersion)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.");
             }
 
-            const auto method = getMandatoryParam<NonEmptyString>(message, "method");
-            if (_methods.find(method) == _methods.end())
+            info.method = getMandatoryParam<NonEmptyString>(info.message, "method");
+            if (_methods.find(info.method) == _methods.end())
             {
-                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, method);
+                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, info.method);
             }
 
-            const auto& minfo = _methods[method];
+            info.params = info.message["params"];
+            return info;
+        });
+    }
 
-            ParseResult result(minfo.parseFunc(rpcid, message));
-            result.params  = result.message["params"];
-            result.rpcid   = rpcid;
-            result.message = message;
-            result.method  = method;
+    boost::optional<IWalletApi::ParseResult> ApiBase::parseAPIRequest(const char* data, size_t size)
+    {
+        const auto pinfo = parseCallInfo(data, size);
+        if (pinfo == boost::none)
+        {
+            return boost::none;
+        }
 
+        return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
+            const auto& minfo = _methods[pinfo->method];
+            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->message);
+
+            ParseResult result(*pinfo, finfo);
             return result;
         });
     }
 
     ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
     {
-        const auto pinfo = parseAPIRequest(data, size);
+        const auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
             return ApiSyncMode::DoneSync;
         }
+
+        LOG_DEBUG() << "executeAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];

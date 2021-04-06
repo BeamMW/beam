@@ -76,7 +76,7 @@ namespace beam::wallet
         struct Method
         {
             std::function<void(const JsonRpcId &id, const json &msg)> execFunc;
-            std::function<IWalletApi::ParseInfo (const JsonRpcId &id, const json &msg)> parseFunc;
+            std::function<IWalletApi::MethodInfo (const JsonRpcId &id, const json &msg)> parseFunc;
 
             bool writeAccess;
             bool isAsync;
@@ -89,6 +89,7 @@ namespace beam::wallet
 
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+        boost::optional<ApiCallInfo> parseCallInfo(const char* data, size_t size);
 
         template<typename TRes>
         boost::optional<TRes> callGuarded(const JsonRpcId& rpcid, std::function<TRes (void)> func)

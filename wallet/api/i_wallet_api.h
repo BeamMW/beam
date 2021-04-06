@@ -71,14 +71,14 @@ namespace beam::wallet
         // returns nullptr if wrong API version requested
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
-        struct ParseInfo
+        struct MethodInfo
         {
             static const bool AppsAllowed = true;
             static const bool AppsBlocked = false;
 
             typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
-            explicit ParseInfo(bool apps) : handlesApps(apps) {}
-            ParseInfo(const ParseInfo& rhs): spend(rhs.spend), receive(rhs.receive), fee(rhs.fee), handlesApps(rhs.handlesApps) {}
+            explicit MethodInfo(bool apps) : handlesApps(apps) {}
+            MethodInfo(const MethodInfo& rhs): spend(rhs.spend), receive(rhs.receive), fee(rhs.fee), handlesApps(rhs.handlesApps) {}
 
             Funds spend;
             Funds receive;
@@ -86,14 +86,23 @@ namespace beam::wallet
             bool handlesApps = false;
         };
 
-        struct ParseResult: public ParseInfo
+        struct ApiCallInfo
         {
-            explicit ParseResult(const ParseInfo& info) : ParseInfo(info) {}
-
             std::string method;
             json rpcid;
             json message;
             json params;
+        };
+
+        struct ParseResult
+        {
+            ApiCallInfo acinfo;
+            MethodInfo  minfo;
+
+            ParseResult(const ApiCallInfo& aci, const MethodInfo& mi)
+                : acinfo(aci)
+                , minfo(mi)
+            {}
         };
 
         // this should be safe to call in any thread.
