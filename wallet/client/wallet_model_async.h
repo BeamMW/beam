@@ -68,6 +68,7 @@ namespace beam::wallet
         virtual void activateAddress(const std::string& addr) = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) = 0;
+        virtual void getAddress(const std::string& addr) = 0;
         virtual void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
 
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;

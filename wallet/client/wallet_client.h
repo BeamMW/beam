@@ -148,6 +148,7 @@ namespace beam::wallet
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
+        virtual void onGetAddress(const std::string& token, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
@@ -218,6 +219,7 @@ namespace beam::wallet
         void deleteAddress(const std::string& addr) override;
         void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override;
         void activateAddress(const std::string& token) override;
+        void getAddress(const std::string& token) override;
         void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;

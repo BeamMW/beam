@@ -197,9 +197,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::activateAddress, address);
     }
 
+    void getAddress(const std::string& id) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&);
+        call_async((MethodType)&IWalletModelAsync::getAddress, id);
+    }
+
     void getAddress(const std::string& addr, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
     {
-        call_async(&IWalletModelAsync::getAddress, addr, std::move(callback));
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
+        call_async((MethodType)&IWalletModelAsync::getAddress, addr, std::move(callback));
     }
 
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
@@ -998,6 +1005,22 @@ namespace beam::wallet
     {
         onCoinsChanged(ChangeAction::Reset, m_walletDB->getAllNormalCoins());
         onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getAllShieldedCoins());
+    }
+
+    void WalletClient::getAddress(const std::string& token)
+    {
+        try
+        {
+            const auto address = m_walletDB->getAddress(token);
+            onGetAddress(token, address, m_walletDB->getVoucherCount(address->m_walletID));
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
     }
 
     void WalletClient::getAddresses(bool own)

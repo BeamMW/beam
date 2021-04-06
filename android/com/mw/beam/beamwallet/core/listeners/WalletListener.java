@@ -300,6 +300,11 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onBeamNewsNotification in Java");
 	}
 
+	static void onGetAddress(int count)
+    {
+		System.out.println(">>>>>>>>>>>>>> async onGetAddress in Java");
+	}
+
 	static void onExchangeRates(ExchangeRateDTO[] rates)
     {
         System.out.println(">>>>>>>>>>>>>> async onExchangeRates in Java");

@@ -247,7 +247,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
             ShieldedVoucherList trVouchers;
             if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers))
             {
-                walletModel->getAsync()->getAddress(*peerId);
+                walletModel->getAsync()->getAddress(token);
                 walletModel->getAsync()->saveVouchers(trVouchers, *peerId);
             }
         }
