@@ -9,6 +9,7 @@ namespace Upgradable
     struct Current {
         ContractID m_Cid;
         Height m_hMinUpgadeDelay;
+        PubKey m_Pk;
     };
 
     struct Next {

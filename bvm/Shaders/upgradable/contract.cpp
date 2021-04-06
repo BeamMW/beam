@@ -70,6 +70,8 @@ export void Method_2(const Upgradable::ScheduleUpgrade& r)
 
     _POD_(Cast::Down<Upgradable::Next>(s)) = Cast::Down<Upgradable::Next>(r);
     Env::SaveVar_T(Upgradable::s_SID, s);
+
+    Env::AddSig(s.m_Pk);
 }
 
 #define UPGR_REDIRECT(iMethod) export void Method_##iMethod(void* pArg) { InvokeNext(iMethod, pArg); }
