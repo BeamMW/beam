@@ -15,6 +15,7 @@
 
 #include "../api_errors.h"
 #include <stdexcept>
+#include <string>
 
 namespace beam::wallet
 {
