@@ -442,10 +442,10 @@ namespace beam::wallet
 
     std::pair<AddrList, IWalletApi::MethodInfo> WalletApi::onParseAddrList(const JsonRpcId& id, const json& params)
     {
-        const auto own = getMandatoryParam<bool>(params, "own");
+        const auto own = getOptionalParam<bool>(params, "own");
 
         AddrList addrList = {};
-        addrList.own = own;
+        addrList.own = own && *own;
 
         return std::pair(addrList, MethodInfo(MethodInfo::AppsBlocked));
     }
