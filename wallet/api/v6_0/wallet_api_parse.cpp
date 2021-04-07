@@ -447,7 +447,7 @@ namespace beam::wallet
         AddrList addrList = {};
         addrList.own = own && *own;
 
-        return std::pair(addrList, MethodInfo(MethodInfo::AppsBlocked));
+        return std::pair(addrList, MethodInfo(MethodInfo::AppsAllowed));
     }
 
     std::pair<ValidateAddress, IWalletApi::MethodInfo> WalletApi::onParseValidateAddress(const JsonRpcId& id, const json& params)
