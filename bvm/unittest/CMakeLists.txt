@@ -12,4 +12,5 @@ configure_file("../Shaders/perpetual/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}
 configure_file("../Shaders/pipe/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pipe/contract.wasm" COPYONLY)
 configure_file("../Shaders/mirrorcoin/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/mirrorcoin/contract.wasm" COPYONLY)
 configure_file("../Shaders/voting/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/voting/contract.wasm" COPYONLY)
+configure_file("../Shaders/voting/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/voting/app.wasm" COPYONLY)
 configure_file("../Shaders/demoXdao/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/demoXdao/contract.wasm" COPYONLY)

@@ -475,7 +475,7 @@ export void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x10], szAction[0x10];
+    char szRole[0x20], szAction[0x20];
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
