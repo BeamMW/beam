@@ -10,10 +10,13 @@
     macro(ContractID, cid) \
     macro(Amount, amount)
 
+#define DemoXdao_manager_view_stake(macro) macro(ContractID, cid)
+
 #define DemoXdaoRole_manager(macro) \
     macro(manager, create) \
     macro(manager, view) \
     macro(manager, view_params) \
+    macro(manager, view_stake) \
     macro(manager, lock)
 
 #define DemoXdaoRoles_All(macro) \
@@ -111,7 +114,15 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
 }
 
+ON_METHOD(manager, view_stake)
+{
+    Env::Key_T<PubKey> key;
+    _POD_(key.m_Prefix.m_Cid) = cid;
+    Env::DerivePk(key.m_KeyInContract, &cid, sizeof(cid));
 
+    const auto* pAmount = Env::VarRead_T<Amount>(key);
+    Env::DocAddNum("stake", pAmount ? *pAmount : 0);
+}
 
 ON_METHOD(manager, lock)
 {
