@@ -77,6 +77,7 @@ namespace Shaders {
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
+#include "../Shaders/demoXdao/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -306,6 +307,9 @@ namespace Shaders {
 	}
 	namespace Voting {
 #include "../Shaders/voting/contract.cpp"
+	}
+	namespace DemoXdao {
+#include "../Shaders/demoXdao/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -806,6 +810,7 @@ namespace bvm2 {
 			ByteBuffer m_Pipe;
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
+			ByteBuffer m_DemoXdao;
 
 		} m_Code;
 
@@ -821,6 +826,7 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin1;
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
+		ContractID m_cidDemoXdao;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -1001,6 +1007,14 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidDemoXdao)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//}
+			}
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -1015,6 +1029,7 @@ namespace bvm2 {
 		void TestPipe();
 		void TestMirrorCoin();
 		void TestVoting();
+		void TestDemoXdao();
 
 		void TestAll();
 	};
@@ -1044,11 +1059,13 @@ namespace bvm2 {
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
+		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
 
 		TestVault();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
+		TestDemoXdao();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -2234,6 +2251,18 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // no more left
 		}
 	}
+
+	void MyProcessor::TestDemoXdao()
+	{
+		Zero_ zero;
+		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
+		verify_test(sid == Shaders::DemoXdao::s_SID);
+	}
+
+
 
 	struct MyManager
 		:public ProcessorManager

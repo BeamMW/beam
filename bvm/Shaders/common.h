@@ -549,3 +549,5 @@ namespace Merkle
         hp >> hv;
     }
 }
+
+static const Amount g_Beam2Groth = 100000000;
