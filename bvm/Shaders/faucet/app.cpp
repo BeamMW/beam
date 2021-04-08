@@ -149,7 +149,7 @@ ON_METHOD(manager, view_params)
 
 ON_METHOD(manager, view_funds)
 {
-    Env::DocArray("funds");
+    Env::DocArray gr0("funds");
 
     WalkerFunds wlk;
     for (wlk.Enum(cid); wlk.MoveNext(); )
