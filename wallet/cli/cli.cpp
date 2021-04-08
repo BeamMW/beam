@@ -1945,10 +1945,7 @@ namespace
         }
 
         std::string meta;
-        if(!fromByteBuffer(info->m_Metadata.m_Value, meta))
-        {
-            throw std::runtime_error(kErrorAssetLoadMeta);
-        }
+        info->m_Metadata.get_String(meta);
 
         return meta;
     }

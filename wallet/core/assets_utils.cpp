@@ -49,16 +49,11 @@ namespace beam::wallet {
         : _std(false)
         , _std_v5_0(false)
     {
-        const auto& mval = info.m_Metadata.m_Value;
-        if (mval.empty())
-        {
+        info.m_Metadata.get_String(_meta);
+        if (_meta.empty())
             return;
-        }
 
         try {
-            if (!fromByteBuffer(mval, _meta))
-                throw std::runtime_error("deserialization failed");
-
             Parse();
         }
         catch (const std::exception& exc) {

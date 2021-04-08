@@ -1049,7 +1049,7 @@ namespace beam::wallet
     void WalletApi::getResponse(const JsonRpcId &id, const GetAssetInfo::Response &res, json &msg)
     {
         std::string strMeta;
-        fromByteBuffer(res.AssetInfo.m_Metadata.m_Value, strMeta);
+        res.AssetInfo.m_Metadata.get_String(strMeta);
 
         msg = json
         {

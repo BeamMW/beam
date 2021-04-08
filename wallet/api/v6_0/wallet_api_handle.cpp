@@ -352,11 +352,7 @@ namespace beam::wallet
             if (const auto asset = walletDB->findAsset(*data.assetId))
             {
                 std::string strmeta;
-                if(!fromByteBuffer(asset->m_Metadata.m_Value, strmeta))
-                {
-                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Failed to load asset metadata.");
-                }
-
+                asset->m_Metadata.get_String(strmeta);
                 params.SetParameter(TxParameterID::AssetMetadata, strmeta);
             }
             else

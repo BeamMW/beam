@@ -152,6 +152,9 @@ namespace beam
 			ByteBuffer m_Value;
 			ECC::Hash::Value m_Hash = Zero; // not serialized
 
+			void set_String(const std::string&, bool bLegacy);
+			void get_String(std::string&) const;
+
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
 			void get_Owner(PeerID&, Key::IPKdf&) const;
