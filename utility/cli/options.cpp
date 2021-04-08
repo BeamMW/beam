@@ -248,6 +248,8 @@ namespace beam
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
+        const char* BLOCK_DETAILS = "block_details";
+        const char* BLOCK_HEIGHT = "block_height";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -450,7 +452,8 @@ namespace beam
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
-            (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)");
+            (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
+            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
