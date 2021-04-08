@@ -6726,7 +6726,7 @@ namespace beam::wallet
             walletDB.saveAddress(address);
         }
 
-        LOG_INFO() << boost::format(kAddrNewGenerated) % std::to_string(address.m_walletID);
+        LOG_INFO() << boost::format(kWalletIdNewGenerate) % std::to_string(address.m_walletID);
         if (!comment.empty())
         {
             LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % comment;
@@ -6973,14 +6973,16 @@ namespace beam::wallet
                     address = WalletAddress::Generate(*walletDB, label, expiration);
                 }
 
-                if (type == TokenType::RegularNewStyle)
+                std::string result = type == TokenType::RegularNewStyle
+                    ? GenerateRegularNewToken(*address, 0, 0, "")
+                    : GenerateRegularOldToken(*address);
+
+                LOG_INFO() << boost::format(kAddrNewGenerated) % result;
+                if (!label.empty())
                 {
-                    return GenerateRegularNewToken(*address, 0, 0, "");
+                    LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % label;
                 }
-                else
-                {
-                    return GenerateRegularOldToken(*address);
-                }
+                return result;
             }
 
         case TokenType::Offline:

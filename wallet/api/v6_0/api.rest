@@ -291,6 +291,24 @@ content-type: application/json-rpc
     }
 }
 
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0", 
+    "id" : 1,
+    "method" : "create_address", 
+    "params" :
+    {
+        "type": "regular",
+        "expiration" : "auto",
+        "comment" : "John Smith",
+        "new_style_regular" : true
+    }
+}
+
 ######## Explorer node #######################
 ###
 

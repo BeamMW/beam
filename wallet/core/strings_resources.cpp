@@ -139,6 +139,7 @@ namespace beam
     const char kAllAddrExprChanged[] = "Expiration for all addresses  was changed to \"%1%\".";
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
     const char kAddrNewGenerated[] = "New SBBS address generated: %1%";
+    const char kWalletIdNewGenerate[] = "New WalletID generated: %1%";
     const char kAddrNewGeneratedLabel[] = "comment = %1%";
     const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%|%6%";
     const char kAddrListColumnComment[] = "comment";
