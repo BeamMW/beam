@@ -2404,15 +2404,16 @@ int main()
 		man.TestHeap();
 
 		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "voting/app.wasm", Processor::Kind::Manager);
+		MyProcessor::AddCodeEx(buf, "vault/app.wasm", Processor::Kind::Manager);
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
 		std::cout << man.m_Out.str();
 		man.m_Out.str("");
 
-		char sz2[] = "role=my_account,action=proposal_withdraw,cid=f51d60d209cae23ab4398a6788d1526b347b329cb18630c099162a685606ef91,pid=2222,variant=1,amount=100000000";
-		man.AddArgs(sz2);
+		man.m_Args["role"] = "manager";
+		man.m_Args["action"] = "view_accounts";
+		man.set_ArgBlob("cid", Shaders::Vault::s_CID);
 
 		man.RunGuarded(1);
 		std::cout << man.m_Out.str();
