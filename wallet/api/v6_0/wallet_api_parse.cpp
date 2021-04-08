@@ -480,7 +480,7 @@ namespace beam::wallet
         {
             // Since v6.0 offline address by default trigger the regular online transaction
             // To trigger an offline tx flag should be provided
-            if (auto offline = getOptionalParam<bool>(params, "offline"); !offline)
+            if (auto offline = getOptionalParam<bool>(params, "offline"); !offline || !(*offline))
             {
                 send.addressType = TxAddressType::Regular;
             }
