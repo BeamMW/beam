@@ -272,7 +272,7 @@ content-type: application/json-rpc
         "address": "2DWjfstQoaLMYYgvc4NBTTGqSSyXjq9y5CGHxZHuRm36ySRtyqTPNExT5G8VzFhbJE7B7KxvMYnmDuzaSiC869ffuSCeY9rwvkqixGMXu9WTwSaCzj1xjww5hHVrqbyTh5fbjA1zTRUp3ZswiPHXvKG24GTmmcm8CF4rBM3qcnANfccACmNGJrN2fQfDTa93nC9Wtr6WvSqv9dL6aRC6sJ4jvtRaDgvxVafihL7cLyBByoHWNpqWBdAwEgCJ6DerXWy692Yrzy6Q1R2nDbLj4kuR1AXe9kTZoiJsXB6i56vzUxNq5Q2L5sAcuu8M8pEZz9S6UQFtvuJYbgGxLDr5BiTG3BWRA3UjQJ4aqAnKSgdEGmNcb7XwaEVS5oLjo8f4kN783N7m2azsCszaVRs1aEH4WoHj7soLJTp7A8mH2rjrKfu8pPZe1Mx1bsHgsqdpJ4GKn5aKKKXyTZKsBKMn3GrMqmcDuZAuC5Hy5HbbxDEYST3ofmuy3Wb4tDn1468ZnsjVK",
         "comment": "thank you!",
         "asset_id": 0,
-        "offline": true
+        "offline": false
     }
 }
 
