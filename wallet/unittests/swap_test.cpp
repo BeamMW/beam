@@ -34,6 +34,7 @@
 #include "utility/io/sslserver.h"
 
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>

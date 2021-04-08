@@ -22,6 +22,7 @@
 #include "core/unittest/mini_blockchain.h"
 #include "utility/test_helpers.h"
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 

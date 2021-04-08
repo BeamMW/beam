@@ -27,6 +27,7 @@
 #include "node/node.h"
 
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 
 #include <boost/filesystem.hpp>
 

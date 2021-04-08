@@ -32,6 +32,7 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "utility/hex.h"
 #include "bvm/ManagerStd.h"
+#include "wallet_test_node.h"
 
 #include "test_helpers.h"
 
