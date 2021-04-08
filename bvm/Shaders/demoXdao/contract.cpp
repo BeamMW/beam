@@ -6,7 +6,7 @@ export void Ctor(const void*)
 {
     DemoXdao::State s;
 
-    static const char szMeta[] = "Demo-X";
+    static const char szMeta[] = "STD:SCH_VER=1;N=DemoX Coin;SN=DemoX;UN=DEMOX;NTHUN=DGROTH";
     s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!s.m_Aid);
 
