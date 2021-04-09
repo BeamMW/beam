@@ -808,7 +808,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
             addr.m_Identity = m_Identity;
         }
         
-        walletModel->getAsync()->saveAddress(addr, false);
+        walletModel->getAsync()->saveAddress(addr);
     }
 }
 
