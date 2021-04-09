@@ -4037,6 +4037,25 @@ namespace beam::wallet
         return boost::optional<WalletAddress>();
     }
 
+    std::vector<WalletAddress> WalletDB::getAddresses(bool own, bool isLaser) const
+    {
+        const std::string addrTableName =
+            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        vector<WalletAddress> res;
+        auto req = "SELECT * FROM " + addrTableName + " ORDER BY createTime DESC;";
+        sqlite::Statement stm(this, req.c_str());
+
+        while (stm.step())
+        {
+            auto& a = res.emplace_back();
+            loadAddress(this, stm, a);
+
+            if (a.isOwn() != own)
+                res.pop_back(); // akward, but ok
+        }
+        return res;
+    }
+
     void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
     {
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
