@@ -280,7 +280,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto id = JString(env, walletId).value();
 
     WalletID walletID(Zero);
-    if (!m_walletID.FromHex(JString(env, walletId).value()))
+    if (!walletID.FromHex(JString(env, walletId).value()))
     {
         LOG_ERROR() << "walletID is not valid!!!";
         return jstring();
@@ -335,7 +335,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
         return;
     }
 
-    auto address = walletDB->getAddress(walletID.value());
+    auto address = walletDB->getAddress(walletID);
     uint64_t bAmount = amount;
 
     auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
