@@ -781,15 +781,22 @@ namespace
             {
                 auto receiver = it->second.as<string>();
 
-                auto existing = walletDB->getAddress(receiver);
+                WalletID walletID;
+                if (!walletID.FromHex(receiver))
+                {
+                    throw std::runtime_error("Invalid existing address format");
+                }
+
+                auto existing = walletDB->getAddress(walletID);
+
                 if (!existing)
                 {
-                    throw std::runtime_error("Cannot find specified exisitng address");
+                    throw std::runtime_error("Cannot find specified existing address.");
                 }
 
                 if (existing->isExpired())
                 {
-                    throw std::runtime_error("Specified exisitng address is already expired.");
+                    throw std::runtime_error("Specified exisitng address is already expired");
                 }
 
                 address = *existing;

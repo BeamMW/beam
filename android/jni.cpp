@@ -769,7 +769,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                     addr.m_Identity = m_Identity;
                 }
 
-                walletModel->getAsync()->saveAddress(addr, own);
+                walletModel->getAsync()->saveAddress(addr);
             }
     }
     else {        
@@ -838,7 +838,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         return;
     }
 
-    walletModel->getAsync()->updateAddress(JString(env, addr).value(), JString(env, name).value(), expirationStatus);
+    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *env, jobject thiz,
@@ -865,7 +865,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
         return;
     }
 
-    walletModel->getAsync()->updateAddress(JString(env, addr).value(), JString(env, name).value(), expirationStatus);
+    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
 }
 
 // don't use it. i don't check it

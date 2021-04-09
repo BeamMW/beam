@@ -680,7 +680,6 @@ namespace beam::wallet
         std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const override;
-        boost::optional<WalletAddress> getAddress(const std::string& strWalletID, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
