@@ -279,14 +279,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
     auto id = JString(env, walletId).value();
 
-    WalletID m_walletID(Zero);
-    if (!m_walletID.FromHex(JString(env, senderAddr).value()))
+    WalletID walletID(Zero);
+    if (!m_walletID.FromHex(JString(env, walletId).value()))
     {
         LOG_ERROR() << "walletID is not valid!!!";
         return jstring();
     }
 
-    auto address = walletDB->getAddress(m_walletID);
+    auto address = walletDB->getAddress(walletID);
 
     if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
@@ -915,14 +915,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
     jstring walletID)
 {
     WalletID id(Zero);
-
     if (!id.FromHex(JString(env, walletID).value()))
     {
         LOG_ERROR() << "Address is not valid!!!";
-
         return;
     }
-    walletModel->getAsync()->deleteAddress(JString(env, walletID).value());
+    walletModel->getAsync()->deleteAddress(id);
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
