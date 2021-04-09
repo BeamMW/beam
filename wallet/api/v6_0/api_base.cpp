@@ -30,6 +30,7 @@ namespace beam::wallet {
         , _appid(std::move(appid))
         , _handler(handler)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
     }
 
     json ApiBase::formError(const JsonRpcId& id, ApiError code, const std::string& data)

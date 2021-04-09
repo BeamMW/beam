@@ -4107,6 +4107,8 @@ namespace beam::wallet
     void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
     {
         auto address = getAddress(id, isLaser);
+        assert(address.is_initialized());
+
         if (address)
         {
             const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
