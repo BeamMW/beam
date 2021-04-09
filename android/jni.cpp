@@ -277,24 +277,29 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     LOG_DEBUG() << "generateOfflineAddress()";
             
     uint64_t bAmount = amount;
-
     auto id = JString(env, walletId).value();
-    auto address = walletDB->getAddress(JString(env, walletId).value());
+
+    WalletID m_walletID(Zero);
+    if (!m_walletID.FromHex(JString(env, senderAddr).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return jstring();
+    }
+
+    auto address = walletDB->getAddress(m_walletID);
 
     if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
-
         lastWalledId = id;
         lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
     }
-    else {
+    else
+    {
          LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
     auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
-
     jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
-
     return tokenString;
  }
 
@@ -304,7 +309,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
     uint64_t bAmount = amount;
 
-    auto address = walletDB->getAddress(JString(env, walletId).value());
+    WalletID walletID(Zero);
+    if (!walletID.FromHex(JString(env, walletId).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return jstring();
+    }
+
+    auto address = walletDB->getAddress(walletID);
     auto regularAddress = GenerateRegularNewToken(*address, bAmount, 0, std::string(BEAM_LIB_VERSION));
     
     jstring tokenString = env->NewStringUTF(regularAddress.c_str());
@@ -316,8 +328,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
     LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
-    auto address = walletDB->getAddress(JString(env, walletId).value());
-    
+    WalletID walletID(Zero);
+    if (!walletID.FromHex(JString(env, walletId).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return;
+    }
+
+    auto address = walletDB->getAddress(walletID.value());
     uint64_t bAmount = amount;
 
     auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
