@@ -517,7 +517,6 @@ namespace beam::wallet
         // ////////////////////////////////////////////
         // Address management
         virtual boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const = 0;
-        virtual boost::optional<WalletAddress> getAddress(const std::string& strWalletID, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
