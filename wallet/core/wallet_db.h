@@ -101,16 +101,26 @@ namespace beam::wallet
     // Used for SBBS Address management in the wallet
     struct WalletAddress
     {
-        WalletID   m_walletID; // derived from SBBS
+        enum class ExpirationStatus
+        {
+            Expired = 0,
+            OneDay,
+            Never,
+            AsIs,
+            Auto
+        };
+
+        WalletID    m_walletID;   // derived from SBBS
         std::string m_label;
         std::string m_category;
         Timestamp   m_createTime;
         uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
         uint64_t    m_OwnID;      // set for own address
         PeerID      m_Identity;   // derived from master. Different from m_walletID
-        std::string m_Address;  // base58 address representation
+        std::string m_Address;    // token publicly visible to users
         
-        WalletAddress();
+        WalletAddress(const std::string& label = std::string(), const std::string& category = std::string());
+
         bool operator == (const WalletAddress& other) const;
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
@@ -126,25 +136,15 @@ namespace beam::wallet
                     m_duration,
                     m_OwnID,
                     m_Identity);
-        
-        enum class ExpirationStatus
-        {
-            Expired = 0,
-            OneDay,
-            Never,
-            AsIs,
-            Auto
-        };
 
         void setLabel(const std::string& label);
+        void setCategory(const std::string& category);
         void setExpiration(ExpirationStatus status);
         void setExpiration(beam::Timestamp);
 
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
         static constexpr uint64_t AddressExpirationAuto  = AddressExpiration24h * 61; // 61 day(s) / roughly 2 months
-
-        static WalletAddress Generate(IWalletDB&, const std::string& comment = std::string(), ExpirationStatus = ExpirationStatus::Auto, bool saveToDB = true);
     };
 
     class ILaserChannelEntity
@@ -516,14 +516,10 @@ namespace beam::wallet
 
         // ////////////////////////////////////////////
         // Address management
-        virtual boost::optional<WalletAddress> getAddress(
-                const WalletID&, bool isLaser = false) const = 0;
-        virtual boost::optional<WalletAddress> getAddress(
-            const std::string&, bool isLaser = false) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
-        virtual void deleteAddress(const std::string&, bool isLaser = false) = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -682,12 +678,8 @@ namespace beam::wallet
 
         std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
-        boost::optional<WalletAddress> getAddress(
-            const WalletID&, bool isLaser = false) const override;
-        boost::optional<WalletAddress> getAddress(
-            const std::string&, bool isLaser = false) const override;
+        boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
-        void deleteAddress(const std::string&, bool isLaser = false) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -1196,5 +1188,6 @@ namespace beam::wallet
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
-    std::string  GenerateToken           (TokenType type, IWalletDB::Ptr walletDB, const std::string& label, WalletAddress::ExpirationStatus = WalletAddress::ExpirationStatus::Auto, std::string receiver = std::string(), uint32_t offlineCount = 10);
+
+    std::string GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 }  // namespace beam::wallet

@@ -1997,7 +1997,7 @@ namespace
 
             for (auto& addr : newAddresses)
             {
-                client.getAsync()->saveAddress(addr, true);
+                client.getAsync()->saveAddress(addr);
             }
             timer->start(1500, false, [mainReactor]() { mainReactor->stop(); });
         });
@@ -3048,33 +3048,44 @@ void TestAddressGeneration()
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
+
     auto db = createSenderWalletDB();
-    auto a1 = GenerateToken(TokenType::RegularOldStyle, db, "test", WalletAddress::ExpirationStatus::Never);
+
+    WalletAddress addr("test"); db->createAddress(addr);
+    auto t1 = GenerateToken(TokenType::RegularOldStyle, addr, db);
+
     WalletID w1;
-    WALLET_CHECK(w1.FromHex(a1));
-    auto wa1 = db->getAddress(a1);
-    WALLET_CHECK(wa1);
-    WALLET_CHECK(wa1->m_label == "test");
-    WALLET_CHECK(wa1->isPermanent());
-    WALLET_CHECK(GetAddressType(a1) == TxAddressType::Regular);
+    WALLET_CHECK(w1.FromHex(t1));
+    WALLET_CHECK(GetAddressType(t1) == TxAddressType::Regular);
     
-    auto a2 = GenerateToken(TokenType::RegularNewStyle, db, "test2", WalletAddress::ExpirationStatus::Never, a1);
-    WALLET_CHECK(GetAddressType(a2) == TxAddressType::Regular);
-    auto p2 = ParseParameters(a2);
+    auto t2 = GenerateToken(TokenType::RegularNewStyle, addr, db);
+    WALLET_CHECK(GetAddressType(t2) == TxAddressType::Regular);
+
+    auto p2 = ParseParameters(t2);
     WALLET_CHECK(p2);
+
     auto peerID2= p2->GetParameter<WalletID>(TxParameterID::PeerID);
     WALLET_CHECK(peerID2);
+
     auto& ww1 = *peerID2;
     WALLET_CHECK(ww1.cmp(w1) == 0);
 
-    auto a3 = GenerateToken(TokenType::Offline, db, "test2", WalletAddress::ExpirationStatus::Never, "", 10);
-    WALLET_CHECK(GetAddressType(a3) == TxAddressType::Offline);
+    auto t3 = GenerateToken(TokenType::Offline, addr, db);
+    WALLET_CHECK(GetAddressType(t3) == TxAddressType::Offline);
 
-    auto a4 = GenerateToken(TokenType::MaxPrivacy, db, "");
-    WALLET_CHECK(GetAddressType(a4) == TxAddressType::MaxPrivacy);
+    auto t4 = GenerateToken(TokenType::MaxPrivacy, addr, db);
+    WALLET_CHECK(GetAddressType(t4) == TxAddressType::MaxPrivacy);
 
-    auto a5 = GenerateToken(TokenType::Public, db, "");
-    WALLET_CHECK(GetAddressType(a5) == TxAddressType::PublicOffline);
+    auto t5 = GenerateToken(TokenType::Public, addr, db);
+    WALLET_CHECK(GetAddressType(t5) == TxAddressType::PublicOffline);
+
+    const std::string abra = "cadabra";
+    addr.m_Address = abra;
+    db->saveAddress(addr);
+
+    auto read = db->getAddress(addr.m_walletID);
+    WALLET_CHECK(read);
+    WALLET_CHECK(read->m_Address == abra);
 }
 
 #if defined(BEAM_HW_WALLET)

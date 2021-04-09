@@ -666,10 +666,13 @@ namespace
             std::cerr << boost::format(kErrorAddrExprTimeInvalid) % cli::EXPIRATION_TIME % expiration;
             return false;
         }
-        
-        const auto address = WalletAddress::Generate(*walletDB, comment, expirationStatus);
-        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
 
+        WalletAddress address(comment);
+        walletDB->createAddress(address);
+        address.setExpiration(expirationStatus);
+        walletDB->saveAddress(address);
+
+        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
         return true;
     }
 
@@ -754,8 +757,10 @@ namespace
         auto walletDB = OpenDataBase(vm);
 
         auto type = TokenType::RegularNewStyle;
-        std::string receiver;
         uint32_t offlineCount = 10;
+
+        WalletAddress address;
+        walletDB->createAddress(address);
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
@@ -774,14 +779,37 @@ namespace
         {
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
-                receiver = it->second.as<string>();
+                auto receiver = it->second.as<string>();
+
+                bool isValid = true;
+                WalletID walletID;
+                ByteBuffer buffer = beam::from_hex(receiver, &isValid);
+
+                if (!isValid || !walletID.FromBuf(buffer))
+                {
+                    throw std::runtime_error("Invalid address");
+                }
+
+                auto existing = walletDB->getAddress(walletID);
+                if (!existing)
+                {
+                    throw std::runtime_error("Cannot get address, there is no SBBS");
+                }
+
+                if (existing->isExpired())
+                {
+                    throw std::runtime_error("Cannot get address, it is expired");
+                }
+
+                address = *existing;
             }
         }
 
         try 
         {
-            const auto token = GenerateToken(type, walletDB, std::string(), WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
-            std::cout << "New address: " << token;
+            const auto token = GenerateToken(type, address, walletDB, offlineCount);
+            walletDB->saveAddress(address);
+            std::cout << "New address: " << token << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -2222,7 +2250,8 @@ namespace
                     }
                 }
 
-                WalletAddress senderAddress = WalletAddress::Generate(*walletDB);
+                WalletAddress senderAddress;
+                walletDB->createAddress(senderAddress);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically

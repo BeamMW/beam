@@ -787,7 +787,7 @@ void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
     env->DeleteLocalRef(jRates);
 }
 
-void WalletModel::onGetAddress(const std::string& token, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments)
+void WalletModel::onGetAddress(const WalletID& addr, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments)
 {
     int convertdata = static_cast<int>(offlinePayments);
 

@@ -124,29 +124,55 @@ namespace beam::wallet
         doResponse(id, ChangePassword::Response{ });
     }
 
+    void WalletApi::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
+    {
+        LOG_DEBUG() << "AddrList(id = " << id << ")";
+
+        auto walletDB = getWalletDB();
+        auto all = walletDB->getAddresses(data.own);
+
+        if (_appid.empty())
+        {
+            return doResponse(id, AddrList::Response{all});
+        }
+
+        decltype(all) filtered;
+        for(const auto& addr: all)
+        {
+            if (_appid.empty() || addr.m_category == _appid)
+            {
+                filtered.push_back(addr);
+            }
+        }
+
+        doResponse(id, AddrList::Response{filtered});
+    }
+
     void WalletApi::onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data)
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        if (!getWallet()->IsConnectedToOwnNode() 
+        if (!getWallet()->IsConnectedToOwnNode()
            && (data.type == TokenType::MaxPrivacy
             || data.type == TokenType::Public
             || data.type == TokenType::Offline))
         {
-            throw jsonrpc_exception(ApiError::NotSupported);
+            throw jsonrpc_exception(ApiError::NotSupported, "Must be connected to own node to generate this address type.");
         }
 
         auto walletDB = getWalletDB();
 
-        std::string newAddress = GenerateToken(
-            data.type,
-            walletDB,
-            data.comment ? *data.comment : std::string(),
-            data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay,
-            std::string(),
-            data.offlinePayments);
+        WalletAddress address;
+        walletDB->createAddress(address);
 
-        doResponse(id, CreateAddress::Response{ newAddress });
+        if (data.comment) address.setLabel(*data.comment);
+        if (data.expiration) address.setExpiration(*data.expiration);
+        if (!_appid.empty()) address.setCategory(_appid);
+
+        std::string newToken = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
+        walletDB->saveAddress(address);
+
+        doResponse(id, CreateAddress::Response{newToken});
     }
 
     void WalletApi::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
@@ -191,13 +217,6 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::InvalidAddress, "Provided address doesn't exist.");
         }
-    }
-
-    void WalletApi::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
-    {
-        LOG_DEBUG() << "AddrList(id = " << id << ")";
-        auto walletDB = getWalletDB();
-        doResponse(id, AddrList::Response{walletDB->getAddresses(data.own)});
     }
 
     void WalletApi::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
@@ -275,7 +294,6 @@ namespace beam::wallet
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
                 walletDB->saveAddress(senderAddress);
-
                 from = senderAddress.m_walletID;
             }
 
