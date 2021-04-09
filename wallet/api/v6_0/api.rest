@@ -240,6 +240,75 @@ content-type: application/json-rpc
 }
 
 
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 8,
+    "method":"addr_list",
+    "params":
+    {
+        "own" : true
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 2,
+    "method":"tx_send", 
+    "params":
+    {
+        "value": 100000000,
+        "fee": 10000000,
+        "from": "39e3fa0873541ba279e31922f222870b123c7d5e8a9639d7b9d9c3b3c2fa9db2f54",
+        "address": "2DWjfstQoaLMYYgvc4NBTTGqSSyXjq9y5CGHxZHuRm36ySRtyqTPNExT5G8VzFhbJE7B7KxvMYnmDuzaSiC869ffuSCeY9rwvkqixGMXu9WTwSaCzj1xjww5hHVrqbyTh5fbjA1zTRUp3ZswiPHXvKG24GTmmcm8CF4rBM3qcnANfccACmNGJrN2fQfDTa93nC9Wtr6WvSqv9dL6aRC6sJ4jvtRaDgvxVafihL7cLyBByoHWNpqWBdAwEgCJ6DerXWy692Yrzy6Q1R2nDbLj4kuR1AXe9kTZoiJsXB6i56vzUxNq5Q2L5sAcuu8M8pEZz9S6UQFtvuJYbgGxLDr5BiTG3BWRA3UjQJ4aqAnKSgdEGmNcb7XwaEVS5oLjo8f4kN783N7m2azsCszaVRs1aEH4WoHj7soLJTp7A8mH2rjrKfu8pPZe1Mx1bsHgsqdpJ4GKn5aKKKXyTZKsBKMn3GrMqmcDuZAuC5Hy5HbbxDEYST3ofmuy3Wb4tDn1468ZnsjVK",
+        "comment": "thank you!",
+        "asset_id": 0,
+        "offline": false
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 4,
+    "method":"tx_status", 
+    "params":
+    {
+        "txId" : "365ed3c560ed493499036fff66d059a2" 
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0", 
+    "id" : 1,
+    "method" : "create_address", 
+    "params" :
+    {
+        "type": "regular",
+        "expiration" : "auto",
+        "comment" : "John Smith",
+        "new_style_regular" : true
+    }
+}
+
 ######## Explorer node #######################
 ###
 

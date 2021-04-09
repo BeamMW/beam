@@ -258,9 +258,13 @@ namespace beam::wallet
 
     void WalletApi::onHandleSend(const JsonRpcId& id, const Send& data)
     {
+        auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken);
         LOG_DEBUG() << "Send(id = " << id
                     << " asset_id = " << (data.assetId ? *data.assetId : 0)
-                    << " amount = " << data.value << " fee = " << data.fee << " address = " << std::to_string(data.address) << ")";
+                    << " amount = " << data.value
+                    << " fee = " << data.fee
+                    << " address = " << (token ? *token : std::to_string(data.address))
+                    << ")";
 
         try
         {
@@ -326,7 +330,7 @@ namespace beam::wallet
                 throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Cannot load transaction parameters.");
             }
 
-            if (auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken); token)
+            if (token)
             {
                 params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
             }
