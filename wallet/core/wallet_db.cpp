@@ -2730,9 +2730,11 @@ namespace beam::wallet
     {
         addr.m_createTime = beam::getTimestamp();
         addr.m_OwnID = AllocateKidRange(1);
+
         get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
         get_Identity(addr.m_Identity, addr.m_OwnID);
-        LOG_INFO() << boost::format(kAddrNewGenerated) % std::to_string(addr.m_walletID);
+
+        LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_walletID);
 
         if (!addr.m_label.empty())
         {
