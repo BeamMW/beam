@@ -781,24 +781,15 @@ namespace
             {
                 auto receiver = it->second.as<string>();
 
-                bool isValid = true;
-                WalletID walletID;
-                ByteBuffer buffer = beam::from_hex(receiver, &isValid);
-
-                if (!isValid || !walletID.FromBuf(buffer))
-                {
-                    throw std::runtime_error("Invalid address");
-                }
-
-                auto existing = walletDB->getAddress(walletID);
+                auto existing = walletDB->getAddress(receiver);
                 if (!existing)
                 {
-                    throw std::runtime_error("Cannot get address, there is no SBBS");
+                    throw std::runtime_error("Cannot find specified exisitng address");
                 }
 
                 if (existing->isExpired())
                 {
-                    throw std::runtime_error("Cannot get address, it is expired");
+                    throw std::runtime_error("Specified exisitng address is already expired.");
                 }
 
                 address = *existing;

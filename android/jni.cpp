@@ -277,16 +277,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     LOG_DEBUG() << "generateOfflineAddress()";
             
     uint64_t bAmount = amount;
-    auto strid = JString(env, walletId).value();
 
-    WalletID walletID; bool isValid = true;
-    ByteBuffer buffer = beam::from_hex(strid, &isValid);
+    auto id = JString(env, walletId).value();
     auto address = walletDB->getAddress(JString(env, walletId).value());
 
-    if (lastWalledId.compare(strid) != 0) {
+    if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
 
-        lastWalledId = strid;
+        lastWalledId = id;
         lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
     }
     else {
@@ -294,7 +292,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     }
 
     auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
+
     jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
+
     return tokenString;
  }
 

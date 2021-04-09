@@ -4037,6 +4037,21 @@ namespace beam::wallet
         return boost::optional<WalletAddress>();
     }
 
+    boost::optional<WalletAddress> WalletDB::getAddress(const std::string& walletIDStr, bool isLaser) const
+    {
+        bool isValid = true;
+        WalletID walletID;
+        ByteBuffer buffer = beam::from_hex(walletIDStr, &isValid);
+
+        if (!isValid || !walletID.FromBuf(buffer))
+        {
+            assert(false);
+            return boost::none;
+        }
+
+        return getAddress(walletID, isLaser);
+    }
+
     std::vector<WalletAddress> WalletDB::getAddresses(bool own, bool isLaser) const
     {
         const std::string addrTableName =
