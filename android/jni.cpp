@@ -279,7 +279,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
     auto strid = JString(env, walletId).value();
 
-    WalletID walletID;
+    WalletID walletID; bool isValid = true;
     ByteBuffer buffer = beam::from_hex(strid, &isValid);
     auto address = walletDB->getAddress(JString(env, walletId).value());
 
