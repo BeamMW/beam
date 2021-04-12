@@ -132,9 +132,11 @@ namespace beam::wallet {
             return boost::none;
         }
 
+        LOG_DEBUG() << "parseAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
+
         return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
-            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->message);
+            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
 
             ParseResult result(*pinfo, finfo);
             return result;
