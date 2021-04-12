@@ -637,7 +637,7 @@ void Prover::ExtractG(const Point::Native& ptBias)
 	} t;
 
 	uint32_t nThreads = Executor::s_pInstance ? Executor::s_pInstance->get_Threads() : 1;
-	t.m_vGB.resize(nThreads * m_Cfg.M);
+	t.m_vGB.resize(static_cast<size_t>(nThreads) * m_Cfg.M);
 	t.m_pThis = this;
 
 	if (Executor::s_pInstance)
@@ -764,7 +764,7 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& 
 		m_vBuf.reset(new Scalar::Native[Idx::count + m_Cfg.M * (1 + m_Cfg.n + N)]);
 
 		m_Proof.m_Part1.m_vG.resize(m_Cfg.M);
-		m_Proof.m_Part2.m_vF.resize(m_Cfg.M * (m_Cfg.n - 1));
+		m_Proof.m_Part2.m_vF.resize(static_cast<size_t>(m_Cfg.M) * (m_Cfg.n - 1));
 
 		m_Tau = m_vBuf.get() + Idx::count;
 		m_a = m_Tau + m_Cfg.M;
