@@ -5283,14 +5283,14 @@ namespace beam::wallet
                     return false;
                 }
 
-                address->setExpiration(status);
+                address->setExpirationStatus(status);
                 walletDB.saveAddress(*address);
             }
             else
             {
                 for (auto& address : walletDB.getAddresses(true))
                 {
-                    address.setExpiration(status);
+                    address.setExpirationStatus(status);
                     walletDB.saveAddress(address);
                 }
             }
@@ -6589,7 +6589,7 @@ namespace beam::wallet
         m_category = category;
     }
 
-    void WalletAddress::setExpiration(beam::Timestamp expirationTime)
+    void WalletAddress::setExpirationTime(beam::Timestamp expirationTime)
     {
         if (m_createTime <= expirationTime)
         {
@@ -6598,11 +6598,11 @@ namespace beam::wallet
         else
         {
             assert(!"invalid expiration time");
-            setExpiration(ExpirationStatus::Expired);
+            setExpirationStatus(ExpirationStatus::Expired);
         }
     }
 
-    void WalletAddress::setExpiration(WalletAddress::ExpirationStatus status)
+    void WalletAddress::setExpirationStatus(WalletAddress::ExpirationStatus status)
     {
         switch (status)
         {

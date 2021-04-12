@@ -100,9 +100,7 @@ namespace beam::wallet
     struct AddressData
     {
         boost::optional<std::string> comment;
-
-        enum Expiration { Expired, Never, OneDay, Auto };
-        boost::optional<Expiration> expiration;
+        boost::optional<beam::wallet::WalletAddress::ExpirationStatus> expiration;
     };
 
     struct CreateAddress : AddressData

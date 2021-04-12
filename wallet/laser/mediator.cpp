@@ -263,7 +263,7 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee)
     m_pInputReceiver = std::make_unique<Receiver>(*this, nullptr);
     m_pWalletDB->createAddress(m_myInAddr);
     m_myInAddr.setLabel("laser_in");
-    m_myInAddr.setExpiration(WalletAddress::ExpirationStatus::Never);
+    m_myInAddr.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
     m_pWalletDB->saveAddress(m_myInAddr, true);
 
     Subscribe();
@@ -368,7 +368,7 @@ void Mediator::OpenChannel(Amount aMy,
 
     WalletAddress myOutAddr("laser_out");
     m_pWalletDB->createAddress(myOutAddr);
-    myOutAddr.setExpiration(WalletAddress::ExpirationStatus::Never);
+    myOutAddr.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
 
     auto params = m_Params;
     params.m_Fee = fee;

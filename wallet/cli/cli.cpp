@@ -669,7 +669,7 @@ namespace
 
         WalletAddress address(comment);
         walletDB->createAddress(address);
-        address.setExpiration(expirationStatus);
+        address.setExpirationStatus(expirationStatus);
         walletDB->saveAddress(address);
 
         std::cout << "New SBBS address: " << std::to_string(address.m_walletID);

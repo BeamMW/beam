@@ -1214,7 +1214,7 @@ namespace beam::wallet
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(expirationStatus);
+                    addr->setExpirationStatus(expirationStatus);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);
@@ -1240,7 +1240,7 @@ namespace beam::wallet
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(expirationTime);
+                    addr->setExpirationTime(expirationTime);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);
@@ -1265,7 +1265,7 @@ namespace beam::wallet
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
+                    addr->setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
                 }
                 m_walletDB->saveAddress(*addr);
             }

@@ -359,14 +359,14 @@ namespace
             void onHandleIssue(const JsonRpcId& id, const Issue& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId > 0);
                 WALLET_CHECK(data.value > 0);
             }
 
             void onHandleConsume(const JsonRpcId& id, const Consume& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId > 0);
                 WALLET_CHECK(data.value > 0);
             }
         };
@@ -399,7 +399,7 @@ namespace
             void onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId);
             }
         };
 
@@ -431,19 +431,7 @@ namespace
             void onHandleGetAssetInfo(const JsonRpcId& id, const GetAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.assetId.is_initialized() || data.assetMeta.is_initialized());
-
-                if (data.assetId.is_initialized())
-                {
-                    const auto assetId = *data.assetId;
-                    WALLET_CHECK(assetId > 0);
-                }
-
-                if (data.assetMeta.is_initialized())
-                {
-                    const auto meta = *data.assetMeta;
-                    WALLET_CHECK(!meta.empty());
-                }
+                WALLET_CHECK(data.assetId > 0);
             }
         };
 

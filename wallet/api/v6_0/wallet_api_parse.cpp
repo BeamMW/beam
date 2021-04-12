@@ -315,6 +315,8 @@ namespace beam::wallet
 
     static void FillAddressData(const JsonRpcId& id, const json& params, AddressData& data)
     {
+        using namespace beam::wallet;
+
         if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
         {
             data.comment = *comment;
@@ -322,12 +324,12 @@ namespace beam::wallet
 
         if (auto expiration = WalletApi::getOptionalParam<NonEmptyString>(params, "expiration"))
         {
-            static std::map<std::string, AddressData::Expiration> Items =
+            static std::map<std::string, WalletAddress::ExpirationStatus> Items =
             {
-                {"expired", AddressData::Expired},
-                {"24h",     AddressData::OneDay},
-                {"auto",    AddressData::Auto},
-                {"never",   AddressData::Never},
+                {"expired", WalletAddress::ExpirationStatus::Expired},
+                {"24h",     WalletAddress::ExpirationStatus::OneDay},
+                {"auto",    WalletAddress::ExpirationStatus::Auto},
+                {"never",   WalletAddress::ExpirationStatus::Never},
             };
 
             if(Items.count(*expiration) == 0)

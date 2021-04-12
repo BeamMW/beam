@@ -49,25 +49,8 @@ namespace
         {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
     };
 
-    WalletAddress::ExpirationStatus MapExpirationStatus(AddressData::Expiration exp)
-    {
-        switch (exp)
-        {
-        case EditAddress::OneDay:
-            return WalletAddress::ExpirationStatus::OneDay;
-        case EditAddress::Auto:
-            return WalletAddress::ExpirationStatus::Auto;
-        case EditAddress::Expired:
-            return WalletAddress::ExpirationStatus::Expired;
-        case EditAddress::Never:
-            return WalletAddress::ExpirationStatus::Never;
-        default:
-            return WalletAddress::ExpirationStatus::Auto;
-        }
-    }
-
-    static const char* kAddrDoesntExistError = "Provided address doesn't exist.";
-}  // namespace
+    const char* kAddrDoesntExistError = "Provided address doesn't exist.";
+}
 
 namespace beam::wallet
 {
@@ -80,21 +63,7 @@ namespace beam::wallet
 
         if (data.expiration)
         {
-            switch (*data.expiration)
-            {
-            case EditAddress::Auto:
-                address.setExpiration(WalletAddress::ExpirationStatus::Auto);
-                break;
-            case EditAddress::OneDay:
-                address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
-                break;
-            case EditAddress::Expired:
-                address.setExpiration(WalletAddress::ExpirationStatus::Expired);
-                break;
-            case EditAddress::Never:
-                address.setExpiration(WalletAddress::ExpirationStatus::Never);
-                break;
-            }
+            address.setExpirationStatus(*data.expiration);
         }
     }
 
@@ -165,8 +134,8 @@ namespace beam::wallet
         WalletAddress address;
         walletDB->createAddress(address);
 
-        if (data.comment) address.setLabel(*data.comment);
-        if (data.expiration) address.setExpiration(*data.expiration);
+        if (data.comment)    address.setLabel(*data.comment);
+        if (data.expiration) address.setExpirationStatus(*data.expiration);
         if (!_appid.empty()) address.setCategory(_appid);
 
         std::string newToken = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
