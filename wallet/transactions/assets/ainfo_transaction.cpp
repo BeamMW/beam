@@ -124,7 +124,7 @@ namespace beam::wallet
             }
 
             std::string strMeta;
-            fromByteBuffer(info.m_Metadata.m_Value, strMeta);
+            info.m_Metadata.get_String(strMeta);
             SetParameter(TxParameterID::AssetMetadata, strMeta);
             SetParameter(TxParameterID::AssetID, info.m_ID);
         }

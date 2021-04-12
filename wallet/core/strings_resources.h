@@ -137,6 +137,7 @@ namespace beam
     extern const char kAllAddrExprChanged[];
     extern const char kAddrExprChanged[];
     extern const char kAddrNewGenerated[];
+    extern const char kWalletIdNewGenerated[];
     extern const char kAddrNewGeneratedLabel[];
     extern const char kAddrListTableHead[];
     extern const char kAddrListColumnComment[];

@@ -55,7 +55,7 @@ struct Thread {
         _thread = std::make_unique<std::thread>(func, std::forward<Args>(args)...);
     }
 
-    operator bool() const { return _thread.get() != 0; }
+    operator bool() const { return _thread.get() != nullptr; }
 
     void join() {
         if (_thread) {

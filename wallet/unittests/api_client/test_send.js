@@ -10,7 +10,6 @@ client.connect(10000, '127.0.0.1', function() {
 			method: 'tx_send',
 			params: 
 			{
-				"session" : 0,
 				"value" : 12342342,
 				"address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
 			}

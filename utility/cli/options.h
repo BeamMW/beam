@@ -150,6 +150,8 @@ namespace beam
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
         extern const char* ALLOWED_ORIGIN;
+        extern const char* BLOCK_DETAILS;
+        extern const char* BLOCK_HEIGHT;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;

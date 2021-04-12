@@ -1033,7 +1033,7 @@ namespace beam::wallet
             if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
             {
                 std::string strMeta;
-                fromByteBuffer(info.m_Metadata.m_Value, strMeta);
+                info.m_Metadata.get_String(strMeta);
 
                 if (beam::wallet::GetAssetOwnerID(maserKdf, strMeta) == info.m_Owner)
                 {
@@ -2000,7 +2000,7 @@ namespace beam::wallet
         {
             if (!addr->isPermanent())
             {
-                addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
+                addr->setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
                 m_WalletDB->saveAddress(*addr);
             }
         }

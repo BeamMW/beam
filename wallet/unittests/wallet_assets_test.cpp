@@ -22,6 +22,7 @@
 #include "core/unittest/mini_blockchain.h"
 #include "utility/test_helpers.h"
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 
@@ -328,7 +329,9 @@ void TestAssets() {
         Asset::Full info;
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetInfoFull, info));
         WALLET_CHECK(info.m_ID == id);
-        WALLET_CHECK(info.m_Metadata.m_Value == toByteBuffer(meta));
+        std::string meta2;
+        info.m_Metadata.get_String(meta2);
+        WALLET_CHECK(meta2 == meta);
         Height height = 0;
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetUnconfirmedHeight, height) && height == 0);
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetConfirmedHeight, height) && height != 0);

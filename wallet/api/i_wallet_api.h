@@ -22,6 +22,7 @@
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
+#include "api_errors.h"
 
 namespace beam::wallet
 {
@@ -55,6 +56,7 @@ namespace beam::wallet
         struct InitData
         {
             ACL acl;
+            std::string appid;
             IShadersManager::Ptr contracts;
             ISwapsProvider::Ptr swaps;
             IWalletDB::Ptr walletDB;
@@ -63,27 +65,57 @@ namespace beam::wallet
 
         static bool ValidateAPIVersion(const std::string& version);
 
-        // returns nullptr if wrong API version requested
+        // returns nullptr if wrong API version requested, should be safe to call from any thread
         static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
 
-        // returns nullptr if wrong API version requested
+        // returns nullptr if wrong API version requested, should be safe to call from any thread
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
-        struct ParseInfo {
+        struct MethodInfo
+        {
+            static const bool AppsAllowed = true;
+            static const bool AppsBlocked = false;
+
+            typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
+            explicit MethodInfo(bool apps) : handlesApps(apps) {}
+            MethodInfo(const MethodInfo& rhs): spend(rhs.spend), receive(rhs.receive), fee(rhs.fee), handlesApps(rhs.handlesApps) {}
+
+            Funds spend;
+            Funds receive;
+            beam::Amount fee = 0UL;
+            bool handlesApps = false;
+        };
+
+        struct ApiCallInfo
+        {
             std::string method;
             json rpcid;
             json message;
             json params;
         };
 
+        struct ParseResult
+        {
+            ApiCallInfo acinfo;
+            MethodInfo  minfo;
+
+            ParseResult(const ApiCallInfo& aci, const MethodInfo& mi)
+                : acinfo(aci)
+                , minfo(mi)
+            {}
+        };
+
         // this should be safe to call in any thread.
         // returns info on success / calls sendAPIResponse on parse error
-        virtual boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) = 0;
+        virtual boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) = 0;
 
         // doesn't throw
         // should be called in API's/InitData's reactor thread
         // calls handler::sendAPIResponse on result (can be async)
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
+
+        // form correct error json for given code and optional message
+        virtual std::string fromError(const std::string& request, ApiError code, const std::string& optionalErrorText) = 0;
 
         virtual ~IWalletApi() = default;
     };

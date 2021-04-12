@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
 #include <regex>
@@ -25,10 +25,12 @@ namespace {
 }
 
 namespace beam::wallet {
-    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl)
+    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid)
         : _acl(std::move(acl))
+        , _appid(std::move(appid))
         , _handler(handler)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
     }
 
     json ApiBase::formError(const JsonRpcId& id, ApiError code, const std::string& data)
@@ -56,16 +58,34 @@ namespace beam::wallet {
         return error;
     }
 
+    std::string ApiBase::fromError(const std::string& request, ApiError code, const std::string& errorText)
+    {
+        JsonRpcId rpcId;
+
+        try
+        {
+            const auto parsed = json::parse(request);
+            rpcId = parsed["id"];
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << request;
+        }
+
+        const auto err = formError(rpcId, code, errorText);
+        return err.dump();
+    }
+
     void ApiBase::sendError(const JsonRpcId& id, ApiError code, const std::string& data)
     {
         const auto error = formError(id, code, data);
         _handler.sendAPIResponse(error);
     }
 
-    boost::optional<IWalletApi::ParseInfo> ApiBase::parseAPIRequest(const char* data, size_t size)
+    boost::optional<IWalletApi::ApiCallInfo> ApiBase::parseCallInfo(const char* data, size_t size)
     {
         JsonRpcId rpcid;
-        return callGuarded<IWalletApi::ParseInfo>(rpcid, [this, &rpcid, data, size] () -> IWalletApi::ParseInfo {
+        return callGuarded<ApiCallInfo>(rpcid, [this, &rpcid, data, size] () {
             {
                 std::string s(data, size);
                 static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
@@ -77,40 +97,61 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
             }
 
-            ParseInfo result;
-            result.message = json::parse(data, data + size);
+            ApiCallInfo info;
 
-            if(!result.message["id"].is_number_integer() && !result.message["id"].is_string())
+            info.message = json::parse(data, data + size); // do not make const pls, it would throw if no field present
+            if(!info.message["id"].is_number_integer() && !info.message["id"].is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "ID can be integer or string only.");
             }
 
-            result.rpcid = result.message["id"];
-            rpcid = result.rpcid;
+            info.rpcid = info.message["id"];
+            rpcid = info.rpcid;
 
-            if (result.message[JsonRpcHeader] != JsonRpcVersion)
+            if (info.message[JsonRpcHeader] != JsonRpcVersion)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.");
             }
 
-            result.method = getMandatoryParam<NonEmptyString>(result.message, "method");
-            if (_methods.find(result.method) == _methods.end())
+            info.method = getMandatoryParam<NonEmptyString>(info.message, "method");
+            if (_methods.find(info.method) == _methods.end())
             {
-                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, result.method);
+                throw jsonrpc_exception(ApiError::NotFoundJsonRpc, info.method);
             }
 
-            result.params = result.message["params"];
+            info.params = info.message["params"];
+            return info;
+        });
+    }
+
+    boost::optional<IWalletApi::ParseResult> ApiBase::parseAPIRequest(const char* data, size_t size)
+    {
+        const auto pinfo = parseCallInfo(data, size);
+        if (pinfo == boost::none)
+        {
+            return boost::none;
+        }
+
+        LOG_DEBUG() << "parseAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
+
+        return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
+            const auto& minfo = _methods[pinfo->method];
+            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
+
+            ParseResult result(*pinfo, finfo);
             return result;
         });
     }
 
     ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
     {
-        const auto pinfo = parseAPIRequest(data, size);
+        const auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
             return ApiSyncMode::DoneSync;
         }
+
+        LOG_DEBUG() << "executeAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
@@ -129,7 +170,7 @@ namespace beam::wallet {
                 }
             }
 
-            minfo.func(pinfo->rpcid, pinfo->params);
+            minfo.execFunc(pinfo->rpcid, pinfo->params);
             return minfo.isAsync ? ApiSyncMode::RunningAsync : ApiSyncMode::DoneSync;
         });
 
@@ -328,5 +369,14 @@ namespace beam::wallet {
             return ValidTxID(result);
         }
         return boost::none;
+    }
+
+    void ApiBase::checkCAEnabled()
+    {
+        TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
+        if (TxFailureReason::Count != res)
+        {
+            throw jsonrpc_exception(ApiError::NotSupported, GetFailureMessage(res));
+        }
     }
 }

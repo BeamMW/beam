@@ -13,5 +13,8 @@ call make_shader roulette/app
 call make_shader sidechain/contract
 call make_shader sidechain/app
 call make_shader StableCoin/contract
+call make_shader upgradable/contract
 call make_shader vault/contract
 call make_shader vault/app
+call make_shader voting/contract
+call make_shader voting/app

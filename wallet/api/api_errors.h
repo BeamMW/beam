@@ -13,14 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include <nlohmann/json.hpp>
-#include <stdexcept>
-
 namespace beam::wallet
 {
-    using json = nlohmann::json;
-    using JsonRpcId = json;
-
     #define JSON_RPC_ERRORS(macro) \
     macro(-32600, InvalidJsonRpc,            "Invalid JSON-RPC.")                   \
     macro(-32601, NotFoundJsonRpc,           "Procedure not found.")                \
@@ -44,42 +38,13 @@ namespace beam::wallet
     macro(-32016, NoSwapsError,              "Swaps are not enabled")               \
     macro(-32017, UnexpectedError,           "Unexpected call")                     \
     macro(-32018, ContractCompileError,      "Failed to compile contract")          \
-    macro(-32019, ContractError,             "Contract call failed")
+    macro(-32019, ContractError,             "Contract call failed")                \
+    macro(-32020, NotAllowedError,           "Call is not allowed")
 
     enum ApiError
     {
         #define ERROR_ITEM(code, item, _) item = code,
         JSON_RPC_ERRORS(ERROR_ITEM)
         #undef ERROR_ITEM
-    };
-
-    const char* getApiErrorMessage(ApiError code);
-
-    class jsonrpc_exception: public std::runtime_error
-    {
-    public:
-        explicit jsonrpc_exception(const ApiError code, const std::string &msg = "")
-            : runtime_error(msg)
-            , _code(code)
-        {
-        }
-
-        [[nodiscard]] ApiError code() const
-        {
-            return _code;
-        }
-
-        [[nodiscard]] std::string whatstr() const
-        {
-            return std::string(what());
-        }
-
-        [[nodiscard]] bool has_what() const
-        {
-            return what() && strlen(what());
-        }
-
-    private:
-        ApiError _code;
     };
 }

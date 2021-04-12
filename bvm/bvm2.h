@@ -348,6 +348,7 @@ namespace bvm2 {
 				Wasm::Word m_FarRetAddr;
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
+				Wasm::Word m_StackBytesRet;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;

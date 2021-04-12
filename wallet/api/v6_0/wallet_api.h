@@ -27,6 +27,7 @@ namespace beam::wallet
     public:
         WalletApi(IWalletApiHandler& handler,
                   ACL acl,
+                  std::string appid,
                   IWalletDB::Ptr wdb,
                   Wallet::Ptr wallet,
                   ISwapsProvider::Ptr swaps,
@@ -78,11 +79,10 @@ namespace beam::wallet
         WALLET_API_METHODS(RESPONSE_FUNC)
         #undef RESPONSE_FUNC
 
-        // TODO: rename onMessage -> onParse or ParseMessage
-        #define MESSAGE_FUNC(api, name, ...) \
-        virtual void onMessage(const JsonRpcId& id, const api& data);
-        WALLET_API_METHODS(MESSAGE_FUNC)
-        #undef MESSAGE_FUNC
+        #define HANDLE_FUNC(api, name, ...) \
+        virtual void onHandle##api(const JsonRpcId& id, const api& data);
+        WALLET_API_METHODS(HANDLE_FUNC)
+        #undef HANDLE_FUNC
 
         template<typename T>
         void doResponse(const JsonRpcId& id, const T& response)
@@ -116,20 +116,19 @@ namespace beam::wallet
         }
 
         template<typename T>
-        void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const T& data);
+        void onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data);
 
         template<typename T>
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
     private:
-        #define MESSAGE_FUNC(api, name, ...) \
-        void on##api##Message(const JsonRpcId& id, const json& msg);
-        WALLET_API_METHODS(MESSAGE_FUNC)
-        #undef MESSAGE_FUNC
+        #define PARSE_FUNC(api, name, ...) \
+        [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
+        WALLET_API_METHODS(PARSE_FUNC)
+        #undef PARSE_FUNC
 
         template<typename T>
-        void onIssueConsumeMessage(bool issue, const JsonRpcId& id, const json& params);
-        void checkCAEnabled(const JsonRpcId& id);
+        std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
 
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
@@ -145,5 +144,33 @@ namespace beam::wallet
         IShadersManager::Ptr  _contracts;
 
         JsonRpcId _ccallId;
+
+        struct RequestHeaderMsg
+            :public proto::FlyClient::RequestEnumHdrs
+            , public boost::intrusive::list_base_hook<>
+        {
+            typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
+            virtual ~RequestHeaderMsg() {}
+
+            JsonRpcId _id;
+        };
+
+        typedef boost::intrusive::list<RequestHeaderMsg> RequestHeaderList;
+
+        class RequestHandler : public proto::FlyClient::Request::IHandler
+        {
+        public:
+
+            RequestHandler(WalletApi& parent);
+            virtual void OnComplete(proto::FlyClient::Request&) override;
+
+            void requestHeader(Height blockHeight, const JsonRpcId& id);
+
+        private:
+            WalletApi& _parent;
+            RequestHeaderList _requestList;
+        };
+
+        RequestHandler _requestHandler;
     };
 }

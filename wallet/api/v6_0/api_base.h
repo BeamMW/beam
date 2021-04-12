@@ -14,13 +14,16 @@
 #pragma once
 
 #include <boost/serialization/strong_typedef.hpp>
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "wallet/core/common.h"
 #include "utility/common.h"
 #include "../i_wallet_api.h"
 
 namespace beam::wallet
 {
+    using json = nlohmann::json;
+    using JsonRpcId = json;
+
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
 
@@ -32,13 +35,13 @@ namespace beam::wallet
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletApiHandler& handler, ACL acl = boost::none);
+        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid);
 
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
-        boost::optional<ParseInfo> parseAPIRequest(const char* data, size_t size) override;
-        // TODO: review error codes and returned results
+        boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) override;
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
+        std::string fromError(const std::string& request, ApiError code, const std::string& errorText) override;
 
         //
         // getMandatory....
@@ -68,21 +71,25 @@ namespace beam::wallet
         }
 
         static bool hasParam(const json &params, const std::string &name);
-
+        static void checkCAEnabled();
     protected:
         struct Method
         {
-            std::function<void(const JsonRpcId &id, const json &msg)> func;
+            std::function<void(const JsonRpcId &id, const json &msg)> execFunc;
+            std::function<IWalletApi::MethodInfo (const JsonRpcId &id, const json &msg)> parseFunc;
+
             bool writeAccess;
             bool isAsync;
         };
 
         std::unordered_map <std::string, Method> _methods;
         ACL _acl;
+        std::string _appid;
         IWalletApiHandler& _handler;
 
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
+        boost::optional<ApiCallInfo> parseCallInfo(const char* data, size_t size);
 
         template<typename TRes>
         boost::optional<TRes> callGuarded(const JsonRpcId& rpcid, std::function<TRes (void)> func)

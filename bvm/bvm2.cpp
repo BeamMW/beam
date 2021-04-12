@@ -227,8 +227,10 @@ namespace bvm2 {
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
-		x.m_StackPosMin = m_Stack.m_PosMin;
+		x.m_StackBytesRet = m_Stack.m_BytesCurrent;
 
+		x.m_StackPosMin = m_Stack.m_PosMin;
+		m_Stack.m_PosMin = m_Stack.m_Pos;
 
 		VarKey vk;
 		SetVarKey(vk);
@@ -252,6 +254,8 @@ namespace bvm2 {
 			Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
 
 			auto& x = m_FarCalls.m_Stack.back();
+			Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
+
 			nRetAddr = x.m_FarRetAddr;
 
 			m_Stack.m_PosMin = x.m_StackPosMin;
@@ -1155,46 +1159,33 @@ namespace bvm2 {
 	BVM_METHOD(CallFar)
 	{
 		// make sure the pArgs is not malicious.
-		// Attacker may try to cause the target shader to overwrite its future stack operands, or const data in its data section.
+		// Attacker may try to cause the target shader to overwrite its future stack or heap operands, or const data in its data section.
 		//
 		// Note: using 'Global' (heap) is not allowed either, since there's no reliable and simple way to verify it.
 		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocated later by the callee.
 
 		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
-		auto nCallStackPosMin = m_Stack.m_Pos;
 
-		if (nArgs)
+		if (!bInheritContext)
 		{
-			switch (Wasm::MemoryType::Mask & pArgs)
+			Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
+
+			if (nArgs)
 			{
-			case Wasm::MemoryType::Stack:
-				get_AddrR(pArgs, nArgs); // ensure it's a valid alias stack pointer (i.e. between current and max stack pointers)
+				// Only stack pointer is allowed
+				Wasm::Test((Wasm::MemoryType::Mask & pArgs) == Wasm::MemoryType::Stack);
+
+				// Make sure that the pointer is valid (i.e. between current and max stack pointers)
+				// The caller is allowed to specify greater size (though it's not recommended), we will truncate it
+				uint32_t nSize;
+				get_AddrExVar(pArgs, nSize, false); // also ensures it's a valid alias stack pointer (i.e. between current and max stack pointers)
 				assert(pArgs >= m_Stack.get_AlasSp());
 
-				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + nArgs;
-				break;
-
-			case Wasm::MemoryType::Global:
-				// In case of heap pointers - ensure it's a valid heap pointer
-				m_Heap.Test(pArgs & ~Wasm::MemoryType::Global, nArgs);
-				break;
-
-			case Wasm::MemoryType::Data:
-				// data section pointer is not allowed, because during farcall the callee data segment replaces the current one
-				// no break;
-
-			default:
-				// NOT allowed!
-				Wasm::Fail();
+				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
 			}
 		}
 
-		Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
-
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
-
-		m_Stack.m_PosMin = nCallStackPosMin;
-		m_Stack.m_BytesMax = nCalleeStackMax;
 
 		if (bInheritContext)
 		{
@@ -1203,7 +1194,8 @@ namespace bvm2 {
 			auto& fr1 = *(++it);
 			fr0.m_Cid = fr1.m_Cid;
 		}
-
+		else
+			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)
 	{
@@ -1516,7 +1508,7 @@ namespace bvm2 {
 		virtual ~Keccak256() {}
 		virtual void Write(const uint8_t* p, uint32_t n) override
 		{
-			const uint16_t naggle = std::numeric_limits<uint16_t>::max();
+			constexpr uint16_t naggle = std::numeric_limits<uint16_t>::max();
 			while (n > naggle)
 			{
 				keccak_update(&m_State, p, naggle);

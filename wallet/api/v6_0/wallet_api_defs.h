@@ -16,7 +16,7 @@
 #include <boost/optional.hpp>
 #include "wallet/core/wallet.h"
 #include "api_base.h"
-#include "api_errors.h"
+#include "api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
 
 namespace beam::wallet
@@ -36,13 +36,14 @@ namespace beam::wallet
     macro(OfferStatus,        "swap_offer_status",         API_READ_ACCESS,  API_SYNC)  \
     macro(DecodeToken,        "swap_decode_token",         API_READ_ACCESS,  API_SYNC)  \
     macro(GetBalance,         "swap_get_balance",          API_READ_ACCESS,  API_SYNC)  \
-    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC)
+    macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC)  \
+    macro(CancelOffer,        "swap_cancel_offer",         API_WRITE_ACCESS, API_SYNC)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
 #define SWAP_OFFER_API_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WEB_WALLET_API_METHODS(macro) \
-    macro(CalcMyChange,         "calc_change",              API_READ_ACCESS,  API_SYNC)   \
+    macro(CalcChange,           "calc_change",              API_READ_ACCESS,  API_SYNC)   \
     macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC)
 
 #define WALLET_API_METHODS(macro) \
@@ -60,8 +61,6 @@ namespace beam::wallet
     macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC)   \
     macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC)   \
     macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC)   \
-    macro(Lock,                  "lock",                    API_WRITE_ACCESS, API_SYNC)   \
-    macro(Unlock,                "unlock",                  API_WRITE_ACCESS, API_SYNC)   \
     macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC)   \
     macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC)   \
     macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC)   \
@@ -71,18 +70,337 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
+    macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC)  \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#define WALLET_API_METHODS_ALIASES(macro) \
-    macro("swap_cancel_offer", TxCancel, "tx_cancel", API_WRITE_ACCESS)
-#else  // !BEAM_ATOMIC_SWAP_SUPPORT
-#define WALLET_API_METHODS_ALIASES(macro)
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    struct CalcChange
+    {
+        Amount amount;
+        Amount explicitFee = 0;
+        boost::optional<Asset::ID> assetId;
+        bool isPushTransaction = false;
 
-#if defined(BEAM_ATOMIC_SWAP_SUPPORT)
+        struct Response
+        {
+            Amount change;
+            Amount assetChange;
+            Amount explicitFee;
+        };
+    };
 
+    struct ChangePassword
+    {
+        std::string newPassword;
+        struct Response
+        {
+        };
+    };
+
+    struct AddressData
+    {
+        boost::optional<std::string> comment;
+        boost::optional<beam::wallet::WalletAddress::ExpirationStatus> expiration;
+    };
+
+    struct CreateAddress : AddressData
+    {
+        TokenType type = TokenType::RegularOldStyle;
+        uint32_t offlinePayments = 10;
+
+        struct Response
+        {
+            std::string address;
+        };
+    };
+
+    struct DeleteAddress
+    {
+        WalletID address;
+
+        struct Response {};
+    };
+
+    struct EditAddress : AddressData
+    {
+        WalletID address;
+
+        struct Response {};
+    };
+
+    struct AddrList
+    {
+        bool own;
+
+        struct Response
+        {
+            std::vector<WalletAddress> list;
+        };
+    };
+
+    struct ValidateAddress
+    {
+        std::string address;
+
+        struct Response
+        {
+            bool isValid;
+            bool isMine;
+        };
+    };
+
+    struct Send
+    {
+        Amount value = 0;
+        Amount fee = 0;
+        boost::optional<CoinIDList> coins;
+        boost::optional<WalletID> from;
+        boost::optional<TxID> txId;
+        boost::optional<Asset::ID> assetId;
+        WalletID address;
+        std::string comment;
+        TxParameters txParameters;
+        TxAddressType addressType = TxAddressType::Unknown;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Issue
+    {
+        Amount value = 0;
+        Amount fee = 0;
+        Asset::ID assetId;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Consume
+    {
+        Amount value = 0;
+        Amount fee = 0;
+        Asset::ID assetId;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct TxAssetInfo
+    {
+        Asset::ID assetId;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Status
+    {
+        TxID txId;
+
+        struct Response
+        {
+            TxDescription tx;
+            Height txHeight;
+            Height systemHeight;
+            uint64_t confirmations;
+        };
+    };
+
+    struct Split
+    {
+        Amount fee = 0;
+        AmountList coins;
+        boost::optional<TxID> txId;
+        boost::optional<Asset::ID> assetId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct TxCancel
+    {
+        TxID txId;
+
+        struct Response
+        {
+            bool result;
+        };
+    };
+
+
+    struct TxDelete
+    {
+        TxID txId;
+
+        struct Response
+        {
+            bool result;
+        };
+    };
+
+    struct GetUtxo
+    {
+        uint32_t count = 0;
+        uint32_t skip = 0;
+        bool withAssets = false;
+
+        struct
+        {
+            boost::optional<Asset::ID> assetId;
+        } filter;
+
+        struct
+        {
+            std::string field = "default";
+            bool desc = false;
+        } sort;
+
+        struct Response
+        {
+            std::vector<Coin> utxos;
+            uint32_t confirmations_count = 0;
+        };
+    };
+
+    struct TxList
+    {
+        bool withAssets = false;
+
+        struct
+        {
+            boost::optional<TxStatus>  status;
+            boost::optional<Height>    height;
+            boost::optional<Asset::ID> assetId;
+        } filter;
+
+        uint32_t count = 0;
+        uint32_t skip = 0;
+
+        struct Response
+        {
+            std::vector<Status::Response> resultList;
+        };
+    };
+
+    struct WalletStatusApi
+    {
+        bool withAssets = false;
+        struct Response
+        {
+            beam::Height currentHeight = 0;
+            Merkle::Hash currentStateHash;
+            Merkle::Hash prevStateHash;
+            double difficulty = 0;
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            boost::optional<storage::Totals> totals;
+        };
+    };
+
+    struct GenerateTxId
+    {
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct ExportPaymentProof
+    {
+        TxID txId;
+
+        struct Response
+        {
+            ByteBuffer paymentProof;
+        };
+    };
+
+    struct VerifyPaymentProof
+    {
+        ByteBuffer paymentProof;
+        struct Response
+        {
+            storage::PaymentInfo paymentInfo;
+        };
+    };
+
+    struct GetAssetInfo
+    {
+        Asset::ID assetId;
+        struct Response
+        {
+            Response() = default;
+            WalletAsset AssetInfo;
+        };
+    };
+
+    struct SetConfirmationsCount
+    {
+        uint32_t count = 0;
+        struct Response {
+            uint32_t count;
+        };
+    };
+
+    struct GetConfirmationsCount
+    {
+        struct Response
+        {
+            uint32_t count;
+        };
+    };
+
+    struct InvokeContract
+    {
+        std::vector<uint8_t> contract;
+        std::string args;
+
+        struct Response
+        {
+            std::string output;
+            TxID txid = TxID();
+        };
+    };
+
+    struct BlockDetails
+    {
+        Height blockHeight;
+
+        struct Response
+        {
+            Height height;
+            std::string blockHash;
+            std::string previousBlock;
+            std::string chainwork;
+            std::string kernels;
+            std::string definition;
+            Timestamp timestamp;
+            std::string pow;
+            double difficulty;
+            uint32_t packedDifficulty;
+            std::string rulesHash;
+        };
+    };
+
+    #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
     struct OfferInput
     {
         Amount beamAmount = 0;
@@ -200,340 +518,12 @@ namespace beam::wallet
             Amount feeRate;
         };
     };
+
+    struct CancelOffer: public TxCancel
+    {
+        struct Response: public TxCancel::Response
+        {
+        };
+    };
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-    struct CalcMyChange
-    {
-        Amount amount;
-        Amount explicitFee = 0;
-        boost::optional<Asset::ID> assetId;
-        bool isPushTransaction = false;
-        struct Response
-        {
-            Amount change;
-            Amount assetChange;
-            Amount explicitFee;
-        };
-    };
-
-    struct ChangePassword
-    {
-        std::string newPassword;
-        struct Response
-        {
-        };
-    };
-
-    struct AddressData
-    {
-        boost::optional<std::string> comment;
-
-        enum Expiration { Expired, Never, OneDay, Auto };
-        boost::optional<Expiration> expiration;
-    };
-
-    struct CreateAddress : AddressData
-    {
-        TokenType type = TokenType::RegularOldStyle;
-        uint32_t offlinePayments = 10;
-
-        struct Response
-        {
-            std::string address;
-        };
-    };
-
-    struct DeleteAddress
-    {
-        WalletID address;
-
-        struct Response {};
-    };
-
-    struct EditAddress : AddressData
-    {
-        WalletID address;
-
-        struct Response {};
-    };
-
-    struct AddrList
-    {
-        bool own;
-
-        struct Response
-        {
-            std::vector<WalletAddress> list;
-        };
-    };
-
-    struct ValidateAddress
-    {
-        std::string address;
-
-        struct Response
-        {
-            bool isValid;
-            bool isMine;
-        };
-    };
-
-    struct Send
-    {
-        Amount value = 0;
-        Amount fee = 0;
-        boost::optional<CoinIDList> coins;
-        boost::optional<WalletID> from;
-        boost::optional<uint64_t> session;
-        boost::optional<TxID> txId;
-        boost::optional<Asset::ID> assetId;
-        WalletID address;
-        std::string comment;
-        TxParameters txParameters;
-        TxAddressType addressType = TxAddressType::Unknown;
-
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct Issue
-    {
-        Amount value = 0;
-        Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
-        boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
-        boost::optional<TxID> txId;
-
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct Consume
-    {
-        Amount value = 0;
-        Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
-        boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
-        boost::optional<TxID> txId;
-
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct TxAssetInfo
-    {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
-        boost::optional<TxID> txId;
-
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct Status
-    {
-        TxID txId;
-
-        struct Response
-        {
-            TxDescription tx;
-            Height txHeight;
-            Height systemHeight;
-            uint64_t confirmations;
-        };
-    };
-
-    struct Split
-    {
-        Amount fee = 0;
-        AmountList coins;
-        boost::optional<TxID> txId;
-        boost::optional<Asset::ID> assetId;
-
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct TxCancel
-    {
-        TxID txId;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-
-    struct TxDelete
-    {
-        TxID txId;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-    struct GetUtxo
-    {
-        uint32_t count = 0;
-        uint32_t skip = 0;
-        bool withAssets = false;
-
-        struct
-        {
-            boost::optional<Asset::ID> assetId;
-        } filter;
-
-        struct
-        {
-            std::string field = "default";
-            bool desc = false;
-        } sort;
-
-        struct Response
-        {
-            std::vector<Coin> utxos;
-            uint32_t confirmations_count = 0;
-        };
-    };
-
-    struct Lock
-    {
-        CoinIDList coins;
-        uint64_t session;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-    struct Unlock
-    {
-        uint64_t session;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-    struct TxList
-    {
-        bool withAssets = false;
-
-        struct
-        {
-            boost::optional<TxStatus>  status;
-            boost::optional<Height>    height;
-            boost::optional<Asset::ID> assetId;
-        } filter;
-
-        uint32_t count = 0;
-        uint32_t skip = 0;
-
-        struct Response
-        {
-            std::vector<Status::Response> resultList;
-        };
-    };
-
-    struct WalletStatusApi
-    {
-        bool withAssets = false;
-        struct Response
-        {
-            beam::Height currentHeight = 0;
-            Merkle::Hash currentStateHash;
-            Merkle::Hash prevStateHash;
-            double difficulty = 0;
-            Amount available = 0;
-            Amount receiving = 0;
-            Amount sending = 0;
-            Amount maturing = 0;
-            boost::optional<storage::Totals> totals;
-        };
-    };
-
-    struct GenerateTxId
-    {
-        struct Response
-        {
-            TxID txId;
-        };
-    };
-
-    struct ExportPaymentProof
-    {
-        TxID txId;
-
-        struct Response
-        {
-            ByteBuffer paymentProof;
-        };
-    };
-
-    struct VerifyPaymentProof
-    {
-        ByteBuffer paymentProof;
-        struct Response
-        {
-            storage::PaymentInfo paymentInfo;
-        };
-    };
-
-    struct GetAssetInfo
-    {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
-        struct Response
-        {
-            Response() = default;
-            WalletAsset AssetInfo;
-        };
-    };
-
-    struct SetConfirmationsCount
-    {
-        uint32_t count = 0;
-        struct Response {
-            uint32_t count;
-        };
-    };
-
-    struct GetConfirmationsCount
-    {
-        struct Response
-        {
-            uint32_t count;
-        };
-    };
-
-    struct InvokeContract
-    {
-        std::vector<uint8_t> contract;
-        std::string args;
-
-        struct Response
-        {
-            std::string output;
-            TxID txid = TxID();
-        };
-    };
 }

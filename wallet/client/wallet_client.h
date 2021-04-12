@@ -148,7 +148,7 @@ namespace beam::wallet
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
-        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
+        virtual void onGetAddress(const WalletID& token, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
@@ -200,7 +200,6 @@ namespace beam::wallet
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
         void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
-        void getAddresses(bool own, AsyncCallback<const std::vector<WalletAddress>&>&& callback) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
@@ -213,24 +212,22 @@ namespace beam::wallet
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
-        void saveAddress(const WalletAddress& address, bool bOwn) override;
+        void saveAddress(const WalletAddress& address) override;
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
-        void deleteAddress(const WalletID& id) override;
-        void deleteAddress(const std::string& addr) override;
-        void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
-        void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override;
-        void activateAddress(const WalletID& id) override;
-        void getAddress(const WalletID& id) override;
-        void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
-        void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void deleteAddress(const WalletID& addr) override;
+        void updateAddress(const WalletID& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override;
+        void updateAddress(const WalletID& token, const std::string& name, beam::Timestamp expirationTime) override;
+        void activateAddress(const WalletID& token) override;
+        void getAddress(const WalletID& token) override;
+        void getAddress(const WalletID& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
         void rescan() override;
         void exportPaymentProof(const TxID& id) override;
-        void checkAddress(const std::string& addr) override;
+        void checkNetworkAddress(const std::string& addr) override;
         void importRecovery(const std::string& path) override;
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
@@ -332,8 +329,8 @@ namespace beam::wallet
 
         struct AddressKey
         {
-            typedef WalletID type;
-            const type& operator()(const WalletAddress& c) const { return c.m_walletID; }
+            typedef std::string type;
+            const type& operator()(const WalletAddress& c) const { return c.m_Address; }
         };
         ChangesCollector <WalletAddress, AddressKey> m_AddressChangesCollector;
 

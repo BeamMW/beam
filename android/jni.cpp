@@ -72,15 +72,6 @@ namespace
     {
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
-        Rules::get().pForks[1].m_Height = 10;
-        Rules::get().pForks[2].m_Height = 20;
-        Rules::get().MaxRollback = 10;
-        Rules::get().CA.LockPeriod = 10;
-        Rules::get().Shielded.m_ProofMax.n = 4;
-        Rules::get().Shielded.m_ProofMax.M = 3;
-        Rules::get().Shielded.m_ProofMin.n = 4;
-        Rules::get().Shielded.m_ProofMin.M = 2;
-        Rules::get().Shielded.MaxWindowBacklog = 150;
         Rules::get().UpdateChecksum();
         
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
@@ -142,10 +133,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
     auto libVersion = params->GetParameter<std::string>(TxParameterID::LibraryVersion);
-
+    auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
+             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(*storedType));
+
             if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", *isPermanentAddress);
             }
@@ -277,25 +270,29 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     LOG_DEBUG() << "generateOfflineAddress()";
             
     uint64_t bAmount = amount;
-
     auto id = JString(env, walletId).value();
 
-    auto address = walletDB->getAddress(JString(env, walletId).value());
+    WalletID walletID(Zero);
+    if (!walletID.FromHex(JString(env, walletId).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return jstring();
+    }
+
+    auto address = walletDB->getAddress(walletID);
 
     if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
-
         lastWalledId = id;
         lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
     }
-    else {
+    else
+    {
          LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
     auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
-    
     jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
-
     return tokenString;
  }
 
@@ -305,7 +302,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
     uint64_t bAmount = amount;
 
-    auto address = walletDB->getAddress(JString(env, walletId).value());
+    WalletID walletID(Zero);
+    if (!walletID.FromHex(JString(env, walletId).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return jstring();
+    }
+
+    auto address = walletDB->getAddress(walletID);
     auto regularAddress = GenerateRegularNewToken(*address, bAmount, 0, std::string(BEAM_LIB_VERSION));
     
     jstring tokenString = env->NewStringUTF(regularAddress.c_str());
@@ -317,8 +321,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
     LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
-    auto address = walletDB->getAddress(JString(env, walletId).value());
-    
+    WalletID walletID(Zero);
+    if (!walletID.FromHex(JString(env, walletId).value()))
+    {
+        LOG_ERROR() << "walletID is not valid!!!";
+        return;
+    }
+
+    auto address = walletDB->getAddress(walletID);
     uint64_t bAmount = amount;
 
     auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
@@ -770,7 +780,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                     addr.m_Identity = m_Identity;
                 }
 
-                walletModel->getAsync()->saveAddress(addr, own);
+                walletModel->getAsync()->saveAddress(addr);
             }
     }
     else {        
@@ -791,7 +801,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
             addr.m_Identity = m_Identity;
         }
         
-        walletModel->getAsync()->saveAddress(addr, false);
+        walletModel->getAsync()->saveAddress(addr);
     }
 }
 
@@ -898,11 +908,9 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
     jstring walletID)
 {
     WalletID id(Zero);
-
     if (!id.FromHex(JString(env, walletID).value()))
     {
         LOG_ERROR() << "Address is not valid!!!";
-
         return;
     }
     walletModel->getAsync()->deleteAddress(id);

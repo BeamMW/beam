@@ -2861,6 +2861,52 @@ namespace beam
 		}
 	}
 
+	void Asset::Metadata::set_String(const std::string& s, bool bLegacy)
+	{
+		if (bLegacy)
+		{
+			Serializer ser;
+			ser & s;
+			ser.swap_buf(m_Value);
+		}
+		else
+		{
+			m_Value.resize(s.size());
+			if (!s.empty())
+				memcpy(&m_Value.front(), &s.front(), s.size());
+		}
+	}
+
+	void Asset::Metadata::get_String(std::string& s) const
+	{
+		s.clear();
+		if (m_Value.empty())
+			return;
+
+		// historically the metadata was a serialized string, which is [size][string]
+		// The [size] was either a single byte with MSB on, or multi-byte encoding with leading byte in range [0x01 - 0x08]
+		// Currently we just assign it to the string itself.
+		uint8_t x = m_Value.front();
+		bool bDeserialize = (0x80 & x) || (x <= 8);
+		if (bDeserialize)
+		{
+			try
+			{
+				Deserializer der;
+				der.reset(m_Value);
+				der & s;
+
+				return; // ok
+			}
+			catch (const std::exception&) {
+				// ignore error, fallback to standard case
+				s.clear();
+			}
+		}
+
+		s.assign((const char*) &m_Value.front(), m_Value.size());
+	}
+
 	void Asset::Metadata::get_Owner(PeerID& res, Key::IPKdf& pkdf) const
 	{
 		ECC::Point::Native pt;

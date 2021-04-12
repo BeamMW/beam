@@ -155,9 +155,10 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onOffersListMessage(const JsonRpcId& id, const json& params)
+    std::pair<OffersList, IWalletApi::MethodInfo> WalletApi::onParseOffersList(const JsonRpcId& id, const json& params)
     {
         OffersList offersList;
+        MethodInfo funds(MethodInfo::AppsBlocked);
 
         if (hasParam(params, "filter"))
         {
@@ -178,12 +179,13 @@ namespace beam::wallet
             }
         }
 
-        onMessage(id, offersList);
+        return std::make_pair(offersList, funds);
     }
 
-    void WalletApi::onOffersBoardMessage(const JsonRpcId& id, const json& params)
+    std::pair<OffersBoard, IWalletApi::MethodInfo> WalletApi::onParseOffersBoard(const JsonRpcId& id, const json& params)
     {
         OffersBoard offersBoard;
+        MethodInfo funds(MethodInfo::AppsBlocked);
 
         if (hasParam(params, "filter"))
         {
@@ -196,12 +198,14 @@ namespace beam::wallet
             }
         }
 
-        onMessage(id, offersBoard);
+        return std::make_pair(offersBoard, funds);
     }
 
-    void WalletApi::onCreateOfferMessage(const JsonRpcId& id, const json& params)
+    std::pair<CreateOffer, IWalletApi::MethodInfo> WalletApi::onParseCreateOffer(const JsonRpcId& id, const json& params)
     {
-        OfferInput data;
+        CreateOffer data;
+        MethodInfo funds(MethodInfo::AppsBlocked);
+
         Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
 
         const std::string send_currency = WalletApi::getMandatoryParam<NonEmptyString>(params, "send_currency");
@@ -258,22 +262,28 @@ namespace beam::wallet
             data.comment = *comment;
         }
 
-        onMessage(id, data);
+        return std::make_pair(data, funds);
     }
 
-    void WalletApi::onPublishOfferMessage(const JsonRpcId& id, const json& params)
+    std::pair<PublishOffer, IWalletApi::MethodInfo> WalletApi::onParsePublishOffer(const JsonRpcId& id, const json& params)
     {
+        MethodInfo funds(MethodInfo::AppsBlocked);
+
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
         if (!SwapOfferToken::isValid(token))
         {
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter 'token' is not valid swap token.");
         }
+
         PublishOffer data{token};
-        onMessage(id, data);
+        return std::make_pair(data, funds);
     }
 
-    void WalletApi::onAcceptOfferMessage(const JsonRpcId& id, const json& params)
+    std::pair<AcceptOffer, IWalletApi::MethodInfo> WalletApi::onParseAcceptOffer(const JsonRpcId& id, const json& params)
     {
+        AcceptOffer data;
+        MethodInfo funds(MethodInfo::AppsBlocked);
+
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
@@ -281,7 +291,6 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter 'token' is not valid swap token.");
         }
 
-        AcceptOffer data;
         data.token = token;
         data.beamFee = getBeamFeeParam(params, "beam_fee");
 
@@ -295,18 +304,21 @@ namespace beam::wallet
             data.comment = *comment;
         }
 
-        onMessage(id, data);
+        return std::make_pair(data, funds);
     }
 
-    void WalletApi::onOfferStatusMessage(const JsonRpcId& id, const json& params)
+    std::pair<OfferStatus, IWalletApi::MethodInfo> WalletApi::onParseOfferStatus(const JsonRpcId& id, const json& params)
     {
+        MethodInfo funds(MethodInfo::AppsBlocked);
         OfferStatus offerStatus = {};
+
         offerStatus.txId = getMandatoryParam<ValidTxID>(params, "tx_id");
-        onMessage(id, offerStatus);
+        return std::make_pair(offerStatus, funds);
     }
 
-    void WalletApi::onDecodeTokenMessage(const JsonRpcId& id, const json& params)
+    std::pair<DecodeToken, IWalletApi::MethodInfo> WalletApi::onParseDecodeToken(const JsonRpcId& id, const json& params)
     {
+        MethodInfo funds(MethodInfo::AppsBlocked);
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
@@ -315,11 +327,12 @@ namespace beam::wallet
         }
 
         DecodeToken decodeToken{ token };
-        onMessage(id, decodeToken);
+        return std::make_pair(decodeToken, funds);
     }
 
-    void WalletApi::onGetBalanceMessage(const JsonRpcId& id, const json& params)
+    std::pair<GetBalance, IWalletApi::MethodInfo> WalletApi::onParseGetBalance(const JsonRpcId& id, const json& params)
     {
+        MethodInfo funds(MethodInfo::AppsBlocked);
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         const auto coin = from_string(coinName);
 
@@ -329,11 +342,13 @@ namespace beam::wallet
         }
 
         GetBalance data{ coin };
-        onMessage(id, data);
+        return std::make_pair(data, funds);
     }
 
-    void WalletApi::onRecommendedFeeRateMessage(const JsonRpcId& id, const json& params)
+    std::pair<RecommendedFeeRate, IWalletApi::MethodInfo> WalletApi::onParseRecommendedFeeRate(const JsonRpcId& id, const json& params)
     {
+        MethodInfo funds(MethodInfo::AppsBlocked);
+
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         AtomicSwapCoin coin = from_string(coinName);
 
@@ -343,7 +358,13 @@ namespace beam::wallet
         }
 
         RecommendedFeeRate data{ coin };
-        onMessage(id, data);
+        return std::make_pair(data, funds);
+    }
+
+    std::pair<CancelOffer, IWalletApi::MethodInfo> WalletApi::onParseCancelOffer(const JsonRpcId& id, const json& params)
+    {
+        auto txcRes = onParseTxCancel(id, params);
+        return std::make_pair(CancelOffer{txcRes.first}, txcRes.second);
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
@@ -455,5 +476,11 @@ namespace beam::wallet
                 {"feerate", res.feeRate},
             }}
         };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
+    {
+        TxCancel::Response cancelRes{res.result};
+        getResponse(id, cancelRes, msg);
     }
 }

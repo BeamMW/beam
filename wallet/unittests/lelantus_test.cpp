@@ -27,6 +27,7 @@
 #include "node/node.h"
 
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 
 #include <boost/filesystem.hpp>
 
@@ -116,7 +117,10 @@ void TestTreasuryRestore()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto walletAddress = WalletAddress::Generate(*receiver.m_WalletDB, "", WalletAddress::ExpirationStatus::Never);
+            WalletAddress walletAddress;
+            receiver.m_WalletDB->createAddress(walletAddress);
+            receiver.m_WalletDB->saveAddress(walletAddress);
+
             auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
             auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
             auto p = ParseParameters(newAddress);
