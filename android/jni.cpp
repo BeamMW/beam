@@ -72,15 +72,6 @@ namespace
     {
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
-        Rules::get().pForks[1].m_Height = 10;
-        Rules::get().pForks[2].m_Height = 20;
-        Rules::get().MaxRollback = 10;
-        Rules::get().CA.LockPeriod = 10;
-        Rules::get().Shielded.m_ProofMax.n = 4;
-        Rules::get().Shielded.m_ProofMax.M = 3;
-        Rules::get().Shielded.m_ProofMin.n = 4;
-        Rules::get().Shielded.m_ProofMin.M = 2;
-        Rules::get().Shielded.MaxWindowBacklog = 150;
         Rules::get().UpdateChecksum();
         
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
@@ -142,10 +133,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
     auto libVersion = params->GetParameter<std::string>(TxParameterID::LibraryVersion);
-
+    auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
+             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(*storedType));
+
             if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", *isPermanentAddress);
             }
