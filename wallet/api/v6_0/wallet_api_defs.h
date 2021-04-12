@@ -43,7 +43,7 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WEB_WALLET_API_METHODS(macro) \
-    macro(CalcMyChange,         "calc_change",              API_READ_ACCESS,  API_SYNC)   \
+    macro(CalcChange,           "calc_change",              API_READ_ACCESS,  API_SYNC)   \
     macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC)
 
 #define WALLET_API_METHODS(macro) \
@@ -74,12 +74,13 @@ namespace beam::wallet
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
 
-    struct CalcMyChange
+    struct CalcChange
     {
         Amount amount;
         Amount explicitFee = 0;
         boost::optional<Asset::ID> assetId;
         bool isPushTransaction = false;
+
         struct Response
         {
             Amount change;
@@ -173,8 +174,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
@@ -188,8 +188,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
@@ -201,8 +200,7 @@ namespace beam::wallet
 
     struct TxAssetInfo
     {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<TxID> txId;
 
         struct Response
@@ -348,8 +346,7 @@ namespace beam::wallet
 
     struct GetAssetInfo
     {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         struct Response
         {
             Response() = default;

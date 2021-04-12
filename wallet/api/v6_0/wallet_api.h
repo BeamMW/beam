@@ -129,7 +129,6 @@ namespace beam::wallet
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
-        void checkCAEnabled(const JsonRpcId& id);
 
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;

@@ -98,11 +98,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleCalcMyChange(const JsonRpcId& id, const CalcMyChange& data)
+    void WalletApi::onHandleCalcChange(const JsonRpcId& id, const CalcChange& data)
     {
         LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
 
-        CoinsSelectionInfo csi = { 0 };
+        CoinsSelectionInfo csi = {0};
 
         csi.m_requestedSum = data.amount;
         if (data.assetId)
@@ -111,10 +111,9 @@ namespace beam::wallet
         }
 
         csi.m_explicitFee = data.explicitFee;
-
         csi.Calculate(get_CurrentHeight(), getWalletDB(), data.isPushTransaction);
 
-        doResponse(id, CalcMyChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
+        doResponse(id, CalcChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
     }
 
     void WalletApi::onHandleChangePassword(const JsonRpcId& id, const ChangePassword& data)
@@ -363,26 +362,16 @@ namespace beam::wallet
     {
         auto walletDB = getWalletDB();
 
-        if (data.assetMeta)
+        if (const auto asset = walletDB->findAsset(data.assetId))
         {
-            params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            std::string strmeta;
+            asset->m_Metadata.get_String(strmeta);
+            params.SetParameter(TxParameterID::AssetMetadata, strmeta);
         }
-        else if (data.assetId)
+        else
         {
-            if (const auto asset = walletDB->findAsset(*data.assetId))
-            {
-                std::string strmeta;
-                asset->m_Metadata.get_String(strmeta);
-                params.SetParameter(TxParameterID::AssetMetadata, strmeta);
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) or provide asset metdata.");
-            }
+            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Asset not found in the local database. Update asset info (tx_asset_info) and repeat your API call.");
         }
-
-        assert(!"presence of params should be checked already");
-        throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
     }
 
     template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
@@ -401,9 +390,7 @@ namespace beam::wallet
     template<typename T>
     void WalletApi::onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data)
     {
-        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
+        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = " << data.assetId
                     << " amount = " << data.value << " fee = " << data.fee
                     << ")";
         try
@@ -442,24 +429,10 @@ namespace beam::wallet
 
     void WalletApi::onHandleGetAssetInfo(const JsonRpcId &id, const GetAssetInfo &data)
     {
-        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
-                    << ")";
+        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
 
         auto walletDB = getWalletDB();
-        boost::optional<WalletAsset> info;
-
-        if (data.assetId)
-        {
-            info = walletDB->findAsset(*data.assetId);
-        }
-        else if (data.assetMeta)
-        {
-            const auto kdf = walletDB->get_MasterKdf();
-            const auto ownerID = GetAssetOwnerID(kdf, *data.assetMeta);
-            info = walletDB->findAsset(ownerID);
-        }
+        boost::optional<WalletAsset> info = walletDB->findAsset(data.assetId);
 
         if(!info.is_initialized())
         {
@@ -487,10 +460,7 @@ namespace beam::wallet
 
     void WalletApi::onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data)
     {
-        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
-                    << ")";
+        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
         try
         {
             auto walletDB = getWalletDB();
@@ -503,18 +473,7 @@ namespace beam::wallet
             }
 
             auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
-            if (data.assetMeta)
-            {
-                params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
-            }
-            else if (data.assetId)
-            {
-                params.SetParameter(TxParameterID::AssetID, *data.assetId);
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
-            }
+            params.SetParameter(TxParameterID::AssetID, data.assetId);
 
             const auto txId = wallet->StartTransaction(params);
             doResponse(id, Issue::Response{ txId });
