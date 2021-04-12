@@ -29,6 +29,7 @@ namespace beam::wallet
         , _wallet(std::move(wallet))
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
+        , _requestHandler(*this)
     {
         #define REG_FUNC(api, name, writeAccess, isAsync)                 \
         _methods[name] = {                                                \
