@@ -61,12 +61,12 @@ namespace fs = std::filesystem;
     each(assetId,        ID.m_AssetID,  INTEGER, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
-    each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
-    each(spentHeight,    spentHeight,   INTEGER, obj) sep \
-    each(createTxId,     createTxId,    BLOB, obj) sep \
-    each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(maturity,       maturity,            INTEGER NOT NULL, obj) sep \
+    each(confirmHeight,  confirmHeight,       INTEGER, obj) sep \
+    each(spentHeight,    spentHeight,         INTEGER, obj) sep \
+    each(createTxId,     createTxId,          BLOB, obj) sep \
+    each(spentTxId,      spentTxId,           BLOB, obj) sep \
+    each(sessionId,      OBSOLETTEsessionId,  INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -1002,7 +1002,7 @@ namespace beam::wallet
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
-        , m_sessionId(EmptyCoinSession)
+        , m_OBSOLETTEsessionId(EmptyCoinSession)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
@@ -2079,7 +2079,7 @@ namespace beam::wallet
                             // lockedHeight - skip
                             stm.get(9, coin.m_createTxId);
                             stm.get(10, coin.m_spentTxId);
-                            stm.get(11, coin.m_sessionId);
+                            stm.get(11, coin.m_OBSOLETTEsessionId);
 
                             if (Coin::Status::Spent == static_cast<Coin::Status>(status))
                             {
@@ -2367,7 +2367,7 @@ namespace beam::wallet
                 stm.get(6, coin.m_spentHeight);
                 stm.get(7, coin.m_createTxId);
                 stm.get(8, coin.m_spentTxId);
-                stm.get(9, coin.m_sessionId);
+                stm.get(9, coin.m_OBSOLETTEsessionId);
 
                 saveCoin(coin);
             }
@@ -5092,61 +5092,6 @@ namespace beam::wallet
 
             }
         }
-    }
-
-    bool WalletDB::lockCoins(const CoinIDList& list, uint64_t session)
-    {
-        auto coins = getCoinsByID(list);
-        for (auto& coin : coins)
-        {
-            if (coin.m_sessionId == 0)
-            {
-                coin.m_sessionId = session;
-            }
-            else
-            {
-                // error, coin already locked
-                return false;
-            }
-        }
-
-        saveCoins(coins);
-
-        return !coins.empty();
-    }
-
-    bool WalletDB::unlockCoins(uint64_t session)
-    {
-        const char* req = "UPDATE " STORAGE_NAME " SET sessionId=0 WHERE sessionId=?1;";
-        sqlite::Statement stm(this, req);
-
-        stm.bind(1, session);
-
-        stm.step();
-
-        return sqlite3_changes(_db) > 0;
-    }
-
-    CoinIDList WalletDB::getLockedCoins(uint64_t session) const
-    {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE sessionId=?1;";
-        sqlite::Statement stm(this, req);
-
-        stm.bind(1, session);
-
-        CoinIDList list;
-
-        while (stm.step())
-        {
-            Coin coin;
-
-            int colIdx = 0;
-            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-
-            list.push_back(coin.m_ID);
-        }
-
-        return list;
     }
 
     std::vector<OutgoingWalletMessage> WalletDB::getWalletMessages() const

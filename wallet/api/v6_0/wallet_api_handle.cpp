@@ -66,6 +66,7 @@ namespace
         }
     }
 
+    static const char* kAddrDoesntExistError = "Provided address doesn't exist.";
 }  // namespace
 
 namespace beam::wallet
@@ -184,12 +185,18 @@ namespace beam::wallet
 
         if (addr)
         {
+            if (!_appid.empty() && addr->m_category != _appid)
+            {
+                // we do not throw 'NotAllowed' to not to expose that address exists
+                throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
+            }
+
             walletDB->deleteAddress(data.address);
             doResponse(id, DeleteAddress::Response{});
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidAddress, "Provided address doesn't exist.");
+            throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
         }
     }
 
@@ -202,6 +209,11 @@ namespace beam::wallet
 
         if (addr)
         {
+            if (!_appid.empty() && addr->m_category != _appid)
+            {
+                throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
+            }
+
             if (addr->isOwn())
             {
                 FillAddressData(data, *addr);
@@ -215,7 +227,7 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidAddress, "Provided address doesn't exist.");
+            throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
         }
     }
 
@@ -302,21 +314,7 @@ namespace beam::wallet
             }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
-            CoinIDList coins;
-
-            if (data.session)
-            {
-                coins = walletDB->getLockedCoins(*data.session);
-
-                if (coins.empty())
-                {
-                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                }
-            }
-            else
-            {
-                coins = data.coins ? *data.coins : CoinIDList();
-            }
+            CoinIDList coins = data.coins ? *data.coins : CoinIDList();
 
             if (data.txId && walletDB->getTx(*data.txId))
             {
@@ -410,20 +408,9 @@ namespace beam::wallet
                     << ")";
         try
         {
-            CoinIDList coins;
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
-
-            if (data.session)
-            {
-                if ((coins = walletDB->getLockedCoins(*data.session)).empty())
-                {
-                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                }
-            } else
-            {
-                coins = data.coins ? *data.coins : CoinIDList();
-            }
+            CoinIDList coins = data.coins ? *data.coins : CoinIDList();
 
             if (data.txId && walletDB->getTx(*data.txId))
             {
@@ -759,28 +746,6 @@ namespace beam::wallet
         LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
 
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
-    }
-
-    void WalletApi::onHandleLock(const JsonRpcId& id, const Lock& data)
-    {
-        LOG_DEBUG() << "Lock(id = " << id << ")";
-
-        Lock::Response response = {};
-        auto walletDB = getWalletDB();
-        response.result = walletDB->lockCoins(data.coins, data.session);
-
-        doResponse(id, response);
-    }
-
-    void WalletApi::onHandleUnlock(const JsonRpcId& id, const Unlock& data)
-    {
-        LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
-
-        Unlock::Response response = {};
-        auto walletDB = getWalletDB();
-        response.result = walletDB->unlockCoins(data.session);
-
-        doResponse(id, response);
     }
 
     void WalletApi::onHandleTxList(const JsonRpcId& id, const TxList& data)

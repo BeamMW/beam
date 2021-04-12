@@ -10,7 +10,6 @@ client.connect(10000, '127.0.0.1', function() {
 			method: 'tx_split',
 			params: 
 			{
-				"session" : 1234,
 				"coins" : [11, 12, 13, 50000000000],
 			}
 		}) + '\n');

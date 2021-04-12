@@ -86,8 +86,9 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
-        
-        uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
+
+        // DO NOT USE, obsolette, to be removed
+        uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
@@ -471,11 +472,6 @@ namespace beam::wallet
         virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const = 0;
         virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const = 0;
 
-        // Used in split API for session management
-        virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
-        virtual bool unlockCoins(uint64_t session) = 0;
-        virtual CoinIDList getLockedCoins(uint64_t session) const = 0;
-
         // Returns currently known blockchain height
         virtual Height getCurrentHeight() const = 0;
 
@@ -704,10 +700,6 @@ namespace beam::wallet
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
-
-        bool lockCoins(const CoinIDList& list, uint64_t session) override;
-        bool unlockCoins(uint64_t session) override;
-        CoinIDList getLockedCoins(uint64_t session) const override;
 
         std::vector<OutgoingWalletMessage> getWalletMessages() const override;
         uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;

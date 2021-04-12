@@ -262,7 +262,6 @@ namespace
             void onHandleSend(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.session && *data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
                 WALLET_CHECK(data.assetId && *data.assetId == 1);
@@ -509,7 +508,6 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                // WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
@@ -1392,7 +1390,6 @@ int main()
         "method" : "tx_send",
         "params" : 
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 12342342,
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1406,7 +1403,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 12342342,
             "from" : "wagagel",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1420,7 +1416,6 @@ int main()
         "method" : "tx_send",
         "params" : 
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
@@ -1436,7 +1431,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 1234234200000000000000000000000,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
@@ -1451,7 +1445,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "wagagel"
@@ -1465,7 +1458,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 20,
             "asset_id": -1,
             "address" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6"
@@ -1490,7 +1482,6 @@ int main()
         "method" : "tx_split",
         "params" :
         {
-            "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
             "fee" : 100,
             "asset_id": 1
@@ -1504,7 +1495,6 @@ int main()
         "method" : "tx_split",
         "params" :
         {
-            "session" : 123,
             "coins" : [11, -12, 13, 50000000000000] ,
             "fee" : 4
         }

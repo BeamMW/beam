@@ -61,8 +61,6 @@ namespace beam::wallet
     macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC)   \
     macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC)   \
     macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC)   \
-    macro(Lock,                  "lock",                    API_WRITE_ACCESS, API_SYNC)   \
-    macro(Unlock,                "unlock",                  API_WRITE_ACCESS, API_SYNC)   \
     macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC)   \
     macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC)   \
     macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC)   \
@@ -157,7 +155,6 @@ namespace beam::wallet
         Amount fee = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
         boost::optional<Asset::ID> assetId;
         WalletID address;
@@ -178,7 +175,6 @@ namespace beam::wallet
         boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
 
         struct Response
@@ -194,7 +190,6 @@ namespace beam::wallet
         boost::optional<std::string> assetMeta;
         boost::optional<Asset::ID> assetId;
         boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
 
         struct Response
@@ -283,27 +278,6 @@ namespace beam::wallet
         {
             std::vector<Coin> utxos;
             uint32_t confirmations_count = 0;
-        };
-    };
-
-    struct Lock
-    {
-        CoinIDList coins;
-        uint64_t session = 0;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-    struct Unlock
-    {
-        uint64_t session = 0;
-
-        struct Response
-        {
-            bool result;
         };
     };
 

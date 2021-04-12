@@ -58,16 +58,6 @@ namespace beam::wallet
         return coins;
     }
 
-    uint64_t readSessionParameter(const JsonRpcId& id, const json& params)
-    {
-        if (params["session"].is_number_unsigned() && params["session"] > 0)
-        {
-            return params["session"].get<uint64_t>();
-        }
-
-        throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Invalid 'session' parameter.");
-    }
-
     bool readAssetsParameter(const JsonRpcId& id, const json& params)
     {
         if (auto oassets = WalletApi::getOptionalParam<bool>(params, "assets"))
@@ -500,11 +490,6 @@ namespace beam::wallet
             // TODO: may be no check and optional read
             send.coins = readCoinsParameter(id, params);
         }
-        else if (hasParam(params, "session"))
-        {
-            // TODO: may be no check and optional read
-            send.session = readSessionParameter(id, params);
-        }
 
         auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (peerID)
@@ -659,10 +644,6 @@ namespace beam::wallet
         {
             data.coins = readCoinsParameter(id, params);
         }
-        else if (hasParam(params, "session"))
-        {
-            data.session = readSessionParameter(id, params);
-        }
 
         ReadAssetParams(id, params, data);
         data.fee = getBeamFeeParam(params, "fee");
@@ -745,25 +726,6 @@ namespace beam::wallet
         }
 
         return std::make_pair(getUtxo, MethodInfo(MethodInfo::AppsBlocked));
-    }
-
-    std::pair<Lock, IWalletApi::MethodInfo> WalletApi::onParseLock(const JsonRpcId& id, const json& params)
-    {
-        Lock lock;
-        lock.session = readSessionParameter(id, params);
-        lock.coins = readCoinsParameter(id, params);
-
-        MethodInfo info(MethodInfo::AppsBlocked); // TODO: implement amounts?
-        return std::make_pair(lock, info);
-    }
-
-    std::pair<Unlock, IWalletApi::MethodInfo> WalletApi::onParseUnlock(const JsonRpcId& id, const json& params)
-    {
-        Unlock unlock;
-        unlock.session = readSessionParameter(id, params);
-
-        MethodInfo info(MethodInfo::AppsBlocked); // TODO: implement amounts?
-        return std::make_pair(unlock, info);
     }
 
     std::pair<TxList, IWalletApi::MethodInfo> WalletApi::onParseTxList(const JsonRpcId& id, const json& params)
@@ -998,8 +960,7 @@ namespace beam::wallet
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
                 {"status", utxo.m_status},
-                {"status_string", utxo.getStatusString()},
-                {"session", utxo.m_sessionId}
+                {"status_string", utxo.getStatusString()}
             });
         }
     }
@@ -1264,26 +1225,6 @@ namespace beam::wallet
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", std::to_string(res.txId)}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result", res.result}
-        };
-    }
-
-    void WalletApi::getResponse(const JsonRpcId& id, const Unlock::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result", res.result}
         };
     }
 
