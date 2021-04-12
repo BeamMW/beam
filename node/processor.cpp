@@ -4957,7 +4957,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 		// how many immaginary prehistoric blocks should be offset
 		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
 
-		thw0.first -= r.DA.Target_s * nDelta;
+		thw0.first -= static_cast<int64_t>(r.DA.Target_s) * nDelta;
 		thw0.second.first -= nDelta;
 
 		Difficulty::Raw wrk, wrk2;

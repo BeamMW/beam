@@ -29,6 +29,7 @@ namespace beam::wallet
         , _wallet(std::move(wallet))
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
+        , _requestHandler(*this)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         // Don't do anything with walletdb, providers &c.

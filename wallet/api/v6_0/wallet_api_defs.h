@@ -70,6 +70,7 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
+    macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC)  \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
 
@@ -381,6 +382,26 @@ namespace beam::wallet
         {
             std::string output;
             TxID txid = TxID();
+        };
+    };
+
+    struct BlockDetails
+    {
+        Height blockHeight;
+
+        struct Response
+        {
+            Height height;
+            std::string blockHash;
+            std::string previousBlock;
+            std::string chainwork;
+            std::string kernels;
+            std::string definition;
+            Timestamp timestamp;
+            std::string pow;
+            double difficulty;
+            uint32_t packedDifficulty;
+            std::string rulesHash;
         };
     };
 

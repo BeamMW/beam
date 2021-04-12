@@ -813,6 +813,17 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo(MethodInfo::AppsAllowed));
     }
 
+    std::pair<BlockDetails, IWalletApi::MethodInfo> WalletApi::onParseBlockDetails(const JsonRpcId& id, const json& params)
+    {
+        BlockDetails message;
+
+        const auto height = getMandatoryParam<Height>(params, "height");
+
+        message.blockHeight = height;
+
+        return std::make_pair(message, MethodInfo(MethodInfo::AppsAllowed));
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const CalcMyChange::Response& res, json& msg)
     {
         msg = json
@@ -879,6 +890,30 @@ namespace beam::wallet
         {
             msg["result"]["txid"] = std::to_string(res.txid);
         }
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const BlockDetails::Response& res, json& msg)
+    {
+        msg = nlohmann::json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"height", res.height},
+                    {"block_hash", res.blockHash},
+                    {"previous_block", res.previousBlock},
+                    {"chainwork", res.chainwork},
+                    {"kernels", res.kernels},
+                    {"definition", res.definition},
+                    {"timestamp", res.timestamp},
+                    {"pow", res.pow},
+                    {"difficulty", res.difficulty},
+                    {"packed_difficulty", res.packedDifficulty},
+                    {"rules_hash", res.rulesHash}
+                }
+            }
+        };
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)

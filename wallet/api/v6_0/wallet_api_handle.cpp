@@ -915,4 +915,74 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::ContractError, err.what());
         }
     }
+
+    void WalletApi::onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data)
+    {
+        LOG_DEBUG() << "InvokeContract(id = " << id << ")";
+
+        _requestHandler.requestHeader(data.blockHeight, id);
+    }
+
+    WalletApi::RequestHandler::RequestHandler(WalletApi& parent)
+        : _parent(parent)
+    {
+    }
+
+    void WalletApi::RequestHandler::OnComplete(proto::FlyClient::Request& request)
+    {
+        RequestHeaderMsg& headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
+
+        _requestList.erase(RequestHeaderList::s_iterator_to(headerRequest));
+        headerRequest.m_pTrg = nullptr;
+        headerRequest.Release();
+
+        if (headerRequest.m_vStates.size() != 1)
+        {
+            _parent.sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
+            return;
+        }
+
+        Block::SystemState::Full state = headerRequest.m_vStates.front();
+        Merkle::Hash blockHash;
+        state.get_Hash(blockHash);
+
+        std::string rulesHash = Rules::get().pForks[_countof(Rules::get().pForks) - 1].m_Hash.str();
+
+        for (size_t i = 1; i < _countof(Rules::get().pForks); i++)
+        {
+            if (state.m_Height < Rules::get().pForks[i].m_Height)
+            {
+                rulesHash = Rules::get().pForks[i - 1].m_Hash.str();
+                break;
+            }
+        }
+
+        BlockDetails::Response response;
+        response.height = state.m_Height;
+        response.blockHash = blockHash.str();
+        response.previousBlock = state.m_Prev.str();
+        response.chainwork = state.m_ChainWork.str();
+        response.kernels = state.m_Kernels.str();
+        response.definition = state.m_Definition.str();
+        response.timestamp = state.m_TimeStamp;
+        response.pow = beam::to_hex(&state.m_PoW, sizeof(state.m_PoW));
+        response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
+        response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
+        response.rulesHash = rulesHash;
+
+        _parent.doResponse(headerRequest._id, response);
+    }
+
+    void WalletApi::RequestHandler::requestHeader(Height blockHeight, const JsonRpcId& id)
+    {
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
+
+        request->m_Msg.m_Height = blockHeight;
+        request->_id = id;
+        request->AddRef();
+
+        _requestList.push_back(*request);
+
+        _parent.getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
+    }
 }

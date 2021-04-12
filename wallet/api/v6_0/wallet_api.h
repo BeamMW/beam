@@ -145,5 +145,33 @@ namespace beam::wallet
         IShadersManager::Ptr  _contracts;
 
         JsonRpcId _ccallId;
+
+        struct RequestHeaderMsg
+            :public proto::FlyClient::RequestEnumHdrs
+            , public boost::intrusive::list_base_hook<>
+        {
+            typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
+            virtual ~RequestHeaderMsg() {}
+
+            JsonRpcId _id;
+        };
+
+        typedef boost::intrusive::list<RequestHeaderMsg> RequestHeaderList;
+
+        class RequestHandler : public proto::FlyClient::Request::IHandler
+        {
+        public:
+
+            RequestHandler(WalletApi& parent);
+            virtual void OnComplete(proto::FlyClient::Request&) override;
+
+            void requestHeader(Height blockHeight, const JsonRpcId& id);
+
+        private:
+            WalletApi& _parent;
+            RequestHeaderList _requestList;
+        };
+
+        RequestHandler _requestHandler;
     };
 }
