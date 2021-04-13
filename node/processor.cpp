@@ -2151,15 +2151,53 @@ uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Pt
 	return iRet;
 }
 
+struct NodeProcessor::ProofBuilder_PrevState
+	:public ProofBuilder
+{
+	Merkle::Hash m_hvHistory;
+	StateExtra::Full m_StateExtra;
+
+	ProofBuilder_PrevState(NodeProcessor& p, Merkle::Proof& proof, const NodeDB::StateID& sid)
+		:ProofBuilder(p, proof)
+	{
+		if (p.m_Cursor.m_Full.m_Height == sid.m_Height)
+		{
+			m_hvHistory = p.m_Cursor.m_History;
+			Cast::Down<StateExtra::Comms>(m_StateExtra) = Cast::Down<StateExtra::Comms>(p.m_Cursor.m_StateExtra);
+		}
+		else
+		{
+			uint64_t nCount = sid.m_Height - Rules::HeightGenesis;
+			TemporarySwap<uint64_t> ts(nCount, p.m_Mmr.m_States.m_Count);
+			p.m_Mmr.m_States.get_Hash(m_hvHistory);
+
+			p.m_DB.get_StateExtra(sid.m_Row, &m_StateExtra, sizeof(m_StateExtra));
+		}
+	}
+
+	virtual bool get_History(Merkle::Hash& hv) override
+	{
+		hv = m_hvHistory;
+		return true;
+	}
+
+	virtual bool get_CSA(Merkle::Hash& hv) override
+	{
+		hv = m_StateExtra.m_hvCSA;
+		return true;
+	}
+};
+
 Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
 {
-	Height h = m_DB.FindKernel(idKrn);
-	if (h < Rules::HeightGenesis)
-		return h;
+	NodeDB::StateID sid;
+	sid.m_Height = m_DB.FindKernel(idKrn);
+	if (sid.m_Height < Rules::HeightGenesis)
+		return sid.m_Height;
 
-	uint64_t rowid = FindActiveAtStrict(h);
+	sid.m_Row = FindActiveAtStrict(sid.m_Height);
 	TxVectors::Eternal txve;
-	ReadKrns(rowid, txve);
+	ReadKrns(sid.m_Row, txve);
 
 	Merkle::FixedMmr mmr;
 	mmr.Resize(txve.m_vKernels.size());
@@ -2170,29 +2208,14 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	mmr.get_Proof(proof, iTrg);
 
-	if (h >= Rules::get().pForks[3].m_Height)
+	if (sid.m_Height >= Rules::get().pForks[3].m_Height)
 	{
 		struct MyProofBuilder
-			:public ProofBuilder
+			:public ProofBuilder_PrevState
 		{
-			using ProofBuilder::ProofBuilder;
-
-			Merkle::Hash m_hvHistory;
-			StateExtra::Full m_StateExtra;
+			using ProofBuilder_PrevState::ProofBuilder_PrevState;
 
 			virtual bool get_Kernels(Merkle::Hash&) override { return false; }
-
-			virtual bool get_History(Merkle::Hash& hv) override
-			{
-				hv = m_hvHistory;
-				return true;
-			}
-
-			virtual bool get_CSA(Merkle::Hash& hv) override
-			{
-				hv = m_StateExtra.m_hvCSA;
-				return true;
-			}
 
 			virtual bool get_Logs(Merkle::Hash& hv) override
 			{
@@ -2201,26 +2224,11 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 			}
 		};
 
-		MyProofBuilder pb(*this, proof);
-
-		if (m_Cursor.m_Full.m_Height == h)
-		{
-			pb.m_hvHistory = m_Cursor.m_History;
-			Cast::Down<StateExtra::Comms>(pb.m_StateExtra) = Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra);
-		}
-		else
-		{
-			uint64_t nCount = h - Rules::HeightGenesis;
-			TemporarySwap<uint64_t> ts(nCount, m_Mmr.m_States.m_Count);
-			m_Mmr.m_States.get_Hash(pb.m_hvHistory);
-
-			m_DB.get_StateExtra(rowid, &pb.m_StateExtra, sizeof(pb.m_StateExtra));
-		}
-
+		MyProofBuilder pb(*this, proof, sid);
 		pb.GenerateProof();
 	}
 
-	return h;
+	return sid.m_Height;
 }
 
 struct NodeProcessor::BlockInterpretCtx
