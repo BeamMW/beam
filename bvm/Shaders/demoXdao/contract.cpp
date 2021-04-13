@@ -4,23 +4,33 @@
 
 export void Ctor(const void*)
 {
-    DemoXdao::State s;
+    if (Env::get_CallDepth() > 1)
+    {
+        DemoXdao::State s;
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=DemoX Coin;SN=DemoX;UN=DEMOX;NTHUN=DGROTH";
-    s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
-    Env::Halt_if(!s.m_Aid);
+        static const char szMeta[] = "STD:SCH_VER=1;N=DemoX Coin;SN=DemoX;UN=DEMOX;NTHUN=DGROTH";
+        s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
+        Env::Halt_if(!s.m_Aid);
 
-    Env::Halt_if(!Env::AssetEmit(s.m_Aid, s.s_TotalEmission, 1));
+        Env::Halt_if(!Env::AssetEmit(s.m_Aid, s.s_TotalEmission, 1));
 
-    Env::SaveVar_T((uint8_t) 0, s);
+        Env::SaveVar_T((uint8_t) 0, s);
+    }
 }
 
 export void Dtor(void*)
 {
 }
 
-export void Method_2(const DemoXdao::LockAndGet& r)
+export void Method_2(void*)
 {
+    // called on upgrade
+}
+
+export void Method_3(const DemoXdao::LockAndGet& r)
+{
+    Env::Halt_if(r.m_Amount < r.s_MinLockAmount);
+
     DemoXdao::State s;
     Env::LoadVar_T((uint8_t) 0, s);
 

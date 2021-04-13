@@ -846,27 +846,25 @@ namespace beam::wallet
 
     void WalletApi::onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data)
     {
-        LOG_DEBUG() << "InvokeContract(id = " << id << ")";
+        LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        _requestHandler.requestHeader(data.blockHeight, id);
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
+
+        request->m_Msg.m_Height = data.blockHeight;
+        request->_id = id;
+
+        getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
     }
 
-    WalletApi::RequestHandler::RequestHandler(WalletApi& parent)
-        : _parent(parent)
-    {
-    }
-
-    void WalletApi::RequestHandler::OnComplete(proto::FlyClient::Request& request)
+    void WalletApi::OnComplete(proto::FlyClient::Request& request)
     {
         RequestHeaderMsg& headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
 
-        _requestList.erase(RequestHeaderList::s_iterator_to(headerRequest));
         headerRequest.m_pTrg = nullptr;
-        headerRequest.Release();
 
         if (headerRequest.m_vStates.size() != 1)
         {
-            _parent.sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
+            sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
             return;
         }
 
@@ -898,19 +896,6 @@ namespace beam::wallet
         response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
         response.rulesHash = rulesHash;
 
-        _parent.doResponse(headerRequest._id, response);
-    }
-
-    void WalletApi::RequestHandler::requestHeader(Height blockHeight, const JsonRpcId& id)
-    {
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
-
-        request->m_Msg.m_Height = blockHeight;
-        request->_id = id;
-        request->AddRef();
-
-        _requestList.push_back(*request);
-
-        _parent.getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
+        doResponse(headerRequest._id, response);
     }
 }
