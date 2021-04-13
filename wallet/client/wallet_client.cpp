@@ -209,6 +209,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddress, addr, std::move(callback));
     }
 
+    void getAddressByToken(const std::string& token, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getAddressByToken, token, std::move(callback));
+    }
+
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
     {
         call_async(&IWalletModelAsync::saveVouchers, v, walletID);
@@ -1306,6 +1311,21 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION();
         }
+    }
+
+    void WalletClient::getAddressByToken(const std::string& token, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
+    {
+        auto addr = m_walletDB->getAddressByToken(token);
+
+        size_t vouchersCount = 0;
+        if (addr && addr->m_walletID != Zero)
+        {
+            vouchersCount = m_walletDB->getVoucherCount(addr->m_walletID);
+        }
+
+        postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() {
+            cb(addr, vouchersCount);
+        });
     }
 
     void WalletClient::getAddress(const WalletID& wid, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
