@@ -15,6 +15,12 @@ target_link_libraries(explorer node http wallet_client)
 
 add_executable(${TARGET_NAME} explorer_node.cpp)
 target_link_libraries(${TARGET_NAME} explorer Boost::boost cli)
+if(LINUX)
+    target_link_libraries(${TARGET_NAME}
+        PRIVATE 
+            -static-libstdc++ 
+            -static-libgcc)
+endif()
 
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
