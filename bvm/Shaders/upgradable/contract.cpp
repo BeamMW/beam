@@ -35,6 +35,8 @@ void InvokeNext(uint32_t iMethod, void* pArg)
 
         ResetNext(s);
         Env::SaveVar_T(key, s);
+
+        Env::CallFar(s.m_Cid, Upgradable::ScheduleUpgrade::s_iMethod, nullptr, 0, 1);
     }
 
     Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);

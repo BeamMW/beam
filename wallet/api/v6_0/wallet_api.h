@@ -23,8 +23,10 @@ namespace beam::wallet
 {
     class WalletApi
         : public ApiBase
+        , private proto::FlyClient::Request::IHandler
     {
     public:
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         WalletApi(IWalletApiHandler& handler,
                   ACL acl,
                   std::string appid,
@@ -134,6 +136,8 @@ namespace beam::wallet
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
         Amount getBeamFeeParam(const json& params, const std::string& name) const;
 
+        virtual void OnComplete(proto::FlyClient::Request&) override;
+
     protected:
         // Do not access these directly, use getters
         IWalletDB::Ptr       _wdb;
@@ -145,32 +149,12 @@ namespace beam::wallet
 
         JsonRpcId _ccallId;
 
-        struct RequestHeaderMsg
-            :public proto::FlyClient::RequestEnumHdrs
-            , public boost::intrusive::list_base_hook<>
+        struct RequestHeaderMsg : public proto::FlyClient::RequestEnumHdrs
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             virtual ~RequestHeaderMsg() {}
 
             JsonRpcId _id;
         };
-
-        typedef boost::intrusive::list<RequestHeaderMsg> RequestHeaderList;
-
-        class RequestHandler : public proto::FlyClient::Request::IHandler
-        {
-        public:
-
-            RequestHandler(WalletApi& parent);
-            virtual void OnComplete(proto::FlyClient::Request&) override;
-
-            void requestHeader(Height blockHeight, const JsonRpcId& id);
-
-        private:
-            WalletApi& _parent;
-            RequestHeaderList _requestList;
-        };
-
-        RequestHandler _requestHandler;
     };
 }
