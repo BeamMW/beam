@@ -20,6 +20,7 @@
 
 namespace beam::wallet
 {
+    IWalletDB::Ptr createWalletDB(const std::string& path, bool generateSeed);
     ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2, 1, 9 });
 
     void InitNodeToTest(Node& node

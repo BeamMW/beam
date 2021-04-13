@@ -214,6 +214,9 @@ struct Node
 
 	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
 
+        // for step-by-step tests
+	void GenerateFakeBlocks(uint32_t n);
+
 private:
 
 	struct Processor
@@ -667,6 +670,7 @@ private:
 	{
 		std::vector<PerThread> m_vThreads;
 		io::AsyncEvent::Ptr m_pEvtMined;
+		uint32_t m_FakeBlocksToGenerate = 0;
 
 		void RunMinerThread(const io::Reactor::Ptr&, const Rules&);
 
@@ -682,7 +686,7 @@ private:
 			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
-		bool IsEnabled() { return m_External.m_pSolver || !m_vThreads.empty(); }
+		bool IsEnabled() const;
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 

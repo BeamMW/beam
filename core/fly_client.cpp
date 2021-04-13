@@ -121,7 +121,8 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
-	msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    m_This.OnLoginSetup(msg);
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)

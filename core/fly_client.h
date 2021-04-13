@@ -271,6 +271,7 @@ namespace proto {
 			// more events
 			virtual void OnNodeConnected(bool) {}
 			virtual void OnConnectionFailed(const NodeConnection::DisconnectReason&) {}
+			virtual void OnLoginSetup(Login& msg) {}
 		};
 	};
 
