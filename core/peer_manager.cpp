@@ -265,7 +265,7 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 	if (addr == pi.m_Addr.m_Value)
 		return;
 
-	LOG_INFO() << pi << " Address changed to " << addr;
+	LOG_VERBOSE() << pi << " Address changed to " << addr;
 
 	RemoveAddr(pi);
 

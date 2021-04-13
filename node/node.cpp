@@ -76,7 +76,7 @@ void Node::UpdateSyncStatus()
 		{
 			m_PostStartSynced = true;
 
-			LOG_INFO() << "Tx replication is ON";
+			LOG_VERBOSE() << "Tx replication is ON";
 
 			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 			{
@@ -888,7 +888,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
-    LOG_INFO() << "+Peer " << addr;
+    LOG_VERBOSE() << "+Peer " << addr;
 
     return pPeer;
 }
@@ -1201,7 +1201,7 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 
 void Node::Peer::OnConnectedSecure()
 {
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
 
     m_Flags |= Flags::Connected;
 
@@ -1247,7 +1247,7 @@ Height Node::Peer::get_MinPeerFork()
 void Node::Peer::OnMsg(proto::Authentication&& msg)
 {
     proto::NodeConnection::OnMsg(std::move(msg));
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
 
     if (proto::IDType::Owner == msg.m_IDType)
     {
@@ -1283,7 +1283,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         ThrowUnexpected();
 
     m_Flags |= Flags::PiRcvd;
-    LOG_INFO() << m_RemoteAddr << " received PI";
+    LOG_VERBOSE() << m_RemoteAddr << " received PI";
 
     PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
@@ -1382,7 +1382,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
 
-    LOG_INFO() << *m_pInfo << " connected, info updated";
+    LOG_VERBOSE() << *m_pInfo << " connected, info updated";
 
     if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
     {
@@ -1392,7 +1392,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         {
             pPi->m_LastConnectAttempt = ts;
 
-            LOG_INFO() << *m_pInfo << " probing connection in opposite direction";
+            LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
 
 
             Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
@@ -1423,13 +1423,13 @@ bool Node::Peer::ShouldFinalizeMining()
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-    LOG_WARNING() << m_RemoteAddr << ": " << dr;
+    LOG_VERBOSE() << m_RemoteAddr << ": " << dr;
 
     bool bIsErr = true;
     uint8_t nByeReason = 0;
@@ -1491,7 +1491,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
-    LOG_INFO() << "-Peer " << m_RemoteAddr;
+    LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
 
     if (nByeReason && (Flags::Connected & m_Flags))
     {
@@ -1551,7 +1551,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 			if (bDelete)
 			{
-				LOG_INFO() << pip << " Deleted";
+				LOG_VERBOSE() << pip << " Deleted";
 				pm.Delete(pip);
 			}
 		}
@@ -1612,7 +1612,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
     Block::SystemState::ID id;
     m_Tip.get_ID(id);
 
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Tip: " << id;
 
     if (!m_pInfo)
         return;
