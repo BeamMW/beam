@@ -356,7 +356,7 @@ namespace beam::wallet
             message.isPushTransaction = *isPush;
         }
 
-        return std::make_pair(message, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(message, MethodInfo());
     }
 
     std::pair<ChangePassword, IWalletApi::MethodInfo> WalletApi::onParseChangePassword(const JsonRpcId& id, const nlohmann::json& params)
@@ -369,13 +369,16 @@ namespace beam::wallet
         ChangePassword message;
         message.newPassword = params["new_pass"].get<std::string>();
 
-        return std::make_pair(message, MethodInfo(MethodInfo::AppsBlocked));
+        return std::make_pair(message, MethodInfo());
     }
 
     std::pair<CreateAddress, IWalletApi::MethodInfo> WalletApi::onParseCreateAddress(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
+        MethodInfo info;
+
         beam::wallet::FillAddressData(id, params, createAddress);
+        info.comment = createAddress.comment ? *createAddress.comment : std::string();
 
         auto it = params.find("type");
         if (it != params.end())
@@ -415,7 +418,7 @@ namespace beam::wallet
             createAddress.offlinePayments = it->get<uint32_t>();
         }
 
-        return std::make_pair(createAddress, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(createAddress, info);
     }
 
     std::pair<DeleteAddress, IWalletApi::MethodInfo> WalletApi::onParseDeleteAddress(const JsonRpcId& id, const json& params)
@@ -425,7 +428,10 @@ namespace beam::wallet
         DeleteAddress deleteAddress;
         deleteAddress.address.FromHex(address);
 
-        return std::make_pair(deleteAddress, MethodInfo(MethodInfo::AppsAllowed));
+        MethodInfo info;
+        info.token = address;
+
+        return std::make_pair(deleteAddress, info);
     }
 
     std::pair<EditAddress, IWalletApi::MethodInfo> WalletApi::onParseEditAddress(const JsonRpcId& id, const json& params)
@@ -440,8 +446,11 @@ namespace beam::wallet
         EditAddress editAddress;
         editAddress.address.FromHex(address);
 
+        MethodInfo info;
+        info.token = address;
+
         beam::wallet::FillAddressData(id, params, editAddress);
-        return std::make_pair(editAddress, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(editAddress, info);
     }
 
     std::pair<AddrList, IWalletApi::MethodInfo> WalletApi::onParseAddrList(const JsonRpcId& id, const json& params)
@@ -451,7 +460,7 @@ namespace beam::wallet
         AddrList addrList = {};
         addrList.own = own && *own;
 
-        return std::pair(addrList, MethodInfo(MethodInfo::AppsAllowed));
+        return std::pair(addrList, MethodInfo());
     }
 
     std::pair<ValidateAddress, IWalletApi::MethodInfo> WalletApi::onParseValidateAddress(const JsonRpcId& id, const json& params)
@@ -461,18 +470,19 @@ namespace beam::wallet
         ValidateAddress validateAddress;
         validateAddress.address = address;
 
-        return std::make_pair(validateAddress, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(validateAddress, MethodInfo());
     }
 
     std::pair<Send, IWalletApi::MethodInfo> WalletApi::onParseSend(const JsonRpcId& id, const json& params)
     {
-        MethodInfo info(MethodInfo::AppsAllowed);
+        MethodInfo info;
         Send send;
 
         const std::string addressOrToken = getMandatoryParam<NonEmptyString>(params, "address");
         if(auto txParams = ParseParameters(addressOrToken))
         {
             send.txParameters = std::move(*txParams);
+            info.token = addressOrToken;
         }
         else
         {
@@ -486,8 +496,17 @@ namespace beam::wallet
             // To trigger an offline tx flag should be provided
             if (auto offline = getOptionalParam<bool>(params, "offline"); !offline || !(*offline))
             {
-                send.addressType = TxAddressType::Regular;
+                send.addressType  = TxAddressType::Regular;
+                info.spendOffline = true;
             }
+        }
+        else if (send.addressType == TxAddressType::PublicOffline)
+        {
+            info.spendOffline = true;
+        }
+        else if (send.addressType == TxAddressType::MaxPrivacy)
+        {
+            info.spendOffline = true;
         }
 
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
@@ -529,6 +548,7 @@ namespace beam::wallet
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
         {
             send.comment = *comment;
+            info.comment = *comment;
         }
 
         send.txId = getOptionalParam<ValidTxID>(params, "txId");
@@ -539,12 +559,12 @@ namespace beam::wallet
     {
         Status status = {};
         status.txId = getMandatoryParam<ValidTxID>(params, "txId");
-        return std::make_pair(status, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(status, MethodInfo());
     }
 
     std::pair<Split, IWalletApi::MethodInfo> WalletApi::onParseSplit(const JsonRpcId& id, const json& params)
     {
-        MethodInfo info(MethodInfo::AppsBlocked);
+        MethodInfo info;
 
         Split split;
         split.assetId = readOptionalAssetID(params);
@@ -587,14 +607,14 @@ namespace beam::wallet
     {
         TxCancel txCancel = {};
         txCancel.txId = getMandatoryParam<ValidTxID>(params, "txId");
-        return std::make_pair(txCancel, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(txCancel, MethodInfo());
     }
 
     std::pair<TxDelete, IWalletApi::MethodInfo> WalletApi::onParseTxDelete(const JsonRpcId& id, const json& params)
     {
         TxDelete txDelete = {};
         txDelete.txId = getMandatoryParam<ValidTxID>(params, "txId");
-        return std::make_pair(txDelete, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(txDelete, MethodInfo());
     }
 
     std::pair<Issue, IWalletApi::MethodInfo> WalletApi::onParseIssue(const JsonRpcId& id, const json& params)
@@ -622,7 +642,7 @@ namespace beam::wallet
         data.fee = getBeamFeeParam(params, "fee");
         data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
-        MethodInfo info(MethodInfo::AppsBlocked);
+        MethodInfo info;
         info.fee = data.fee;
 
         if (issue)
@@ -634,7 +654,7 @@ namespace beam::wallet
             info.spend[data.assetId] = data.value;
         }
 
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsBlocked));
+        return std::make_pair(data, info);
     }
 
     template std::pair<Issue, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume<Issue>(bool issue, const JsonRpcId& id, const json& params);
@@ -644,20 +664,20 @@ namespace beam::wallet
     {
         GetAssetInfo data = {0};
         data.assetId = readMandatoryNonBeamAssetID(params);
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<SetConfirmationsCount, IWalletApi::MethodInfo> WalletApi::onParseSetConfirmationsCount(const JsonRpcId& id, const json& params)
     {
         SetConfirmationsCount data;
         data.count = getMandatoryParam<uint32_t>(params, "count");
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsBlocked));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<GetConfirmationsCount, IWalletApi::MethodInfo> WalletApi::onParseGetConfirmationsCount(const JsonRpcId& id, const json& params)
     {
         GetConfirmationsCount data;
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<TxAssetInfo, IWalletApi::MethodInfo> WalletApi::onParseTxAssetInfo(const JsonRpcId& id, const json& params)
@@ -667,7 +687,7 @@ namespace beam::wallet
         data.assetId = readMandatoryNonBeamAssetID(params);
         data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<GetUtxo, IWalletApi::MethodInfo> WalletApi::onParseGetUtxo(const JsonRpcId& id, const json& params)
@@ -708,7 +728,7 @@ namespace beam::wallet
             }
         }
 
-        return std::make_pair(getUtxo, MethodInfo(MethodInfo::AppsBlocked));
+        return std::make_pair(getUtxo, MethodInfo());
     }
 
     std::pair<TxList, IWalletApi::MethodInfo> WalletApi::onParseTxList(const JsonRpcId& id, const json& params)
@@ -741,27 +761,27 @@ namespace beam::wallet
             txList.skip = *skip;
         }
 
-        return std::make_pair(txList, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(txList, MethodInfo());
     }
 
     std::pair<WalletStatusApi, IWalletApi::MethodInfo> WalletApi::onParseWalletStatusApi(const JsonRpcId& id, const json& params)
     {
         WalletStatusApi walletStatus;
         walletStatus.withAssets = readAssetsParameter(params);
-        return std::make_pair(walletStatus, MethodInfo(MethodInfo::AppsBlocked));
+        return std::make_pair(walletStatus, MethodInfo());
     }
 
     std::pair<GenerateTxId, IWalletApi::MethodInfo> WalletApi::onParseGenerateTxId(const JsonRpcId& id, const json& params)
     {
         GenerateTxId generateTxId;
-        return std::make_pair(generateTxId, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(generateTxId, MethodInfo());
     }
 
     std::pair<ExportPaymentProof, IWalletApi::MethodInfo> WalletApi::onParseExportPaymentProof(const JsonRpcId& id, const json& params)
     {
         ExportPaymentProof data = {};
         data.txId = getMandatoryParam<ValidTxID>(params, "txId");
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<VerifyPaymentProof, IWalletApi::MethodInfo> WalletApi::onParseVerifyPaymentProof(const JsonRpcId& id, const json& params)
@@ -771,7 +791,7 @@ namespace beam::wallet
         const auto proof = getMandatoryParam<NonEmptyString>(params, "payment_proof");
         data.paymentProof = from_hex(proof);
 
-        return std::make_pair(data, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<InvokeContract, IWalletApi::MethodInfo> WalletApi::onParseInvokeContract(const JsonRpcId &id, const json &params)
@@ -793,18 +813,17 @@ namespace beam::wallet
             message.args = *args;
         }
 
-        return std::make_pair(message, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(message, MethodInfo());
     }
 
     std::pair<BlockDetails, IWalletApi::MethodInfo> WalletApi::onParseBlockDetails(const JsonRpcId& id, const json& params)
     {
-        BlockDetails message;
+        BlockDetails message = {0};
 
         const auto height = getMandatoryParam<Height>(params, "height");
-
         message.blockHeight = height;
 
-        return std::make_pair(message, MethodInfo(MethodInfo::AppsAllowed));
+        return std::make_pair(message, MethodInfo());
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const CalcChange::Response& res, json& msg)

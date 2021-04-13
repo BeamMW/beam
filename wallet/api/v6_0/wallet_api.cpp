@@ -32,7 +32,7 @@ namespace beam::wallet
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         // Don't do anything with walletdb, providers &c.
-        #define REG_FUNC(api, name, writeAccess, isAsync)                 \
+        #define REG_FUNC(api, name, writeAccess, isAsync, appsAllowed)    \
         _methods[name] = {                                                \
             [this] (const JsonRpcId &id, const json &msg) {               \
                 auto parseRes = onParse##api(id, msg);                    \
@@ -42,7 +42,7 @@ namespace beam::wallet
                 auto parseRes = onParse##api(id, msg);                    \
                 return parseRes.second;                                   \
             },                                                            \
-            writeAccess, isAsync                                          \
+            writeAccess, isAsync, appsAllowed                             \
         };
         WALLET_API_METHODS(REG_FUNC)
         #undef REG_FUNC
