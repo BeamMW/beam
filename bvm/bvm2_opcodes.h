@@ -271,6 +271,10 @@
 	macro(uint32_t*, pnVal) sep \
 	macro(const Merkle::Node**, ppProof)
 
+#define BVMOp_LogGetProof(macro, sep) \
+	macro(const HeightPos&, pos) sep \
+	macro(const Merkle::Node**, ppProof)
+
 #define BVMOp_DerivePk(macro, sep) \
 	macro(PubKey&, pubKey) sep \
 	macro(const void*, pID) sep \
@@ -399,6 +403,7 @@
 	macro(0x53, uint32_t , VarGetProof) \
 	macro(0x54, void     , LogsEnum) \
 	macro(0x55, uint8_t  , LogsMoveNext) \
+	macro(0x56, uint32_t , LogGetProof) \
 	macro(0x58, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \

@@ -453,6 +453,7 @@ namespace bvm2 {
 		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
+		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual uint32_t get_HeapLimit() override;
@@ -462,6 +463,7 @@ namespace bvm2 {
 		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) {}
 		virtual bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) { return false; }
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
+		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
 

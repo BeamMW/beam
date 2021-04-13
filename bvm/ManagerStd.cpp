@@ -301,6 +301,22 @@ namespace bvm2 {
 		return true;
 	}
 
+	bool ManagerStd::LogGetProof(const HeightPos& hp, beam::Merkle::Proof& proof)
+	{
+		proto::FlyClient::RequestContractLogProof::Ptr pReq(new proto::FlyClient::RequestContractLogProof);
+		auto& r = *pReq;
+		r.m_Msg.m_Pos = hp;
+
+		if (!PerformRequestSync(r))
+			return false;
+
+		if (r.m_Res.m_Proof.empty())
+			return false;
+
+		r.m_Res.m_Proof.swap(proof);
+		return true;
+	}
+
 	void ManagerStd::StartRun(uint32_t iMethod)
 	{
 		InitMem();

@@ -953,6 +953,16 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
         ThrowUnexpected();
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogProof& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogProof& req)
+{
+    // can't validate the proof in-place, the appropriate header is not part of the reply
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
 {
     return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);

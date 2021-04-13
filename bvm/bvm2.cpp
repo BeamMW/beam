@@ -2155,6 +2155,61 @@ namespace bvm2 {
 		return nRet;
 	}
 
+	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
+	{
+		ByteBuffer val;
+		beam::Merkle::Proof proof;
+
+		if (!LogGetProof(hp, proof))
+		{
+			FreeAuxAllocGuarded();
+			return 0;
+		}
+
+		uint32_t nProof = static_cast<uint32_t>(proof.size());
+		uint32_t nSizeProof = nProof * static_cast<uint32_t>(sizeof(proof[0]));
+
+		uint8_t* pDst = ResizeAux(nSizeProof);
+
+		auto* pProofDst = reinterpret_cast<Merkle::Node*>(pDst);
+		pProof = m_AuxAlloc.m_pPtr;
+		if (nProof)
+			memcpy((void*) pProofDst, &proof.front(), nSizeProof);
+
+		return nProof;
+	}
+
+	BVM_METHOD(LogGetProof)
+	{
+		const auto& pos_ = get_AddrAsR<HeightPos>(pos);
+
+		HeightPos hp;
+		hp.m_Height = Wasm::from_wasm(pos_.m_Height);
+		hp.m_Pos = Wasm::from_wasm(pos_.m_Pos);
+
+		Wasm::Word pProof;
+		uint32_t nRet = LogGetProofInternal(hp, pProof);
+
+		if (nRet)
+			Wasm::to_wasm(get_AddrW(ppProof, sizeof(Wasm::Word)), pProof);
+
+		return nRet;
+	}
+
+	BVM_METHOD_HOST(LogGetProof)
+	{
+		Wasm::Word pProof;
+		uint32_t nRet = LogGetProofInternal(pos, pProof);
+
+		if (nRet)
+		{
+			const uint8_t* p = get_AddrR(m_AuxAlloc.m_pPtr, 1);
+			*ppProof = reinterpret_cast<const Merkle::Node*>(p + pProof);
+		}
+
+		return nRet;
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
