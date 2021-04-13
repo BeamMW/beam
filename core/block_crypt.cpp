@@ -2437,10 +2437,11 @@ namespace beam
 			>> hv;
 	}
 
-	void Block::get_HashContractLog(Merkle::Hash& hv, const Blob& key, const Blob& val)
+	void Block::get_HashContractLog(Merkle::Hash& hv, const Blob& key, const Blob& val, uint32_t nPos)
 	{
 		ECC::Hash::Processor()
 			<< "beam.contract.log"
+			<< nPos
 			<< key.n
 			<< key
 			<< val.n

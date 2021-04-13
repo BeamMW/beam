@@ -2240,7 +2240,7 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 		for (m_DB.ContractLogEnum(wlk, HeightPos(pos.m_Height), HeightPos(pos.m_Height, static_cast<uint32_t>(-1))); wlk.MoveNext(); )
 		{
 			Merkle::Hash hv;
-			Block::get_HashContractLog(hv, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val);
+			Block::get_HashContractLog(hv, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
 
 			lmmr.Resize(lmmr.m_Count + 1);
 			lmmr.Append(hv);
@@ -4576,7 +4576,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 	}
 
 	if (!m_Bic.m_SkipDefinition)
-		Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val);
+		Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val, m_Bic.m_ContractLogs);
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::Log;

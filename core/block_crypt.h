@@ -1273,7 +1273,7 @@ namespace beam
 		};
 
 		static void get_HashContractVar(Merkle::Hash&, const Blob& key, const Blob& val);
-		static void get_HashContractLog(Merkle::Hash&, const Blob& key, const Blob& val);
+		static void get_HashContractLog(Merkle::Hash&, const Blob& key, const Blob& val, uint32_t nPos);
 
 		struct SystemState
 		{

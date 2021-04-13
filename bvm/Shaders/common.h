@@ -549,7 +549,7 @@ namespace Merkle
         hp >> hv;
     }
 
-    inline void get_ContractLogHash(HashValue& hv, const ContractID& cid, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal)
+    inline void get_ContractLogHash(HashValue& hv, const ContractID& cid, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal, uint32_t nPos)
     {
         HashProcessor::Sha256 hp;
 
@@ -557,6 +557,7 @@ namespace Merkle
 
         hp
             << "beam.contract.log"
+            << nPos
             << nSizeKey;
 
         hp.Write(cid);

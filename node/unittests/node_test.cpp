@@ -2588,7 +2588,7 @@ namespace beam
 
 							auto& x = m_queProofLogsExpected.emplace_back();
 							x.first = wlk.m_Entry.m_Pos.m_Height;
-							Block::get_HashContractLog(x.second, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val);
+							Block::get_HashContractLog(x.second, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
 						}
 					}
 
