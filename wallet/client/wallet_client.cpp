@@ -158,14 +158,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getCoinsByTx, id);
     }
 
-    void saveAddress(const wallet::WalletAddress& address, bool bOwn) override
+    void saveAddress(const wallet::WalletAddress& address) override
     {
-        call_async(&IWalletModelAsync::saveAddress, address, bOwn);
-    }
-
-    void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) override
-    {
-        call_async(&IWalletModelAsync::getAppAddress, appid, callback);
+        call_async(&IWalletModelAsync::saveAddress, address);
     }
 
     void generateNewAddress() override
@@ -180,38 +175,37 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
     }
 
-    void deleteAddress(const std::string& addr) override
+    void deleteAddress(const WalletID& addr) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&);
-        call_async((MethodType)&IWalletModelAsync::deleteAddress, addr);
+        call_async(&IWalletModelAsync::deleteAddress, addr);
     }
 
-    void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime) override
+    void updateAddress(const WalletID& address, const std::string& name, beam::Timestamp expirationTime) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, beam::Timestamp);
-        call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationTime);
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&, const std::string&, beam::Timestamp);
+        call_async((MethodType)&IWalletModelAsync::updateAddress, address, name, expirationTime);
     }
 
-     void updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override
+     void updateAddress(const WalletID& address, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override
      {
-        typedef void(IWalletModelAsync::* MethodType)(const string&, const std::string&, WalletAddress::ExpirationStatus);
-        call_async((MethodType)&IWalletModelAsync::updateAddress, token, name, expirationStatus);
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&, const std::string&, WalletAddress::ExpirationStatus);
+        call_async((MethodType)&IWalletModelAsync::updateAddress, address, name, expirationStatus);
      }
 
-    void activateAddress(const std::string& address) override
+    void activateAddress(const WalletID& address) override
     {
         call_async(&IWalletModelAsync::activateAddress, address);
     }
 
-    void getAddress(const std::string& id) override
+    void getAddress(const WalletID& id) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&);
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&);
         call_async((MethodType)&IWalletModelAsync::getAddress, id);
     }
 
-    void getAddress(const std::string& addr, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
+    void getAddress(const WalletID& addr, AsyncCallback <const boost::optional<WalletAddress>&, size_t>&& callback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
+        typedef void(IWalletModelAsync::* MethodType)(const WalletID&, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&&);
         call_async((MethodType)&IWalletModelAsync::getAddress, addr, std::move(callback));
     }
 
@@ -248,9 +242,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::exportPaymentProof, id);
     }
 
-    void checkAddress(const std::string& addr) override
+    void checkNetworkAddress(const std::string& addr) override
     {
-        call_async(&IWalletModelAsync::checkAddress, addr);
+        call_async(&IWalletModelAsync::checkNetworkAddress, addr);
     }
 
     void importRecovery(const std::string& path) override
@@ -844,7 +838,7 @@ namespace beam::wallet
             {
                 WalletAddress senderAddress;
                 m_walletDB->createAddress(senderAddress);
-                saveAddress(senderAddress, true); // should update the wallet_network
+                saveAddress(senderAddress); // should update the wallet_network
                 ByteBuffer message(comment.begin(), comment.end());
 
                 TxParameters txParameters = CreateSimpleTransactionParameters()
@@ -931,8 +925,7 @@ namespace beam::wallet
                 {
                     WalletAddress senderAddress;
                     m_walletDB->createAddress(senderAddress);
-                    saveAddress(senderAddress, true); // should update the wallet_network
-                
+                    saveAddress(senderAddress); // should update the wallet_network
                     parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
                 }
 
@@ -1013,12 +1006,12 @@ namespace beam::wallet
         onShieldedCoinsChanged(ChangeAction::Reset, m_walletDB->getAllShieldedCoins());
     }
 
-    void WalletClient::getAddress(const std::string& token)
+    void WalletClient::getAddress(const WalletID& addr)
     {
         try
         {
-            const auto address = m_walletDB->getAddress(token);
-            onGetAddress(token, address, m_walletDB->getVoucherCount(address->m_walletID));
+            const auto address = m_walletDB->getAddress(addr);
+            onGetAddress(addr, address, m_walletDB->getVoucherCount(address->m_walletID));
         }
         catch (const std::exception& e)
         {
@@ -1145,45 +1138,10 @@ namespace beam::wallet
         onCoinsByTx(m_walletDB->getCoinsByTx(id));
     }
 
-    void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
+    void WalletClient::saveAddress(const WalletAddress& address)
     {
         m_walletDB->saveAddress(address);
     }
-
-     void WalletClient::getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback)
-     {
-        const auto appaddrId = std::string("app:") + appid;
-
-        auto addrs = m_walletDB->getAddresses(true);
-        for (const auto& addr: addrs)
-        {
-            if (addr.m_label == appaddrId)
-            {
-                return postFunctionToClientContext([addr, cb = std::move(callback)]()
-                {
-                    cb(addr);
-                });
-            }
-        }
-
-        try
-        {
-            const auto addr = WalletAddress::Generate(*m_walletDB, appaddrId, WalletAddress::ExpirationStatus::Never, true);
-            return postFunctionToClientContext([addr, cb = std::move(callback)]()
-                {
-                    cb(addr);
-                });
-        }
-        catch(const std::exception& e)
-        {
-            LOG_ERROR() << "getAppAddress err = " << e.what();
-        }
-
-        return postFunctionToClientContext([cb = std::move(callback)]()
-            {
-                cb(boost::none);
-            });
-     }
 
     void WalletClient::generateNewAddress()
     {
@@ -1231,7 +1189,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::deleteAddress(const std::string& addr)
+    void WalletClient::deleteAddress(const WalletID& addr)
     {
         try
         {
@@ -1246,24 +1204,24 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus)
+    void WalletClient::updateAddress(const WalletID& wid, const std::string& name, WalletAddress::ExpirationStatus expirationStatus)
     {
         try
         {
-            auto addr = m_walletDB->getAddress(token);
+            auto addr = m_walletDB->getAddress(wid);
 
             if (addr)
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(expirationStatus);
+                    addr->setExpirationStatus(expirationStatus);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);
             }
             else
             {
-                LOG_ERROR() << "Address " << token << " is absent.";
+                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
@@ -1272,24 +1230,24 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::updateAddress(const std::string& token, const std::string& name, beam::Timestamp expirationTime)
+    void WalletClient::updateAddress(const WalletID& wid, const std::string& name, beam::Timestamp expirationTime)
     {
         try
         {
-            auto addr = m_walletDB->getAddress(token);
+            auto addr = m_walletDB->getAddress(wid);
 
             if (addr)
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(expirationTime);
+                    addr->setExpirationTime(expirationTime);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);
             }
             else
             {
-                LOG_ERROR() << "Address " << token << " is absent.";
+                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
@@ -1298,22 +1256,22 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::activateAddress(const std::string& address)
+    void WalletClient::activateAddress(const WalletID& wid)
     {
         try
         {
-            auto addr = m_walletDB->getAddress(address);
+            auto addr = m_walletDB->getAddress(wid);
             if (addr)
             {
                 if (addr->isOwn())
                 {
-                    addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
+                    addr->setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
                 }
                 m_walletDB->saveAddress(*addr);
             }
             else
             {
-                LOG_ERROR() << "Address " << address << " is absent.";
+                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
@@ -1326,11 +1284,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::getAddress(const std::string& addrStr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
+    void WalletClient::getAddress(const WalletID& wid, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
     {
         try
         {
-            auto addr = m_walletDB->getAddress(addrStr);
+            auto addr = m_walletDB->getAddress(wid);
             size_t vouchersCount = 0;
             if (addr && addr->m_walletID != Zero)
             {
@@ -1440,10 +1398,9 @@ namespace beam::wallet
         onPaymentProofExported(id, storage::ExportPaymentProof(*m_walletDB, id));
     }
 
-    void WalletClient::checkAddress(const std::string& addr)
+    void WalletClient::checkNetworkAddress(const std::string& addr)
     {
         io::Address nodeAddr;
-
         onAddressChecked(addr, nodeAddr.resolve(addr.c_str()));
     }
 

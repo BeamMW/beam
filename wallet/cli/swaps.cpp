@@ -955,10 +955,10 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     Height minHeight = walletDB->getCurrentHeight();
 
-    WalletAddress senderAddress = WalletAddress::Generate(*walletDB);
+    WalletAddress senderAddress;
+    walletDB->createAddress(senderAddress);
 
     // TODO:SWAP use async callbacks or IWalletObserver?
-
     auto swapTxParameters = CreateSwapTransactionParameters();
 
     FillSwapTxParams(&swapTxParameters,
@@ -1121,7 +1121,8 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     }
 
     // on accepting
-    WalletAddress senderAddress = WalletAddress::Generate(*walletDB);
+    WalletAddress senderAddress;
+    walletDB->createAddress(senderAddress);
 
     swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);

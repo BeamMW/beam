@@ -2000,7 +2000,7 @@ namespace beam::wallet
         {
             if (!addr->isPermanent())
             {
-                addr->setExpiration(WalletAddress::ExpirationStatus::Auto);
+                addr->setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
                 m_WalletDB->saveAddress(*addr);
             }
         }

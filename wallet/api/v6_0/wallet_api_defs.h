@@ -43,7 +43,7 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WEB_WALLET_API_METHODS(macro) \
-    macro(CalcMyChange,         "calc_change",              API_READ_ACCESS,  API_SYNC)   \
+    macro(CalcChange,           "calc_change",              API_READ_ACCESS,  API_SYNC)   \
     macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC)
 
 #define WALLET_API_METHODS(macro) \
@@ -61,8 +61,6 @@ namespace beam::wallet
     macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC)   \
     macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC)   \
     macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC)   \
-    macro(Lock,                  "lock",                    API_WRITE_ACCESS, API_SYNC)   \
-    macro(Unlock,                "unlock",                  API_WRITE_ACCESS, API_SYNC)   \
     macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC)   \
     macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC)   \
     macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC)   \
@@ -72,15 +70,17 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC)  \
+    macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC)  \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
 
-    struct CalcMyChange
+    struct CalcChange
     {
         Amount amount;
         Amount explicitFee = 0;
         boost::optional<Asset::ID> assetId;
         bool isPushTransaction = false;
+
         struct Response
         {
             Amount change;
@@ -100,9 +100,7 @@ namespace beam::wallet
     struct AddressData
     {
         boost::optional<std::string> comment;
-
-        enum Expiration { Expired, Never, OneDay, Auto };
-        boost::optional<Expiration> expiration;
+        boost::optional<beam::wallet::WalletAddress::ExpirationStatus> expiration;
     };
 
     struct CreateAddress : AddressData
@@ -157,7 +155,6 @@ namespace beam::wallet
         Amount fee = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
         boost::optional<Asset::ID> assetId;
         WalletID address;
@@ -175,10 +172,8 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
 
         struct Response
@@ -191,10 +186,8 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<CoinIDList> coins;
-        boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
 
         struct Response
@@ -205,8 +198,7 @@ namespace beam::wallet
 
     struct TxAssetInfo
     {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         boost::optional<TxID> txId;
 
         struct Response
@@ -286,27 +278,6 @@ namespace beam::wallet
         };
     };
 
-    struct Lock
-    {
-        CoinIDList coins;
-        uint64_t session = 0;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
-    struct Unlock
-    {
-        uint64_t session = 0;
-
-        struct Response
-        {
-            bool result;
-        };
-    };
-
     struct TxList
     {
         bool withAssets = false;
@@ -373,8 +344,7 @@ namespace beam::wallet
 
     struct GetAssetInfo
     {
-        boost::optional<std::string> assetMeta;
-        boost::optional<Asset::ID> assetId;
+        Asset::ID assetId;
         struct Response
         {
             Response() = default;
@@ -407,6 +377,26 @@ namespace beam::wallet
         {
             std::string output;
             TxID txid = TxID();
+        };
+    };
+
+    struct BlockDetails
+    {
+        Height blockHeight;
+
+        struct Response
+        {
+            Height height;
+            std::string blockHash;
+            std::string previousBlock;
+            std::string chainwork;
+            std::string kernels;
+            std::string definition;
+            Timestamp timestamp;
+            std::string pow;
+            double difficulty;
+            uint32_t packedDifficulty;
+            std::string rulesHash;
         };
     };
 

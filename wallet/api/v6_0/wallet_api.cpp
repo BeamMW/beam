@@ -30,6 +30,8 @@ namespace beam::wallet
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
+        // Don't do anything with walletdb, providers &c.
         #define REG_FUNC(api, name, writeAccess, isAsync)                 \
         _methods[name] = {                                                \
             [this] (const JsonRpcId &id, const json &msg) {               \

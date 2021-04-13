@@ -23,8 +23,10 @@ namespace beam::wallet
 {
     class WalletApi
         : public ApiBase
+        , private proto::FlyClient::Request::IHandler
     {
     public:
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         WalletApi(IWalletApiHandler& handler,
                   ACL acl,
                   std::string appid,
@@ -129,11 +131,12 @@ namespace beam::wallet
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
-        void checkCAEnabled(const JsonRpcId& id);
 
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
         Amount getBeamFeeParam(const json& params, const std::string& name) const;
+
+        virtual void OnComplete(proto::FlyClient::Request&) override;
 
     protected:
         // Do not access these directly, use getters
@@ -145,5 +148,13 @@ namespace beam::wallet
         IShadersManager::Ptr  _contracts;
 
         JsonRpcId _ccallId;
+
+        struct RequestHeaderMsg : public proto::FlyClient::RequestEnumHdrs
+        {
+            typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
+            virtual ~RequestHeaderMsg() {}
+
+            JsonRpcId _id;
+        };
     };
 }

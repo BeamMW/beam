@@ -65,10 +65,10 @@ namespace beam::wallet
 
         static bool ValidateAPIVersion(const std::string& version);
 
-        // returns nullptr if wrong API version requested
+        // returns nullptr if wrong API version requested, should be safe to call from any thread
         static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
 
-        // returns nullptr if wrong API version requested
+        // returns nullptr if wrong API version requested, should be safe to call from any thread
         static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
 
         struct MethodInfo

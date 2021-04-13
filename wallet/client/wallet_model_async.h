@@ -44,7 +44,7 @@ namespace beam::wallet
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;
-        virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
+        virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -60,17 +60,13 @@ namespace beam::wallet
         // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
         virtual void acceptDexOrder(const DexOrderID&) = 0;
 
-        //
-        // Address functions accepts only token (WalletAddres::m_Address)
-        //
-        virtual void deleteAddress(const std::string& addr) = 0;
-        virtual void updateAddress(const std::string& token, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
-        virtual void updateAddress(const std::string& token, const std::string& name, beam::Timestamp expiration) = 0;
-        virtual void activateAddress(const std::string& addr) = 0;
+        virtual void deleteAddress(const WalletID& addr) = 0;
+        virtual void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
+        virtual void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expiration) = 0;
+        virtual void activateAddress(const WalletID& addr) = 0;
         virtual void getAddresses(bool own) = 0;
-        virtual void getAppAddress(const std::string& appid, AsyncCallback<const boost::optional<WalletAddress>>&& callback) = 0;
-        virtual void getAddress(const std::string& addr) = 0;
-        virtual void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+        virtual void getAddress(const WalletID& addr) = 0;
+        virtual void getAddress(const WalletID& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
 
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
         virtual void setNodeAddress(const std::string& addr) = 0;
@@ -79,7 +75,7 @@ namespace beam::wallet
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;
-        virtual void checkAddress(const std::string& addr) = 0;
+        virtual void checkNetworkAddress(const std::string& addr) = 0;
 
         virtual void importRecovery(const std::string& path) = 0;
         virtual void importDataFromJson(const std::string& data) = 0;

@@ -30,6 +30,7 @@ namespace beam::wallet {
         , _appid(std::move(appid))
         , _handler(handler)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
     }
 
     json ApiBase::formError(const JsonRpcId& id, ApiError code, const std::string& data)
@@ -131,9 +132,11 @@ namespace beam::wallet {
             return boost::none;
         }
 
+        LOG_DEBUG() << "parseAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
+
         return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
-            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->message);
+            const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
 
             ParseResult result(*pinfo, finfo);
             return result;
@@ -366,5 +369,14 @@ namespace beam::wallet {
             return ValidTxID(result);
         }
         return boost::none;
+    }
+
+    void ApiBase::checkCAEnabled()
+    {
+        TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
+        if (TxFailureReason::Count != res)
+        {
+            throw jsonrpc_exception(ApiError::NotSupported, GetFailureMessage(res));
+        }
     }
 }

@@ -666,10 +666,13 @@ namespace
             std::cerr << boost::format(kErrorAddrExprTimeInvalid) % cli::EXPIRATION_TIME % expiration;
             return false;
         }
-        
-        const auto address = WalletAddress::Generate(*walletDB, comment, expirationStatus);
-        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
 
+        WalletAddress address(comment);
+        walletDB->createAddress(address);
+        address.setExpirationStatus(expirationStatus);
+        walletDB->saveAddress(address);
+
+        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
         return true;
     }
 
@@ -754,12 +757,14 @@ namespace
         auto walletDB = OpenDataBase(vm);
 
         auto type = TokenType::RegularNewStyle;
-        std::string receiver;
         uint32_t offlineCount = 10;
+
+        WalletAddress address;
+        walletDB->createAddress(address);
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TokenType::Offline;
+            type = TokenType::Public;
         }
         else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
@@ -774,14 +779,35 @@ namespace
         {
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
-                receiver = it->second.as<string>();
+                auto receiver = it->second.as<string>();
+
+                WalletID walletID;
+                if (!walletID.FromHex(receiver))
+                {
+                    throw std::runtime_error("Invalid existing address format");
+                }
+
+                auto existing = walletDB->getAddress(walletID);
+
+                if (!existing)
+                {
+                    throw std::runtime_error("Cannot find specified existing address.");
+                }
+
+                if (existing->isExpired())
+                {
+                    throw std::runtime_error("Specified exisitng address is already expired");
+                }
+
+                address = *existing;
             }
         }
 
         try 
         {
-            const auto token = GenerateToken(type, walletDB, std::string(), WalletAddress::ExpirationStatus::Auto, receiver, offlineCount);
-            std::cout << "New address: " << token;
+            const auto token = GenerateToken(type, address, walletDB, offlineCount);
+            walletDB->saveAddress(address);
+            std::cout << "New address: " << token << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -2222,7 +2248,8 @@ namespace
                     }
                 }
 
-                WalletAddress senderAddress = WalletAddress::Generate(*walletDB);
+                WalletAddress senderAddress;
+                walletDB->createAddress(senderAddress);
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
@@ -2599,6 +2626,88 @@ namespace
             });
     }
 
+    int ShowBlockDetails(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        auto wallet = std::make_shared<Wallet>(walletDB,
+            Wallet::TxCompletedAction(),
+            Wallet::UpdateCompletedAction());
+        auto nnet = CreateNetwork(*wallet, vm);
+        
+        if (!nnet)
+        {
+            return -1;
+        }
+
+        Height blockHeight = vm[cli::BLOCK_HEIGHT].as<Nonnegative<Height>>().value;
+
+        if (!blockHeight)
+        {
+            return -1;
+        }
+
+        proto::FlyClient::RequestEnumHdrs::Ptr pRequest(new proto::FlyClient::RequestEnumHdrs);
+        proto::FlyClient::RequestEnumHdrs& request = *pRequest;
+
+        request.m_Msg.m_Height = blockHeight;
+
+        struct MyHandler : public proto::FlyClient::Request::IHandler
+        {
+            proto::FlyClient::Request* m_Request = nullptr;
+
+            ~MyHandler() {
+                m_Request->m_pTrg = nullptr;
+            }
+
+            virtual void OnComplete(proto::FlyClient::Request&) override
+            {
+                m_Request->m_pTrg = nullptr;
+                io::Reactor::get_Current().stop();
+            }
+
+        } myHandler;
+
+        myHandler.m_Request = &request;
+        nnet->PostRequest(request, myHandler);
+
+        io::Reactor::get_Current().run();
+
+        if (request.m_pTrg || request.m_vStates.size() != 1)
+        {
+            return -1;
+        }
+
+        Block::SystemState::Full state = request.m_vStates.front();
+        Merkle::Hash blockHash;
+        state.get_Hash(blockHash);
+
+        std::string rulesHash = Rules::get().pForks[_countof(Rules::get().pForks) - 1].m_Hash.str();
+
+        for (size_t i = 1; i < _countof(Rules::get().pForks); i++)
+        {
+            if (state.m_Height < Rules::get().pForks[i].m_Height)
+            {
+                rulesHash = Rules::get().pForks[i - 1].m_Hash.str();
+                break;
+            }
+        }
+
+        std::cout << "Block Details:" << "\n"
+            << "Height: " << state.m_Height << "\n"
+            << "Hash: " << blockHash.str() << "\n"
+            << "Previous state hash: " << state.m_Prev.str() << "\n"
+            << "ChainWork: " << state.m_ChainWork.str() << "\n"
+            << "Kernels: " << state.m_Kernels.str() << "\n"
+            << "Definition: " << state.m_Definition.str() << "\n"
+            << "Timestamp: " << state.m_TimeStamp << "\n"
+            << "POW: " << beam::to_hex(&state.m_PoW, sizeof(state.m_PoW)) << "\n"
+            << "Difficulty: " << state.m_PoW.m_Difficulty.ToFloat() << "\n"
+            << "Packed difficulty: " << state.m_PoW.m_Difficulty.m_Packed << "\n"
+            << "Rules hash: " << rulesHash << "\n";
+
+        return 0;
+    }
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2631,6 +2740,7 @@ int main_impl(int argc, char* argv[])
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
+        {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},

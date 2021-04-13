@@ -49,24 +49,8 @@ namespace
         {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
     };
 
-    WalletAddress::ExpirationStatus MapExpirationStatus(AddressData::Expiration exp)
-    {
-        switch (exp)
-        {
-        case EditAddress::OneDay:
-            return WalletAddress::ExpirationStatus::OneDay;
-        case EditAddress::Auto:
-            return WalletAddress::ExpirationStatus::Auto;
-        case EditAddress::Expired:
-            return WalletAddress::ExpirationStatus::Expired;
-        case EditAddress::Never:
-            return WalletAddress::ExpirationStatus::Never;
-        default:
-            return WalletAddress::ExpirationStatus::Auto;
-        }
-    }
-
-}  // namespace
+    const char* kAddrDoesntExistError = "Provided address doesn't exist.";
+}
 
 namespace beam::wallet
 {
@@ -79,29 +63,15 @@ namespace beam::wallet
 
         if (data.expiration)
         {
-            switch (*data.expiration)
-            {
-            case EditAddress::Auto:
-                address.setExpiration(WalletAddress::ExpirationStatus::Auto);
-                break;
-            case EditAddress::OneDay:
-                address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
-                break;
-            case EditAddress::Expired:
-                address.setExpiration(WalletAddress::ExpirationStatus::Expired);
-                break;
-            case EditAddress::Never:
-                address.setExpiration(WalletAddress::ExpirationStatus::Never);
-                break;
-            }
+            address.setExpirationStatus(*data.expiration);
         }
     }
 
-    void WalletApi::onHandleCalcMyChange(const JsonRpcId& id, const CalcMyChange& data)
+    void WalletApi::onHandleCalcChange(const JsonRpcId& id, const CalcChange& data)
     {
         LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
 
-        CoinsSelectionInfo csi = { 0 };
+        CoinsSelectionInfo csi = {0};
 
         csi.m_requestedSum = data.amount;
         if (data.assetId)
@@ -110,10 +80,9 @@ namespace beam::wallet
         }
 
         csi.m_explicitFee = data.explicitFee;
-
         csi.Calculate(get_CurrentHeight(), getWalletDB(), data.isPushTransaction);
 
-        doResponse(id, CalcMyChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
+        doResponse(id, CalcChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
     }
 
     void WalletApi::onHandleChangePassword(const JsonRpcId& id, const ChangePassword& data)
@@ -124,29 +93,55 @@ namespace beam::wallet
         doResponse(id, ChangePassword::Response{ });
     }
 
+    void WalletApi::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
+    {
+        LOG_DEBUG() << "AddrList(id = " << id << ")";
+
+        auto walletDB = getWalletDB();
+        auto all = walletDB->getAddresses(data.own);
+
+        if (_appid.empty())
+        {
+            return doResponse(id, AddrList::Response{all});
+        }
+
+        decltype(all) filtered;
+        for(const auto& addr: all)
+        {
+            if (_appid.empty() || addr.m_category == _appid)
+            {
+                filtered.push_back(addr);
+            }
+        }
+
+        doResponse(id, AddrList::Response{filtered});
+    }
+
     void WalletApi::onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data)
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        if (!getWallet()->IsConnectedToOwnNode() 
+        if (!getWallet()->IsConnectedToOwnNode()
            && (data.type == TokenType::MaxPrivacy
             || data.type == TokenType::Public
             || data.type == TokenType::Offline))
         {
-            throw jsonrpc_exception(ApiError::NotSupported);
+            throw jsonrpc_exception(ApiError::NotSupported, "Must be connected to own node to generate this address type.");
         }
 
         auto walletDB = getWalletDB();
 
-        std::string newAddress = GenerateToken(
-            data.type,
-            walletDB,
-            data.comment ? *data.comment : std::string(),
-            data.expiration ? MapExpirationStatus(*data.expiration) : WalletAddress::ExpirationStatus::OneDay,
-            std::string(),
-            data.offlinePayments);
+        WalletAddress address;
+        walletDB->createAddress(address);
 
-        doResponse(id, CreateAddress::Response{ newAddress });
+        if (data.comment)    address.setLabel(*data.comment);
+        if (data.expiration) address.setExpirationStatus(*data.expiration);
+        if (!_appid.empty()) address.setCategory(_appid);
+
+        std::string newToken = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
+        walletDB->saveAddress(address);
+
+        doResponse(id, CreateAddress::Response{newToken});
     }
 
     void WalletApi::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
@@ -158,12 +153,18 @@ namespace beam::wallet
 
         if (addr)
         {
+            if (!_appid.empty() && addr->m_category != _appid)
+            {
+                // we do not throw 'NotAllowed' to not to expose that address exists
+                throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
+            }
+
             walletDB->deleteAddress(data.address);
             doResponse(id, DeleteAddress::Response{});
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidAddress, "Provided address doesn't exist.");
+            throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
         }
     }
 
@@ -176,6 +177,11 @@ namespace beam::wallet
 
         if (addr)
         {
+            if (!_appid.empty() && addr->m_category != _appid)
+            {
+                throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
+            }
+
             if (addr->isOwn())
             {
                 FillAddressData(data, *addr);
@@ -189,15 +195,8 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidAddress, "Provided address doesn't exist.");
+            throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
         }
-    }
-
-    void WalletApi::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
-    {
-        LOG_DEBUG() << "AddrList(id = " << id << ")";
-        auto walletDB = getWalletDB();
-        doResponse(id, AddrList::Response{walletDB->getAddresses(data.own)});
     }
 
     void WalletApi::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
@@ -279,26 +278,11 @@ namespace beam::wallet
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
                 walletDB->saveAddress(senderAddress);
-
                 from = senderAddress.m_walletID;
             }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
-            CoinIDList coins;
-
-            if (data.session)
-            {
-                coins = walletDB->getLockedCoins(*data.session);
-
-                if (coins.empty())
-                {
-                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                }
-            }
-            else
-            {
-                coins = data.coins ? *data.coins : CoinIDList();
-            }
+            CoinIDList coins = data.coins ? *data.coins : CoinIDList();
 
             if (data.txId && walletDB->getTx(*data.txId))
             {
@@ -347,26 +331,16 @@ namespace beam::wallet
     {
         auto walletDB = getWalletDB();
 
-        if (data.assetMeta)
+        if (const auto asset = walletDB->findAsset(data.assetId))
         {
-            params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
+            std::string strmeta;
+            asset->m_Metadata.get_String(strmeta);
+            params.SetParameter(TxParameterID::AssetMetadata, strmeta);
         }
-        else if (data.assetId)
+        else
         {
-            if (const auto asset = walletDB->findAsset(*data.assetId))
-            {
-                std::string strmeta;
-                asset->m_Metadata.get_String(strmeta);
-                params.SetParameter(TxParameterID::AssetMetadata, strmeta);
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Asset not found in a local database. Update asset info (tx_asset_info) or provide asset metdata.");
-            }
+            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Asset not found in the local database. Update asset info (tx_asset_info) and repeat your API call.");
         }
-
-        assert(!"presence of params should be checked already");
-        throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
     }
 
     template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
@@ -385,27 +359,14 @@ namespace beam::wallet
     template<typename T>
     void WalletApi::onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data)
     {
-        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
+        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = " << data.assetId
                     << " amount = " << data.value << " fee = " << data.fee
                     << ")";
         try
         {
-            CoinIDList coins;
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
-
-            if (data.session)
-            {
-                if ((coins = walletDB->getLockedCoins(*data.session)).empty())
-                {
-                    throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                }
-            } else
-            {
-                coins = data.coins ? *data.coins : CoinIDList();
-            }
+            CoinIDList coins = data.coins ? *data.coins : CoinIDList();
 
             if (data.txId && walletDB->getTx(*data.txId))
             {
@@ -437,24 +398,10 @@ namespace beam::wallet
 
     void WalletApi::onHandleGetAssetInfo(const JsonRpcId &id, const GetAssetInfo &data)
     {
-        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
-                    << ")";
+        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
 
         auto walletDB = getWalletDB();
-        boost::optional<WalletAsset> info;
-
-        if (data.assetId)
-        {
-            info = walletDB->findAsset(*data.assetId);
-        }
-        else if (data.assetMeta)
-        {
-            const auto kdf = walletDB->get_MasterKdf();
-            const auto ownerID = GetAssetOwnerID(kdf, *data.assetMeta);
-            info = walletDB->findAsset(ownerID);
-        }
+        boost::optional<WalletAsset> info = walletDB->findAsset(data.assetId);
 
         if(!info.is_initialized())
         {
@@ -482,10 +429,7 @@ namespace beam::wallet
 
     void WalletApi::onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data)
     {
-        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = "
-                    << (data.assetId ? *data.assetId : 0)
-                    << " asset_meta = " << (data.assetMeta ? *data.assetMeta : "\"\"")
-                    << ")";
+        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
         try
         {
             auto walletDB = getWalletDB();
@@ -498,18 +442,7 @@ namespace beam::wallet
             }
 
             auto params = CreateTransactionParameters(TxType::AssetInfo, data.txId);
-            if (data.assetMeta)
-            {
-                params.SetParameter(TxParameterID::AssetMetadata, *data.assetMeta);
-            }
-            else if (data.assetId)
-            {
-                params.SetParameter(TxParameterID::AssetID, *data.assetId);
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "asset_id or meta is required");
-            }
+            params.SetParameter(TxParameterID::AssetID, data.assetId);
 
             const auto txId = wallet->StartTransaction(params);
             doResponse(id, Issue::Response{ txId });
@@ -743,28 +676,6 @@ namespace beam::wallet
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
     }
 
-    void WalletApi::onHandleLock(const JsonRpcId& id, const Lock& data)
-    {
-        LOG_DEBUG() << "Lock(id = " << id << ")";
-
-        Lock::Response response = {};
-        auto walletDB = getWalletDB();
-        response.result = walletDB->lockCoins(data.coins, data.session);
-
-        doResponse(id, response);
-    }
-
-    void WalletApi::onHandleUnlock(const JsonRpcId& id, const Unlock& data)
-    {
-        LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
-
-        Unlock::Response response = {};
-        auto walletDB = getWalletDB();
-        response.result = walletDB->unlockCoins(data.session);
-
-        doResponse(id, response);
-    }
-
     void WalletApi::onHandleTxList(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
@@ -931,5 +842,60 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::ContractError, err.what());
         }
+    }
+
+    void WalletApi::onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data)
+    {
+        LOG_DEBUG() << "BlockDetails(id = " << id << ")";
+
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
+
+        request->m_Msg.m_Height = data.blockHeight;
+        request->_id = id;
+
+        getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
+    }
+
+    void WalletApi::OnComplete(proto::FlyClient::Request& request)
+    {
+        RequestHeaderMsg& headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
+
+        headerRequest.m_pTrg = nullptr;
+
+        if (headerRequest.m_vStates.size() != 1)
+        {
+            sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
+            return;
+        }
+
+        Block::SystemState::Full state = headerRequest.m_vStates.front();
+        Merkle::Hash blockHash;
+        state.get_Hash(blockHash);
+
+        std::string rulesHash = Rules::get().pForks[_countof(Rules::get().pForks) - 1].m_Hash.str();
+
+        for (size_t i = 1; i < _countof(Rules::get().pForks); i++)
+        {
+            if (state.m_Height < Rules::get().pForks[i].m_Height)
+            {
+                rulesHash = Rules::get().pForks[i - 1].m_Hash.str();
+                break;
+            }
+        }
+
+        BlockDetails::Response response;
+        response.height = state.m_Height;
+        response.blockHash = blockHash.str();
+        response.previousBlock = state.m_Prev.str();
+        response.chainwork = state.m_ChainWork.str();
+        response.kernels = state.m_Kernels.str();
+        response.definition = state.m_Definition.str();
+        response.timestamp = state.m_TimeStamp;
+        response.pow = beam::to_hex(&state.m_PoW, sizeof(state.m_PoW));
+        response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
+        response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
+        response.rulesHash = rulesHash;
+
+        doResponse(headerRequest._id, response);
     }
 }

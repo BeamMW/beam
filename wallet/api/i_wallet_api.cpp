@@ -49,12 +49,14 @@ namespace beam::wallet
 
     IWalletApi::Ptr IWalletApi::CreateInstance(const std::string& sversion, IWalletApiHandler& handler, const InitData& data)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         const auto version = SApiVer2NApiVer(sversion);
         return IWalletApi::CreateInstance(version, handler, data);
     }
 
     IWalletApi::Ptr IWalletApi::CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
         case ApiVer6_0:
