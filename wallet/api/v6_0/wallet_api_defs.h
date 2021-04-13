@@ -49,28 +49,28 @@ namespace beam::wallet
     macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
 
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(EditAddress,           "edit_address",            API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(AddrList,              "addr_list",               API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(ValidateAddress,       "validate_address",        API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(Send,                  "tx_send",                 API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(Issue,                 "tx_asset_issue",          API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)   \
-    macro(Consume,               "tx_asset_consume",        API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)   \
-    macro(TxAssetInfo,           "tx_asset_info",           API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(Status,                "tx_status",               API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(Split,                 "tx_split",                API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)   \
-    macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC, APPS_ALLOWED)   \
-    macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)   \
-    macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC, APPS_ALLOWED /* TODO:enabled only for tests*/)   \
-    macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(GetAssetInfo,          "get_asset_info",          API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
-    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)   \
-    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)   \
+    macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(EditAddress,           "edit_address",            API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(AddrList,              "addr_list",               API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(ValidateAddress,       "validate_address",        API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(Send,                  "tx_send",                 API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(Issue,                 "tx_asset_issue",          API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
+    macro(Consume,               "tx_asset_consume",        API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
+    macro(TxAssetInfo,           "tx_asset_info",           API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(Status,                "tx_status",               API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(Split,                 "tx_split",                API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
+    macro(TxCancel,              "tx_cancel",               API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED)   \
+    macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED /* TODO:enabled only for tests*/)   \
+    macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(GetAssetInfo,          "get_asset_info",          API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
+    macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)  \
     macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)  \
     SWAP_OFFER_API_METHODS(macro) \

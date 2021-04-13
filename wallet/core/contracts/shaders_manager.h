@@ -34,6 +34,8 @@ namespace beam::wallet {
 
         void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
         void Start(const std::string &args, unsigned method, DoneHandler doneHandler) override; // throws
+        void SetCurrentApp(const std::string& appid) override; // throws
+        void ReleaseCurrentApp(const std::string& appid) override; // throws
 
     protected:
         void OnDone(const std::exception *pExc) override;
@@ -41,6 +43,7 @@ namespace beam::wallet {
     private:
         bool _done = true;
         bool _async = false;
+        std::string _currentApp;
 
         beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;

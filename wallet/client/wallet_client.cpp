@@ -628,10 +628,34 @@ namespace beam::wallet
         return sp;
     }
 
-    IShadersManager::Ptr WalletClient::getAppsShaders()
+    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid)
     {
         auto sp = _appsShaders.lock();
+        assert(sp != nullptr);
+
+        // strictly speaking it is not necessary to proxy to reactor thread
+        // in current implementation and calls sequence, but it is safer and
+        // can help to avoid bugs in the future if calls sequence changes
+        makeIWTCall([appid, sp] ()-> boost::any {
+            sp->SetCurrentApp(appid);
+            return boost::none;
+        }, [](boost::any){});
+
         return sp;
+    }
+
+    void WalletClient::releaseAppsShaders(const std::string& appid)
+    {
+        auto sp = _appsShaders.lock();
+        assert(sp != nullptr);
+
+        // strictly speaking it is not necessary to proxy to reactor thread
+        // in current implementation and calls sequence, but it is safer and
+        // can help to avoid bugs in the future if calls sequence changes
+        makeIWTCall([appid, sp] ()-> boost::any {
+            sp->ReleaseCurrentApp(appid);
+            return boost::none;
+        }, [](boost::any){});
     }
 
     std::string WalletClient::getNodeAddress() const
