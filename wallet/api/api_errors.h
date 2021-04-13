@@ -39,7 +39,8 @@ namespace beam::wallet
     macro(-32017, UnexpectedError,           "Unexpected call")                     \
     macro(-32018, ContractCompileError,      "Failed to compile contract")          \
     macro(-32019, ContractError,             "Contract call failed")                \
-    macro(-32020, NotAllowedError,           "Call is not allowed")
+    macro(-32020, NotAllowedError,           "Call is not allowed")                 \
+    macro(-32021, UserRejected,              "Call is rejecteb by user")
 
     enum ApiError
     {
