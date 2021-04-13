@@ -7,7 +7,7 @@ target_link_libraries(wallet_test_node PUBLIC node)
 
 add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client wallet_api wallet_test_node)
 add_test_snippet(wallet_db_test wallet)
-# add_test_snippet(wallet_api_test wallet_api)
+add_test_snippet(wallet_api_test wallet_api)
 add_test_snippet(wallet_assets_test core node wallet pow assets wallet_test_node)
 add_test_snippet(news_channels_test wallet_client node)
 add_test_snippet(broadcasting_test wallet_client node)
