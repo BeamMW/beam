@@ -2064,7 +2064,7 @@ bool NodeProcessor::Evaluator::get_Kernels(Merkle::Hash& hv)
 
 bool NodeProcessor::Evaluator::get_Logs(Merkle::Hash& hv)
 {
-	hv = Zero;
+	hv = m_Proc.m_Cursor.m_StateExtra.m_hvLogs;
 	return true;
 }
 
@@ -2099,6 +2099,12 @@ bool NodeProcessor::Evaluator::get_Contracts(Merkle::Hash& hv)
 bool NodeProcessor::EvaluatorEx::get_Kernels(Merkle::Hash& hv)
 {
 	hv = m_hvKernels;
+	return true;
+}
+
+bool NodeProcessor::EvaluatorEx::get_Logs(Merkle::Hash& hv)
+{
+	hv = m_Comms.m_hvLogs;
 	return true;
 }
 
@@ -2185,6 +2191,12 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 			virtual bool get_CSA(Merkle::Hash& hv) override
 			{
 				hv = m_StateExtra.m_hvCSA;
+				return true;
+			}
+
+			virtual bool get_Logs(Merkle::Hash& hv) override
+			{
+				hv = m_StateExtra.m_hvLogs;
 				return true;
 			}
 		};
@@ -2310,6 +2322,7 @@ struct NodeProcessor::BlockInterpretCtx
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
 
+	Merkle::CompactMmr m_mmrLogs;
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2616,6 +2629,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 	EvaluatorEx ev(*this);
 	ev.set_Kernels(block);
+	bic.m_mmrLogs.get_Hash(ev.m_Comms.m_hvLogs);
 
 	Merkle::Hash hvDef;
 	ev.m_Height++;
@@ -2683,7 +2697,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		AdjustOffset(m_Cursor.m_StateExtra.m_TotalOffset, block.m_Offset, true);
 		Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra) = ev.m_Comms;
 
-		Blob blobExtra(&m_Cursor.m_StateExtra, bPastFork3 ? sizeof(m_Cursor.m_StateExtra) : sizeof(m_Cursor.m_StateExtra.m_TotalOffset));
+		Blob blobExtra;
+		blobExtra.p = &m_Cursor.m_StateExtra;
+		if (bPastFork3)
+		{
+			blobExtra.n = sizeof(m_Cursor.m_StateExtra);
+
+			// omit trailing hashes if they're zero
+			for (; blobExtra.n; blobExtra.n--)
+				if (reinterpret_cast<const uint8_t*>(blobExtra.p)[blobExtra.n - 1])
+					break;
+		}
+		else
+			blobExtra.n = sizeof(m_Cursor.m_StateExtra.m_TotalOffset);
 
 		Blob blobRB(bic.m_Rollback);
 		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blobExtra, &blobRB);
@@ -5442,7 +5468,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	return ssc.m_Counter.m_Value;
 }
 
-void NodeProcessor::GenerateNewHdr(BlockContext& bc)
+void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 {
 	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	bc.m_Hdr.m_Height = m_Cursor.m_ID.m_Height + 1;
@@ -5460,6 +5486,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	EvaluatorEx ev(*this);
 	ev.m_Height++;
 	ev.set_Kernels(bc.m_Block);
+	bic.m_mmrLogs.get_Hash(ev.m_Comms.m_hvLogs);
 
 	ev.get_Definition(bc.m_Hdr.m_Definition);
 
@@ -5539,7 +5566,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		LOG_WARNING() << "couldn't apply block after cut-through!";
 		return false; // ?!
 	}
-	GenerateNewHdr(bc);
+	GenerateNewHdr(bc, bic);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 	assert(bic.m_Rollback.empty());

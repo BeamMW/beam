@@ -311,6 +311,7 @@ public:
 		struct Comms
 		{
 			Merkle::Hash m_hvCSA;
+			Merkle::Hash m_hvLogs;
 		};
 
 		struct Full
@@ -431,6 +432,7 @@ public:
 		Merkle::Hash m_hvKernels;
 		StateExtra::Comms m_Comms;
 		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
 		virtual bool get_CSA(Merkle::Hash&) override;
 	};
 
@@ -813,7 +815,7 @@ public:
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
-	void GenerateNewHdr(BlockContext&);
+	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 };
