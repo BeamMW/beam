@@ -111,3 +111,4 @@ ui/translations.qrc
 beam_version.gen
 keykeeper/wasm-key-keeper.*
 
+out/

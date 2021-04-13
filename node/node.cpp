@@ -3867,6 +3867,20 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
     }
 }
 
+bool Node::Miner::IsEnabled() const 
+{
+    if (!m_External.m_pSolver && m_vThreads.empty())
+        return false;
+
+    if (!Rules::get().FakePoW)
+        return true;
+
+    if (get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms > 0)
+        return true;
+
+    return m_FakeBlocksToGenerate > 0;
+}
+
 void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
     const Config& cfg = get_ParentObj().m_Cfg;
@@ -3958,9 +3972,9 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
         {
             uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
-            bool bSolved = false;
+            bool bSolved = timeout_ms == 0;
 
-            for (uint32_t t0_ms = GetTime_ms(); ; )
+            for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
             {
                 if (fnCancel(false))
                     break;
@@ -4247,8 +4261,7 @@ void Node::Miner::OnMined()
 
     LOG_INFO() << "New block mined: " << id;
 
-	Processor& p = get_ParentObj().m_Processor; // alias
-
+    Processor& p = get_ParentObj().m_Processor; // alias
     NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
     switch (eStatus)
     {
@@ -4270,7 +4283,11 @@ void Node::Miner::OnMined()
 
     eStatus = p.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID);
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
-
+    if (m_FakeBlocksToGenerate)
+    {
+        assert(Rules::get().FakePoW);
+        --m_FakeBlocksToGenerate;
+    }
     p.FlushDB();
 	p.TryGoUpAsync(); // will likely trigger OnNewState(), and spread this block to the network
 }
@@ -4938,6 +4955,13 @@ void Node::PrintRollbackStats()
     }
 
     LOG_INFO() << os.str();
+}
+
+void Node::GenerateFakeBlocks(uint32_t n)
+{
+    assert(Rules::get().FakePoW);
+    m_Miner.m_FakeBlocksToGenerate = n;
+    m_Miner.SetTimer(0, true);
 }
 
 } // namespace beam
