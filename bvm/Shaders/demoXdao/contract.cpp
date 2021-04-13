@@ -29,6 +29,8 @@ export void Method_2(void*)
 
 export void Method_3(const DemoXdao::LockAndGet& r)
 {
+    Env::Halt_if(r.m_Amount < r.s_MinLockAmount);
+
     DemoXdao::State s;
     Env::LoadVar_T((uint8_t) 0, s);
 

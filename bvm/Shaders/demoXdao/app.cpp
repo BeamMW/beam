@@ -15,12 +15,18 @@
     macro(ContractID, cidVersion) \
     macro(Height, hUpgradeDelay)
 
+#define DemoXdao_manager_schedule_upgrade(macro) \
+    macro(ContractID, cid) \
+    macro(ContractID, cidVersion) \
+    macro(Height, dh)
+
 #define DemoXdao_manager_view_stake(macro) macro(ContractID, cid)
 
 #define DemoXdaoRole_manager(macro) \
     macro(manager, deploy_version) \
     macro(manager, view) \
     macro(manager, deploy_contract) \
+    macro(manager, schedule_upgrade) \
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, lock)
@@ -117,16 +123,26 @@ Height FindDeployed(const ContractID& cid, const ShaderID& sid)
 ON_METHOD(manager, view)
 {
     // Calculate the CID of the current version
-    ContractID cid0;
-    get_CidFromSid(cid0, DemoXdao::s_SID);
+    ContractID cid0, cid1;
+    get_CidFromSid(cid0, DemoXdao::s_SID_0);
+    get_CidFromSid(cid1, DemoXdao::s_SID);
 
-    Height  h = FindDeployed(cid0, DemoXdao::s_SID);
+    Height  h = FindDeployed(cid0, DemoXdao::s_SID_0);
     if (h)
     {
         Env::DocGroup gr0("ver0");
 
         Env::DocAddNum("Height", h);
         Env::DocAddBlob_T("cid", cid0);
+    }
+
+    h = FindDeployed(cid1, DemoXdao::s_SID);
+    if (h)
+    {
+        Env::DocGroup gr0("ver1");
+
+        Env::DocAddNum("Height", h);
+        Env::DocAddBlob_T("cid", cid1);
     }
 
     struct Entry {
@@ -162,18 +178,26 @@ ON_METHOD(manager, view)
         if (!pS)
             continue;
 
-        bool bCurrent = (_POD_(cid0) == pS->m_Cid);
-        bool bScheduled = (_POD_(cid0) == pS->m_cidNext);
+        uint32_t nVerCurrent = (_POD_(cid0) == pS->m_Cid) ? 0 : (_POD_(cid1) == pS->m_Cid) ? 1 : 1000;
+        uint32_t nVerNext = (_POD_(cid0) == pS->m_cidNext) ? 0 : (_POD_(cid1) == pS->m_cidNext) ? 1 : 1000;
 
-        if (bCurrent || bScheduled)
+        if ((nVerCurrent >= 0) || (nVerNext >= 0))
         {
             Env::DocGroup root("");
 
             Env::DocAddBlob_T("cid", e.m_Cid);
             Env::DocAddNum("Height", e.m_Height);
-            Env::DocAddText("status", bCurrent ? "current" : "scheduled");
 
             Env::DocAddNum("owner", (uint32_t) ((_POD_(pS->m_Pk) == pk) ? 1 : 0));
+            Env::DocAddNum("min_upgrade_delay", pS->m_hMinUpgadeDelay);
+
+            Env::DocAddNum("current_version", nVerCurrent);
+
+            if (pS->m_hNextActivate != static_cast<Height>(-1))
+            {
+                Env::DocAddNum("next_version", nVerNext);
+                Env::DocAddNum("next_height", pS->m_hNextActivate);
+            }
         }
     }
 }
@@ -198,6 +222,19 @@ ON_METHOD(manager, deploy_contract)
     Env::DerivePk(arg.m_Pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy demoXdao contract", 0);
+}
+
+ON_METHOD(manager, schedule_upgrade)
+{
+    Upgradable::ScheduleUpgrade arg;
+    _POD_(arg.m_cidNext) = cidVersion;
+    arg.m_hNextActivate = Env::get_Height() + dh;
+
+    SigRequest sig;
+    sig.m_pID = &Upgradable::s_SID;
+    sig.m_nID = sizeof(Upgradable::s_SID);
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Upgradfe demoXdao contract version", 0);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -292,7 +329,7 @@ export void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x10], szAction[0x10];
+    char szRole[0x20], szAction[0x20];
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
