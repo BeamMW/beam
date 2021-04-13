@@ -548,6 +548,24 @@ namespace Merkle
 
         hp >> hv;
     }
+
+    inline void get_ContractLogHash(HashValue& hv, const ContractID& cid, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal)
+    {
+        HashProcessor::Sha256 hp;
+
+        uint32_t nSizeKey = sizeof(cid) + nKey;
+
+        hp
+            << "beam.contract.log"
+            << nSizeKey;
+
+        hp.Write(cid);
+        hp.Write(pKey, nKey);
+        hp.Write(nVal);
+        hp.Write(pVal, nVal);
+
+        hp >> hv;
+    }
 }
 
 static const Amount g_Beam2Groth = 100000000;

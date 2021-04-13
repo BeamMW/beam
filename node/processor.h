@@ -427,7 +427,9 @@ public:
 		:public Evaluator
 	{
 		using Evaluator::Evaluator;
+
 		void set_Kernels(const TxVectors::Eternal&);
+		void set_Logs(const std::vector<Merkle::Hash>&);
 
 		Merkle::Hash m_hvKernels;
 		StateExtra::Comms m_Comms;

@@ -2241,6 +2241,7 @@ struct NodeProcessor::BlockInterpretCtx
 	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	uint32_t m_ContractLogs = 0;
+	std::vector<Merkle::Hash> m_vLogs;
 
 	ByteBuffer m_Rollback;
 
@@ -2321,8 +2322,6 @@ struct NodeProcessor::BlockInterpretCtx
 
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
-
-	Merkle::CompactMmr m_mmrLogs;
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2474,6 +2473,26 @@ void NodeProcessor::EvaluatorEx::set_Kernels(const TxVectors::Eternal& txe)
 {
 	KrnFlyMmr fmmr(txe);
 	fmmr.get_Hash(m_hvKernels);
+}
+
+void NodeProcessor::EvaluatorEx::set_Logs(const std::vector<Merkle::Hash>& v)
+{
+	struct MyMmr
+		:public Merkle::FlyMmr
+	{
+		const Merkle::Hash* m_pArr;
+
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+			hv = m_pArr[n];
+		}
+
+	} lmmr;
+
+	lmmr.m_Count = v.size();
+	if (lmmr.m_Count)
+		lmmr.m_pArr = &v.front();
+
+	lmmr.get_Hash(m_Comms.m_hvLogs);
 }
 
 struct NodeProcessor::MyRecognizer
@@ -2629,7 +2648,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 	EvaluatorEx ev(*this);
 	ev.set_Kernels(block);
-	bic.m_mmrLogs.get_Hash(ev.m_Comms.m_hvLogs);
+	ev.set_Logs(bic.m_vLogs);
 
 	Merkle::Hash hvDef;
 	ev.m_Height++;
@@ -4491,6 +4510,9 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
 
+	if (!m_Bic.m_SkipDefinition)
+		Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val);
+
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::Log;
 	ser & nTag;
@@ -4641,6 +4663,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			{
 				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
 				m_Proc.m_DB.ContractLogDel(pos, pos);
+			}
+
+			if (!m_Bic.m_SkipDefinition)
+			{
+				assert(!m_Bic.m_vLogs.empty());
+				m_Bic.m_vLogs.pop_back();
 			}
 		}
 		break;
@@ -5486,7 +5514,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 	EvaluatorEx ev(*this);
 	ev.m_Height++;
 	ev.set_Kernels(bc.m_Block);
-	bic.m_mmrLogs.get_Hash(ev.m_Comms.m_hvLogs);
+	ev.set_Logs(bic.m_vLogs);
 
 	ev.get_Definition(bc.m_Hdr.m_Definition);
 

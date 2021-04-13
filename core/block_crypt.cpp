@@ -2437,6 +2437,17 @@ namespace beam
 			>> hv;
 	}
 
+	void Block::get_HashContractLog(Merkle::Hash& hv, const Blob& key, const Blob& val)
+	{
+		ECC::Hash::Processor()
+			<< "beam.contract.log"
+			<< key.n
+			<< key
+			<< val.n
+			<< val
+			>> hv;
+	}
+
 	bool Block::SystemState::Full::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
 		Merkle::Hash hv;
