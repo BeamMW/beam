@@ -2062,6 +2062,12 @@ bool NodeProcessor::Evaluator::get_Kernels(Merkle::Hash& hv)
 	return true;
 }
 
+bool NodeProcessor::Evaluator::get_Logs(Merkle::Hash& hv)
+{
+	hv = Zero;
+	return true;
+}
+
 void NodeProcessor::ReadKrns(uint64_t rowid, TxVectors::Eternal& txve)
 {
 	ByteBuffer bbE;

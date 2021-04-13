@@ -1288,7 +1288,8 @@ namespace beam
 				// Before Fork3: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
 				// Past Fork3:
 				//		CSA = Hash[ Contracts | Hash[Shielded | Assets] ]
-				//		Live = Hash[ Kernels | CSA ]
+				//		KL = Hash[ Kernels | Logs ]
+				//		Live = Hash[ KL | CSA ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
@@ -1296,8 +1297,10 @@ namespace beam
 				virtual bool get_History(Merkle::Hash&);
 				virtual bool get_Live(Merkle::Hash&);
 				virtual bool get_CSA(Merkle::Hash&);
+				virtual bool get_KL(Merkle::Hash&);
 				virtual bool get_Utxos(Merkle::Hash&);
 				virtual bool get_Kernels(Merkle::Hash&);
+				virtual bool get_Logs(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
 				virtual bool get_Assets(Merkle::Hash&);
 				virtual bool get_Contracts(Merkle::Hash&);

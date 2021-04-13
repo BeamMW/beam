@@ -2270,7 +2270,7 @@ namespace beam
 		if (m_Height >= r.pForks[3].m_Height)
 		{
 			Merkle::Hash hvCSA;
-			return Interpret(hv, hv, get_Kernels(hv), hvCSA, get_CSA(hvCSA));
+			return Interpret(hv, hv, get_KL(hv), hvCSA, get_CSA(hvCSA));
 		}
 
 		bool bUtxo = get_Utxos(hv);
@@ -2287,6 +2287,12 @@ namespace beam
 		return Interpret(hv, hv, get_Shielded(hv), hvAssets, get_Assets(hvAssets));
 	}
 
+	bool Block::SystemState::Evaluator::get_KL(Merkle::Hash& hv)
+	{
+		Merkle::Hash hvL;
+		return Interpret(hv, hv, get_Kernels(hv), hvL, get_Logs(hvL));
+	}
+
 	bool Block::SystemState::Evaluator::get_CSA(Merkle::Hash& hv)
 	{
 		Merkle::Hash hvSA;
@@ -2299,6 +2305,11 @@ namespace beam
 	}
 
 	bool Block::SystemState::Evaluator::get_Kernels(Merkle::Hash&)
+	{
+		return OnNotImpl();
+	}
+
+	bool Block::SystemState::Evaluator::get_Logs(Merkle::Hash&)
 	{
 		return OnNotImpl();
 	}

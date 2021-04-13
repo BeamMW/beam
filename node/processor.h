@@ -411,6 +411,7 @@ public:
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
 		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
 		virtual bool get_Contracts(Merkle::Hash&) override;

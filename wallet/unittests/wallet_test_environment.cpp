@@ -605,6 +605,10 @@ struct TestBlockchain
                 hv = m_hvKernels;
                 return true;
             }
+            bool get_Logs(Merkle::Hash& hv) override {
+                hv = Zero;
+                return true;
+            }
             bool get_Shielded(Merkle::Hash& hv) override {
                 hv = Zero;
                 return true;
@@ -799,6 +803,10 @@ struct TestBlockchain
                     const Height hf3 = Rules::get().pForks[3].m_Height;
                     if (h >= hf3)
                     {
+                        proof.emplace_back();
+                        proof.back().first = true;
+                        proof.back().second = Zero; // logs
+
                         proof.emplace_back();
                         proof.back().first = true;
                         proof.back().second = m_vCSA[h - hf3];

@@ -345,7 +345,7 @@ namespace beam
 		Merkle::CompactMmr m_Shielded;
 		Merkle::CompactMmr m_Assets;
 		Merkle::Hash m_hvContracts;
-		Merkle::Hash m_hvKernels;
+		Merkle::Hash m_hvKL;
 
 		Context(IParser& p)
 			:m_Parser(p)
@@ -435,9 +435,9 @@ namespace beam
 				return true;
 			}
 
-			virtual bool get_Kernels(Merkle::Hash& hv) override
+			virtual bool get_KL(Merkle::Hash& hv) override
 			{
-				hv = m_This.m_hvKernels;
+				hv = m_This.m_hvKL;
 				return true;
 			}
 		};
@@ -489,7 +489,7 @@ namespace beam
 			{
 				m_Der
 					& m_hvContracts
-					& m_hvKernels;
+					& m_hvKL;
 			}
 		}
 

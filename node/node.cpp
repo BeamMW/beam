@@ -4695,10 +4695,13 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                 m_Processor.EnsureCursorKernels();
 
                 Merkle::Hash hv;
-                m_Processor.get_Contracts().get_Hash(hv);
-                ser
-                    & hv
-                    & m_Processor.m_Cursor.m_hvKernels;
+                NodeProcessor::Evaluator ev(m_Processor);
+
+                BEAM_VERIFY(ev.get_Contracts(hv));
+                ser & hv;
+
+                BEAM_VERIFY(ev.get_KL(hv));
+                ser & hv;
             }
         }
 
