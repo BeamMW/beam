@@ -163,7 +163,6 @@ namespace
             m_Node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
             m_Node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
 
-            ECC::uintBig seed = 345U;
             if (pKdf)
             {
                 m_Node.m_Keys.SetSingleKey(pKdf);
