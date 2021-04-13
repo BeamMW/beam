@@ -1110,6 +1110,19 @@ void TestICTx(const char* method)
         }
     })));
 
+    // obsolette (removed) meta param
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_meta": "some meta",
+            "value" : 12342342
+        }
+    })));
+
     // valid asset_id
     testICJsonRpc<T>(exp(JSON_CODE(
     {
@@ -1119,19 +1132,6 @@ void TestICTx(const char* method)
         "params" :
         {
             "asset_id": 1,
-            "value" : 12342342
-        }
-    })));
-
-    // valid meta
-    testICJsonRpc<T>(exp(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : METHOD,
-        "params" :
-        {
-            "asset_meta": "some meta",
             "value" : 12342342
         }
     })));
@@ -1174,6 +1174,18 @@ void TestGetAssetInfo()
         }
     }));
 
+    // obsolette (rmoved) meta
+    testInvalidAssetJsonRpc<GetAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+
     // valid asset_id
     testGetAssetInfoJsonRpc(JSON_CODE(
     {
@@ -1183,18 +1195,6 @@ void TestGetAssetInfo()
         "params" :
         {
             "asset_id": 1
-        }
-    }));
-
-    // valid meta
-    testGetAssetInfoJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "get_asset_info",
-        "params" :
-        {
-            "asset_meta": "some meta"
         }
     }));
 }
@@ -1262,6 +1262,18 @@ void TestAITx()
         }
     }));
 
+    // obsolette (removed) meta
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+
     // valid asset_id
     testAIJsonRpc(JSON_CODE(
     {
@@ -1271,18 +1283,6 @@ void TestAITx()
         "params" :
         {
             "asset_id": 1
-        }
-    }));
-
-    // valid meta
-    testAIJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_asset_info",
-        "params" :
-        {
-            "asset_meta": "some meta"
         }
     }));
 }
