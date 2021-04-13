@@ -275,6 +275,12 @@ namespace proto {
     macro(ByteBuffer, Value) \
     macro(Merkle::Proof, Proof)
 
+#define BeamNodeMsg_GetContractLogProof(macro) \
+    macro(HeightPos, Pos)
+
+#define BeamNodeMsg_ContractLogProof(macro) \
+    macro(Merkle::Proof, Proof)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x01, Bye) \
@@ -330,6 +336,8 @@ namespace proto {
     macro(0x38, GetContractVar) \
     macro(0x3c, ContractVar) \
     macro(0x33, EnumHdrs) \
+    macro(0x42, GetContractLogProof) \
+    macro(0x43, ContractLogProof) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
     macro(0x34, Events) \

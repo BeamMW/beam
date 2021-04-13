@@ -469,6 +469,7 @@ public:
 	struct ProofBuilder_PrevState;
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
+	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
 

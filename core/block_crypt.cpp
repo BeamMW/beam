@@ -2569,6 +2569,21 @@ namespace beam
 		return v.Verify(*this, hv, proof);
 	}
 
+	bool Block::SystemState::Full::IsValidProofLog(const Merkle::Hash& hvLog, const Merkle::Proof& proof) const
+	{
+		Merkle::Hash hv = hvLog;
+
+		struct MyVerifier
+			:public ProofVerifier
+		{
+			virtual bool get_Logs(Merkle::Hash&) override {
+				return true;
+			}
+		} v;
+
+		return v.Verify(*this, hv, proof);
+	}
+
 	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
 	{
 		// verify the whole proof structure

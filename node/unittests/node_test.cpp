@@ -1703,6 +1703,7 @@ namespace beam
 			const Height m_HeightTrg = 75;
 
 			MiniWallet m_Wallet;
+			NodeProcessor* m_pProc = nullptr;
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
@@ -1713,6 +1714,7 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
+			std::list<std::pair<Height, Merkle::Hash> > m_queProofLogsExpected;
 
 			struct
 			{
@@ -1796,6 +1798,7 @@ namespace beam
 					m_queProofsExpected.empty() &&
 					m_queProofsKrnExpected.empty() &&
 					m_queProofsStateExpected.empty() &&
+					m_queProofLogsExpected.empty() &&
 					!m_nChainWorkProofsPending;
 			}
 
@@ -2573,6 +2576,22 @@ namespace beam
 				case 8: // logs
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "view_logs";
+
+					{
+						// proofs for logs
+						NodeDB::ContractLog::Walker wlk;
+						for (m_pProc->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						{
+							proto::GetContractLogProof msgOut;
+							msgOut.m_Pos = wlk.m_Entry.m_Pos;
+							Send(msgOut);
+
+							auto& x = m_queProofLogsExpected.emplace_back();
+							x.first = wlk.m_Entry.m_Pos.m_Height;
+							Block::get_HashContractLog(x.second, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val);
+						}
+					}
+
 					break;
 
 				default: // print
@@ -2617,6 +2636,18 @@ namespace beam
 					m_pMyNetwork->OnMsg(std::move(msg));
 				}
 			}
+
+			virtual void OnMsg(proto::ContractLogProof&& msg) override
+			{
+				verify_test(!m_queProofLogsExpected.empty());
+				auto& x = m_queProofLogsExpected.front();
+
+				const auto& s = m_vStates[x.first - Rules::HeightGenesis];
+				verify_test(s.IsValidProofLog(x.second, msg.m_Proof));
+
+				m_queProofLogsExpected.pop_front();
+			}
+
 
 			void MaybeAskEvents()
 			{
@@ -2884,6 +2915,7 @@ namespace beam
 		};
 
 		MyClient cl(node.m_Keys.m_pMiner);
+		cl.m_pProc = &node.get_Processor();
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");

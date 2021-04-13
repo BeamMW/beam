@@ -3855,6 +3855,13 @@ void Node::Peer::OnMsg(proto::GetContractVar&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
+{
+    proto::ContractLogProof msgOut;
+    m_This.m_Processor.get_ProofContractLog(msgOut.m_Proof, msg.m_Pos);
+    Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)

@@ -1351,6 +1351,8 @@ namespace beam
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof&) const;
 
+				bool IsValidProofLog(const Merkle::Hash& hvLog, const Merkle::Proof&) const;
+
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;

@@ -2231,6 +2231,63 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return sid.m_Height;
 }
 
+bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& pos)
+{
+	Merkle::FixedMmr lmmr;
+
+	{
+		NodeDB::ContractLog::Walker wlk;
+		for (m_DB.ContractLogEnum(wlk, HeightPos(pos.m_Height), HeightPos(pos.m_Height, static_cast<uint32_t>(-1))); wlk.MoveNext(); )
+		{
+			Merkle::Hash hv;
+			Block::get_HashContractLog(hv, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val);
+
+			lmmr.Resize(lmmr.m_Count + 1);
+			lmmr.Append(hv);
+		}
+	}
+
+	if (lmmr.m_Count <= pos.m_Pos)
+		return false;
+
+	NodeDB::StateID sid;
+	sid.m_Height = pos.m_Height;
+	sid.m_Row = FindActiveAtStrict(sid.m_Height);
+
+	struct MyProofBuilder
+		:public ProofBuilder_PrevState
+	{
+		using ProofBuilder_PrevState::ProofBuilder_PrevState;
+
+		Merkle::Hash m_hvKernels;
+
+		virtual bool get_Kernels(Merkle::Hash& hv) override
+		{
+			hv = m_hvKernels;
+			return true;
+		}
+
+		virtual bool get_Logs(Merkle::Hash& hv) override
+		{
+			return false;
+		}
+	};
+
+	MyProofBuilder pb(*this, proof, sid);
+
+	{
+		TxVectors::Eternal txve;
+		ReadKrns(sid.m_Row, txve);
+
+		KrnFlyMmr fmmr(txve);
+		fmmr.get_Hash(pb.m_hvKernels);
+	}
+
+	pb.GenerateProof();
+
+	return true;
+}
+
 struct NodeProcessor::BlockInterpretCtx
 {
 	Height m_Height;
