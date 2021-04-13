@@ -294,51 +294,13 @@ struct MyPkMaterial
 };
 #pragma pack (pop)
 
-template <typename T>
-struct Vector
-{
-    T* m_p = nullptr;
-    uint32_t m_Count = 0;
-    uint32_t m_Alloc = 0;
-
-    ~Vector()
-    {
-        if (m_p)
-            Env::Heap_Free(m_p);
-    }
-
-    void Prepare(uint32_t n)
-    {
-        if (m_Alloc >= n)
-            return;
-
-        m_Alloc = std::max(m_Alloc * 2, n);
-        m_Alloc = std::max(m_Alloc, 16U);
-
-        T* pOld = m_p;
-        m_p = (T*) Env::Heap_Alloc(sizeof(T) * n);
-        
-        if (pOld)
-        {
-            Env::Memcpy(m_p, pOld, sizeof(T) * m_Count);
-            Env::Heap_Free(pOld);
-        }
-    }
-
-    T& emplace_back()
-    {
-        Prepare(m_Count + 1);
-        return m_p[m_Count++];
-    }
-};
-
 ON_METHOD(my_account, view_staking)
 {
     struct Entry {
         Voting::Proposal::ID m_ID;
         bool m_Finished;
     };
-    Vector<Entry> vec;
+    Utils::Vector<Entry> vec;
 
     ProposalWrap pw;
     pw.EnumAll(cid);
