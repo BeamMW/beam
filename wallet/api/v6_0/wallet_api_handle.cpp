@@ -50,6 +50,7 @@ namespace
     };
 
     const char* kAddrDoesntExistError = "Provided address doesn't exist.";
+    const char* kUnknownTxID = "Unknown transaction ID.";
 }
 
 namespace beam::wallet
@@ -179,6 +180,7 @@ namespace beam::wallet
         {
             if (!_appid.empty() && addr->m_category != _appid)
             {
+                // we do not throw 'NotAllowed' to not to expose that address exists
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
             }
 
@@ -312,8 +314,12 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
                 .SetParameter(TxParameterID::Message, message);
 
-            auto txId = wallet->StartTransaction(params);
+            if (!_appid.empty())
+            {
+                params.SetParameter(TxParameterID::AppID, _appid);
+            }
 
+            auto txId = wallet->StartTransaction(params);
             doResponse(id, Send::Response{ txId });
         }
         catch(const jsonrpc_exception&)
@@ -466,6 +472,8 @@ namespace beam::wallet
 
         if (tx)
         {
+            checkTxAccessRights(*tx, ApiError::InvalidParamsJsonRpc, kUnknownTxID);
+
             Block::SystemState::ID stateID = {};
             walletDB->getSystemStateID(stateID);
 
@@ -479,15 +487,13 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, kUnknownTxID);
         }
     }
 
     void WalletApi::onHandleSplit(const JsonRpcId& id, const Split& data)
     {
-        LOG_DEBUG() << "Split(id = " << id
-                    << " asset_id " << (data.assetId ? *data.assetId : 0)
-                    << " coins = [";
+        LOG_DEBUG() << "Split(id = " << id << " asset_id " << (data.assetId ? *data.assetId : 0) << " coins = [";
         for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
         LOG_DEBUG() << "], fee = " << data.fee;
 
@@ -537,6 +543,8 @@ namespace beam::wallet
 
         if (tx)
         {
+            checkTxAccessRights(*tx, ApiError::InvalidParamsJsonRpc, kUnknownTxID);
+
             if (wallet->CanCancelTransaction(tx->m_txId))
             {
                 wallet->CancelTransaction(tx->m_txId);
@@ -550,7 +558,7 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, kUnknownTxID);
         }
     }
 
@@ -563,6 +571,8 @@ namespace beam::wallet
 
         if (tx)
         {
+            checkTxAccessRights(*tx, ApiError::InvalidParamsJsonRpc, kUnknownTxID);
+
             if (tx->canDelete())
             {
                 walletDB->deleteTx(data.txId);
@@ -583,7 +593,7 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, kUnknownTxID);
         }
     }
 
@@ -672,7 +682,6 @@ namespace beam::wallet
     void WalletApi::onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data)
     {
         LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
-
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
     }
 
@@ -716,6 +725,11 @@ namespace beam::wallet
                     return true;
                 }
 
+                if (!checkTxAccessRights(tx))
+                {
+                    return true;
+                }
+
                 if (tx.m_assetId > 0 && !data.withAssets)
                 {
                     return true;
@@ -755,7 +769,10 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpExportFailed);
         }
-        else if (!tx->m_sender || tx->m_selfTx)
+
+        checkTxAccessRights(*tx, ApiError::PaymentProofExportError, kErrorPpExportFailed);
+
+        if (!tx->m_sender || tx->m_selfTx)
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpCannotExportForReceiver);
         }
@@ -858,8 +875,7 @@ namespace beam::wallet
 
     void WalletApi::OnComplete(proto::FlyClient::Request& request)
     {
-        RequestHeaderMsg& headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
-
+        auto headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
         headerRequest.m_pTrg = nullptr;
 
         if (headerRequest.m_vStates.size() != 1)
