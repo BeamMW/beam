@@ -308,10 +308,15 @@ public:
 			ECC::Scalar m_TotalOffset;
 		};
 
-		struct Full
-			:public Base
+		struct Comms
 		{
 			Merkle::Hash m_hvCSA;
+		};
+
+		struct Full
+			:public Base
+			,public Comms
+		{
 		};
 	};
 #pragma pack (pop)
@@ -424,7 +429,7 @@ public:
 		void set_Kernels(const TxVectors::Eternal&);
 
 		Merkle::Hash m_hvKernels;
-		Merkle::Hash m_hvCSA;
+		StateExtra::Comms m_Comms;
 		virtual bool get_Kernels(Merkle::Hash&) override;
 		virtual bool get_CSA(Merkle::Hash&) override;
 	};

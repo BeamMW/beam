@@ -468,13 +468,13 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
 			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
 
+			m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, &m_Cursor.m_StateExtra, sizeof(m_Cursor.m_StateExtra));
+
 			m_Cursor.m_bKernels = false;
 		}
 
 		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
 		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
-
-		m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, &m_Cursor.m_StateExtra, sizeof(m_Cursor.m_StateExtra));
 	}
 	else
 	{
@@ -2107,7 +2107,7 @@ bool NodeProcessor::EvaluatorEx::get_CSA(Merkle::Hash& hv)
 	if (!Evaluator::get_CSA(hv))
 		return false;
 
-	m_hvCSA = hv;
+	m_Comms.m_hvCSA = hv;
 	return true;
 }
 
@@ -2194,7 +2194,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 		if (m_Cursor.m_Full.m_Height == h)
 		{
 			pb.m_hvHistory = m_Cursor.m_History;
-			pb.m_StateExtra.m_hvCSA = m_Cursor.m_StateExtra.m_hvCSA;
+			Cast::Down<StateExtra::Comms>(pb.m_StateExtra) = Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra);
 		}
 		else
 		{
@@ -2681,7 +2681,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		m_Cursor.m_bKernels = true;
 
 		AdjustOffset(m_Cursor.m_StateExtra.m_TotalOffset, block.m_Offset, true);
-		m_Cursor.m_StateExtra.m_hvCSA = ev.m_hvCSA;
+		Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra) = ev.m_Comms;
 
 		Blob blobExtra(&m_Cursor.m_StateExtra, bPastFork3 ? sizeof(m_Cursor.m_StateExtra) : sizeof(m_Cursor.m_StateExtra.m_TotalOffset));
 
