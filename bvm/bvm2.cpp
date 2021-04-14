@@ -1154,13 +1154,10 @@ namespace bvm2 {
 	{
 		Wasm::Test(nVal <= Limits::VarSize);
 
-		uint8_t pKeyFull[ContractID::nBytes + Limits::VarKeySize];
+		VarKey vk;
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-		memcpy(pKeyFull, cid.m_pData, cid.nBytes);
-		memcpy(pKeyFull + cid.nBytes, pKey, nKey);
-
-		return OnLog(Blob(pKeyFull, nKey + cid.nBytes), Blob(pVal, nVal));
+		return OnLog(vk, Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)

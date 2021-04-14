@@ -2240,6 +2240,9 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 		NodeDB::ContractLog::Walker wlk;
 		for (m_DB.ContractLogEnum(wlk, HeightPos(pos.m_Height), HeightPos(pos.m_Height, static_cast<uint32_t>(-1))); wlk.MoveNext(); )
 		{
+			if (!IsContractVarStoredInMmr(wlk.m_Entry.m_Key))
+				continue;
+
 			if (pos.m_Pos == wlk.m_Entry.m_Pos.m_Pos)
 				iTrg = lmmr.m_Count; // found!
 
@@ -2364,7 +2367,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
-		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
+		virtual uint32_t OnLog(const VarKey& key, const Blob& val) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -4567,7 +4570,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk, const Blob& val)
 {
 	assert(m_Bic.m_Fwd);
 	if (!m_Bic.m_Temporary)
@@ -4576,18 +4579,25 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 		NodeDB::ContractLog::Entry x;
 		x.m_Pos.m_Height = m_Bic.m_Height;
 		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
-		x.m_Key = key;
+		x.m_Key = Blob(vk.m_p, vk.m_Size);
 		x.m_Val = val;
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
-
-	if (!m_Bic.m_SkipDefinition)
-		Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val, m_Bic.m_ContractLogs);
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::Log;
 	ser & nTag;
 	ser & m_Bic.m_ContractLogs;
+
+	if (!m_Bic.m_SkipDefinition)
+	{
+		Blob key(vk.m_p, vk.m_Size);
+		bool bMmr = IsContractVarStoredInMmr(key);
+		ser & bMmr;
+
+		if (bMmr)
+			Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val, m_Bic.m_ContractLogs);
+	}
 
 	return m_Bic.m_ContractLogs++;
 }
@@ -4738,8 +4748,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 			if (!m_Bic.m_SkipDefinition)
 			{
-				assert(!m_Bic.m_vLogs.empty());
-				m_Bic.m_vLogs.pop_back();
+				bool bMmr = false;
+				der & bMmr;
+
+				// Note: during reorg (i.e. proper rollback, not just tx undo) the logs array will be empty. Ignore this.
+				if (bMmr && !m_Bic.m_vLogs.empty())
+					m_Bic.m_vLogs.pop_back();
 			}
 		}
 		break;
