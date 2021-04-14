@@ -179,7 +179,8 @@
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
 	macro(const void*, pVal) sep \
-	macro(uint32_t, nVal)
+	macro(uint32_t, nVal) sep \
+	macro(uint8_t, nType)
 
 #define BVMOp_CallFar(macro, sep) \
 	macro(const ContractID&, cid) sep \

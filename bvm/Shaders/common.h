@@ -114,6 +114,12 @@ namespace Env {
         return SaveVar(&key, sizeof(key), nullptr, 0, nType) != 0;
     }
 
+    template <typename TKey, typename TVal>
+    inline uint32_t EmitLog_T(const TKey& key, const TVal& val, uint8_t nType = KeyTag::Internal)
+    {
+        return EmitLog(&key, sizeof(key), &val, sizeof(val), nType);
+    }
+
     inline void Halt_if(bool b)
     {
         if (b)
@@ -198,12 +204,6 @@ namespace Env {
         T m_KeyInContract;
     };
 
-    template <typename T>
-    struct Log_T
-    {
-        ContractID m_Cid;
-        T m_Key;
-    };
 #pragma pack (pop)
 
     template <typename TKey, typename TValue>

@@ -1141,7 +1141,7 @@ namespace bvm2 {
 	BVM_METHOD(EmitLog)
 	{
 		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
-		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
+		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
