@@ -337,6 +337,7 @@ namespace bvm2 {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
+		void SetVarKeyFromShader(VarKey&, uint8_t nTag, const Blob&, bool bW);
 
 		struct FarCalls
 		{

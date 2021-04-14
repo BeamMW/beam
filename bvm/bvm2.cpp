@@ -1094,6 +1094,25 @@ namespace bvm2 {
 		Create(nOld, nNew - nOld, true);
 	}
 
+	void ProcessorContract::SetVarKeyFromShader(VarKey& vk, uint8_t nTag, const Blob& key, bool bW)
+	{
+		Wasm::Test(key.n <= Limits::VarKeySize);
+		SetVarKey(vk, nTag, key);
+
+		if (bW)
+		{
+			switch (nTag)
+			{
+			case VarKey::Tag::Internal:
+			case VarKey::Tag::InternalStealth:
+				break; // ok
+
+			default:
+				Wasm::Fail(); // not allowed to modify/emit
+			}
+		}
+	}
+
 	BVM_METHOD(LoadVar)
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
@@ -1104,9 +1123,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
 		VarKey vk;
-		SetVarKey(vk, nType, Blob(pKey, nKey));
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
 		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
 		return nVal;
@@ -1119,21 +1137,10 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
 		Wasm::Test(nVal <= Limits::VarSize);
 
-		switch (nType)
-		{
-		case VarKey::Tag::Internal:
-		case VarKey::Tag::InternalStealth:
-			break; // ok
-
-		default:
-			Wasm::Fail(); // not allowed to modify
-		}
-
 		VarKey vk;
-		SetVarKey(vk, nType, Blob(pKey, nKey));
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
 		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
