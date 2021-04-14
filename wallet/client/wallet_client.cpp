@@ -19,6 +19,7 @@
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
+#include "extensions/export/tx_history_to_csv.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -1485,8 +1486,8 @@ namespace beam::wallet
 
     void WalletClient::exportTxHistoryToCsv()
     {
-        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
-        onExportTxHistoryToCsv(data);   
+        auto data = ExportTxHistoryToCsv(*m_walletDB);
+        onExportTxHistoryToCsv(data);
     }
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
