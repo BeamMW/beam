@@ -22,6 +22,7 @@ target_sources(wallet_client
         extensions/notifications/notification_center.cpp
         extensions/dex_board/dex_order.cpp
         extensions/dex_board/dex_board.cpp
+        extensions/export/tx_history_to_csv.cpp
 )
 
 target_link_libraries(wallet_client 
