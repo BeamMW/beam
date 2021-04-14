@@ -32,10 +32,13 @@ namespace beam::wallet {
             return _done;
         }
 
-        void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
-        void Start(const std::string &args, unsigned method, DoneHandler doneHandler) override; // throws
         void SetCurrentApp(const std::string& appid) override; // throws
         void ReleaseCurrentApp(const std::string& appid) override; // throws
+        void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
+
+        void CallShaderAndStartTx(const std::string& args, unsigned method, DoneAllHandler doneHandler) override;
+        void CallShader(const std::string& args, unsigned method, DoneCallHandler) override;
+        void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) override;
 
     protected:
         void OnDone(const std::exception *pExc) override;
@@ -47,6 +50,8 @@ namespace beam::wallet {
 
         beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
-        DoneHandler _doneHandler;
+
+        DoneAllHandler  _doneAll;
+        DoneCallHandler _doneCall;
     };
 }

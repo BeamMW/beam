@@ -95,7 +95,7 @@ namespace beam::wallet
 
         virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) = 0;
         virtual void getAssetInfo(Asset::ID) = 0;
-        virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) = 0;
+        virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) = 0;
 
         // error (if any), shader output (if any), txid (if any)
         typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;

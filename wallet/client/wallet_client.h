@@ -236,7 +236,7 @@ namespace beam::wallet
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
         void getAssetInfo(const Asset::ID) override;
-        void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) override;
+        void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override;
         void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
