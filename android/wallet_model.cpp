@@ -263,8 +263,7 @@ namespace
     {
         jobjectArray ratesArray = 0;
 
-        /* TODO: support new rates
-         * if (!rates.empty())
+        if (!rates.empty())
         {
             ratesArray = env->NewObjectArray(static_cast<jsize>(rates.size()), ExchangeRateClass, NULL);
 
@@ -273,8 +272,8 @@ namespace
                 jobject rate = env->AllocObject(ExchangeRateClass);
 
                 {
-                    setIntField(env, ExchangeRateClass, rate, "currency", underlying_cast(rates[i].m_currency));
-                    setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rates[i].m_unit));
+                    setIntField(env, ExchangeRateClass, rate, "currency", underlying_cast(rates[i].m_to));
+                    setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rates[i].m_from));
                     setLongField(env, ExchangeRateClass, rate, "amount", rates[i].m_rate);
                     setLongField(env, ExchangeRateClass, rate, "updateTime", rates[i].m_updateTime);
                 }
@@ -283,7 +282,7 @@ namespace
 
                 env->DeleteLocalRef(rate);
             }
-        }*/
+        }
         return ratesArray;
     }
 
@@ -492,7 +491,10 @@ void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selection
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelectionCalculated", "(JJJ)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, selectionRes.m_explicitFee, selectionRes.m_changeBeam, 0);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, 
+                                                    selectionRes.m_explicitFee, 
+                                                    selectionRes.m_changeBeam, 
+                                                    selectionRes.m_minimalExplicitFee);
 }
 
 void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
