@@ -259,31 +259,19 @@ namespace
         return addrArray;
     }
 
-    jobjectArray convertExchangeRatesToJObject(JNIEnv* env, const std::vector<ExchangeRate>& rates)
+    int convertCurrency(const beam::wallet::Currency& currency)
     {
-        jobjectArray ratesArray = 0;
-
-        if (!rates.empty())
-        {
-            ratesArray = env->NewObjectArray(static_cast<jsize>(rates.size()), ExchangeRateClass, NULL);
-
-            for (size_t i = 0; i < rates.size(); ++i)
-            {
-                jobject rate = env->AllocObject(ExchangeRateClass);
-
-                {
-                    setIntField(env, ExchangeRateClass, rate, "currency", underlying_cast(rates[i].m_to));
-                    setIntField(env, ExchangeRateClass, rate, "unit", underlying_cast(rates[i].m_from));
-                    setLongField(env, ExchangeRateClass, rate, "amount", rates[i].m_rate);
-                    setLongField(env, ExchangeRateClass, rate, "updateTime", rates[i].m_updateTime);
-                }
-
-                env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rate);
-
-                env->DeleteLocalRef(rate);
-            }
+        if(currency == Currency::BEAM()) {
+            return 0;
         }
-        return ratesArray;
+        else if(currency == Currency::BTC()) {
+            return 1;
+        }
+        else if(currency == Currency::ETH()) {
+            return 2;
+        }
+        
+        return -1;
     }
 
     void callSoftwareUpdateNotification(JNIEnv* env, const Notification& notification, ChangeAction action)
@@ -780,13 +768,37 @@ void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jobjectArray jRates = convertExchangeRatesToJObject(env, rates);
+    jobjectArray ratesArray = 0;
+
+        if (!rates.empty())
+        {
+            ratesArray = env->NewObjectArray(static_cast<jsize>(rates.size()), ExchangeRateClass, NULL);
+
+            for (size_t i = 0; i < rates.size(); ++i)
+            {
+                int currency = convertCurrency(rates[i].m_to);
+                int unit = convertCurrency(rates[i].m_from);
+
+                jobject rate = env->AllocObject(ExchangeRateClass);
+
+                {
+                    setIntField(env, ExchangeRateClass, rate, "currency", currency);
+                    setIntField(env, ExchangeRateClass, rate, "unit", unit);
+                    setLongField(env, ExchangeRateClass, rate, "amount", rates[i].m_rate);
+                    setLongField(env, ExchangeRateClass, rate, "updateTime", rates[i].m_updateTime);
+                }
+
+                env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rate);
+
+                env->DeleteLocalRef(rate);
+            }
+        }
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExchangeRates", "([L" BEAM_JAVA_PATH "/entities/dto/ExchangeRateDTO;)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, jRates);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, ratesArray);
 
-    env->DeleteLocalRef(jRates);
+    env->DeleteLocalRef(ratesArray);
 }
 
 void WalletModel::onGetAddress(const beam::wallet::WalletID& addr, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments)
