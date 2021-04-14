@@ -2234,11 +2234,15 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& pos)
 {
 	Merkle::FixedMmr lmmr;
+	uint64_t iTrg = static_cast<uint64_t>(-1);
 
 	{
 		NodeDB::ContractLog::Walker wlk;
 		for (m_DB.ContractLogEnum(wlk, HeightPos(pos.m_Height), HeightPos(pos.m_Height, static_cast<uint32_t>(-1))); wlk.MoveNext(); )
 		{
+			if (pos.m_Pos == wlk.m_Entry.m_Pos.m_Pos)
+				iTrg = lmmr.m_Count; // found!
+
 			Merkle::Hash hv;
 			Block::get_HashContractLog(hv, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
 
@@ -2247,8 +2251,10 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 		}
 	}
 
-	if (lmmr.m_Count <= pos.m_Pos)
+	if (lmmr.m_Count <= iTrg)
 		return false;
+
+	lmmr.get_Proof(proof, iTrg);
 
 	NodeDB::StateID sid;
 	sid.m_Height = pos.m_Height;
