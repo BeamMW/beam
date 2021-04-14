@@ -5041,7 +5041,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 
 	if (!(bAlreadyChecked || s.IsValid()))
 	{
-		LOG_WARNING() << id << " header invalid!";
+		LOG_VERBOSE() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 

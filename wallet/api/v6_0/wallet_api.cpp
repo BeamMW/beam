@@ -32,7 +32,7 @@ namespace beam::wallet
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         // Don't do anything with walletdb, providers &c.
-        #define REG_FUNC(api, name, writeAccess, isAsync)                 \
+        #define REG_FUNC(api, name, writeAccess, isAsync, appsAllowed)    \
         _methods[name] = {                                                \
             [this] (const JsonRpcId &id, const json &msg) {               \
                 auto parseRes = onParse##api(id, msg);                    \
@@ -42,9 +42,38 @@ namespace beam::wallet
                 auto parseRes = onParse##api(id, msg);                    \
                 return parseRes.second;                                   \
             },                                                            \
-            writeAccess, isAsync                                          \
+            writeAccess, isAsync, appsAllowed                             \
         };
         WALLET_API_METHODS(REG_FUNC)
         #undef REG_FUNC
+    }
+
+    bool WalletApi::checkTxAccessRights(const TxParameters& params)
+    {
+        // If this API instance is not for apps, all txs are available
+        if (_appid.empty())
+        {
+            return true;
+        }
+
+        // If there is no AppID on transaction app is not allowed to access it
+        auto appid = params.GetParameter<std::string>(TxParameterID::AppID);
+        if (!appid.is_initialized())
+        {
+            return false;
+        }
+
+        // Only if this tx has appid of the current App it can be accessed
+        return _appid == *appid;
+    }
+
+    void WalletApi::checkTxAccessRights(const TxParameters& params, ApiError code, const std::string& errmsg)
+    {
+        if (!checkTxAccessRights(params))
+        {
+           // we do not throw 'NotAllowed' by default to not to expose that transaction exists
+           // we let the caller to provide code & message that should mimic caller's 'not found' state
+           throw jsonrpc_exception(code, errmsg);
+        }
     }
 }

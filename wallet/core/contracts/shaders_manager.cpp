@@ -121,6 +121,11 @@ namespace beam::wallet {
                     .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData)
                     .SetParameter(TxParameterID::Message, msg);
 
+        if (!_currentApp.empty())
+        {
+            params.SetParameter(TxParameterID::AppID, _currentApp);
+        }
+
         try
         {
             auto txid = _wallet->StartTransaction(params);
@@ -131,6 +136,26 @@ namespace beam::wallet {
             std::string error = err.what();
             handler(boost::none, result, error);
         }
+    }
+
+    void ShadersManager::SetCurrentApp(const std::string& appid)
+    {
+        if (!_currentApp.empty())
+        {
+            throw std::runtime_error("SetCurrentApp while another app is active");
+        }
+
+        _currentApp = appid;
+    }
+
+    void ShadersManager::ReleaseCurrentApp(const std::string& appid)
+    {
+        if (_currentApp != appid)
+        {
+            throw std::runtime_error("Unexpected AppID in releaseAPP");
+        }
+
+        _currentApp = std::string();
     }
 
     IShadersManager::Ptr IShadersManager::CreateInstance(

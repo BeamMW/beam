@@ -80,6 +80,7 @@ namespace beam::wallet
 
             bool writeAccess;
             bool isAsync;
+            bool appsAllowed;
         };
 
         std::unordered_map <std::string, Method> _methods;

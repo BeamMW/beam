@@ -4018,6 +4018,25 @@ namespace beam::wallet
         }
     }
 
+    boost::optional<WalletAddress> WalletDB::getAddressByToken(const std::string& token, bool isLaser) const
+    {
+        const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        auto req = "SELECT * FROM " + addrTableName + " WHERE Address=?1;";
+
+        sqlite::Statement stm(this, req.c_str());
+        stm.bind(1, token);
+
+        if (stm.step())
+        {
+            WalletAddress address = {};
+            loadAddress(this, stm, address);
+
+            return address;
+        }
+
+        return boost::optional<WalletAddress>();
+    }
+
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id, bool isLaser) const
     {
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;

@@ -158,7 +158,6 @@ namespace beam::wallet
     std::pair<OffersList, IWalletApi::MethodInfo> WalletApi::onParseOffersList(const JsonRpcId& id, const json& params)
     {
         OffersList offersList;
-        MethodInfo funds(MethodInfo::AppsBlocked);
 
         if (hasParam(params, "filter"))
         {
@@ -179,13 +178,12 @@ namespace beam::wallet
             }
         }
 
-        return std::make_pair(offersList, funds);
+        return std::make_pair(offersList, MethodInfo());
     }
 
     std::pair<OffersBoard, IWalletApi::MethodInfo> WalletApi::onParseOffersBoard(const JsonRpcId& id, const json& params)
     {
         OffersBoard offersBoard;
-        MethodInfo funds(MethodInfo::AppsBlocked);
 
         if (hasParam(params, "filter"))
         {
@@ -198,13 +196,12 @@ namespace beam::wallet
             }
         }
 
-        return std::make_pair(offersBoard, funds);
+        return std::make_pair(offersBoard, MethodInfo());
     }
 
     std::pair<CreateOffer, IWalletApi::MethodInfo> WalletApi::onParseCreateOffer(const JsonRpcId& id, const json& params)
     {
         CreateOffer data;
-        MethodInfo funds(MethodInfo::AppsBlocked);
 
         Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
 
@@ -262,13 +259,11 @@ namespace beam::wallet
             data.comment = *comment;
         }
 
-        return std::make_pair(data, funds);
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<PublishOffer, IWalletApi::MethodInfo> WalletApi::onParsePublishOffer(const JsonRpcId& id, const json& params)
     {
-        MethodInfo funds(MethodInfo::AppsBlocked);
-
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
         if (!SwapOfferToken::isValid(token))
         {
@@ -276,14 +271,12 @@ namespace beam::wallet
         }
 
         PublishOffer data{token};
-        return std::make_pair(data, funds);
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<AcceptOffer, IWalletApi::MethodInfo> WalletApi::onParseAcceptOffer(const JsonRpcId& id, const json& params)
     {
         AcceptOffer data;
-        MethodInfo funds(MethodInfo::AppsBlocked);
-
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
@@ -304,21 +297,18 @@ namespace beam::wallet
             data.comment = *comment;
         }
 
-        return std::make_pair(data, funds);
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<OfferStatus, IWalletApi::MethodInfo> WalletApi::onParseOfferStatus(const JsonRpcId& id, const json& params)
     {
-        MethodInfo funds(MethodInfo::AppsBlocked);
         OfferStatus offerStatus = {};
-
         offerStatus.txId = getMandatoryParam<ValidTxID>(params, "tx_id");
-        return std::make_pair(offerStatus, funds);
+        return std::make_pair(offerStatus, MethodInfo());
     }
 
     std::pair<DecodeToken, IWalletApi::MethodInfo> WalletApi::onParseDecodeToken(const JsonRpcId& id, const json& params)
     {
-        MethodInfo funds(MethodInfo::AppsBlocked);
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
         if (!SwapOfferToken::isValid(token))
@@ -327,12 +317,11 @@ namespace beam::wallet
         }
 
         DecodeToken decodeToken{ token };
-        return std::make_pair(decodeToken, funds);
+        return std::make_pair(decodeToken, MethodInfo());
     }
 
     std::pair<GetBalance, IWalletApi::MethodInfo> WalletApi::onParseGetBalance(const JsonRpcId& id, const json& params)
     {
-        MethodInfo funds(MethodInfo::AppsBlocked);
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         const auto coin = from_string(coinName);
 
@@ -342,13 +331,11 @@ namespace beam::wallet
         }
 
         GetBalance data{ coin };
-        return std::make_pair(data, funds);
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<RecommendedFeeRate, IWalletApi::MethodInfo> WalletApi::onParseRecommendedFeeRate(const JsonRpcId& id, const json& params)
     {
-        MethodInfo funds(MethodInfo::AppsBlocked);
-
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         AtomicSwapCoin coin = from_string(coinName);
 
@@ -358,7 +345,7 @@ namespace beam::wallet
         }
 
         RecommendedFeeRate data{ coin };
-        return std::make_pair(data, funds);
+        return std::make_pair(data, MethodInfo());
     }
 
     std::pair<CancelOffer, IWalletApi::MethodInfo> WalletApi::onParseCancelOffer(const JsonRpcId& id, const json& params)

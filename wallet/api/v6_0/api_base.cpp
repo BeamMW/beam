@@ -119,7 +119,11 @@ namespace beam::wallet {
                 throw jsonrpc_exception(ApiError::NotFoundJsonRpc, info.method);
             }
 
+            const auto& minfo = _methods[info.method];
+
             info.params = info.message["params"];
+            info.appsAllowed = minfo.appsAllowed;
+
             return info;
         });
     }

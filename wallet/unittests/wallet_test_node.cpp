@@ -12,11 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "wallet_test_node.h"
-
+#include "wallet/core/wallet_db.h"
 #include <boost/filesystem.hpp>
 
 namespace beam::wallet
 {
+    IWalletDB::Ptr createWalletDB(const std::string& path, bool generateSeed)
+    {
+        if (boost::filesystem::exists(path))
+        {
+            boost::filesystem::remove(path);
+        }
+
+        ECC::NoLeak<ECC::uintBig> seed;
+        if (generateSeed)
+        {
+            void* p = reinterpret_cast<void*>(&seed.V);
+            for (uint32_t i = 0; i < sizeof(seed.V); i++)
+                ((uint8_t*)p)[i] = (uint8_t)rand();
+        }
+        else
+        {
+            seed.V = Zero;
+        }
+
+        auto walletDB = WalletDB::init(path, std::string("123"), seed, false);
+        return walletDB;
+    }
+
     ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts /*= { 5, 2, 1, 9 }*/)
     {
         Treasury treasury;

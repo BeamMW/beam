@@ -124,6 +124,9 @@ namespace beam::wallet
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
     private:
+        bool checkTxAccessRights(const TxParameters&);
+        void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
+
         #define PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
         WALLET_API_METHODS(PARSE_FUNC)

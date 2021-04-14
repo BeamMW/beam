@@ -19,6 +19,8 @@
 #include "core/treasury.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/simple_transaction.h"
+#include "utility/test_helpers.h"
+#include "core/unittest/mini_blockchain.h"
 
 using namespace beam;
 using namespace beam::wallet;

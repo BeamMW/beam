@@ -269,9 +269,10 @@ public:
                 IWalletApi::InitData initData;
                 initData.walletDB = m_Client->GetWalletDB();
                 initData.wallet = m_Client->getWallet();
+                // initData.appID = set value
                 // initData.swaps = _swapsProvider;
-               //  initData.acl = _acl;
-                initData.contracts = m_Client->getAppsShaders();
+                // initData.acl = _acl;
+                // initData.contracts = m_Client->getAppsShaders(); // for now blocked
                 m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, initData);
             }
 

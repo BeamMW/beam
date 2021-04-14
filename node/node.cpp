@@ -76,7 +76,7 @@ void Node::UpdateSyncStatus()
 		{
 			m_PostStartSynced = true;
 
-			LOG_INFO() << "Tx replication is ON";
+			LOG_VERBOSE() << "Tx replication is ON";
 
 			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 			{
@@ -888,7 +888,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
-    LOG_INFO() << "+Peer " << addr;
+    LOG_VERBOSE() << "+Peer " << addr;
 
     return pPeer;
 }
@@ -1201,7 +1201,7 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 
 void Node::Peer::OnConnectedSecure()
 {
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
 
     m_Flags |= Flags::Connected;
 
@@ -1247,7 +1247,7 @@ Height Node::Peer::get_MinPeerFork()
 void Node::Peer::OnMsg(proto::Authentication&& msg)
 {
     proto::NodeConnection::OnMsg(std::move(msg));
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
 
     if (proto::IDType::Owner == msg.m_IDType)
     {
@@ -1283,7 +1283,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         ThrowUnexpected();
 
     m_Flags |= Flags::PiRcvd;
-    LOG_INFO() << m_RemoteAddr << " received PI";
+    LOG_VERBOSE() << m_RemoteAddr << " received PI";
 
     PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
@@ -1382,7 +1382,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
 
-    LOG_INFO() << *m_pInfo << " connected, info updated";
+    LOG_VERBOSE() << *m_pInfo << " connected, info updated";
 
     if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
     {
@@ -1392,7 +1392,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         {
             pPi->m_LastConnectAttempt = ts;
 
-            LOG_INFO() << *m_pInfo << " probing connection in opposite direction";
+            LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
 
 
             Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
@@ -1423,13 +1423,13 @@ bool Node::Peer::ShouldFinalizeMining()
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-    LOG_WARNING() << m_RemoteAddr << ": " << dr;
+    LOG_VERBOSE() << m_RemoteAddr << ": " << dr;
 
     bool bIsErr = true;
     uint8_t nByeReason = 0;
@@ -1491,7 +1491,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
-    LOG_INFO() << "-Peer " << m_RemoteAddr;
+    LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
 
     if (nByeReason && (Flags::Connected & m_Flags))
     {
@@ -1551,7 +1551,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 			if (bDelete)
 			{
-				LOG_INFO() << pip << " Deleted";
+				LOG_VERBOSE() << pip << " Deleted";
 				pm.Delete(pip);
 			}
 		}
@@ -1612,7 +1612,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
     Block::SystemState::ID id;
     m_Tip.get_ID(id);
 
-    LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
+    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Tip: " << id;
 
     if (!m_pInfo)
         return;
@@ -3874,6 +3874,20 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
     }
 }
 
+bool Node::Miner::IsEnabled() const 
+{
+    if (!m_External.m_pSolver && m_vThreads.empty())
+        return false;
+
+    if (!Rules::get().FakePoW)
+        return true;
+
+    if (get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms > 0)
+        return true;
+
+    return m_FakeBlocksToGenerate > 0;
+}
+
 void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
     const Config& cfg = get_ParentObj().m_Cfg;
@@ -3965,9 +3979,9 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
         {
             uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
-            bool bSolved = false;
+            bool bSolved = timeout_ms == 0;
 
-            for (uint32_t t0_ms = GetTime_ms(); ; )
+            for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
             {
                 if (fnCancel(false))
                     break;
@@ -4254,8 +4268,7 @@ void Node::Miner::OnMined()
 
     LOG_INFO() << "New block mined: " << id;
 
-	Processor& p = get_ParentObj().m_Processor; // alias
-
+    Processor& p = get_ParentObj().m_Processor; // alias
     NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
     switch (eStatus)
     {
@@ -4277,7 +4290,11 @@ void Node::Miner::OnMined()
 
     eStatus = p.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID);
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
-
+    if (m_FakeBlocksToGenerate)
+    {
+        assert(Rules::get().FakePoW);
+        --m_FakeBlocksToGenerate;
+    }
     p.FlushDB();
 	p.TryGoUpAsync(); // will likely trigger OnNewState(), and spread this block to the network
 }
@@ -4952,6 +4969,13 @@ void Node::PrintRollbackStats()
     }
 
     LOG_INFO() << os.str();
+}
+
+void Node::GenerateFakeBlocks(uint32_t n)
+{
+    assert(Rules::get().FakePoW);
+    m_Miner.m_FakeBlocksToGenerate = n;
+    m_Miner.SetTimer(0, true);
 }
 
 } // namespace beam

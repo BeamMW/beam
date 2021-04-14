@@ -73,17 +73,14 @@ namespace beam::wallet
 
         struct MethodInfo
         {
-            static const bool AppsAllowed = true;
-            static const bool AppsBlocked = false;
-
             typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
-            explicit MethodInfo(bool apps) : handlesApps(apps) {}
-            MethodInfo(const MethodInfo& rhs): spend(rhs.spend), receive(rhs.receive), fee(rhs.fee), handlesApps(rhs.handlesApps) {}
 
             Funds spend;
             Funds receive;
             beam::Amount fee = 0UL;
-            bool handlesApps = false;
+            std::string comment;
+            std::string token;
+            bool spendOffline = true;
         };
 
         struct ApiCallInfo
@@ -92,6 +89,7 @@ namespace beam::wallet
             json rpcid;
             json message;
             json params;
+            bool appsAllowed;
         };
 
         struct ParseResult
