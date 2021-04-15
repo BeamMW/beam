@@ -2308,6 +2308,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
+	std::ostream* m_pTxErrorInfo = nullptr;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -3185,6 +3186,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		if (!e.m_Data.empty())
 		{
 			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Contract " << cid << " already exists";
+
 			return false; // contract already exists
 		}
 
@@ -3212,6 +3217,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (!krn.m_iMethod)
 		{
 			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " c'tor call attempt";
+
 			return false; // c'tor call attempt
 		}
 
@@ -3231,6 +3240,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
 				bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " d'tor not fully clean";
+
 				proc.UndoVars();
 				return false;
 			}
@@ -4363,18 +4376,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
-		InitStack();
-
-		//Amount fee = krn.m_Fee;
-		//fee /= bvm2::Limits::Cost::UnitPrice;
-		//uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
-
 		m_Charge = m_Bic.m_ChargePerBlock;
-		//std::setmin(m_Charge.m_Units, nUnits);
-		//uint32_t nUnits0 = m_Charge.m_Units;
 
+		InitStack();
 		m_Stack.PushAlias(krn.m_Args);
-		DischargeMemOp(static_cast<uint32_t>(krn.m_Args.size()));
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
@@ -4410,14 +4415,27 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (e.m_Type == bvm2::ErrorSubType::NoCharge)
 			m_Bic.m_LimitExceeded = true;
+
+		if (m_Bic.m_pTxErrorInfo)
+			*m_Bic.m_pTxErrorInfo << "Contract " << cid << std::endl << e.what();
 	}
-	catch (const std::exception&)
+	catch (const std::exception& e)
 	{
 		m_Bic.m_TxStatus = proto::TxStatus::ContractFailFirst;
+
+		if (m_Bic.m_pTxErrorInfo)
+			*m_Bic.m_pTxErrorInfo << "Contract " << cid << std::endl << e.what();
 	}
 
 	if (!bRes)
+	{
+		if (m_Bic.m_pTxErrorInfo)
+		{
+			// dump more info
+		}
+
 		UndoVars();
+	}
 	return bRes;
 }
 
@@ -5319,12 +5337,16 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
 	if (!hr.IsInRange(h))
+	{
+		if (pExtraInfo)
+			*pExtraInfo << "Height range fail";
 		return proto::TxStatus::InvalidContext;
+	}
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
@@ -5339,7 +5361,12 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 				break;
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
+		{
+			if (pExtraInfo)
+				*pExtraInfo << "Inputs missing";
+
 			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
+		}
 	}
 
 	// Ensure kernels are ok
@@ -5348,6 +5375,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
+	bic.m_pTxErrorInfo = pExtraInfo;
 
 	nBvmCharge = bic.m_ChargePerBlock;
 
@@ -5385,13 +5413,19 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.Prepare(tx, *this, h);
 
-		if (!msc.IsValid(tx, h, bc, 0, 1, m_ValCache))
-			return proto::TxStatus::InvalidInput;
+		bool bValid = msc.IsValid(tx, h, bc, 0, 1, m_ValCache);
+		if (bValid)
+		{
+			msc.Calculate(bc.m_Sum, *this);
+			bValid = bc.Flush();
+		}
 
-		msc.Calculate(bc.m_Sum, *this);
-
-		if (!bc.Flush())
+		if (!bValid)
+		{
+			if (pExtraInfo)
+				*pExtraInfo << "bad shielded input";
 			return proto::TxStatus::InvalidInput;
+		}
 
 		msc.MoveToGlobalCache(m_ValCache);
 	}

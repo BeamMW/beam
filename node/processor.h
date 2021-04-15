@@ -532,7 +532,7 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
-	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge); // assuming context-free validation is already performed, but 
+	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
 	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);

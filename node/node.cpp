@@ -579,7 +579,7 @@ void Node::Processor::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge))
+		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
 			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
 	}
 }
@@ -2095,11 +2095,17 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
     if (bReply)
     {
-        proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
+        std::ostringstream errInfo;
+        bool bRichErrInfo = (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8);
 
-        if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8)
+        proto::Status msgOut;
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, bRichErrInfo ? &errInfo : nullptr);
+
+        if (bRichErrInfo)
+        {
+            msgOut.m_ExtraInfo = errInfo.str();
             Send(msgOut);
+        }
         else
         {
             proto::Status0 msg0;
@@ -2148,7 +2154,7 @@ void Node::TxDeferred::OnSchedule()
     if (!m_lst.empty())
     {
         TxDeferred::Element& x = m_lst.front();
-        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff);
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff, nullptr);
         m_lst.pop_front();
     }
 
@@ -2157,21 +2163,25 @@ void Node::TxDeferred::OnSchedule()
 
 }
 
-uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
     return bFluff ?
-        OnTransactionFluff(std::move(pTx), pSender, nullptr) :
-        OnTransactionStem(std::move(pTx));
+        OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
+        OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
-uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve)
+uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo)
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
     if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+    {
+        if (pExtraInfo)
+            *pExtraInfo << "Context-free validation failed";
         return proto::TxStatus::Invalid;
+    }
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection, pExtraInfo);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
@@ -2181,6 +2191,8 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
     }
 
     if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve)) {
+        if (pExtraInfo)
+            *pExtraInfo << "Low fee";
         return proto::TxStatus::LowFee;
     }
 
@@ -2303,7 +2315,7 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
     return threshold;
 }
 
-uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
+uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo)
 {
 	TxStats s;
 	ptx->get_Reader().AddStats(s);
@@ -2362,7 +2374,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
 
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve, pExtraInfo);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 
@@ -2377,7 +2389,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx)
     {
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve);
+			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve, pExtraInfo);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 		}
@@ -2464,7 +2476,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
     }
 
 	LogTxStem(*x.m_pValue, "Going to fluff");
-	OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
@@ -2667,7 +2679,7 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
-uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSender, TxPool::Stem::Element* pElem)
+uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
@@ -2698,7 +2710,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const PeerID* pSende
     // new transaction
     uint32_t nSizeCorrection = 0;
     Amount feeReserve = 0;
-    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx, nSizeCorrection, feeReserve);
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx, nSizeCorrection, feeReserve, pExtraInfo);
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
@@ -2770,14 +2782,14 @@ void Node::Dandelion::OnTimedOut(Element& x)
 	else
 	{
 		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
-		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
 	}
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge))
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr))
         return false;
 
     TxStats s;
