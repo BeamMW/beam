@@ -71,8 +71,8 @@ namespace beam::wallet
     macro(GetAssetInfo,          "get_asset_info",          API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
-    macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)  \
-    macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)  \
+    macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
+    macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)   \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
 

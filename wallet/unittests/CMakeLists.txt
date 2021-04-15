@@ -14,25 +14,27 @@ add_test_snippet(wallet_api_test wallet_api)
 add_test_snippet(wallet_assets_test core node wallet pow assets wallet_test_node)
 add_test_snippet(news_channels_test wallet_client node)
 add_test_snippet(broadcasting_test wallet_client node)
-add_test_snippet(wallet_contract_test wallet_test_node)
 
-function (add_shader shader )
-    add_custom_command(TARGET wallet_contract_test 
-                   PRE_BUILD 
-                   COMMAND clang -O3 
-                            --target=wasm32 -I ${PROJECT_SOURCE_DIR}/bvm 
-                            -std=c++17 
-                            -fno-rtti 
-                            -Wl,--export-dynamic,--no-entry,--allow-undefined -nostdlib 
-                            ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}.cpp --output ${shader}.wasm
-                    COMMENT "Building shader ${shader}..."
-                    VERBATIM
-)
-endfunction()
+if (BEAM_TEST_SHADERS)
+    add_test_snippet(wallet_contract_test wallet_test_node)
 
-add_shader(test_contract)
-add_shader(test_app)
+    function (add_shader shader )
+        add_custom_command(TARGET wallet_contract_test 
+                       PRE_BUILD 
+                       COMMAND clang -O3 
+                                --target=wasm32 -I ${PROJECT_SOURCE_DIR}/bvm 
+                                -std=c++17 
+                                -fno-rtti 
+                                -Wl,--export-dynamic,--no-entry,--allow-undefined -nostdlib 
+                                ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}.cpp --output ${shader}.wasm
+                        COMMENT "Building shader ${shader}..."
+                        VERBATIM
+    )
+    endfunction()
 
+    add_shader(test_contract)
+    add_shader(test_app)
+endif()
 
 if(BEAM_HW_WALLET)
     target_compile_definitions(wallet_test PRIVATE BEAM_HW_WALLET)

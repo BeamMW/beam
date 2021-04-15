@@ -1159,7 +1159,6 @@ namespace beam::wallet
 
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data, const IWalletDB& db);
-        std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
         void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
 

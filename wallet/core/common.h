@@ -604,7 +604,7 @@ namespace beam::wallet
         [[nodiscard]] bool canCancel() const;
         [[nodiscard]] bool canDelete() const;
         [[nodiscard]] std::string getTxTypeString() const;
-        [[nodiscard]] std::string getConvertedAmount(const Currency& target) const;
+        [[nodiscard]] Amount getExchangeRate(const Currency& target) const;
         [[nodiscard]] std::string getToken() const;
         [[nodiscard]] std::string getSenderIdentity() const;
         [[nodiscard]] std::string getReceiverIdentity() const;

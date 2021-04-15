@@ -51,16 +51,16 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::Start(const std::string &args, unsigned method, DoneHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(const std::string &args, unsigned method, DoneAllHandler doneHandler)
     {
         if (!IsDone())
         {
-            throw std::runtime_error("still in shader call");
+            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
         }
 
         if (m_BodyManager.empty())
         {
-            throw std::runtime_error("missing shader code");
+            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
         }
 
         m_Args.clear();
@@ -72,18 +72,85 @@ namespace beam::wallet {
 
         _done = false;
         _async = false;
-        _doneHandler = std::move(doneHandler);
+        _doneAll = std::move(doneHandler);
 
         StartRun(method);
         _async = !_done;
     }
 
+    void ShadersManager::CallShader(const std::string& args, unsigned method, DoneCallHandler doneHandler)
+    {
+        if (!IsDone())
+        {
+            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+        }
+
+        if (m_BodyManager.empty())
+        {
+            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
+        }
+
+        m_Args.clear();
+        if (!args.empty())
+        {
+            std::string temp = args;
+            AddArgs(&temp.front());
+        }
+
+        _done = false;
+        _async = false;
+        _doneCall = std::move(doneHandler);
+
+        StartRun(method);
+        _async = !_done;
+    }
+
+     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
+    {
+        try
+        {
+            decltype(m_vInvokeData) invokeData;
+            if (!fromByteBuffer(buffer, invokeData))
+            {
+                throw std::runtime_error("failed to deserialize invoke data");
+            }
+
+            std::string sComment;
+            for (size_t i = 0; i < m_vInvokeData.size(); i++)
+            {
+                const auto& cdata = m_vInvokeData[i];
+                if (i) sComment += "; ";
+                sComment += cdata.m_sComment;
+            }
+
+            ByteBuffer msg(sComment.begin(), sComment.end());
+            auto params = CreateTransactionParameters(TxType::Contract)
+                    .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData)
+                    .SetParameter(TxParameterID::Message, msg);
+
+            if (!_currentApp.empty())
+            {
+                params.SetParameter(TxParameterID::AppID, _currentApp);
+            }
+
+            auto txid = _wallet->StartTransaction(params);
+            return doneHandler(txid, boost::none);
+        }
+        catch(const std::runtime_error& err)
+        {
+            std::string error(err.what());
+            return doneHandler(boost::none, error);
+        }
+    }
+
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        auto handler = _doneHandler;
+        auto allHandler = _doneAll;
+        auto callHandler = _doneCall;
 
         _done = true;
-        decltype(_doneHandler)().swap(_doneHandler);
+        decltype(_doneAll)().swap(_doneAll);
+        decltype(_doneCall)().swap(_doneCall);
 
         if (pExc != nullptr)
         {
@@ -91,13 +158,21 @@ namespace beam::wallet {
             if (strlen(pExc->what()) > 0)
             {
                 error = std::string(pExc->what());
-            } else
+            }
+            else
             {
                 error = std::string("unknown error");
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            return handler(boost::none, boost::none, error);
+            if (allHandler)
+            {
+                return allHandler(boost::none, boost::none, error);
+            }
+            else
+            {
+                return callHandler(boost::none, boost::none, error);
+            }
         }
 
         boost::optional<std::string> result = m_Out.str();
@@ -105,36 +180,41 @@ namespace beam::wallet {
 
         if (m_vInvokeData.empty())
         {
-            return handler(boost::none, result, boost::none);
-        }
-
-        std::string sComment;
-        for (size_t i = 0; i < m_vInvokeData.size(); i++)
-        {
-            const auto& cdata = m_vInvokeData[i];
-            if (i) sComment += "; ";
-            sComment += cdata.m_sComment;
-        }
-
-        ByteBuffer msg(sComment.begin(), sComment.end());
-        auto params = CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData)
-                    .SetParameter(TxParameterID::Message, msg);
-
-        if (!_currentApp.empty())
-        {
-            params.SetParameter(TxParameterID::AppID, _currentApp);
+            if (allHandler)
+            {
+                return allHandler(boost::none, result, boost::none);
+            }
+            else
+            {
+                return callHandler(boost::none, result, boost::none);
+            }
         }
 
         try
         {
-            auto txid = _wallet->StartTransaction(params);
-            handler(txid, result, boost::none);
+            auto buffer = toByteBuffer(m_vInvokeData);
+
+            if (callHandler)
+            {
+                return callHandler(buffer, result, boost::none);
+            }
+
+            return ProcessTxData(buffer, [result, allHandler] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            {
+                return allHandler(std::move(txid), result, std::move(error));
+            });
         }
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            handler(boost::none, result, error);
+            if (allHandler)
+            {
+                return allHandler(boost::none, result, error);
+            }
+            else
+            {
+                return callHandler(boost::none, result, error);
+            }
         }
     }
 

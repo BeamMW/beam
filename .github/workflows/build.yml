@@ -58,8 +58,7 @@ jobs:
     - name: Download boost [macos-10.15]
       if: matrix.os == 'macos-10.15'
       run: |
-        curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
-        brew install ./boost.rb 
+        brew install boost 
 
     - name: Download boost [ununtu all]
       shell: bash

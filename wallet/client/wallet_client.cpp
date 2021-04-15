@@ -19,6 +19,7 @@
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
+#include "extensions/export/tx_history_to_csv.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -317,7 +318,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAssetInfo, assetId);
     }
 
-    void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback) override
+    void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override
     {
         call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
     }
@@ -644,7 +645,8 @@ namespace beam::wallet
         makeIWTCall([appid, sp] ()-> boost::any {
             sp->SetCurrentApp(appid);
             return boost::none;
-        }, [](boost::any){});
+        }, [](const boost::any&){
+        });
 
         return sp;
     }
@@ -660,7 +662,8 @@ namespace beam::wallet
         makeIWTCall([appid, sp] ()-> boost::any {
             sp->ReleaseCurrentApp(appid);
             return boost::none;
-        }, [](boost::any){});
+        }, [](const boost::any&){
+        });
     }
 
     std::string WalletClient::getNodeAddress() const
@@ -1485,8 +1488,8 @@ namespace beam::wallet
 
     void WalletClient::exportTxHistoryToCsv()
     {
-        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
-        onExportTxHistoryToCsv(data);   
+        auto data = ExportTxHistoryToCsv(*m_walletDB);
+        onExportTxHistoryToCsv(data);
     }
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
@@ -1821,7 +1824,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<boost::any>&& resultCallback)
+    void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback)
     {
         auto result = function();
         postFunctionToClientContext([result, cb = std::move(resultCallback)]()
@@ -1866,41 +1869,29 @@ namespace beam::wallet
 
         _clientShadersCback = std::move(cback);
 
-        try
-        {
-            smgr->Start(args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
-                auto smgr = _clientShaders.lock();
-                if (!smgr)
-                {
-                    LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
-                    return;
-                }
+        smgr->CallShaderAndStartTx(args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+            auto smgr = _clientShaders.lock();
+            if (!smgr)
+            {
+                LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
+                return;
+            }
 
-                if (!_clientShadersCback)
-                {
-                    assert(false);
-                    LOG_ERROR() << "onShaderDone but empty callback";
-                    return;
-                }
+            if (!_clientShadersCback)
+            {
+                assert(false);
+                LOG_ERROR() << "onShaderDone but empty callback";
+                return;
+            }
 
-                postFunctionToClientContext([
-                        txid = std::move(txid),
-                        res = std::move(result),
-                        err = std::move(error),
-                        cb = std::move(_clientShadersCback)
-                        ] () {
-                            cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
-                        });
-            });
-        }
-        catch(const std::runtime_error& err)
-        {
-            postFunctionToClientContext([cb = std::move(_clientShadersCback), msg = err.what()]() {
-                cb(msg, "", TxID());
-            });
-
-            decltype(_clientShadersCback)().swap(_clientShadersCback);
-            return;
-        }
+            postFunctionToClientContext([
+                    txid = std::move(txid),
+                    res = std::move(result),
+                    err = std::move(error),
+                    cb = std::move(_clientShadersCback)
+                    ] () {
+                        cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                    });
+        });
     }
 }

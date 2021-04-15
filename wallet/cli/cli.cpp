@@ -2640,10 +2640,17 @@ namespace
             return -1;
         }
 
+        if (vm.count(cli::BLOCK_HEIGHT) != 1)
+        {
+            LOG_ERROR() << "block_height should be specified";
+            return -1;
+        }
+
         Height blockHeight = vm[cli::BLOCK_HEIGHT].as<Nonnegative<Height>>().value;
 
         if (!blockHeight)
         {
+            LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 
@@ -2675,6 +2682,7 @@ namespace
 
         if (request.m_pTrg || request.m_vStates.size() != 1)
         {
+            LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 

@@ -279,7 +279,7 @@ public:
             m_WalletApi->executeAPIRequest(request.data(), request.size());
             return boost::none;
         }, 
-        [](boost::any) {
+        [](const boost::any&) {
         });
     }
 
