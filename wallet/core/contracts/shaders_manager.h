@@ -15,9 +15,9 @@
 
 #include "utility/logger.h"
 #include "i_shaders_manager.h"
+#include "bvm/ManagerStd.h"
 
 namespace beam::wallet {
-
     class ShadersManager
         : public IShadersManager
         , private beam::bvm2::ManagerStd

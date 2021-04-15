@@ -109,23 +109,17 @@ namespace beam::wallet {
     {
         try
         {
-            decltype(m_vInvokeData) invokeData;
+            bvm2::ContractInvokeData invokeData;
             if (!fromByteBuffer(buffer, invokeData))
             {
                 throw std::runtime_error("failed to deserialize invoke data");
             }
 
-            std::string sComment;
-            for (size_t i = 0; i < m_vInvokeData.size(); i++)
-            {
-                const auto& cdata = m_vInvokeData[i];
-                if (i) sComment += "; ";
-                sComment += cdata.m_sComment;
-            }
-
+            std::string sComment = bvm2::getFullComment(invokeData);
             ByteBuffer msg(sComment.begin(), sComment.end());
+
             auto params = CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData)
+                    .SetParameter(TxParameterID::ContractDataPacked, invokeData)
                     .SetParameter(TxParameterID::Message, msg);
 
             if (!_currentApp.empty())
