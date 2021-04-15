@@ -2097,7 +2097,15 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
     {
         proto::Status msgOut;
         msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
-        Send(msgOut);
+
+        if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8)
+            Send(msgOut);
+        else
+        {
+            proto::Status0 msg0;
+            msg0.m_Value = msgOut.m_Value;
+            Send(msg0);
+        }
     }
     else
     {

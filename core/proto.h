@@ -49,8 +49,12 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Status(macro) \
+#define BeamNodeMsg_Status0(macro) \
     macro(uint8_t, Value)
+
+#define BeamNodeMsg_Status(macro) \
+    macro(uint8_t, Value) \
+    macro(std::string, ExtraInfo)
 
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
@@ -296,7 +300,8 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Status) \
+    macro(0x0e, Status0) \
+    macro(0x44, Status) \
     macro(0x0f, Login) \
     /* blockchain status */ \
     macro(0x10, NewTip) \
@@ -382,7 +387,7 @@ namespace proto {
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
             // 7 - GetShieldedOutputsAt
-            // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList
+            // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
 
             static const uint32_t Minimum = 4;
             static const uint32_t Maximum = 8;
@@ -545,6 +550,7 @@ namespace proto {
     inline void ZeroInit(PeerID& x) { x = Zero; }
     inline void ZeroInit(io::Address& x) { }
     inline void ZeroInit(ByteBuffer&) { }
+    inline void ZeroInit(std::string&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
@@ -776,6 +782,7 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
         virtual void OnMsg(ShieldedList0&&) override;
+        virtual void OnMsg(Status0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
