@@ -984,7 +984,7 @@ private:
 
 	Sigma::CmListVec m_Lst;
 
-	bool IsValid(const TxKernelShieldedInput&, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const TxKernelShieldedInput&, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -1012,7 +1012,7 @@ private:
 	};
 };
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, Height hScheme, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
@@ -1029,7 +1029,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
 
-	if (bUseShieldedState)
+	if (hScheme >= Rules::get().pForks[3].m_Height)
 		oracle << krn.m_NotSerialized.m_hvShieldedState;
 
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
@@ -1061,8 +1061,6 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		{
 			if (!m_iVerifier)
 			{
-				bool bUseShieldedState = (m_Height >= Rules::get().pForks[3].m_Height);
-
 				ECC::Hash::Value hv;
 				{
 					ECC::Hash::Processor hp;
@@ -1083,7 +1081,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 						m_pThis->m_Vc.Insert(hv, v.m_WindowEnd);
 				}
 
-				if (!bFound && !m_pThis->IsValid(v, bUseShieldedState, m_vKs, *m_pBc))
+				if (!bFound && !m_pThis->IsValid(v, m_Height, m_vKs, *m_pBc))
 					return false;
 			}
 
