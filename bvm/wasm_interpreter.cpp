@@ -1657,7 +1657,7 @@ namespace Wasm {
 			break;
 
 		case MemoryType::Data:
-			Test(!bW);
+			//Test(!bW); Enable write to data. This enables normal use of global variables.
 			blob = m_Data;
 			nOffset -= m_prData0; // data va start at specific offset
 			break;
