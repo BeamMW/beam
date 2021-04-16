@@ -217,6 +217,22 @@ namespace bvm2 {
 
 	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			const ContractID& m_Cid;
+			uint32_t m_iMethod;
+
+			MyCheckpoint(const ContractID& cid, uint32_t iMethod)
+				:m_Cid(cid)
+				,m_iMethod(iMethod)
+			{
+			}
+
+			void Dump(std::ostream& os) override {
+				os << "CallFar cid=" << m_Cid << ", iMethod=" << m_iMethod;
+			}
+		} cp(cid, iMethod);
+
 		DischargeUnits(Limits::Cost::CallFar);
 
 		auto nRetAddr = get_Ip();
