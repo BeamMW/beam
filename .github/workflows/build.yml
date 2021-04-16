@@ -55,12 +55,11 @@ jobs:
         echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
 
-    # - name: Download boost [macos-10.15]
-    #   if: matrix.os == 'macos-10.15'
-    #   run: |
-    #     brew update
-    #     brew upgrade
-    #     brew install boost 
+    - name: Download boost [macos-10.15]
+      if: matrix.os == 'macos-10.15'
+      run: |
+        brew update
+        brew install boost@1.75
 
     - name: Download boost [ununtu all]
       shell: bash
