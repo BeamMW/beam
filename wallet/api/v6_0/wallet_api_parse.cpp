@@ -457,7 +457,7 @@ namespace beam::wallet
     {
         const auto own = getOptionalParam<bool>(params, "own");
 
-        AddrList addrList = {};
+        AddrList addrList;
         addrList.own = own && *own;
 
         return std::pair(addrList, MethodInfo());

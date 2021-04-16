@@ -134,7 +134,7 @@ namespace beam::wallet
 
     struct AddrList
     {
-        bool own;
+        bool own = false;
 
         struct Response
         {
