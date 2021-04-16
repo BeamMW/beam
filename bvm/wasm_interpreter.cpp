@@ -1663,7 +1663,14 @@ namespace Wasm {
 			break;
 
 		case MemoryType::Stack:
-			Test(nOffset >= m_Stack.m_BytesCurrent); // should be no access below current stack pointer
+			// should be no access below current stack pointer
+			if (nOffset < m_Stack.m_BytesCurrent)
+			{
+				// sometimes the compiler may omit updating the stack pointer yet write below it (currently this happens in debug build empty function with a single parameter)
+				// We allow it, as long as it's above wasm operand stack
+				Test(m_Stack.m_Pos <= nOffset / sizeof(Word));
+			}
+
 			blob.p = m_Stack.m_pPtr;
 			blob.n = m_Stack.m_BytesMax;
 			break;

@@ -260,7 +260,7 @@ namespace bvm2 {
 		m_Stack.Push(0); // retaddr, set dummy for far call
 
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
-		Jmp(nAddr);
+		OnCall(nAddr);
 	}
 
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
