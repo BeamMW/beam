@@ -834,7 +834,15 @@ namespace beam::wallet
         message.invokeData = bytes.get<std::vector<uint8_t>>();
 
         beam::bvm2::ContractInvokeData realData;
-        if (!beam::wallet::fromByteBuffer(message.invokeData, realData))
+
+        try
+        {
+            if (!beam::wallet::fromByteBuffer(message.invokeData, realData))
+            {
+                throw std::runtime_error("");
+            }
+        }
+        catch(std::runtime_error&)
         {
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to parse invoke data");
         }
