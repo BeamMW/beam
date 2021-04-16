@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "bvm/ManagerStd.h"
+#include "bvm/invoke_data.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet.h"
 
@@ -40,7 +40,7 @@ namespace beam::wallet
         virtual void CompileAppShader(const std::vector<uint8_t>& shader) = 0;
 
         // One active call only. You cannot start another function call while previous one is not done (while !IsDone())
-        // CallShaderAndStartTx - call shadder & automatically create transaction if necessary
+        // CallShaderAndStartTx - call shader & automatically create transaction if necessary
         // CallShader - only make call and return tx data, doesn't create any transactions
         // ProcessTxData - process data returned by CallShader
         virtual void CallShaderAndStartTx(const std::string& args, unsigned method, DoneAllHandler doneHandler) = 0;

@@ -15,7 +15,6 @@
 #include "tx_history_to_csv.h"
 #include "core/block_crypt.h"
 #include "wallet/core/common.h"
-#include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
@@ -113,7 +112,7 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
         }
 
         std::string amountInUsd = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::USD()), 2);
-        std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), libbitcoin::btc_decimal_places);
+        std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), 8);
 
         auto statusInterpreter = db.getStatusInterpreter(tx);
         ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type

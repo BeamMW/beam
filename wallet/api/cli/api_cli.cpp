@@ -681,9 +681,9 @@ int main(int argc, char* argv[])
 
         LOG_INFO() << "Done";
     }
-    catch (const DatabaseException&)
+    catch (const DatabaseException& e)
     {
-        LOG_ERROR() << "Wallet not opened.";
+        LOG_ERROR() << "Wallet not opened. " << e.what();
         return -1;
     }
     catch (const std::exception& e)

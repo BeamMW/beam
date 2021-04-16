@@ -2340,31 +2340,18 @@ namespace
                 if (man.m_Err || man.m_vInvokeData.empty())
                     return 1;
 
-                Height h = wallet->get_CurrentHeight();
-
-                std::string sComment = "Contract: ";
-                bvm2::FundsMap fm;
-                Amount fee = Transaction::FeeSettings::get(h).get_DefaultStd();
+                const auto height  = wallet->get_CurrentHeight();
+                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
+                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
+                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+                std::cout << "\tComment: " << comment;
 
-                for (size_t i = 0; i < man.m_vInvokeData.size(); i++)
+                for (const auto& info: spend)
                 {
-                    const auto& cdata = man.m_vInvokeData[i];
-                    fm += cdata.m_Spend;
-                    fee += cdata.get_FeeMin(h);
-
-                    if (i)
-                        sComment += "; ";
-                    sComment += cdata.m_sComment;
-
-                    std::cout << "\tComment: " << cdata.m_sComment << std::endl;
-                }
-
-                for (auto it = fm.begin(); fm.end() != it; it++)
-                {
-                    auto aid = it->first;
-                    auto amount = it->second;
+                    auto aid = info.first;
+                    auto amount = info.second;
 
                     bool bSpend = (amount > 0);
                     if (!bSpend)
@@ -2373,8 +2360,8 @@ namespace
                     PrintableAmount prnt(static_cast<Amount>(amount));
                     if (aid)
                     {
-                        prnt.m_coinName = "Asset-" + to_string(aid);
-                        prnt.m_grothName = prnt.m_coinName + "-grooth";
+                        prnt.m_coinName = "ASSET-" + to_string(aid);
+                        prnt.m_grothName = prnt.m_coinName + "-GROTH";
                     }
 
                     std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << prnt << std::endl;
@@ -2382,14 +2369,13 @@ namespace
 
                 std::cout << "\tTotal fee: " << PrintableAmount(fee) << std::endl;
 
-                ByteBuffer msg(sComment.begin(), sComment.end());
-
-
+                ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
+
                 return 0;
             });
     }

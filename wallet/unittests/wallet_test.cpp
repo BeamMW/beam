@@ -2461,8 +2461,8 @@ namespace
 
         TestNode node;
 
-        std::vector<bvm2::ContractInvokeData> vData;
-        bvm2::ContractInvokeData& cdata = vData.emplace_back();
+        bvm2::ContractInvokeData vData;
+        bvm2::ContractInvokeEntry& cdata = vData.emplace_back();
 
         cdata.m_Cid = 746U;
         cdata.m_iMethod = 6;

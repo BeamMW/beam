@@ -86,7 +86,7 @@ namespace beam::wallet
                 SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
             }
 
-            std::vector<bvm2::ContractInvokeData> vData;
+            bvm2::ContractInvokeData vData;
             GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
 
             if (vData.empty())

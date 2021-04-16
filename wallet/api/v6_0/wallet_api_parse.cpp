@@ -229,7 +229,7 @@ namespace beam::wallet
 
         if (tx.m_txType == TxType::Contract)
         {
-            std::vector<beam::bvm2::ContractInvokeData> vData;
+            beam::bvm2::ContractInvokeData vData;
             if (tx.GetParameter(TxParameterID::ContractDataPacked, vData))
             {
                 for (const auto& data : vData)
