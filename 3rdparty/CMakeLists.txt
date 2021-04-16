@@ -17,6 +17,8 @@ add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
+add_subdirectory(libelfin/dwarf)
+
 
 #add_library(3rdparty INTERFACE IMPORTED GLOBAL)
 #set_target_properties(3rdparty PROPERTIES

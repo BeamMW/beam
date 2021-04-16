@@ -189,6 +189,23 @@ namespace Wasm {
 
 		std::vector<GlobalVar> m_Globals;
 
+		struct CustomSection
+		{
+			std::string m_Name;
+			const uint8_t* m_Start;
+			const uint8_t* m_End;
+
+			const uint8_t* data() const
+			{
+				return &(*m_Start);
+			}
+			size_t size() const
+			{
+				return std::distance(m_Start, m_End);
+			}
+		};
+		std::vector<CustomSection> m_CustomSections;
+
 		struct PerExport {
 			Vec<char> m_sName;
 			uint8_t m_Kind; // 0 for function

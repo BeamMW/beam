@@ -1,16 +1,41 @@
-// Copyright 2018-2021 The Beam Team
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #pragma once
-#include "Shaders/common.h"
+
+namespace Upgradable
+{
+    static const ShaderID s_SID = { 0x32,0x4a,0x87,0xd8,0x1a,0x6d,0x27,0xc7,0xd8,0x3a,0x59,0xe5,0xe9,0x29,0x58,0x9c,0x15,0xcf,0x86,0xce,0xe2,0xf9,0x1d,0xa5,0xbb,0xe0,0x6a,0x55,0xb0,0xfd,0xa2,0xd1 };
+
+#pragma pack (push, 1) // the following structures will be stored in the node in binary form
+
+    struct Current {
+        ContractID m_Cid;
+        Height m_hMinUpgadeDelay;
+        PubKey m_Pk;
+    };
+
+    struct Next {
+        ContractID m_cidNext;
+        Height m_hNextActivate;
+    };
+
+    struct State
+        :public Current
+        ,public Next
+    {
+        static const uint8_t s_Key = 0x77; // whatever, should not be used by the callee impl
+    };
+
+    struct Create
+        :public Current
+    {
+        static const uint32_t s_iMethod = 0;
+    };
+
+    struct ScheduleUpgrade
+        :public Next
+    {
+        static const uint32_t s_iMethod = 2;
+    };
+
+#pragma pack (pop)
+
+}

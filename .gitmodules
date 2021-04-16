@@ -7,3 +7,6 @@
 [submodule "3rdparty/trezor-cpp-client"]
 	path = 3rdparty/trezor-cpp-client
 	url = https://github.com/BeamMW/trezor-cpp-client.git
+[submodule "3rdparty/libelfin"]
+	path = 3rdparty/libelfin
+	url = https://github.com/anatolse/libelfin.git

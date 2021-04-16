@@ -327,6 +327,7 @@ namespace Wasm {
 		:public Compiler
 	{
 #define WasmParserSections(macro) \
+		macro(0, Custom) \
 		macro(1, Type) \
 		macro(2, Import) \
 		macro(3, Funcs) \
@@ -401,6 +402,17 @@ namespace Wasm {
 		m_Labels.m_Items.resize(m_Functions.size()); // function labels
 	}
 
+	void CompilerPlus::OnSection_Custom(Reader& inp)
+	{
+		auto nCount = inp.Read<uint32_t>();
+		auto start = inp.Consume(nCount);
+		auto& s = m_CustomSections.emplace_back();
+		s.m_Start = start + nCount;
+		s.m_End = inp.m_p1;
+		s.m_Name = { start, start + nCount };
+		
+		inp.m_p0 = inp.m_p1; // ignore for a while
+	}
 
 	void CompilerPlus::OnSection_Type(Reader& inp)
 	{

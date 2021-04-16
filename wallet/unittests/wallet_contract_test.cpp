@@ -22,6 +22,9 @@
 #include "bvm/ManagerStd.h"
 #include "core/fly_client.h"
 #include <memory>
+#include <inttypes.h>
+#undef small
+#include "3rdparty/libelfin/dwarf/dwarf++.hh"
 
 
 WALLET_TEST_INIT
@@ -33,6 +36,35 @@ using namespace beam::wallet;
 
 namespace
 {
+    class WasmLoader : public dwarf::loader
+    {
+    public:
+        WasmLoader(const beam::Wasm::Compiler& c)
+            : m_Compiler(c)
+        {
+        }
+
+        const void* load(dwarf::section_type section, size_t* size_out)
+        {
+            const auto& name = dwarf::elf::section_type_to_name(section);
+            const auto& sections = m_Compiler.m_CustomSections;
+            auto it = std::find_if(sections.begin(), sections.end(),
+                [&](const auto& s)
+            {
+                return s.m_Name == name;
+            });
+
+            if (it == sections.end())
+                return nullptr;
+
+            *size_out = it->size();
+            return it->data();
+        }
+    private:
+        beam::Wasm::Compiler m_Compiler;
+    };
+
+
     struct MyNetwork : proto::FlyClient::NetworkStd
     {
         using NetworkStd::NetworkStd;
@@ -76,14 +108,22 @@ namespace
                 io::Reactor::get_Current().stop();
         }
 
-        static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+        static ByteBuffer Load(const char* sz)
         {
             std::FStream fs;
             fs.Open(sz, true, true);
 
+            ByteBuffer res;
             res.resize(static_cast<size_t>(fs.get_Remaining()));
             if (!res.empty())
                 fs.read(&res.front(), res.size());
+
+            return res;
+        }
+
+        static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+        {
+            res = Load(sz);
 
             bvm2::Processor::Compile(res, res, kind);
         }
@@ -106,7 +146,10 @@ namespace
         MyManager::Compile(man.m_BodyManager, appShader.c_str(), MyManager::Kind::Manager);
 
         if (!contractShader.empty())
-            MyManager::Compile(man.m_BodyContract, contractShader.c_str(), MyManager::Kind::Contract);
+        {
+            auto buffer = MyManager::Load(contractShader.c_str());
+            bvm2::Processor::Compile(man.m_BodyContract, buffer, MyManager::Kind::Contract);
+        }
 
         if (!args.empty())
             man.AddArgs(&args.front());
@@ -283,6 +326,80 @@ void TestNode()
     checkCoins(walletDB2, 15, 32126);
 }
 
+bool FindPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>* stack)
+{
+    using namespace dwarf;
+
+    // Scan children first to find most specific DIE
+    bool found = false;
+    for (auto& child : d) {
+        found = FindPC(child, pc, stack);
+        if (found)
+            break;
+    }
+    switch (d.tag) {
+    case DW_TAG::subprogram:
+    case DW_TAG::inlined_subroutine:
+        try {
+            if (found || die_pc_range(d).contains(pc)) {
+                found = true;
+                stack->push_back(d);
+            }
+        }
+        catch (out_of_range& ) {
+        }
+        catch (value_type_mismatch& ) {
+        }
+        break;
+    default:
+        break;
+    }
+    return found;
+}
+
+void DumpDIE(const dwarf::die& node)
+{
+    printf("<%" PRIx64 "> %s\n",
+        node.get_section_offset(),
+        to_string(node.tag).c_str());
+    for (auto& attr : node.attributes())
+        printf("      %s %s\n",
+            to_string(attr.first).c_str(),
+            to_string(attr.second).c_str());
+}
+
+void PrintPC(const dwarf::dwarf& dw, dwarf::taddr pc)
+{
+    for (auto& cu : dw.compilation_units())
+    {
+        if (die_pc_range(cu.root()).contains(pc)) {
+            // Map PC to a line
+            auto& lt = cu.get_line_table();
+            auto it = lt.find_address(pc);
+            if (it == lt.end())
+                printf("UNKNOWN\n");
+            else
+                printf("%s\n",
+                    it->get_description().c_str());
+
+            // Map PC to an object
+            // XXX Index/helper/something for looking up PCs
+            // XXX DW_AT_specification and DW_AT_abstract_origin
+            vector<dwarf::die> stack;
+            if (FindPC(cu.root(), pc, &stack)) {
+                bool first = true;
+                for (auto& d : stack) {
+                    if (!first)
+                        printf("\nInlined in:\n");
+                    first = false;
+                    DumpDIE(d);
+                }
+            }
+            break;
+        }
+    }
+}
+
 void TestContract()
 {
     auto walletDB = createWalletDB("wallet.db", true);
@@ -300,7 +417,19 @@ void TestContract()
     
     //nodeA.GenerateBlocks(1);
 
-    WALLET_CHECK(InvokeShader(w, walletDB, "test_app.wasm", "test_contract.wasm", "role=manager,action=create"));
+    std::string contractPath = "test_contract.wasm";
+    // load symbols
+    auto buffer = MyManager::Load(contractPath.c_str());
+    Wasm::Reader inp;
+    inp.m_p0 = &*buffer.begin();
+    inp.m_p1 = inp.m_p0+buffer.size();
+    Wasm::Compiler c;
+    c.Parse(inp);
+    dwarf::dwarf dw(std::make_shared<WasmLoader>(c));
+    PrintPC(dw, 45);
+   
+
+    WALLET_CHECK(InvokeShader(w, walletDB, "test_app.wasm", contractPath, "role=manager,action=create"));
 
     nodeA.GenerateBlocks(1, false);
     nodeA.GenerateBlocks(1, false);
