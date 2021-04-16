@@ -2348,7 +2348,7 @@ namespace
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 std::cout << "\tComment: " << comment;
 
-                for (const auto info: spend)
+                for (const auto& info: spend)
                 {
                     auto aid = info.first;
                     auto amount = info.second;
