@@ -58,8 +58,8 @@ jobs:
     - name: Download boost [macos-10.15]
       if: matrix.os == 'macos-10.15'
       run: |
-        curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
-        brew install ./boost.rb 
+        brew update
+        brew install boost
 
     - name: Download boost [ununtu all]
       shell: bash
@@ -76,7 +76,7 @@ jobs:
       if: matrix.os != 'windows-2019'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
-        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
     - name: Configure CMake [windows]
       shell: bash
