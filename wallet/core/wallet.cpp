@@ -886,6 +886,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredExtraInfo, r.m_Res.m_ExtraInfo, r.m_SubTxID);
             it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
