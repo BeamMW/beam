@@ -328,6 +328,26 @@ namespace
         WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
+    void testInvalidProcessInvokeDataJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleProcessInvokeData(const JsonRpcId& id, const ProcessInvokeData& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
     template<typename T>
     void testInvalidAssetJsonRpc(const std::string& msg)
     {
@@ -1718,6 +1738,18 @@ int main()
             }
         }));
 
+    // non-byte array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": ["a", "b", "c"]
+            }
+        }));
+
     // non-sting contract_file
     testInvalidInvokeContractJsonRpc(JSON_CODE(
          {
@@ -1739,6 +1771,65 @@ int main()
             "params":
             {
                 "contract_file": ""
+            }
+        }));
+
+    // non-bool create_tx
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "create_tx": "NO"
+            }
+        }));
+
+    // missing data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+            }
+        }));
+
+    // non-array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": "data"
+            }
+        }));
+
+    // empty array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": []
+            }
+        }));
+
+    // non-string array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": ["123", "456", "789"]
             }
         }));
 
