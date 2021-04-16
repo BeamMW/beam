@@ -813,7 +813,57 @@ namespace beam::wallet
             message.args = *args;
         }
 
+        if (const auto createTx = getOptionalParam<bool>(params, "create_tx"))
+        {
+            message.createTx = *createTx;
+        }
+
+        if (!_appid.empty() && message.createTx)
+        {
+            throw jsonrpc_exception(ApiError::NotAllowedError, "Applications must set create_tx to false and use process_contract_data");
+        }
+
         return std::make_pair(message, MethodInfo());
+    }
+
+    std::pair<ProcessInvokeData, IWalletApi::MethodInfo> WalletApi::onParseProcessInvokeData(const JsonRpcId &id, const json& params)
+    {
+        ProcessInvokeData message;
+
+        const json bytes = getMandatoryParam<NonEmptyJsonArray>(params, "data");
+        message.invokeData = bytes.get<std::vector<uint8_t>>();
+
+        beam::bvm2::ContractInvokeData realData;
+        if (!beam::wallet::fromByteBuffer(message.invokeData, realData))
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to parse invoke data");
+        }
+
+        MethodInfo info;
+        info.spendOffline = false;
+        info.comment = beam::bvm2::getFullComment(realData);
+
+        // Fork3 height would work for now (anyway contract are available only after Fork3).
+        // Consider changing to real value. At the moment we cannot access height via wallet,
+        // since this can be not a wallet thread (parseAPIRequest can be called from any thread)
+        info.fee = beam::bvm2::getFullFee(realData, Rules::get().pForks[3].m_Height);
+
+        const auto fullSpend = beam::bvm2::getFullSpend(realData);
+        for (const auto& spend: fullSpend)
+        {
+            if (spend.second < 0)
+            {
+                Amount amount = std::abs(spend.second);
+                info.receive[spend.first] += beam::AmountBig::Type(amount);
+            }
+            else
+            {
+                Amount amount = spend.second;
+                info.spend[spend.first] += beam::AmountBig::Type(amount);
+            }
+        }
+
+        return std::make_pair(message, info);
     }
 
     std::pair<BlockDetails, IWalletApi::MethodInfo> WalletApi::onParseBlockDetails(const JsonRpcId& id, const json& params)
@@ -875,6 +925,20 @@ namespace beam::wallet
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const ProcessInvokeData::Response& res, json& msg)
+    {
+        msg = nlohmann::json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"txid", std::to_string(res.txid)}
+                }
+            }
+        };
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const InvokeContract::Response& res, json& msg)
     {
         msg = nlohmann::json
@@ -883,14 +947,19 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"output", res.output}
+                    {"output", res.output ? *res.output : std::string("")}
                 }
             }
         };
 
-        if (res.txid != TxID())
+        if (res.txid)
         {
-            msg["result"]["txid"] = std::to_string(res.txid);
+            msg["result"]["txid"] = std::to_string(*res.txid);
+        }
+
+        if (res.invokeData)
+        {
+            msg["result"]["raw_data"] = *res.invokeData;
         }
     }
 

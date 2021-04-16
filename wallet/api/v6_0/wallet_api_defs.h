@@ -18,6 +18,7 @@
 #include "api_base.h"
 #include "api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "bvm/invoke_data.h"
 
 namespace beam::wallet
 {
@@ -72,6 +73,7 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
+    macro(ProcessInvokeData,     "process_invoke_data",     API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)   \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
@@ -374,10 +376,21 @@ namespace beam::wallet
     {
         std::vector<uint8_t> contract;
         std::string args;
+        bool createTx = true;
 
         struct Response
         {
-            std::string output;
+            boost::optional<std::string> output;
+            boost::optional<beam::ByteBuffer> invokeData;
+            boost::optional<TxID> txid = TxID();
+        };
+    };
+
+    struct ProcessInvokeData
+    {
+        beam::ByteBuffer invokeData;
+        struct Response
+        {
             TxID txid = TxID();
         };
     };
@@ -447,7 +460,7 @@ namespace beam::wallet
     struct CreateOffer : public OfferInput
     {
         CreateOffer() = default;
-        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
+        explicit CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
         struct Response
         {
             std::vector<WalletAddress> addrList;

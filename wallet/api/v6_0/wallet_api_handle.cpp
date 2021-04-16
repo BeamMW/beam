@@ -821,10 +821,22 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::ContractCompileError, err.what());
         }
 
-        _ccallId = id;
-        std::weak_ptr<bool> wguard = _contractsGuard;
+        if (data.createTx)
+        {
+            onHandleInvokeContractWithTX(id, data);
+        }
+        else
+        {
+            onHandleInvokeContractNoTX(id, data);
+        }
+    }
 
-        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+    void WalletApi::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
+    {
+        std::weak_ptr<bool> wguard = _contractsGuard;
+        auto contracts = getContracts();
+
+        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -838,19 +850,80 @@ namespace beam::wallet
             //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
             //  - this function is called in the reactor context
             //
-            if (error )
+            if (error)
             {
-                return sendError(_ccallId, ApiError::ContractError, *error);
+                return sendError(id, ApiError::ContractError, *error);
             }
 
             InvokeContract::Response response;
             response.output = result ? *result : "";
             response.txid   = txid ? *txid : TxID();
 
-            const auto callid = _ccallId;
-            _ccallId = JsonRpcId();
+            doResponse(id, response);
+        });
+    }
 
-            doResponse(callid, response);
+    void WalletApi::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
+    {
+        std::weak_ptr<bool> wguard = _contractsGuard;
+        auto contracts = getContracts();
+
+        contracts->CallShader(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            //
+            // N.B
+            //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+            //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+            //  - this function is called in the reactor context
+            //
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            InvokeContract::Response response;
+            response.output = std::move(output);
+            response.invokeData = std::move(data);
+
+            doResponse(id, response);
+        });
+    }
+
+    void WalletApi::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
+    {
+        LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
+
+        auto contracts = getContracts();
+        std::weak_ptr<bool> wguard = _contractsGuard;
+
+        contracts->ProcessTxData(data.invokeData, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            if (!txid)
+            {
+                return sendError(id, ApiError::ContractError, "Missing txid");
+            }
+
+            ProcessInvokeData::Response response;
+            response.txid = *txid;
+
+            doResponse(id, response);
         });
     }
 
