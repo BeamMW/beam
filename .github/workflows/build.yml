@@ -60,6 +60,8 @@ jobs:
       run: |
         brew update
         brew install boost
+        echo "LDFLAGS=-L/usr/local/opt/icu4c/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I/usr/local/opt/icu4c/include" >> $GITHUB_ENV
 
     - name: Download boost [ununtu all]
       shell: bash
