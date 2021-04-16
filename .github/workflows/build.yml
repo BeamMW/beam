@@ -58,7 +58,10 @@ jobs:
     - name: Download boost [macos-10.15]
       if: matrix.os == 'macos-10.15'
       run: |
-        brew install boost 
+        brew update
+        brew install boost
+        echo "LDFLAGS=-L/usr/local/opt/icu4c/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I/usr/local/opt/icu4c/include" >> $GITHUB_ENV
 
     - name: Download boost [ununtu all]
       shell: bash
@@ -71,11 +74,17 @@ jobs:
 ###############################################################################
 # Configure CMake
 ###############################################################################
-    - name: Configure CMake [macos-10.15 && ununtu all]
-      if: matrix.os != 'windows-2019'
+    - name: Configure CMake [macos-10.15]
+      if: matrix.os == 'macos-10.15'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
-        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
+
+    - name: Configure CMake [ununtu all]
+      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      run: |
+        # git apply 3rdparty/protobuf-patch.diff
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
     - name: Configure CMake [windows]
       shell: bash
