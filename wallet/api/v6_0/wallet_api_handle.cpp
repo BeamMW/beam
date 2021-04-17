@@ -352,6 +352,48 @@ namespace beam::wallet
     template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
     template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
 
+    void WalletApi::onHandleRegister(const JsonRpcId &id, const Register &data)
+    {
+        WalletApi::onHandleRegisterUnregister(false, id, data);
+    }
+
+    void WalletApi::onHandleUnregister(const JsonRpcId &id, const Unregister &data)
+    {
+        WalletApi::onHandleRegisterUnregister(false, id, data);
+    }
+
+    template <typename T>
+    void WalletApi::onHandleRegisterUnregister(bool doRegister, const JsonRpcId& id, const T& data)
+    {
+        try {
+            auto walletDB = getWalletDB();
+            auto wallet = getWallet();
+            CoinIDList coins = data.coins ? *data.coins : CoinIDList();
+
+            WalletAssetMeta meta(data.asset_meta);
+
+            if (data.txId && walletDB->getTx(*data.txId)) {
+                doTxAlreadyExistsError(id);
+                return;
+            }
+
+            auto params = CreateTransactionParameters(doRegister ? TxType::AssetReg : TxType::AssetUnreg)
+                    .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
+                    .SetParameter(TxParameterID::Fee, data.fee)
+                    .SetParameter(TxParameterID::PreselectedCoins, coins)
+                    .SetParameter(TxParameterID::AssetMetadata, data.asset_meta);
+
+            const auto txId = wallet->StartTransaction(params);
+            doResponse(id, Register::Response{txId});
+        } catch(const jsonrpc_exception&) {
+            throw;
+        }
+        catch (...)
+        {
+            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
+        }
+    }
+
     void WalletApi::onHandleIssue(const JsonRpcId& id, const Issue& data)
     {
         onHandleIssueConsume(true, id, data);

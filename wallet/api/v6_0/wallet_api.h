@@ -118,6 +118,9 @@ namespace beam::wallet
         }
 
         template<typename T>
+        void onHandleRegisterUnregister(bool doRegister, const JsonRpcId &id, const T& data);
+
+        template<typename T>
         void onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data);
 
         template<typename T>
@@ -135,6 +138,8 @@ namespace beam::wallet
         WALLET_API_METHODS(PARSE_FUNC)
         #undef PARSE_FUNC
 
+        template<typename T>
+        std::pair<T, IWalletApi::MethodInfo> onParseRegisterUnregister(bool doRegister, const JsonRpcId& id, const json& params);
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
 

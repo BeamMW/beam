@@ -344,6 +344,42 @@ namespace
         WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
+    // confidential assets register/unregister test
+    template<typename T>
+    void testCA_R_UR(const std::string& msg) {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override {
+                cout << msg["error"] << endl;
+                WALLET_CHECK(!"invalid register/unregister api json!!!");
+            }
+
+            void onHandleRegister(const JsonRpcId& id, const Register& data) override {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(!data.asset_meta.empty());
+            }
+
+            void onHandleUnregister(const JsonRpcId& id, const Unregister& data) override {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(!data.asset_meta.empty());
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+
+        {
+            json res;
+            typename T::Response status;
+            status.txId = {1,2,3};
+            api.getResponse(12345, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 12345);
+        }
+    }
+
     template<typename T>
     void testICJsonRpc(const std::string& msg)
     {
@@ -925,6 +961,52 @@ namespace
 }
 
 template<typename T>
+void TestCA_R_URTx(const char *method) {
+    const auto exp = [&](std::string str) -> auto {
+        const char* what = "METHOD";
+        const auto index = str.find(what);
+        if (index != std::string::npos) {
+            const std::string mname = std::string("\"") + method + "\"";
+            str.replace(index, strlen(what), mname);
+        }
+        return str;
+    };
+
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+       {
+           "jsonrpc" : "2.0",
+           "id"      : 12345,
+           "method"  : METHOD,
+           "params"  :
+           {
+               "asset_meta": ""
+           }
+       }
+    )));
+
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+       {
+           "jsonrpc" : "2.0",
+           "id"      : 12345,
+           "method"  : METHOD,
+           "params"  : {}
+       }
+    )));
+
+    testCA_R_UR<T>(exp(JSON_CODE(
+       {
+           "jsonrpc" : "2.0",
+           "id"      : 12345,
+           "method"  : METHOD,
+           "params"  :
+           {
+               "asset_meta": "STD:SCH_VER=1;N=Test coin;SN=TEST;UN=Test;NTHUN=Groth"
+           }
+       }
+    )));
+}
+
+template<typename T>
 void TestICTx(const char* method)
 {
     const auto exp = [&](std::string str) -> auto {
@@ -1295,6 +1377,8 @@ void TestAssetsAPI()
     Rules::get().CA.Enabled = true;
     Rules::get().UpdateChecksum();
 
+    TestCA_R_URTx<Register>("tx_asset_register");
+    TestCA_R_URTx<Unregister>("tx_asset_unregister");
     TestICTx<Issue>("tx_asset_issue");
     TestICTx<Consume>("tx_asset_consume");
     TestAITx();
