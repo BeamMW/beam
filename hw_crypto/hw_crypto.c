@@ -2950,6 +2950,7 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const OpIn_TxSendS
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_SerialPub);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_NoncePub);
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pSh->m_ptAssetGen, !IsUintBigZero(&pSh->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
 
 	{
 		BeamCrypto_Oracle o2 = oracle;

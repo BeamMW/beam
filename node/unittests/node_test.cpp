@@ -1902,7 +1902,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, oracle);
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
 
 					pKrn->MsgToID();
 

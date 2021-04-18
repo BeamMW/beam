@@ -265,6 +265,7 @@ typedef struct
 	macro(0, BeamCrypto_ShieldedVoucher, Voucher) \
 	macro(0, BeamCrypto_ShieldedTxoUser, User) \
 	macro(0, BeamCrypto_RangeProof_Packed, RangeProof) \
+	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
 	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 	/* followed by in/outs */
 

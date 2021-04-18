@@ -658,8 +658,8 @@ namespace beam
 		Asset::Proof::Ptr m_pAsset;
 		Ticket m_Ticket;
 
-		void Prepare(ECC::Oracle&) const;
-		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
+		void Prepare(ECC::Oracle&, Height hScheme) const;
+		bool IsValid(ECC::Oracle&, Height hScheme, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
 
 		void operator = (const ShieldedTxo&); // clone
 

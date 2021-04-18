@@ -2105,15 +2105,15 @@ void TestLelantusKeys()
 	oprs.m_User.m_pMessage[1] = 1U; // fits
 	{
 		Oracle oracle;
-		oprs.Generate(txo, sprs.m_SharedSecret, oracle);
+		oprs.Generate(txo, sprs.m_SharedSecret, g_hFork, oracle);
 	}
 	{
 		Oracle oracle;
-		verify_test(txo.IsValid(oracle, pt, pt));
+		verify_test(txo.IsValid(oracle, g_hFork, pt, pt));
 	}
 	{
 		Oracle oracle;
-		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle));
+		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, g_hFork, oracle));
 		verify_test(oprs.m_AssetID == oprs2.m_AssetID);
 		verify_test(!memcmp(&oprs.m_User, &oprs2.m_User, sizeof(oprs.m_User)));
 	}
@@ -2126,17 +2126,17 @@ void TestLelantusKeys()
 
 	{
 		Oracle oracle;
-		oprs.Generate(txo, sprs.m_SharedSecret, oracle);
+		oprs.Generate(txo, sprs.m_SharedSecret, g_hFork, oracle);
 	}
 	{
 		Oracle oracle;
-		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, oracle));
+		verify_test(oprs2.Recover(txo, sprs.m_SharedSecret, g_hFork, oracle));
 		verify_test(!memcmp(&oprs.m_User, &oprs2.m_User, sizeof(oprs.m_User)));
 	}
 
 	{
 		Oracle oracle;
-		verify_test(txo.IsValid(oracle, pt, pt));
+		verify_test(txo.IsValid(oracle, g_hFork, pt, pt));
 	}
 }
 
@@ -2764,6 +2764,7 @@ int main()
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().pForks[1].m_Height = g_hFork;
 	beam::Rules::get().pForks[2].m_Height = g_hFork;
+	beam::Rules::get().pForks[3].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

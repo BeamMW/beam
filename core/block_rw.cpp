@@ -566,7 +566,7 @@ namespace beam
 				dOutp.m_ID = nOuts++;
 				dOutp.m_Height = h;
 
-				if (!m_Parser.OnShieldedOut(dOutp, txo, hv))
+				if (!m_Parser.OnShieldedOut(dOutp, txo, hv, h))
 					return false;
 
 				dOutp.get_Hash(hv);
@@ -643,7 +643,7 @@ namespace beam
 		return true;
 	}
 
-	bool RecoveryInfo::IRecognizer::OnShieldedOut(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo& txo, const ECC::Hash::Value& hvMsg)
+	bool RecoveryInfo::IRecognizer::OnShieldedOut(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo& txo, const ECC::Hash::Value& hvMsg, Height hScheme)
 	{
 		for (Key::Index nIdx = 0; nIdx < static_cast<Key::Index>(m_vSh.size()); nIdx++)
 		{
@@ -654,7 +654,7 @@ namespace beam
 				ECC::Oracle oracle;
 				oracle << hvMsg;
 
-				if (pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, oracle))
+				if (pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, hScheme, oracle))
 					return OnShieldedOutRecognized(dout, pars, nIdx);
 			}
 		}

@@ -35,7 +35,7 @@ namespace beam
 		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgGJ1, hv, m_Signature.m_pK, &comm);
 	}
 
-	void ShieldedTxo::Prepare(ECC::Oracle& oracle) const
+	void ShieldedTxo::Prepare(ECC::Oracle& oracle, Height hScheme) const
 	{
 		// Since m_Ticket doesn't contribute to the transaction balance, it MUST be exposed to the Oracle used with m_RangeProof.
 		// m_Commitment also should be used (for the same reason it's used in regular Output)
@@ -43,9 +43,11 @@ namespace beam
 			<< m_Ticket.m_SerialPub
 			<< m_Ticket.m_Signature.m_NoncePub
 			<< m_Commitment;
+
+		Asset::Proof::Expose(oracle, hScheme, m_pAsset);
 	}
 
-	bool ShieldedTxo::IsValid(ECC::Oracle& oracle, ECC::Point::Native& comm, ECC::Point::Native& ser) const
+	bool ShieldedTxo::IsValid(ECC::Oracle& oracle, Height hScheme, ECC::Point::Native& comm, ECC::Point::Native& ser) const
 	{
 		if (!(m_Ticket.IsValid(ser) && comm.Import(m_Commitment)))
 			return false;
@@ -54,7 +56,7 @@ namespace beam
 		if (m_pAsset && !m_pAsset->IsValid(hGen))
 			return false;
 
-		Prepare(oracle);
+		Prepare(oracle, hScheme);
 		return m_RangeProof.IsValid(comm, oracle, &hGen);
 	}
 
@@ -374,7 +376,7 @@ namespace beam
 		set_kG(hvShared, kTmp);
 	}
 
-	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, Height hScheme, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
 	{
 		ECC::Scalar::Native pExtra[2];
 
@@ -414,15 +416,15 @@ namespace beam
 		else
 			txo.m_pAsset.reset();
 
-		txo.Prepare(oracle);
+		txo.Prepare(oracle, hScheme);
 		get_Seed(cp.m_Seed.V, hvShared, oracle);
 
 		txo.m_RangeProof.CoSign(cp.m_Seed.V, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::SinglePass, &g.m_hGen);
 	}
 
-	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, const ECC::Hash::Value& hvShared, ECC::Oracle& oracle)
+	bool ShieldedTxo::Data::OutputParams::Recover(const ShieldedTxo& txo, const ECC::Hash::Value& hvShared, Height hScheme, ECC::Oracle& oracle)
 	{
-		txo.Prepare(oracle);
+		txo.Prepare(oracle, hScheme);
 
 		ECC::RangeProof::CreatorParams cp;
 		get_Seed(cp.m_Seed.V, hvShared, oracle);
@@ -488,15 +490,15 @@ namespace beam
 
 	/////////////
 	// Params (both)
-	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
+	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, Height hScheme, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
 	{
-		m_Output.Generate(txo, m_Ticket.m_SharedSecret, oracle, bHideAssetAlways);
+		m_Output.Generate(txo, m_Ticket.m_SharedSecret, hScheme, oracle, bHideAssetAlways);
 	}
-	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, ECC::Oracle& oracle, const Viewer& v)
+	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, Height hScheme, ECC::Oracle& oracle, const Viewer& v)
 	{
 		return
 			m_Ticket.Recover(txo.m_Ticket, v) &&
-			m_Output.Recover(txo, m_Ticket.m_SharedSecret, oracle);
+			m_Output.Recover(txo, m_Ticket.m_SharedSecret, hScheme, oracle);
 	}
 
 	void ShieldedTxo::Data::Params::ToID(ID& cid) const

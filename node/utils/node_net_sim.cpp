@@ -728,7 +728,7 @@ struct Context
         ECC::GenRandom(nonce);
         sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
-        sdp.GenerateOutp(pKrn->m_Txo, oracle, true);
+        sdp.GenerateOutp(pKrn->m_Txo, hr.m_Min, oracle, true);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;

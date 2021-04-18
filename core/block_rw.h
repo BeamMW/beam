@@ -60,7 +60,7 @@ namespace beam
 			virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) { return true; }
 			virtual bool OnStates(std::vector<Block::SystemState::Full>&) { return true; }
 			virtual bool OnUtxo(Height, const Output&) { return true; }
-			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& , const ShieldedTxo&, const ECC::Hash::Value& hvMsg) { return true; }
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& , const ShieldedTxo&, const ECC::Hash::Value& hvMsg, Height) { return true; }
 			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp&) { return true; }
 			virtual bool OnAsset(Asset::Full&) { return true; }
 
@@ -78,7 +78,7 @@ namespace beam
 			void Init(const Key::IPKdf::Ptr&, Key::Index nMaxShieldedIdx = 1);
 
 			virtual bool OnUtxo(Height, const Output&) override;
-			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg) override;
+			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg, Height) override;
 			virtual bool OnAsset(Asset::Full&) override;
 
 			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) { return true; }

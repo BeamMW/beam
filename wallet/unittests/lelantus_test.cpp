@@ -717,7 +717,7 @@ void TestDirectAnonymousPayment()
                 ECC::Oracle oracle;
                 oracle << kernel.m_Msg;
                 ShieldedTxo::Data::OutputParams outputParams;
-                WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, oracle));
+                WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, k->m_Height.m_Min, oracle));
                 WALLET_CHECK(outputParams.m_Value == amount);
                 WALLET_CHECK(outputParams.m_AssetID == assetID);
                 WALLET_CHECK(outputParams.m_User.m_Sender == myIdentity);

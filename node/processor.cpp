@@ -3080,7 +3080,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Heigh
 		ECC::Oracle oracle;
 		oracle << v.m_Msg;
 
-		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, oracle))
+		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, h, oracle))
 			continue;
 
 		proto::Event::Shielded evt;

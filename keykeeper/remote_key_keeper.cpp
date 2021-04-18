@@ -1149,8 +1149,11 @@ namespace beam::wallet
             ECC::Oracle oracle;
             oracle << krn1.m_Msg;
 
-            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, oracle, m_M.m_HideAssetAlways);
+            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
             krn1.MsgToID();
+
+            if (krn1.m_Txo.m_pAsset)
+                out.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
 
             SerializerIntoStaticBuf ser(&out.m_RangeProof);
             ser& krn1.m_Txo.m_RangeProof;

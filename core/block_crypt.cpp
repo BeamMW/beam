@@ -1187,7 +1187,7 @@ namespace beam
 		oracle << m_Msg;
 
 		ECC::Point::Native comm, ser;
-		if (!m_Txo.IsValid(oracle, comm, ser))
+		if (!m_Txo.IsValid(oracle, hScheme, comm, ser))
 			return false;
 
 		exc += comm;
