@@ -588,50 +588,50 @@ struct TestBlockchain
 
     std::vector<Merkle::Hash> m_vCSA;
 
+    struct MyEvaluator
+        :public Block::SystemState::Evaluator
+    {
+        TestBlockchain& m_This;
+        MyEvaluator(TestBlockchain& x) :m_This(x) {}
+
+        Merkle::Hash m_hvKernels;
+        Merkle::Hash m_hvCSA;
+
+        bool get_Utxos(Merkle::Hash& hv) override {
+            m_This.m_Utxos.get_Hash(hv);
+            return true;
+        }
+        bool get_Kernels(Merkle::Hash& hv) override {
+            hv = m_hvKernels;
+            return true;
+        }
+        bool get_Logs(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Shielded(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Assets(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Contracts(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_CSA(Merkle::Hash& hv) override {
+            if (!Evaluator::get_CSA(hv))
+                return false;
+
+            m_hvCSA = hv;
+            return true;
+        }
+    };
+
     void AddBlock()
     {
-        struct MyEvaluator
-            :public Block::SystemState::Evaluator
-        {
-            TestBlockchain& m_This;
-            MyEvaluator(TestBlockchain& x) :m_This(x) {}
-
-            Merkle::Hash m_hvKernels;
-            Merkle::Hash m_hvCSA;
-
-            bool get_Utxos(Merkle::Hash& hv) override {
-                m_This.m_Utxos.get_Hash(hv);
-                return true;
-            }
-            bool get_Kernels(Merkle::Hash& hv) override {
-                hv = m_hvKernels;
-                return true;
-            }
-            bool get_Logs(Merkle::Hash& hv) override {
-                hv = Zero;
-                return true;
-            }
-            bool get_Shielded(Merkle::Hash& hv) override {
-                hv = Zero;
-                return true;
-            }
-            bool get_Assets(Merkle::Hash& hv) override {
-                hv = Zero;
-                return true;
-            }
-            bool get_Contracts(Merkle::Hash& hv) override {
-                hv = Zero;
-                return true;
-            }
-            bool get_CSA(Merkle::Hash& hv) override {
-                if (!Evaluator::get_CSA(hv))
-                    return false;
-
-                m_hvCSA = hv;
-                return true;
-            }
-        };
-
         MyEvaluator ev(*this);
         ev.m_Height = m_mcm.m_vStates.size() + 1;
 
@@ -848,8 +848,12 @@ struct TestBlockchain
             Merkle::ProofBuilderHard bld2;
             m_mcm.m_Mmr.get_Proof(bld2, iState);
             msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
-            msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
-            m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
+
+            {
+                MyEvaluator ev(*this);
+                ev.m_Height = m_mcm.m_vStates.size() + 1;
+                ev.get_Live(msgOut.m_Proof.m_Outer.emplace_back());
+            }
 
             Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size() - 1].m_Hdr;
             WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
