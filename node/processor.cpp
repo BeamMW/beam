@@ -1030,7 +1030,10 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	oracle << krn.m_Msg;
 
 	if (hScheme >= Rules::get().pForks[3].m_Height)
+	{
 		oracle << krn.m_NotSerialized.m_hvShieldedState;
+		Asset::Proof::Expose(oracle, hScheme, krn.m_pAsset);
+	}
 
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;

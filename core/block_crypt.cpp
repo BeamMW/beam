@@ -1320,6 +1320,8 @@ namespace beam
 			m_pAsset->Create(hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
 		}
 
+		Asset::Proof::Expose(oracle, m_Height.m_Min, m_pAsset);
+
 		p.Generate(hvSeed.V, oracle, &hGen);
 
 		MsgToID();

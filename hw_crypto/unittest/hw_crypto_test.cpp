@@ -1320,7 +1320,10 @@ void TestShielded()
 		oracle << krn.m_Msg;
 
 		if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+		{
 			oracle << krn.m_NotSerialized.m_hvShieldedState;
+			Asset::Proof::Expose(oracle, krn.m_Height.m_Min, krn.m_pAsset);
+		}
 
 		ECC::Point::Native hGen;
 		if (krn.m_pAsset)

@@ -724,12 +724,16 @@ void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const BeamCry
 	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
 }
 
-void secp256k1_sha256_write_CompactPointOptional(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact)
+void secp256k1_sha256_write_CompactPointOptional2(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact, uint8_t bValid)
 {
-	uint8_t bValid = !!pCompact;
 	secp256k1_sha256_write(pSha, &bValid, sizeof(bValid));
 	if (bValid)
 		secp256k1_sha256_write_CompactPoint(pSha, pCompact);
+}
+
+void secp256k1_sha256_write_CompactPointOptional(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact)
+{
+	secp256k1_sha256_write_CompactPointOptional2(pSha, pCompact, !!pCompact);
 }
 
 void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const BeamCrypto_UintBig* pX, uint8_t nY)
@@ -2728,8 +2732,9 @@ PROTO_METHOD(CreateShieldedInput)
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-	if (!IsUintBigZero(&pIn->m_ShieldedState))
-		secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	// starting from HF3 commitmens to shielded state and asset are mandatory
+	secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pIn->m_ptAssetGen, !IsUintBigZero(&pIn->m_ptAssetGen.m_X));
 
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_n);
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_M);
