@@ -545,6 +545,7 @@ namespace beam
 		if (hScheme >= Rules::get().pForks[1].m_Height)
 		{
 			oracle << m_Commitment;
+			Asset::Proof::Expose(oracle, hScheme, m_pAsset);
 		}
 	}
 
@@ -3125,6 +3126,17 @@ namespace beam
 	{
 		p = std::make_unique<Proof>();
 		*p = *this;
+	}
+
+	void Asset::Proof::Expose(ECC::Oracle& oracle, Height hScheme, const Ptr& p)
+	{
+		if (hScheme >= Rules::get().pForks[3].m_Height)
+		{
+			bool bAsset = !!p;
+			oracle << bAsset;
+			if (p)
+				oracle << p->m_hGen;
+		}
 	}
 
 	thread_local Asset::Proof::BatchContext* Asset::Proof::BatchContext::s_pInstance = nullptr;

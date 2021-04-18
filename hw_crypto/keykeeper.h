@@ -184,6 +184,7 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_CreateOutput(macro) \
 	macro(1, BeamCrypto_CoinID, Cid) \
+	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
 	macro(0, BeamCrypto_UintBig, pKExtra[2]) \
 	macro(0, BeamCrypto_CompactPoint, pT[2]) \
 

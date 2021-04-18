@@ -197,6 +197,8 @@ namespace beam
 
 			static void ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val);
 
+			static void Expose(ECC::Oracle&, Height hScheme, const Ptr&);
+
 			struct CmList
 				:public Sigma::CmList
 			{

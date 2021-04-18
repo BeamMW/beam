@@ -684,6 +684,9 @@ namespace beam::wallet
             m_Msg.m_Out.m_pKExtra[0] = Ecc2BC(m_M.m_User.m_pExtra[0].m_Value);
             m_Msg.m_Out.m_pKExtra[1] = Ecc2BC(m_M.m_User.m_pExtra[1].m_Value);
 
+            if (m_pOutput->m_pAsset)
+                m_Msg.m_Out.m_ptAssetGen = Ecc2BC(m_pOutput->m_pAsset->m_hGen);
+
             InvokeProto(m_Msg);
         }
 

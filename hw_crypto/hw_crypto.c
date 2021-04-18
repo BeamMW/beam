@@ -724,6 +724,14 @@ void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const BeamCry
 	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
 }
 
+void secp256k1_sha256_write_CompactPointOptional(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact)
+{
+	uint8_t bValid = !!pCompact;
+	secp256k1_sha256_write(pSha, &bValid, sizeof(bValid));
+	if (bValid)
+		secp256k1_sha256_write_CompactPoint(pSha, pCompact);
+}
+
 void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const BeamCrypto_UintBig* pX, uint8_t nY)
 {
 	secp256k1_sha256_write(pSha, pX->m_pVal, sizeof(pX->m_pVal));
@@ -1247,6 +1255,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	BeamCrypto_Oracle_Init(&oracle);
 	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
+	secp256k1_sha256_write_CompactPointOptional(&oracle.m_sha, pWrk->m_pRangeProof->m_pAssetGen); // starting from Fork3, earlier schem is not allowed
 
 	for (unsigned int i = 0; i < 2; i++)
 		secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
@@ -1944,6 +1953,8 @@ PROTO_METHOD(CreateOutput)
 			secp256k1_scalar_set_b32((secp256k1_scalar*) ctx.m_pKExtra + i, pOut->m_TauX.m_pVal, &overflow);
 		}
 	}
+
+	ctx.m_pAssetGen = IsUintBigZero(&pIn->m_ptAssetGen.m_X) ? 0 : &pIn->m_ptAssetGen;
 
 	if (!BeamCrypto_RangeProof_Calculate(&ctx))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
