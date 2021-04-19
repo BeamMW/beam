@@ -65,7 +65,7 @@ namespace beam::wallet
     macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED)   \
     macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
-    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED)   \
     macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
