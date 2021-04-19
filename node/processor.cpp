@@ -4788,6 +4788,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			{
 				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
 				m_Proc.m_DB.ContractLogDel(pos, pos);
+				m_Proc.m_DB.TestChanged1Row();
 			}
 
 			if (!m_Bic.m_SkipDefinition)
