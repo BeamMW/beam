@@ -6774,32 +6774,41 @@ namespace beam::wallet
     {
         if (type == TokenType::Public)
         {
-            LOG_INFO() << "Generating public offline address";
-            return GeneratePublicToken(*walletDB, "");
+            auto token = GeneratePublicToken(*walletDB, "");
+            LOG_INFO() << "Generated public offline address: " << token;
+            return token;
         }
 
         switch (type)
         {
         case TokenType::RegularOldStyle:
-            LOG_INFO() << "Generating regular old style address";
-            return GenerateRegularOldToken(address);
+            {
+                auto token = GenerateRegularOldToken(address);
+                LOG_INFO() << "Generated regular old style address: " << token;
+                return token;
+            }
 
         case TokenType::RegularNewStyle:
-            LOG_INFO() << "Generating regular new style address";
-            return GenerateRegularNewToken(address, 0, 0, "");
+             {
+                auto token = GenerateRegularNewToken(address, 0, 0, "");
+                LOG_INFO() << "Generated regular new style address:" << token;
+                return token;
+            }
 
         case TokenType::Offline:
             {
-                LOG_INFO() << "Generating offline address, vouchers cnt " << *offlineCount;
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, offlineCount ? *offlineCount : 10);
-                return GenerateOfflineToken(address, 0, 0, vouchers, "");
+                auto token = GenerateOfflineToken(address, 0, 0, vouchers, "");
+                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << *offlineCount;
+                return token;
             }
 
         case TokenType::MaxPrivacy:
             {
-                LOG_INFO() << "Generating max privacy address";
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, 1);
-                return GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                auto token = GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                LOG_INFO() << "Generated max privacy address: " << token;
+                return token;
             }
 
         default:

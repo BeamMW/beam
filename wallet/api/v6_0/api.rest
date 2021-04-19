@@ -291,8 +291,23 @@ content-type: application/json-rpc
     }
 }
 
-###
+### Regular old style address
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
 
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "create_address",
+    "params" :
+    {
+        "type": "regular",
+        "expiration" : "auto",
+        "comment" : "John Smith"
+    }
+}
+
+### Regular new style address
 POST http://127.0.0.1:10000/api/wallet HTTP/1.1
 content-type: application/json-rpc
 
@@ -306,6 +321,22 @@ content-type: application/json-rpc
         "expiration" : "auto",
         "comment" : "John Smith",
         "new_style_regular" : true
+    }
+}
+
+### Offline address
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "create_address",
+    "params" :
+    {
+        "type": "offline",
+        "expiration" : "auto",
+        "comment" : "John Smith"
     }
 }
 
