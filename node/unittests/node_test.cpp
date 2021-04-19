@@ -1689,7 +1689,7 @@ namespace beam
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Sync.Hi = 10;
 		node.m_Cfg.m_Horizon.m_Sync.Lo = 14;
-		node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
+		//node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
@@ -2990,6 +2990,9 @@ namespace beam
 
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
+		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
+		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
+
 		ECC::SetRandom(node2);
 		node2.Initialize();
 		verify_test(node2.get_AcessiblePeerCount() == 1);
@@ -3445,6 +3448,7 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz2);
 	}
 
+	beam::Rules::get().MaxRollback = 100;
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
