@@ -735,7 +735,7 @@ namespace
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
-            CreateNewAddress(vm, walletDB, kDefaultAddrLabel);
+            walletDB->generateAndSaveDefaultAddress();
             return 0;
         }
         LOG_ERROR() << kErrorWalletNotCreated;

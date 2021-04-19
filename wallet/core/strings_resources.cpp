@@ -230,7 +230,6 @@ namespace beam
     const char kStartMessage[] = "starting a wallet...";
     const char kWalletCreatedMessage[] = "wallet successfully created...";
     const char kDefaultAddrLabel[] = "default";
-    const char kDefaultAddrExpiration[] = "never";
     const char kWalletOpenedMessage[] = "wallet successfully opened...";
 
     const char kNodePoolPeriod[] = "Node poll period = %1% ms";

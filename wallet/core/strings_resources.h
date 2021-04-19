@@ -225,7 +225,6 @@ namespace beam
     extern const char kStartMessage[];
     extern const char kWalletCreatedMessage[];
     extern const char kDefaultAddrLabel[];
-    extern const char kDefaultAddrExpiration[];
     extern const char kWalletOpenedMessage[];
 
     extern const char kNodePoolPeriod[];

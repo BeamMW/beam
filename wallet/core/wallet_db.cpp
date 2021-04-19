@@ -4123,6 +4123,16 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::generateAndSaveDefaultAddress()
+    {
+        WalletAddress address;
+        createAddress(address);
+        address.m_label = kDefaultAddrLabel;
+        address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
+        saveAddress(address);
+        LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
+    }
+
     void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
     {
         auto address = getAddress(id, isLaser);
