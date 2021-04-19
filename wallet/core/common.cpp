@@ -1507,6 +1507,16 @@ namespace beam::wallet
         return TxFailureReason::Count;
     }
 
+    bool isFork3(Height h)
+    {
+        const Rules& r = Rules::get();
+        if (h < r.pForks[3].m_Height)
+        {
+            return false;
+        }
+        return true;
+    }
+
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)
     {
         ShieldedTxo::Viewer viewer;
