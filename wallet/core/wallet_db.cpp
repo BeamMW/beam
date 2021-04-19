@@ -2669,10 +2669,10 @@ namespace beam::wallet
                 return true;
             }
 
-            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg) override
+            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg, Height h) override
             {
                 m_ShieldedOuts++;
-                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg);
+                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg, h);
             }
 
 
@@ -6256,7 +6256,7 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle, m_HideAssetAlways);
+            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle, m_HideAssetAlways);
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
@@ -6350,7 +6350,7 @@ namespace beam::wallet
                         ECC::Oracle oracle;
                         oracle << nestedKernel.m_Msg;
                         ShieldedTxo::Data::OutputParams outputParams;
-                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, oracle);
+                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, rootKernel->m_Height.m_Min, oracle);
                         pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
                         pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
                     }

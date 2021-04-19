@@ -719,6 +719,8 @@ public:
 	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
 	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
 
+	void TestChanged1Row();
+
 private:
 
 	sqlite3* m_pDb;
@@ -764,8 +766,6 @@ private:
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void put_Cursor(const StateID& sid); // jump
-
-	void TestChanged1Row();
 
 	void MigrateFrom18();
 	void MigrateFrom20();

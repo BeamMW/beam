@@ -308,6 +308,7 @@ namespace beam::wallet
     MACRO(PeerInputs,                      80,  std::vector<Input::Ptr>) \
     MACRO(PeerOutputs,                     81,  std::vector<Output::Ptr>) \
     MACRO(TransactionRegistered,           90,  uint8_t) \
+    MACRO(TransactionRegisteredExtraInfo,  91,  std::string) \
     MACRO(FailureReason,                   92,  TxFailureReason) \
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \

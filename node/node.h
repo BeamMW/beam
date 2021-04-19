@@ -212,7 +212,7 @@ struct Node
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
@@ -388,8 +388,8 @@ private:
 	} m_TxDeferred;
 
 	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
-	uint8_t OnTransactionStem(Transaction::Ptr&&);
-	uint8_t OnTransactionFluff(Transaction::Ptr&&, const PeerID*, Dandelion::Element*);
+	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
@@ -398,7 +398,7 @@ private:
 	void AddDummyOutputs(Transaction&, Amount feeReserve);
 	Height SampleDummySpentHeight();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve); // complete validation
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
@@ -609,6 +609,7 @@ private:
 		virtual void OnMsg(proto::ContractVarsEnum&&) override;
 		virtual void OnMsg(proto::ContractLogsEnum&&) override;
 		virtual void OnMsg(proto::GetContractVar&&) override;
+		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 	};
 

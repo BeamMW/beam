@@ -455,6 +455,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	rp.m_pT_Out = pT;
 	rp.m_pKExtra = &pKExtra->get();
 	rp.m_pTauX = &tauX.get_Raw();
+	rp.m_pAssetGen = outp.m_pAsset ? &Ecc2BC(outp.m_pAsset->m_hGen) : nullptr;
 
 	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
 
@@ -1319,7 +1320,10 @@ void TestShielded()
 		oracle << krn.m_Msg;
 
 		if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+		{
 			oracle << krn.m_NotSerialized.m_hvShieldedState;
+			Asset::Proof::Expose(oracle, krn.m_Height.m_Min, krn.m_pAsset);
+		}
 
 		ECC::Point::Native hGen;
 		if (krn.m_pAsset)
@@ -1462,6 +1466,7 @@ int main()
 	Rules::get().CA.Enabled = true;
 	Rules::get().pForks[1].m_Height = g_hFork;
 	Rules::get().pForks[2].m_Height = g_hFork;
+	Rules::get().pForks[3].m_Height = g_hFork;
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);

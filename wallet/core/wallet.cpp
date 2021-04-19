@@ -881,11 +881,14 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
         LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
+        if (!r.m_Res.m_ExtraInfo.empty())
+            LOG_DEBUG() << "Extra info: " << r.m_Res.m_ExtraInfo;
 
         auto it = m_ActiveTransactions.find(r.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredExtraInfo, r.m_Res.m_ExtraInfo, r.m_SubTxID);
             it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }

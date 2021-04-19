@@ -950,6 +950,13 @@ void NodeConnection::OnMsg(ShieldedList0&& msg)
     Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
 }
 
+void NodeConnection::OnMsg(Status0&& msg)
+{
+    proto::Status msg2;
+    msg2.m_Value = msg.m_Value;
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
+}
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)

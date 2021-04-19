@@ -586,17 +586,74 @@ struct TestBlockchain
     };
     std::vector<KrnPerBlock> m_vBlockKernels;
 
+    std::vector<Merkle::Hash> m_vCSA;
+
+    struct MyEvaluator
+        :public Block::SystemState::Evaluator
+    {
+        TestBlockchain& m_This;
+        MyEvaluator(TestBlockchain& x) :m_This(x) {}
+
+        Merkle::Hash m_hvKernels;
+        Merkle::Hash m_hvCSA;
+
+        bool get_Utxos(Merkle::Hash& hv) override {
+            m_This.m_Utxos.get_Hash(hv);
+            return true;
+        }
+        bool get_Kernels(Merkle::Hash& hv) override {
+            hv = m_hvKernels;
+            return true;
+        }
+        bool get_Logs(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Shielded(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Assets(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Contracts(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_CSA(Merkle::Hash& hv) override {
+            if (!Evaluator::get_CSA(hv))
+                return false;
+
+            m_hvCSA = hv;
+            return true;
+        }
+    };
+
     void AddBlock()
     {
-        m_Utxos.get_Hash(m_mcm.m_hvLive);
-        m_mcm.Add();
+        MyEvaluator ev(*this);
+        ev.m_Height = m_mcm.m_vStates.size() + 1;
 
-        if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
+        if (m_vBlockKernels.size() < ev.m_Height)
             m_vBlockKernels.emplace_back();
-        assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
+        assert(m_vBlockKernels.size() == ev.m_Height);
 
         KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
-        fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
+        fmmr.get_Hash(ev.m_hvKernels);
+
+        ev.get_Live(m_mcm.m_hvLive);
+        m_mcm.Add();
+
+        auto& s = m_mcm.m_vStates.back().m_Hdr;
+
+        if (ev.m_Height >= Rules::get().pForks[3].m_Height)
+        {
+            ev.get_Utxos(s.m_Kernels);
+            m_vCSA.push_back(ev.m_hvCSA);
+        }
+        else
+            ev.get_Kernels(s.m_Kernels);
     }
 
     bool AddCommitment(const ECC::Point& c)
@@ -728,7 +785,7 @@ struct TestBlockchain
         t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
     }
 
-    void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+    Height get_KrnProofInner(const Merkle::Hash& krnID, Merkle::Proof& proof, TxKernel** ppKrn = nullptr)
     {
         for (size_t iState = m_mcm.m_vStates.size(); iState--; )
         {
@@ -736,56 +793,85 @@ struct TestBlockchain
 
             for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
             {
-                if (kpb.m_vKrnIDs[i] == data.m_ID)
+                if (kpb.m_vKrnIDs[i] == krnID)
                 {
                     KrnPerBlock::Mmr fmmr(kpb);
                     Merkle::ProofBuilderStd bld;
                     fmmr.get_Proof(bld, i);
 
-                    msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
-                    msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+                    proof.swap(bld.m_Proof);
 
-                    if (iState + 1 != m_mcm.m_vStates.size())
+                    Height h = Rules::HeightGenesis + iState;
+                    const Height hf3 = Rules::get().pForks[3].m_Height;
+                    if (h >= hf3)
                     {
-                        Merkle::ProofBuilderHard bld2;
-                        m_mcm.m_Mmr.get_Proof(bld2, iState);
-                        msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
-                        msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
-                        m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
+                        proof.emplace_back();
+                        proof.back().first = true;
+                        proof.back().second = Zero; // logs
 
-                        Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size() - 1].m_Hdr;
-                        WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
+                        proof.emplace_back();
+                        proof.back().first = true;
+                        proof.back().second = m_vCSA[h - hf3];
+
+                        proof.emplace_back();
+                        proof.back().first = false;
+
+                        uint64_t nCount = h - Rules::HeightGenesis;
+                        TemporarySwap<uint64_t>(nCount, m_mcm.m_Mmr.m_Count);
+                        m_mcm.m_Mmr.get_Hash(proof.back().second);
+
                     }
 
-                    return;
+                    if (ppKrn)
+                        *ppKrn = kpb.m_Kernels[i].get();
+
+                    return h;
                 }
             }
+        }
+
+        return 0;
+    }
+
+
+    void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+    {
+        Height h = get_KrnProofInner(data.m_ID, msgOut.m_Proof.m_Inner);
+        if (!h)
+            return;
+        size_t iState = h - Rules::HeightGenesis;
+
+        msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+
+        if (iState + 1 != m_mcm.m_vStates.size())
+        {
+            Merkle::ProofBuilderHard bld2;
+            m_mcm.m_Mmr.get_Proof(bld2, iState);
+            msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+
+            {
+                MyEvaluator ev(*this);
+                ev.m_Height = m_mcm.m_vStates.size() + 1;
+                ev.get_Live(msgOut.m_Proof.m_Outer.emplace_back());
+            }
+
+            Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size() - 1].m_Hdr;
+            WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
         }
     }
 
     void GetProof(const proto::GetProofKernel2& data, proto::ProofKernel2& msgOut)
     {
-        for (size_t iState = m_mcm.m_vStates.size(); iState--; )
-        {
-            const KrnPerBlock& kpb = m_vBlockKernels[iState];
+        TxKernel* pKrn = nullptr;
+        Height h = get_KrnProofInner(data.m_ID, msgOut.m_Proof, &pKrn);
+        if (!h)
+            return;
 
-            for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
-            {
-                if (kpb.m_vKrnIDs[i] == data.m_ID)
-                {
-                    KrnPerBlock::Mmr fmmr(kpb);
-                    Merkle::ProofBuilderStd bld;
-                    fmmr.get_Proof(bld, i);
+        msgOut.m_Height = h;
 
-                    msgOut.m_Proof.swap(bld.m_Proof);
-                    msgOut.m_Height = iState;
-
-                    if (data.m_Fetch)
-						kpb.m_Kernels[i]->Clone(msgOut.m_Kernel);
-                    return;
-                }
-            }
-        }
+        if (data.m_Fetch)
+			pKrn->Clone(msgOut.m_Kernel);
+        return;
     }
 
 
