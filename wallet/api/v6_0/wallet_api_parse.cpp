@@ -423,31 +423,27 @@ namespace beam::wallet
 
     std::pair<DeleteAddress, IWalletApi::MethodInfo> WalletApi::onParseDeleteAddress(const JsonRpcId& id, const json& params)
     {
-        const auto address = getMandatoryParam<NonEmptyString>(params, "address");
-
         DeleteAddress deleteAddress;
-        deleteAddress.address.FromHex(address);
+        deleteAddress.token = getMandatoryParam<NonEmptyString>(params, "address");
 
         MethodInfo info;
-        info.token = address;
+        info.token = deleteAddress.token;
 
         return std::make_pair(deleteAddress, info);
     }
 
     std::pair<EditAddress, IWalletApi::MethodInfo> WalletApi::onParseEditAddress(const JsonRpcId& id, const json& params)
     {
-        const auto address = getMandatoryParam<NonEmptyString>(params, "address");
+        EditAddress editAddress;
+        editAddress.token = getMandatoryParam<NonEmptyString>(params, "address");
 
         if (!hasParam(params, "comment") && !hasParam(params, "expiration"))
         {
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Comment or Expiration parameter must be specified.");
         }
 
-        EditAddress editAddress;
-        editAddress.address.FromHex(address);
-
         MethodInfo info;
-        info.token = address;
+        info.token = editAddress.token;
 
         beam::wallet::FillAddressData(id, params, editAddress);
         return std::make_pair(editAddress, info);
@@ -468,7 +464,7 @@ namespace beam::wallet
         const auto address = getMandatoryParam<NonEmptyString>(params, "address");
 
         ValidateAddress validateAddress;
-        validateAddress.address = address;
+        validateAddress.token = address;
 
         return std::make_pair(validateAddress, MethodInfo());
     }
@@ -478,18 +474,19 @@ namespace beam::wallet
         MethodInfo info;
         Send send;
 
-        const std::string addressOrToken = getMandatoryParam<NonEmptyString>(params, "address");
-        if(auto txParams = ParseParameters(addressOrToken))
+        send.tokenTo = getMandatoryParam<NonEmptyString>(params, "address");
+        if(auto txParams = ParseParameters(send.tokenTo))
         {
             send.txParameters = std::move(*txParams);
-            info.token = addressOrToken;
+            send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, send.tokenTo);
+            info.token = send.tokenTo;
         }
         else
         {
             throw jsonrpc_exception(ApiError::InvalidAddress , "Invalid receiver address or token.");
         }
 
-        send.addressType = GetAddressType(addressOrToken);
+        send.addressType = GetAddressType(send.tokenTo);
         if(send.addressType == TxAddressType::Offline)
         {
             // Since v6.0 offline address by default trigger the regular online transaction
@@ -519,27 +516,9 @@ namespace beam::wallet
             send.coins = readCoinsParameter(id, params);
         }
 
-        auto peerID = send.txParameters.GetParameter<WalletID>(TxParameterID::PeerID);
-        if (peerID)
-        {
-            send.address = *peerID;
-        }
-        if (!peerID || std::to_string(*peerID) != addressOrToken)
-        {
-            send.txParameters.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
-        }
-
         if (auto fromParam = getOptionalParam<NonEmptyString>(params, "from"))
         {
-            WalletID from(Zero);
-            if (from.FromHex(*fromParam))
-            {
-                send.from = from;
-            }
-            else
-            {
-                throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender address.");
-            }
+            send.tokenFrom = fromParam;
         }
 
         send.fee = getBeamFeeParam(params, "fee");
@@ -919,7 +898,7 @@ namespace beam::wallet
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", res.address}
+            {"result", res.token}
         };
     }
 
