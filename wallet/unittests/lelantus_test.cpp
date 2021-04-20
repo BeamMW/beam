@@ -1037,7 +1037,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
             if (!bTxSplit)
             {
                 // better not to send split tx before fork2. It can be dropped once we cross the fork
-                if (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height)
+                if (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height+1)
                 {
                     auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
                         .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
@@ -1440,35 +1440,41 @@ int main()
     int logLevel = LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
-    Rules::get().UpdateChecksum();
-
     Rules::get().pForks[1].m_Height = 6;
     Rules::get().pForks[2].m_Height = 12;
     Rules::get().pForks[3].m_Height = 800;
+    Rules::get().UpdateChecksum();
 
-
-    //TestUnlinkTx();
+    auto testAll = []()
+    {
+        //TestUnlinkTx();
     //TestCancelUnlinkTx();
-    TestTreasuryRestore();
-    TestSimpleTx();
-    TestMaxPrivacyTx();
-    TestPublicAddressTx();
-    TestDirectAnonymousPayment();
-    TestManyTransactons(20, Lelantus::Cfg{2, 5}, Lelantus::Cfg{2, 3});
-    TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
-    TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        TestTreasuryRestore();
+        TestSimpleTx();
+        TestMaxPrivacyTx();
+        TestPublicAddressTx();
+        TestDirectAnonymousPayment();
+        TestManyTransactons(20, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
 
-    ///*TestManyTransactons();*/
+        ///*TestManyTransactons();*/
 
-    //TestShortWindow();
+        //TestShortWindow();
 
-    TestShieldedUTXORollback();
-    TestPushTxRollbackByLowFee();
-    //TestPullTxRollbackByLowFee(); test won't succeed, current pull logic will automatically add inputs and/or adjust fee
-    //TestExpiredTxs();
+        TestShieldedUTXORollback();
+        TestPushTxRollbackByLowFee();
+        //TestPullTxRollbackByLowFee(); test won't succeed, current pull logic will automatically add inputs and/or adjust fee
+        //TestExpiredTxs();
 
-    //TestReextract();
+        //TestReextract();
 
+    };
+    //testAll();
+    Rules::get().pForks[3].m_Height = 12;
+    Rules::get().UpdateChecksum();
+    testAll();
+    
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }
