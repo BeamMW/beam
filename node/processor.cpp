@@ -4124,6 +4124,7 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	:m_Bic(bic)
 	,m_Proc(proc)
 {
+	m_Dbg.m_Hook = [this](const auto& p) { m_Proc.OnDebugHook(p); };
 	if (bic.m_Fwd)
 	{
 		BlockInterpretCtx::Ser ser(bic);

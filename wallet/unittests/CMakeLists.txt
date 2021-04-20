@@ -16,12 +16,10 @@ add_test_snippet(news_channels_test wallet_client node)
 add_test_snippet(broadcasting_test wallet_client node)
 
 if (BEAM_TEST_SHADERS)
-    add_test_snippet(wallet_contract_test wallet_test_node dwarf)
-
-    function (add_shader shader )
-        add_custom_command(TARGET wallet_contract_test 
-                       PRE_BUILD 
-                       COMMAND clang -O3 
+    macro (add_shader shader )
+        add_custom_command(
+                       OUTPUT ${shader}.wasm
+                       COMMAND clang -O0 
                                 --target=wasm32 -I ${PROJECT_SOURCE_DIR}/bvm 
                                 -std=c++17 
                                 -fno-rtti 
@@ -31,11 +29,20 @@ if (BEAM_TEST_SHADERS)
                         COMMENT "Building shader ${shader}..."
                         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}.cpp
                         VERBATIM
-    )
-    endfunction()
+        )
+        add_custom_target(
+                        ${shader}_target 
+                        ALL
+                        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${shader}.wasm
+                        )
+    endmacro()
 
     add_shader(test_contract)
     add_shader(test_app)
+
+    add_test_snippet(wallet_contract_test wallet_test_node dwarf)
+    add_dependencies(wallet_contract_test
+        test_contract_target test_app_target)
 endif()
 
 if(BEAM_HW_WALLET)

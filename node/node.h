@@ -27,7 +27,7 @@
 
 namespace beam
 {
-
+	namespace Wasm { struct Processor; }
 struct Node
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
@@ -38,6 +38,7 @@ struct Node
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
 		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
+		virtual void OnDebugHook(const Wasm::Processor& proc) {};
 
         enum Error
         {
@@ -234,6 +235,7 @@ private:
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		Height get_MaxAutoRollback() override;
+		void OnDebugHook(const Wasm::Processor&) override;
 		void Stop();
 
 		struct MyExecutorMT

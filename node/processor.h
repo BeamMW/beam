@@ -25,7 +25,7 @@
 #include "txpool.h"
 
 namespace beam {
-
+	namespace Wasm { struct Processor; }
 class NodeProcessor
 {
 	struct DB
@@ -445,6 +445,7 @@ public:
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
 	virtual Height get_MaxAutoRollback();
+	virtual void OnDebugHook(const Wasm::Processor&) {};
 
 	struct MyExecutor
 		:public Executor

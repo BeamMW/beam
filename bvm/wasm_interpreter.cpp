@@ -1594,9 +1594,12 @@ namespace Wasm {
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
-				if (m_Dbg.m_Instructions)
-					*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+			if (m_Dbg.m_Instructions)
+				*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
 
+			if (m_Dbg.m_Hook)
+				m_Dbg.m_Hook(*this);
+			
 			switch (nInstruction)
 			{
 #define THE_CASE(name) case I::name: if (m_Dbg.m_Instructions) (*m_Dbg.m_pOut) << #name << std::endl;

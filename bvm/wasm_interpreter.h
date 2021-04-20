@@ -342,6 +342,7 @@ namespace Wasm {
 			bool m_Stack = false;
 			bool m_Instructions = false;
 			bool m_ExtCall = false;
+			std::function<void(const Processor&)> m_Hook;
 		} m_Dbg;
 
 

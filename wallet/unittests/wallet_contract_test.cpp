@@ -34,6 +34,8 @@ WALLET_TEST_INIT
 using namespace beam;
 using namespace beam::wallet;
 
+void DoDebug(const Wasm::Processor& proc);
+
 namespace
 {
     class WasmLoader : public dwarf::loader
@@ -75,7 +77,7 @@ namespace
         }
     };
 
-    struct MyObserver : wallet::IWalletObserver
+    struct MyWalletObserver : wallet::IWalletObserver
     {
         void onSyncProgress(int done, int total) override
         {
@@ -181,6 +183,145 @@ namespace
         return true;
     }
 
+    class Debugger
+    {
+    public:
+        Debugger(const std::string& contractPath)
+        {
+            // load symbols
+            m_Buffer = MyManager::Load(contractPath.c_str());
+            Wasm::Reader inp;
+            inp.m_p0 = &*m_Buffer.begin();
+            inp.m_p1 = inp.m_p0 + m_Buffer.size();
+            
+            m_Compiler.Parse(inp);
+            m_DebugInfo = std::make_unique<dwarf::dwarf>(std::make_shared<WasmLoader>(m_Compiler));
+        }
+
+        void DoDebug(const Wasm::Processor& proc)
+        {
+            if (PrintPC(proc.get_Ip()))
+            {
+                std::string command;
+                while (true)
+                {
+                    std::cout << "(beamdbg)>";
+                    std::cin >> command;
+                    if (command == "step")
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    private:
+
+        bool FindPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>* stack)
+        {
+            using namespace dwarf;
+
+            // Scan children first to find most specific DIE
+            bool found = false;
+            for (auto& child : d) {
+                found = FindPC(child, pc, stack);
+                if (found)
+                    break;
+            }
+            switch (d.tag) {
+            case DW_TAG::subprogram:
+            case DW_TAG::inlined_subroutine:
+                try {
+                    if (found || die_pc_range(d).contains(pc)) {
+                        found = true;
+                        stack->push_back(d);
+                    }
+                }
+                catch (out_of_range&) {
+                }
+                catch (value_type_mismatch&) {
+                }
+                break;
+            default:
+                break;
+            }
+            return found;
+        }
+
+        void DumpDIE(const dwarf::die& node, int intent = 0)
+        {
+            for (int i = 0; i < intent; ++i)
+                printf("      ");
+            printf("<%" PRIx64 "> %s\n",
+                node.get_section_offset(),
+                to_string(node.tag).c_str());
+            for (auto& attr : node.attributes())
+            {
+                for (int i = 0; i < intent; ++i)
+                    printf("      ");
+
+                printf("      %s %s\n",
+                    to_string(attr.first).c_str(),
+                    to_string(attr.second).c_str());
+            }
+
+
+            for (const auto& child : node)
+                DumpDIE(child, intent + 1);
+
+        }
+
+        bool PrintPC(dwarf::taddr pc)
+        {
+            for (auto& cu : m_DebugInfo->compilation_units())
+            {
+                if (die_pc_range(cu.root()).contains(pc)) {
+                    // Map PC to a line
+                    auto& lt = cu.get_line_table();
+                    auto it = lt.find_address(pc);
+                    if (it == lt.end())
+                        return false;
+                    else
+                    {
+                        if (!m_CurrentLine || *m_CurrentLine != it)
+                        {
+                            printf("%s\n",
+                                it->get_description().c_str());
+                            m_CurrentLine = std::make_unique<dwarf::line_table::iterator>(it);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                        
+
+                    // Map PC to an object
+                    // XXX Index/helper/something for looking up PCs
+                    // XXX DW_AT_specification and DW_AT_abstract_origin
+                    vector<dwarf::die> stack;
+                    if (FindPC(cu.root(), pc, &stack)) {
+                        bool first = true;
+                        for (auto& d : stack) {
+                            if (!first)
+                                printf("\nInlined in:\n");
+                            first = false;
+                            DumpDIE(d);
+                        }
+                        return true;
+                    }
+                    break;
+                }
+            }
+            return false;
+        }
+
+    private:
+        ByteBuffer m_Buffer;
+        Wasm::Compiler m_Compiler;
+        std::unique_ptr<dwarf::dwarf> m_DebugInfo;
+        std::unique_ptr<dwarf::line_table::iterator> m_CurrentLine;
+    };
+
     class TestLocalNode : private Node::IObserver
     {
     public:
@@ -224,6 +365,12 @@ namespace
             GenerateIfInSync();
             io::Reactor::get_Current().run();
         }
+
+        void SetDebugger(Debugger* d)
+        {
+            m_Debugger = d;
+        }
+
     private:
 
         void GenerateIfInSync()
@@ -261,6 +408,12 @@ namespace
                 io::Reactor::get_Current().stop();
         }
 
+        void OnDebugHook(const Wasm::Processor& proc) override
+        {
+            if (m_Debugger)
+                m_Debugger->DoDebug(proc);
+        }
+
         void UpdateSyncStatus()
         {
             Node::SyncStatus s = m_Node.m_SyncStatus;
@@ -278,7 +431,9 @@ namespace
             }
 
             m_InSync = (s.m_Done == s.m_Total);
+        
         }
+
     private:
         Node m_Node;
         uint32_t m_BlocksToGenerate = 0;
@@ -286,6 +441,7 @@ namespace
         bool m_InSync = true;
         bool m_PendingBlocks = false;
         bool m_StopAfter = false;
+        Debugger* m_Debugger = nullptr;
     };
 }
 
@@ -304,7 +460,7 @@ void TestNode()
     auto checkCoins = [](IWalletDB::Ptr walletDB, size_t count, uint16_t port)
     {
         auto w = std::make_shared<Wallet>(walletDB);
-        MyObserver observer;
+        MyWalletObserver observer;
         ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet> ws(&observer, w);
         auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*w);
         nodeEndpoint->m_Cfg.m_PollPeriod_ms = 0;
@@ -326,108 +482,28 @@ void TestNode()
     checkCoins(walletDB2, 15, 32126);
 }
 
-bool FindPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>* stack)
-{
-    using namespace dwarf;
-
-    // Scan children first to find most specific DIE
-    bool found = false;
-    for (auto& child : d) {
-        found = FindPC(child, pc, stack);
-        if (found)
-            break;
-    }
-    switch (d.tag) {
-    case DW_TAG::subprogram:
-    case DW_TAG::inlined_subroutine:
-        try {
-            if (found || die_pc_range(d).contains(pc)) {
-                found = true;
-                stack->push_back(d);
-            }
-        }
-        catch (out_of_range& ) {
-        }
-        catch (value_type_mismatch& ) {
-        }
-        break;
-    default:
-        break;
-    }
-    return found;
-}
-
-void DumpDIE(const dwarf::die& node)
-{
-    printf("<%" PRIx64 "> %s\n",
-        node.get_section_offset(),
-        to_string(node.tag).c_str());
-    for (auto& attr : node.attributes())
-        printf("      %s %s\n",
-            to_string(attr.first).c_str(),
-            to_string(attr.second).c_str());
-}
-
-void PrintPC(const dwarf::dwarf& dw, dwarf::taddr pc)
-{
-    for (auto& cu : dw.compilation_units())
-    {
-        if (die_pc_range(cu.root()).contains(pc)) {
-            // Map PC to a line
-            auto& lt = cu.get_line_table();
-            auto it = lt.find_address(pc);
-            if (it == lt.end())
-                printf("UNKNOWN\n");
-            else
-                printf("%s\n",
-                    it->get_description().c_str());
-
-            // Map PC to an object
-            // XXX Index/helper/something for looking up PCs
-            // XXX DW_AT_specification and DW_AT_abstract_origin
-            vector<dwarf::die> stack;
-            if (FindPC(cu.root(), pc, &stack)) {
-                bool first = true;
-                for (auto& d : stack) {
-                    if (!first)
-                        printf("\nInlined in:\n");
-                    first = false;
-                    DumpDIE(d);
-                }
-            }
-            break;
-        }
-    }
-}
-
 void TestContract()
 {
     auto walletDB = createWalletDB("wallet.db", true);
     auto binaryTreasury = createTreasury(walletDB, {});
 
+    std::string contractPath = "test_contract.wasm";
+
+    Debugger debugger(contractPath);
+
     TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf() };
     auto w = std::make_shared<Wallet>(walletDB);
-    MyObserver observer;
+    MyWalletObserver observer;
     ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet> ws(&observer, w);
     auto nodeEndpoint = make_shared<MyNetwork>(*w);
     nodeEndpoint->m_Cfg.m_PollPeriod_ms = 0;
     nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
     nodeEndpoint->Connect();
     w->SetNodeEndpoint(nodeEndpoint);
-    
+    nodeA.SetDebugger(&debugger);
     //nodeA.GenerateBlocks(1);
-
-    std::string contractPath = "test_contract.wasm";
-    // load symbols
-    auto buffer = MyManager::Load(contractPath.c_str());
-    Wasm::Reader inp;
-    inp.m_p0 = &*buffer.begin();
-    inp.m_p1 = inp.m_p0+buffer.size();
-    Wasm::Compiler c;
-    c.Parse(inp);
-    dwarf::dwarf dw(std::make_shared<WasmLoader>(c));
-    PrintPC(dw, 45);
    
+    nodeA.GenerateBlocks(1, false);
 
     WALLET_CHECK(InvokeShader(w, walletDB, "test_app.wasm", contractPath, "role=manager,action=create"));
 

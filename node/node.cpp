@@ -823,6 +823,14 @@ Height Node::Processor::get_MaxAutoRollback()
     return h;
 }
 
+void Node::Processor::OnDebugHook(const Wasm::Processor& proc)
+{
+    auto& node = get_ParentObj();
+
+    if (node.m_Cfg.m_Observer)
+        node.m_Cfg.m_Observer->OnDebugHook(proc);
+}
+
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {
 	if (get_ParentObj().m_Cfg.m_LogEvents)
@@ -853,7 +861,7 @@ void Node::Processor::InitializeUtxosProgress(uint64_t done, uint64_t total)
     auto& node = get_ParentObj();
 
     if (node.m_Cfg.m_Observer)
-        node.m_Cfg.m_Observer->InitializeUtxosProgress(done, total);   
+        node.m_Cfg.m_Observer->InitializeUtxosProgress(done, total);
 }
 
 void Node::Processor::OnFlushTimer()
