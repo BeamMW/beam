@@ -796,7 +796,7 @@ namespace
 
                 if (existing->isExpired())
                 {
-                    throw std::runtime_error("Specified exisitng address is already expired");
+                    throw std::runtime_error("Specified existing address is already expired");
                 }
 
                 address = *existing;
@@ -805,9 +805,9 @@ namespace
 
         try 
         {
-            const auto token = GenerateToken(type, address, walletDB, offlineCount);
+            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
-            std::cout << "New address: " << token << std::endl;
+            std::cout << "New address: " << address.m_Address << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -888,44 +888,56 @@ namespace
         return true;
     }
 
+    std::string GetAddressTypeString(const WalletAddress& address)
+    {
+        const auto type = GetAddressType(address.m_Address);
+        switch (type)
+        {
+            case TxAddressType::PublicOffline: return "public offline";
+            case TxAddressType::MaxPrivacy: return "max privacy";
+            case TxAddressType::Regular: return address.m_Address == std::to_string(address.m_walletID) ? "regular old style" : "regular new style";
+            case TxAddressType::Offline: return "offline";
+            case TxAddressType::AtomicSwap: return "atomic swap";
+            default: return "unknown";
+        }
+    }
+
     int ShowAddressList(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 6> columnWidths{ { 20, 70, 70, 8, 20, 21 } };
 
-        // Comment | Address | Identity | Active | Expiration date | Created |
-        cout << boost::format(kAddrListTableHead)
-             % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
-             % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
-             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnIdentity)
-             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnActive)
-             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnExprDate)
-             % boost::io::group(left, setw(columnWidths[5]), kAddrListColumnCreated)
-             << std::endl;
+        if (addresses.empty())
+        {
+            std::cout << "You do not have any addresses.";
+            return 0;
+        }
 
+        std::cout << endl;
         for (const auto& address : addresses)
         {
-            auto comment = address.m_label;
+            std::cout
+                << kAddrListType    << GetAddressTypeString(address) << std::endl
+                << kAddrListComment << address.m_label << std::endl
+                << kAddrListAddress << address.m_Address << std::endl;
 
-            if (comment.length() > columnWidths[0])
+            if (address.m_walletID.IsValid())
             {
-                comment = comment.substr(0, columnWidths[0] - 3) + "...";
+                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
             }
 
-            auto expirationDateText = (address.m_duration == 0)
+            const auto expirationDateText = (address.m_duration == 0)
                 ? cli::EXPIRATION_TIME_NEVER
                 : format_timestamp(kTimeStampFormat3x3, address.getExpirationTime() * 1000, false);
-            auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
-            cout << boost::format(kAddrListTableBody)
-             % boost::io::group(left, setw(columnWidths[0]), comment)
-             % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
-             % boost::io::group(left, setw(columnWidths[2]), std::to_string(address.m_Identity))
-             % boost::io::group(left, boolalpha, setw(columnWidths[3]), !address.isExpired())
-             % boost::io::group(left, setw(columnWidths[4]), expirationDateText)
-             % boost::io::group(left, setw(columnWidths[5]), creationDateText)
-             << std::endl;
+            const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
+
+            std::cout
+                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
+                << kAddrListExprDate << expirationDateText << std::endl
+                << kAddrListCreated  << creationDateText << std::endl
+                << std::endl;
         }
 
         return 0;
