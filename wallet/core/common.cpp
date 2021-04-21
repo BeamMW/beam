@@ -922,36 +922,30 @@ namespace beam::wallet
     }
 
     /// Return empty string if exchange rate is not available
-    std::string TxDescription::getConvertedAmount(const Currency& targetCurrency) const
+    Amount TxDescription::getExchangeRate(const Currency& targetCurrency) const
     {
-        /*auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+        auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
         {
             std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
-            for (const auto r : rates)
+
+            auto assetIdOptional = GetParameter<Asset::ID>(TxParameterID::AssetID);
+            Asset::ID assetId  = assetIdOptional ? *assetIdOptional : 0;
+            auto fromCurrency = beam::wallet::Currency(assetId);
+
+            auto search = std::find_if(std::begin(rates), std::end(rates),
+                                    [&fromCurrency, &targetCurrency](const ExchangeRate& r)
+                                    {
+                                        return r.m_from == fromCurrency && r.m_to == targetCurrency;
+                                    });
+
+            if (search != std::cend(rates))
             {
-                if (r.m_currency == ExchangeRate::Currency::Beam &&
-                    r.m_unit == target &&
-                    r.m_rate != 0)
-                {
-                    cpp_dec_float_50 dec_first(m_amount);
-                    dec_first /= Rules::Coin;
-                    cpp_dec_float_50 dec_second(r.m_rate);
-                    dec_second /= Rules::Coin;
-                    cpp_dec_float_50 product = dec_first * dec_second;
-
-                    std::ostringstream oss;
-                    uint32_t precision = target == ExchangeRate::Currency::Usd
-                                            ? 2
-                                            : std::lround(std::log10(Rules::Coin));
-                    oss.precision(precision);
-                    oss << std::fixed << product;
-
-                    return oss.str();
-                }
+                return search->m_rate;
             }
-        }*/
-        return "";
+        }
+
+        return 0UL;
     }
 
     std::string TxDescription::getToken() const
@@ -1511,6 +1505,16 @@ namespace beam::wallet
             return TxFailureReason::AssetsDisabledInWallet;
 
         return TxFailureReason::Count;
+    }
+
+    bool isFork3(Height h)
+    {
+        const Rules& r = Rules::get();
+        if (h < r.pForks[3].m_Height)
+        {
+            return false;
+        }
+        return true;
     }
 
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)

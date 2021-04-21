@@ -735,7 +735,7 @@ namespace
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
-            CreateNewAddress(vm, walletDB, kDefaultAddrLabel);
+            walletDB->generateAndSaveDefaultAddress();
             return 0;
         }
         LOG_ERROR() << kErrorWalletNotCreated;
@@ -796,7 +796,7 @@ namespace
 
                 if (existing->isExpired())
                 {
-                    throw std::runtime_error("Specified exisitng address is already expired");
+                    throw std::runtime_error("Specified existing address is already expired");
                 }
 
                 address = *existing;
@@ -805,9 +805,9 @@ namespace
 
         try 
         {
-            const auto token = GenerateToken(type, address, walletDB, offlineCount);
+            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
-            std::cout << "New address: " << token << std::endl;
+            std::cout << "New address: " << address.m_Address << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -888,44 +888,56 @@ namespace
         return true;
     }
 
+    std::string GetAddressTypeString(const WalletAddress& address)
+    {
+        const auto type = GetTokenType(address.m_Address);
+        switch (type)
+        {
+            case TokenType::Public: return "public offline";
+            case TokenType::MaxPrivacy: return "max privacy";
+            case TokenType::RegularNewStyle: return "regular new style";
+            case TokenType::RegularOldStyle: return "regular old style";
+            case TokenType::Offline: return "offline";
+            default: return "unknown";
+        }
+    }
+
     int ShowAddressList(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 6> columnWidths{ { 20, 70, 70, 8, 20, 21 } };
 
-        // Comment | Address | Identity | Active | Expiration date | Created |
-        cout << boost::format(kAddrListTableHead)
-             % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
-             % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
-             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnIdentity)
-             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnActive)
-             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnExprDate)
-             % boost::io::group(left, setw(columnWidths[5]), kAddrListColumnCreated)
-             << std::endl;
+        if (addresses.empty())
+        {
+            std::cout << "You do not have any addresses.";
+            return 0;
+        }
 
+        std::cout << endl;
         for (const auto& address : addresses)
         {
-            auto comment = address.m_label;
+            std::cout
+                << kAddrListType    << GetAddressTypeString(address) << std::endl
+                << kAddrListComment << address.m_label << std::endl
+                << kAddrListAddress << address.m_Address << std::endl;
 
-            if (comment.length() > columnWidths[0])
+            if (address.m_walletID.IsValid())
             {
-                comment = comment.substr(0, columnWidths[0] - 3) + "...";
+                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
             }
 
-            auto expirationDateText = (address.m_duration == 0)
+            const auto expirationDateText = (address.m_duration == 0)
                 ? cli::EXPIRATION_TIME_NEVER
                 : format_timestamp(kTimeStampFormat3x3, address.getExpirationTime() * 1000, false);
-            auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
-            cout << boost::format(kAddrListTableBody)
-             % boost::io::group(left, setw(columnWidths[0]), comment)
-             % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
-             % boost::io::group(left, setw(columnWidths[2]), std::to_string(address.m_Identity))
-             % boost::io::group(left, boolalpha, setw(columnWidths[3]), !address.isExpired())
-             % boost::io::group(left, setw(columnWidths[4]), expirationDateText)
-             % boost::io::group(left, setw(columnWidths[5]), creationDateText)
-             << std::endl;
+            const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
+
+            std::cout
+                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
+                << kAddrListExprDate << expirationDateText << std::endl
+                << kAddrListCreated  << creationDateText << std::endl
+                << std::endl;
         }
 
         return 0;
@@ -2250,6 +2262,8 @@ namespace
 
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
+                walletDB->saveAddress(senderAddress);
+
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
@@ -2340,31 +2354,18 @@ namespace
                 if (man.m_Err || man.m_vInvokeData.empty())
                     return 1;
 
-                Height h = wallet->get_CurrentHeight();
-
-                std::string sComment = "Contract: ";
-                bvm2::FundsMap fm;
-                Amount fee = Transaction::FeeSettings::get(h).get_DefaultStd();
+                const auto height  = wallet->get_CurrentHeight();
+                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
+                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
+                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+                std::cout << "\tComment: " << comment;
 
-                for (size_t i = 0; i < man.m_vInvokeData.size(); i++)
+                for (const auto& info: spend)
                 {
-                    const auto& cdata = man.m_vInvokeData[i];
-                    fm += cdata.m_Spend;
-                    fee += cdata.get_FeeMin(h);
-
-                    if (i)
-                        sComment += "; ";
-                    sComment += cdata.m_sComment;
-
-                    std::cout << "\tComment: " << cdata.m_sComment << std::endl;
-                }
-
-                for (auto it = fm.begin(); fm.end() != it; it++)
-                {
-                    auto aid = it->first;
-                    auto amount = it->second;
+                    auto aid = info.first;
+                    auto amount = info.second;
 
                     bool bSpend = (amount > 0);
                     if (!bSpend)
@@ -2373,8 +2374,8 @@ namespace
                     PrintableAmount prnt(static_cast<Amount>(amount));
                     if (aid)
                     {
-                        prnt.m_coinName = "Asset-" + to_string(aid);
-                        prnt.m_grothName = prnt.m_coinName + "-grooth";
+                        prnt.m_coinName = "ASSET-" + to_string(aid);
+                        prnt.m_grothName = prnt.m_coinName + "-GROTH";
                     }
 
                     std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << prnt << std::endl;
@@ -2382,14 +2383,13 @@ namespace
 
                 std::cout << "\tTotal fee: " << PrintableAmount(fee) << std::endl;
 
-                ByteBuffer msg(sComment.begin(), sComment.end());
-
-
+                ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
+
                 return 0;
             });
     }
@@ -2640,10 +2640,17 @@ namespace
             return -1;
         }
 
+        if (vm.count(cli::BLOCK_HEIGHT) != 1)
+        {
+            LOG_ERROR() << "block_height should be specified";
+            return -1;
+        }
+
         Height blockHeight = vm[cli::BLOCK_HEIGHT].as<Nonnegative<Height>>().value;
 
         if (!blockHeight)
         {
+            LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 
@@ -2675,6 +2682,7 @@ namespace
 
         if (request.m_pTrg || request.m_vStates.size() != 1)
         {
+            LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 
@@ -2813,7 +2821,7 @@ int main_impl(int argc, char* argv[])
             return 0;
         }
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_WARNING);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_INFO);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"

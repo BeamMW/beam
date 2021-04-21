@@ -1017,7 +1017,7 @@ namespace beam
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
 				uint32_t nBvmCharge = 0;
-				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge));
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1689,7 +1689,7 @@ namespace beam
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Sync.Hi = 10;
 		node.m_Cfg.m_Horizon.m_Sync.Lo = 14;
-		node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
+		//node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
@@ -1703,6 +1703,7 @@ namespace beam
 			const Height m_HeightTrg = 75;
 
 			MiniWallet m_Wallet;
+			NodeProcessor* m_pProc = nullptr;
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
@@ -1713,6 +1714,7 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
+			std::list<std::pair<Height, Merkle::Hash> > m_queProofLogsExpected;
 
 			struct
 			{
@@ -1796,6 +1798,7 @@ namespace beam
 					m_queProofsExpected.empty() &&
 					m_queProofsKrnExpected.empty() &&
 					m_queProofsStateExpected.empty() &&
+					m_queProofLogsExpected.empty() &&
 					!m_nChainWorkProofsPending;
 			}
 
@@ -1899,7 +1902,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, oracle);
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
 
 					pKrn->MsgToID();
 
@@ -2573,6 +2576,22 @@ namespace beam
 				case 8: // logs
 					proc.m_Args["role"] = "manager";
 					proc.m_Args["action"] = "view_logs";
+
+					{
+						// proofs for logs
+						NodeDB::ContractLog::Walker wlk;
+						for (m_pProc->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						{
+							proto::GetContractLogProof msgOut;
+							msgOut.m_Pos = wlk.m_Entry.m_Pos;
+							Send(msgOut);
+
+							auto& x = m_queProofLogsExpected.emplace_back();
+							x.first = wlk.m_Entry.m_Pos.m_Height;
+							Block::get_HashContractLog(x.second, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
+						}
+					}
+
 					break;
 
 				default: // print
@@ -2617,6 +2636,18 @@ namespace beam
 					m_pMyNetwork->OnMsg(std::move(msg));
 				}
 			}
+
+			virtual void OnMsg(proto::ContractLogProof&& msg) override
+			{
+				verify_test(!m_queProofLogsExpected.empty());
+				auto& x = m_queProofLogsExpected.front();
+
+				const auto& s = m_vStates[x.first - Rules::HeightGenesis];
+				verify_test(s.IsValidProofLog(x.second, msg.m_Proof));
+
+				m_queProofLogsExpected.pop_front();
+			}
+
 
 			void MaybeAskEvents()
 			{
@@ -2695,14 +2726,11 @@ namespace beam
 						ECC::Point::Native exc;
 						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
 
-						Merkle::Hash hv = msg.m_Kernel->m_Internal.m_ID;
-						Merkle::Interpret(hv, msg.m_Proof);
-
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
 						verify_test(s.m_Height == msg.m_Height);
 
-						verify_test(s.m_Kernels == hv);
+						verify_test(s.IsValidProofKernel(msg.m_Kernel->m_Internal.m_ID, msg.m_Proof));
 					}
 				}
 				else
@@ -2887,6 +2915,7 @@ namespace beam
 		};
 
 		MyClient cl(node.m_Keys.m_pMiner);
+		cl.m_pProc = &node.get_Processor();
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -2960,6 +2989,9 @@ namespace beam
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
+
+		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
+		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
 
 		ECC::SetRandom(node2);
 		node2.Initialize();
@@ -3416,6 +3448,7 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz2);
 	}
 
+	beam::Rules::get().MaxRollback = 100;
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;

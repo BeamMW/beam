@@ -467,6 +467,10 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 		{
 			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
 			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
+
+			m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, &m_Cursor.m_StateExtra, sizeof(m_Cursor.m_StateExtra));
+
+			m_Cursor.m_bKernels = false;
 		}
 
 		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
@@ -980,7 +984,7 @@ private:
 
 	Sigma::CmListVec m_Lst;
 
-	bool IsValid(const TxKernelShieldedInput&, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const TxKernelShieldedInput&, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -1008,7 +1012,7 @@ private:
 	};
 };
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, bool bUseShieldedState, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, Height hScheme, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
@@ -1025,8 +1029,11 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
 
-	if (bUseShieldedState)
+	if (hScheme >= Rules::get().pForks[3].m_Height)
+	{
 		oracle << krn.m_NotSerialized.m_hvShieldedState;
+		Asset::Proof::Expose(oracle, hScheme, krn.m_pAsset);
+	}
 
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;
@@ -1057,8 +1064,6 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		{
 			if (!m_iVerifier)
 			{
-				bool bUseShieldedState = (m_Height >= Rules::get().pForks[3].m_Height);
-
 				ECC::Hash::Value hv;
 				{
 					ECC::Hash::Processor hp;
@@ -1079,7 +1084,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 						m_pThis->m_Vc.Insert(hv, v.m_WindowEnd);
 				}
 
-				if (!bFound && !m_pThis->IsValid(v, bUseShieldedState, m_vKs, *m_pBc))
+				if (!bFound && !m_pThis->IsValid(v, m_Height, m_vKs, *m_pBc))
 					return false;
 			}
 
@@ -2001,6 +2006,37 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 
 }
 
+struct NodeProcessor::KrnFlyMmr
+	:public Merkle::FlyMmr
+{
+	const TxVectors::Eternal& m_Txve;
+
+	KrnFlyMmr(const TxVectors::Eternal& txve)
+		:m_Txve(txve)
+	{
+		m_Count = txve.m_vKernels.size();
+	}
+
+	virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+		assert(n < m_Count);
+		hv = m_Txve.m_vKernels[n]->m_Internal.m_ID;
+	}
+};
+
+void NodeProcessor::EnsureCursorKernels()
+{
+	if (!m_Cursor.m_bKernels && m_Cursor.m_Sid.m_Row)
+	{
+		TxVectors::Eternal txve;
+		ReadKrns(m_Cursor.m_Sid.m_Row, txve);
+
+		KrnFlyMmr fmmr(txve);
+		fmmr.get_Hash(m_Cursor.m_hvKernels);
+		m_Cursor.m_bKernels = true;
+
+	}
+}
+
 NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 	:m_Proc(p)
 {
@@ -2020,6 +2056,29 @@ bool NodeProcessor::Evaluator::get_Utxos(Merkle::Hash& hv)
 	return true;
 }
 
+bool NodeProcessor::Evaluator::get_Kernels(Merkle::Hash& hv)
+{
+	m_Proc.EnsureCursorKernels();
+	hv = m_Proc.m_Cursor.m_hvKernels;
+	return true;
+}
+
+bool NodeProcessor::Evaluator::get_Logs(Merkle::Hash& hv)
+{
+	hv = m_Proc.m_Cursor.m_StateExtra.m_hvLogs;
+	return true;
+}
+
+void NodeProcessor::ReadKrns(uint64_t rowid, TxVectors::Eternal& txve)
+{
+	ByteBuffer bbE;
+	m_DB.GetStateBlock(rowid, nullptr, &bbE, nullptr);
+
+	Deserializer der;
+	der.reset(bbE);
+	der & txve;
+}
+
 bool NodeProcessor::Evaluator::get_Shielded(Merkle::Hash& hv)
 {
 	m_Proc.m_Mmr.m_Shielded.get_Hash(hv);
@@ -2035,6 +2094,27 @@ bool NodeProcessor::Evaluator::get_Assets(Merkle::Hash& hv)
 bool NodeProcessor::Evaluator::get_Contracts(Merkle::Hash& hv)
 {
 	m_Proc.m_Mapped.m_Contract.get_Hash(hv);
+	return true;
+}
+
+bool NodeProcessor::EvaluatorEx::get_Kernels(Merkle::Hash& hv)
+{
+	hv = m_hvKernels;
+	return true;
+}
+
+bool NodeProcessor::EvaluatorEx::get_Logs(Merkle::Hash& hv)
+{
+	hv = m_Comms.m_hvLogs;
+	return true;
+}
+
+bool NodeProcessor::EvaluatorEx::get_CSA(Merkle::Hash& hv)
+{
+	if (!Evaluator::get_CSA(hv))
+		return false;
+
+	m_Comms.m_hvCSA = hv;
 	return true;
 }
 
@@ -2072,22 +2152,53 @@ uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Pt
 	return iRet;
 }
 
+struct NodeProcessor::ProofBuilder_PrevState
+	:public ProofBuilder
+{
+	Merkle::Hash m_hvHistory;
+	StateExtra::Full m_StateExtra;
+
+	ProofBuilder_PrevState(NodeProcessor& p, Merkle::Proof& proof, const NodeDB::StateID& sid)
+		:ProofBuilder(p, proof)
+	{
+		if (p.m_Cursor.m_Full.m_Height == sid.m_Height)
+		{
+			m_hvHistory = p.m_Cursor.m_History;
+			Cast::Down<StateExtra::Comms>(m_StateExtra) = Cast::Down<StateExtra::Comms>(p.m_Cursor.m_StateExtra);
+		}
+		else
+		{
+			uint64_t nCount = sid.m_Height - Rules::HeightGenesis;
+			TemporarySwap<uint64_t> ts(nCount, p.m_Mmr.m_States.m_Count);
+			p.m_Mmr.m_States.get_Hash(m_hvHistory);
+
+			p.m_DB.get_StateExtra(sid.m_Row, &m_StateExtra, sizeof(m_StateExtra));
+		}
+	}
+
+	virtual bool get_History(Merkle::Hash& hv) override
+	{
+		hv = m_hvHistory;
+		return true;
+	}
+
+	virtual bool get_CSA(Merkle::Hash& hv) override
+	{
+		hv = m_StateExtra.m_hvCSA;
+		return true;
+	}
+};
+
 Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
 {
-	Height h = m_DB.FindKernel(idKrn);
-	if (h < Rules::HeightGenesis)
-		return h;
+	NodeDB::StateID sid;
+	sid.m_Height = m_DB.FindKernel(idKrn);
+	if (sid.m_Height < Rules::HeightGenesis)
+		return sid.m_Height;
 
-	uint64_t rowid = FindActiveAtStrict(h);
-
-	ByteBuffer bbE;
-	m_DB.GetStateBlock(rowid, nullptr, &bbE, nullptr);
-
+	sid.m_Row = FindActiveAtStrict(sid.m_Height);
 	TxVectors::Eternal txve;
-
-	Deserializer der;
-	der.reset(bbE);
-	der & txve;
+	ReadKrns(sid.m_Row, txve);
 
 	Merkle::FixedMmr mmr;
 	mmr.Resize(txve.m_vKernels.size());
@@ -2097,7 +2208,94 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 		OnCorrupted();
 
 	mmr.get_Proof(proof, iTrg);
-	return h;
+
+	if (sid.m_Height >= Rules::get().pForks[3].m_Height)
+	{
+		struct MyProofBuilder
+			:public ProofBuilder_PrevState
+		{
+			using ProofBuilder_PrevState::ProofBuilder_PrevState;
+
+			virtual bool get_Kernels(Merkle::Hash&) override { return false; }
+
+			virtual bool get_Logs(Merkle::Hash& hv) override
+			{
+				hv = m_StateExtra.m_hvLogs;
+				return true;
+			}
+		};
+
+		MyProofBuilder pb(*this, proof, sid);
+		pb.GenerateProof();
+	}
+
+	return sid.m_Height;
+}
+
+bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& pos)
+{
+	Merkle::FixedMmr lmmr;
+	uint64_t iTrg = static_cast<uint64_t>(-1);
+
+	{
+		NodeDB::ContractLog::Walker wlk;
+		for (m_DB.ContractLogEnum(wlk, HeightPos(pos.m_Height), HeightPos(pos.m_Height, static_cast<uint32_t>(-1))); wlk.MoveNext(); )
+		{
+			if (!IsContractVarStoredInMmr(wlk.m_Entry.m_Key))
+				continue;
+
+			if (pos.m_Pos == wlk.m_Entry.m_Pos.m_Pos)
+				iTrg = lmmr.m_Count; // found!
+
+			Merkle::Hash hv;
+			Block::get_HashContractLog(hv, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
+
+			lmmr.Resize(lmmr.m_Count + 1);
+			lmmr.Append(hv);
+		}
+	}
+
+	if (lmmr.m_Count <= iTrg)
+		return false;
+
+	lmmr.get_Proof(proof, iTrg);
+
+	NodeDB::StateID sid;
+	sid.m_Height = pos.m_Height;
+	sid.m_Row = FindActiveAtStrict(sid.m_Height);
+
+	struct MyProofBuilder
+		:public ProofBuilder_PrevState
+	{
+		using ProofBuilder_PrevState::ProofBuilder_PrevState;
+
+		Merkle::Hash m_hvKernels;
+
+		virtual bool get_Kernels(Merkle::Hash& hv) override
+		{
+			hv = m_hvKernels;
+			return true;
+		}
+
+		virtual bool get_Logs(Merkle::Hash& hv) override
+		{
+			return false;
+		}
+	};
+
+	MyProofBuilder pb(*this, proof, sid);
+
+	{
+		TxVectors::Eternal txve;
+		ReadKrns(sid.m_Row, txve);
+
+		KrnFlyMmr fmmr(txve);
+		fmmr.get_Hash(pb.m_hvKernels);
+	}
+
+	pb.GenerateProof();
+
+	return true;
 }
 
 struct NodeProcessor::BlockInterpretCtx
@@ -2111,6 +2309,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
+	std::ostream* m_pTxErrorInfo = nullptr;
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
@@ -2118,6 +2317,7 @@ struct NodeProcessor::BlockInterpretCtx
 	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	uint32_t m_ContractLogs = 0;
+	std::vector<Merkle::Hash> m_vLogs;
 
 	ByteBuffer m_Rollback;
 
@@ -2169,7 +2369,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
 		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
 		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
-		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
+		virtual uint32_t OnLog(const VarKey& key, const Blob& val) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -2192,13 +2392,36 @@ struct NodeProcessor::BlockInterpretCtx
 		void ContractDataDel(const Blob& key, const Blob& valOld);
 
 		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
+
+		struct DbgCallstack
+		{
+			struct Entry {
+				uint32_t m_FarFrames;
+				Wasm::Word m_CallerIp;
+				Wasm::Word m_Addr;
+			};
+
+			static const uint32_t s_MaxEntries = 256;
+
+			std::vector<Entry> m_v;
+			size_t m_Missing = 0;
+
+			bool m_Enable = false;
+
+		} m_DbgCallstack;
+
+		void DbgCallstackTrim();
+		void DumpCallstack(std::ostream&);
+		void DumpFarFrames(std::ostream&, intrusive::list_autoclear<FarCalls::Frame>::reverse_iterator&, uint32_t& nFrames, uint32_t nTrg);
+
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
 
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
-
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2346,23 +2569,31 @@ std::ostream& operator << (std::ostream& s, const LogSid& sid)
 	return s;
 }
 
-struct NodeProcessor::KrnFlyMmr
-	:public Merkle::FlyMmr
+void NodeProcessor::EvaluatorEx::set_Kernels(const TxVectors::Eternal& txe)
 {
-	const TxVectors::Eternal& m_Txve;
+	KrnFlyMmr fmmr(txe);
+	fmmr.get_Hash(m_hvKernels);
+}
 
-	KrnFlyMmr(const TxVectors::Eternal& txve)
-		:m_Txve(txve)
+void NodeProcessor::EvaluatorEx::set_Logs(const std::vector<Merkle::Hash>& v)
+{
+	struct MyMmr
+		:public Merkle::FlyMmr
 	{
-		m_Count = txve.m_vKernels.size();
-	}
+		const Merkle::Hash* m_pArr;
 
-	virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-		assert(n < m_Count);
-		hv = m_Txve.m_vKernels[n]->m_Internal.m_ID;
-	}
-};
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+			hv = m_pArr[n];
+		}
 
+	} lmmr;
+
+	lmmr.m_Count = v.size();
+	if (lmmr.m_Count)
+		lmmr.m_pArr = &v.front();
+
+	lmmr.get_Hash(m_Comms.m_hvLogs);
+}
 
 struct NodeProcessor::MyRecognizer
 {
@@ -2490,16 +2721,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
 			return false;
 		}
-
-		KrnFlyMmr fmmr(block);
-		Merkle::Hash hv;
-		fmmr.get_Hash(hv);
-
-		if (s.m_Kernels != hv)
-		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
-			return false;
-		}
 	}
 
 	TxoID id0 = m_Extra.m_Txos;
@@ -2525,20 +2746,44 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		assert(m_Extra.m_Txos > id0);
 	}
 
+	EvaluatorEx ev(*this);
+	ev.set_Kernels(block);
+	ev.set_Logs(bic.m_vLogs);
+
+	Merkle::Hash hvDef;
+	ev.m_Height++;
+	ev.get_Definition(hvDef);
+
+	bool bPastFork3 = (sid.m_Height >= Rules::get().pForks[3].m_Height);
+
 	if (bFirstTime && bOk)
 	{
-		if (sid.m_Height >= m_SyncData.m_TxoLo)
+		if (bPastFork3 || (sid.m_Height >= m_SyncData.m_TxoLo))
 		{
 			// check the validity of state description.
-			Merkle::Hash hvDef;
-			Evaluator ev(*this);
-			ev.m_Height++;
-			ev.get_Definition(hvDef);
 
 			if (s.m_Definition != hvDef)
 			{
 				LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
 				bOk = false;
+			}
+		}
+
+		if (bPastFork3)
+		{
+			get_Utxos().get_Hash(hvDef);
+			if (s.m_Kernels != hvDef)
+			{
+				LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+				bOk = false;
+			}
+		}
+		else
+		{
+			if (s.m_Kernels != ev.m_hvKernels)
+			{
+				LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
+				return false;
 			}
 		}
 
@@ -2565,18 +2810,26 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 	if (bOk)
 	{
-		ECC::Scalar offsAcc = block.m_Offset;
+		m_Cursor.m_hvKernels = ev.m_hvKernels;
+		m_Cursor.m_bKernels = true;
 
-		if (sid.m_Height > Rules::HeightGenesis)
+		AdjustOffset(m_Cursor.m_StateExtra.m_TotalOffset, block.m_Offset, true);
+		Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra) = ev.m_Comms;
+
+		Blob blobExtra;
+		blobExtra.p = &m_Cursor.m_StateExtra;
+		if (bPastFork3)
 		{
-			uint64_t row = sid.m_Row;
-			if (!m_DB.get_Prev(row))
-				OnCorrupted();
+			blobExtra.n = sizeof(m_Cursor.m_StateExtra);
 
-			AdjustOffset(offsAcc, row, true);
+			// omit trailing hashes if they're zero
+			for (; blobExtra.n; blobExtra.n--)
+				if (reinterpret_cast<const uint8_t*>(blobExtra.p)[blobExtra.n - 1])
+					break;
 		}
+		else
+			blobExtra.n = sizeof(m_Cursor.m_StateExtra.m_TotalOffset);
 
-		Blob blobExtra(offsAcc.m_Value);
 		Blob blobRB(bic.m_Rollback);
 		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blobExtra, &blobRB);
 
@@ -2626,15 +2879,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 void NodeProcessor::ReadOffset(ECC::Scalar& offs, uint64_t rowid)
 {
+	static_assert(sizeof(StateExtra::Base) == sizeof(offs));
 	if (m_DB.get_StateExtra(rowid, &offs, sizeof(offs)) < sizeof(offs))
 		OnCorrupted();
 }
 
-void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
+void NodeProcessor::AdjustOffset(ECC::Scalar& offs, const ECC::Scalar& offsPrev, bool bAdd)
 {
-	ECC::Scalar offsPrev;
-	ReadOffset(offsPrev, rowid);
-
 	ECC::Scalar::Native s(offsPrev);
 	if (!bAdd)
 		s = -s;
@@ -2829,7 +3080,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Heigh
 		ECC::Oracle oracle;
 		oracle << v.m_Msg;
 
-		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, oracle))
+		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, h, oracle))
 			continue;
 
 		proto::Event::Shielded evt;
@@ -2960,6 +3211,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		if (!e.m_Data.empty())
 		{
 			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Contract " << cid << " already exists";
+
 			return false; // contract already exists
 		}
 
@@ -2987,6 +3242,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (!krn.m_iMethod)
 		{
 			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " c'tor call attempt";
+
 			return false; // c'tor call attempt
 		}
 
@@ -3006,6 +3265,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
 				bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " d'tor not fully clean";
+
 				proc.UndoVars();
 				return false;
 			}
@@ -4138,18 +4401,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
-		InitStack();
-
-		//Amount fee = krn.m_Fee;
-		//fee /= bvm2::Limits::Cost::UnitPrice;
-		//uint32_t nUnits = (fee > std::numeric_limits<uint32_t>::max()) ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(fee);
-
 		m_Charge = m_Bic.m_ChargePerBlock;
-		//std::setmin(m_Charge.m_Units, nUnits);
-		//uint32_t nUnits0 = m_Charge.m_Units;
 
+		if (m_Bic.m_pTxErrorInfo)
+			m_DbgCallstack.m_Enable = true;
+
+		InitStack();
 		m_Stack.PushAlias(krn.m_Args);
-		DischargeMemOp(static_cast<uint32_t>(krn.m_Args.size()));
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
@@ -4185,14 +4443,25 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (e.m_Type == bvm2::ErrorSubType::NoCharge)
 			m_Bic.m_LimitExceeded = true;
+
+		if (m_Bic.m_pTxErrorInfo)
+			*m_Bic.m_pTxErrorInfo << e.what();
 	}
-	catch (const std::exception&)
+	catch (const std::exception& e)
 	{
 		m_Bic.m_TxStatus = proto::TxStatus::ContractFailFirst;
+
+		if (m_Bic.m_pTxErrorInfo)
+			*m_Bic.m_pTxErrorInfo << e.what();
 	}
 
 	if (!bRes)
+	{
+		if (m_Bic.m_pTxErrorInfo)
+			DumpCallstack(*m_Bic.m_pTxErrorInfo);
+
 		UndoVars();
+	}
 	return bRes;
 }
 
@@ -4345,7 +4614,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk, const Blob& val)
 {
 	assert(m_Bic.m_Fwd);
 	if (!m_Bic.m_Temporary)
@@ -4354,7 +4623,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 		NodeDB::ContractLog::Entry x;
 		x.m_Pos.m_Height = m_Bic.m_Height;
 		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
-		x.m_Key = key;
+		x.m_Key = Blob(vk.m_p, vk.m_Size);
 		x.m_Val = val;
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
@@ -4363,6 +4632,16 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 	RecoveryTag::Type nTag = RecoveryTag::Log;
 	ser & nTag;
 	ser & m_Bic.m_ContractLogs;
+
+	if (!m_Bic.m_SkipDefinition)
+	{
+		Blob key(vk.m_p, vk.m_Size);
+		bool bMmr = IsContractVarStoredInMmr(key);
+		ser & bMmr;
+
+		if (bMmr)
+			Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val, m_Bic.m_ContractLogs);
+	}
 
 	return m_Bic.m_ContractLogs++;
 }
@@ -4509,6 +4788,17 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			{
 				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
 				m_Proc.m_DB.ContractLogDel(pos, pos);
+				m_Proc.m_DB.TestChanged1Row();
+			}
+
+			if (!m_Bic.m_SkipDefinition)
+			{
+				bool bMmr = false;
+				der & bMmr;
+
+				// Note: during reorg (i.e. proper rollback, not just tx undo) the logs array will be empty. Ignore this.
+				if (bMmr && !m_Bic.m_vLogs.empty())
+					m_Bic.m_vLogs.pop_back();
 			}
 		}
 		break;
@@ -4562,6 +4852,107 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::
 	}
 	else
 		SaveVar(blob, Blob(nullptr, 0));
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::DbgCallstackTrim()
+{
+	uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+
+	for (; !m_DbgCallstack.m_v.empty(); m_DbgCallstack.m_v.pop_back())
+		if (m_DbgCallstack.m_v.back().m_FarFrames <= nFarFrames)
+			break;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpCallstack(std::ostream& os)
+{
+	DbgCallstackTrim();
+
+	uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+	auto itFrame = m_FarCalls.m_Stack.rbegin();
+
+	Wasm::Word ip = get_Ip();
+
+	for (uint32_t iDbg = static_cast<uint32_t>(m_DbgCallstack.m_v.size()); iDbg--; )
+	{
+		auto& x = m_DbgCallstack.m_v[iDbg];
+		DumpFarFrames(os, itFrame, nFarFrames, x.m_FarFrames);
+
+		os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+		ip = x.m_CallerIp;
+	}
+
+	DumpFarFrames(os, itFrame, nFarFrames, 0);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpFarFrames(std::ostream& os, intrusive::list_autoclear<FarCalls::Frame>::reverse_iterator& it, uint32_t& nFrames, uint32_t nTrg)
+{
+	assert(nFrames >= nTrg);
+	for (; nFrames > nTrg; nFrames--)
+	{
+		auto& fr = *it++;
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, fr.m_Body);
+
+		os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
+
+	}
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnCall(Wasm::Word nAddr)
+{
+	if (m_DbgCallstack.m_Enable)
+	{
+		DbgCallstackTrim();
+
+		if (m_DbgCallstack.m_v.size() >= m_DbgCallstack.s_MaxEntries) {
+			m_DbgCallstack.m_Missing++;
+		}
+		else
+		{
+			assert(!m_FarCalls.m_Stack.empty());
+			uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+
+			Wasm::Word nCallerIp = 0;
+			if (!m_DbgCallstack.m_v.empty())
+			{
+				const auto& xPrev = m_DbgCallstack.m_v.back();
+				assert(xPrev.m_FarFrames <= nFarFrames);
+
+				auto it = m_FarCalls.m_Stack.rbegin();
+				for (uint32_t n = nFarFrames - xPrev.m_FarFrames; n--; )
+					--it;
+
+				Blob code = it->m_Body;
+
+				TemporarySwap<Blob>(m_Code, code);
+				nCallerIp = get_Ip();
+			}
+
+			auto& x = m_DbgCallstack.m_v.emplace_back();
+			x.m_Addr = nAddr;
+			x.m_FarFrames = nFarFrames;
+			x.m_CallerIp = nCallerIp;
+		}
+	}
+
+	bvm2::ProcessorContract::OnCall(nAddr);
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
+{
+	bvm2::ProcessorContract::OnRet(nRetAddr);
+
+	if (!m_DbgCallstack.m_v.empty())
+	{
+		if (m_DbgCallstack.m_Missing)
+			m_DbgCallstack.m_Missing--;
+		else
+			m_DbgCallstack.m_v.pop_back();
+
+		DbgCallstackTrim();
+	}
+
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
@@ -5074,12 +5465,16 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
 	if (!hr.IsInRange(h))
+	{
+		if (pExtraInfo)
+			*pExtraInfo << "Height range fail";
 		return proto::TxStatus::InvalidContext;
+	}
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
@@ -5094,7 +5489,12 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 				break;
 
 		if (!ValidateInputs(v.m_Commitment, nCount))
+		{
+			if (pExtraInfo)
+				*pExtraInfo << "Inputs missing";
+
 			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
+		}
 	}
 
 	// Ensure kernels are ok
@@ -5103,6 +5503,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
+	bic.m_pTxErrorInfo = pExtraInfo;
 
 	nBvmCharge = bic.m_ChargePerBlock;
 
@@ -5140,13 +5541,19 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.Prepare(tx, *this, h);
 
-		if (!msc.IsValid(tx, h, bc, 0, 1, m_ValCache))
-			return proto::TxStatus::InvalidInput;
+		bool bValid = msc.IsValid(tx, h, bc, 0, 1, m_ValCache);
+		if (bValid)
+		{
+			msc.Calculate(bc.m_Sum, *this);
+			bValid = bc.Flush();
+		}
 
-		msc.Calculate(bc.m_Sum, *this);
-
-		if (!bc.Flush())
+		if (!bValid)
+		{
+			if (pExtraInfo)
+				*pExtraInfo << "bad shielded input";
 			return proto::TxStatus::InvalidInput;
+		}
 
 		msc.MoveToGlobalCache(m_ValCache);
 	}
@@ -5336,14 +5743,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	return ssc.m_Counter.m_Value;
 }
 
-void NodeProcessor::GenerateNewHdr(BlockContext& bc)
+void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 {
 	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	bc.m_Hdr.m_Height = m_Cursor.m_ID.m_Height + 1;
-
-	Evaluator ev(*this);
-	ev.m_Height++;
-	ev.get_Definition(bc.m_Hdr.m_Definition);
 
 #ifndef NDEBUG
 	// kernels must be sorted already
@@ -5355,8 +5758,17 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	}
 #endif // NDEBUG
 
-	KrnFlyMmr fmmr(bc.m_Block);
-	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
+	EvaluatorEx ev(*this);
+	ev.m_Height++;
+	ev.set_Kernels(bc.m_Block);
+	ev.set_Logs(bic.m_vLogs);
+
+	ev.get_Definition(bc.m_Hdr.m_Definition);
+
+	if (ev.m_Height >= Rules::get().pForks[3].m_Height)
+		get_Utxos().get_Hash(bc.m_Hdr.m_Kernels);
+	else
+		bc.m_Hdr.m_Kernels = ev.m_hvKernels;
 
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
@@ -5429,7 +5841,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		LOG_WARNING() << "couldn't apply block after cut-through!";
 		return false; // ?!
 	}
-	GenerateNewHdr(bc);
+	GenerateNewHdr(bc, bic);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 	assert(bic.m_Rollback.empty());
@@ -5649,17 +6061,12 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		return true;
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
-	ByteBuffer bbE;
 	TxVectors::Eternal txve;
 
 	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
 	{
-		uint64_t row = FindActiveAtStrict(wlkKrn.m_Height);
-		m_DB.GetStateBlock(row, nullptr, &bbE, nullptr);
-
-		Deserializer der;
-		der.reset(bbE);
-		der & txve;
+		txve.m_vKernels.clear();
+		ReadKrns(FindActiveAtStrict(wlkKrn.m_Height), txve);
 
 		wlkKrn.m_nKrnIdx = 0;
 		if (!wlkKrn.ProcessHeight(txve.m_vKernels))
@@ -5815,7 +6222,9 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
 	{
-		AdjustOffset(txb.m_Offset, rowid, false);
+		ECC::Scalar offsPrev;
+		ReadOffset(offsPrev, rowid);
+		AdjustOffset(txb.m_Offset, offsPrev, false);
 		id0 = m_DB.get_StateTxos(rowid);
 	}
 	else

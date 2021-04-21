@@ -724,6 +724,18 @@ void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const BeamCry
 	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
 }
 
+void secp256k1_sha256_write_CompactPointOptional2(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact, uint8_t bValid)
+{
+	secp256k1_sha256_write(pSha, &bValid, sizeof(bValid));
+	if (bValid)
+		secp256k1_sha256_write_CompactPoint(pSha, pCompact);
+}
+
+void secp256k1_sha256_write_CompactPointOptional(secp256k1_sha256_t* pSha, const BeamCrypto_CompactPoint* pCompact)
+{
+	secp256k1_sha256_write_CompactPointOptional2(pSha, pCompact, !!pCompact);
+}
+
 void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const BeamCrypto_UintBig* pX, uint8_t nY)
 {
 	secp256k1_sha256_write(pSha, pX->m_pVal, sizeof(pX->m_pVal));
@@ -1247,6 +1259,7 @@ static int BeamCrypto_RangeProof_Calculate_After_S(BeamCrypto_RangeProof_Worker*
 	BeamCrypto_Oracle_Init(&oracle);
 	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
+	secp256k1_sha256_write_CompactPointOptional(&oracle.m_sha, pWrk->m_pRangeProof->m_pAssetGen); // starting from Fork3, earlier schem is not allowed
 
 	for (unsigned int i = 0; i < 2; i++)
 		secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
@@ -1944,6 +1957,8 @@ PROTO_METHOD(CreateOutput)
 			secp256k1_scalar_set_b32((secp256k1_scalar*) ctx.m_pKExtra + i, pOut->m_TauX.m_pVal, &overflow);
 		}
 	}
+
+	ctx.m_pAssetGen = IsUintBigZero(&pIn->m_ptAssetGen.m_X) ? 0 : &pIn->m_ptAssetGen;
 
 	if (!BeamCrypto_RangeProof_Calculate(&ctx))
 		return BeamCrypto_KeyKeeper_Status_Unspecified;
@@ -2717,8 +2732,9 @@ PROTO_METHOD(CreateShieldedInput)
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-	if (!IsUintBigZero(&pIn->m_ShieldedState))
-		secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	// starting from HF3 commitmens to shielded state and asset are mandatory
+	secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pIn->m_ptAssetGen, !IsUintBigZero(&pIn->m_ptAssetGen.m_X));
 
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_n);
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_M);
@@ -2934,6 +2950,7 @@ int VerifyShieldedOutputParams(const BeamCrypto_KeyKeeper* p, const OpIn_TxSendS
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_SerialPub);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_NoncePub);
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pSh->m_ptAssetGen, !IsUintBigZero(&pSh->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
 
 	{
 		BeamCrypto_Oracle o2 = oracle;

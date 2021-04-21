@@ -124,6 +124,9 @@ namespace beam::wallet
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
     private:
+        void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data);
+        void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data);
+
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
 
@@ -150,14 +153,13 @@ namespace beam::wallet
         std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
         IShadersManager::Ptr  _contracts;
 
-        JsonRpcId _ccallId;
-
         struct RequestHeaderMsg : public proto::FlyClient::RequestEnumHdrs
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
-            virtual ~RequestHeaderMsg() {}
-
+            ~RequestHeaderMsg() override = default;
             JsonRpcId _id;
         };
+
+        std::map<TokenType, std::string> _ttypesMap;
     };
 }

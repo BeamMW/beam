@@ -217,6 +217,22 @@ namespace bvm2 {
 
 	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
 	{
+		struct MyCheckpoint :public Wasm::Checkpoint
+		{
+			const ContractID& m_Cid;
+			uint32_t m_iMethod;
+
+			MyCheckpoint(const ContractID& cid, uint32_t iMethod)
+				:m_Cid(cid)
+				,m_iMethod(iMethod)
+			{
+			}
+
+			void Dump(std::ostream& os) override {
+				os << "CallFar cid=" << m_Cid << ", iMethod=" << m_iMethod;
+			}
+		} cp(cid, iMethod);
+
 		DischargeUnits(Limits::Cost::CallFar);
 
 		auto nRetAddr = get_Ip();
@@ -244,7 +260,7 @@ namespace bvm2 {
 		m_Stack.Push(0); // retaddr, set dummy for far call
 
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
-		Jmp(nAddr);
+		OnCall(nAddr);
 	}
 
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
@@ -1094,6 +1110,25 @@ namespace bvm2 {
 		Create(nOld, nNew - nOld, true);
 	}
 
+	void ProcessorContract::SetVarKeyFromShader(VarKey& vk, uint8_t nTag, const Blob& key, bool bW)
+	{
+		Wasm::Test(key.n <= Limits::VarKeySize);
+		SetVarKey(vk, nTag, key);
+
+		if (bW)
+		{
+			switch (nTag)
+			{
+			case VarKey::Tag::Internal:
+			case VarKey::Tag::InternalStealth:
+				break; // ok
+
+			default:
+				Wasm::Fail(); // not allowed to modify/emit
+			}
+		}
+	}
+
 	BVM_METHOD(LoadVar)
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
@@ -1104,9 +1139,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
 		VarKey vk;
-		SetVarKey(vk, nType, Blob(pKey, nKey));
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
 		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
 		return nVal;
@@ -1119,21 +1153,10 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		Wasm::Test(nKey <= Limits::VarKeySize);
 		Wasm::Test(nVal <= Limits::VarSize);
 
-		switch (nType)
-		{
-		case VarKey::Tag::Internal:
-		case VarKey::Tag::InternalStealth:
-			break; // ok
-
-		default:
-			Wasm::Fail(); // not allowed to modify
-		}
-
 		VarKey vk;
-		SetVarKey(vk, nType, Blob(pKey, nKey));
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
 		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
 	}
@@ -1141,19 +1164,16 @@ namespace bvm2 {
 	BVM_METHOD(EmitLog)
 	{
 		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
-		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal);
+		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
 		Wasm::Test(nVal <= Limits::VarSize);
 
-		uint8_t pKeyFull[ContractID::nBytes + Limits::VarKeySize];
+		VarKey vk;
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-		memcpy(pKeyFull, cid.m_pData, cid.nBytes);
-		memcpy(pKeyFull + cid.nBytes, pKey, nKey);
-
-		return OnLog(Blob(pKeyFull, nKey + cid.nBytes), Blob(pVal, nVal));
+		return OnLog(vk, Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)
@@ -2149,6 +2169,61 @@ namespace bvm2 {
 		{
 			const uint8_t* p = get_AddrR(m_AuxAlloc.m_pPtr, 1);
 			*ppVal = p + pVal;
+			*ppProof = reinterpret_cast<const Merkle::Node*>(p + pProof);
+		}
+
+		return nRet;
+	}
+
+	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
+	{
+		ByteBuffer val;
+		beam::Merkle::Proof proof;
+
+		if (!LogGetProof(hp, proof))
+		{
+			FreeAuxAllocGuarded();
+			return 0;
+		}
+
+		uint32_t nProof = static_cast<uint32_t>(proof.size());
+		uint32_t nSizeProof = nProof * static_cast<uint32_t>(sizeof(proof[0]));
+
+		uint8_t* pDst = ResizeAux(nSizeProof);
+
+		auto* pProofDst = reinterpret_cast<Merkle::Node*>(pDst);
+		pProof = m_AuxAlloc.m_pPtr;
+		if (nProof)
+			memcpy((void*) pProofDst, &proof.front(), nSizeProof);
+
+		return nProof;
+	}
+
+	BVM_METHOD(LogGetProof)
+	{
+		const auto& pos_ = get_AddrAsR<HeightPos>(pos);
+
+		HeightPos hp;
+		hp.m_Height = Wasm::from_wasm(pos_.m_Height);
+		hp.m_Pos = Wasm::from_wasm(pos_.m_Pos);
+
+		Wasm::Word pProof;
+		uint32_t nRet = LogGetProofInternal(hp, pProof);
+
+		if (nRet)
+			Wasm::to_wasm(get_AddrW(ppProof, sizeof(Wasm::Word)), pProof);
+
+		return nRet;
+	}
+
+	BVM_METHOD_HOST(LogGetProof)
+	{
+		Wasm::Word pProof;
+		uint32_t nRet = LogGetProofInternal(pos, pProof);
+
+		if (nRet)
+		{
+			const uint8_t* p = get_AddrR(m_AuxAlloc.m_pPtr, 1);
 			*ppProof = reinterpret_cast<const Merkle::Node*>(p + pProof);
 		}
 

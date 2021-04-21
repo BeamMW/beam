@@ -15,16 +15,19 @@
 #include "tx_history_to_csv.h"
 #include "core/block_crypt.h"
 #include "wallet/core/common.h"
+#include <boost/serialization/nvp.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace
 {
 using namespace beam;
 using namespace beam::wallet;
+using boost::multiprecision::cpp_dec_float_50;
 
 std::string getIdentity(const TxParameters& txParams, bool isSender)
 {
     auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
-                        : txParams.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
+                      : txParams.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
 
     return v ? std::to_string(*v) : "";
 }
@@ -34,13 +37,28 @@ std::string getToken(const TxParameters& txParams)
     auto token = txParams.GetParameter<std::string>(TxParameterID::OriginalToken);
     return token ? *token : "";
 }
+
+std::string convertAmount(const Amount& amount, const Amount& rate, uint32_t precision)
+{
+    if (!rate) return "";
+    cpp_dec_float_50 dec_first(amount);
+    dec_first /= Rules::Coin;
+    cpp_dec_float_50 dec_second(rate);
+    dec_second /= Rules::Coin;
+    cpp_dec_float_50 product = dec_first * dec_second;
+
+    std::ostringstream oss;
+    oss.precision(precision);
+    oss << std::fixed << product;
+    return oss.str();
+}
 } // namespace
 
 namespace beam::wallet
 {
 std::string ExportTxHistoryToCsv(const IWalletDB& db)
 {
-    // TODO:SWAP add to history if necessary https://github.com/BeamMW/beam/issues/1362
+    // TODO:SWAP add to history if necessary https://github.com/BeamMW/beam/issues/1735
     std::stringstream ss;
     ss << "Type" << ","
        << "Date | Time" << ","
@@ -93,8 +111,8 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
             unitName = meta.GetUnitName();
         }
 
-        std::string amountInUsd = assetId ? "" : tx.getConvertedAmount(Currency::USD());
-        std::string amountInBtc = assetId ? "" : tx.getConvertedAmount(Currency::BTC());
+        std::string amountInUsd = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::USD()), 2);
+        std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), 8);
 
         auto statusInterpreter = db.getStatusInterpreter(tx);
         ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type

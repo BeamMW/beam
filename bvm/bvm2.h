@@ -337,6 +337,7 @@ namespace bvm2 {
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
+		void SetVarKeyFromShader(VarKey&, uint8_t nTag, const Blob&, bool bW);
 
 		struct FarCalls
 		{
@@ -377,7 +378,7 @@ namespace bvm2 {
 		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
 		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
 		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
-		virtual uint32_t OnLog(const Blob& key, const Blob& val) { return 0; }
+		virtual uint32_t OnLog(const VarKey&, const Blob& val) { return 0; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
@@ -453,6 +454,7 @@ namespace bvm2 {
 		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
+		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual uint32_t get_HeapLimit() override;
@@ -462,6 +464,7 @@ namespace bvm2 {
 		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) {}
 		virtual bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) { return false; }
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
+		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
 

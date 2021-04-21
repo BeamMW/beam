@@ -11,59 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
+
 #include "bvm2.h"
 #include "../core/fly_client.h"
+#include "invoke_data.h"
 
-namespace beam {
-namespace bvm2 {
-
-	struct ContractInvokeData;
-
-	struct FundsMap
-		:public std::map<Asset::ID, AmountSigned>
-	{
-		void AddSpend(Asset::ID aid, AmountSigned val);
-		void operator += (const FundsMap&);
-	};
-
-	struct ContractInvokeData
-	{
-		ECC::uintBig m_Cid;
-		uint32_t m_iMethod;
-		ByteBuffer m_Data;
-		ByteBuffer m_Args;
-		std::vector<ECC::Hash::Value> m_vSig;
-		uint32_t m_Charge;
-		FundsMap m_Spend; // ins - outs, not including fee
-		std::string m_sComment;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_iMethod
-				& m_Args
-				& m_vSig
-				& m_Charge
-				& m_sComment
-				& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_Spend);
-
-			if (m_iMethod)
-				ar & m_Cid;
-			else
-			{
-				m_Cid = Zero;
-				ar & m_Data;
-			}
-		}
-
-		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
-		Amount get_FeeMin(Height) const;
-	};
-
-
+namespace beam::bvm2 {
 	class ManagerStd
 		:public ProcessorManager
 	{
@@ -130,6 +84,7 @@ namespace bvm2 {
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
 		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
+		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 
@@ -147,11 +102,9 @@ namespace bvm2 {
 
 		// results
 		std::ostringstream m_Out;
-		std::vector<ContractInvokeData> m_vInvokeData;
+		ContractInvokeData m_vInvokeData;
 
 		void StartRun(uint32_t iMethod);
 	};
+} // namespace
 
-
-} // namespace bvm2
-} // namespace beam

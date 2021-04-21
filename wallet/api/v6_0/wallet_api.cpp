@@ -30,6 +30,12 @@ namespace beam::wallet
         , _swaps(std::move(swaps))
         , _contracts(std::move(contracts))
     {
+        _ttypesMap[TokenType::RegularOldStyle] = "regular";
+        _ttypesMap[TokenType::Offline]         = "offline";
+        _ttypesMap[TokenType::MaxPrivacy]      = "max_privacy";
+        _ttypesMap[TokenType::Public]          = "public_offline";
+        _ttypesMap[TokenType::RegularNewStyle] = "regular_new";
+
         // MUST BE SAFE TO CALL FROM ANY THREAD
         // Don't do anything with walletdb, providers &c.
         #define REG_FUNC(api, name, writeAccess, isAsync, appsAllowed)    \

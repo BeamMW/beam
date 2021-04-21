@@ -184,6 +184,7 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_CreateOutput(macro) \
 	macro(1, BeamCrypto_CoinID, Cid) \
+	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
 	macro(0, BeamCrypto_UintBig, pKExtra[2]) \
 	macro(0, BeamCrypto_CompactPoint, pT[2]) \
 
@@ -201,6 +202,7 @@ typedef struct
 	macro(0, BeamCrypto_UintBig, ShieldedState) \
 	macro(0, BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
 	macro(0, BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
+	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
 	macro(0, BeamCrypto_CompactPoint, pABCD[4]) \
 	/* followed by BeamCrypto_CompactPoint* pG[] */
 
@@ -263,6 +265,7 @@ typedef struct
 	macro(0, BeamCrypto_ShieldedVoucher, Voucher) \
 	macro(0, BeamCrypto_ShieldedTxoUser, User) \
 	macro(0, BeamCrypto_RangeProof_Packed, RangeProof) \
+	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
 	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 	/* followed by in/outs */
 

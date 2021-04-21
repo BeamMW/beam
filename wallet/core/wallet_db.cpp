@@ -2669,10 +2669,10 @@ namespace beam::wallet
                 return true;
             }
 
-            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg) override
+            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg, Height h) override
             {
                 m_ShieldedOuts++;
-                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg);
+                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg, h);
             }
 
 
@@ -4121,6 +4121,16 @@ namespace beam::wallet
         {
             notifyAddressChanged(action, { address });
         }
+    }
+
+    void WalletDB::generateAndSaveDefaultAddress()
+    {
+        WalletAddress address;
+        createAddress(address);
+        address.m_label = kDefaultAddrLabel;
+        address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
+        saveAddress(address);
+        LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
     }
 
     void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
@@ -6256,7 +6266,7 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle, m_HideAssetAlways);
+            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle, m_HideAssetAlways);
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
@@ -6350,7 +6360,7 @@ namespace beam::wallet
                         ECC::Oracle oracle;
                         oracle << nestedKernel.m_Msg;
                         ShieldedTxo::Data::OutputParams outputParams;
-                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, oracle);
+                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, rootKernel->m_Height.m_Min, oracle);
                         pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
                         pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
                     }
@@ -6774,36 +6784,81 @@ namespace beam::wallet
     {
         if (type == TokenType::Public)
         {
-            LOG_INFO() << "Generating public offline address";
-            return GeneratePublicToken(*walletDB, "");
+            auto token = GeneratePublicToken(*walletDB, "");
+            LOG_INFO() << "Generated public offline address: " << token;
+            return token;
         }
 
         switch (type)
         {
         case TokenType::RegularOldStyle:
-            LOG_INFO() << "Generating regular old style address";
-            return GenerateRegularOldToken(address);
+            {
+                auto token = GenerateRegularOldToken(address);
+                LOG_INFO() << "Generated regular old style address: " << token;
+                return token;
+            }
 
         case TokenType::RegularNewStyle:
-            LOG_INFO() << "Generating regular new style address";
-            return GenerateRegularNewToken(address, 0, 0, "");
+             {
+                auto token = GenerateRegularNewToken(address, 0, 0, "");
+                LOG_INFO() << "Generated regular new style address:" << token;
+                return token;
+            }
 
         case TokenType::Offline:
             {
-                LOG_INFO() << "Generating offline address, vouchers cnt " << *offlineCount;
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, offlineCount ? *offlineCount : 10);
-                return GenerateOfflineToken(address, 0, 0, vouchers, "");
+                auto token = GenerateOfflineToken(address, 0, 0, vouchers, "");
+                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << *offlineCount;
+                return token;
             }
 
         case TokenType::MaxPrivacy:
             {
-                LOG_INFO() << "Generating max privacy address";
                 auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, 1);
-                return GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                auto token = GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                LOG_INFO() << "Generated max privacy address: " << token;
+                return token;
             }
 
         default:
             throw std::runtime_error("Unexpected address type");
+        }
+    }
+
+    TokenType GetTokenType(const std::string& token)
+    {
+        const auto addrType = GetAddressType(token);
+        switch (addrType)
+        {
+            case TxAddressType::Offline: return TokenType::Offline;
+            case TxAddressType::MaxPrivacy: return TokenType::MaxPrivacy;
+            case TxAddressType::PublicOffline: return TokenType::Public;
+            case TxAddressType::Regular:
+            {
+                if(auto params = ParseParameters(token))
+                {
+                    WalletID wid;
+                    if(!params->GetParameter(TxParameterID::PeerID, wid))
+                    {
+                        assert(false);
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    if (std::to_string(wid) == token)
+                    {
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    return TokenType::RegularNewStyle;
+                }
+                else
+                {
+                    assert(false);
+                    return TokenType::Unknown;
+                }
+            }
+            default: return TokenType::Unknown;
         }
     }
 }
