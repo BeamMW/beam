@@ -25,9 +25,10 @@ namespace {
 }
 
 namespace beam::wallet {
-    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid)
+    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname)
         : _acl(std::move(acl))
-        , _appid(std::move(appid))
+        , _appId(std::move(appid))
+        , _appName(std::move(appname))
         , _handler(handler)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD

@@ -101,7 +101,7 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
         auto all = walletDB->getAddresses(data.own);
 
-        if (_appid.empty())
+        if (_appId.empty())
         {
             return doResponse(id, AddrList::Response{all});
         }
@@ -109,7 +109,7 @@ namespace beam::wallet
         decltype(all) filtered;
         for(const auto& addr: all)
         {
-            if (_appid.empty() || addr.m_category == _appid)
+            if (_appId.empty() || addr.m_category == _appId)
             {
                 filtered.push_back(addr);
             }
@@ -137,7 +137,7 @@ namespace beam::wallet
 
         if (data.comment)    address.setLabel(*data.comment);
         if (data.expiration) address.setExpirationStatus(*data.expiration);
-        if (!_appid.empty()) address.setCategory(_appid);
+        if (!_appId.empty()) address.setCategory(_appId);
 
         address.m_Address = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
         walletDB->saveAddress(address);
@@ -154,7 +154,7 @@ namespace beam::wallet
 
         if (addr)
         {
-            if (!_appid.empty() && addr->m_category != _appid)
+            if (!_appId.empty() && addr->m_category != _appId)
             {
                 // we do not throw 'NotAllowed' to not to expose that address exists
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
@@ -178,7 +178,7 @@ namespace beam::wallet
 
         if (addr)
         {
-            if (!_appid.empty() && addr->m_category != _appid)
+            if (!_appId.empty() && addr->m_category != _appId)
             {
                 // we do not throw 'NotAllowed' to not to expose that address exists
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
@@ -316,9 +316,14 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::Message, message)
                 .SetParameter(beam::wallet::TxParameterID::OriginalToken, data.tokenTo);
 
-            if (!_appid.empty())
+            if (!_appId.empty())
             {
-                params.SetParameter(TxParameterID::AppID, _appid);
+                params.SetParameter(TxParameterID::AppID, _appId);
+            }
+
+            if (_appName.empty())
+            {
+                params.SetParameter(TxParameterID::AppName, _appName);
             }
 
             auto txId = wallet->StartTransaction(params);

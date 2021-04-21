@@ -790,7 +790,7 @@ namespace beam::wallet
             message.createTx = *createTx;
         }
 
-        if (!_appid.empty() && message.createTx)
+        if (!_appId.empty() && message.createTx)
         {
             throw jsonrpc_exception(ApiError::NotAllowedError, "Applications must set create_tx to false and use process_contract_data");
         }

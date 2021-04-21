@@ -106,7 +106,7 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
 
-        IShadersManager::Ptr getAppsShaders(const std::string& appid);
+        IShadersManager::Ptr getAppsShaders(const std::string& appid, const std::string& appname);
         void releaseAppsShaders(const std::string& appid);
 
         std::string getNodeAddress() const;

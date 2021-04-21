@@ -19,12 +19,13 @@ namespace beam::wallet
             IWalletApiHandler& handler,
             ACL acl,
             std::string appid,
+            std::string appname,
             IWalletDB::Ptr wdb,
             Wallet::Ptr wallet,
             ISwapsProvider::Ptr swaps,
             IShadersManager::Ptr contracts
         )
-        : ApiBase(handler, std::move(acl), std::move(appid))
+        : ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
         , _wdb(std::move(wdb))
         , _wallet(std::move(wallet))
         , _swaps(std::move(swaps))
@@ -57,7 +58,7 @@ namespace beam::wallet
     bool WalletApi::checkTxAccessRights(const TxParameters& params)
     {
         // If this API instance is not for apps, all txs are available
-        if (_appid.empty())
+        if (_appId.empty())
         {
             return true;
         }
@@ -70,7 +71,7 @@ namespace beam::wallet
         }
 
         // Only if this tx has appid of the current App it can be accessed
-        return _appid == *appid;
+        return _appId == *appid;
     }
 
     void WalletApi::checkTxAccessRights(const TxParameters& params, ApiError code, const std::string& errmsg)

@@ -634,7 +634,7 @@ namespace beam::wallet
         return sp;
     }
 
-    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid)
+    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid, const std::string& appname)
     {
         auto sp = _appsShaders.lock();
         assert(sp != nullptr);
@@ -642,8 +642,8 @@ namespace beam::wallet
         // strictly speaking it is not necessary to proxy to reactor thread
         // in current implementation and calls sequence, but it is safer and
         // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, sp] ()-> boost::any {
-            sp->SetCurrentApp(appid);
+        makeIWTCall([appid, appname, sp] ()-> boost::any {
+            sp->SetCurrentApp(appid, appname);
             return boost::none;
         }, [](const boost::any&){
         });

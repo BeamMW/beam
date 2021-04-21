@@ -79,7 +79,7 @@ namespace
         , public beam::wallet::WalletApi
     {
         ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
-            : WalletApi(*this, boost::none, std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+            : WalletApi(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
         {
         }
 
