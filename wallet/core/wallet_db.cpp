@@ -4090,7 +4090,7 @@ namespace beam::wallet
         {
             auto selectReq = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
             sqlite::Statement stm2(this, selectReq.c_str());
-            stm2.bind(1, address.m_walletID);
+            stm2.bind(1, address.m_Address);
 
             if (stm2.step())
             {
