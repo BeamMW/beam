@@ -18,6 +18,11 @@ add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
 add_subdirectory(libelfin/dwarf)
+set(CPPDAP_BUILD_TESTS Off)
+set(CPPDAP_JSON_DIR nlohmann)
+set(CPPDAP_JSON_LIBRARY "nlohmann")
+set(CPPDAP_BUILD_EXAMPLES On)
+add_subdirectory(cppdap)
 
 
 #add_library(3rdparty INTERFACE IMPORTED GLOBAL)

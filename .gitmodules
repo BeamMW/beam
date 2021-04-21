@@ -10,3 +10,6 @@
 [submodule "3rdparty/libelfin"]
 	path = 3rdparty/libelfin
 	url = https://github.com/anatolse/libelfin.git
+[submodule "3rdparty/cppdap"]
+	path = 3rdparty/cppdap
+	url = https://github.com/anatolse/cppdap.git

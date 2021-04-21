@@ -1,6 +1,6 @@
 ////////////////////////
-#include "Shaders/common.h"
-#include "test_contract.h"
+#include "../common.h"
+#include "contract.h"
 
 template <bool bAdd>
 bool RefManageSafe(const ContractID& cid)
