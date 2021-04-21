@@ -284,7 +284,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
         lastWalledId = id;
-        lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
+        lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
     }
     else
     {
