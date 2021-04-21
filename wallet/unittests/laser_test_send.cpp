@@ -33,7 +33,7 @@ using namespace beam::wallet;
 using namespace std;
 
 namespace {
-const Amount kTransferFirst = 10000;
+const Amount kTransferFirst = 2000000;
 }  // namespace
 
 int main()
