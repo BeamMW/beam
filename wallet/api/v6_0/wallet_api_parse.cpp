@@ -834,12 +834,12 @@ namespace beam::wallet
             if (spend.second < 0)
             {
                 Amount amount = std::abs(spend.second);
-                info.receive[spend.first] += beam::AmountBig::Type(amount);
+                info.appendReceive(spend.first, beam::AmountBig::Type(amount));
             }
             else
             {
                 Amount amount = spend.second;
-                info.spend[spend.first] += beam::AmountBig::Type(amount);
+                info.appendSpend(spend.first, beam::AmountBig::Type(amount));
             }
         }
 
