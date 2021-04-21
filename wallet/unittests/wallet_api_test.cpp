@@ -263,12 +263,12 @@ namespace
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.value == 12342342);
-                WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+                WALLET_CHECK(data.tokenTo == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
                 WALLET_CHECK(data.assetId && *data.assetId == 1);
 
-                if(data.from)
+                if(data.tokenFrom)
                 {
-                    WALLET_CHECK(to_string(*data.from) == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
+                    WALLET_CHECK(*data.tokenFrom == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
                 }
             }
         };
@@ -635,7 +635,7 @@ namespace
             void onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(CheckReceiverAddress(data.address) == _valid);
+                WALLET_CHECK(CheckReceiverAddress(data.token) == _valid);
             }
         private:
             bool _valid;

@@ -396,7 +396,7 @@ namespace beam::wallet
 
         if (createAddress.type == TokenType::RegularOldStyle)
         {
-            if (auto ns = getOptionalParam<bool>(params, "new_style_regular"); *ns)
+            if (auto ns = getOptionalParam<bool>(params, "new_style_regular"); ns && *ns)
             {
                 createAddress.type = TokenType::RegularNewStyle;
             }
