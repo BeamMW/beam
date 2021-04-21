@@ -507,6 +507,10 @@ namespace beam::wallet
 
         if (auto fromParam = getOptionalParam<NonEmptyString>(params, "from"))
         {
+            if(GetAddressType(*fromParam) == TxAddressType::Unknown)
+            {
+                throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender address.");
+            }
             send.tokenFrom = fromParam;
         }
 
