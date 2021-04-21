@@ -382,6 +382,7 @@ namespace beam::wallet
         InputCoinsShielded = 185,
         Outputs = 190,
         AppID = 191,
+        AppName = 192,
 
         Kernel = 200,
         PreImage = 201,

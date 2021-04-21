@@ -56,7 +56,8 @@ namespace beam::wallet
         struct InitData
         {
             ACL acl;
-            std::string appid;
+            std::string appId;
+            std::string appName;
             IShadersManager::Ptr contracts;
             ISwapsProvider::Ptr swaps;
             IWalletDB::Ptr walletDB;

@@ -30,6 +30,7 @@ namespace beam::wallet
         WalletApi(IWalletApiHandler& handler,
                   ACL acl,
                   std::string appid,
+                  std::string appname,
                   IWalletDB::Ptr wdb,
                   Wallet::Ptr wallet,
                   ISwapsProvider::Ptr swaps,
