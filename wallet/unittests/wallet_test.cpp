@@ -33,6 +33,7 @@
 #include "utility/hex.h"
 #include "bvm/ManagerStd.h"
 #include "wallet_test_node.h"
+#include "mnemonic/mnemonic.h"
 
 #include "test_helpers.h"
 
@@ -3317,6 +3318,101 @@ void TestHWWallet()
 }
 #endif
 
+template <typename T>
+void FSave(const T& x, const std::string& sPath)
+{
+    std::FStream f;
+    f.Open(sPath.c_str(), false, true);
+
+    yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+    arc& x;
+}
+
+void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
+{
+    std::vector<HKdf::IKdf::Ptr> kdfs;
+    Treasury treasury;
+    assert(walletCount > 0);
+
+    // generate seeds
+    for (size_t i = 0; i < walletCount; ++i)
+    {
+        auto seedPhrase = createMnemonic(getEntropy());
+        for (const auto& word : seedPhrase)
+        {
+            std::cout << word << ';';
+        }
+        std::cout << std::endl;
+        NoLeak<uintBig> walletSeed;
+        SecString seed;
+        auto buf = decodeMnemonic(seedPhrase);
+        seed.assign(buf.data(), buf.size());
+
+        walletSeed.V = seed.hash().V;
+        HKdf::IKdf::Ptr pKdf;
+        ECC::HKdf::Create(pKdf, walletSeed.V);
+
+        kdfs.push_back(pKdf);
+
+        // generate plans
+        PeerID pid;
+        ECC::Scalar::Native sk;
+
+        Treasury::get_ID(*pKdf, pid, sk);
+
+        Treasury::Parameters params;
+        params.m_Bursts = 1U;
+        params.m_Maturity0 = 1;
+        params.m_MaturityStep = 1;
+
+        // create plan
+
+        auto it = treasury.m_Entries.find(pid);
+        if (treasury.m_Entries.end() != it)
+            treasury.m_Entries.erase(it);
+
+        auto& e = treasury.m_Entries[pid];
+        auto& r = e.m_Request;
+        r.m_WalletID = pid;
+
+        HeightRange hr;
+        hr.m_Max = params.m_Maturity0 + Rules::HeightGenesis - 1;
+
+        hr.m_Min = hr.m_Max + 1;
+        hr.m_Max += params.m_MaturityStep;
+
+        AmountBig::Type valBig;
+        Rules::get_Emission(valBig, hr, value);
+        if (AmountBig::get_Hi(valBig))
+            throw std::runtime_error("too large");
+
+        Amount val = AmountBig::get_Lo(valBig);
+
+        r.m_vGroups.emplace_back();
+        for (size_t j = 0; j < utxoCount; ++j)
+        {
+            auto& c = r.m_vGroups.back().m_vCoins.emplace_back();
+            c.m_Incubation = hr.m_Max;
+            c.m_Value = val;
+        }
+
+        ///
+
+        Treasury::Entry* plan = &e;
+        plan->m_pResponse.reset(new Treasury::Response);
+        uint64_t nIndex = 1;
+        plan->m_pResponse->Create(plan->m_Request, *pKdf, nIndex);
+        WALLET_CHECK(plan->m_pResponse->IsValid(plan->m_Request));
+    }
+
+
+    Treasury::Data data;
+    data.m_sCustomMsg = "test treasury";
+    treasury.Build(data);
+
+    FSave(data, "treasury.bin");
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING; 
@@ -3340,6 +3436,8 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
+
+    //GenerateTreasury(100, 100, 100000000);
     TestTxList();
     TestKeyKeeper();
 
