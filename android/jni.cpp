@@ -128,16 +128,18 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 {
     LOG_DEBUG() << "getTransactionParameters()";
 
-    auto params = beam::wallet::ParseParameters(JString(env, token).value());
+    auto address = JString(env, token).value();
+    auto params = beam::wallet::ParseParameters(address);
     auto amount = params->GetParameter<Amount>(TxParameterID::Amount);
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
     auto libVersion = params->GetParameter<std::string>(TxParameterID::LibraryVersion);
-    auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
+    //auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
+    const auto storedType = GetAddressType(address);
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
-             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(*storedType));
+             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(storedType));
 
             if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", *isPermanentAddress);
