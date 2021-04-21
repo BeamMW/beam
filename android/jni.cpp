@@ -64,7 +64,7 @@ namespace
     static ECC::NoLeak<ECC::uintBig> passwordHash;
     static beam::wallet::TxParameters _txParameters;
 
-    static uint8_t m_mpLockTimeLimit = 0;
+    static uint8_t m_mpLockTimeLimit = 64;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
@@ -618,69 +618,44 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         return;
     }
 
-    auto isShieldedTx = false;
-    auto isMaxPrivacy = false;
     auto messageString = JString(env, comment).value();
     uint64_t bAmount = amount;
     uint64_t bfee = fee;
 
     _txParameters = *txParameters;
 
-    beam::PeerID _receiverIdentity = beam::Zero;
-
-    if (auto peerIdentity = _txParameters.GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); peerIdentity) {
-        _receiverIdentity = *peerIdentity;
-    }
-
-    if (auto txType = _txParameters.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
-    {
-        isShieldedTx = true;
-        
-        ShieldedTxo::Voucher voucher;
-        isMaxPrivacy = _txParameters.GetParameter(TxParameterID::Voucher, voucher) && _receiverIdentity != beam::Zero;
-    }
-
     auto params = CreateSimpleTransactionParameters();
+    const auto type = GetAddressType(address);
 
-    auto type = GetAddressType(address);
-    if (type == TxAddressType::Offline)
-    {
-        // TODO: give an opportunity to send offline transactions
-        // By default since v6.0 offline token triggers regular tx, user needs to be given a choice to
-        // send offline in UI
-        type = TxAddressType::Regular;
+    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline)) {
+        if (!LoadReceiverParams(_txParameters, params, type)) {
+            assert(false);
+            return;
+        }
+        CopyParameter(TxParameterID::PeerOwnID, _txParameters, params);
     }
-
-    LoadReceiverParams(_txParameters, params, type);
+    else {
+        if(!LoadReceiverParams(_txParameters, params, TxAddressType::Regular)) {
+            assert(false);
+            return;
+        }
+    }
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
         .SetParameter(beam::wallet::TxParameterID::MyID, m_walletID)
+        .SetParameter(TxParameterID::AssetID, beam::Asset::s_BeamID)
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
-    if (isShieldedTx)
-    {
-        params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-    }
-    if (isMaxPrivacy)
-    {
+    if (type == TxAddressType::MaxPrivacy) {
         CopyParameter(TxParameterID::Voucher, _txParameters, params);
-        params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
-    }
-    if (isShieldedTx)
-    {
-        CopyParameter(TxParameterID::PeerOwnID, _txParameters, params);
+        params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, m_mpLockTimeLimit);
     }
 
-    auto params1 = beam::wallet::ParseParameters(JString(env, receiverAddr).value());
-
-    bool isToken = params1 && params1->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
-   
-    if (isToken)
-    {
-        params.SetParameter(beam::wallet::TxParameterID::OriginalToken, JString(env, receiverAddr).value());
+    if (!beam::wallet::CheckReceiverAddress(address)) {
+        params.SetParameter(TxParameterID::OriginalToken, address);
     }
-
+    params.SetParameter(TxParameterID::OriginalToken, JString(env, receiverAddr).value());
     params.SetParameter(TxParameterID::SavePeerAddress, false);
 
     walletModel->getAsync()->startTransaction(std::move(params));
