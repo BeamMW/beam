@@ -380,42 +380,31 @@ namespace beam::wallet
         beam::wallet::FillAddressData(id, params, createAddress);
         info.comment = createAddress.comment ? *createAddress.comment : std::string();
 
-        auto it = params.find("type");
-        if (it != params.end())
+        const auto otype = getOptionalParam<NonEmptyString>(params, "type");
+        if (otype)
         {
-            static constexpr std::array<std::pair<std::string_view, TokenType>, 6> types =
+            const std::string stype = *otype;
+            auto t = std::find_if(_ttypesMap.begin(), _ttypesMap.end(), [&](const auto& p) {
+                return p.second == stype;
+            });
+
+            if (t != _ttypesMap.end())
             {
-                {
-                    {"regular",         TokenType::RegularOldStyle},
-                    {"offline",         TokenType::Offline},
-                    {"max_privacy",     TokenType::MaxPrivacy},
-                    {"public_offline",  TokenType::Public},
-                    {"regular_new",     TokenType::RegularNewStyle}
-                }
-            };
-            auto t = std::find_if(types.begin(), types.end(), [&](const auto& p) { return p.first == it->get<std::string>(); });
-            if (t != types.end())
-            {
-                createAddress.type = t->second;
+                createAddress.type = t->first;
             }
         }
 
         if (createAddress.type == TokenType::RegularOldStyle)
         {
-            it = params.find("new_style_regular");
-            if (it != params.end())
+            if (auto ns = getOptionalParam<bool>(params, "new_style_regular"); *ns)
             {
-                if (it->get<bool>())
-                {
-                    createAddress.type = TokenType::RegularNewStyle;
-                }
+                createAddress.type = TokenType::RegularNewStyle;
             }
         }
 
-        it = params.find("offline_payments");
-        if (it != params.end())
+        if (auto opcnt = getOptionalParam<PositiveUint32>(params, "offline_payments"))
         {
-            createAddress.offlinePayments = it->get<uint32_t>();
+            createAddress.offlinePayments = *opcnt;
         }
 
         return std::make_pair(createAddress, info);
@@ -995,18 +984,24 @@ namespace beam::wallet
 
         for (auto& addr : res.list)
         {
+            auto type = GetTokenType(addr.m_Address);
+            auto it = _ttypesMap.find(type);
+
             msg["result"].push_back(
             {
-                {"address", std::to_string(addr.m_walletID)},
-                {"comment", addr.m_label},
-                {"category", addr.m_category},
+                {"address",     addr.m_Address},
+                {"comment",     addr.m_label},
+                {"category",    addr.m_category},
                 {"create_time", addr.getCreateTime()},
-                {"duration", addr.m_duration},
-                {"expired", addr.isExpired()},
-                {"own", addr.isOwn()},
-                {"own_id", addr.m_OwnID},
-                {"own_id_str", std::to_string(addr.m_OwnID)},
+                {"duration",    addr.m_duration},
+                {"expired",     addr.isExpired()},
+                {"own",         addr.isOwn()},
+                {"own_id",      addr.m_OwnID},
+                {"own_id_str",  std::to_string(addr.m_OwnID)},
+                {"wallet_id",   std::to_string(addr.m_walletID)},
+                {"type",        it != _ttypesMap.end() ? it->second : "unknown"}
             });
+
             if (addr.m_Identity != Zero)
             {
                 msg["result"].back().push_back({ "identity", std::to_string(addr.m_Identity) });

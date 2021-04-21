@@ -1169,6 +1169,7 @@ namespace beam::wallet
 
     enum class TokenType
     {
+        Unknown = -1,
         RegularOldStyle,
         RegularNewStyle,
         Offline,
@@ -1181,6 +1182,7 @@ namespace beam::wallet
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
-    std::string GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
+    TokenType GetTokenType(const std::string& token);
 }  // namespace beam::wallet

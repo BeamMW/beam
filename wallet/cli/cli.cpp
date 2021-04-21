@@ -890,14 +890,14 @@ namespace
 
     std::string GetAddressTypeString(const WalletAddress& address)
     {
-        const auto type = GetAddressType(address.m_Address);
+        const auto type = GetTokenType(address.m_Address);
         switch (type)
         {
-            case TxAddressType::PublicOffline: return "public offline";
-            case TxAddressType::MaxPrivacy: return "max privacy";
-            case TxAddressType::Regular: return address.m_Address == std::to_string(address.m_walletID) ? "regular old style" : "regular new style";
-            case TxAddressType::Offline: return "offline";
-            case TxAddressType::AtomicSwap: return "atomic swap";
+            case TokenType::Public: return "public offline";
+            case TokenType::MaxPrivacy: return "max privacy";
+            case TokenType::RegularNewStyle: return "regular new style";
+            case TokenType::RegularOldStyle: return "regular old style";
+            case TokenType::Offline: return "offline";
             default: return "unknown";
         }
     }
