@@ -157,8 +157,9 @@ namespace beam::wallet
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
-
             JsonRpcId _id;
         };
+
+        std::map<TokenType, std::string> _ttypesMap;
     };
 }

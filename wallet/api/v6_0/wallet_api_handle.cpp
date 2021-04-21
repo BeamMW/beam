@@ -139,18 +139,18 @@ namespace beam::wallet
         if (data.expiration) address.setExpirationStatus(*data.expiration);
         if (!_appid.empty()) address.setCategory(_appid);
 
-        std::string newToken = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
+        address.m_Address = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
         walletDB->saveAddress(address);
 
-        doResponse(id, CreateAddress::Response{newToken});
+        doResponse(id, CreateAddress::Response{address.m_Address});
     }
 
     void WalletApi::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
     {
-        LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
-        auto addr = walletDB->getAddress(data.address);
+        auto addr = walletDB->getAddressByToken(data.token);
 
         if (addr)
         {
@@ -160,7 +160,7 @@ namespace beam::wallet
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
             }
 
-            walletDB->deleteAddress(data.address);
+            walletDB->deleteAddress(addr->m_walletID);
             doResponse(id, DeleteAddress::Response{});
         }
         else
@@ -171,10 +171,10 @@ namespace beam::wallet
 
     void WalletApi::onHandleEditAddress(const JsonRpcId& id, const EditAddress& data)
     {
-        LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "EditAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
-        auto addr = walletDB->getAddress(data.address);
+        auto addr = walletDB->getAddressByToken(data.token);
 
         if (addr)
         {
@@ -203,9 +203,9 @@ namespace beam::wallet
 
     void WalletApi::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
     {
-        LOG_DEBUG() << "ValidateAddress( address = " << data.address << ")";
+        LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
 
-        auto p = ParseParameters(data.address);
+        auto p = ParseParameters(data.token);
 
         bool isValid = !!p;
         bool isMine = false;
@@ -240,12 +240,12 @@ namespace beam::wallet
 
     void WalletApi::onHandleSend(const JsonRpcId& id, const Send& data)
     {
-        auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken);
-        LOG_DEBUG() << "Send(id = " << id
+        LOG_DEBUG() << "Send(id = "   << id
                     << " asset_id = " << (data.assetId ? *data.assetId : 0)
-                    << " amount = " << data.value
-                    << " fee = " << data.fee
-                    << " address = " << (token ? *token : std::to_string(data.address))
+                    << " amount = "   << data.value
+                    << " fee = "      << data.fee
+                    << " from = "     << (data.tokenFrom ? *data.tokenFrom: "")
+                    << " address = "  << data.tokenTo
                     << ")";
 
         try
@@ -255,25 +255,31 @@ namespace beam::wallet
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
 
-            if (data.from)
+            if (data.tokenFrom)
             {
-                if (!data.from->IsValid())
+                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
+
+                if (!addr.is_initialized())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender address.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
                 }
 
-                auto addr = walletDB->getAddress(*data.from);
-                if (!addr || !addr->isOwn())
+                if (!addr->m_walletID.IsValid())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "It's not your own address.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
+                }
+
+                if (!addr->isOwn())
+                {
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
                 }
 
                 if (addr->isExpired())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address is expired.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
                 }
 
-                from = *data.from;
+                from = addr->m_walletID;
             }
             else
             {
@@ -298,11 +304,6 @@ namespace beam::wallet
                 throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Cannot load transaction parameters.");
             }
 
-            if (token)
-            {
-                params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
-            }
-
             if(data.assetId)
             {
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
@@ -312,7 +313,8 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::Message, message);
+                .SetParameter(TxParameterID::Message, message)
+                .SetParameter(beam::wallet::TxParameterID::OriginalToken, data.tokenTo);
 
             if (!_appid.empty())
             {
@@ -320,7 +322,7 @@ namespace beam::wallet
             }
 
             auto txId = wallet->StartTransaction(params);
-            doResponse(id, Send::Response{ txId });
+            doResponse(id, Send::Response{txId});
         }
         catch(const jsonrpc_exception&)
         {

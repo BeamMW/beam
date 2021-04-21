@@ -6825,4 +6825,40 @@ namespace beam::wallet
             throw std::runtime_error("Unexpected address type");
         }
     }
+
+    TokenType GetTokenType(const std::string& token)
+    {
+        const auto addrType = GetAddressType(token);
+        switch (addrType)
+        {
+            case TxAddressType::Offline: return TokenType::Offline;
+            case TxAddressType::MaxPrivacy: return TokenType::MaxPrivacy;
+            case TxAddressType::PublicOffline: return TokenType::Public;
+            case TxAddressType::Regular:
+            {
+                if(auto params = ParseParameters(token))
+                {
+                    WalletID wid;
+                    if(!params->GetParameter(TxParameterID::PeerID, wid))
+                    {
+                        assert(false);
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    if (std::to_string(wid) == token)
+                    {
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    return TokenType::RegularNewStyle;
+                }
+                else
+                {
+                    assert(false);
+                    return TokenType::Unknown;
+                }
+            }
+            default: return TokenType::Unknown;
+        }
+    }
 }

@@ -50,145 +50,152 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w1.db", false, true);
-    wdbFirst->AllocateKidRange(100500);
-    auto wdbSecond = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w2.db", false, true);
+    auto testAll = [&](Amount fee) {
+        auto wdbFirst = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w1.db", false, true);
+        wdbFirst->AllocateKidRange(100500);
+        auto wdbSecond = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w2.db", false, true);
 
-    // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
-    auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
-    auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
+        // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
+        Lightning::Channel::Params params = { kRevisionMaxLifeTime, kLockTime, kPostLockReserve, fee };
+        auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
+        auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
-    LaserObserver observer_1, observer_2;
-    laser::ChannelIDPtr channel_1, channel_2;
-    bool laser1Closed = false, laser2Closed = false;
-    bool firstUpdated = false, secondUpdated = false;
-    bool closeProcessStarted = false;
-    Height startListenAt = 0;
-    Height openedAt = 0;
+        LaserObserver observer_1, observer_2;
+        laser::ChannelIDPtr channel_1, channel_2;
+        bool laser1Closed = false, laser2Closed = false;
+        bool firstUpdated = false, secondUpdated = false;
+        bool closeProcessStarted = false;
+        Height startListenAt = 0;
+        Height openedAt = 0;
 
-    observer_1.onOpened = [&channel_1] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: first opened";
-        channel_1 = chID;
-    };
-    observer_2.onOpened = [&channel_2] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: second opened";
-        channel_2 = chID;
-    };
-    observer_1.onOpenFailed = observer_2.onOpenFailed = [] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: open failed";
-        WALLET_CHECK(false);
-    };
-    observer_1.onClosed = [&laser1Closed] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: first closed";
-        laser1Closed = true;
-    };
-    observer_2.onClosed = [&laser2Closed] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: second closed";
-        laser2Closed = true;
-    };
-    observer_1.onCloseFailed = observer_2.onCloseFailed = [] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: close failed";
-        WALLET_CHECK(false);
-    };
-    observer_1.onUpdateFinished = [&firstUpdated] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: first updated";
-        firstUpdated = true;
-    };
-    observer_2.onUpdateFinished = [&secondUpdated] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: second updated";
-        secondUpdated = true;
-    };
-    observer_1.onTransferFailed = observer_2.onTransferFailed = [&firstUpdated, &secondUpdated] (const laser::ChannelIDPtr& chID)
-    {
-        LOG_INFO() << "Test laser LISTEN 1: transfer failed";
-        WALLET_CHECK(false);
-        firstUpdated = secondUpdated = true;
-    };
-
-    laserFirst->AddObserver(&observer_1);
-    laserSecond->AddObserver(&observer_2);
-
-    auto newBlockFunc = [&] (Height height)
-    {
-        if (height > kMaxTestHeight)
+        observer_1.onOpened = [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_ERROR() << "Test laser LISTEN 1: time expired";
+            LOG_INFO() << "Test laser LISTEN 1: first opened";
+            channel_1 = chID;
+        };
+        observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
+        {
+            LOG_INFO() << "Test laser LISTEN 1: second opened";
+            channel_2 = chID;
+        };
+        observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
+        {
+            LOG_INFO() << "Test laser LISTEN 1: open failed";
             WALLET_CHECK(false);
-            io::Reactor::get_Current().stop();
-        }
-
-        if (height == kTestStartBlock)
+        };
+        observer_1.onClosed = [&laser1Closed](const laser::ChannelIDPtr& chID)
         {
-            laserFirst->WaitIncoming(100000000, 100000000, kFee);
-            auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
-        }
-
-        if (channel_1 && channel_2 && !startListenAt && !openedAt)
+            LOG_INFO() << "Test laser LISTEN 1: first closed";
+            laser1Closed = true;
+        };
+        observer_2.onClosed = [&laser2Closed](const laser::ChannelIDPtr& chID)
         {
-            openedAt = height;
-        }
-
-        if (openedAt && openedAt + 5 == height && !startListenAt)
+            LOG_INFO() << "Test laser LISTEN 1: second closed";
+            laser2Closed = true;
+        };
+        observer_1.onCloseFailed = observer_2.onCloseFailed = [](const laser::ChannelIDPtr& chID)
         {
-            startListenAt = height;
-            LOG_INFO() << "Test laser LISTEN 1: first serve";
-            laserFirst.reset(new laser::Mediator(wdbFirst, params));
-            laserFirst->AddObserver(&observer_1);
-            laserFirst->SetNetwork(CreateNetwork(*laserFirst), false);
-
-            auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
-            WALLET_CHECK(laserFirst->Serve(channel1Str));
-        }
-
-        if (startListenAt && height == startListenAt + 10)
+            LOG_INFO() << "Test laser LISTEN 1: close failed";
+            WALLET_CHECK(false);
+        };
+        observer_1.onUpdateFinished = [&firstUpdated](const laser::ChannelIDPtr& chID)
         {
-            auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
-            LOG_INFO() << "Test laser LISTEN 1: first send to second";
-            WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
-        }
-
-        if (firstUpdated && secondUpdated && !closeProcessStarted)
+            LOG_INFO() << "Test laser LISTEN 1: first updated";
+            firstUpdated = true;
+        };
+        observer_2.onUpdateFinished = [&secondUpdated](const laser::ChannelIDPtr& chID)
         {
-            closeProcessStarted = true;
-            observer_1.onUpdateFinished =
-            observer_2.onUpdateFinished =
-            observer_1.onTransferFailed =
-            observer_2.onTransferFailed = [] (const laser::ChannelIDPtr& chID) {};
-            auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
-            WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
-        }
-
-        if (laser1Closed && laser2Closed)
+            LOG_INFO() << "Test laser LISTEN 1: second updated";
+            secondUpdated = true;
+        };
+        observer_1.onTransferFailed = observer_2.onTransferFailed = [&firstUpdated, &secondUpdated](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 1: finished";
-            io::Reactor::get_Current().stop();
-        }
+            LOG_INFO() << "Test laser LISTEN 1: transfer failed";
+            WALLET_CHECK(false);
+            firstUpdated = secondUpdated = true;
+        };
 
+        laserFirst->AddObserver(&observer_1);
+        laserSecond->AddObserver(&observer_2);
+
+        auto newBlockFunc = [&](Height height)
+        {
+            if (height > kMaxTestHeight)
+            {
+                LOG_ERROR() << "Test laser LISTEN 1: time expired";
+                WALLET_CHECK(false);
+                io::Reactor::get_Current().stop();
+            }
+
+            if (height == kTestStartBlock)
+            {
+                laserFirst->WaitIncoming(100000000, 100000000, fee);
+                auto firstWalletID = laserFirst->getWaitingWalletID();
+                laserSecond->OpenChannel(100000000, 100000000, fee, firstWalletID, kOpenTxDh);
+            }
+
+            if (channel_1 && channel_2 && !startListenAt && !openedAt)
+            {
+                openedAt = height;
+            }
+
+            if (openedAt && openedAt + 5 == height && !startListenAt)
+            {
+                startListenAt = height;
+                LOG_INFO() << "Test laser LISTEN 1: first serve";
+                laserFirst.reset(new laser::Mediator(wdbFirst, params));
+                laserFirst->AddObserver(&observer_1);
+                laserFirst->SetNetwork(CreateNetwork(*laserFirst), false);
+
+                auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
+                WALLET_CHECK(laserFirst->Serve(channel1Str));
+            }
+
+            if (startListenAt && height == startListenAt + 10)
+            {
+                auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
+                LOG_INFO() << "Test laser LISTEN 1: first send to second";
+                WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
+            }
+
+            if (firstUpdated && secondUpdated && !closeProcessStarted)
+            {
+                closeProcessStarted = true;
+                observer_1.onUpdateFinished =
+                    observer_2.onUpdateFinished =
+                    observer_1.onTransferFailed =
+                    observer_2.onTransferFailed = [](const laser::ChannelIDPtr& chID) {};
+                auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
+                WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
+            }
+
+            if (laser1Closed && laser2Closed)
+            {
+                LOG_INFO() << "Test laser LISTEN 1: finished";
+                io::Reactor::get_Current().stop();
+            }
+
+        };
+
+        Node node;
+        NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            newBlockFunc(cursor.m_Sid.m_Height);
+        });
+        auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
+        InitNodeToTest(
+            node, binaryTreasury, &observer, kDefaultTestNodePort,
+            kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
+        ConfigureNetwork(*laserFirst, *laserSecond);
+
+        mainReactor->run();
     };
 
-    Node node;
-    NodeObserver observer([&]()
-    {
-        auto cursor = node.get_Processor().m_Cursor;
-        newBlockFunc(cursor.m_Sid.m_Height);
-    });
-    auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond);
-    InitNodeToTest(
-        node, binaryTreasury, &observer, kDefaultTestNodePort,
-        kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
-    ConfigureNetwork(*laserFirst, *laserSecond);
-
-    mainReactor->run();
+    testAll(kFee);
+    Rules::get().pForks[3].m_Height = 2;
+    Rules::get().UpdateChecksum();
+    testAll(kFeeAfter3dFork);
 
     return WALLET_CHECK_RESULT;
 }

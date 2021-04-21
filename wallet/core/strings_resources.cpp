@@ -138,17 +138,17 @@ namespace beam
     // Address
     const char kAllAddrExprChanged[] = "Expiration for all addresses  was changed to \"%1%\".";
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
-    const char kAddrNewGenerated[] = "New address generated: %1%";
     const char kWalletIdNewGenerated[] = "New WalletID (SBBS address) generated: %1%";
     const char kAddrNewGeneratedLabel[] = "comment = %1%";
-    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%|%6%";
-    const char kAddrListColumnComment[] = "comment";
-    const char kAddrListColumnAddress[] = "address";
-    const char kAddrListColumnIdentity[] = "identity";
-    const char kAddrListColumnActive[] = "active";
-    const char kAddrListColumnExprDate[] = "expiration date";
-    const char kAddrListColumnCreated[] = "created";
-    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5% %6%";
+
+    const char kAddrListComment[]  = "Comment: ";
+    const char kAddrListAddress[]  = "Address: ";
+    const char kAddrListIdentity[] = "Identity: ";
+    const char kAddrListActive[]   = "Active: ";
+    const char kAddrListExprDate[] = "Expires: ";
+    const char kAddrListCreated[]  = "Created: ";
+    const char kAddrListWalletID[] = "Wallet ID: ";
+    const char kAddrListType[]     = "Type: ";
 
     // Seed phrase
     const char kSeedPhraseGeneratedTitle[] = "======\nGenerated seed phrase: \n\n\t";

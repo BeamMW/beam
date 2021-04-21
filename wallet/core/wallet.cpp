@@ -84,7 +84,17 @@ namespace beam::wallet
         }
 
         auto senderAddr = walletDB->getAddress(*myID);
-        if (!senderAddr || !senderAddr->isOwn() || senderAddr->isExpired())
+        if (!senderAddr)
+        {
+            throw SenderInvalidAddressException();
+        }
+
+        if (!senderAddr->isOwn())
+        {
+            throw SenderInvalidAddressException();
+        }
+
+        if(senderAddr->isExpired())
         {
             throw SenderInvalidAddressException();
         }

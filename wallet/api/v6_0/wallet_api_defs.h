@@ -114,21 +114,19 @@ namespace beam::wallet
 
         struct Response
         {
-            std::string address;
+            std::string token;
         };
     };
 
     struct DeleteAddress
     {
-        WalletID address;
-
+        std::string token;
         struct Response {};
     };
 
     struct EditAddress : AddressData
     {
-        WalletID address;
-
+        std::string token;
         struct Response {};
     };
 
@@ -144,7 +142,7 @@ namespace beam::wallet
 
     struct ValidateAddress
     {
-        std::string address;
+        std::string token;
 
         struct Response
         {
@@ -157,14 +155,17 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<CoinIDList> coins;
-        boost::optional<WalletID> from;
-        boost::optional<TxID> txId;
-        boost::optional<Asset::ID> assetId;
-        WalletID address;
+
+        std::string tokenTo;
         std::string comment;
+
         TxParameters txParameters;
         TxAddressType addressType = TxAddressType::Unknown;
+
+        boost::optional<std::string> tokenFrom;
+        boost::optional<CoinIDList>  coins;
+        boost::optional<TxID>        txId;
+        boost::optional<Asset::ID>   assetId;
 
         struct Response
         {

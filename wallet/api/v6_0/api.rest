@@ -319,7 +319,7 @@ content-type: application/json-rpc
     {
         "type": "regular",
         "expiration" : "auto",
-        "comment" : "John Smith",
+        "comment" : "John Smith New Style",
         "new_style_regular" : true
     }
 }
