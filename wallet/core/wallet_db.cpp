@@ -4172,6 +4172,27 @@ namespace beam::wallet
         LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
     }
 
+    void WalletDB::deleteAddressByToken(const std::string& addr, bool isLaser)
+    {
+        auto address = getAddressByToken(addr, isLaser);
+        if (address)
+        {
+            const std::string addrTableName =
+                isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+
+            auto req = "DELETE FROM " + addrTableName + " WHERE Address=?1;";
+            sqlite::Statement stm(this, req.c_str());
+
+            stm.bind(1, addr);
+            stm.step();
+
+            if (!isLaser)
+            {
+                notifyAddressChanged(ChangeAction::Removed, { *address });
+            }
+        }
+    }
+
     void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
     {
         auto address = getAddress(id, isLaser);
