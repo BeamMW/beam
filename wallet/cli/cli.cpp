@@ -588,15 +588,8 @@ namespace
 
     int ChangeAddressExpiration(const po::variables_map& vm)
     {
-        string address = vm[cli::WALLET_ADDR].as<string>();
+        string token = vm[cli::WALLET_ADDR].as<string>();
         string expiration = vm[cli::EXPIRATION_TIME].as<string>();
-        WalletID walletID(Zero);
-        bool allAddresses = address == "*";
-
-        if (!allAddresses)
-        {
-            walletID.FromHex(address);
-        }
 
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
@@ -624,17 +617,27 @@ namespace
         }
 
         auto walletDB = OpenDataBase(vm);
-        if (storage::changeAddressExpiration(*walletDB, walletID, expirationStatus))
+        if (token == "*")
         {
-            if (allAddresses)
+            WalletID zeroID(Zero);
+            if (storage::changeAddressExpiration(*walletDB, zeroID, expirationStatus))
             {
-                LOG_INFO() << boost::format(kAllAddrExprChanged) % expiration;
+                std::cout << boost::format(kAllAddrExprChanged) % expiration << endl;
+            }
+        }
+        else
+        {
+            if (auto address = walletDB->getAddressByToken(token, false))
+            {
+                address->setExpirationStatus(expirationStatus);
+                walletDB->saveAddress(*address);
+
+                std::cout << boost::format(kAddrExprChanged) % token % expiration << endl;
             }
             else
             {
-                LOG_INFO() << boost::format(kAddrExprChanged) % to_string(walletID) % expiration;
+                throw std::runtime_error("Cannot find specified existing address.");
             }
-            return 0;
         }
         return -1;
     }
