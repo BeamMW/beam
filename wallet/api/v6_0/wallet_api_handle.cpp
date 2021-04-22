@@ -160,7 +160,7 @@ namespace beam::wallet
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
             }
 
-            walletDB->deleteAddress(addr->m_walletID);
+            walletDB->deleteAddressByToken(data.token);
             doResponse(id, DeleteAddress::Response{});
         }
         else
