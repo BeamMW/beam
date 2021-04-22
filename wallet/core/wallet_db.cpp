@@ -4078,7 +4078,6 @@ namespace beam::wallet
     void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
     {
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
-        ChangeAction action = ChangeAction::Added;
 
         WalletAddress address = addr;
         if (address.m_Address.empty())
@@ -4087,12 +4086,12 @@ namespace beam::wallet
             address.m_Address = std::to_string(address.m_walletID);
         }
 
-        {
-            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
-            sqlite::Statement stm2(this, selectReq.c_str());
-            stm2.bind(1, address.m_Address);
+        auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
+        sqlite::Statement stmToken(this, selectByToken.c_str());
+        stmToken.bind(1, address.m_Address);
 
-            if (stm2.step())
+        if (stmToken.step())
+        {
             {
                 auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6 WHERE address=?1;";
                 sqlite::Statement stm(this, updateReq.c_str());
@@ -4104,22 +4103,54 @@ namespace beam::wallet
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
                 stm.step();
-
-                action = ChangeAction::Updated;
             }
-            else
+
+            if (!isLaser)
             {
-                auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
-                sqlite::Statement stm(this, insertReq.c_str());
-                int colIdx = 0;
-                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+                notifyAddressChanged(ChangeAction::Updated, { address });
+            }
+
+            return;
+        }
+
+        auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+        sqlite::Statement stmWid(this, selectByWid.c_str());
+        stmWid.bind(1, address.m_walletID);
+
+        if (stmWid.step())
+        {
+            {
+                auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?6;";
+                sqlite::Statement stm(this, updateReq.c_str());
+
+                stm.bind(1, address.m_Address);
+                stm.bind(2, address.m_label);
+                stm.bind(3, address.m_category);
+                stm.bind(4, address.m_duration);
+                stm.bind(5, address.m_createTime);
+                stm.bind(6, address.m_walletID);
                 stm.step();
             }
+
+            if (!isLaser)
+            {
+                notifyAddressChanged(ChangeAction::Updated, {address});
+            }
+
+            return;
+        }
+
+        {
+            auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq.c_str());
+            int colIdx = 0;
+            ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+            stm.step();
         }
 
         if (!isLaser)
         {
-            notifyAddressChanged(action, { address });
+            notifyAddressChanged(ChangeAction::Added, { address });
         }
     }
 
