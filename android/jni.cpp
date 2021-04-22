@@ -275,7 +275,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto id = JString(env, walletId).value();
 
     WalletID walletID(Zero);
-    if (!walletID.FromHex(JString(env, walletId).value()))
+    if (!walletID.FromHex(id))
     {
         LOG_ERROR() << "walletID is not valid!!!";
         return jstring();
@@ -293,8 +293,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
          LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
-    auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
-    jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
+    TxParameters offlineParameters;
+    offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+    offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
+    offlineParameters.SetParameter(TxParameterID::PeerID, address->m_walletID);
+    offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
+    offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
+    offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
+    
+    if (bAmount > 0) {
+        offlineParameters.SetParameter(TxParameterID::Amount, bAmount);
+    }
+    
+    auto token = to_string(offlineParameters);
+
+    //auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
+   
+    jstring tokenString = env->NewStringUTF(token.c_str());
     return tokenString;
  }
 
