@@ -4115,33 +4115,37 @@ namespace beam::wallet
             return;
         }
 
-        auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
-        sqlite::Statement stmWid(this, selectByWid.c_str());
-        stmWid.bind(1, address.m_walletID);
-
-        if (stmWid.step())
+        // This check is intentional, it skips MaxPrivacy addresses
+        if (address.m_walletID.IsValid())
         {
+            auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+            sqlite::Statement stmWid(this, selectByWid.c_str());
+            stmWid.bind(1, address.m_walletID);
+
+            if (stmWid.step())
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, OwnID=?7, Identity=?8 WHERE walletID=?6;";
-                sqlite::Statement stm(this, updateReq.c_str());
+                {
+                    auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, OwnID=?7, Identity=?8 WHERE walletID=?6;";
+                    sqlite::Statement stm(this, updateReq.c_str());
 
-                stm.bind(1, address.m_Address);
-                stm.bind(2, address.m_label);
-                stm.bind(3, address.m_category);
-                stm.bind(4, address.m_duration);
-                stm.bind(5, address.m_createTime);
-                stm.bind(6, address.m_walletID);
-                stm.bind(7, address.m_OwnID);
-                stm.bind(8, address.m_Identity);
-                stm.step();
+                    stm.bind(1, address.m_Address);
+                    stm.bind(2, address.m_label);
+                    stm.bind(3, address.m_category);
+                    stm.bind(4, address.m_duration);
+                    stm.bind(5, address.m_createTime);
+                    stm.bind(6, address.m_walletID);
+                    stm.bind(7, address.m_OwnID);
+                    stm.bind(8, address.m_Identity);
+                    stm.step();
+                }
+
+                if (!isLaser)
+                {
+                    notifyAddressChanged(ChangeAction::Updated, {address});
+                }
+
+                return;
             }
-
-            if (!isLaser)
-            {
-                notifyAddressChanged(ChangeAction::Updated, {address});
-            }
-
-            return;
         }
 
         {
