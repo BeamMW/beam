@@ -4088,13 +4088,14 @@ namespace beam::wallet
         }
 
         {
-            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
+            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE (address=?1 OR walletID=?2);";
             sqlite::Statement stm2(this, selectReq.c_str());
             stm2.bind(1, address.m_Address);
+            stm2.bind(2, address.m_walletID);
 
             if (stm2.step())
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6 WHERE address=?1;";
+                auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, walletID=?6 WHERE (address=?1 OR walletID=?6);";
                 sqlite::Statement stm(this, updateReq.c_str());
 
                 stm.bind(1, address.m_Address);
