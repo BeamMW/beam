@@ -4093,7 +4093,7 @@ namespace beam::wallet
         if (stmToken.step())
         {
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6 WHERE address=?1;";
+                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6, OwnID=?7, Identity=?8 WHERE address=?1;";
                 sqlite::Statement stm(this, updateReq.c_str());
 
                 stm.bind(1, address.m_Address);
@@ -4102,6 +4102,8 @@ namespace beam::wallet
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
+                stm.bind(7, address.m_OwnID);
+                stm.bind(8, address.m_Identity);
                 stm.step();
             }
 
@@ -4120,7 +4122,7 @@ namespace beam::wallet
         if (stmWid.step())
         {
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?6;";
+                auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, OwnID=?7, Identity=?8 WHERE walletID=?6;";
                 sqlite::Statement stm(this, updateReq.c_str());
 
                 stm.bind(1, address.m_Address);
@@ -4129,6 +4131,8 @@ namespace beam::wallet
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
+                stm.bind(7, address.m_OwnID);
+                stm.bind(8, address.m_Identity);
                 stm.step();
             }
 
