@@ -4102,6 +4102,7 @@ namespace beam::wallet
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
+                stm.step();
 
                 if (!isLaser)
                 {
@@ -4126,6 +4127,7 @@ namespace beam::wallet
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
+                stm.step();
 
                 if (!isLaser)
                 {
