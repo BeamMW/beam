@@ -247,6 +247,8 @@ namespace
 					break;
 			}
 			switch (d.tag) {
+			//case DW_TAG::variable:
+			//case DW_TAG::formal_parameter:
 			case DW_TAG::subprogram:
 			case DW_TAG::inlined_subroutine:
 				try {
@@ -268,28 +270,28 @@ namespace
 
 		void DumpDIE(const dwarf::die& node, int intent = 0)
 		{
-			for (int i = 0; i < intent; ++i)
-				printf("      ");
-			printf("<%" PRIx64 "> %s\n",
-				node.get_section_offset(),
-				to_string(node.tag).c_str());
-			for (auto& attr : node.attributes())
-			{
-				for (int i = 0; i < intent; ++i)
-					printf("      ");
+			//for (int i = 0; i < intent; ++i)
+			//	printf("      ");
+			//printf("<%" PRIx64 "> %s\n",
+			//	node.get_section_offset(),
+			//	to_string(node.tag).c_str());
+			//for (auto& attr : node.attributes())
+			//{
+			//	for (int i = 0; i < intent; ++i)
+			//		printf("      ");
 
-				printf("      %s %s\n",
-					to_string(attr.first).c_str(),
-					to_string(attr.second).c_str());
-			}
+			//	printf("      %s %s\n",
+			//		to_string(attr.first).c_str(),
+			//		to_string(attr.second).c_str());
+			//}
 
 
-			for (const auto& child : node)
-				DumpDIE(child, intent + 1);
+			//for (const auto& child : node)
+			//	DumpDIE(child, intent + 1);
 
 		}
 
-		bool PrintPC(dwarf::taddr pc)
+		bool PrintPC(dwarf::taddr pc, std::vector<dwarf::die>& stack)
 		{
 			for (auto& cu : m_DebugInfo->compilation_units())
 			{
@@ -317,15 +319,16 @@ namespace
 					// Map PC to an object
 					// XXX Index/helper/something for looking up PCs
 					// XXX DW_AT_specification and DW_AT_abstract_origin
-					vector<dwarf::die> stack;
+					//vector<dwarf::die> stack;
+					
 					if (FindPC(cu.root(), pc, &stack)) {
-						/*bool first = true;
+						//bool first = true;
 						for (auto& d : stack) {
-							if (!first)
-								printf("\nInlined in:\n");
-							first = false;
+							//if (!first)
+							//	printf("\nInlined in:\n");
+							//first = false;
 							DumpDIE(d);
-						}*/
+						}
 						return true;
 					}
 					break;
@@ -576,6 +579,20 @@ namespace
 	public:
 		enum class Event { BreakpointHit, Stepped, Paused };
 
+
+		struct Variable
+		{
+			std::string name;
+			std::string type;
+		};
+
+		struct Call
+		{
+			std::string functionName;
+			std::string filePath;
+			int64_t line;
+		};
+
 		enum class BvmAction
 		{
 			NoAction,
@@ -597,6 +614,18 @@ namespace
 
 		// currentLine() returns the currently executing line number.
 		int64_t currentLine();
+
+		int64_t currentColumn()
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			return m_Column;
+		}
+
+		std::vector<Variable> getVariables()
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			return m_Variables;
+		}
 		
 		const std::string& filePath() const
 		{
@@ -613,9 +642,52 @@ namespace
 		// addBreakpoint() sets a new breakpoint on the given line.
 		void addBreakpoint(const std::string& filePath, int64_t line);
 
+		std::string GetTypeName(const dwarf::die& d)
+		{
+			try
+			{
+				if (d.has(dwarf::DW_AT::name))
+					return at_name(d);
+				
+				if (d.has(dwarf::DW_AT::type))
+					return GetTypeName(at_type(d));
+			}
+			catch (...)
+			{
+
+			}
+			return {};
+		}
+
+		void DumpVariables(const dwarf::die& d)
+		{
+			switch (d.tag)
+			{
+			case dwarf::DW_TAG::variable:
+			case dwarf::DW_TAG::formal_parameter:
+				{
+					auto& v = m_Variables.emplace_back();
+					v.name = at_name(d);
+					v.type = GetTypeName(at_type(d));
+				}				
+				break;
+			case dwarf::DW_TAG::subprogram:
+			case dwarf::DW_TAG::inlined_subroutine:
+				for (const auto& c : d)
+				{
+					DumpVariables(c);
+				}
+				break;
+
+			}
+			
+		}
+
 		void DoDebug(const Wasm::Processor& proc)
 		{
-			if (PrintPC(proc.get_Ip()))
+			std::vector<dwarf::die> stack;
+
+			if (PrintPC(proc.get_Ip(), stack))
 			{
 				auto l = (*m_CurrentLine)->line;
 				{
@@ -623,26 +695,33 @@ namespace
 					m_BvmIsReady = true;
 					m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
 					this->line = l;
+					m_Column = (*m_CurrentLine)->column;
 					m_FilePath = std::filesystem::canonical((*m_CurrentLine)->file->path).string();
+					m_Variables.clear();
+					for (auto& d : stack)
+					{
+						DumpVariables(d);
+					}
+
 					if (m_BvmAction == BvmAction::Continue)
 					{
 						if (breakpoints[m_FilePath].count(l))
 						{
 							m_BvmAction = BvmAction::NoAction;
-							m_BvmEvent.notify_one();
+							onEvent(Event::BreakpointHit);
 							return;
 						}
 					}
 					else if (m_BvmAction == BvmAction::Pause)
 					{
 						m_BvmAction = BvmAction::NoAction;
-						m_BvmEvent.notify_one();
+						onEvent(Event::Paused);
 						m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
 					}
 					else if (m_BvmAction == BvmAction::StepIn)
 					{
 						m_BvmAction = BvmAction::NoAction;
-						m_BvmEvent.notify_one();
+						onEvent(Event::Stepped);
 						return;
 					}
 				}
@@ -654,10 +733,12 @@ namespace
 
 		}
 
+
 	private:
 		EventHandler onEvent;
 		mutable  std::mutex mutex;
 		int64_t line = 1;
+		int64_t m_Column = 1;
 		std::string m_FilePath;
 
 		BvmAction m_BvmAction = BvmAction::Pause;
@@ -666,7 +747,9 @@ namespace
 		std::condition_variable m_BvmEvent;
 		std::condition_variable m_DapEvent;
 
-		int64_t m_StepsToRun = 0; // -1 - to break point
+		std::vector<Variable> m_Variables;
+		std::stack<Call> m_CallStack;
+
 		std::unordered_map<std::string,  std::unordered_set<int64_t>> breakpoints;
 	};
 
@@ -677,35 +760,16 @@ namespace
 
 	void Debugger::run() 
 	{
-		{
-			std::unique_lock<std::mutex> lock(mutex);
-			m_BvmAction = BvmAction::Continue;
-			m_DapEvent.notify_one();
-			m_BvmEvent.wait(lock, [this] {return m_BvmAction == BvmAction::NoAction; });
-		}
-		onEvent(Event::BreakpointHit);
-		/* for (int64_t i = 0; i < numSourceLines; i++) {
-			 int64_t l = ((line + i) % numSourceLines) + 1;
-			 if (breakpoints.count(l)) {
-				 line = l;
-				 lock.unlock();
-				 onEvent(Event::BreakpointHit);
-				 return;
-			 }
-		 }*/
+		std::unique_lock<std::mutex> lock(mutex);
+		m_BvmAction = BvmAction::Continue;
+		m_DapEvent.notify_one();
 	}
 
-	void Debugger::pause() {
-		{
-			std::unique_lock<std::mutex> lock(mutex);
-			m_BvmAction = BvmAction::Pause;
-			m_DapEvent.notify_one();
-			if (m_BvmIsReady)
-			{
-				m_BvmEvent.wait(lock, [this] {return m_BvmAction == BvmAction::NoAction; });
-			}
-		}
-		onEvent(Event::Paused);
+	void Debugger::pause()
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		m_BvmAction = BvmAction::Pause;
+		m_DapEvent.notify_one();
 	}
 
 	int64_t Debugger::currentLine()
@@ -716,13 +780,9 @@ namespace
 
 	void Debugger::stepForward()
 	{
-		{
-			std::unique_lock<std::mutex> lock(mutex);
-			m_BvmAction = BvmAction::StepIn;
-			m_DapEvent.notify_one();
-			m_BvmEvent.wait(lock, [this] {return m_BvmAction == BvmAction::NoAction; });
-		}
-		onEvent(Event::Stepped);
+		std::unique_lock<std::mutex> lock(mutex);
+		m_BvmAction = BvmAction::StepIn;
+		m_DapEvent.notify_one();
 	}
 
 	void Debugger::clearBreakpoints()
@@ -736,8 +796,6 @@ namespace
 		std::unique_lock<std::mutex> lock(mutex);
 		this->breakpoints[std::filesystem::canonical(filePath).string()].emplace(l);
 	}
-
-
 
 }  // anonymous namespace
 
@@ -860,14 +918,14 @@ void TestDebugger()
 
 		dap::Source source;
 		source.sourceReference = sourceReferenceId;
-		source.name = "HelloDebuggerSource";
+		source.name = "BeamDebuggerSource";
 		const auto& p = debugger.filePath();
 		source.path = p.empty() ? "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\shaders\\test_contract.cpp" : p;
 
 		dap::StackFrame frame;
 		frame.line = debugger.currentLine();
-		frame.column = 1;
-		frame.name = "HelloDebugger";
+		frame.column = debugger.currentColumn();
+		frame.name = "BeamDebugger";
 		frame.id = frameId;
 		frame.source = source;
 
@@ -907,13 +965,23 @@ void TestDebugger()
 				int(request.variablesReference));
 		}
 
-		dap::Variable currentLineVar;
-		currentLineVar.name = "currentLine";
-		currentLineVar.value = std::to_string(debugger.currentLine());
-		currentLineVar.type = "int";
-
 		dap::VariablesResponse response;
-		response.variables.push_back(currentLineVar);
+		auto variables = debugger.getVariables();
+		for (const auto& v : variables)
+		{
+			auto& newVar = response.variables.emplace_back();
+			newVar.name = v.name;
+			newVar.type = v.type;
+			newVar.value = "unknown";
+		}
+
+		//dap::Variable currentLineVar;
+		//currentLineVar.name = "currentLine";
+		//currentLineVar.value = std::to_string(debugger.currentLine());
+		//currentLineVar.type = "int";
+
+		//dap::VariablesResponse response;
+		//response.variables.push_back(currentLineVar);
 		return response;
 	});
 
@@ -963,7 +1031,7 @@ void TestDebugger()
 	// https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetBreakpoints
 	session->registerHandler([&](const dap::SetBreakpointsRequest& request) {
 		dap::SetBreakpointsResponse response;
-
+		//MessageBox(NULL, "Test", "TEst", MB_OK);
 		auto breakpoints = request.breakpoints.value({});
 		if (request.source.path)//request.source.sourceReference.value(0) == sourceReferenceId) {
 		{
@@ -1043,7 +1111,7 @@ void TestDebugger()
 
 	// Wait for the ConfigurationDone request to be made.
 	configured.wait();
-
+	MessageBox(NULL, "Test", "TEst", MB_OK);
 		// Broadcast the existance of the single thread to the client.
 	dap::ThreadEvent threadStartedEvent;
 	threadStartedEvent.reason = "started";

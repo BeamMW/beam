@@ -42,27 +42,47 @@ void InvokeNext(uint32_t iMethod, void* pArg)
     Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);
 }
 
-static void Func()
+static void Func1(int& a)
 {
-    int a = 0;
-    for (int i = 0; i < 10; ++i)
-    {
-        a = 2 * i;
-    }
+    a *= 2;
+}
+
+static int Func2(int a)
+{
+    uint16_t j = 19;
+    Func1(a);
+    Func1(a);
+    return a + j;
+}
+
+static void Func3(int& a)
+{
+    a = 3 * Func2(a);
 }
 
 export void Ctor(Upgradable::Create& r)
 {
-    Func();
-    Upgradable::State s;
-    _POD_(Cast::Down<Upgradable::Current>(s)) = Cast::Down<Upgradable::Current>(r);
-    ResetNext(s);
+    //Func();
+    //Upgradable::State s;
+    //_POD_(Cast::Down<Upgradable::Current>(s)) = Cast::Down<Upgradable::Current>(r);
+    //ResetNext(s);
 
-    const uint8_t key = Upgradable::State::s_Key;
-    Env::SaveVar_T(key, s);
+    //const uint8_t key = Upgradable::State::s_Key;
+    //Env::SaveVar_T(key, s);
 
-    if (RefManageSafe<true>(r.m_Cid))
-        Env::CallFar(s.m_Cid, 0, &r + 1, 0, 1);
+    //if (RefManageSafe<true>(r.m_Cid))
+    //    Env::CallFar(s.m_Cid, 0, &r + 1, 0, 1);
+    int b = 9;
+    b += 10;
+
+    int g = b;
+
+    int c = g;
+
+    b = g + 12 * c;
+
+    Func3(b);
+
 }
 
 export void Dtor(void* pArg)
