@@ -321,7 +321,7 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AppID, _appId);
             }
 
-            if (_appName.empty())
+            if (!_appName.empty())
             {
                 params.SetParameter(TxParameterID::AppName, _appName);
             }
