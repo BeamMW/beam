@@ -375,8 +375,8 @@ namespace Utils {
             if (m_Alloc >= n)
                 return;
 
-            m_Alloc = std::max(m_Alloc * 2, n);
-            m_Alloc = std::max(m_Alloc, nMinAlloc);
+            n = std::max(n, m_Alloc * 2);
+            n = std::max(n, nMinAlloc);
 
             T* pOld = m_p;
             m_p = (T*) Env::Heap_Alloc(sizeof(T) * n);
