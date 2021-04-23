@@ -588,15 +588,8 @@ namespace
 
     int ChangeAddressExpiration(const po::variables_map& vm)
     {
-        string address = vm[cli::WALLET_ADDR].as<string>();
+        string token = vm[cli::WALLET_ADDR].as<string>();
         string expiration = vm[cli::EXPIRATION_TIME].as<string>();
-        WalletID walletID(Zero);
-        bool allAddresses = address == "*";
-
-        if (!allAddresses)
-        {
-            walletID.FromHex(address);
-        }
 
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
@@ -624,17 +617,27 @@ namespace
         }
 
         auto walletDB = OpenDataBase(vm);
-        if (storage::changeAddressExpiration(*walletDB, walletID, expirationStatus))
+        if (token == "*")
         {
-            if (allAddresses)
+            WalletID zeroID(Zero);
+            if (storage::changeAddressExpiration(*walletDB, zeroID, expirationStatus))
             {
-                LOG_INFO() << boost::format(kAllAddrExprChanged) % expiration;
+                std::cout << boost::format(kAllAddrExprChanged) % expiration << endl;
+            }
+        }
+        else
+        {
+            if (auto address = walletDB->getAddressByToken(token, false))
+            {
+                address->setExpirationStatus(expirationStatus);
+                walletDB->saveAddress(*address);
+
+                std::cout << boost::format(kAddrExprChanged) % token % expiration << endl;
             }
             else
             {
-                LOG_INFO() << boost::format(kAddrExprChanged) % to_string(walletID) % expiration;
+                throw std::runtime_error("Cannot find specified existing address.");
             }
-            return 0;
         }
         return -1;
     }
@@ -735,7 +738,7 @@ namespace
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
-            CreateNewAddress(vm, walletDB, kDefaultAddrLabel);
+            walletDB->generateAndSaveDefaultAddress();
             return 0;
         }
         LOG_ERROR() << kErrorWalletNotCreated;
@@ -796,7 +799,7 @@ namespace
 
                 if (existing->isExpired())
                 {
-                    throw std::runtime_error("Specified exisitng address is already expired");
+                    throw std::runtime_error("Specified existing address is already expired");
                 }
 
                 address = *existing;
@@ -805,9 +808,9 @@ namespace
 
         try 
         {
-            const auto token = GenerateToken(type, address, walletDB, offlineCount);
+            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
-            std::cout << "New address: " << token << std::endl;
+            std::cout << "New address: " << address.m_Address << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -888,44 +891,56 @@ namespace
         return true;
     }
 
+    std::string GetAddressTypeString(const WalletAddress& address)
+    {
+        const auto type = GetTokenType(address.m_Address);
+        switch (type)
+        {
+            case TokenType::Public: return "public offline";
+            case TokenType::MaxPrivacy: return "max privacy";
+            case TokenType::RegularNewStyle: return "regular new style";
+            case TokenType::RegularOldStyle: return "regular old style";
+            case TokenType::Offline: return "offline";
+            default: return "unknown";
+        }
+    }
+
     int ShowAddressList(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 6> columnWidths{ { 20, 70, 70, 8, 20, 21 } };
 
-        // Comment | Address | Identity | Active | Expiration date | Created |
-        cout << boost::format(kAddrListTableHead)
-             % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
-             % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
-             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnIdentity)
-             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnActive)
-             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnExprDate)
-             % boost::io::group(left, setw(columnWidths[5]), kAddrListColumnCreated)
-             << std::endl;
+        if (addresses.empty())
+        {
+            std::cout << "You do not have any addresses.";
+            return 0;
+        }
 
+        std::cout << endl;
         for (const auto& address : addresses)
         {
-            auto comment = address.m_label;
+            std::cout
+                << kAddrListType    << GetAddressTypeString(address) << std::endl
+                << kAddrListComment << address.m_label << std::endl
+                << kAddrListAddress << address.m_Address << std::endl;
 
-            if (comment.length() > columnWidths[0])
+            if (address.m_walletID.IsValid())
             {
-                comment = comment.substr(0, columnWidths[0] - 3) + "...";
+                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
             }
 
-            auto expirationDateText = (address.m_duration == 0)
+            const auto expirationDateText = (address.m_duration == 0)
                 ? cli::EXPIRATION_TIME_NEVER
                 : format_timestamp(kTimeStampFormat3x3, address.getExpirationTime() * 1000, false);
-            auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
-            cout << boost::format(kAddrListTableBody)
-             % boost::io::group(left, setw(columnWidths[0]), comment)
-             % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
-             % boost::io::group(left, setw(columnWidths[2]), std::to_string(address.m_Identity))
-             % boost::io::group(left, boolalpha, setw(columnWidths[3]), !address.isExpired())
-             % boost::io::group(left, setw(columnWidths[4]), expirationDateText)
-             % boost::io::group(left, setw(columnWidths[5]), creationDateText)
-             << std::endl;
+            const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
+
+            std::cout
+                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
+                << kAddrListExprDate << expirationDateText << std::endl
+                << kAddrListCreated  << creationDateText << std::endl
+                << std::endl;
         }
 
         return 0;
@@ -2224,32 +2239,15 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-                bool isPushTx = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                if (isPushTx)
-                {
-                    const auto& ownAddresses = walletDB->getAddresses(true);
-                    auto it = std::find_if(
-                        ownAddresses.begin(), ownAddresses.end(),
-                        [&receiverWalletID] (const WalletAddress& addr)
-                        {
-                            return receiverWalletID == addr.m_walletID;
-                        });
-
-                    if (it != ownAddresses.end())
-                    {
-                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
-                        return -1;
-                    }
-                }
-
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
+                walletDB->saveAddress(senderAddress);
+
                 params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
@@ -2348,7 +2346,7 @@ namespace
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 std::cout << "\tComment: " << comment;
 
-                for (const auto info: spend)
+                for (const auto& info: spend)
                 {
                     auto aid = info.first;
                     auto amount = info.second;
@@ -2807,7 +2805,7 @@ int main_impl(int argc, char* argv[])
             return 0;
         }
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_WARNING);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_INFO);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"

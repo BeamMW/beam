@@ -84,6 +84,7 @@ namespace beam::bvm2 {
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
 		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
+		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 

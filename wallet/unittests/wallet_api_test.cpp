@@ -78,7 +78,7 @@ namespace
         , IWalletApiHandler
     {
     public:
-        WalletApiTest(): WalletApi(*this, boost::none, std::string(), nullptr, nullptr, nullptr, nullptr) {}
+        WalletApiTest(): WalletApi(*this, boost::none, std::string(), std::string(), nullptr, nullptr, nullptr, nullptr) {}
 
         #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };
@@ -263,12 +263,12 @@ namespace
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.value == 12342342);
-                WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+                WALLET_CHECK(data.tokenTo == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
                 WALLET_CHECK(data.assetId && *data.assetId == 1);
 
-                if(data.from)
+                if(data.tokenFrom)
                 {
-                    WALLET_CHECK(to_string(*data.from) == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
+                    WALLET_CHECK(*data.tokenFrom == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
                 }
             }
         };
@@ -319,6 +319,26 @@ namespace
             }
 
             void onHandleInvokeContract(const JsonRpcId& id, const InvokeContract& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
+    void testInvalidProcessInvokeDataJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleProcessInvokeData(const JsonRpcId& id, const ProcessInvokeData& data) override
             {
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
@@ -615,7 +635,7 @@ namespace
             void onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(CheckReceiverAddress(data.address) == _valid);
+                WALLET_CHECK(CheckReceiverAddress(data.token) == _valid);
             }
         private:
             bool _valid;
@@ -1718,6 +1738,18 @@ int main()
             }
         }));
 
+    // non-byte array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": ["a", "b", "c"]
+            }
+        }));
+
     // non-sting contract_file
     testInvalidInvokeContractJsonRpc(JSON_CODE(
          {
@@ -1739,6 +1771,65 @@ int main()
             "params":
             {
                 "contract_file": ""
+            }
+        }));
+
+    // non-bool create_tx
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "create_tx": "NO"
+            }
+        }));
+
+    // missing data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+            }
+        }));
+
+    // non-array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": "data"
+            }
+        }));
+
+    // empty array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": []
+            }
+        }));
+
+    // non-string array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": ["123", "456", "789"]
             }
         }));
 

@@ -56,7 +56,8 @@ namespace beam::wallet
         struct InitData
         {
             ACL acl;
-            std::string appid;
+            std::string appId;
+            std::string appName;
             IShadersManager::Ptr contracts;
             ISwapsProvider::Ptr swaps;
             IWalletDB::Ptr walletDB;
@@ -81,6 +82,30 @@ namespace beam::wallet
             std::string comment;
             std::string token;
             bool spendOffline = true;
+
+            inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Type& val)
+            {
+                if (receive.find(id) == receive.end())
+                {
+                    receive[id] = val;
+                }
+                else
+                {
+                    receive[id] += val;
+                }
+            }
+
+            inline void appendSpend(beam::Asset::ID id, const beam::AmountBig::Type& val)
+            {
+                if (spend.find(id) == spend.end())
+                {
+                    spend[id] = val;
+                }
+                else
+                {
+                    spend[id] += val;
+                }
+            }
         };
 
         struct ApiCallInfo

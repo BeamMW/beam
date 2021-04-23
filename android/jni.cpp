@@ -64,7 +64,7 @@ namespace
     static ECC::NoLeak<ECC::uintBig> passwordHash;
     static beam::wallet::TxParameters _txParameters;
 
-    static uint8_t m_mpLockTimeLimit = 0;
+    static uint8_t m_mpLockTimeLimit = 64;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
@@ -128,16 +128,18 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 {
     LOG_DEBUG() << "getTransactionParameters()";
 
-    auto params = beam::wallet::ParseParameters(JString(env, token).value());
+    auto address = JString(env, token).value();
+    auto params = beam::wallet::ParseParameters(address);
     auto amount = params->GetParameter<Amount>(TxParameterID::Amount);
     auto type = params->GetParameter<TxType>(TxParameterID::TransactionType);
     auto vouchers = params->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
     auto libVersion = params->GetParameter<std::string>(TxParameterID::LibraryVersion);
-    auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
+    //auto storedType = params->GetParameter<TxAddressType>(TxParameterID::AddressType);
+    const auto storedType = GetAddressType(address);
 
     jobject jParameters = env->AllocObject(TransactionParametersClass);		
     {
-             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(*storedType));
+             setIntField(env, TransactionParametersClass, jParameters, "addressType", static_cast<jint>(storedType));
 
             if (auto isPermanentAddress = params->GetParameter<bool>(TxParameterID::IsPermanentPeerID); isPermanentAddress) {
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPermanentAddress", *isPermanentAddress);
@@ -273,7 +275,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto id = JString(env, walletId).value();
 
     WalletID walletID(Zero);
-    if (!walletID.FromHex(JString(env, walletId).value()))
+    if (!walletID.FromHex(id))
     {
         LOG_ERROR() << "walletID is not valid!!!";
         return jstring();
@@ -284,15 +286,30 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     if (lastWalledId.compare(id) != 0) {
         LOG_DEBUG() << "GenerateVoucherList()";
         lastWalledId = id;
-        lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 10);
+        lastVouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
     }
     else
     {
          LOG_DEBUG() << "Skip GenerateVoucherList()";
     }
 
-    auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
-    jstring tokenString = env->NewStringUTF(offlineAddress.c_str());
+    TxParameters offlineParameters;
+    offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+    offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
+    offlineParameters.SetParameter(TxParameterID::PeerID, address->m_walletID);
+    offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
+    offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
+    offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
+    
+    if (bAmount > 0) {
+        offlineParameters.SetParameter(TxParameterID::Amount, bAmount);
+    }
+    
+    auto token = to_string(offlineParameters);
+
+    //auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
+   
+    jstring tokenString = env->NewStringUTF(token.c_str());
     return tokenString;
  }
 
@@ -397,13 +414,10 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
             nodeModel->setKdf(walletDB->get_MasterKdf());
             nodeModel->startNode();
         }
-        
+
         // generate default address
-        WalletAddress address;
-        walletDB->createAddress(address);
-        address.m_label = "default";
-        walletDB->saveAddress(address);
-        
+        walletDB->generateAndSaveDefaultAddress();
+
         if (restore)
         {
             walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
@@ -621,69 +635,44 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         return;
     }
 
-    auto isShieldedTx = false;
-    auto isMaxPrivacy = false;
     auto messageString = JString(env, comment).value();
     uint64_t bAmount = amount;
     uint64_t bfee = fee;
 
     _txParameters = *txParameters;
 
-    beam::PeerID _receiverIdentity = beam::Zero;
-
-    if (auto peerIdentity = _txParameters.GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); peerIdentity) {
-        _receiverIdentity = *peerIdentity;
-    }
-
-    if (auto txType = _txParameters.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
-    {
-        isShieldedTx = true;
-        
-        ShieldedTxo::Voucher voucher;
-        isMaxPrivacy = _txParameters.GetParameter(TxParameterID::Voucher, voucher) && _receiverIdentity != beam::Zero;
-    }
-
     auto params = CreateSimpleTransactionParameters();
+    const auto type = GetAddressType(address);
 
-    auto type = GetAddressType(address);
-    if (type == TxAddressType::Offline)
-    {
-        // TODO: give an opportunity to send offline transactions
-        // By default since v6.0 offline token triggers regular tx, user needs to be given a choice to
-        // send offline in UI
-        type = TxAddressType::Regular;
+    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline)) {
+        if (!LoadReceiverParams(_txParameters, params, type)) {
+            assert(false);
+            return;
+        }
+        CopyParameter(TxParameterID::PeerOwnID, _txParameters, params);
     }
-
-    LoadReceiverParams(_txParameters, params, type);
+    else {
+        if(!LoadReceiverParams(_txParameters, params, TxAddressType::Regular)) {
+            assert(false);
+            return;
+        }
+    }
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
         .SetParameter(beam::wallet::TxParameterID::MyID, m_walletID)
+        .SetParameter(TxParameterID::AssetID, beam::Asset::s_BeamID)
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
-    if (isShieldedTx)
-    {
-        params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-    }
-    if (isMaxPrivacy)
-    {
+    if (type == TxAddressType::MaxPrivacy) {
         CopyParameter(TxParameterID::Voucher, _txParameters, params);
-        params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
-    }
-    if (isShieldedTx)
-    {
-        CopyParameter(TxParameterID::PeerOwnID, _txParameters, params);
+        params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, m_mpLockTimeLimit);
     }
 
-    auto params1 = beam::wallet::ParseParameters(JString(env, receiverAddr).value());
-
-    bool isToken = params1 && params1->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
-   
-    if (isToken)
-    {
-        params.SetParameter(beam::wallet::TxParameterID::OriginalToken, JString(env, receiverAddr).value());
+    if (!beam::wallet::CheckReceiverAddress(address)) {
+        params.SetParameter(TxParameterID::OriginalToken, address);
     }
-
+    params.SetParameter(TxParameterID::OriginalToken, JString(env, receiverAddr).value());
     params.SetParameter(TxParameterID::SavePeerAddress, false);
 
     walletModel->getAsync()->startTransaction(std::move(params));

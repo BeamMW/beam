@@ -195,7 +195,9 @@ class NodeProcessor
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
 
 	void ReadOffset(ECC::Scalar&, uint64_t rowid);
-	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
+	void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
+
+	void ReadKrns(uint64_t rowid, TxVectors::Eternal&);
 
 	void InitCursor(bool bMovingUp);
 	bool InitMapping(const char*, bool bForceReset);
@@ -299,6 +301,27 @@ public:
 
 	} m_Horizon;
 
+#pragma pack (push, 1)
+	struct StateExtra
+	{
+		struct Base {
+			ECC::Scalar m_TotalOffset;
+		};
+
+		struct Comms
+		{
+			Merkle::Hash m_hvCSA;
+			Merkle::Hash m_hvLogs;
+		};
+
+		struct Full
+			:public Base
+			,public Comms
+		{
+		};
+	};
+#pragma pack (pop)
+
 	struct Cursor
 	{
 		// frequently used data
@@ -308,8 +331,12 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-
+		StateExtra::Full m_StateExtra;
+		Merkle::Hash m_hvKernels;
+		bool m_bKernels;
 	} m_Cursor;
+
+	void EnsureCursorKernels();
 
 	struct Extra
 	{
@@ -389,9 +416,26 @@ public:
 
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
 		virtual bool get_Contracts(Merkle::Hash&) override;
+	};
+
+	struct EvaluatorEx
+		:public Evaluator
+	{
+		using Evaluator::Evaluator;
+
+		void set_Kernels(const TxVectors::Eternal&);
+		void set_Logs(const std::vector<Merkle::Hash>&);
+
+		Merkle::Hash m_hvKernels;
+		StateExtra::Comms m_Comms;
+		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
+		virtual bool get_CSA(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
@@ -422,7 +466,10 @@ public:
 		virtual void OnProof(Merkle::Hash&, bool);
 	};
 
+	struct ProofBuilder_PrevState;
+
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
+	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
 
@@ -486,7 +533,7 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
-	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge); // assuming context-free validation is already performed, but 
+	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
 	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);
@@ -774,7 +821,7 @@ public:
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
-	void GenerateNewHdr(BlockContext&);
+	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 };

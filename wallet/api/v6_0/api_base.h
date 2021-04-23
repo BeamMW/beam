@@ -35,7 +35,7 @@ namespace beam::wallet
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid);
+        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname);
 
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
@@ -85,7 +85,8 @@ namespace beam::wallet
 
         std::unordered_map <std::string, Method> _methods;
         ACL _acl;
-        std::string _appid;
+        std::string _appId;
+        std::string _appName;
         IWalletApiHandler& _handler;
 
     private:

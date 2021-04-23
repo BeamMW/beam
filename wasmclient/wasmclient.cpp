@@ -57,12 +57,7 @@ namespace
 
     void GenerateDefaultAddress(IWalletDB::Ptr db)
     {
-        // generate default address
-        WalletAddress address;
-        db->createAddress(address);
-        address.m_label = "default";
-        db->saveAddress(address);
-        LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
+        db->generateAndSaveDefaultAddress();
     }
 
     IWalletDB::Ptr CreateDatabase(const std::string& s, const std::string& dbName, const std::string& pass)

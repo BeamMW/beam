@@ -98,7 +98,6 @@ namespace beam
     extern const char kErrorFileLocationParamReqired[];
     extern const char kErrorConnectionFailed[];
     extern const char kErrorNotEnoughtCoins[];
-    extern const char kErrorCantSendMaxPrivacyToOwn[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
@@ -136,17 +135,17 @@ namespace beam
     // Address
     extern const char kAllAddrExprChanged[];
     extern const char kAddrExprChanged[];
-    extern const char kAddrNewGenerated[];
     extern const char kWalletIdNewGenerated[];
     extern const char kAddrNewGeneratedLabel[];
-    extern const char kAddrListTableHead[];
-    extern const char kAddrListColumnComment[];
-    extern const char kAddrListColumnAddress[];
-    extern const char kAddrListColumnIdentity[];
-    extern const char kAddrListColumnActive[];
-    extern const char kAddrListColumnExprDate[];
-    extern const char kAddrListColumnCreated[];
-    extern const char kAddrListTableBody[];
+    extern const char kAddrListComment[];
+    extern const char kAddrListAddress[];
+    extern const char kAddrListIdentity[];
+    extern const char kAddrListActive[];
+    extern const char kAddrListExprDate[];
+    extern const char kAddrListCreated[];
+    extern const char kAddrListWalletID[];
+    extern const char kAddrListType[];
+
     // Seed phrase
     extern const char kSeedPhraseGeneratedTitle[];
     extern const char kSeedPhraseGeneratedMessage[];
@@ -225,7 +224,6 @@ namespace beam
     extern const char kStartMessage[];
     extern const char kWalletCreatedMessage[];
     extern const char kDefaultAddrLabel[];
-    extern const char kDefaultAddrExpiration[];
     extern const char kWalletOpenedMessage[];
 
     extern const char kNodePoolPeriod[];

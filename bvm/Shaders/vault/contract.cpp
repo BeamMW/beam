@@ -13,7 +13,7 @@ Amount LoadAccount(const Vault::Key& key)
 
 void SaveAccount(const Vault::Key& key, Amount amount)
 {
-    Env::EmitLog(&key, sizeof(key), &amount, sizeof(amount));
+    Env::EmitLog_T(key, amount);
 
     if (amount)
         Env::SaveVar_T(key, amount);

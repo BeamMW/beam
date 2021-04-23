@@ -2523,7 +2523,7 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 
 void NodeDB::UniqueDeleteAll()
 {
-	Recordset rs(*this, Query::UniqueDel, "DELETE FROM " TblUnique);
+	Recordset rs(*this, Query::UniqueDelAll, "DELETE FROM " TblUnique);
 	rs.Step();
 }
 

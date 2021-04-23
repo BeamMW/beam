@@ -864,7 +864,7 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
 
     pTx->Normalize();
 
-    uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, true);
+    uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, true, nullptr);
     if (proto::TxStatus::Ok != nCode)
     {
         Print() << "Send tx failed (" << sz << "), Status=" << static_cast<uint32_t>(nCode);

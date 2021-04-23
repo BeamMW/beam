@@ -215,6 +215,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAddressByToken, token, std::move(callback));
     }
 
+    void deleteAddressByToken(const std::string& token) override
+    {
+        call_async(&IWalletModelAsync::deleteAddressByToken, token);
+    }
+
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
     {
         call_async(&IWalletModelAsync::saveVouchers, v, walletID);
@@ -634,7 +639,7 @@ namespace beam::wallet
         return sp;
     }
 
-    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid)
+    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid, const std::string& appname)
     {
         auto sp = _appsShaders.lock();
         assert(sp != nullptr);
@@ -642,8 +647,8 @@ namespace beam::wallet
         // strictly speaking it is not necessary to proxy to reactor thread
         // in current implementation and calls sequence, but it is safer and
         // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, sp] ()-> boost::any {
-            sp->SetCurrentApp(appid);
+        makeIWTCall([appid, appname, sp] ()-> boost::any {
+            sp->SetCurrentApp(appid, appname);
             return boost::none;
         }, [](const boost::any&){
         });
@@ -1236,6 +1241,21 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::deleteAddressByToken(const std::string& token)
+    {
+        try
+        {
+            m_walletDB->deleteAddressByToken(token);
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
     void WalletClient::updateAddress(const WalletID& wid, const std::string& name, WalletAddress::ExpirationStatus expirationStatus)
     {
         try
@@ -1315,6 +1335,7 @@ namespace beam::wallet
             LOG_UNHANDLED_EXCEPTION();
         }
     }
+
 
     void WalletClient::getAddressByToken(const std::string& token, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback)
     {

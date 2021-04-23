@@ -517,6 +517,8 @@ namespace beam::wallet
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
+        virtual void deleteAddressByToken(const std::string&, bool isLaser = false) = 0;
+        virtual void generateAndSaveDefaultAddress() = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -678,6 +680,8 @@ namespace beam::wallet
         boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const override;
         boost::optional<WalletAddress> getAddressByToken(const std::string&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
+        void deleteAddressByToken(const std::string&, bool isLaser = false) override;
+        void generateAndSaveDefaultAddress() override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -1169,6 +1173,7 @@ namespace beam::wallet
 
     enum class TokenType
     {
+        Unknown = -1,
         RegularOldStyle,
         RegularNewStyle,
         Offline,
@@ -1181,6 +1186,7 @@ namespace beam::wallet
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
     std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
-    std::string GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
+    TokenType GetTokenType(const std::string& token);
 }  // namespace beam::wallet

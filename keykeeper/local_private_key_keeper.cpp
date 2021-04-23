@@ -626,7 +626,7 @@ namespace beam::wallet
         ECC::Oracle oracle;
         oracle << krn1.m_Msg;
 
-        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, oracle, x.m_HideAssetAlways);
+        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, krn.m_Height.m_Min, oracle, x.m_HideAssetAlways);
         krn1.MsgToID();
 
         assert(krn.m_vNested.empty());

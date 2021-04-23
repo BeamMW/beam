@@ -56,6 +56,7 @@ namespace proto {
 		macro(ContractVars,      ContractVarsEnum,     ContractVars) \
 		macro(ContractLogs,      ContractLogsEnum,     ContractLogs) \
 		macro(ContractVar,       GetContractVar,       ContractVar) \
+		macro(ContractLogProof,  GetContractLogProof,  ContractLogProof) \
 		macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
 		macro(BodyPack,          GetBodyPack,          BodyPack) \
 		macro(Body,              GetBodyPack,          Body)

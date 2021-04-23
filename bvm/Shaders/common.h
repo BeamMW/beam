@@ -114,6 +114,12 @@ namespace Env {
         return SaveVar(&key, sizeof(key), nullptr, 0, nType) != 0;
     }
 
+    template <typename TKey, typename TVal>
+    inline uint32_t EmitLog_T(const TKey& key, const TVal& val, uint8_t nType = KeyTag::Internal)
+    {
+        return EmitLog(&key, sizeof(key), &val, sizeof(val), nType);
+    }
+
     inline void Halt_if(bool b)
     {
         if (b)
@@ -198,12 +204,6 @@ namespace Env {
         T m_KeyInContract;
     };
 
-    template <typename T>
-    struct Log_T
-    {
-        ContractID m_Cid;
-        T m_Key;
-    };
 #pragma pack (pop)
 
     template <typename TKey, typename TValue>
@@ -262,6 +262,29 @@ namespace Env {
     }
 
 } // namespace Env
+
+namespace std {
+    
+    template <typename T>
+    T&& move(T& x) {
+        return (T&&) x;
+    }
+
+    template <typename T>
+    void swap(T& a, T& b) {
+        T tmp(move(a));
+        a = move(b);
+        b = move(tmp);
+    }
+
+    template <typename T> const T& min(const T& a, const T& b) {
+        return (a <= b) ? a : b;
+    }
+    template <typename T> const T& max(const T& a, const T& b) {
+        return (a >= b) ? a : b;
+    }
+}
+
 
 namespace Utils {
 
@@ -334,32 +357,49 @@ namespace Utils {
     }
 #endif // HOST_BUILD
 
+    template <typename T, uint32_t nMinAlloc = 16U>
+    struct Vector
+    {
+        T* m_p = nullptr;
+        uint32_t m_Count = 0;
+        uint32_t m_Alloc = 0;
+
+        ~Vector()
+        {
+            if (m_p)
+                Env::Heap_Free(m_p);
+        }
+
+        void Prepare(uint32_t n)
+        {
+            if (m_Alloc >= n)
+                return;
+
+            m_Alloc = std::max(m_Alloc * 2, n);
+            m_Alloc = std::max(m_Alloc, nMinAlloc);
+
+            T* pOld = m_p;
+            m_p = (T*) Env::Heap_Alloc(sizeof(T) * n);
+        
+            if (pOld)
+            {
+                Env::Memcpy(m_p, pOld, sizeof(T) * m_Count);
+                Env::Heap_Free(pOld);
+            }
+        }
+
+        T& emplace_back()
+        {
+            Prepare(m_Count + 1);
+            return m_p[m_Count++];
+        }
+    };
+
+
 } // namespace Utils
 
 template <typename T> Utils::BlobOf<T> _POD_(T& x) {
     return Utils::BlobOf<T>(x);
-}
-
-namespace std {
-    
-    template <typename T>
-    T&& move(T& x) {
-        return (T&&) x;
-    }
-
-    template <typename T>
-    void swap(T& a, T& b) {
-        T tmp(move(a));
-        a = move(b);
-        b = move(tmp);
-    }
-
-    template <typename T> const T& min(const T& a, const T& b) {
-        return (a <= b) ? a : b;
-    }
-    template <typename T> const T& max(const T& a, const T& b) {
-        return (a >= b) ? a : b;
-    }
 }
 
 namespace Cast
@@ -542,6 +582,25 @@ namespace Merkle
 
         hp.Write(cid);
         hp.Write(nKeyTag);
+        hp.Write(pKey, nKey);
+        hp.Write(nVal);
+        hp.Write(pVal, nVal);
+
+        hp >> hv;
+    }
+
+    inline void get_ContractLogHash(HashValue& hv, const ContractID& cid, const void* pKey, uint32_t nKey, const void* pVal, uint32_t nVal, uint32_t nPos)
+    {
+        HashProcessor::Sha256 hp;
+
+        uint32_t nSizeKey = sizeof(cid) + nKey;
+
+        hp
+            << "beam.contract.log"
+            << nPos
+            << nSizeKey;
+
+        hp.Write(cid);
         hp.Write(pKey, nKey);
         hp.Write(nVal);
         hp.Write(pVal, nVal);

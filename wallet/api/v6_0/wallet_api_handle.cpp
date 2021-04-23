@@ -101,7 +101,7 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
         auto all = walletDB->getAddresses(data.own);
 
-        if (_appid.empty())
+        if (_appId.empty())
         {
             return doResponse(id, AddrList::Response{all});
         }
@@ -109,7 +109,7 @@ namespace beam::wallet
         decltype(all) filtered;
         for(const auto& addr: all)
         {
-            if (_appid.empty() || addr.m_category == _appid)
+            if (_appId.empty() || addr.m_category == _appId)
             {
                 filtered.push_back(addr);
             }
@@ -137,30 +137,30 @@ namespace beam::wallet
 
         if (data.comment)    address.setLabel(*data.comment);
         if (data.expiration) address.setExpirationStatus(*data.expiration);
-        if (!_appid.empty()) address.setCategory(_appid);
+        if (!_appId.empty()) address.setCategory(_appId);
 
-        std::string newToken = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
+        address.m_Address = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
         walletDB->saveAddress(address);
 
-        doResponse(id, CreateAddress::Response{newToken});
+        doResponse(id, CreateAddress::Response{address.m_Address});
     }
 
     void WalletApi::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
     {
-        LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
-        auto addr = walletDB->getAddress(data.address);
+        auto addr = walletDB->getAddressByToken(data.token);
 
         if (addr)
         {
-            if (!_appid.empty() && addr->m_category != _appid)
+            if (!_appId.empty() && addr->m_category != _appId)
             {
                 // we do not throw 'NotAllowed' to not to expose that address exists
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
             }
 
-            walletDB->deleteAddress(data.address);
+            walletDB->deleteAddressByToken(data.token);
             doResponse(id, DeleteAddress::Response{});
         }
         else
@@ -171,14 +171,14 @@ namespace beam::wallet
 
     void WalletApi::onHandleEditAddress(const JsonRpcId& id, const EditAddress& data)
     {
-        LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+        LOG_DEBUG() << "EditAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
-        auto addr = walletDB->getAddress(data.address);
+        auto addr = walletDB->getAddressByToken(data.token);
 
         if (addr)
         {
-            if (!_appid.empty() && addr->m_category != _appid)
+            if (!_appId.empty() && addr->m_category != _appId)
             {
                 // we do not throw 'NotAllowed' to not to expose that address exists
                 throw jsonrpc_exception(ApiError::InvalidAddress, kAddrDoesntExistError);
@@ -203,9 +203,9 @@ namespace beam::wallet
 
     void WalletApi::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
     {
-        LOG_DEBUG() << "ValidateAddress( address = " << data.address << ")";
+        LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
 
-        auto p = ParseParameters(data.address);
+        auto p = ParseParameters(data.token);
 
         bool isValid = !!p;
         bool isMine = false;
@@ -240,12 +240,12 @@ namespace beam::wallet
 
     void WalletApi::onHandleSend(const JsonRpcId& id, const Send& data)
     {
-        auto token = data.txParameters.GetParameter<std::string>(beam::wallet::TxParameterID::OriginalToken);
-        LOG_DEBUG() << "Send(id = " << id
+        LOG_DEBUG() << "Send(id = "   << id
                     << " asset_id = " << (data.assetId ? *data.assetId : 0)
-                    << " amount = " << data.value
-                    << " fee = " << data.fee
-                    << " address = " << (token ? *token : std::to_string(data.address))
+                    << " amount = "   << data.value
+                    << " fee = "      << data.fee
+                    << " from = "     << (data.tokenFrom ? *data.tokenFrom: "")
+                    << " address = "  << data.tokenTo
                     << ")";
 
         try
@@ -255,25 +255,31 @@ namespace beam::wallet
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
 
-            if (data.from)
+            if (data.tokenFrom)
             {
-                if (!data.from->IsValid())
+                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
+
+                if (!addr.is_initialized())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender address.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
                 }
 
-                auto addr = walletDB->getAddress(*data.from);
-                if (!addr || !addr->isOwn())
+                if (!addr->m_walletID.IsValid())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "It's not your own address.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
+                }
+
+                if (!addr->isOwn())
+                {
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
                 }
 
                 if (addr->isExpired())
                 {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address is expired.");
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
                 }
 
-                from = *data.from;
+                from = addr->m_walletID;
             }
             else
             {
@@ -298,11 +304,6 @@ namespace beam::wallet
                 throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "Cannot load transaction parameters.");
             }
 
-            if (token)
-            {
-                params.SetParameter(beam::wallet::TxParameterID::OriginalToken, *token);
-            }
-
             if(data.assetId)
             {
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
@@ -312,15 +313,21 @@ namespace beam::wallet
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
-                .SetParameter(TxParameterID::Message, message);
+                .SetParameter(TxParameterID::Message, message)
+                .SetParameter(beam::wallet::TxParameterID::OriginalToken, data.tokenTo);
 
-            if (!_appid.empty())
+            if (!_appId.empty())
             {
-                params.SetParameter(TxParameterID::AppID, _appid);
+                params.SetParameter(TxParameterID::AppID, _appId);
+            }
+
+            if (!_appName.empty())
+            {
+                params.SetParameter(TxParameterID::AppName, _appName);
             }
 
             auto txId = wallet->StartTransaction(params);
-            doResponse(id, Send::Response{ txId });
+            doResponse(id, Send::Response{txId});
         }
         catch(const jsonrpc_exception&)
         {
@@ -821,10 +828,22 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::ContractCompileError, err.what());
         }
 
-        _ccallId = id;
-        std::weak_ptr<bool> wguard = _contractsGuard;
+        if (data.createTx)
+        {
+            onHandleInvokeContractWithTX(id, data);
+        }
+        else
+        {
+            onHandleInvokeContractNoTX(id, data);
+        }
+    }
 
-        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+    void WalletApi::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
+    {
+        std::weak_ptr<bool> wguard = _contractsGuard;
+        auto contracts = getContracts();
+
+        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -838,19 +857,80 @@ namespace beam::wallet
             //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
             //  - this function is called in the reactor context
             //
-            if (error )
+            if (error)
             {
-                return sendError(_ccallId, ApiError::ContractError, *error);
+                return sendError(id, ApiError::ContractError, *error);
             }
 
             InvokeContract::Response response;
             response.output = result ? *result : "";
             response.txid   = txid ? *txid : TxID();
 
-            const auto callid = _ccallId;
-            _ccallId = JsonRpcId();
+            doResponse(id, response);
+        });
+    }
 
-            doResponse(callid, response);
+    void WalletApi::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
+    {
+        std::weak_ptr<bool> wguard = _contractsGuard;
+        auto contracts = getContracts();
+
+        contracts->CallShader(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            //
+            // N.B
+            //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+            //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+            //  - this function is called in the reactor context
+            //
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            InvokeContract::Response response;
+            response.output = std::move(output);
+            response.invokeData = std::move(data);
+
+            doResponse(id, response);
+        });
+    }
+
+    void WalletApi::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
+    {
+        LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
+
+        auto contracts = getContracts();
+        std::weak_ptr<bool> wguard = _contractsGuard;
+
+        contracts->ProcessTxData(data.invokeData, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            if (!txid)
+            {
+                return sendError(id, ApiError::ContractError, "Missing txid");
+            }
+
+            ProcessInvokeData::Response response;
+            response.txid = *txid;
+
+            doResponse(id, response);
         });
     }
 

@@ -308,6 +308,7 @@ namespace beam::wallet
     MACRO(PeerInputs,                      80,  std::vector<Input::Ptr>) \
     MACRO(PeerOutputs,                     81,  std::vector<Output::Ptr>) \
     MACRO(TransactionRegistered,           90,  uint8_t) \
+    MACRO(TransactionRegisteredExtraInfo,  91,  std::string) \
     MACRO(FailureReason,                   92,  TxFailureReason) \
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \
@@ -381,6 +382,7 @@ namespace beam::wallet
         InputCoinsShielded = 185,
         Outputs = 190,
         AppID = 191,
+        AppName = 192,
 
         Kernel = 200,
         PreImage = 201,
@@ -812,6 +814,7 @@ namespace beam::wallet
 
     extern bool g_AssetsEnabled; // global flag
     TxFailureReason CheckAssetsEnabled(Height h);
+    bool isFork3(Height h);
 
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
     ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);

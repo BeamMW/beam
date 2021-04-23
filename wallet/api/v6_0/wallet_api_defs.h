@@ -18,6 +18,7 @@
 #include "api_base.h"
 #include "api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "bvm/invoke_data.h"
 
 namespace beam::wallet
 {
@@ -64,7 +65,7 @@ namespace beam::wallet
     macro(TxDelete,              "tx_delete",               API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(GetUtxo,               "get_utxo",                API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED)   \
     macro(TxList,                "tx_list",                 API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
-    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED /* TODO:enabled only for tests*/)   \
+    macro(WalletStatusApi,       "wallet_status",           API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED)   \
     macro(GenerateTxId,          "generate_tx_id",          API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(ExportPaymentProof,    "export_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(VerifyPaymentProof,    "verify_payment_proof",    API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
@@ -72,6 +73,7 @@ namespace beam::wallet
     macro(SetConfirmationsCount, "set_confirmations_count", API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
     macro(GetConfirmationsCount, "get_confirmations_count", API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
+    macro(ProcessInvokeData,     "process_invoke_data",     API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)   \
     SWAP_OFFER_API_METHODS(macro) \
     WEB_WALLET_API_METHODS(macro)
@@ -112,27 +114,25 @@ namespace beam::wallet
 
         struct Response
         {
-            std::string address;
+            std::string token;
         };
     };
 
     struct DeleteAddress
     {
-        WalletID address;
-
+        std::string token;
         struct Response {};
     };
 
     struct EditAddress : AddressData
     {
-        WalletID address;
-
+        std::string token;
         struct Response {};
     };
 
     struct AddrList
     {
-        bool own;
+        bool own = false;
 
         struct Response
         {
@@ -142,7 +142,7 @@ namespace beam::wallet
 
     struct ValidateAddress
     {
-        std::string address;
+        std::string token;
 
         struct Response
         {
@@ -155,14 +155,17 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        boost::optional<CoinIDList> coins;
-        boost::optional<WalletID> from;
-        boost::optional<TxID> txId;
-        boost::optional<Asset::ID> assetId;
-        WalletID address;
+
+        std::string tokenTo;
         std::string comment;
+
         TxParameters txParameters;
         TxAddressType addressType = TxAddressType::Unknown;
+
+        boost::optional<std::string> tokenFrom;
+        boost::optional<CoinIDList>  coins;
+        boost::optional<TxID>        txId;
+        boost::optional<Asset::ID>   assetId;
 
         struct Response
         {
@@ -374,10 +377,21 @@ namespace beam::wallet
     {
         std::vector<uint8_t> contract;
         std::string args;
+        bool createTx = true;
 
         struct Response
         {
-            std::string output;
+            boost::optional<std::string> output;
+            boost::optional<beam::ByteBuffer> invokeData;
+            boost::optional<TxID> txid = TxID();
+        };
+    };
+
+    struct ProcessInvokeData
+    {
+        beam::ByteBuffer invokeData;
+        struct Response
+        {
             TxID txid = TxID();
         };
     };
@@ -447,7 +461,7 @@ namespace beam::wallet
     struct CreateOffer : public OfferInput
     {
         CreateOffer() = default;
-        CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
+        explicit CreateOffer(const OfferInput& oi) : OfferInput(oi) {}
         struct Response
         {
             std::vector<WalletAddress> addrList;
