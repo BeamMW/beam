@@ -2752,16 +2752,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 	Merkle::Hash hvDef;
 	ev.m_Height++;
-	ev.get_Definition(hvDef);
 
 	bool bPastFork3 = (sid.m_Height >= Rules::get().pForks[3].m_Height);
+	bool bPastFastSync = (sid.m_Height >= m_SyncData.m_TxoLo);
+	bool bDefinition = bPastFork3 || bPastFastSync;
+
+	if (bDefinition)
+		ev.get_Definition(hvDef);
 
 	if (bFirstTime && bOk)
 	{
-		if (bPastFork3 || (sid.m_Height >= m_SyncData.m_TxoLo))
+		if (bDefinition)
 		{
 			// check the validity of state description.
-
 			if (s.m_Definition != hvDef)
 			{
 				LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
@@ -2771,11 +2774,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (bPastFork3)
 		{
-			get_Utxos().get_Hash(hvDef);
-			if (s.m_Kernels != hvDef)
+			if (bPastFastSync)
 			{
-				LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
-				bOk = false;
+				get_Utxos().get_Hash(hvDef);
+				if (s.m_Kernels != hvDef)
+				{
+					LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+					bOk = false;
+				}
 			}
 		}
 		else
@@ -2814,7 +2820,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		m_Cursor.m_bKernels = true;
 
 		AdjustOffset(m_Cursor.m_StateExtra.m_TotalOffset, block.m_Offset, true);
-		Cast::Down<StateExtra::Comms>(m_Cursor.m_StateExtra) = ev.m_Comms;
+
+		StateExtra::Comms& comms = m_Cursor.m_StateExtra; // downcast
+		if (bDefinition)
+			comms = ev.m_Comms;
+		else
+		{
+			assert(!bPastFork3);
+			ZeroObject(comms);
+		}
 
 		Blob blobExtra;
 		blobExtra.p = &m_Cursor.m_StateExtra;
