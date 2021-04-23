@@ -1,6 +1,6 @@
 ////////////////////////
-#include "../common.h"
-#include "contract.h"
+#include "Shaders/common.h"
+#include "test_contract.h"
 
 template <bool bAdd>
 bool RefManageSafe(const ContractID& cid)
@@ -42,8 +42,18 @@ void InvokeNext(uint32_t iMethod, void* pArg)
     Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);
 }
 
+static void Func()
+{
+    int a = 0;
+    for (int i = 0; i < 10; ++i)
+    {
+        a = 2 * i;
+    }
+}
+
 export void Ctor(Upgradable::Create& r)
 {
+    Func();
     Upgradable::State s;
     _POD_(Cast::Down<Upgradable::Current>(s)) = Cast::Down<Upgradable::Current>(r);
     ResetNext(s);
