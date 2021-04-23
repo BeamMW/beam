@@ -78,8 +78,9 @@ namespace
 
 namespace beam
 {
-    NodeClient::NodeClient(INodeClientObserver* observer)
-        : m_observer(observer)
+    NodeClient::NodeClient(const Rules& rules, INodeClientObserver* observer)
+        : m_rules(rules)
+        , m_observer(observer)
         , m_shouldStartNode(false)
         , m_shouldTerminateModel(false)
         , m_isRunning(false)
@@ -156,7 +157,7 @@ namespace beam
             try
             {
                 removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
-
+                Rules::Scope scopeRules(m_rules);
                 auto reactor = io::Reactor::create();
                 m_reactor = reactor;// store weak ref
                 io::Reactor::Scope scope(*reactor);
@@ -208,10 +209,11 @@ namespace beam
             {
                 LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
             }
-            catch (...)
-            {
-                LOG_UNHANDLED_EXCEPTION();
-            }
+            // commented intentionally to be able to catch crash
+            //catch (...)
+            //{
+            //    LOG_UNHANDLED_EXCEPTION();
+            //}
 
             m_observer->onNodeThreadFinished();
         });

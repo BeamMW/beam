@@ -15,8 +15,7 @@
 #pragma once
 
 #include "proto.h"
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
+#include "../utility/containers.h"
 #include <boost/intrusive_ptr.hpp>
 
 namespace beam {
@@ -30,25 +29,37 @@ namespace proto {
 		template <> struct ExtraData<proto::Events> {
 			uint32_t m_Max = proto::Event::s_Max;
 		};
+
+		template <> struct ExtraData<proto::HdrPack>
+		{
+			std::vector<Block::SystemState::Full> m_vStates;
+
+			bool DecodeAndCheck(const HdrPack& msg);
+		};
 	}
 
 	struct FlyClient
 	{
 #define REQUEST_TYPES_All(macro) \
-		macro(Utxo,              GetProofUtxo,          ProofUtxo) \
-		macro(Kernel,            GetProofKernel,        ProofKernel) \
-		macro(Kernel2,           GetProofKernel2,       ProofKernel2) \
-		macro(Events,            GetEvents,             Events) \
-		macro(Transaction,       NewTransaction,        Status) \
-		macro(ShieldedList,      GetShieldedList,       ShieldedList) \
-		macro(ProofShieldedInp,  GetProofShieldedInp,   ProofShieldedInp) \
-		macro(ProofShieldedOutp, GetProofShieldedOutp,  ProofShieldedOutp) \
-		macro(BbsMsg,            BbsMsg,                Pong) \
-		macro(Asset,             GetProofAsset,         ProofAsset) \
-		macro(StateSummary,      GetStateSummary,       StateSummary) \
-		macro(ShieldedOutputsAt, GetShieldedOutputsAt,  ShieldedOutputsAt) \
-		macro(BodyPack,          GetBodyPack,           BodyPack) \
-		macro(Body,              GetBodyPack,           Body)
+		macro(Utxo,              GetProofUtxo,         ProofUtxo) \
+		macro(Kernel,            GetProofKernel,       ProofKernel) \
+		macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
+		macro(Events,            GetEvents,            Events) \
+		macro(Transaction,       NewTransaction,       Status) \
+		macro(ShieldedList,      GetShieldedList,      ShieldedList) \
+		macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
+		macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
+		macro(BbsMsg,            BbsMsg,               Pong) \
+		macro(Asset,             GetProofAsset,        ProofAsset) \
+		macro(StateSummary,      GetStateSummary,      StateSummary) \
+		macro(EnumHdrs,          EnumHdrs,             HdrPack) \
+		macro(ContractVars,      ContractVarsEnum,     ContractVars) \
+		macro(ContractLogs,      ContractLogsEnum,     ContractLogs) \
+		macro(ContractVar,       GetContractVar,       ContractVar) \
+		macro(ContractLogProof,  GetContractLogProof,  ContractLogProof) \
+		macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
+		macro(BodyPack,          GetBodyPack,          BodyPack) \
+		macro(Body,              GetBodyPack,          Body)
 
 		class Request
 		{
@@ -140,12 +151,9 @@ namespace proto {
 			};
 
 			struct RequestList
-				:public boost::intrusive::list<RequestNode>
+				:public intrusive::list_autoclear<RequestNode>
 			{
-				void Delete(RequestNode& n);
 				void Finish(RequestNode& n);
-				void Clear();
-				~RequestList() { Clear(); }
 			};
 			
 			RequestList m_lst; // idle
@@ -185,6 +193,7 @@ namespace proto {
 				void PostChainworkProof(const StateArray&, Height hLowHeight);
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
+				Request& get_FirstRequest();
 				void OnFirstRequestDone(bool bStillSupported);
 
 				io::Timer::Ptr m_pTimer;
@@ -235,8 +244,8 @@ namespace proto {
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
 				virtual void OnMsg(proto::BbsMsg&& msg) override;
 				virtual void OnMsg(proto::EventsSerif&& msg) override;
+				virtual void OnMsg(proto::DataMissing&& msg) override;
 				virtual void OnMsg(PeerInfo&& msg) override;
-				virtual void OnMsg(DataMissing&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
 				bool IsSupported(Request##type&); \
@@ -263,6 +272,7 @@ namespace proto {
 			// more events
 			virtual void OnNodeConnected(bool) {}
 			virtual void OnConnectionFailed(const NodeConnection::DisconnectReason&) {}
+			virtual void OnLoginSetup(Login& msg) {}
 		};
 	};
 

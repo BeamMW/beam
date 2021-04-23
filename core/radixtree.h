@@ -15,7 +15,6 @@
 #pragma once
 
 #include "block_crypt.h"
-#include "mapped_file.h"
 
 namespace beam
 {
@@ -365,70 +364,6 @@ protected:
 
 	void PushIDRaw(TxoID, MyLeaf::IDQueue&);
 	TxoID PopIDRaw(MyLeaf::IDQueue&);
-};
-
-class UtxoTreeMapped
-	:public UtxoTree
-{
-	MappedFile m_Mapping;
-
-	struct Type {
-		enum Enum {
-			Leaf,
-			Joint,
-			Queue,
-			Node,
-			count
-		};
-	};
-
-protected:
-
-	template <typename T>
-	T* Allocate(Type::Enum eType)
-	{
-		return (T*) m_Mapping.Allocate(eType, sizeof(T));
-
-	}
-
-	virtual intptr_t get_Base() const override;
-
-	virtual Leaf* CreateLeaf() override;
-	virtual void DeleteEmptyLeaf(Leaf*) override;
-	virtual Joint* CreateJoint() override;
-	virtual void DeleteJoint(Joint*) override;
-
-	virtual MyLeaf::IDQueue* CreateIDQueue() override;
-	virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
-	virtual MyLeaf::IDNode* CreateIDNode() override;
-	virtual void DeleteIDNode(MyLeaf::IDNode*) override;
-
-public:
-
-	virtual void OnDirty() override;
-
-	typedef Merkle::Hash Stamp;
-
-	~UtxoTreeMapped() { Close(); }
-
-	bool Open(const char* sz, const Stamp&);
-	bool IsOpen() const { return m_Mapping.get_Base() != nullptr; }
-
-	void Close();
-	void FlushStrict(const Stamp&);
-
-	void EnsureReserve();
-
-#pragma pack(push, 1)
-	struct Hdr
-	{
-		MappedFile::Offset m_Root;
-		MappedFile::Offset m_Dirty; // boolean, just aligned
-		Stamp m_Stamp;
-	};
-#pragma pack(pop)
-
-	Hdr& get_Hdr();
 };
 
 } // namespace beam

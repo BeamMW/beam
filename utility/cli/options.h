@@ -31,6 +31,7 @@ namespace beam
         extern const char* STRATUM_PORT;
         extern const char* STRATUM_SECRETS_PATH;
         extern const char* STRATUM_USE_TLS;
+        extern const char* WEBSOCKET_PORT;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
@@ -70,6 +71,7 @@ namespace beam
         extern const char* PRINT_TXO;
         extern const char* PRINT_ROLLBACK_STATS;
         extern const char* MANUAL_ROLLBACK;
+        extern const char* MANUAL_SELECT;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;
@@ -99,6 +101,7 @@ namespace beam
         extern const char* NEW_ADDRESS_COMMENT;
         extern const char* EXPIRATION_TIME;
         extern const char* TX_HISTORY;
+        extern const char* UTXO_LIST;
         extern const char* TX_ID;
         extern const char* SEED_PHRASE;
         extern const char* IGNORE_DICTIONARY;
@@ -107,6 +110,8 @@ namespace beam
         extern const char* FEE_FULL;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
+        extern const char* LOG_ERROR;
+        extern const char* LOG_WARNING;
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
@@ -145,6 +150,8 @@ namespace beam
         extern const char* PROXY_USE;
         extern const char* PROXY_ADDRESS;
         extern const char* ALLOWED_ORIGIN;
+        extern const char* BLOCK_DETAILS;
+        extern const char* BLOCK_HEIGHT;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;
@@ -154,6 +161,7 @@ namespace beam
         extern const char* ETH_SWAP_AMOUNT;
         // values
         extern const char* EXPIRATION_TIME_24H;
+        extern const char* EXPIRATION_TIME_AUTO;
         extern const char* EXPIRATION_TIME_NEVER;
         extern const char* EXPIRATION_TIME_NOW;
         // laser
@@ -184,6 +192,7 @@ namespace beam
         extern const char* API_TLS_REJECT_UNAUTHORIZED;
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
+        extern const char* API_VERSION;
 
         // treasury
         extern const char* TR_OPCODE;
@@ -196,6 +205,7 @@ namespace beam
 
         // ui
         extern const char* APPDATA_PATH;
+        extern const char* APPS_REMOTE_DEBUG_PORT;
 
         // assets
         extern const char* ASSET_ISSUE;
@@ -205,7 +215,6 @@ namespace beam
         extern const char* ASSET_UNREGISTER;
         extern const char* ASSET_ID;
         extern const char* ASSET_METADATA;
-        extern const char* ASSETS;
         extern const char* WITH_ASSETS;
 
         // broadcaster
@@ -220,14 +229,17 @@ namespace beam
         extern const char* EXCHANGE_UNIT;
 
         // lelantus
-        extern const char* INSERT_TO_POOL;
-        extern const char* EXTRACT_FROM_POOL;
-        extern const char* SHIELDED_UTXOS;
-        extern const char* SHIELDED_ID;
         extern const char* MAX_PRIVACY_ADDRESS;
-        extern const char* OFFLINE_ADDRESS;
+        extern const char* OFFLINE_COUNT;
         extern const char* PUBLIC_OFFLINE;
         extern const char* ENABLE_LELANTUS;
+        extern const char* SEND_OFFLINE;
+
+        // shaders
+        extern const char* SHADER_INVOKE;
+        extern const char* SHADER_ARGS;
+        extern const char* SHADER_BYTECODE_APP;
+        extern const char* SHADER_BYTECODE_CONTRACT;
     }
 
     enum OptionsFlag : int

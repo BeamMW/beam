@@ -16,7 +16,7 @@ target_sources(keykeeper
         remote_key_keeper.cpp
 )
 
-if(EMSCRIPTEN)
+if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     target_compile_definitions(keykeeper PUBLIC EMSCRIPTEN)
     target_link_libraries(keykeeper PRIVATE secp256k1)
     target_include_directories(keykeeper PUBLIC 

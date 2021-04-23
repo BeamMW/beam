@@ -35,7 +35,6 @@ namespace beam::wallet
 
     private:
         AssetUnregisterTransaction(const TxContext& context);
-        TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
@@ -48,7 +47,6 @@ namespace beam::wallet
             KernelConfirmation,
             Finalizing
         };
-        State GetState() const;
 
     private:
         struct MyBuilder;

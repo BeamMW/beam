@@ -42,7 +42,7 @@
 #include <sstream>
 
 #ifdef WIN32
-#	include <winsock2.h>
+#	include <WinSock2.h>
 #endif // WIN32
 
 #ifndef BEAM_VERIFY
@@ -108,14 +108,14 @@ namespace Cast
 	template <typename TT, typename T> inline TT& Up(T& x)
 	{
 		TT& ret = (TT&) x;
-		T& unused = ret; unused;
+		[[maybe_unused]] T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT* Up(T* p)
 	{
 		TT* ret = (TT*) p;
-		T* unused = ret; unused;
+		[[maybe_unused]] T* unused = ret;
 		return ret;
 	}
 
@@ -135,6 +135,14 @@ namespace Cast
 	{
 		return x;
 	}
+
+	template <typename TT, typename T> inline TT& Reinterpret(T& x)
+	{
+		// type are unrelated. But must have the same size
+		static_assert(sizeof(TT) == sizeof(T));
+		return (TT&)x;
+	}
+
 } // namespace Cast
 
 

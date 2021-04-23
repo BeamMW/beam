@@ -11,6 +11,7 @@ target_sources(wallet
         base_transaction.cpp
         base_tx_builder.cpp
         simple_transaction.cpp
+        contract_transaction.cpp
         strings_resources.cpp
         wallet_network.cpp
         node_network.cpp
@@ -19,7 +20,9 @@ target_sources(wallet
         bbs_miner.cpp
         version.cpp
         exchange_rate.cpp
+        currency.cpp
         assets_utils.cpp
+        dex.cpp
     PUBLIC
         common.h
         default_peers.h
@@ -30,12 +33,14 @@ target_sources(wallet
         base_transaction.h
         private_key_keeper.h
         private_key_keeper.cpp
+        contracts/shaders_manager.cpp
 )
 
 target_link_libraries(wallet 
     PUBLIC
         core
         keykeeper
+        bvm
         node
     PRIVATE
         sqlite

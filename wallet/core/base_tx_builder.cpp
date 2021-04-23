@@ -29,17 +29,6 @@
 #include <numeric>
 #include "utility/logger.h"
 
-namespace Cast
-{
-    template <typename TT, typename T> inline TT& Reinterpret(T& x)
-    {
-        // type are unrelated. But must have the same size
-        static_assert(sizeof(TT) == sizeof(T));
-        return (TT&) x;
-    }
-
-}
-
 namespace beam::wallet
 {
     using namespace ECC;
@@ -120,7 +109,7 @@ namespace beam::wallet
 
     ///////////////////////////////////////
     // BaseTxBuilder::Coins
-    void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, Key::IKdf::Ptr& pMasterKdf) const
+    void BaseTxBuilder::Coins::AddOffset(ECC::Scalar::Native& kOffs, const Key::IKdf::Ptr& pMasterKdf) const
     {
         ECC::Scalar::Native sk;
         for (const CoinID& cid : m_Input)
@@ -153,18 +142,12 @@ namespace beam::wallet
     BaseTxBuilder::Balance::Balance(BaseTxBuilder& b)
         :m_Builder(b)
     {
-        for (const auto& cid : b.m_Coins.m_Input)
-            Add_(cid, false);
-
-        for (const auto& cid : b.m_Coins.m_Output)
-            Add_(cid, true);
-
-        for (const auto& si : b.m_Coins.m_InputShielded)
-            Add_(si);
     }
 
-    void BaseTxBuilder::Balance::Add_(const Coin::ID& cid, bool bOutp)
+    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
     {
+        (bOutp ? m_Builder.m_Coins.m_Output : m_Builder.m_Coins.m_Input).push_back(cid);
+
         Entry& x = m_Map[cid.m_AssetID];
         if (bOutp)
             x.m_Value -= cid.m_Value;
@@ -172,31 +155,21 @@ namespace beam::wallet
             x.m_Value += cid.m_Value;
     }
 
-    void BaseTxBuilder::Balance::Add_(const IPrivateKeyKeeper2::ShieldedInput& si)
+    void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
     {
+        m_Builder.m_Coins.m_InputShielded.push_back(si);
+
         m_Map[si.m_AssetID].m_Value += si.m_Value;
         m_Map[0].m_Value -= si.m_Fee;
     }
 
-    void BaseTxBuilder::Balance::Add(const Coin::ID& cid, bool bOutp)
-    {
-        Add_(cid, bOutp);
-        (bOutp ? m_Builder.m_Coins.m_Output : m_Builder.m_Coins.m_Input).push_back(cid);
-    }
-
-    void BaseTxBuilder::Balance::Add(const IPrivateKeyKeeper2::ShieldedInput& si)
-    {
-        Add_(si);
-        m_Builder.m_Coins.m_InputShielded.push_back(si);
-    }
-
     void BaseTxBuilder::Balance::Add(const ShieldedTxo::ID& sid)
     {
-        Transaction::FeeSettings fs;
+        auto& fs = Transaction::FeeSettings::get(m_Builder.m_Height.m_Min);
 
         IPrivateKeyKeeper2::ShieldedInput si;
         Cast::Down<ShieldedTxo::ID>(si) = sid;
-        si.m_Fee = fs.m_Kernel + fs.m_ShieldedInput; // auto-fee for shielded inputs
+        si.m_Fee = fs.m_ShieldedInputTotal; // auto-fee for shielded inputs
         Add(si);
     }
 
@@ -222,8 +195,16 @@ namespace beam::wallet
 
     void BaseTxBuilder::Balance::CompleteBalance()
     {
-        uint32_t nNeedInputs = 0;
+        std::set<Asset::ID> setRcv; // those auto-created coins should be 'Regular' instead of 'Change'
+        for (const auto& v : m_Map)
+        {
+            if (v.second.m_Value > 0)
+                setRcv.insert(v.first);
+        }
 
+        AddPreselected();
+
+        uint32_t nNeedInputs = 0;
         for (const auto& v : m_Map)
         {
             if (v.second.m_Value < 0)
@@ -238,7 +219,8 @@ namespace beam::wallet
             // go by asset type in reverse order, to reach the def asset last
             for (auto it = m_Map.rbegin(); m_Map.rend() != it; it++)
             {
-                if (it->second.m_Value >= 0)
+                AmountSigned& val = it->second.m_Value;
+                if (val >= 0)
                     continue;
 
                 uint32_t nShieldedMax = Rules::get().Shielded.MaxIns;
@@ -253,11 +235,10 @@ namespace beam::wallet
                 nShieldedMax = (nShieldedMax + nNeedInputs - 1) / nNeedInputs; // leave some reserve to other assets
 
                 Asset::ID aid = it->first;
-                AmountSigned& val = it->second.m_Value;
 
                 std::vector<Coin> vSelStd;
                 std::vector<ShieldedCoin> vSelShielded;
-                m_Builder.m_Tx.GetWalletDB()->selectCoins2(-val, aid, vSelStd, vSelShielded, nShieldedMax, true);
+                m_Builder.m_Tx.GetWalletDB()->selectCoins2(m_Builder.m_Height.m_Min, -val, aid, vSelStd, vSelShielded, nShieldedMax, true);
 
                 for (const auto& c : vSelStd)
                     Add(c.m_ID, false);
@@ -283,8 +264,16 @@ namespace beam::wallet
 
         for (const auto& v : m_Map)
         {
-            if (v.second.m_Value > 0)
-                CreateOutput(v.second.m_Value, v.first, Key::Type::Change);
+            AmountSigned val = v.second.m_Value;
+            assert(val >= 0);
+
+            if (val > 0)
+            {
+                Asset::ID aid = v.first;
+
+                bool bRcv = setRcv.end() != setRcv.find(aid);
+                CreateOutput(val, aid, bRcv ? Key::Type::Regular : Key::Type::Change);
+            }
 
             assert(!v.second.m_Value);
         }
@@ -312,19 +301,20 @@ namespace beam::wallet
         GetParameter(TxParameterID::OutputCoins, m_Coins.m_Output);
 
         m_pTransaction = std::make_shared<Transaction>();
+        auto& trans = *m_pTransaction; // alias
 
-        GetParameter(TxParameterID::Inputs, m_pTransaction->m_vInputs);
-        GetParameter(TxParameterID::InputsShielded, m_pTransaction->m_vKernels);
-        GetParameter(TxParameterID::Outputs, m_pTransaction->m_vOutputs);
+        GetParameter(TxParameterID::Inputs, trans.m_vInputs);
+        GetParameter(TxParameterID::ExtraKernels, trans.m_vKernels);
+        GetParameter(TxParameterID::Outputs, trans.m_vOutputs);
 
-        if (!GetParameter(TxParameterID::Offset, m_pTransaction->m_Offset))
-            m_pTransaction->m_Offset = Zero;
+        if (!GetParameter(TxParameterID::Offset, trans.m_Offset))
+            trans.m_Offset = Zero;
 
         GetParameter(TxParameterID::MaxHeight, m_Height.m_Max);
         GetParameter(TxParameterID::Fee, m_Fee);
 
-        bool bEmpty = m_pTransaction->m_vInputs.empty() && m_pTransaction->m_vOutputs.empty() && m_pTransaction->m_vKernels.empty();
-        m_GeneratingInOuts = bEmpty ? Stage::None : Stage::Done;
+        bool bNoInOuts = trans.m_vInputs.empty() && trans.m_vOutputs.empty() && !wallet::GetShieldedInputsNum(trans.m_vKernels);
+        m_GeneratingInOuts = bNoInOuts ? Stage::None : Stage::Done;
 
         GetParameter(TxParameterID::MutualTxState, m_Status);
 
@@ -335,7 +325,7 @@ namespace beam::wallet
             AddKernel(std::move(pKrn));
 
             if (Status::FullTx == m_Status)
-                m_pTransaction->NormalizeE(); // everything else must have already been normalized
+                trans.NormalizeE(); // everything else must have already been normalized
         }
     }
 
@@ -592,7 +582,7 @@ namespace beam::wallet
             wr.m_p0 = &v.front();
 
 
-        SetParameter(TxParameterID::InputsShielded, wr);
+        SetParameter(TxParameterID::ExtraKernels, wr);
 
     }
 
@@ -737,6 +727,7 @@ namespace beam::wallet
         m_Lst.m_vec.swap(msg.m_Items);
 
         m_Method.m_pList = &m_Lst;
+        m_Method.m_pKernel->m_NotSerialized.m_hvShieldedState = msg.m_State1;
 
         m_Method.m_pKernel->m_Height = b.m_Height;
         m_Method.m_pKernel->m_WindowEnd = m_Wnd0 + nItems;
@@ -905,14 +896,14 @@ namespace beam::wallet
                 feeInps += si.m_Fee; // account for shielded inputs, they carry their fee individually
 
             TxStats ts;
-            ts.m_Outputs = m_Coins.m_Output.size();
-            ts.m_InputsShielded = m_Coins.m_InputShielded.size();
-            ts.m_Kernels = 1 + m_Coins.m_InputShielded.size();
+            ts.m_Outputs = static_cast<uint32_t>(m_Coins.m_Output.size());
+            ts.m_InputsShielded = static_cast<uint32_t>(m_Coins.m_InputShielded.size());
+            ts.m_Kernels = 1 + static_cast<uint32_t>(m_Coins.m_InputShielded.size());
 
             if (pFromPeer)
                 ts += *pFromPeer;
 
-            Transaction::FeeSettings fs;
+            auto& fs = Transaction::FeeSettings::get(m_Height.m_Min);
             Amount minFee = fs.Calculate(ts);
 
             if (m_Fee + feeInps < minFee)

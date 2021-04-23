@@ -16,7 +16,7 @@ public:
     SecString(const SecString&) = delete;
     SecString& operator=(const SecString&) = delete;
 
-    SecString(SecString&& ss) {
+    SecString(SecString&& ss) noexcept {
         assign(ss);
     }
 
@@ -24,7 +24,7 @@ public:
         assign(static_cast<const void*>(sv.data()), sv.size());
     }
 
-    SecString& operator=(SecString&& ss) {
+    SecString& operator=(SecString&& ss) noexcept {
         assign(ss);
         return *this;
     }

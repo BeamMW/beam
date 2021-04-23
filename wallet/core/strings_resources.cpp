@@ -38,7 +38,7 @@ namespace beam
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
     const char kErrorUnknownTxStatus[] = "Unknown transaction status";
     const char kErrorUnknownTxType[] = "Unknown transaction type";
-    const char kErrorUnknownSwapCoin[] = "Unknow SwapCoin";
+    const char kErrorUnknownSwapCoin[] = "Unknown SwapCoin";
     const char kErrorInvalidWID[] = "invalid WID";
     const char kErrorTreasuryBadN[] = "bad n (roundoff)";
     const char kErrorTreasuryBadM[] = "bad m/n";
@@ -63,9 +63,7 @@ namespace beam
     const char kErrorNegativeAmount[] = "Unable to send negative (%1%) amount of coins";
     const char kErrorTooBigAmount[] = "Amount %1% is too big. Maximum supported amount is %2%.";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
-    const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
-    const char kErrorFeeForShieldedToLow[] = "Failed to initiate the send operation. This transaction will spend shielded coins. The minimum fee is %1% GROTH.";
-    const char kErrorFeeForShieldedOutToLow[] = "Failed to initiate the send operation. This is max privacy transaction. The minimum fee is %1% GROTH.";
+    const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is %1% GROTH.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
     const char kErrorSwapWalletAddrNotResolved[] = "unable to resolve swap wallet address: %1%";
     const char kErrorSwapWalletAddrUnspecified[] = "swap wallet address should be specified";
@@ -98,8 +96,7 @@ namespace beam
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
-    const char kErrorNotEnoughtCoins[] = "Not enought coins for this transaction parameters";
-    const char kErrorCantSendMaxPrivacyToOwn[] = "Can not sent max privacy transaction to own address";
+    const char kErrorNotEnoughtCoins[] = "Not enough coins for these transaction parameters";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -114,7 +111,7 @@ namespace beam
     const char kSwapTxStatusSendingBeamRefundTX[] = "sending Beam RefundTX";
     const char kSwapTxStatusSendingBeamRedeemTX[] = "sending Beam RedeemTX";
     const char kSwapTxStatusCompleted[] = "completed";
-    const char kSwapTxStatusCancelled[] = "cancelled";
+    const char kSwapTxStatusCancelled[] = "canceled";
     const char kSwapTxStatusAborted[] = "aborted";
     const char kSwapTxStatusFailed[] = "failed";
     const char kSwapTxStatusExpired[] = "expired";
@@ -140,16 +137,17 @@ namespace beam
     // Address
     const char kAllAddrExprChanged[] = "Expiration for all addresses  was changed to \"%1%\".";
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
-    const char kAddrNewGenerated[] = "New address generated:\n\n%1%\n";
+    const char kWalletIdNewGenerated[] = "New WalletID (SBBS address) generated: %1%";
     const char kAddrNewGeneratedLabel[] = "comment = %1%";
-    const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%|%6%";
-    const char kAddrListColumnComment[] = "comment";
-    const char kAddrListColumnAddress[] = "address";
-    const char kAddrListColumnIdentity[] = "identity";
-    const char kAddrListColumnActive[] = "active";
-    const char kAddrListColumnExprDate[] = "expiration date";
-    const char kAddrListColumnCreated[] = "created";
-    const char kAddrListTableBody[] = "  %1% %2% %3% %4% %5% %6%";
+
+    const char kAddrListComment[]  = "Comment: ";
+    const char kAddrListAddress[]  = "Address: ";
+    const char kAddrListIdentity[] = "Identity: ";
+    const char kAddrListActive[]   = "Active: ";
+    const char kAddrListExprDate[] = "Expires: ";
+    const char kAddrListCreated[]  = "Created: ";
+    const char kAddrListWalletID[] = "Wallet ID: ";
+    const char kAddrListType[]     = "Type: ";
 
     // Seed phrase
     const char kSeedPhraseGeneratedTitle[] = "======\nGenerated seed phrase: \n\n\t";
@@ -160,7 +158,7 @@ namespace beam
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\n%1%%2%\n%3%%4%\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
     const char kWalletUnreliableAsset[] = "This asset has been burned or reissued at block %1%. This allows owner to unregister asset and register it again with different metadata but the same Asset ID technically producing completely new asset. All coins and transactions before block %1% could potentially belong to another asset.\n\n";
-    const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregisterd or asset info needs to be updated using asset_info command.\n\n";
+    const char kWalletNoInfo[] = "Asset info is not available. Asset may never exited, be unregistered or asset info needs to be updated using asset_info command.\n\n";
     const char kWalletAssetOwnerFormat[] = "Asset Owner ID";
     const char kWalletAssetIDFormat[] = "Asset ID";
     const char kWalletAssetNameFormat[] = "Asset Name";
@@ -177,7 +175,7 @@ namespace beam
     const char kWalletSummaryFieldUnavailable[] = "Unavailable";
     const char kWalletSummaryFieldAvailableCoinbase[] = "Available coinbase";
     const char kWalletSummaryFieldTotalCoinbase[] = "Total coinbase";
-    const char kWalletSummaryFieldAvaliableFee[] = "Avaliable fee";
+    const char kWalletSummaryFieldAvaliableFee[] = "Available fee";
     const char kWalletSummaryFieldTotalFee[] = "Total fee";
     const char kWalletSummaryFieldTotalUnspent[] = "Total unspent";
     const char kCoinsTableHeadFormat[] = "COINS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
@@ -218,8 +216,8 @@ namespace beam
     const char kNoAssetTxsInWallet[] = "You do not have any asset transactions in your wallet";
 
     // Tx Details
-    const char kTxDetailsFormat[] = "Transaction details:\n%1%Status: %2%";
-    const char kTxDetailsFailReason[] = "\nReason: %1%";
+    const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%";
+    const char kTxDetailsFailReason[] = "\nReason:            %1%";
 
     const char kPpExportedFrom[] = "Exported form: %1%";
     const char kSubKeyInfo[] = "Secret Subkey %1%: %2%";
@@ -231,8 +229,7 @@ namespace beam
     const char kStartMessage[] = "starting a wallet...";
     const char kWalletCreatedMessage[] = "wallet successfully created...";
     const char kDefaultAddrLabel[] = "default";
-    const char kDefaultAddrExpiration[] = "never";
-    const char kWalletOpenedMessage[] = "wallet sucessfully opened...";
+    const char kWalletOpenedMessage[] = "wallet successfully opened...";
 
     const char kNodePoolPeriod[] = "Node poll period = %1% ms";
     const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";

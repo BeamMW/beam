@@ -28,8 +28,10 @@ struct TxPool
 	{
 		AmountBig::Type m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
 		uint32_t m_nSize;
+		uintBigFor<uint32_t>::Type m_nSizeCorrected;
 
-		void SetSize(const Transaction&);
+		void SetSize(const Transaction&, uint32_t nCorrection);
+		uint32_t get_Correction() const;
 
 		bool operator < (const Profit& t) const;
 	};
@@ -86,7 +88,7 @@ struct TxPool
 		OutdatedSet m_setOutdated;
 		Queue m_Queue;
 
-		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&, uint32_t nSizeCorrection);
 		void SetOutdated(Element&, Height);
 		void Delete(Element&);
 		void DeleteEmpty(Element&);
@@ -133,6 +135,7 @@ struct TxPool
 			};
 
 			HeightRange m_Height;
+			Amount m_FeeReserve;
 
 			std::vector<Kernel> m_vKrn;
 		};
@@ -164,7 +167,7 @@ struct TxPool
 
 		~Stem() { Clear(); }
 
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) = 0; // assuming context-free validation is already performed, but 
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type& fees, Amount& feeReserve) = 0; // assuming context-free validation is already performed, but 
 		virtual void OnTimedOut(Element&) = 0;
 
 	private:

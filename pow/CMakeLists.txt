@@ -19,7 +19,7 @@ endif()
 
 add_library(pow STATIC ${POW_SRC})
 
-target_compile_definitions(pow PRIVATE ENABLE_MINING)
+target_compile_definitions(pow PUBLIC ENABLE_MINING)
 
 target_link_libraries(pow 
     PRIVATE
@@ -36,13 +36,12 @@ add_library(external_pow STATIC
 
 target_link_libraries(external_pow p2p pow core)
 
-if (NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????
 
-    #find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
     target_link_libraries(miner_client external_pow Boost::program_options)
+endif()
 
-    if(BEAM_TESTS_ENABLED)
-        add_subdirectory(unittests)
-    endif()
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
 endif()

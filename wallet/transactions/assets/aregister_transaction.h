@@ -34,7 +34,6 @@ namespace beam::wallet
 
     private:
         AssetRegisterTransaction(const TxContext& context);
-        TxType GetType() const override;
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
@@ -50,7 +49,6 @@ namespace beam::wallet
             AssetCheck,
             Finalizing
         };
-        State GetState() const;
 
     private:
         struct MyBuilder;

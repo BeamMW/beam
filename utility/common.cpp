@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "blobmap.h"
 #include "executor.h"
 #include <exception>
 
@@ -166,7 +167,7 @@ namespace beam
 		m_vThreads.resize(nThreads);
 
 		for (uint32_t i = 0; i < nThreads; i++)
-			m_vThreads[i] = std::thread(&ExecutorMT::RunThread, this, i);
+			StartThread(m_vThreads[i], i);
 	}
 
 	void ExecutorMT::Push(TaskAsync::Ptr&& pTask)
@@ -243,13 +244,6 @@ namespace beam
 		}
 	}
 
-	void ExecutorMT::RunThread(uint32_t iThread)
-	{
-		Context ctx;
-		ctx.m_iThread = iThread;
-		RunThreadCtx(ctx);
-	}
-
 	void ExecutorMT::RunThreadCtx(Context& ctx)
 	{
 		ctx.m_pThis = this;
@@ -313,6 +307,24 @@ namespace beam
 		}
 	}
 
+	///////////////////////
+	// BlobMap
+	BlobMap::Entry* BlobMap::Set::Find(const Blob& key)
+	{
+		auto it = find(key, Comparator());
+		return (end() == it) ? nullptr : &*it;
+	}
+
+	BlobMap::Entry* BlobMap::Set::Create(const Blob& key)
+	{
+		Entry* pItem = new (key.n) Entry;
+		pItem->m_Size = key.n;
+		memcpy(pItem->m_pBuf, key.p, key.n);
+
+		insert(*pItem);
+		return pItem;
+	}
+
 } // namespace beam
 
 namespace std
@@ -320,9 +332,24 @@ namespace std
 	void ThrowLastError()
 	{
 #ifdef WIN32
-		ThrowSystemError(GetLastError());
+		LPSTR buffer;
+		auto error = GetLastError();
+		auto count = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
+			, nullptr
+			, error
+			, LocaleNameToLCID(L"en-US", 0)
+			, (LPSTR)&buffer
+			, 0
+			, nullptr);
+		if (count)
+		{
+			std::string message(buffer, buffer + count);
+			::LocalFree(&buffer);
+			throw runtime_error(message);
+		}
+		ThrowSystemError(error);
 #else // WIN32
-		ThrowSystemError(errno);
+		throw runtime_error(strerror(errno));
 #endif // WIN32
 	}
 

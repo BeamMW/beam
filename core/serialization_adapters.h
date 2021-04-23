@@ -1034,6 +1034,29 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::HeightRange serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::HeightRange& v)
+		{
+			beam::Height dh = v.m_Max - v.m_Min;
+			ar
+				& v.m_Min
+				& dh;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::HeightRange& v)
+		{
+			beam::Height dh;
+			ar
+				& v.m_Min
+				& dh;
+
+			v.m_Max = v.m_Min + dh;
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
@@ -1573,6 +1596,88 @@ namespace detail
 
 			if (1 & nFlags)
 				loadPtr(ar, val.m_pAsset);
+		}
+
+        /// beam::TxKernelContractControl serialization
+		template<typename Archive>
+        static Archive& saveBase(Archive& ar, const beam::TxKernelContractControl& val)
+        {
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
+				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
+				(val.m_CanEmbed ? 0x20 : 0);
+
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k
+				& val.m_Args;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static void load0Base(Archive& ar, beam::TxKernelContractControl& val, uint32_t nRecursion)
+        {
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k
+				& val.m_Args;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+
+			val.m_Commitment.m_Y = (1 & nFlags);
+			val.m_Signature.m_NoncePub.m_Y = ((0x10 & nFlags) != 0);
+
+			if (0x20 & nFlags)
+				val.m_CanEmbed = true;
+        }
+
+		/// beam::TxKernelContractCreate serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelContractCreate& val)
+		{
+			saveBase(ar, val);
+			ar
+				& val.m_Data;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelContractCreate& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_Data;
+		}
+
+		/// beam::TxKernelContractInvoke serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernelContractInvoke& val)
+		{
+			saveBase(ar, val);
+			ar
+				& val.m_Cid
+				& val.m_iMethod;
+			return ar;
+		}
+
+		template<typename Archive>
+		static void load0(Archive& ar, beam::TxKernelContractInvoke& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_Cid
+				& val.m_iMethod;
 		}
 
         /// beam::Transaction serialization

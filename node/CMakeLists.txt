@@ -18,12 +18,13 @@ add_library(node STATIC ${NODE_SRC})
 target_link_libraries(node
     PUBLIC
         core
+        bvm
     PRIVATE
         sqlite
 )
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittests)
 endif()
-if (NOT ANDROID AND NOT IOS AND NOT BEAM_WALLET_CLIENT_LIBRARY)
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(utils)
 endif()

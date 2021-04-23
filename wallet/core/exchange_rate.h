@@ -11,70 +11,36 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "utility/common.h"
 #include "utility/serialize_fwd.h"
+#include "currency.h"
 
 namespace beam::wallet
 {
-    using namespace beam;
-
-    constexpr std::string_view beamCurrencyStr =     "beam";
-    constexpr std::string_view btcCurrencyStr =      "btc";
-    constexpr std::string_view ltcCurrencyStr =      "ltc";
-    constexpr std::string_view qtumCurrencyStr =     "qtum";
-    constexpr std::string_view usdCurrencyStr =      "usd";
-    constexpr std::string_view dogeCurrencyStr =     "doge";
-    constexpr std::string_view dashCurrencyStr =     "dash";
-    constexpr std::string_view ethereumCurrencyStr = "ethereum";
-    constexpr std::string_view daiCurrencyStr =      "dai";
-    constexpr std::string_view usdtCurrencyStr =     "usdt";
-    constexpr std::string_view wbtcCurrencyStr =     "wbtc";
-    constexpr std::string_view bchCurrencyStr =      "bch";
-    constexpr std::string_view unknownCurrencyStr =  "unknown";
-
-    constexpr std::string_view noSecondCurrencyStr = "off";
-
     struct ExchangeRate
     {
-        enum class Currency : uint32_t
-        {
-            Beam,
-            Bitcoin,
-            Litecoin,
-            Qtum,
-            Usd,
-            Dogecoin,
-            Dash,
-            Ethereum,
-            Dai,
-            Usdt,
-            WBTC,
-            Bitcoin_Cash,
-            Unknown
-        };
-    
-        Currency m_currency;
-        Currency m_unit;            // unit of m_rate measurment, e.g. USD or any other currency
-        Amount m_rate;              // value as decimal fixed point. m_rate = 100,000,000 is 1 unit
-        Timestamp m_updateTime;
+        Currency    m_from = Currency::UNKNOWN();
+        Currency    m_to   = Currency::UNKNOWN();
+        Amount      m_rate = 0;
+        Timestamp   m_updateTime = 0;
 
-        SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
-
-        static std::string to_string(const Currency&);
-        static Currency from_string(const std::string&);
-
+        SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         bool operator==(const ExchangeRate& other) const;
         bool operator!=(const ExchangeRate& other) const;
     };
 
-    struct ExchangeRateHistoryEntity : public ExchangeRate
+    typedef std::vector<ExchangeRate> ExchangeRates;
+    struct ExchangeRateAtPoint: public ExchangeRate
     {
-        ExchangeRateHistoryEntity() = default;
-        ExchangeRateHistoryEntity(const ExchangeRate& rate) : ExchangeRate(rate) {}
+        explicit ExchangeRateAtPoint(const ExchangeRate& rate = ExchangeRate(), Height h = 0)
+            : ExchangeRate(rate)
+            , m_height(h)
+        {
+        }
         Height m_height = 0;
     };
 
-} // namespace beam::wallet
+    typedef std::vector<ExchangeRateAtPoint> ExchangeRatesHistory;
+}

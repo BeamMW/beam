@@ -15,6 +15,7 @@
 #include "wallet/core/common.h"
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
+#include "wallet_db.h"
 #include <regex>
 #include <set>
 
@@ -29,6 +30,9 @@ namespace beam::wallet {
         const char NTH_UNIT_NAME_KEY[] = "NTHUN";
         const char OPT_SDESC_KEY[]     = "OPT_SHORT_DESC";
         const char OPT_LDESC_KEY[]     = "OPT_LONG_DESC";
+        const char OPT_SITE_URL[]      = "OPT_SITE_URL";
+        const char OPT_PAPER_URL[]     = "OPT_PDF_URL";
+        const char OPT_COLOR[]         = "OPT_COLOR";
         const char ALLOWED_SYMBOLS[]   = " .,-_";
         const unsigned CURRENT_META_VERSION = 1;
     }
@@ -45,19 +49,16 @@ namespace beam::wallet {
         : _std(false)
         , _std_v5_0(false)
     {
-        const auto& mval = info.m_Metadata.m_Value;
-        if (mval.empty())
-        {
+        info.m_Metadata.get_String(_meta);
+        if (_meta.empty())
             return;
-        }
 
-        if(!fromByteBuffer(mval, _meta))
-        {
-            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize from Asset::Full";
-            return;
+        try {
+            Parse();
         }
-
-        Parse();
+        catch (const std::exception& exc) {
+            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize metadata: " << exc.what();
+        }
     }
 
     void WalletAssetMeta::Parse()
@@ -117,7 +118,15 @@ namespace beam::wallet {
             return it->second.length () <= 1024;
         };
 
-        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid();
+        const auto optColorValid = [&] () -> bool {
+            const auto it = _values.find(OPT_COLOR);
+            if (it == _values.end()) return true;
+
+            std::regex rg{R"(^#(?:[0-9a-fA-F]{3}){1,2}$)"};
+            return std::regex_match(it->second, rg);
+        };
+
+        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
@@ -165,16 +174,46 @@ namespace beam::wallet {
         return it != _values.end() ? it->second : std::string(kAmountAGROTH);
     }
 
+    std::string WalletAssetMeta::GetShortDesc() const
+    {
+        const auto it = _values.find(OPT_SDESC_KEY);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetLongDesc() const
+    {
+        const auto it = _values.find(OPT_LDESC_KEY);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
     std::string WalletAssetMeta::GetName() const
     {
         const auto it = _values.find(NAME_KEY);
-        return it != _values.end() ? it->second : std::string(kNA);
+        return it != _values.end() ? it->second : std::string("");
     }
 
     std::string WalletAssetMeta::GetShortName() const
     {
         const auto it = _values.find(SHORT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string(kNA);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetSiteUrl() const
+    {
+        const auto it = _values.find(OPT_SITE_URL);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetPaperUrl() const
+    {
+        const auto it = _values.find(OPT_PAPER_URL);
+        return it != _values.end() ? it->second : std::string("");
+    }
+
+    std::string WalletAssetMeta::GetColor() const
+    {
+        const auto it = _values.find(OPT_COLOR);
+        return it != _values.end() ? it->second : std::string("");
     }
 
     unsigned WalletAssetMeta::GetSchemaVersion() const
@@ -193,6 +232,52 @@ namespace beam::wallet {
     {
         const auto maxRollback = Rules::get().MaxRollback;
         return m_LockHeight + maxRollback > from;
+    }
+
+    bool WalletAsset::IsExpired(IWalletDB& wdb)
+    {
+        const auto getRange = [](const WalletAsset& info) -> auto {
+            HeightRange result;
+            result.m_Min = info.m_LockHeight;
+            result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
+            result.m_Max += Rules::get().CA.LockPeriod;
+            return result;
+        };
+
+        const auto currHeight = wdb.getCurrentHeight();
+        HeightRange hrange = getRange(*this);
+        if (m_Value > AmountBig::Type(0U))
+        {
+            wdb.visitCoins([&](const Coin& coin) -> bool {
+                if (coin.m_ID.m_AssetID != m_ID) return true;
+                if (coin.m_confirmHeight > hrange.m_Max) return true;
+                if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
+                if (m_RefreshHeight < h1)
+                {
+                    m_RefreshHeight = h1;
+                    hrange = getRange(*this);
+                }
+                return true;
+            });
+
+            wdb.visitShieldedCoins([&](const ShieldedCoin& coin) -> bool {
+                if (coin.m_CoinID.m_AssetID != m_ID) return true;
+                if (coin.m_confirmHeight > hrange.m_Max) return true;
+                if (coin.m_confirmHeight < hrange.m_Min) return true;
+
+                const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
+                if (m_RefreshHeight < h1)
+                {
+                    m_RefreshHeight = h1;
+                    hrange = getRange(*this);
+                }
+                return true;
+            });
+        }
+
+        return !hrange.IsInRange(currHeight) || hrange.m_Max < currHeight;
     }
 
     void WalletAsset::LogInfo(const std::string& pref) const
@@ -221,5 +306,17 @@ namespace beam::wallet {
         ss << txId << "[" << subTxId << "]";
         const auto prefix = ss.str();
         LogInfo(prefix);
+    }
+
+    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& strMeta)
+    {
+        Asset::Metadata meta;
+        meta.m_Value = toByteBuffer(strMeta);
+        meta.UpdateHash();
+
+        PeerID ownerID = 0UL;
+        meta.get_Owner(ownerID, *masterKdf);
+
+        return ownerID;
     }
 }

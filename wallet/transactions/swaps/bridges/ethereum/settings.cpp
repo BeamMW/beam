@@ -17,9 +17,18 @@
 namespace
 {
 #if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    const std::string kDaiContractAddress = "";
-    const std::string kUsdtContractAddress = "";
-    const std::string kWBTCContractAddress = "";
+    const std::string kSwapContractAddress = "0x2FA243fC8f9EAF014f8d6E909157B6A48cEE0bdC";
+    const std::string kSwapHashlockContractAddress = "";
+    const std::string kErc20SwapContractAddress = "0xDd62a95626453F54E686cF0531bCbf6766150794";
+    const std::string kErc20SwapHashlockContractAddress = "";
+    const std::string kDaiContractAddress = "0x6b175474e89094c44da98b954eedeac495271d0f";
+    const std::string kUsdtContractAddress = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+    const std::string kWBTCContractAddress = "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599";
+
+    const std::string kEthNodeAddress = "mainnet.infura.io:443";
+    const std::string kEthNodeHost = "mainnet.infura.io";
+    const bool kNeedSsl = true;
+    const std::string kPahtAndQuery = "/v3/";
 #else // MASTERNET and TESTNET
     // TODO roman.strilets need to fill in they
     const std::string kSwapContractAddress = "0x6d9b8787758e3a965f496c0e25fd29fc82d2b87f";

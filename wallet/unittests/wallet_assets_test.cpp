@@ -22,6 +22,7 @@
 #include "core/unittest/mini_blockchain.h"
 #include "utility/test_helpers.h"
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 
@@ -156,8 +157,8 @@ void TestAssets() {
     };
 
     checkOwnerTotals(0, 0, 0);
-    beam::wallet::RegisterAssetCreators(receiver.m_Wallet);
-    beam::wallet::RegisterAssetCreators(owner.m_Wallet);
+    beam::wallet::RegisterAssetCreators(*receiver.m_Wallet);
+    beam::wallet::RegisterAssetCreators(*owner.m_Wallet);
 
     const auto getTx = [&](const IWalletDB::Ptr& db, TxID txid) -> auto {
       const auto otx = db->getTx(txid);
@@ -186,7 +187,7 @@ void TestAssets() {
     // Assets flag not set, fail any asset tx
     //
     runTest("assets flag is false", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, beam::Amount(0))
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -201,7 +202,7 @@ void TestAssets() {
 
     // not enough beam
     runTest("register, not enough BEAM", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -211,7 +212,7 @@ void TestAssets() {
 
     // send some beam to the owner's wallet
     runTest("send BEAM to owner", [&] {
-       return receiver.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+       return receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, initial)
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
@@ -221,7 +222,7 @@ void TestAssets() {
 
     // amount too small
     runTest("register, amount is too small", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, beam::Amount(0))
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -233,7 +234,7 @@ void TestAssets() {
     // TODO: Uncomment when we'll create base builder that checks fees. Now it is assumed to be checked by the CLI
     //
     //runTest("register, fee is too small", [&] {
-    //    return sender.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+    //    return sender.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
     //        .SetParameter(TxParameterID::Amount, beam::Amount(Rules::get().CA.DepositForList))
     //        .SetParameter(TxParameterID::Fee, beam::Amount(0))
     //        .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -243,7 +244,7 @@ void TestAssets() {
 
     // missing meta
     runTest("register, missing meta", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, beam::Amount(Rules::get().CA.DepositForList))
             .SetParameter(TxParameterID::Fee, beam::Amount(100)));
     });
@@ -252,7 +253,7 @@ void TestAssets() {
 
     // empty meta
     runTest("register, empty meta", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, beam::Amount(Rules::get().CA.DepositForList))
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ""));
@@ -267,7 +268,7 @@ void TestAssets() {
     checkOwnerTotals(currBM, currA1, currA2);
 
     runTest("register asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -285,7 +286,7 @@ void TestAssets() {
 
     // second time register the same asset
     runTest("register asset #1 second time", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -298,7 +299,7 @@ void TestAssets() {
 
     // successfully register asset #2
     runTest("register asset #2", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetReg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
@@ -316,7 +317,7 @@ void TestAssets() {
 
     // confirm asset #1 by ID
     runTest("confirm asset #1 by ID", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID));
     });
@@ -328,7 +329,9 @@ void TestAssets() {
         Asset::Full info;
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetInfoFull, info));
         WALLET_CHECK(info.m_ID == id);
-        WALLET_CHECK(info.m_Metadata.m_Value == toByteBuffer(meta));
+        std::string meta2;
+        info.m_Metadata.get_String(meta2);
+        WALLET_CHECK(meta2 == meta);
         Height height = 0;
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetUnconfirmedHeight, height) && height == 0);
         WALLET_CHECK(tx.GetParameter(TxParameterID::AssetConfirmedHeight, height) && height != 0);
@@ -337,7 +340,7 @@ void TestAssets() {
 
     // confirm asset #1 by meta
     runTest("confirm asset #1 by meta", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -345,7 +348,7 @@ void TestAssets() {
 
     // confirm asset #2 by ID
     runTest("confirm asset #2 by ID", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetID, ASSET2_ID));
     });
@@ -353,7 +356,7 @@ void TestAssets() {
 
     // confirm asset #2 by meta
     runTest("confirm asset #2 by meta", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
     });
@@ -361,7 +364,7 @@ void TestAssets() {
 
     // confirm asset #1 by id, non-owner
     runTest("confirm asset #1 by id, non-owner", [&] {
-        return receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return receiver.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID));
     }, 1, false);
@@ -369,7 +372,7 @@ void TestAssets() {
 
     // confirm asset #1 by meta, non-owner, should FAIL
     runTest("confirm asset #1 by meta, non-owner", [&] {
-        return receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return receiver.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     }, 1, false);
@@ -383,7 +386,7 @@ void TestAssets() {
 
     // confirm asset that does not exist by ID
     runTest("confirm asset that does not exist by ID", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetID, NOASSET_ID));
     });
@@ -400,7 +403,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("issue asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -418,7 +421,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("consume asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -436,7 +439,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("issue asset #2", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetIssue)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
@@ -450,7 +453,7 @@ void TestAssets() {
 
     // send locked asset, tx should fail on SENDER size, thus only 1 transaction wait
     runTest("send locked asset", [&] {
-        return owner.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        return owner.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, currA1)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
@@ -464,7 +467,7 @@ void TestAssets() {
 
     // confirm asset #2 by meta
     runTest("confirm asset #2 by meta again", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetInfo)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
     });
@@ -483,7 +486,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("send half of asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        return owner.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
@@ -501,7 +504,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("send the rest of asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        return owner.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
@@ -516,7 +519,7 @@ void TestAssets() {
 
     // consume non-owned asset
     runTest("consume non-owned asset", [&] {
-        return receiver.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return receiver.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, totalA1)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -531,7 +534,7 @@ void TestAssets() {
     currA1 = amount;
 
     runTest("send asset #1 back", [&] {
-        return receiver.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+        return receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
@@ -545,7 +548,7 @@ void TestAssets() {
 
     // unregister used asset
     runTest("unregister used asset", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -559,7 +562,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("consume asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -575,7 +578,7 @@ void TestAssets() {
     currBM -= fee;
 
     runTest("consume asset #2", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
@@ -587,7 +590,7 @@ void TestAssets() {
 
     // consume excess amount
     runTest("consume excess amount", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, 100)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -600,7 +603,7 @@ void TestAssets() {
 
     // consume invalid asset
     runTest("consume invalid asset", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetConsume)
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, NOASSET_META));
@@ -613,7 +616,7 @@ void TestAssets() {
 
     // unregister locked asset
     runTest("unregister locked asset", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
@@ -631,7 +634,7 @@ void TestAssets() {
     amount = deposit;
     currBM += deposit - fee;
     runTest("unregister asset #1", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
@@ -644,7 +647,7 @@ void TestAssets() {
     amount = deposit;
     currBM += deposit - fee;
     runTest("unregister asset #2", [&] {
-        return owner.m_Wallet.StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
+        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
             .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));

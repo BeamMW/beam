@@ -55,7 +55,7 @@ void Connection::PostRequestInternal(FlyClient::Request& r)
     if (FlyClient::Request::Type::BbsMsg == r.get_Type())
     {
         LOG_DEBUG()  << "### Bbs mesage out ###";
-        if (m_MineOutgoing)
+        if (m_MineOutgoing && !Rules::get().FakePoW)
         {
             try
             {
@@ -126,7 +126,7 @@ void Connection::MineBbsRequest(FlyClient::RequestBbsMsg& r)
         m_Miner.m_vThreads.resize(nThreads);
 
         for (uint32_t i = 0; i < nThreads; i++)
-            m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i);
+            m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
     }
 
     std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);

@@ -35,7 +35,7 @@ void* FragmentWriter::write(const void *ptr, size_t size) {
         _remaining -= size;
         return where;
     }
-    const uint8_t* p = (const uint8_t*)ptr;
+    const uint8_t* p = static_cast<const uint8_t*>(ptr);
     size_t sz = size;
     if (_remaining >= _headerSize) {
         memcpy(_cursor, p, _remaining);
@@ -43,7 +43,7 @@ void* FragmentWriter::write(const void *ptr, size_t size) {
         sz -= _remaining;
         _cursor += _remaining;
     } else {
-        where = 0;
+        where = nullptr;
     }
     while (sz > 0) {
         new_fragment();

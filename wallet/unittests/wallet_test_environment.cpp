@@ -19,6 +19,8 @@
 #include "core/treasury.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/core/simple_transaction.h"
+#include "utility/test_helpers.h"
+#include "core/unittest/mini_blockchain.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -103,8 +105,7 @@ public:
     void saveCoin(const Coin&) override {}
     void saveCoins(const std::vector<Coin>&) override {}
     void removeCoins(const std::vector<Coin::ID>&) override {}
-    void removeCoin(const Coin::ID&) override {}
-    void visitCoins(std::function<bool(const Coin& coin)>) override {}
+    void visitCoins(std::function<bool(const Coin& coin)>) const override {}
     void setVarRaw(const char*, const void*, size_t) override {}
     bool getVarRaw(const char*, void*, int) const override { return false; }
     bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
@@ -425,9 +426,9 @@ struct TestWalletRig
 
     TestWalletRig(IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
-        , m_Wallet{ m_WalletDB, move(action), Wallet::UpdateCompletedAction() }
-    {
 
+    {
+        m_Wallet = std::make_shared<TestWallet>(m_WalletDB, move(action), Wallet::UpdateCompletedAction());
         if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
         {
             WalletAddress wa;
@@ -447,48 +448,48 @@ struct TestWalletRig
             m_OwnID = addresses[0].m_OwnID;
         }
 
-        m_Wallet.ResumeAllTransactions();
+        m_Wallet->ResumeAllTransactions();
 
         switch (type)
         {
         case Type::Regular:
             {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(*m_Wallet, nodeEndpoint, m_WalletDB);
                 }
                 else
                 {
-                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(*m_Wallet, nodeEndpoint, m_WalletDB);
                 }
-                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                m_Wallet->SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::RegularWithoutPoWBbs:
             {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(*m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(*m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 else
                 {
-                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB);
+                    auto tmp = make_shared<WalletNetworkViaBbs>(*m_Wallet, nodeEndpoint, m_WalletDB);
 
                     tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
-                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                m_Wallet->SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::Offline:
@@ -497,7 +498,7 @@ struct TestWalletRig
 
         if (m_messageEndpoint)
         {
-            m_Wallet.AddMessageEndpoint(m_messageEndpoint);
+            m_Wallet->AddMessageEndpoint(m_messageEndpoint);
         }
     }
 
@@ -517,7 +518,7 @@ struct TestWalletRig
     PeerID m_SecureWalletID;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
-    TestWallet m_Wallet;
+    std::shared_ptr<TestWallet> m_Wallet;
     IWalletMessageEndpoint::Ptr m_messageEndpoint;
 };
 
@@ -585,17 +586,74 @@ struct TestBlockchain
     };
     std::vector<KrnPerBlock> m_vBlockKernels;
 
+    std::vector<Merkle::Hash> m_vCSA;
+
+    struct MyEvaluator
+        :public Block::SystemState::Evaluator
+    {
+        TestBlockchain& m_This;
+        MyEvaluator(TestBlockchain& x) :m_This(x) {}
+
+        Merkle::Hash m_hvKernels;
+        Merkle::Hash m_hvCSA;
+
+        bool get_Utxos(Merkle::Hash& hv) override {
+            m_This.m_Utxos.get_Hash(hv);
+            return true;
+        }
+        bool get_Kernels(Merkle::Hash& hv) override {
+            hv = m_hvKernels;
+            return true;
+        }
+        bool get_Logs(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Shielded(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Assets(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_Contracts(Merkle::Hash& hv) override {
+            hv = Zero;
+            return true;
+        }
+        bool get_CSA(Merkle::Hash& hv) override {
+            if (!Evaluator::get_CSA(hv))
+                return false;
+
+            m_hvCSA = hv;
+            return true;
+        }
+    };
+
     void AddBlock()
     {
-        m_Utxos.get_Hash(m_mcm.m_hvLive);
-        m_mcm.Add();
+        MyEvaluator ev(*this);
+        ev.m_Height = m_mcm.m_vStates.size() + 1;
 
-        if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
+        if (m_vBlockKernels.size() < ev.m_Height)
             m_vBlockKernels.emplace_back();
-        assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
+        assert(m_vBlockKernels.size() == ev.m_Height);
 
         KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
-        fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
+        fmmr.get_Hash(ev.m_hvKernels);
+
+        ev.get_Live(m_mcm.m_hvLive);
+        m_mcm.Add();
+
+        auto& s = m_mcm.m_vStates.back().m_Hdr;
+
+        if (ev.m_Height >= Rules::get().pForks[3].m_Height)
+        {
+            ev.get_Utxos(s.m_Kernels);
+            m_vCSA.push_back(ev.m_hvCSA);
+        }
+        else
+            ev.get_Kernels(s.m_Kernels);
     }
 
     bool AddCommitment(const ECC::Point& c)
@@ -727,7 +785,7 @@ struct TestBlockchain
         t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
     }
 
-    void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+    Height get_KrnProofInner(const Merkle::Hash& krnID, Merkle::Proof& proof, TxKernel** ppKrn = nullptr)
     {
         for (size_t iState = m_mcm.m_vStates.size(); iState--; )
         {
@@ -735,56 +793,85 @@ struct TestBlockchain
 
             for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
             {
-                if (kpb.m_vKrnIDs[i] == data.m_ID)
+                if (kpb.m_vKrnIDs[i] == krnID)
                 {
                     KrnPerBlock::Mmr fmmr(kpb);
                     Merkle::ProofBuilderStd bld;
                     fmmr.get_Proof(bld, i);
 
-                    msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
-                    msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+                    proof.swap(bld.m_Proof);
 
-                    if (iState + 1 != m_mcm.m_vStates.size())
+                    Height h = Rules::HeightGenesis + iState;
+                    const Height hf3 = Rules::get().pForks[3].m_Height;
+                    if (h >= hf3)
                     {
-                        Merkle::ProofBuilderHard bld2;
-                        m_mcm.m_Mmr.get_Proof(bld2, iState);
-                        msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
-                        msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
-                        m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
+                        proof.emplace_back();
+                        proof.back().first = true;
+                        proof.back().second = Zero; // logs
 
-                        Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size() - 1].m_Hdr;
-                        WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
+                        proof.emplace_back();
+                        proof.back().first = true;
+                        proof.back().second = m_vCSA[h - hf3];
+
+                        proof.emplace_back();
+                        proof.back().first = false;
+
+                        uint64_t nCount = h - Rules::HeightGenesis;
+                        TemporarySwap<uint64_t>(nCount, m_mcm.m_Mmr.m_Count);
+                        m_mcm.m_Mmr.get_Hash(proof.back().second);
+
                     }
 
-                    return;
+                    if (ppKrn)
+                        *ppKrn = kpb.m_Kernels[i].get();
+
+                    return h;
                 }
             }
+        }
+
+        return 0;
+    }
+
+
+    void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+    {
+        Height h = get_KrnProofInner(data.m_ID, msgOut.m_Proof.m_Inner);
+        if (!h)
+            return;
+        size_t iState = h - Rules::HeightGenesis;
+
+        msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+
+        if (iState + 1 != m_mcm.m_vStates.size())
+        {
+            Merkle::ProofBuilderHard bld2;
+            m_mcm.m_Mmr.get_Proof(bld2, iState);
+            msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+
+            {
+                MyEvaluator ev(*this);
+                ev.m_Height = m_mcm.m_vStates.size() + 1;
+                ev.get_Live(msgOut.m_Proof.m_Outer.emplace_back());
+            }
+
+            Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size() - 1].m_Hdr;
+            WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
         }
     }
 
     void GetProof(const proto::GetProofKernel2& data, proto::ProofKernel2& msgOut)
     {
-        for (size_t iState = m_mcm.m_vStates.size(); iState--; )
-        {
-            const KrnPerBlock& kpb = m_vBlockKernels[iState];
+        TxKernel* pKrn = nullptr;
+        Height h = get_KrnProofInner(data.m_ID, msgOut.m_Proof, &pKrn);
+        if (!h)
+            return;
 
-            for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
-            {
-                if (kpb.m_vKrnIDs[i] == data.m_ID)
-                {
-                    KrnPerBlock::Mmr fmmr(kpb);
-                    Merkle::ProofBuilderStd bld;
-                    fmmr.get_Proof(bld, i);
+        msgOut.m_Height = h;
 
-                    msgOut.m_Proof.swap(bld.m_Proof);
-                    msgOut.m_Height = iState;
-
-                    if (data.m_Fetch)
-						kpb.m_Kernels[i]->Clone(msgOut.m_Kernel);
-                    return;
-                }
-            }
-        }
+        if (data.m_Fetch)
+			pKrn->Clone(msgOut.m_Kernel);
+        return;
     }
 
 
@@ -1101,16 +1188,22 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetShieldedOutputsAt&& msg) override
+        {
+            proto::ShieldedOutputsAt msgOut;
+            Send(msgOut);
+        }
+
         void OnMsg(proto::GetShieldedList&& msg) override
         {
             const std::vector<ECC::Point::Storage>& v = m_This.m_vShieldedPool; // alias
 
             proto::ShieldedList msgOut;
-            msgOut.m_ShieldedOuts = v.size();
+            auto nShieldedOuts = v.size();
 
-            if (msg.m_Id0 < msgOut.m_ShieldedOuts)
+            if (msg.m_Id0 < nShieldedOuts)
             {
-                size_t n = msgOut.m_ShieldedOuts - msg.m_Id0;
+                size_t n = nShieldedOuts - msg.m_Id0;
                 std::setmin(n, msg.m_Count);
                 std::setmin(n, Rules::get().Shielded.m_ProofMax.get_N() * 2);
 
@@ -1121,6 +1214,11 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetProofAsset&& msg) override
+        {
+            proto::ProofAsset msgOut;
+            Send(msgOut);
+        }
 
         void OnMsg(proto::GetBodyPack&& msg) override
         {
@@ -1233,7 +1331,7 @@ public:
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        int completedCount = 2 * m_TxCount;
+        auto completedCount = 2 * m_TxCount;
         auto f = [&completedCount, mainReactor, count = 2 * m_TxCount](auto)
         {
             --completedCount;
@@ -1245,7 +1343,7 @@ public:
         };
 
         TestNode node;
-        TestWalletRig sender(createSenderWalletDB(m_TxCount, 6), f);
+        TestWalletRig sender(createSenderWalletDB((int)m_TxCount, 6), f);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -1272,15 +1370,15 @@ public:
 
         io::Timer::Ptr sendTimer = io::Timer::create(*mainReactor);
 
-        int sendCount = m_TxCount;
+        size_t sendCount = m_TxCount;
         io::AsyncEvent::Ptr sendEvent;
         sendEvent = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, &sendCount, &sendEvent, this]()
         {
-            for (int i = 0; i < m_TxPerCall && sendCount; ++i)
+            for (size_t i = 0; i < m_TxPerCall && sendCount; ++i)
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                         .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                         .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                         .SetParameter(TxParameterID::Amount, Amount(5))
@@ -1320,133 +1418,21 @@ public:
         return m_MaxLatency;
     }
 
-    int GetTxCount() const
+    size_t GetTxCount() const
     {
         return m_TxCount;
     }
 
-    int GetTxPerCall() const
+    size_t GetTxPerCall() const
     {
         return m_TxPerCall;
     }
 
 
 private:
-    int m_TxCount;
-    int m_TxPerCall;
+    size_t m_TxCount;
+    size_t m_TxPerCall;
     uint32_t m_MaxLatency = 0;
     uint64_t m_TotalTime = 0;
 };
 
-ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2, 1, 9 })
-{
-    Treasury treasury;
-    PeerID pid;
-    ECC::Scalar::Native sk;
-
-    Treasury::get_ID(*db->get_MasterKdf(), pid, sk);
-
-    Treasury::Parameters params;
-    params.m_Bursts = 1U;
-    //params.m_Maturity0 = 1;
-    params.m_MaturityStep = 1;
-
-    Treasury::Entry* plan = treasury.CreatePlan(pid, 0, params);
-    beam::Height incubation = 0;
-    for (size_t i = 0; i < amounts.size(); ++i)
-    {
-        if (i == 0)
-        {
-            plan->m_Request.m_vGroups.front().m_vCoins.front().m_Value = amounts[i];
-            incubation = plan->m_Request.m_vGroups.front().m_vCoins.front().m_Incubation;
-            continue;
-        }
-
-        auto& c = plan->m_Request.m_vGroups.back().m_vCoins.emplace_back();
-
-        c.m_Incubation = incubation;
-        c.m_Value = amounts[i];
-    }
-
-    plan->m_pResponse.reset(new Treasury::Response);
-    uint64_t nIndex = 1;
-    plan->m_pResponse->Create(plan->m_Request, *db->get_MasterKdf(), nIndex);
-
-    for (const auto& group : plan->m_pResponse->m_vGroups)
-    {
-        for (const auto& treasuryCoin : group.m_vCoins)
-        {
-            CoinID cid;
-            if (treasuryCoin.m_pOutput->Recover(0, *db->get_MasterKdf(), cid))
-            {
-                Coin coin;
-                coin.m_ID = cid;
-                coin.m_maturity = treasuryCoin.m_pOutput->m_Incubation;
-                coin.m_confirmHeight = treasuryCoin.m_pOutput->m_Incubation;
-                db->saveCoin(coin);
-            }
-        }
-    }
-
-    Treasury::Data data;
-    data.m_sCustomMsg = "LN";
-    treasury.Build(data);
-
-    Serializer ser;
-    ser& data;
-
-    ByteBuffer result;
-    ser.swap_buf(result);
-
-    return result;
-}
-
-void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string & path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
-{
-    node.m_Cfg.m_Treasury = binaryTreasury;
-    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
-
-    boost::filesystem::remove(path);
-    node.m_Cfg.m_sPathLocal = path;
-    node.m_Cfg.m_Listen.port(port);
-    node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_MiningThreads = miningNode ? 1 : 0;
-    node.m_Cfg.m_VerificationThreads = 1;
-    node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = powSolveTime;
-    node.m_Cfg.m_Connect = peers;
-
-    node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
-    node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
-    //Rules::get().Maturity.Coinbase = 1;
-    Rules::get().FakePoW = true;
-
-    ECC::uintBig seed = 345U;
-    node.m_Keys.InitSingleKey(seed);
-
-    node.m_Cfg.m_Observer = observer;
-    Rules::get().UpdateChecksum();
-    node.Initialize();
-    node.m_PostStartSynced = true;
-}
-
-class NodeObserver : public Node::IObserver
-{
-public:
-    using Test = std::function<void()>;
-    NodeObserver(Test test)
-        : m_test(test)
-    {
-    }
-
-    void OnSyncProgress() override
-    {
-    }
-
-    void OnStateChanged() override
-    {
-        m_test();
-    }
-
-private:
-    Test m_test;
-};

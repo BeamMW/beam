@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
+[![Build](https://github.com/BeamMW/beam/actions/workflows/build.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/build.yml)
+[![CodeQL](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml)
 
 ![alt text](https://s3.eu-central-1.amazonaws.com/website-storage.beam.mw/media/homepage/scc/scc-1.jpg "Beam Logo")
 
@@ -118,9 +121,4 @@ Here is the list of Beam related projects created by our community members but N
 - One side payments
 - UTXO Unlinking using Lelantus MW
 
-
-
-# Build status
-[![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
-[![Build status](https://ci.appveyor.com/api/projects/status/0j424l1h61gwqddm/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 

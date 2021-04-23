@@ -304,7 +304,7 @@ namespace beam::wallet
         x.m_pKernel->UpdateMsg();
         x.get_SkOut(prover.m_Witness.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
 
-        ExecutorMT exec;
+        ExecutorMT_R exec;
         Executor::Scope scope(exec);
         x.m_pKernel->Sign(prover, x.m_AssetID);
 
@@ -626,7 +626,7 @@ namespace beam::wallet
         ECC::Oracle oracle;
         oracle << krn1.m_Msg;
 
-        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, oracle, x.m_HideAssetAlways);
+        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, krn.m_Height.m_Min, oracle, x.m_HideAssetAlways);
         krn1.MsgToID();
 
         assert(krn.m_vNested.empty());

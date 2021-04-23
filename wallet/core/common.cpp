@@ -32,10 +32,8 @@
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-#ifndef EMSCRIPTEN
 #include <boost/multiprecision/cpp_int.hpp>
 using boost::multiprecision::cpp_int;
-#endif
 
 using namespace std;
 using namespace ECC;
@@ -76,7 +74,7 @@ namespace
 
     bool CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxParameters& input, beam::wallet::TxParameters& dest)
     {
-        beam::wallet::ByteBuffer buf;
+        ByteBuffer buf;
         if (input.GetParameter(paramID, buf))
         {
             dest.SetParameter(paramID, buf);
@@ -107,7 +105,6 @@ namespace std
         return string(sz);
     }
 
-#ifndef EMSCRIPTEN
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         cpp_int intval;
@@ -148,7 +145,6 @@ namespace std
             return ss.str();
         }
     }
-#endif  // EMSCRIPTEN
 
     string to_string(const beam::wallet::TxParameters& value)
     {
@@ -188,7 +184,6 @@ namespace std
         }
      }
 
-#ifndef EMSCRIPTEN
     string to_string(const beam::AmountBig::Type& amount)
     {
         cpp_int intval;
@@ -199,7 +194,6 @@ namespace std
 
         return ss.str();
     }
-#endif  // EMSCRIPTEN
 
 }  // namespace std
 
@@ -598,33 +592,49 @@ namespace beam::wallet
         return {};
     }
 
-    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params)
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params, TxAddressType type)
     {
         const TxParameters& p = receiverParams;
-        auto type = GetAddressTypeImpl(p);
         switch (type)
         {
         case TxAddressType::AtomicSwap:
         case TxAddressType::Regular:
-            if (!CopyParameter(TxParameterID::PeerID, p, params))
-                return false;
-            CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
-            break;
-        case TxAddressType::PublicOffline:
-        {
-            auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
-            // generate fake peerID 
-            Scalar::Native sk;
-            sk.GenRandomNnz();
-            PeerID pid;  // fake peedID
-            pid.FromSk(sk);
-            ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
-            params.SetParameter(TxParameterID::Voucher, voucher);
-            params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            {
+                if (type == TxAddressType::Regular)
+                {
+                    params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
+                }
+                else if (type == TxAddressType::AtomicSwap)
+                {
+                    params.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
+                }
 
-        }break;
+                if (!CopyParameter(TxParameterID::PeerID, p, params))
+                {
+                    return false;
+                }
+                CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
+                break;
+            }
+
+        case TxAddressType::PublicOffline:
+            {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
+                auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
+                // generate fake peerID
+                Scalar::Native sk;
+                sk.GenRandomNnz();
+                PeerID pid;  // fake peedID
+                pid.FromSk(sk);
+                ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
+                params.SetParameter(TxParameterID::Voucher, voucher);
+                params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+            }
+            break;
+
         case TxAddressType::Offline:
             {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerID, p, params);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); 
@@ -641,8 +651,10 @@ namespace beam::wallet
                 }
             }
             break;
+
         case TxAddressType::MaxPrivacy:
             {
+                params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
                 params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
@@ -656,16 +668,12 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
             }
             break;
+
         default:
             return false;
         }
 
-        if (auto txType = p.GetParameter<TxType>(TxParameterID::TransactionType); txType && *txType == TxType::PushTransaction)
-        {
-            params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-        }
         params.SetParameter(TxParameterID::AddressType, type);
-
         ProcessLibraryVersion(receiverParams);
 
         return true;
@@ -835,6 +843,27 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
+    ContractTxStatusInterpreter::ContractTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    {
+        if (auto value = txParams.GetParameter<TxType>(TxParameterID::TransactionType); value)
+            m_txType = *value;
+    }
+
+    std::string ContractTxStatusInterpreter::getStatus() const
+    {
+        switch (m_status)
+        {
+        case TxStatus::InProgress:
+        case TxStatus::Registering:
+            return "in progress";
+        case TxStatus::Completed:
+            return "completed";
+        default:
+            break;
+        }
+        return TxStatusInterpreter::getStatus();
+    }
+
     TxDescription::TxDescription(const TxParameters& p)
         : TxParameters(p)
     {
@@ -892,37 +921,31 @@ namespace beam::wallet
         }
     }
 
-    /// Return empty string if second currency exchange rate is not presented
-    std::string TxDescription::getAmountInSecondCurrency(ExchangeRate::Currency secondCurrency) const
+    /// Return empty string if exchange rate is not available
+    Amount TxDescription::getExchangeRate(const Currency& targetCurrency) const
     {
         auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
         {
             std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
-            for (const auto r : rates)
+
+            auto assetIdOptional = GetParameter<Asset::ID>(TxParameterID::AssetID);
+            Asset::ID assetId  = assetIdOptional ? *assetIdOptional : 0;
+            auto fromCurrency = beam::wallet::Currency(assetId);
+
+            auto search = std::find_if(std::begin(rates), std::end(rates),
+                                    [&fromCurrency, &targetCurrency](const ExchangeRate& r)
+                                    {
+                                        return r.m_from == fromCurrency && r.m_to == targetCurrency;
+                                    });
+
+            if (search != std::cend(rates))
             {
-                if (r.m_currency == ExchangeRate::Currency::Beam &&
-                    r.m_unit == secondCurrency &&
-                    r.m_rate != 0)
-                {
-                    cpp_dec_float_50 dec_first(m_amount);
-                    dec_first /= Rules::Coin;
-                    cpp_dec_float_50 dec_second(r.m_rate);
-                    dec_second /= Rules::Coin;
-                    cpp_dec_float_50 product = dec_first * dec_second;
-
-                    std::ostringstream oss;
-                    uint32_t precision = secondCurrency == ExchangeRate::Currency::Usd
-                                            ? 2
-                                            : std::lround(std::log10(Rules::Coin));
-                    oss.precision(precision);
-                    oss << std::fixed << product;
-
-                    return oss.str();
-                }
+                return search->m_rate;
             }
         }
-        return "";
+
+        return 0UL;
     }
 
     std::string TxDescription::getToken() const
@@ -943,6 +966,16 @@ namespace beam::wallet
     std::string TxDescription::getReceiverIdentity() const
     {
         return getIdentity(!m_sender);
+    }
+
+    std::string TxDescription::getSender() const
+    {
+        return std::to_string(m_sender ? m_myId : m_peerId);
+    }
+
+    std::string TxDescription::getReceiver() const
+    {
+        return std::to_string(!m_sender ? m_myId : m_peerId);
     }
 
     std::string TxDescription::getIdentity(bool isSender) const
@@ -1217,6 +1250,15 @@ namespace beam::wallet
             return v.FromHex(s.get<string>());
         }
 
+        bool FromJson(const json& s, DexOrderID& v)
+        {
+            if (!s.is_string())
+            {
+                return false;
+            }
+            return v.FromHex(s.get<string>());
+        }
+
         template<typename T>
         bool FromJson(const json& s, T& v)
         {
@@ -1465,6 +1507,16 @@ namespace beam::wallet
         return TxFailureReason::Count;
     }
 
+    bool isFork3(Height h)
+    {
+        const Rules& r = Rules::get();
+        if (h < r.pForks[3].m_Height)
+        {
+            return false;
+        }
+        return true;
+    }
+
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)
     {
         ShieldedTxo::Viewer viewer;
@@ -1551,23 +1603,13 @@ namespace beam::wallet
         }
     }
 
-    Amount CalculateShieldedFeeByKernelsCount(size_t count)
+    uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>& v)
     {
-        Amount shieldedFee = 0;
-        if (count)
-        {
-            Transaction::FeeSettings fs;
-            shieldedFee = count * (fs.m_ShieldedInput + fs.m_Kernel);
-        }
-
-        return shieldedFee;
-    }
-
-    Amount GetShieldedFee(const TxParameters& tx, SubTxID subTxID)
-    {
-        std::vector<TxKernel::Ptr> shieldedInputs;
-        tx.GetParameter(TxParameterID::InputsShielded, shieldedInputs, subTxID);
-        return CalculateShieldedFeeByKernelsCount(shieldedInputs.size());
+        uint32_t ret = 0;
+        for (uint32_t i = 0; i < v.size(); i++)
+            if (TxKernel::Subtype::ShieldedInput == v[i]->get_Subtype())
+                ret++;
+        return ret;
     }
 
     TxAddressType GetAddressType(const TxDescription& tx)

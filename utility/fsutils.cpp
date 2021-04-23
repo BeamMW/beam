@@ -12,58 +12,110 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <boost/filesystem.hpp>
 #include "common.h"
 #include "logger.h"
 #include "fsutils.h"
 
 namespace beam::fsutils
 {
-    bool remove(const boost::filesystem::path& path)
+    namespace {
+        path topath(const std::string& spath)
+        {
+            #ifdef WIN32
+            return path (Utf8toUtf16(spath.c_str()));
+            #else
+            return path (spath);
+            #endif
+        }
+    }
+
+    bool exists(const path& fpath)
+    {
+        return boost::filesystem::exists(fpath);
+    }
+
+    bool exists(const std::string& spath)
+    {
+        return fsutils::exists(topath(spath));
+    }
+
+    void remove(const path& fpath)
     {
         boost::system::error_code error;
-        boost::filesystem::remove(path, error);
-        if (error) LOG_ERROR() << "fsutils::remove " << path << " error: " << error.message();
-        return !static_cast<bool>(error);
+        boost::filesystem::remove(fpath, error);
+
+        if (error)
+        {
+            auto errmsg = std::string("fsutils::remove for ") + fpath.string() + ", " + error.message();
+            throw std::runtime_error(errmsg);
+        }
     }
 
-    bool remove(const std::string& spath)
+    void remove(const std::string& spath)
     {
-#ifdef WIN32
-        boost::filesystem::path path(Utf8toUtf16(spath));
-        return fsutils::remove(path);
-#else
-        boost::filesystem::path path(spath);
-        return fsutils::remove(path);
-#endif
+        return fsutils::remove(topath(spath));
     }
 
-    bool isExist(const std::string& path)
-    {
-#ifdef WIN32
-        return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
-#else
-        return boost::filesystem::exists(path);
-#endif
-    }
-
-    bool rename(const boost::filesystem::path& oldPath, const boost::filesystem::path& newPath)
+    void rename(const path& oldPath, const path& newPath)
     {
         boost::system::error_code error;
         boost::filesystem::rename(oldPath, newPath, error);
-        if (error) LOG_ERROR() << "fsutils::rename " << oldPath << " error: " << error.message();
-        return !static_cast<bool>(error);
+
+        if (error)
+        {
+            auto errmsg = std::string("fsutils::rename ") + oldPath.string() + " -> " + newPath.string() + ", " + error.message();
+            throw std::runtime_error(errmsg);
+        }
     }
 
-    bool rename(const std::string& oldPath, const std::string& newPath)
+    void rename(const std::string& oldPath, const std::string& newPath)
     {
-#ifdef WIN32
-        boost::filesystem::path fromPath(Utf8toUtf16(oldPath));
-        boost::filesystem::path toPath(Utf8toUtf16(newPath));
-#else
-        boost::filesystem::path fromPath(oldPath);
-        boost::filesystem::path toPath(newPath);
-#endif
-        return fsutils::rename(fromPath, toPath);
+        return fsutils::rename(topath(oldPath), topath(newPath));
+    }
+
+    std::vector<uint8_t> fread(const path& fpath)
+    {
+        std::ifstream file;
+
+        auto checkerr = [&fpath, &file] () {
+            if (file.fail())
+            {
+                std::ostringstream ss;
+                ss << "fsutils::fread failed for file " << fpath.string() + ", code " << errno;
+                throw std::runtime_error(ss.str());
+            }
+        };
+
+        #ifdef WIN32
+        file.open(fpath.wstring().c_str(), std::ios::binary);
+        #else
+        file.open(fpath.string().c_str(), std::ios::binary);
+        #endif
+
+        checkerr();
+
+        file.unsetf(std::ios::skipws);
+        file.seekg(0, std::ios::end);
+        const auto fileSize = file.tellg();
+        file.seekg(0, std::ios::beg);
+        checkerr();
+
+        if (!fileSize)
+        {
+            return std::vector<uint8_t>();
+        }
+
+        std::vector<uint8_t> vec;
+        vec.resize(fileSize);
+
+        file.read(reinterpret_cast<char*>(&vec[0]), fileSize);
+        checkerr();
+
+        return vec;
+    }
+
+    std::vector<uint8_t> fread(const std::string& spath)
+    {
+        return fsutils::fread(topath(spath));
     }
 }

@@ -14,12 +14,12 @@
 
 #include <iostream>
 #include <core/block_crypt.h>
-
 #include "test_helpers.h"
-
-#include "wallet/api/api.h"
+#include "wallet/api/i_wallet_api.h"
+#include "wallet/api/v6_0/wallet_api.h"
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
+#include "wallet/api/i_swaps_provider.h"
 
 using namespace std;
 using namespace beam;
@@ -73,59 +73,86 @@ namespace
         WALLET_CHECK(msg["id"] > 0);
     }
 
-    class WalletApiHandlerBase : public wallet::IWalletApiHandler
+    class WalletApiTest
+        : public wallet::WalletApi
+        , IWalletApiHandler
     {
-        void onInvalidJsonRpc(const json& msg) override {}
-        
-#define MESSAGE_FUNC(strct, name, _) virtual void onMessage(const JsonRpcId& id, const strct& data) override {};
+    public:
+        WalletApiTest(): WalletApi(*this, boost::none, std::string(), std::string(), nullptr, nullptr, nullptr, nullptr) {}
+
+        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
+                WALLET_CHECK(!"error, onHandle should be never called"); };
+
         WALLET_API_METHODS(MESSAGE_FUNC)
-#undef MESSAGE_FUNC
+        #undef MESSAGE_FUNC
+
+        void sendAPIResponse(const json& resp) override
+        {
+            if (resp["error"].empty())
+            {
+                onAPISuccess(resp);
+            }
+            else
+            {
+                onAPIError(resp);
+            }
+        }
+
+        void onParseError(const json& msg) override
+        {
+            onAPIError(msg);
+        }
+
+        virtual void onAPISuccess(const json&)
+        {
+            assert(false);
+            WALLET_CHECK(!"invalid api test - success");
+        }
+
+        virtual void onAPIError(const json&)
+        {
+            assert(false);
+            WALLET_CHECK(!"invalid api test - error");
+        }
+
+        Height get_CurrentHeight() const override
+        {
+            return 18;
+        }
     };
 
     void testInvalidJsonRpc(jsonFunc func, const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
             jsonFunc func;
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg << endl;
                 func(msg);
             }
         };
 
-        WalletApiHandler handler;
-        handler.func = func;
-
-        WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        api.func = std::move(func);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testCreateAddressJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
-            {
-                WALLET_CHECK(!"invalid create_address api json!!!");
-
-                cout << msg["error"] << endl;
-            }
-
-            void onMessage(const JsonRpcId& id, const CreateAddress& data) override 
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             std::string addr = "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67";
@@ -149,30 +176,43 @@ namespace
         }
     }
 
-    void testGetUtxoJsonRpc(const std::string& msg)
+    void testDefaultCreateAddressJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.type == TokenType::RegularOldStyle);
+                WALLET_CHECK(data.offlinePayments == 10);
+            }
+        };
 
-            void onInvalidJsonRpc(const json& msg) override
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
+    void testGetUtxoJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid get_utxo api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetUtxo& data) override
+            void onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -210,37 +250,31 @@ namespace
 
     void testSendJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid send api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Send& data) override
+            void onHandleSend(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(id > 0);
-
-                WALLET_CHECK(data.session && *data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
-                WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+                WALLET_CHECK(data.tokenTo == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
                 WALLET_CHECK(data.assetId && *data.assetId == 1);
 
-                if(data.from)
+                if(data.tokenFrom)
                 {
-                    WALLET_CHECK(to_string(*data.from) == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
+                    WALLET_CHECK(*data.tokenFrom == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
                 }
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -254,114 +288,111 @@ namespace
         }
     }
 
-    using TestErrorFunc = std::function<void(const json& msg)>;
-    template <typename T> using TestSuccessFunc = std::function<void(const JsonRpcId& id, const T& data)>;
-    using TestFinishFunc = std::function<void()>;
-
-    template<typename T> void testJsonRpc(const std::string& msg
-        , TestErrorFunc onError
-        , TestSuccessFunc<T> onSuccess = []() {}
-        , TestFinishFunc onFinish = []() {})
-    {
-        class WalletApiHandler : public WalletApiHandlerBase
-        {
-        public:
-
-            WalletApiHandler(TestErrorFunc onError, std::function<void(const JsonRpcId& id, const T& data)> onSuccess) 
-                : _onError(onError), _onSuccess(onSuccess) {}
-
-            void onInvalidJsonRpc(const json& msg) override { _onError(msg); }
-            void onMessage(const JsonRpcId& id, const T& data) override { _onSuccess(id, data); }
-
-            TestErrorFunc _onError;
-            std::function<void(const JsonRpcId& id, const T& data)> _onSuccess;
-        };
-
-        WalletApiHandler handler(onError, onSuccess);
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
-
-        {
-            json res;
-            typename T::Response response;
-
-            api.getResponse(123, response, res);
-            testResultHeader(res);
-
-            WALLET_CHECK(res["id"] == 123);
-            onFinish();
-        }
-    }
-
     void testInvalidSendJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Send& data) override 
+            void onHandleSend(const JsonRpcId& id, const Send& data) override
             {
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
 
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    void testInvalidInvokeContractJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleInvokeContract(const JsonRpcId& id, const InvokeContract& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
+    void testInvalidProcessInvokeDataJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleProcessInvokeData(const JsonRpcId& id, const ProcessInvokeData& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
     void testInvalidAssetJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
-
-            void onMessage(const JsonRpcId& id, const T& data) override
-            {
-                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
-            }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     template<typename T>
     void testICJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid issue/consume api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const T& data) override
+            void onHandleIssue(const JsonRpcId& id, const Issue& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId > 0);
+                WALLET_CHECK(data.value > 0);
+            }
+
+            void onHandleConsume(const JsonRpcId& id, const Consume& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.assetId > 0);
                 WALLET_CHECK(data.value > 0);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -376,25 +407,24 @@ namespace
 
     void testAIJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid asset info api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxAssetInfo& data) override
+            void onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK((data.assetId && *data.assetId > 0) || (data.assetMeta && !data.assetMeta->empty()));
+                WALLET_CHECK(data.assetId);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -409,37 +439,24 @@ namespace
 
     void testGetAssetInfoJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid GetAssetInfo api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetAssetInfo& data) override
+            void onHandleGetAssetInfo(const JsonRpcId& id, const GetAssetInfo& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.assetId.is_initialized() || data.assetMeta.is_initialized());
-
-                if (data.assetId.is_initialized())
-                {
-                    const auto assetId = *data.assetId;
-                    WALLET_CHECK(assetId > 0);
-                }
-
-                if (data.assetMeta.is_initialized())
-                {
-                    const auto meta = *data.assetMeta;
-                    WALLET_CHECK(!meta.empty());
-                }
+                WALLET_CHECK(data.assetId > 0);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -454,28 +471,24 @@ namespace
 
     void testStatusJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid status api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Status& data) override
+            void onHandleStatus(const JsonRpcId& id, const Status& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == "10c4b760c842433cb58339a0fafef3db");
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -490,21 +503,19 @@ namespace
 
     void testSplitJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
-                WALLET_CHECK(!"invalid split api json!!!");
                 cout << msg["error"] << endl;
+                WALLET_CHECK(!"invalid split api json!!!");
             }
 
-            void onMessage(const JsonRpcId& id, const Split& data) override
+            void onHandleSplit(const JsonRpcId& id, const Split& data) override
             {
                 WALLET_CHECK(id > 0);
 
-                // WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
@@ -514,10 +525,8 @@ namespace
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -533,41 +542,37 @@ namespace
 
     void testInvalidSplitJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const Split& data) override
+            void onHandleSplit(const JsonRpcId& id, const Split& data) override
             {
                 WALLET_CHECK(id >= 0);
                 WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testTxListJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(*data.filter.status == TxStatus::Completed);
@@ -575,10 +580,8 @@ namespace
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -593,18 +596,16 @@ namespace
 
     void testTxListPaginationJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -613,40 +614,35 @@ namespace
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testValidateAddressJsonRpc(const std::string& msg, bool valid)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-            WalletApiHandler(bool valid_) : _valid(valid_)
+            explicit ApiTest(bool valid_) : _valid(valid_)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid validate_address api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
+            void onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(CheckReceiverAddress(data.address) == _valid);
+                WALLET_CHECK(CheckReceiverAddress(data.token) == _valid);
             }
         private:
             bool _valid;
         };
 
-        WalletApiHandler handler(valid);
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api(valid);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -666,27 +662,23 @@ namespace
 
     void testGenerateTxIdJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
+            void onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data) override
             {
                 WALLET_CHECK(id > 0);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -705,28 +697,23 @@ namespace
 
     void testExportPaymentProofJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const ExportPaymentProof& data) override
+            void onHandleExportPaymentProof(const JsonRpcId& id, const ExportPaymentProof& data) override
             {
                 WALLET_CHECK(id > 0);
             }
         };
 
-        WalletApiHandler handler;
-
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -746,28 +733,23 @@ namespace
 
     void testVerifyPaymentProofJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const VerifyPaymentProof& data) override
+            void onHandleVerifyPaymentProof(const JsonRpcId& id, const VerifyPaymentProof& data) override
             {
                 WALLET_CHECK(id > 0);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-        
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -792,19 +774,18 @@ namespace
     template<typename T>
     void testJsonRpcIdAsValue(const std::string& msg, const T& value)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
+            explicit ApiTest(const T& value) : _value(value) {}
 
-            WalletApiHandler(const T& value) : _value(value) {}
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid api json!!!");
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const CreateAddress& data) override
+            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
             {
                 WALLET_CHECK(id == _value);
             }
@@ -812,38 +793,31 @@ namespace
             const T& _value;
         };
 
-        WalletApiHandler handler(value);
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api(value);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void testGetBalanceJsonRpc(const std::string& msg)
     {
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const GetBalance& data) override
+            void onHandleGetBalance(const JsonRpcId& id, const GetBalance& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.coin == AtomicSwapCoin::Litecoin);
             }
         };
 
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -864,22 +838,21 @@ namespace
     {
         const std::string kToken = "6xfNAUemTbmp7KRCRydiGStMZe6oRh59LzS7uk1V4eTrUX1mKcCGY7jdtMtSs4XLt6Ug8jWnepMEZCrqSUw7PeKRDZ8yyVZu1WHXzootpybBjX3nVxxHRSdk4ncBGDh1cssmiJhswZC9PfsaJmRKqXJM3x9tcX7EZn5Vjg8";
 
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
 
-            WalletApiHandler(const std::string& value)
+            explicit ApiTest(const std::string& value)
                 : _value(value)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const DecodeToken& data) override
+            void onHandleDecodeToken(const JsonRpcId& id, const DecodeToken& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.token == _value);
@@ -889,11 +862,8 @@ namespace
             std::string _value;
         };
 
-        WalletApiHandler handler(kToken);
-        WalletApi api(handler);
-
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api(kToken);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
@@ -928,22 +898,20 @@ namespace
     {
         const std::string kTxId = "b35fd69030694009b8bf849140d9319e";
 
-        class WalletApiHandler : public WalletApiHandlerBase
+        class ApiTest : public WalletApiTest
         {
         public:
-
-            WalletApiHandler(const std::string& value)
+            ApiTest(const std::string& value)
                 : _value(value)
             {}
 
-            void onInvalidJsonRpc(const json& msg) override
+            void onAPIError(const json& msg) override
             {
                 WALLET_CHECK(!"invalid list api json!!!");
-
                 cout << msg["error"] << endl;
             }
 
-            void onMessage(const JsonRpcId& id, const OfferStatus& data) override
+            void onHandleOfferStatus(const JsonRpcId& id, const OfferStatus& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == _value);
@@ -953,18 +921,14 @@ namespace
             std::string _value;
         };
 
-        WalletApiHandler handler(kTxId);
-        WalletApi api(handler);
-
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+        ApiTest api(kTxId);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
 
         {
             json res;
             OfferStatus::Response response{};
 
             auto txParams = ParseParameters("6xfHuWNKr45XLyw1pYcB8hixKoF1g8mPRi9dHXL9jr8kqhcjiqntRXzbWmrsSrRLPecjr5vaWQa27ScTB24XdPs5LqSBb318knzZya7dGvNbkm9B1VRgc9hsaQuPu4nJjiYa9ePCCz7VsDNpoB9JKNSGkbFGG7UJR4GWbZe");
-
             response.offer = SwapOffer(*txParams);
 
             api.getResponse(123, response, res);
@@ -1166,6 +1130,19 @@ void TestICTx(const char* method)
         }
     })));
 
+    // obsolette (removed) meta param
+    testInvalidAssetJsonRpc<T>(exp(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : METHOD,
+        "params" :
+        {
+            "asset_meta": "some meta",
+            "value" : 12342342
+        }
+    })));
+
     // valid asset_id
     testICJsonRpc<T>(exp(JSON_CODE(
     {
@@ -1175,19 +1152,6 @@ void TestICTx(const char* method)
         "params" :
         {
             "asset_id": 1,
-            "value" : 12342342
-        }
-    })));
-
-    // valid meta
-    testICJsonRpc<T>(exp(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : METHOD,
-        "params" :
-        {
-            "asset_meta": "some meta",
             "value" : 12342342
         }
     })));
@@ -1230,6 +1194,18 @@ void TestGetAssetInfo()
         }
     }));
 
+    // obsolette (rmoved) meta
+    testInvalidAssetJsonRpc<GetAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+
     // valid asset_id
     testGetAssetInfoJsonRpc(JSON_CODE(
     {
@@ -1239,18 +1215,6 @@ void TestGetAssetInfo()
         "params" :
         {
             "asset_id": 1
-        }
-    }));
-
-    // valid meta
-    testGetAssetInfoJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "get_asset_info",
-        "params" :
-        {
-            "asset_meta": "some meta"
         }
     }));
 }
@@ -1318,6 +1282,18 @@ void TestAITx()
         }
     }));
 
+    // obsolette (removed) meta
+    testInvalidAssetJsonRpc<TxAssetInfo>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_asset_info",
+        "params" :
+        {
+            "asset_meta": "some meta"
+        }
+    }));
+
     // valid asset_id
     testAIJsonRpc(JSON_CODE(
     {
@@ -1327,18 +1303,6 @@ void TestAITx()
         "params" :
         {
             "asset_id": 1
-        }
-    }));
-
-    // valid meta
-    testAIJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "tx_asset_info",
-        "params" :
-        {
-            "asset_meta": "some meta"
         }
     }));
 }
@@ -1401,7 +1365,7 @@ int main()
         "params" : "bar"
     }));
 
-    testCreateAddressJsonRpc(JSON_CODE(
+    testDefaultCreateAddressJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1409,23 +1373,6 @@ int main()
         "params" :
         {
             "lifetime" : 24,
-            "metadata" : "<meta>custom user data</meta>"
-        }
-    }));
-
-    testInvalidJsonRpc([](const json& msg)
-    {
-        testErrorHeaderWithId(msg);
-
-        WALLET_CHECK(msg["id"] == 12345);
-        WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidJsonRpc);
-    }, JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "create_address",
-        "params" :
-        {
             "metadata" : "<meta>custom user data</meta>"
         }
     }));
@@ -1451,7 +1398,6 @@ int main()
         "method" : "tx_send",
         "params" : 
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 12342342,
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1465,7 +1411,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 12342342,
             "from" : "wagagel",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
@@ -1479,7 +1424,6 @@ int main()
         "method" : "tx_send",
         "params" : 
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
@@ -1487,25 +1431,20 @@ int main()
         }
     }));
 
-    testJsonRpc<Send>(JSON_CODE(
+    // value is too big
+    testInvalidSendJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "asset_id": 1,
             "value" : 1234234200000000000000000000000,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
-    }), 
-    [](const json& msg) {},
-    [](const JsonRpcId& id, const Send& data)
-    {
-        WALLET_CHECK(!"The value is invalid!!!");
-    });
+    }));
 
     testInvalidSendJsonRpc(JSON_CODE(
     {
@@ -1514,7 +1453,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "wagagel"
@@ -1528,7 +1466,6 @@ int main()
         "method" : "tx_send",
         "params" :
         {
-            "session" : 15,
             "value" : 20,
             "asset_id": -1,
             "address" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6"
@@ -1553,7 +1490,6 @@ int main()
         "method" : "tx_split",
         "params" :
         {
-            "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
             "fee" : 100,
             "asset_id": 1
@@ -1567,7 +1503,6 @@ int main()
         "method" : "tx_split",
         "params" :
         {
-            "session" : 123,
             "coins" : [11, -12, 13, 50000000000000] ,
             "fee" : 4
         }
@@ -1717,6 +1652,7 @@ int main()
         }
     }));
 
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     testGetBalanceJsonRpc(JSON_CODE(
         {
@@ -1753,6 +1689,149 @@ int main()
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     TestAssetsAPI();
+
+    // empty args
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "args": ""
+            }
+        }));
+
+    // non-string args
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "args": 22
+            }
+        }));
+
+    // non-array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": 22
+            }
+        }));
+
+    // empty array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": []
+            }
+        }));
+
+    // non-byte array contract
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": ["a", "b", "c"]
+            }
+        }));
+
+    // non-sting contract_file
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract_file": 22
+            }
+        }));
+
+    // empty contract_file
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract_file": ""
+            }
+        }));
+
+    // non-bool create_tx
+    testInvalidInvokeContractJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "create_tx": "NO"
+            }
+        }));
+
+    // missing data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+            }
+        }));
+
+    // non-array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": "data"
+            }
+        }));
+
+    // empty array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": []
+            }
+        }));
+
+    // non-string array data
+    testInvalidProcessInvokeDataJsonRpc(JSON_CODE(
+         {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": ["123", "456", "789"]
+            }
+        }));
 
     return WALLET_CHECK_RESULT;
 }

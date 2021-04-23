@@ -20,6 +20,9 @@ target_sources(wallet_client
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
         extensions/notifications/notification_center.cpp
+        extensions/dex_board/dex_order.cpp
+        extensions/dex_board/dex_board.cpp
+        extensions/export/tx_history_to_csv.cpp
 )
 
 target_link_libraries(wallet_client 
@@ -35,6 +38,7 @@ endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     target_link_libraries(wallet_client PUBLIC assets)
+    target_link_libraries(wallet_client PUBLIC dex)
 endif()
 
 if(BEAM_LELANTUS_SUPPORT)

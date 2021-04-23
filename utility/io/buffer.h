@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <string.h>
 #ifdef WIN32
-#include <Winsock2.h>
+#include <WinSock2.h>
 #else
 #include <sys/uio.h>
 #endif
@@ -30,35 +30,42 @@ struct IOVec {
 #ifdef WIN32
     size_t size;
     const uint8_t* data;
-#else
-    const uint8_t* data;
-    size_t size;
-#endif
 
-
-    IOVec() : data(0), size(0)
+    IOVec() : size(0), data(nullptr)
     {}
 
     /// Assigns memory fragment
     IOVec(const void* _data, size_t _size) :
-        data((const uint8_t*)_data), size(_size)
+        size(_size), data(static_cast<const uint8_t*>(_data))
     {
-#ifdef WIN32
         static_assert(
             sizeof(IOVec) == sizeof(WSABUF) &&
             offsetof(IOVec, data) == offsetof(WSABUF, buf) &&
             offsetof(IOVec, size) == offsetof(WSABUF, len),
             "IOVec must cast to iovec"
             );
+    }
+
 #else
+    const uint8_t* data;
+    size_t size;
+
+    IOVec() : data(0), size(0)
+    {}
+
+    /// Assigns memory fragment
+    IOVec(const void* _data, size_t _size) :
+        data(static_cast<const uint8_t*>(_data)), size(_size)
+    {
         static_assert(
             sizeof(IOVec) == sizeof(iovec) &&
             offsetof(IOVec, data) == offsetof(iovec, iov_base) &&
             offsetof(IOVec, size) == offsetof(iovec, iov_len),
             "IOVec must cast to iovec"
-        );
-#endif
+            );
     }
+
+#endif
 
     /// Advances the pointer
     void advance(size_t nBytes) {
@@ -71,7 +78,7 @@ struct IOVec {
     }
 
     void clear() {
-        data = 0;
+        data = nullptr;
         size = 0;
     }
 
@@ -116,7 +123,7 @@ struct SharedBuffer : IOVec {
 
     /// Assigns shared memory region
     void assign(const void* _data, size_t _size, SharedMem _guard) {
-        data = (const uint8_t*)_data;
+        data = static_cast<const uint8_t*>(_data);
         size = _size;
         guard = std::move(_guard);
     }

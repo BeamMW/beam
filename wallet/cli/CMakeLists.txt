@@ -53,6 +53,7 @@ endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE assets)
+    target_link_libraries(${TARGET_NAME} PRIVATE dex)
 endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)

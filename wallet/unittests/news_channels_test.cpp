@@ -47,7 +47,7 @@ namespace
     /**
      *  Class to test correct notification of news channels observers
      */
-    struct MockNewsObserver : public INewsObserver, public IExchangeRateObserver
+    struct MockNewsObserver : public INewsObserver, public IExchangeRatesObserver
     {
         using OnVersion = function<void(const VersionInfo&, const ECC::uintBig&)>;
         using OnWalletVersion = function<void(const WalletImplVerInfo&, const ECC::uintBig&)>;
@@ -152,6 +152,9 @@ namespace
         case BroadcastContentType::WalletUpdates:
             header.type = 3;
             break;
+        case BroadcastContentType::DexOffers:
+            header.type = 4;
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());
@@ -251,9 +254,8 @@ namespace
             "bla-bla message",
             1234
             };
-        std::vector<ExchangeRate> rates {
-            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() } };
 
+        std::vector<ExchangeRate> rates = {{ Currency::BEAM(), Currency::USD(), 147852369, getTimestamp() } };
         const auto& [pk, sk] = deriveKeypair(storage, 321);
         BroadcastMsg msgV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
         BroadcastMsg msgWV = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
@@ -363,9 +365,8 @@ namespace
             cout << "Case: empty rates" << endl;
             WALLET_CHECK(rateProvider.getRates().empty());
         }
-        const std::vector<ExchangeRate> rate {
-            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 147852369, getTimestamp() }
-        };
+
+        const std::vector<ExchangeRate> rate = {{Currency::BEAM(), Currency::USD(), 147852369, getTimestamp()}};
         // add rate
         {
             cout << "Case: add rates" << endl;
@@ -379,9 +380,7 @@ namespace
         // update rate
         {
             cout << "Case: not update if rates older" << endl;
-            const std::vector<ExchangeRate> rateOlder {
-                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()-100 }
-            };
+            const std::vector<ExchangeRate> rateOlder = {{ Currency::BEAM(), Currency::USD(), 14785238554, getTimestamp()-100 }};
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateOlder), sk);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
 
@@ -389,9 +388,7 @@ namespace
             WALLET_CHECK(testRates.size() == 1);
             WALLET_CHECK(testRates[0] == rate[0]);
         }
-        const std::vector<ExchangeRate> rateNewer {
-            { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Usd, 14785238554, getTimestamp()+100 }
-        };
+        const std::vector<ExchangeRate> rateNewer = {{ Currency::BEAM(), Currency::USD(), 14785238554, getTimestamp()+100 }};
         {
             cout << "Case: update rates" << endl;
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateNewer), sk);
@@ -404,9 +401,7 @@ namespace
         // add more rate
         {
             cout << "Case: add more rates" << endl;
-            const std::vector<ExchangeRate> rateAdded {
-                { ExchangeRate::Currency::Beam, ExchangeRate::Currency::Bitcoin, 987, getTimestamp()+100 }
-            };
+            const std::vector<ExchangeRate> rateAdded = {{ Currency::BEAM(), Currency::BTC(), 987, getTimestamp()+100 }};
             BroadcastMsg msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(rateAdded), sk);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msg);
 

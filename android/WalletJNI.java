@@ -71,7 +71,7 @@ public class WalletJNI
 			// call async wallet requests
 			{
 				wallet.getWalletStatus();
-				wallet.getUtxosStatus();
+				wallet.getAllUtxosStatus();
 				wallet.getAddresses(true);
 				wallet.getAddresses(false);
 

@@ -73,6 +73,8 @@
 #include <regex>
 #include <core/block_crypt.h>
 
+#include "bvm/ManagerStd.h"
+
 using namespace std;
 using namespace beam;
 using namespace beam::wallet;
@@ -110,15 +112,14 @@ namespace
 {
     std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
     {
-        storage::PaymentInfo pi;
         auto tx = walletDB->getTx(txID);
-
-        TxDescription desc(*tx);
+        if (!tx)
+        {
+            LOG_WARNING() << "Can't get transaction details";
+            return "";
+        }
+        const TxDescription& desc = *tx;
         TxAddressType addressType = GetAddressType(desc);
-
-        bool bSuccess = true;
-
-        bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::Amount, pi.m_Amount);
 
         if (addressType == TxAddressType::AtomicSwap)
         {
@@ -126,7 +127,7 @@ namespace
             Amount swapAmount = 0u;
             AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
             bool isBeamSide = true;
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapAmount, swapAmount);
+            bool bSuccess = storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapAmount, swapAmount);
             bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapCoin, swapCoin);
             bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
@@ -139,74 +140,56 @@ namespace
                 {
                     std::ostringstream s;
 
-                    s << "Type:        " << "atomic swap" << std::endl;
-                    s << "Swap coin:   " << std::to_string(swapCoin) << std::endl;
-                    s << "Beam side:   " << isBeamSide << std::endl;
-                    s << "Beam amount: " << PrintableAmount(pi.m_Amount) << std::endl;
-                    s << "Swap amount: " << std::to_string(swapAmount) << std::endl;
-                    s << "Swap token:  " << *swapToken << std::endl;
+                    s << "Type:              " << "atomic swap" << std::endl;
+                    s << "Swap coin:         " << std::to_string(swapCoin) << std::endl;
+                    s << "Beam side:         " << isBeamSide << std::endl;
+                    s << "Beam amount:       " << PrintableAmount(desc.m_amount) << std::endl;
+                    s << "Swap amount:       " << std::to_string(swapAmount) << std::endl;
+                    s << "Swap token:        " << *swapToken << std::endl;
 
                     return s.str();
                 }
             }
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
+            return "";
         }
-        else
+
+        bool hasNoPeerId = desc.m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
+
+        auto senderIdentity = desc.getSenderIdentity();
+        auto receiverIdentity = desc.getReceiverIdentity();
+        bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
+
+        auto sender = desc.getSender();
+        auto receiver = desc.getReceiver();
+        if (desc.m_txType == wallet::TxType::PushTransaction && !desc.m_sender)
         {
-            bool hasNoPeerId = tx->m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
-            if (!hasNoPeerId)
-            {
-                bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-                    txID,
-                    tx->m_sender
-                    ? TxParameterID::PeerID
-                    : TxParameterID::MyID,
-                    pi.m_Receiver);
-            }
-
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB,
-                txID,
-                tx->m_sender
-                ? TxParameterID::MyID
-                : TxParameterID::PeerID,
-                pi.m_Sender);
-
-            bSuccess = bSuccess && storage::getTxParameter(*walletDB, txID, TxParameterID::KernelID, pi.m_KernelID);
-
-            if (bSuccess)
-            {
-                auto senderIdentity = tx->getSenderIdentity();
-                auto receiverIdentity = tx->getReceiverIdentity();
-                bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
-
-                auto sender = std::to_string(pi.m_Sender);
-                if (tx->m_txType == wallet::TxType::PushTransaction && !tx->m_sender)
-                {
-                    sender = "shielded pool";
-                }
-
-                std::ostringstream s;
-                s << "Sender: " << sender << std::endl;
-                if (showIdentity)
-                {
-                    s << "Sender identity: " << senderIdentity << std::endl;
-                }
-
-                s << "Receiver: " << (hasNoPeerId ? desc.getToken() : std::to_string(pi.m_Receiver)) << std::endl;
-                if (showIdentity)
-                {
-                    s << "Receiver identity: " << receiverIdentity << std::endl;
-                }
-
-                s << "Amount: " << PrintableAmount(pi.m_Amount) << std::endl;
-                s << "KernelID: " << std::to_string(pi.m_KernelID) << std::endl;
-
-                return s.str();
-            }
+            sender = "shielded pool";
+        }
+        else if (desc.m_txType == wallet::TxType::Contract)
+        {
+            sender = receiver = "n/a";
         }
 
-        LOG_WARNING() << "Can't get transaction details";
-        return "";
+        std::ostringstream s;
+        s << "Type:              " << desc.getTxTypeString() << '\n';
+        s << "Sender:            " << sender << std::endl;
+        if (showIdentity)
+        {
+            s << "Sender identity:   " << senderIdentity << std::endl;
+        }
+
+        s << "Receiver:          " << (hasNoPeerId ? desc.getToken() : receiver) << std::endl;
+        if (showIdentity)
+        {
+            s << "Receiver identity: " << receiverIdentity << std::endl;
+        }
+
+        s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
+        s << "KernelID:          " << std::to_string(desc.m_kernelID) << std::endl;
+
+        return s.str();
+
     }
 
     SecString GetPassword(const po::variables_map& vm);
@@ -605,20 +588,17 @@ namespace
 
     int ChangeAddressExpiration(const po::variables_map& vm)
     {
-        string address = vm[cli::WALLET_ADDR].as<string>();
+        string token = vm[cli::WALLET_ADDR].as<string>();
         string expiration = vm[cli::EXPIRATION_TIME].as<string>();
-        WalletID walletID(Zero);
-        bool allAddresses = address == "*";
-
-        if (!allAddresses)
-        {
-            walletID.FromHex(address);
-        }
 
         WalletAddress::ExpirationStatus expirationStatus;
         if (expiration == cli::EXPIRATION_TIME_24H)
         {
             expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+        }
+        else if (expiration == cli::EXPIRATION_TIME_AUTO)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
         }
         else if (expiration == cli::EXPIRATION_TIME_NEVER)
         {
@@ -637,17 +617,27 @@ namespace
         }
 
         auto walletDB = OpenDataBase(vm);
-        if (storage::changeAddressExpiration(*walletDB, walletID, expirationStatus))
+        if (token == "*")
         {
-            if (allAddresses)
+            WalletID zeroID(Zero);
+            if (storage::changeAddressExpiration(*walletDB, zeroID, expirationStatus))
             {
-                LOG_INFO() << boost::format(kAllAddrExprChanged) % expiration;
+                std::cout << boost::format(kAllAddrExprChanged) % expiration << endl;
+            }
+        }
+        else
+        {
+            if (auto address = walletDB->getAddressByToken(token, false))
+            {
+                address->setExpirationStatus(expirationStatus);
+                walletDB->saveAddress(*address);
+
+                std::cout << boost::format(kAddrExprChanged) % token % expiration << endl;
             }
             else
             {
-                LOG_INFO() << boost::format(kAddrExprChanged) % to_string(walletID) % expiration;
+                throw std::runtime_error("Cannot find specified existing address.");
             }
-            return 0;
         }
         return -1;
     }
@@ -666,19 +656,26 @@ namespace
         {
             expirationStatus = WalletAddress::ExpirationStatus::OneDay;
         }
+        else if (expiration == cli::EXPIRATION_TIME_AUTO)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Auto;
+        }
         else if (expiration == cli::EXPIRATION_TIME_NEVER)
         {
             expirationStatus = WalletAddress::ExpirationStatus::Never;
         }
         else
         {
-            LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid) 
-                        % cli::EXPIRATION_TIME
-                        % expiration;
+            std::cerr << boost::format(kErrorAddrExprTimeInvalid) % cli::EXPIRATION_TIME % expiration;
             return false;
         }
-        
-        GenerateNewAddress(walletDB, comment, expirationStatus);
+
+        WalletAddress address(comment);
+        walletDB->createAddress(address);
+        address.setExpirationStatus(expirationStatus);
+        walletDB->saveAddress(address);
+
+        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
         return true;
     }
 
@@ -741,7 +738,7 @@ namespace
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
-            CreateNewAddress(vm, walletDB, kDefaultAddrLabel);
+            walletDB->generateAndSaveDefaultAddress();
             return 0;
         }
         LOG_ERROR() << kErrorWalletNotCreated;
@@ -758,56 +755,66 @@ namespace
         return InitDataBase(vm, false);
     }
 
-    void AddVoucherParameter(const po::variables_map& vm, TxParameters& params, IWalletDB::Ptr db, uint64_t ownID)
-    {
-        if (auto it = vm.find(cli::OFFLINE_ADDRESS); it != vm.end())
-        {
-            auto vouchers = GenerateVoucherList(db->get_KeyKeeper(), ownID, it->second.as<Positive<uint32_t>>().value);
-            if (!vouchers.empty())
-            {
-                // add voucher parameter
-                params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-                params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-            }
-        }
-    }
-
-    int GetAddress(const po::variables_map& vm)
-    {
+   int GetAddress(const po::variables_map& vm)
+   {
         auto walletDB = OpenDataBase(vm);
 
-        TxAddressType type = TxAddressType::Regular;
-        std::string receiver;
+        auto type = TokenType::RegularNewStyle;
         uint32_t offlineCount = 10;
+
+        WalletAddress address;
+        walletDB->createAddress(address);
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TxAddressType::PublicOffline;
+            type = TokenType::Public;
         }
         else if (it2 = vm.find(cli::MAX_PRIVACY_ADDRESS); it2 != vm.end() && it2->second.as<bool>())
         {
-            type = TxAddressType::MaxPrivacy;
+            type = TokenType::MaxPrivacy;
         }
-        else if (it2 = vm.find(cli::OFFLINE_ADDRESS); it2 != vm.end())
+        else if (it2 = vm.find(cli::OFFLINE_COUNT); it2 != vm.end())
         {
-            type = TxAddressType::Offline;
+            type = TokenType::Offline;
             offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
         else
         {
             if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
             {
-                receiver = it->second.as<string>();
+                auto receiver = it->second.as<string>();
+
+                WalletID walletID;
+                if (!walletID.FromHex(receiver))
+                {
+                    throw std::runtime_error("Invalid existing address format");
+                }
+
+                auto existing = walletDB->getAddress(walletID);
+
+                if (!existing)
+                {
+                    throw std::runtime_error("Cannot find specified existing address.");
+                }
+
+                if (existing->isExpired())
+                {
+                    throw std::runtime_error("Specified existing address is already expired");
+                }
+
+                address = *existing;
             }
         }
 
         try 
         {
-            LOG_INFO() << "address: " << GenerateAddress(walletDB, type, true, "", WalletAddress::ExpirationStatus::OneDay, receiver, offlineCount);
+            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
+            walletDB->saveAddress(address);
+            std::cout << "New address: " << address.m_Address << std::endl;
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << ex.what();
+            std::cerr << ex.what();
         }
         
         return 0;
@@ -884,44 +891,56 @@ namespace
         return true;
     }
 
+    std::string GetAddressTypeString(const WalletAddress& address)
+    {
+        const auto type = GetTokenType(address.m_Address);
+        switch (type)
+        {
+            case TokenType::Public: return "public offline";
+            case TokenType::MaxPrivacy: return "max privacy";
+            case TokenType::RegularNewStyle: return "regular new style";
+            case TokenType::RegularOldStyle: return "regular old style";
+            case TokenType::Offline: return "offline";
+            default: return "unknown";
+        }
+    }
+
     int ShowAddressList(const po::variables_map& vm)
     {
         auto walletDB = OpenDataBase(vm);
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 6> columnWidths{ { 20, 70, 70, 8, 20, 21 } };
 
-        // Comment | Address | Identity | Active | Expiration date | Created |
-        cout << boost::format(kAddrListTableHead)
-             % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
-             % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
-             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnIdentity)
-             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnActive)
-             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnExprDate)
-             % boost::io::group(left, setw(columnWidths[5]), kAddrListColumnCreated)
-             << std::endl;
+        if (addresses.empty())
+        {
+            std::cout << "You do not have any addresses.";
+            return 0;
+        }
 
+        std::cout << endl;
         for (const auto& address : addresses)
         {
-            auto comment = address.m_label;
+            std::cout
+                << kAddrListType    << GetAddressTypeString(address) << std::endl
+                << kAddrListComment << address.m_label << std::endl
+                << kAddrListAddress << address.m_Address << std::endl;
 
-            if (comment.length() > columnWidths[0])
+            if (address.m_walletID.IsValid())
             {
-                comment = comment.substr(0, columnWidths[0] - 3) + "...";
+                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
             }
 
-            auto expirationDateText = (address.m_duration == 0)
+            const auto expirationDateText = (address.m_duration == 0)
                 ? cli::EXPIRATION_TIME_NEVER
                 : format_timestamp(kTimeStampFormat3x3, address.getExpirationTime() * 1000, false);
-            auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
-            cout << boost::format(kAddrListTableBody)
-             % boost::io::group(left, setw(columnWidths[0]), comment)
-             % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
-             % boost::io::group(left, setw(columnWidths[2]), std::to_string(address.m_Identity))
-             % boost::io::group(left, boolalpha, setw(columnWidths[3]), !address.isExpired())
-             % boost::io::group(left, setw(columnWidths[4]), expirationDateText)
-             % boost::io::group(left, setw(columnWidths[5]), creationDateText)
-             << std::endl;
+            const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
+
+            std::cout
+                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
+                << kAddrListExprDate << expirationDateText << std::endl
+                << kAddrListCreated  << creationDateText << std::endl
+                << std::endl;
         }
 
         return 0;
@@ -955,6 +974,15 @@ namespace
             emission = ss.str();
         }
 
+        beam::AmountBig::Type available = totals.Avail;
+        available += totals.AvailShielded;
+
+        beam::AmountBig::Type unspent = totals.Unspent;
+        unspent += totals.UnspentShielded;
+
+        beam::AmountBig::Type maturing = totals.Maturing;
+        maturing += totals.MaturingShielded;
+
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetIDFormat) % totals.AssetId
@@ -963,11 +991,11 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetRefreshHeightFormat) % rfHeight
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetEmissionFormat) % emission
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetOwnerFormat) % ownerStr
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(available, false, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, unitName, nthName));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, unitName, nthName));
              // % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
 
         auto minHeight = std::min(totals.MinCoinHeightMW, totals.MinCoinHeightShielded);
@@ -1012,7 +1040,7 @@ namespace
         return 0;
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId)
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {})
     {
         const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
@@ -1022,7 +1050,29 @@ namespace
         std::vector<boost::any> reliable;
         std::vector<boost::any> unreliable;
 
+        auto isSkipedByTxID = [&](const auto& txID, const auto& createID, const auto& spentID)
+        {
+            if (!txID)
+            {
+                return false;
+            }
+            if (createID && *createID == *txID)
+            {
+                return false;
+            }
+            if (spentID && *spentID == *txID)
+            {
+                return false;
+            }
+            return true;
+        };
+
         walletDB->visitCoins([&](const Coin& c)->bool {
+            if (isSkipedByTxID(txID, c.m_createTxId, c.m_spentTxId))
+            {
+                // skip
+                return true;
+            }
             if (c.m_ID.m_AssetID == assetId)
             {
                 if (c.m_confirmHeight < lockHeight)
@@ -1038,6 +1088,11 @@ namespace
         });
 
         walletDB->visitShieldedCoins([&](const ShieldedCoin& c)->bool {
+            if (isSkipedByTxID(txID, c.m_createTxId, c.m_spentTxId))
+            {
+                // skip
+                return true;
+            }
             if (c.m_CoinID.m_AssetID == assetId)
             {
                 if (c.m_confirmHeight < lockHeight)
@@ -1270,15 +1325,19 @@ namespace
         }
     }
 
-    void ShowAssetsInfo(const po::variables_map& vm)
+    void ShowAssetsInfo(const po::variables_map& vm, IWalletDB::Ptr walletDB)
     {
+        if (!walletDB)
+        {
+            walletDB = OpenDataBase(vm);
+        }
+
         auto showAssetId = Asset::s_InvalidID;
         if (vm.count(cli::ASSET_ID))
         {
             showAssetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
         }
 
-        auto walletDB = OpenDataBase(vm);
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totals(*walletDB);
@@ -1286,7 +1345,12 @@ namespace
         const auto displayAsset = [&vm, &walletDB](const storage::Totals::AssetTotals &totals) {
             cout << endl;
             ShowAssetInfo(walletDB, totals);
-            ShowAssetCoins(walletDB, totals.AssetId);
+
+            if (vm.count(cli::UTXO_LIST))
+            {
+                ShowAssetCoins(walletDB, totals.AssetId);
+            }
+
             ShowAssetTxs(vm, walletDB, totals.AssetId);
         };
 
@@ -1365,9 +1429,13 @@ namespace
         }
     }
 
-    void ShowBEAMInfo(const po::variables_map& vm)
+    void ShowBEAMInfo(const po::variables_map& vm, IWalletDB::Ptr walletDB)
     {
-        auto walletDB = OpenDataBase(vm);
+        if (!walletDB)
+        {
+            walletDB = OpenDataBase(vm);
+        }
+
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totalsCalc(*walletDB);
@@ -1396,18 +1464,22 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent));
 
-        ShowAssetCoins(walletDB, Zero);
-
-        if (vm.count(cli::TX_HISTORY) /*|| vm.count(cli::SHIELDED_TX_HISTORY)*/)
+        if (vm.count(cli::UTXO_LIST))
+        {
+            ShowAssetCoins(walletDB, Zero);
+        }
+        else if (vm.count(cli::TX_HISTORY))
         {
             std::vector<TxDescription> txHistory;
 
             if (vm.count(cli::TX_HISTORY))
             {
-                auto txSimple  = walletDB->getTxHistory();
-                auto txMaxPriv = walletDB->getTxHistory(TxType::PushTransaction);
-                txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
-                txHistory.insert(txHistory.end(), txMaxPriv.begin(), txMaxPriv.end());
+                std::array<TxType, 3> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract };
+                for (auto type : types)
+                {
+                    auto v = walletDB->getTxHistory(type);
+                    txHistory.insert(txHistory.end(), v.begin(), v.end());
+                }
             }
 
             txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
@@ -1455,6 +1527,10 @@ namespace
                         << std::endl;
                 }
             }
+        }
+        else
+        {
+            std::cout << "If you wish to see the list of UXTOs or transaction history use\n\t--" << cli::UTXO_LIST << "  or  --" << cli::TX_HISTORY << "  parameters correspondingly" << std::endl;
         }
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -1516,14 +1592,17 @@ namespace
         // If asset info is requested we show only it
         // Otherwise we display both BEAM & ASSETS
         //
-        const bool showAssets = vm.count(cli::ASSETS) != 0 || vm.count(cli::ASSET_ID) != 0;
-        if (showAssets)
+        const bool assetsOnly = vm.count(cli::ASSET_ID) != 0;
+        IWalletDB::Ptr wdb = OpenDataBase(vm);
+
+        if (assetsOnly)
         {
-            ShowAssetsInfo(vm);
+            ShowAssetsInfo(vm, wdb);
         }
         else
         {
-            ShowBEAMInfo(vm);
+            ShowBEAMInfo(vm, wdb);
+            ShowAssetsInfo(vm, wdb);
         }
 
         return 0;
@@ -1578,10 +1657,17 @@ namespace
         const auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
         const auto txstatus = statusInterpreter->getStatus();
 
-        LOG_INFO()
+        cout
+            << "\n"
             << boost::format(kTxDetailsFormat) % txdetails % txstatus
             << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
-            << (!token.empty() ? "\nAddress: " : "") << token;
+            << (!token.empty() ? "\nAddress:           " : "") << token;
+
+        if (vm.count(cli::UTXO_LIST))
+        {
+            cout << "\n\n";
+            ShowAssetCoins(walletDB, Zero, txId);
+        }
 
         return 0;
     }
@@ -1635,10 +1721,11 @@ namespace
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
         bool isValid = false;
+        auto walletDB = OpenDataBase(vm);
 
         try
         {
-            isValid = storage::VerifyPaymentProof(buf);
+            isValid = storage::VerifyPaymentProof(buf, *walletDB);
         }
         catch (const std::runtime_error & e)
         {
@@ -1781,19 +1868,6 @@ namespace
         return coinIDs;
     }
 
-    bool ReadShieldedId(const po::variables_map& vm, TxoID& id)
-    {
-        if (vm.count(cli::SHIELDED_ID) == 0)
-        {
-            LOG_ERROR() << kErrorShieldedIDMissing;
-            return false;
-        }
-
-        id = vm[cli::SHIELDED_ID].as<Nonnegative<TxoID>>().value;
-
-        return true;
-    }
-
     struct CliNodeConnection final : public proto::FlyClient::NetworkStd
     {
     public:
@@ -1912,10 +1986,7 @@ namespace
         }
 
         std::string meta;
-        if(!fromByteBuffer(info->m_Metadata.m_Value, meta))
-        {
-            throw std::runtime_error(kErrorAssetLoadMeta);
-        }
+        info->m_Metadata.get_String(meta);
 
         return meta;
     }
@@ -1946,7 +2017,7 @@ namespace
         }
 
         Amount fee = 0;
-        if(!ReadFee(vm, fee, true))
+        if(!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -1967,7 +2038,7 @@ namespace
         const auto strMeta = ReadAssetMeta(vm, false);
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, true))
+        if (!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -2000,7 +2071,7 @@ namespace
         }
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, true))
+        if (!ReadFee(vm, fee, wallet, true))
         {
             return boost::none;
         }
@@ -2155,7 +2226,7 @@ namespace
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
 
-                if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
+                if (!LoadBaseParamsForTX(vm, *wallet, assetId, amount, fee, receiverWalletID, isFork1))
                 {
                     return -1;
                 }
@@ -2168,43 +2239,140 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-                bool isPushTx = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
                 }
 
-                Amount feeForShieldedInputs = 0;
-                if (!CheckFeeForShieldedInputs(amount, fee, assetId, walletDB, isPushTx, feeForShieldedInputs))
-                    return -1;
+                WalletAddress senderAddress;
+                walletDB->createAddress(senderAddress);
+                walletDB->saveAddress(senderAddress);
 
-                if (isPushTx)
-                {
-                    const auto& ownAddresses = walletDB->getAddresses(true);
-                    auto it = std::find_if(
-                        ownAddresses.begin(), ownAddresses.end(),
-                        [&receiverWalletID] (const WalletAddress& addr)
-                        {
-                            return receiverWalletID == addr.m_walletID;
-                        });
+                params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                    .SetParameter(TxParameterID::Amount, amount)
+                    // fee for shielded inputs included automatically
+                    .SetParameter(TxParameterID::Fee, fee)
+                    .SetParameter(TxParameterID::AssetID, assetId)
+                    .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 
-                    if (it != ownAddresses.end())
+                currentTxID = wallet->StartTransaction(params);
+                return 0;
+            });
+    }
+
+    int ShaderInvoke(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            {
+
+			    struct MyManager
+				    :public bvm2::ManagerStd
+			    {
+				    bool m_Done = false;
+				    bool m_Err = false;
+                    bool m_Async = false;
+
+				    void OnDone(const std::exception* pExc) override
+				    {
+					    m_Done = true;
+					    m_Err = !!pExc;
+
+                        if (pExc)
+                            std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                        else
+                            std::cout << "Shader output: " << m_Out.str() << std::endl;
+
+                        if (m_Async)
+                            io::Reactor::get_Current().stop();
+				    }
+
+                    static void Compile(ByteBuffer& res, const char* sz, Kind kind)
                     {
-                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
+                        std::FStream fs;
+                        fs.Open(sz, true, true);
+
+                        res.resize(static_cast<size_t>(fs.get_Remaining()));
+                        if (!res.empty())
+                            fs.read(&res.front(), res.size());
+
+                        bvm2::Processor::Compile(res, res, kind);
+                    }
+                };
+
+                MyManager man;
+                man.m_pPKdf = walletDB->get_OwnerKdf();
+                man.m_pNetwork = wallet->GetNodeEndpoint();
+                man.m_pHist = &walletDB->get_History();
+
+                auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
+                if (sVal.empty())
+                    throw std::runtime_error("shader file not specified");
+
+                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager);
+
+                sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
+                if (!sVal.empty())
+                    MyManager::Compile(man.m_BodyContract, sVal.c_str(), MyManager::Kind::Contract);
+
+                sVal = vm[cli::SHADER_ARGS].as<string>(); // should be comma-separated list of name=val pairs
+                if (!sVal.empty())
+                    man.AddArgs(&sVal.front());
+               
+                std::cout << "Executing shader..." << std::endl;
+
+                man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
+
+                if (!man.m_Done)
+                {
+                    man.m_Async = true;
+                    io::Reactor::get_Current().run();
+
+                    if (!man.m_Done)
+                    {
+                        // abort, propagate it
+                        io::Reactor::get_Current().stop();
                         return -1;
                     }
                 }
 
+                if (man.m_Err || man.m_vInvokeData.empty())
+                    return 1;
 
-                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::Amount, amount)
-                    // fee for shielded inputs included automaticaly
-                    .SetParameter(TxParameterID::Fee, fee - feeForShieldedInputs)
-                    .SetParameter(TxParameterID::AssetID, assetId)
-                    .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-                currentTxID = wallet->StartTransaction(params);
+                const auto height  = wallet->get_CurrentHeight();
+                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
+                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
+                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
+
+                std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+                std::cout << "\tComment: " << comment;
+
+                for (const auto& info: spend)
+                {
+                    auto aid = info.first;
+                    auto amount = info.second;
+
+                    bool bSpend = (amount > 0);
+                    if (!bSpend)
+                        amount = -amount;
+
+                    PrintableAmount prnt(static_cast<Amount>(amount));
+                    if (aid)
+                    {
+                        prnt.m_coinName = "ASSET-" + to_string(aid);
+                        prnt.m_grothName = prnt.m_coinName + "-GROTH";
+                    }
+
+                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << prnt << std::endl;
+                }
+
+                std::cout << "\tTotal fee: " << PrintableAmount(fee) << std::endl;
+
+                ByteBuffer msg(comment.begin(), comment.end());
+                currentTxID = wallet->StartTransaction(
+                    CreateTransactionParameters(TxType::Contract)
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::Message, msg)
+                );
 
                 return 0;
             });
@@ -2442,115 +2610,96 @@ namespace
             });
     }
 
-    boost::optional<TxID> InsertToShieldedPool(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
+    int ShowBlockDetails(const po::variables_map& vm)
     {
-        Amount amount = 0;
-        Amount fee = 0;
-        if (!ReadAmount(vm, amount) || !ReadFee(vm, fee, true))
+        auto walletDB = OpenDataBase(vm);
+
+        auto wallet = std::make_shared<Wallet>(walletDB,
+            Wallet::TxCompletedAction(),
+            Wallet::UpdateCompletedAction());
+        auto nnet = CreateNetwork(*wallet, vm);
+        
+        if (!nnet)
         {
-            return boost::none;
+            return -1;
         }
 
-        if (fee < kShieldedTxMinFeeInGroth)
+        if (vm.count(cli::BLOCK_HEIGHT) != 1)
         {
-            LOG_ERROR() << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-            return boost::none;
+            LOG_ERROR() << "block_height should be specified";
+            return -1;
         }
 
-        const Amount pushTxMinAmount = kShieldedTxMinFeeInGroth + 1;
-        if (amount < pushTxMinAmount)
+        Height blockHeight = vm[cli::BLOCK_HEIGHT].as<Nonnegative<Height>>().value;
+
+        if (!blockHeight)
         {
-            LOG_ERROR() << "Amount is too small. Minimal amount is " << PrintableAmount(pushTxMinAmount);
-            return boost::none;
+            LOG_ERROR() << "Cannot get block header.";
+            return -1;
         }
 
-        Asset::ID assetId = Asset::s_InvalidID;
-        if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
+        proto::FlyClient::RequestEnumHdrs::Ptr pRequest(new proto::FlyClient::RequestEnumHdrs);
+        proto::FlyClient::RequestEnumHdrs& request = *pRequest;
+
+        request.m_Msg.m_Height = blockHeight;
+
+        struct MyHandler : public proto::FlyClient::Request::IHandler
         {
-            CheckAssetsAllowed(vm);
-            assetId = vm[cli::ASSET_ID].as<Positive<uint32_t> >().value;
-        }
+            proto::FlyClient::Request* m_Request = nullptr;
 
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-        auto txParams = lelantus::CreatePushTransactionParameters(senderAddress.m_walletID);
-        LoadReceiverParams(vm, txParams);
+            ~MyHandler() {
+                m_Request->m_pTrg = nullptr;
+            }
 
-        txParams.SetParameter(TxParameterID::Amount, amount)
-                .SetParameter(TxParameterID::Fee, fee)
-                .SetParameter(TxParameterID::AssetID, assetId)
-                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        return wallet.StartTransaction(txParams);
-    }
-
-    int InsertToShieldedPool(const po::variables_map& vm)
-    {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+            virtual void OnComplete(proto::FlyClient::Request&) override
             {
-                currentTxID = InsertToShieldedPool(vm, *wallet, walletDB);
-                return currentTxID ? 0: -1;
-            });
-    }
+                m_Request->m_pTrg = nullptr;
+                io::Reactor::get_Current().stop();
+            }
 
-    boost::optional<TxID> ExtractFromShieldedPool(const po::variables_map& vm, Wallet& wallet, IWalletDB::Ptr walletDB)
-    {
-        TxoID shieldedId = 0;
-        Amount fee = 0;
+        } myHandler;
 
-        if (!ReadFee(vm, fee, true) || !ReadShieldedId(vm, shieldedId))
+        myHandler.m_Request = &request;
+        nnet->PostRequest(request, myHandler);
+
+        io::Reactor::get_Current().run();
+
+        if (request.m_pTrg || request.m_vStates.size() != 1)
         {
-            return boost::none;
+            LOG_ERROR() << "Cannot get block header.";
+            return -1;
         }
 
-        if (fee < kShieldedTxMinFeeInGroth)
-        {
-            LOG_ERROR () << "Fee is too small. Minimal fee is " << PrintableAmount(kShieldedTxMinFeeInGroth);
-            return boost::none;
-        }
+        Block::SystemState::Full state = request.m_vStates.front();
+        Merkle::Hash blockHash;
+        state.get_Hash(blockHash);
 
-        auto shieldedCoin = walletDB->getShieldedCoin(shieldedId);
-        if (!shieldedCoin)
-        {
-            LOG_ERROR () << "Is not shielded UTXO id: " << shieldedId;
-            return boost::none;
-        }
+        std::string rulesHash = Rules::get().pForks[_countof(Rules::get().pForks) - 1].m_Hash.str();
 
-        const bool isAsset = shieldedCoin->m_CoinID.m_AssetID != Asset::s_InvalidID;
-        if (isAsset)
+        for (size_t i = 1; i < _countof(Rules::get().pForks); i++)
         {
-            CheckAssetsAllowed(vm);
-        }
-        else
-        {
-            // BEAM
-            if (shieldedCoin->m_CoinID.m_Value <= fee)
+            if (state.m_Height < Rules::get().pForks[i].m_Height)
             {
-                LOG_ERROR() << "Shielded UTXO amount less or equal fee.";
-                return boost::none;
+                rulesHash = Rules::get().pForks[i - 1].m_Hash.str();
+                break;
             }
         }
 
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+        std::cout << "Block Details:" << "\n"
+            << "Height: " << state.m_Height << "\n"
+            << "Hash: " << blockHash.str() << "\n"
+            << "Previous state hash: " << state.m_Prev.str() << "\n"
+            << "ChainWork: " << state.m_ChainWork.str() << "\n"
+            << "Kernels: " << state.m_Kernels.str() << "\n"
+            << "Definition: " << state.m_Definition.str() << "\n"
+            << "Timestamp: " << state.m_TimeStamp << "\n"
+            << "POW: " << beam::to_hex(&state.m_PoW, sizeof(state.m_PoW)) << "\n"
+            << "Difficulty: " << state.m_PoW.m_Difficulty.ToFloat() << "\n"
+            << "Packed difficulty: " << state.m_PoW.m_Difficulty.m_Packed << "\n"
+            << "Rules hash: " << rulesHash << "\n";
 
-        auto txParams = lelantus::CreatePullTransactionParameters(senderAddress.m_walletID)
-            .SetParameter(TxParameterID::Amount, isAsset ? shieldedCoin->m_CoinID.m_Value : shieldedCoin->m_CoinID.m_Value - fee)
-            .SetParameter(TxParameterID::Fee, fee)
-            .SetParameter(TxParameterID::AssetID, shieldedCoin->m_CoinID.m_AssetID)
-            .SetParameter(TxParameterID::ShieldedOutputId, shieldedId)
-            .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
-
-        return wallet.StartTransaction(txParams);
+        return 0;
     }
-
-    int ExtractFromShieldedPool(const po::variables_map& vm)
-    {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
-            {
-                currentTxID = ExtractFromShieldedPool(vm, *wallet, walletDB);
-                return currentTxID ? 0: -1;
-            });
-    }
-
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2565,6 +2714,7 @@ int main_impl(int argc, char* argv[])
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
         {cli::SEND,               Send,                             "send BEAM"},
+        {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
         {cli::TREASURY,           HandleTreasury,                   "process treasury"},
         {cli::INFO,               ShowWalletInfo,                   "print information about wallet balance and transactions"},
@@ -2582,6 +2732,7 @@ int main_impl(int argc, char* argv[])
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
+        {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
@@ -2601,11 +2752,6 @@ int main_impl(int argc, char* argv[])
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
         {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from the blockchain"},
         {cli::ASSET_INFO,           GetAssetInfo,                   "print confidential asset information from a node"},
-#ifdef BEAM_LELANTUS_SUPPORT
-        // Basic lelantus operations are disabled in CLI starting from v5.1
-        // {cli::INSERT_TO_POOL,       InsertToShieldedPool,           "insert UTXO to the shielded pool"},
-        // {cli::EXTRACT_FROM_POOL,    ExtractFromShieldedPool,        "extract shielded UTXO from the shielded pool"}
-#endif
     };
 
     try
@@ -2659,7 +2805,7 @@ int main_impl(int argc, char* argv[])
             return 0;
         }
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_INFO);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"
@@ -2676,8 +2822,8 @@ int main_impl(int argc, char* argv[])
             clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
             Rules::get().UpdateChecksum();
 
-            wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
-
+            // always enabled since beamX
+            wallet::g_AssetsEnabled = true;
 
             {
                 reactor = io::Reactor::create();
@@ -2767,6 +2913,8 @@ int main(int argc, char* argv[]) {
             // TODO: this hungs app on OSX
             //lock_signals_in_this_thread();
             int ret = main_impl(argc, argv);
+            std::cout << std::flush;
+            std::cerr << std::flush;
             kill(0, SIGINT);
             return ret;
         }

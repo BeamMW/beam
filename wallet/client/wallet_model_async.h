@@ -14,13 +14,16 @@
 
 #pragma once
 
+#include <ctime>
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "boost/any.hpp"
 
 namespace beam::wallet
 {
-
+    class DexOrder;
+    struct DexOrderID;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -36,12 +39,12 @@ namespace beam::wallet
         virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
-        virtual void getUtxosStatus() = 0;
-        virtual void getAddresses(bool own) = 0;
+        virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
+        virtual void getAllUtxosStatus() = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;
-        virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
+        virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -50,24 +53,31 @@ namespace beam::wallet
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-        virtual void deleteAddress(const WalletID& id) = 0;
-        virtual void deleteAddress(const std::string& addr) = 0;
-        virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
-        virtual void activateAddress(const WalletID& id) = 0;
-        virtual void getAddress(const WalletID& id) = 0;
-        virtual void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
-        virtual void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+
+        virtual void getDexOrders() = 0;
+        virtual void publishDexOrder(const DexOrder&) = 0;
+
+        // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
+        virtual void acceptDexOrder(const DexOrderID&) = 0;
+
+        virtual void deleteAddress(const WalletID& addr) = 0;
+        virtual void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
+        virtual void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expiration) = 0;
+        virtual void activateAddress(const WalletID& addr) = 0;
+        virtual void getAddresses(bool own) = 0;
+        virtual void getAddress(const WalletID& addr) = 0;
+        virtual void getAddress(const WalletID& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+        virtual void getAddressByToken(const std::string& token, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) = 0;
+        virtual void deleteAddressByToken(const std::string& addr) = 0;
+
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
-
         virtual void setNodeAddress(const std::string& addr) = 0;
-
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;
-
-        virtual void checkAddress(const std::string& addr) = 0;
+        virtual void checkNetworkAddress(const std::string& addr) = 0;
 
         virtual void importRecovery(const std::string& path) = 0;
         virtual void importDataFromJson(const std::string& data) = 0;
@@ -84,18 +94,18 @@ namespace beam::wallet
         virtual void getExchangeRates() = 0;
         virtual void getPublicAddress() = 0;
 
-        virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) = 0;
+        virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) = 0;
+        virtual void getAssetInfo(Asset::ID) = 0;
+        virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) = 0;
+
+        // error (if any), shader output (if any), txid (if any)
+        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
+        virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
 
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
 
-        virtual void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) = 0;
-        virtual void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) = 0;
-
         virtual void enableBodyRequests(bool value) = 0;
-
-        // virtual void getAssetInfo(Asset::ID) = 0;
-
         virtual ~IWalletModelAsync() {}
     };
 }

@@ -14,7 +14,9 @@
 
 #include "log_rotation.h"
 #include "helpers.h"
+#ifndef __EMSCRIPTEN__
 #include <boost/filesystem.hpp>
+#endif
 #include <boost/algorithm/string.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 #include <map>

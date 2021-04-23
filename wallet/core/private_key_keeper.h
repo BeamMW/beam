@@ -104,6 +104,7 @@ namespace beam::wallet
                 //  Fee, min/max Heights
                 //  m_WindowEnd
                 //  m_SpendProof.m_Cfg
+                //  m_pKernel/m_hvShieldedState
             };
 
             struct CreateVoucherShielded
@@ -274,7 +275,7 @@ namespace beam::wallet
 		TaskList m_queIn;
 
         void PushIn(Task::Ptr& p);
-        void Thread();
+        void Thread(const Rules&);
 
     public:
 

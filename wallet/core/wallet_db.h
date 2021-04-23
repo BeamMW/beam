@@ -43,6 +43,7 @@ struct sqlite3;
 
 namespace beam::wallet
 {
+    struct IWalletDB;
     const uint32_t EmptyCoinSession = 0;
 
     // Describes a UTXO in the context of the Wallet
@@ -63,7 +64,7 @@ namespace beam::wallet
             count
         };
 
-        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = Asset::s_InvalidID);
+        explicit Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular, Asset::ID assetId = Asset::s_BeamID);
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
@@ -85,8 +86,9 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
-        
-        uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
+
+        // DO NOT USE, obsolette, to be removed
+        uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
@@ -100,16 +102,26 @@ namespace beam::wallet
     // Used for SBBS Address management in the wallet
     struct WalletAddress
     {
-        WalletID m_walletID; // derived from SBBS
+        enum class ExpirationStatus
+        {
+            Expired = 0,
+            OneDay,
+            Never,
+            AsIs,
+            Auto
+        };
+
+        WalletID    m_walletID;   // derived from SBBS
         std::string m_label;
         std::string m_category;
-        Timestamp m_createTime;
-        uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
-        uint64_t  m_OwnID;      // set for own address
-        PeerID    m_Identity;   // derived from master. Different from m_walletID
-        std::string m_Address;  // base58 address representation
+        Timestamp   m_createTime;
+        uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
+        uint64_t    m_OwnID;      // set for own address
+        PeerID      m_Identity;   // derived from master. Different from m_walletID
+        std::string m_Address;    // token publicly visible to users
         
-        WalletAddress();
+        WalletAddress(const std::string& label = std::string(), const std::string& category = std::string());
+
         bool operator == (const WalletAddress& other) const;
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
@@ -125,20 +137,15 @@ namespace beam::wallet
                     m_duration,
                     m_OwnID,
                     m_Identity);
-        
-        enum class ExpirationStatus
-        {
-            Expired = 0,
-            OneDay,
-            Never,
-            AsIs
-        };
+
         void setLabel(const std::string& label);
-        void setExpiration(ExpirationStatus status);
+        void setCategory(const std::string& category);
+        void setExpirationStatus(ExpirationStatus status);
+        void setExpirationTime(beam::Timestamp);
 
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
-        static constexpr uint64_t AddressExpiration1h    = 60 * 60;
+        static constexpr uint64_t AddressExpirationAuto  = AddressExpiration24h * 61; // 61 day(s) / roughly 2 months
     };
 
     class ILaserChannelEntity
@@ -402,7 +409,7 @@ namespace beam::wallet
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
-		void ImportRecovery(const std::string& path);
+		void ImportRecovery(const std::string& path, INegotiatorGateway& gateway);
 
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
         bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
@@ -426,7 +433,7 @@ namespace beam::wallet
 		};
 
 		// returns false if callback asked to stop verification.
-		bool ImportRecovery(const std::string& path, IRecoveryProgress&);
+		bool ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress&);
 
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
@@ -436,7 +443,7 @@ namespace beam::wallet
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
         virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
-        virtual void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
+        virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const = 0;
@@ -447,11 +454,12 @@ namespace beam::wallet
         virtual Coin generateNewCoin(Amount amount, Asset::ID) = 0;
 
         // Set of basic coin related database methods
+        virtual std::vector<Coin> getNormalCoins(Asset::ID assetId) const = 0;
+        virtual std::vector<Coin> getAllNormalCoins() const = 0;
         virtual void storeCoin(Coin& coin) = 0;
         virtual void storeCoins(std::vector<Coin>&) = 0;
         virtual void saveCoin(const Coin& coin) = 0;
         virtual void saveCoins(const std::vector<Coin>& coins) = 0;
-        virtual void removeCoin(const Coin::ID&) = 0;
         virtual void removeCoins(const std::vector<Coin::ID>&) = 0;
         virtual bool findCoin(Coin& coin) = 0;
         virtual void clearCoins() = 0;
@@ -459,15 +467,10 @@ namespace beam::wallet
         virtual uint32_t getCoinConfirmationsOffset() const = 0;
 
         // Generic visitors
-        virtual void visitCoins(std::function<bool(const Coin& coin)> func) = 0;
-        virtual void visitAssets(std::function<bool(const WalletAsset&)> func) = 0;
-        virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) = 0;
-        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) = 0;
-
-        // Used in split API for session management
-        virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
-        virtual bool unlockCoins(uint64_t session) = 0;
-        virtual CoinIDList getLockedCoins(uint64_t session) const = 0;
+        virtual void visitCoins(std::function<bool(const Coin& coin)> func) const = 0;
+        virtual void visitAssets(std::function<bool(const WalletAsset&)> func) const = 0;
+        virtual void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const = 0;
+        virtual void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const = 0;
 
         // Returns currently known blockchain height
         virtual Height getCurrentHeight() const = 0;
@@ -478,6 +481,7 @@ namespace beam::wallet
 
         // Shielded coins
         virtual std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const = 0;
+        virtual std::vector<ShieldedCoin> getAllShieldedCoins() const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const = 0;
         virtual boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const = 0;
@@ -508,14 +512,13 @@ namespace beam::wallet
 
         // ////////////////////////////////////////////
         // Address management
-        virtual boost::optional<WalletAddress> getAddress(
-                const WalletID&, bool isLaser = false) const = 0;
-        virtual boost::optional<WalletAddress> getAddress(
-            const std::string&, bool isLaser = false) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const = 0;
+        virtual boost::optional<WalletAddress> getAddressByToken(const std::string&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
-        virtual void deleteAddress(const std::string&, bool isLaser = false) = 0;
+        virtual void deleteAddressByToken(const std::string&, bool isLaser = false) = 0;
+        virtual void generateAndSaveDefaultAddress() = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -553,21 +556,19 @@ namespace beam::wallet
         virtual void markAssetOwned(const Asset::ID assetId) = 0;
         virtual void dropAsset(const Asset::ID assetId) = 0;
         virtual void dropAsset(const PeerID& ownerId) = 0;
-        virtual boost::optional<WalletAsset> findAsset(Asset::ID) = 0;
-        virtual boost::optional<WalletAsset> findAsset(const PeerID&) = 0;
+        virtual boost::optional<WalletAsset> findAsset(Asset::ID) const = 0;
+        virtual boost::optional<WalletAsset> findAsset(const PeerID&) const = 0;
 
         // Notifications management
         virtual std::vector<Notification> getNotifications() const = 0;
         virtual void saveNotification(const Notification&) = 0;
 
         // Exchange rates management
-        virtual std::vector<ExchangeRate> getExchangeRates() const = 0;
+        virtual ExchangeRates getLatestExchangeRates() const = 0;
         virtual void saveExchangeRate(const ExchangeRate&) = 0;
-        virtual ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
-            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const = 0;
-        virtual std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(
-            uint64_t startHeight, uint64_t endHeight) const = 0;
-        virtual void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) = 0;
+        virtual void saveExchangeRate(const ExchangeRateAtPoint&) = 0;
+        virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const = 0;
+        virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -618,9 +619,11 @@ namespace beam::wallet
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
-        void selectCoins2(Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
+        void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
+        std::vector<Coin> getNormalCoins(Asset::ID assetId) const override;
+        std::vector<Coin> getAllNormalCoins() const override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) const override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) const override;
@@ -629,17 +632,16 @@ namespace beam::wallet
         void storeCoins(std::vector<Coin>&) override;
         void saveCoin(const Coin& coin) override;
         void saveCoins(const std::vector<Coin>& coins) override;
-        void removeCoin(const Coin::ID&) override;
         void removeCoins(const std::vector<Coin::ID>&) override;
         bool findCoin(Coin& coin) override;
         void clearCoins() override;
         void setCoinConfirmationsOffset(uint32_t offset) override;
         uint32_t getCoinConfirmationsOffset() const override;
 
-        void visitCoins(std::function<bool(const Coin& coin)> func) override;
-        void visitAssets(std::function<bool(const WalletAsset& info)> func) override;
-        void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) override;
-        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) override;
+        void visitCoins(std::function<bool(const Coin& coin)> func) const override;
+        void visitAssets(std::function<bool(const WalletAsset& info)> func) const override;
+        void visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const override;
+        void visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -654,6 +656,7 @@ namespace beam::wallet
         void rollbackAssets(Height minHeight) override;
 
         std::vector<ShieldedCoin> getShieldedCoins(Asset::ID assetId) const override;
+        std::vector<ShieldedCoin> getAllShieldedCoins() const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const TxID& txId) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(TxoID id) const override;
         boost::optional<ShieldedCoin> getShieldedCoin(const ShieldedTxo::BaseKey&) const override;
@@ -674,12 +677,11 @@ namespace beam::wallet
 
         std::vector<WalletAddress> getAddresses(bool own, bool isLaser = false) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
-        boost::optional<WalletAddress> getAddress(
-            const WalletID&, bool isLaser = false) const override;
-        boost::optional<WalletAddress> getAddress(
-            const std::string&, bool isLaser = false) const override;
+        boost::optional<WalletAddress> getAddress(const WalletID&, bool isLaser = false) const override;
+        boost::optional<WalletAddress> getAddressByToken(const std::string&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&, bool isLaser = false) override;
-        void deleteAddress(const std::string&, bool isLaser = false) override;
+        void deleteAddressByToken(const std::string&, bool isLaser = false) override;
+        void generateAndSaveDefaultAddress() override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -705,10 +707,6 @@ namespace beam::wallet
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
 
-        bool lockCoins(const CoinIDList& list, uint64_t session) override;
-        bool unlockCoins(uint64_t session) override;
-        CoinIDList getLockedCoins(uint64_t session) const override;
-
         std::vector<OutgoingWalletMessage> getWalletMessages() const override;
         uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;
         void deleteWalletMessage(uint64_t id) override;
@@ -721,18 +719,18 @@ namespace beam::wallet
         void markAssetOwned(const Asset::ID assetId) override;
         void dropAsset(const Asset::ID assetId) override;
         void dropAsset(const PeerID& ownerId) override;
-        boost::optional<WalletAsset> findAsset(Asset::ID) override;
-        boost::optional<WalletAsset> findAsset(const PeerID&) override;
+        boost::optional<WalletAsset> findAsset(Asset::ID) const override;
+        boost::optional<WalletAsset> findAsset(const PeerID&) const override;
 
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;
         
-        std::vector<ExchangeRate> getExchangeRates() const override;
-        void saveExchangeRate(const ExchangeRate&) override;
-        ExchangeRateHistoryEntity getExchangeRateHistoryEntity(
-            ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const override;
-        std::vector<ExchangeRateHistoryEntity> getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
-        void saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity&) override;
+        virtual ExchangeRates getLatestExchangeRates() const override;
+        virtual void saveExchangeRate(const ExchangeRate&) override;
+        virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+
+        virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
+        virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
@@ -935,13 +933,13 @@ namespace beam::wallet
         void setNeedToRequestBodies(IWalletDB& db, bool value);
         Height getNextEventHeight(const IWalletDB& db);
         void setNextEventHeight(IWalletDB& db, Height value);
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin);
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway);
 
         // Used in statistics
         struct Totals
         {
             struct AssetTotals {
-                Asset::ID AssetId = Asset::s_InvalidID;
+                Asset::ID AssetId = Asset::s_BeamID;
                 AmountBig::Type Avail = 0U;
                 AmountBig::Type Maturing = 0U;
                 AmountBig::Type Incoming = 0U;
@@ -988,7 +986,6 @@ namespace beam::wallet
             Amount m_Amount;
             Merkle::Hash m_KernelID;
             ECC::Signature m_Signature;
-
             PaymentInfo();
 
             template <typename Archive>
@@ -1064,7 +1061,7 @@ namespace beam::wallet
 
             bool IsValid() const;
             
-            std::string to_string() const;
+            std::string to_string(const IWalletDB& wdb) const;
             void Reset();
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
@@ -1156,7 +1153,7 @@ namespace beam::wallet
             Merkle::Hash            m_KernelID = Zero;
 
             bool IsValid() const;
-            std::string to_string() const;
+            std::string to_string(const IWalletDB& wdb) const;
             static ShieldedPaymentInfo FromByteBuffer(const ByteBuffer& data);
             void RestoreKernelID();
         };
@@ -1165,8 +1162,7 @@ namespace beam::wallet
         bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
-        bool VerifyPaymentProof(const ByteBuffer& data);
-        std::string ExportTxHistoryToCsv(const IWalletDB& db);
+        bool VerifyPaymentProof(const ByteBuffer& data, const IWalletDB& db);
 
         void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID);
 
@@ -1175,11 +1171,22 @@ namespace beam::wallet
             const std::vector<WalletAddress>& myAddresses, const WalletID& wid);
     }  // namespace storage
 
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers);
-    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion);
-    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
-    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB);
-    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular = true, const std::string& label = "", WalletAddress::ExpirationStatus expiration = WalletAddress::ExpirationStatus::OneDay, const std::string& existingSBBS = "", uint32_t offlineCount = 10);
+    enum class TokenType
+    {
+        Unknown = -1,
+        RegularOldStyle,
+        RegularNewStyle,
+        Offline,
+        MaxPrivacy,
+        Public,     // 1 offline voucher
+    };
 
+    std::string  GenerateOfflineToken    (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion);
+    std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
+    std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
+    TokenType GetTokenType(const std::string& token);
 }  // namespace beam::wallet

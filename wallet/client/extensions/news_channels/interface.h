@@ -36,9 +36,9 @@ namespace beam::wallet
     /**
      *  Interface for exchange rates observers.
      */
-    struct IExchangeRateObserver
+    struct IExchangeRatesObserver
     {
-        virtual void onExchangeRates(const std::vector<ExchangeRate>&) = 0;
+        virtual void onExchangeRates(const ExchangeRates&) = 0;
     };
 
 } // namespace beam::wallet

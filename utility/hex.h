@@ -26,7 +26,7 @@ namespace beam
     std::string to_hex(const void* bytes, size_t size);
 
     // Converts hexdec string to vector of bytes, if wholeStringIsNumber!=0 it will contain true if the whole string is base16
-    std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber=0);
+    std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber=nullptr);
 
 } //namespace
 

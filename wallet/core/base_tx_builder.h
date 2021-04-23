@@ -53,7 +53,7 @@ namespace beam::wallet
                 return m_Input.empty() && m_Output.empty() && m_InputShielded.empty();
             }
 
-            void AddOffset(ECC::Scalar::Native&, Key::IKdf::Ptr& pMasterKdf) const;
+            void AddOffset(ECC::Scalar::Native&, const Key::IKdf::Ptr& pMasterKdf) const;
 
         } m_Coins;
 
@@ -81,10 +81,6 @@ namespace beam::wallet
             void Add(const ShieldedTxo::ID&); // same as above, assuming default fee
 
             void CompleteBalance(); // completes the balance.
-
-        private:
-            void Add_(const Coin::ID&, bool bOutp);
-            void Add_(const IPrivateKeyKeeper2::ShieldedInput&);
         };
 
         void SaveCoins();
@@ -265,7 +261,5 @@ namespace beam::wallet
         virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
         virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
         void FillUserData(Output::User::Packed* user) override;
-
     };
-
 }

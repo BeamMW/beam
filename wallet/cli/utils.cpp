@@ -16,8 +16,10 @@
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/core/wallet.h"
 
 #include <boost/format.hpp>
+#include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace std;
@@ -74,23 +76,29 @@ bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit
     return true;
 }
 
-bool ReadFee(const po::variables_map& vm, Amount& fee, bool checkFee)
+Amount get_MinFee(const Wallet& wallet, bool hasShieldedOutputs)
+{
+    auto& fs = Transaction::FeeSettings::get(wallet.get_CurrentHeight());
+    return hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd();
+}
+
+bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee, bool hasShieldedOutputs /*= false*/)
 {
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
         fee = it->second.as<Nonnegative<Amount>>().value;
+        auto minFee = get_MinFee(wallet, hasShieldedOutputs);
+        if (checkFee && (fee < minFee))
+        {
+            LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
+            return false;
+        }
     }
-    else
+    else 
     {
-        fee = kMinFeeInGroth;
+        fee = get_MinFee(wallet, hasShieldedOutputs);
     }
-
-    if (checkFee && fee < kMinFeeInGroth)
-    {
-        LOG_ERROR() << kErrorFeeToLow;
-        return false;
-    }
-
+        
     return true;
 }
 
@@ -101,17 +109,42 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
         LOG_ERROR() << kErrorReceiverAddrMissing;
         return false;
     }
+
     auto addressOrToken = vm[cli::RECEIVER_ADDR].as<string>();
     auto receiverParams = ParseParameters(addressOrToken);
+
     if (!receiverParams)
     {
         LOG_ERROR() << kErrorReceiverAddrMissing;
         return false;
     }
-    if (!LoadReceiverParams(*receiverParams, params))
+
+    auto type = GetAddressType(addressOrToken);
+
+    switch(type)
+    {
+    case TxAddressType::PublicOffline:
+    case TxAddressType::MaxPrivacy:
+    case TxAddressType::Regular:
+        break;
+    case TxAddressType::Offline:
+        if (!vm[cli::SEND_OFFLINE].as<bool>())
+        {
+            // Since v6.0 by default offline address triggers the regular online transaction
+            // To execute and offline payment the --offline switch should be specified
+            type = TxAddressType::Regular;
+        }
+        break;
+    default:
+        LOG_ERROR() << kErrorReceiverAddrMissing;
+        return false;
+    }
+
+    if (!LoadReceiverParams(*receiverParams, params, type))
     {
         return false;
     }
+
     if (auto peerID = params.GetParameter<WalletID>(beam::wallet::TxParameterID::PeerID); !peerID || std::to_string(*peerID) != addressOrToken)
     {
         params.SetParameter(beam::wallet::TxParameterID::OriginalToken, addressOrToken);
@@ -120,8 +153,9 @@ bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params)
     return true;
 }
 
-bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
+bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
 {
+    bool hasShieldedOutputs = false;
     if (!skipReceiverWalletID)
     {
         TxParameters params;
@@ -133,6 +167,10 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
         {
             receiverWalletID = *peerID;
         }
+        if (auto txType = params.GetParameter<TxType>(TxParameterID::TransactionType))
+        {
+            hasShieldedOutputs = *txType == TxType::PushTransaction;
+        }
     }
 
     if (!ReadAmount(vm, amount))
@@ -140,7 +178,7 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
         return false;
     }
 
-    if (!ReadFee(vm, fee, checkFee))
+    if (!ReadFee(vm, fee, wallet, checkFee, hasShieldedOutputs))
     {
         return false;
     }
@@ -148,45 +186,6 @@ bool LoadBaseParamsForTX(const po::variables_map& vm, Asset::ID& assetId, Amount
     if(vm.count(cli::ASSET_ID)) // asset id can be zero if beam only
     {
         assetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
-    }
-
-    return true;
-}
-
-bool CheckFeeForShieldedInputs(Amount amount, Amount fee, Asset::ID assetId, const IWalletDB::Ptr& walletDB, bool isPushTx, Amount& feeForShieldedInputs)
-{
-    Transaction::FeeSettings fs;
-    Amount shieldedOutputsFee = isPushTx ? fs.m_Kernel + fs.m_Output + fs.m_ShieldedOutput : 0;
-
-    auto coinSelectionRes = CalcShieldedCoinSelectionInfo(
-        walletDB, amount, (isPushTx && fee > shieldedOutputsFee) ? fee - shieldedOutputsFee : fee, assetId, isPushTx);
-    feeForShieldedInputs = coinSelectionRes.shieldedInputsFee;
-
-    bool isBeam = assetId == Asset::s_BeamID;
-    if (isBeam && (coinSelectionRes.selectedSumBeam - coinSelectionRes.selectedFee - coinSelectionRes.changeBeam) < amount)
-    {
-        LOG_ERROR() << kErrorNotEnoughtCoins;
-        return false;
-    }
-
-    if (!isBeam && (coinSelectionRes.selectedSumAsset - coinSelectionRes.changeAsset < amount))
-    {
-        // TODO: enough beam & asset
-        LOG_ERROR() << kErrorNotEnoughtCoins;
-        return false;
-    }
-
-    if (coinSelectionRes.minimalFee > fee)
-    {
-        if (isPushTx && !coinSelectionRes.shieldedInputsFee)
-        {
-            LOG_ERROR() << boost::format(kErrorFeeForShieldedOutToLow) % coinSelectionRes.minimalFee;
-        }
-        else
-        {
-            LOG_ERROR() << boost::format(kErrorFeeForShieldedToLow) % coinSelectionRes.minimalFee;
-        }
-        return false;
     }
 
     return true;

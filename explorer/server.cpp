@@ -147,12 +147,14 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
             case DIR_PEERS:
                 func = &Server::send_peers;
                 break;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             case DIR_SWAP_OFFERS:
                 func = &Server::send_swap_offers;
                 break;
             case DIR_SWAPS_STATUS:
                 func = &Server::send_swap_totals;
                 break;
+#endif
             default:
                 break;
         }

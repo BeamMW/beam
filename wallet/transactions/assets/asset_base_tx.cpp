@@ -15,8 +15,8 @@
 
 // TODO:ASSETS move what you can to base class
 namespace beam::wallet {
-    AssetTransaction::AssetTransaction(const TxContext& context)
-        : BaseTransaction(context)
+    AssetTransaction::AssetTransaction(const TxType txType, const TxContext& context)
+        : BaseTransaction(txType, context)
     {
     }
 
@@ -97,7 +97,7 @@ namespace beam::wallet {
         if (sMeta.empty())
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetMeta);
 
-        m_Md.m_Value = toByteBuffer(sMeta);
+        m_Md.set_String(sMeta, true);
         m_Md.UpdateHash();
 
         m_Tx.get_MasterKdfStrict()->DeriveKey(m_skAsset, m_Md.m_Hash);

@@ -51,10 +51,10 @@ namespace beam::wallet
 
     void ExchangeRateProvider::loadRatesToCache()
     {
-        const auto& rates = m_storage.getExchangeRates();
+        const auto& rates = m_storage.getLatestExchangeRates();
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             m_cache[uniqID] = rate;
         }
     }
@@ -69,12 +69,12 @@ namespace beam::wallet
         return rates;
     }
 
-    void ExchangeRateProvider::processRates(std::vector<ExchangeRate> rates)
+    void ExchangeRateProvider::processRates(const std::vector<ExchangeRate>& rates)
     {
         std::vector<ExchangeRate> changedRates;
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             const auto storedRateIt = m_cache.find(uniqID);
             if (storedRateIt == std::cend(m_cache)
             || storedRateIt->second.m_updateTime < rate.m_updateTime)
@@ -127,16 +127,21 @@ namespace beam::wallet
                     processRates(rates);
                 }
             }
+            catch(std::runtime_error& err)
+            {
+                LOG_WARNING() << "broadcast message processing exception: " << err.what();
+                return false;
+            }
             catch(...)
             {
-                LOG_WARNING() << "broadcast message processing exception";
+                LOG_WARNING() << "broadcast message processing exception: unknown";
                 return false;
             }
         }
         return true;
     }
 
-    void ExchangeRateProvider::Subscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Subscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -145,7 +150,7 @@ namespace beam::wallet
         if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
-    void ExchangeRateProvider::Unsubscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Unsubscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -154,7 +159,7 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void ExchangeRateProvider::notifySubscribers(const std::vector<ExchangeRate>& rates) const
+    void ExchangeRateProvider::notifySubscribers(const ExchangeRates& rates) const
     {
         for (const auto sub : m_subscribers)
         {

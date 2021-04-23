@@ -69,4 +69,6 @@ elseif(ANDROID)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-compare)
 endif()
 
-add_subdirectory(examples)
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(examples)
+endif()

@@ -1,0 +1,1 @@
+clang -O3 --target=wasm32 -std=c++17 -fno-rtti -Wl,--export-dynamic,--no-entry,--allow-undefined -nostdlib %1.cpp --output %1.wasm

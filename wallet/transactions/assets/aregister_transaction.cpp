@@ -57,7 +57,7 @@ namespace beam::wallet
     }
 
     AssetRegisterTransaction::AssetRegisterTransaction(const TxContext& context)
-        : AssetTransaction(context)
+        : AssetTransaction(TxType::AssetReg, context)
     {
     }
 
@@ -151,7 +151,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::KernelConfirmation)
+        if (GetState<State>() == State::KernelConfirmation)
         {
             LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner << " successfully registered";
             SetState(State::AssetConfirmation);
@@ -159,7 +159,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::AssetConfirmation)
+        if (GetState<State>() == State::AssetConfirmation)
         {
             Height auHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
@@ -180,7 +180,7 @@ namespace beam::wallet
             SetState(State::AssetCheck);
         }
 
-        if(GetState() == State::AssetCheck)
+        if(GetState<State>() == State::AssetCheck)
         {
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
@@ -208,21 +208,9 @@ namespace beam::wallet
         GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->CastTo_AssetCreate().m_Owner, kDefaultSubTxID);
     }
 
-    TxType AssetRegisterTransaction::GetType() const
-    {
-        return TxType::AssetReg;
-    }
-
-    AssetRegisterTransaction::State AssetRegisterTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
     bool AssetRegisterTransaction::IsInSafety() const
     {
-        State txState = GetState();
-        return txState >= State::KernelConfirmation;
+        auto state = GetState<State>();
+        return state >= State::KernelConfirmation;
     }
 }

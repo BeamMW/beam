@@ -22,6 +22,7 @@
 #include "wallet/laser/mediator.h"
 
 using namespace beam::wallet;
+using namespace beam;
 
 const uint16_t kDefaultTestNodePort = 32125;
 const Height kMaxTestHeight = 180;
@@ -29,6 +30,7 @@ const Height kRevisionMaxLifeTime = 71;
 const Height kLockTime = 5;
 const Height kPostLockReserve = 30;
 const Amount kFee = 100;
+const Amount kFeeAfter3dFork = 1000000;
 const Height kOpenTxDh = 70;
 const Height kTestStartBlock = 4;
 const unsigned kNewBlockInterval = 200;

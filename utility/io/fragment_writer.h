@@ -55,10 +55,10 @@ private:
     SharedMem _fragment;
 
     /// Beginning of the current message
-    char* _msgBase=0;
+    char* _msgBase=nullptr;
 
     /// Write cursor inside the fragment
-    char* _cursor=0;
+    char* _cursor=nullptr;
 
     /// Bytes remaining in the current fragment
     size_t _remaining=0;

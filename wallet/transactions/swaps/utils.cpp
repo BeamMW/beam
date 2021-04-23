@@ -27,6 +27,8 @@
 #endif // BITCOIN_CASH_SUPPORT
 #include "wallet/transactions/swaps/bridges/dogecoin/dogecoin.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/bridge_holder.h"
+#include "wallet/transactions/swaps/bridges/ethereum/bridge_holder.h"
 
 namespace beam::wallet
 {
@@ -39,16 +41,12 @@ ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
     auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
     settingsProvider->Initialize();
 
-    // btcSettingsProvider stored in bitcoinBridgeCreator
-    auto bridgeCreator = [provider = settingsProvider]() -> bitcoin::IBridge::Ptr
+    auto bridgeHolder = std::make_shared<bitcoin::BridgeHolder<Electrum, Core>>();
+
+    // btcSettingsProvider and bridgeHolder are stored in bitcoinBridgeCreator
+    auto bridgeCreator = [holder = bridgeHolder, provider = settingsProvider]() -> bitcoin::IBridge::Ptr
     {
-        if (provider->GetSettings().IsElectrumActivated())
-            return std::make_shared<Electrum>(io::Reactor::get_Current(), *provider);
-
-        if (provider->GetSettings().IsCoreActivated())
-            return std::make_shared<Core>(io::Reactor::get_Current(), *provider);
-
-        return bitcoin::IBridge::Ptr();
+        return holder->Get(io::Reactor::get_Current(), *provider);
     };
 
     return wallet::MakeSecondSideFactory<SecondSide, Electrum, ISettingsProvider>(bridgeCreator, *settingsProvider);
@@ -60,12 +58,12 @@ ISecondSideFactory::Ptr CreateFactory(IWalletDB::Ptr walletDB)
     auto settingsProvider = std::make_shared<SettingsProvider>(walletDB);
     settingsProvider->Initialize();
 
-    auto bridgeCreator = [provider = settingsProvider]() -> typename Bridge::Ptr
-    {
-        if (provider->GetSettings().IsActivated())
-            return std::make_shared<Bridge>(io::Reactor::get_Current(), *provider);
+    auto bridgeHolder = std::make_shared<ethereum::BridgeHolder>();
 
-        return typename Bridge::Ptr();
+    // SettingsProvider and bridgeHolder are stored in bitcoinBridgeCreator
+    auto bridgeCreator = [holder = bridgeHolder, provider = settingsProvider]() -> typename Bridge::Ptr
+    {
+        return holder->Get(io::Reactor::get_Current(), *provider);
     };
 
     return wallet::MakeSecondSideFactory<SecondSide, Bridge, ISettingsProvider>(bridgeCreator, *settingsProvider);
