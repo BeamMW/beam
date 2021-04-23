@@ -97,7 +97,6 @@ namespace beam
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
     const char kErrorNotEnoughtCoins[] = "Not enough coins for these transaction parameters";
-    const char kErrorCantSendMaxPrivacyToOwn[] = "Can not sent max privacy transaction to own address";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";

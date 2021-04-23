@@ -2239,28 +2239,9 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                auto type = params.GetParameter<TxType>(TxParameterID::TransactionType);
-                bool isPushTx = type && *type == TxType::PushTransaction;
                 if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
                     storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
-                }
-
-                if (isPushTx)
-                {
-                    const auto& ownAddresses = walletDB->getAddresses(true);
-                    auto it = std::find_if(
-                        ownAddresses.begin(), ownAddresses.end(),
-                        [&receiverWalletID] (const WalletAddress& addr)
-                        {
-                            return receiverWalletID == addr.m_walletID;
-                        });
-
-                    if (it != ownAddresses.end())
-                    {
-                        LOG_ERROR() << kErrorCantSendMaxPrivacyToOwn;
-                        return -1;
-                    }
                 }
 
                 WalletAddress senderAddress;
