@@ -430,6 +430,12 @@ namespace std
 		throw runtime_error("not impl");
 	}
 
+	void FStream::ensure_size(size_t s)
+	{
+		if (s > m_Remaining)
+			throw runtime_error("underflow");
+	}
+
 	size_t FStream::read(void* pPtr, size_t nSize)
 	{
 		m_F.read((char*)pPtr, nSize);
