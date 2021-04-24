@@ -89,6 +89,7 @@ struct serializer<
             }
         } else {
             const auto size = ar.read_seq_size();
+            ar.ensure_size(size);
             str.resize(size);
             ar.read(__YAS_CCAST(char*, str.data()), size);
         }

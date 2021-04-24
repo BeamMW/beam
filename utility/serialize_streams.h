@@ -90,7 +90,13 @@ struct SerializeIstream {
         return size;
     }
 
-    size_t bytes_left() {
+    void ensure_size(size_t s)
+    {
+        if (s > bytes_left())
+            raise_underflow();
+    }
+
+    size_t bytes_left() const {
         return end - cur;
     }
 

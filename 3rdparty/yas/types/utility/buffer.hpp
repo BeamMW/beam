@@ -125,6 +125,7 @@ struct serializer<
             }
         } else {
             const std::size_t size = ar.read_seq_size();
+            ar.ensure_size(size);
             buf.resize(size);
             ar.read(buf.data.get(), buf.size);
         }

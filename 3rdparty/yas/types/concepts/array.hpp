@@ -127,6 +127,7 @@ Archive& load(Archive &ar, C &c) {
     } else {
         const auto size = ar.read_seq_size();
         if ( size ) {
+            ar.ensure_size(s);
             c.resize(size);
             if ( can_be_processed_as_byte_array<F, typename C::value_type>::value ) {
                 ar.read(&c[0], sizeof(typename C::value_type) * size);

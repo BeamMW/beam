@@ -263,7 +263,7 @@ struct binary_istream {
 
         return __YAS_SCAST(std::size_t, size);
     }
-
+    void ensure_size(size_t s) { return is.ensure_size(s); }
     char peekch() const { return is.peekch(); }
     char getch() { return is.getch(); }
     void ungetch(char ch) { is.ungetch(ch); }
