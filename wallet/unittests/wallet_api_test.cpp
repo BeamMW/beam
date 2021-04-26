@@ -650,6 +650,8 @@ namespace
 
             validateResponce.isMine = true;
             validateResponce.isValid = valid;
+            validateResponce.type = TokenType::Offline;
+            validateResponce.payments = 12;
 
             api.getResponse(123, validateResponce, res);
             testResultHeader(res);
@@ -657,6 +659,8 @@ namespace
             WALLET_CHECK(res["id"] == 123);
             WALLET_CHECK(res["result"]["is_mine"] == true);
             WALLET_CHECK(res["result"]["is_valid"] == valid);
+            WALLET_CHECK(res["result"]["type"] == "offline");
+            WALLET_CHECK(res["result"]["payments"] == 12);
         }
     }
 

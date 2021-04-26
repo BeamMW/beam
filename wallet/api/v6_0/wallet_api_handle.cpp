@@ -205,10 +205,14 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
 
+
+        auto tokenType = GetTokenType(data.token);
+
         auto p = ParseParameters(data.token);
 
         bool isValid = !!p;
         bool isMine = false;
+        boost::optional<size_t> offlinePayments;
 
         if (p)
         {
@@ -226,11 +230,19 @@ namespace beam::wallet
                     {
                         isValid = isValid && !addr->isExpired();
                     }
+                    if (tokenType == TokenType::Offline)
+                    {
+                        if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
+                        {
+                            storage::SaveVouchers(*walletDB, *vouchers, *v);
+                        }
+                        offlinePayments = walletDB->getVoucherCount(*v);
+                    }
                 }
             }
         }
 
-        doResponse(id, ValidateAddress::Response{ isValid, isMine });
+        doResponse(id, ValidateAddress::Response{ isValid, isMine, tokenType, offlinePayments });
     }
 
     void WalletApi::doTxAlreadyExistsError(const JsonRpcId& id)
