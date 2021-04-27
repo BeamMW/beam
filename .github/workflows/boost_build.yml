@@ -111,11 +111,17 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
 
+      - name: Build
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./b2 --target=static
+
       - name: Build && Install
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
 
       - uses: actions/upload-artifact@v2
         with:
