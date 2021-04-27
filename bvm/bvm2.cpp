@@ -1466,20 +1466,23 @@ namespace bvm2 {
 
 	struct Processor::DataProcessor::Instance
 	{
+		template <uint32_t nBytes>
 		struct FixedResSize
 			:public Base
 		{
-			virtual void Read(ECC::Hash::Value&) = 0;
+			typedef uintBig_t<nBytes> uintBig;
+
+			virtual void Read(uintBig&) = 0;
 
 			virtual uint32_t Read(uint8_t* p, uint32_t n) override
 			{
-				if (n >= ECC::Hash::Value::nBytes)
+				if (n >= nBytes)
 				{
-					Read(*reinterpret_cast<ECC::Hash::Value*>(p));
-					return ECC::Hash::Value::nBytes;
+					Read(*reinterpret_cast<uintBig*>(p));
+					return nBytes;
 				}
 
-				ECC::Hash::Value hv;
+				uintBig hv;
 				Read(hv);
 
 				memcpy(p, hv.m_pData, n);
@@ -1488,7 +1491,7 @@ namespace bvm2 {
 		};
 
 		struct Sha256
-			:public FixedResSize
+			:public FixedResSize<ECC::Hash::Value::nBytes>
 		{
 			ECC::Hash::Processor m_Hp;
 
@@ -1497,7 +1500,7 @@ namespace bvm2 {
 			{
 				m_Hp << Blob(p, n);
 			}
-			virtual void Read(ECC::Hash::Value& hv) override
+			virtual void Read(uintBig& hv) override
 			{
 				ECC::Hash::Processor(m_Hp) >> hv;
 			}
@@ -1521,7 +1524,7 @@ namespace bvm2 {
 		};
 
 		struct Keccak256
-			:public FixedResSize
+			:public FixedResSize<ECC::Hash::Value::nBytes>
 		{
 			SHA3_CTX m_State;
 
@@ -1544,7 +1547,7 @@ namespace bvm2 {
 				keccak_update(&m_State, p, static_cast<uint16_t>(n));
 
 			}
-			virtual void Read(ECC::Hash::Value& hv) override
+			virtual void Read(uintBig& hv) override
 			{
 				SHA3_CTX s = m_State; // copy
 				keccak_final(&s, hv.m_pData);
