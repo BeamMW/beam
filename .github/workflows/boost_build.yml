@@ -117,14 +117,19 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./b2 --target=static
 
-      - name: Build && Install
+      - name: Install
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
           ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
 
+      - name: Pack
+        shell: bash
+        run:
+          tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
+
       - uses: actions/upload-artifact@v2
         with:
-          name: boost_prebuild_macos
-          path: ${{runner.workspace}}/boost_prebuild
+          name: boost_prebuild_macos-10.15
+          path: boost_prebuild.tar.gz
           if-no-files-found: error
