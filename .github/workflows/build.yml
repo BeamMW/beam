@@ -51,29 +51,14 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
         echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
+        git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
+        echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
-    - name: Download boost
+    - name: Download boost [ubuntu && macos]
+      if: matrix.os != 'windows-2019'
       shell: bash
       run: |
         git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
-
-    - name: Configure boost path [windows]
-      shell: bash
-      if: matrix.os == 'windows-2019'
-      run: |
-        echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuild" >> $GITHUB_ENV
-
-    - name: Configure boost path [ununtu all]
-      shell: bash
-      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
-      run: |
-        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
-
-    - name: Configure boost path [macos-10.15]
-      shell: bash
-      if: matrix.os == 'macos-10.15'
-      run: |
         echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
         echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 
