@@ -244,10 +244,7 @@ namespace bvm2 {
 			typedef intrusive::multiset_autoclear<Base> Map;
 			Map m_Map;
 
-			struct FixedResSize;
-			struct Sha256;
-			struct Blake2b;
-			struct Keccak256;
+			struct Instance;
 
 			Base& FindStrict(uint32_t);
 			Base& FindStrict(HashObj*);
