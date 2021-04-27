@@ -5,59 +5,98 @@ on:
       - boost_prebuild*
 
 jobs:
-  build_windows:
-    runs-on: windows-2019
-    steps:
-      - name: Create Build Environment
-        shell: cmd
-        run: |
-          mkdir ${{runner.workspace}}\boost_prebuild
+  # build_windows:
+  #   runs-on: windows-2019
+  #   steps:
+  #     - name: Create Build Environment
+  #       shell: cmd
+  #       run: |
+  #         mkdir ${{runner.workspace}}\boost_prebuild
 
-      - name: Download
-        shell: powershell
-        run: |
-          $Url = "https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.zip"
-          (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_72_0.zip")
-          Expand-Archive -Path "$env:TEMP\boost_1_72_0.zip" -DestinationPath ${{runner.workspace}}/boost
+  #     - name: Download
+  #       shell: powershell
+  #       run: |
+  #         $Url = "https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.zip"
+  #         (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_72_0.zip")
+  #         Expand-Archive -Path "$env:TEMP\boost_1_72_0.zip" -DestinationPath ${{runner.workspace}}/boost
 
-      - name: Bootstrap
-        shell: cmd
-        run: |
-          cd ${{runner.workspace}}\boost\boost_1_72_0
-          .\bootstrap.bat
+  #     - name: Bootstrap
+  #       shell: cmd
+  #       run: |
+  #         cd ${{runner.workspace}}\boost\boost_1_72_0
+  #         .\bootstrap.bat
 
-      - name: Build and install
-        shell: cmd
-        run: |
-          cd ${{runner.workspace}}\boost\boost_1_72_0
-          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale
+  #     - name: Build and install
+  #       shell: cmd
+  #       run: |
+  #         cd ${{runner.workspace}}\boost\boost_1_72_0
+  #         .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: boost_prebuild_windows-2019
-          path: ${{runner.workspace}}\boost_prebuild
-          if-no-files-found: error
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: boost_prebuild_windows-2019
+  #         path: ${{runner.workspace}}\boost_prebuild
+  #         if-no-files-found: error
 
 
-  build_ubuntu:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04, ubuntu-20.04]
+  # build_ubuntu:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-16.04, ubuntu-18.04, ubuntu-20.04]
 
+  #   steps:
+  #     - name: Create Build Environment
+  #       shell: bash
+  #       run: |
+  #         mkdir ${{runner.workspace}}/boost_prebuild
+  #         sudo apt-get update
+
+  #     - name: Create Build Environment [ubuntu 16.04]
+  #       shell: bash
+  #       if: matrix.os == 'ubuntu-16.04'
+  #       run: |
+  #         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+  #         sudo update-alternatives --set gcc "/usr/bin/gcc-9"
+
+  #     - name: Download
+  #       shell: bash
+  #       run: |
+  #         wget -q https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
+  #         tar -xvf boost_1_75_0.tar.gz > /dev/null
+  #         mv ./boost_1_75_0 ${{runner.workspace}}/boost
+
+  #     - name: Bootstrap
+  #       shell: bash
+  #       run: |
+  #         cd ${{runner.workspace}}/boost
+  #         ./bootstrap.sh
+
+  #     - name: Build
+  #       shell: bash
+  #       run: |
+  #         cd ${{runner.workspace}}/boost
+  #         ./b2 --target=static
+
+  #     - name: Install
+  #       shell: bash
+  #       run: |
+  #         cd ${{runner.workspace}}/boost
+  #         ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
+
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: boost_prebuild_${{matrix.os}}
+  #         path: ${{runner.workspace}}/boost_prebuild
+  #         if-no-files-found: error
+
+  build_osx:
+    runs-on: macos-10.15
     steps:
       - name: Create Build Environment
         shell: bash
         run: |
           mkdir ${{runner.workspace}}/boost_prebuild
-          sudo apt-get update
-
-      - name: Create Build Environment [ubuntu 16.04]
-        shell: bash
-        if: matrix.os == 'ubuntu-16.04'
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
-          sudo update-alternatives --set gcc "/usr/bin/gcc-9"
 
       - name: Download
         shell: bash
@@ -72,20 +111,14 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
 
-      - name: Build
+      - name: Build && Install
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
-          ./b2 --target=static
-
-      - name: Install
-        shell: bash
-        run: |
-          cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale
 
       - uses: actions/upload-artifact@v2
         with:
-          name: boost_prebuild_${{matrix.os}}
+          name: boost_prebuild_macos
           path: ${{runner.workspace}}/boost_prebuild
           if-no-files-found: error

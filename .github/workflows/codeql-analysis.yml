@@ -1,68 +1,68 @@
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-name: "CodeQL"
+# # For most projects, this workflow file will not need changing; you simply need
+# # to commit it to your repository.
+# #
+# # You may wish to alter this file to override the set of languages analyzed,
+# # or to provide custom queries or build logic.
+# name: "CodeQL"
 
-on:
-  push:
-    branches: [master]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [master]
-  schedule:
-    - cron: '0 8 * * 0'
+# on:
+#   push:
+#     branches: [master]
+#   pull_request:
+#     # The branches below must be a subset of the branches above
+#     branches: [master]
+#   schedule:
+#     - cron: '0 8 * * 0'
 
-jobs:
-  analyze:
-    name: Analyze
-    runs-on:  ${{ matrix.os }} 
+# jobs:
+#   analyze:
+#     name: Analyze
+#     runs-on:  ${{ matrix.os }} 
 
-    strategy:
-      fail-fast: false
-      matrix:
-        # Override automatic language detection by changing the below list
-        # Supported options are ['csharp', 'cpp', 'go', 'java', 'javascript', 'python']
-        language: ['cpp']
-        os: [ubuntu-20.04]
-        # Learn more...
-        # https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#overriding-automatic-language-detection
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         # Override automatic language detection by changing the below list
+#         # Supported options are ['csharp', 'cpp', 'go', 'java', 'javascript', 'python']
+#         language: ['cpp']
+#         os: [ubuntu-20.04]
+#         # Learn more...
+#         # https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#overriding-automatic-language-detection
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        # We must fetch at least the immediate parents so that if this is
-        # a pull request then we can checkout the head.
-        fetch-depth: 2
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v2
+#       with:
+#         # We must fetch at least the immediate parents so that if this is
+#         # a pull request then we can checkout the head.
+#         fetch-depth: 2
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
-      with:
-        languages: ${{ matrix.language }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file. 
-        # Prefix the list here with "+" to use these queries and those in the config file.
-        # queries: ./path/to/local/query, your-org/your-repo/queries@main
+#     # Initializes the CodeQL tools for scanning.
+#     - name: Initialize CodeQL
+#       uses: github/codeql-action/init@v1
+#       with:
+#         languages: ${{ matrix.language }}
+#         # If you wish to specify custom queries, you can do so here or in a config file.
+#         # By default, queries listed here will override any specified in a config file. 
+#         # Prefix the list here with "+" to use these queries and those in the config file.
+#         # queries: ./path/to/local/query, your-org/your-repo/queries@main
 
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 https://git.io/JvXDl
+#     # ℹ️ Command-line programs to run using the OS shell.
+#     # 📚 https://git.io/JvXDl
 
-    # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
-    #    and modify them (or add more) to build your code if your project
-    #    uses a compiled language
+#     # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
+#     #    and modify them (or add more) to build your code if your project
+#     #    uses a compiled language
     
-    - name: Build
-      run: |
-        sudo apt-get update
-        sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y 
-        git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
-        export BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include
-        export BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/
-        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=$GITHUB_REF -DBEAM_HW_WALLET=Off .
-        make -j$(nproc) 
+#     - name: Build
+#       run: |
+#         sudo apt-get update
+#         sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y 
+#         git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
+#         export BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include
+#         export BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/
+#         cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=$GITHUB_REF -DBEAM_HW_WALLET=Off .
+#         make -j$(nproc) 
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+#     - name: Perform CodeQL Analysis
+#       uses: github/codeql-action/analyze@v1
