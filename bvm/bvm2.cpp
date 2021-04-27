@@ -1699,14 +1699,24 @@ namespace bvm2 {
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
-	BVM_METHOD(HashCreateKeccak256)
+	BVM_METHOD(HashCreateKeccak)
 	{
+		switch (nBits)
+		{
+		case 256:
 			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<256> >());
+		case 384:
+			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<384> >());
+		case 512:
+			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<512> >());
+		}
+
+		return 0;
 	}
 
-	BVM_METHOD_HOST(HashCreateKeccak256)
+	BVM_METHOD_HOST(HashCreateKeccak)
 	{
-		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak256();
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak(nBits);
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
