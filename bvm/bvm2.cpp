@@ -1198,8 +1198,11 @@ namespace bvm2 {
 				// Make sure that the pointer is valid (i.e. between current and max stack pointers)
 				// The caller is allowed to specify greater size (though it's not recommended), we will truncate it
 				uint32_t nSize;
-				get_AddrExVar(pArgs, nSize, false); // also ensures it's a valid alias stack pointer (i.e. between current and max stack pointers)
-				assert(pArgs >= m_Stack.get_AlasSp());
+				get_AddrExVar(pArgs, nSize, false); // ensures it's a valid alias stack pointer.
+
+				// Note: the above does NOT ensure it's not below current stack pointer, it has less strict validation criteria (see comments in its implementation for more info).
+				// Hence - the following is necessary.
+				Wasm::Test(pArgs >= m_Stack.get_AlasSp());
 
 				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
 			}
