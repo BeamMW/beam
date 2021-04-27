@@ -120,11 +120,17 @@ export void Method_7(Dummy::Hash2& r)
 
 export void Method_8(Dummy::Hash3& r)
 {
-    HashObj* pHash = Env::HashCreateKeccak256();
+    HashObj* pHash = Env::HashCreateKeccak(r.m_Bits);
     Env::Halt_if(!pHash);
 
-    Env::HashWrite(pHash, r.m_pInp, sizeof(r.m_pInp));
-    Env::HashGetValue(pHash, r.m_pRes, sizeof(r.m_pRes));
+    for (uint32_t nDone = 0; nDone < r.m_Inp; )
+    {
+        auto nPortion = std::min(r.m_NaggleBytes, r.m_Inp - nDone);
+        Env::HashWrite(pHash, r.m_pInp + nDone, nPortion);
+        nDone += nPortion;
+    }
+
+    Env::HashGetValue(pHash, r.m_pRes, r.m_Bits / 8);
 
     Env::HashFree(pHash);
 }
