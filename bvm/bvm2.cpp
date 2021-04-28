@@ -2069,7 +2069,7 @@ namespace bvm2 {
 				nullptr,
 				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
 
-			memcpy(&ctx, &ctxInst2, sizeof(ctx));
+			memcpy(reinterpret_cast<void*>(&ctx), &ctxInst2, sizeof(ctx));
 		}
 
 		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
