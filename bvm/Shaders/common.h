@@ -56,6 +56,7 @@ typedef Secp_point_data PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;
 typedef Opaque<32> HashValue;
+typedef Opaque<64> HashValue512;
 typedef Opaque<32> Secp_scalar_data;
 
 template <bool bToShader, typename T>
@@ -510,6 +511,11 @@ struct HashProcessor
         }
 
         void Write(const HashValue& hv)
+        {
+            Write(&hv, sizeof(hv));
+        }
+
+        void Write(const HashValue512& hv)
         {
             Write(&hv, sizeof(hv));
         }

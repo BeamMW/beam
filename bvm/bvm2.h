@@ -26,6 +26,7 @@ namespace Shaders {
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
 	typedef ECC::uintBig HashValue;
+	typedef beam::uintBig_t<64> HashValue512;
     using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
@@ -60,6 +61,7 @@ namespace bvm2 {
 	using Shaders::Secp_scalar;
 	using Shaders::Secp_point;
 	using Shaders::HashValue;
+	using Shaders::HashValue512;
 	using Shaders::BlockHeader;
 
 	namespace Merkle {
