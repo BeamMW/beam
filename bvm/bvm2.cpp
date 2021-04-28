@@ -22,7 +22,7 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
-#include "crypto/keccak256.h"
+#include "ethash/include/ethash/keccak.h"
 
 namespace beam {
 namespace bvm2 {
@@ -1198,8 +1198,11 @@ namespace bvm2 {
 				// Make sure that the pointer is valid (i.e. between current and max stack pointers)
 				// The caller is allowed to specify greater size (though it's not recommended), we will truncate it
 				uint32_t nSize;
-				get_AddrExVar(pArgs, nSize, false); // also ensures it's a valid alias stack pointer (i.e. between current and max stack pointers)
-				assert(pArgs >= m_Stack.get_AlasSp());
+				get_AddrExVar(pArgs, nSize, false); // ensures it's a valid alias stack pointer.
+
+				// Note: the above does NOT ensure it's not below current stack pointer, it has less strict validation criteria (see comments in its implementation for more info).
+				// Hence - the following is necessary.
+				Wasm::Test(pArgs >= m_Stack.get_AlasSp());
 
 				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
 			}
@@ -1461,89 +1464,185 @@ namespace bvm2 {
 		return r.pForks[iFork].m_Height;
 	}
 
-	struct Processor::DataProcessor::FixedResSize
-		:public Processor::DataProcessor::Base
+	struct Processor::DataProcessor::Instance
 	{
-		virtual void Read(ECC::Hash::Value&) = 0;
-
-		virtual uint32_t Read(uint8_t* p, uint32_t n) override
+		template <uint32_t nBytes>
+		struct FixedResSize
+			:public Base
 		{
-			if (n >= ECC::Hash::Value::nBytes)
+			typedef uintBig_t<nBytes> uintBig;
+
+			virtual void Read(uintBig&) = 0;
+
+			virtual uint32_t Read(uint8_t* p, uint32_t n) override
 			{
-				Read(*reinterpret_cast<ECC::Hash::Value*>(p));
-				return ECC::Hash::Value::nBytes;
+				if (n >= nBytes)
+				{
+					Read(*reinterpret_cast<uintBig*>(p));
+					return nBytes;
+				}
+
+				uintBig hv;
+				Read(hv);
+
+				memcpy(p, hv.m_pData, n);
+				return n;
+			}
+		};
+
+		struct Sha256
+			:public FixedResSize<ECC::Hash::Value::nBytes>
+		{
+			ECC::Hash::Processor m_Hp;
+
+			virtual ~Sha256() {}
+			virtual void Write(const uint8_t* p, uint32_t n) override
+			{
+				m_Hp << Blob(p, n);
+			}
+			virtual void Read(uintBig& hv) override
+			{
+				ECC::Hash::Processor(m_Hp) >> hv;
+			}
+		};
+
+		struct Blake2b
+			:public Base
+		{
+			bvm2::Impl::HashProcessor::Blake2b_Base m_B2b;
+
+			virtual ~Blake2b() {}
+			virtual void Write(const uint8_t* p, uint32_t n) override
+			{
+				m_B2b.Write(p, n);
+			}
+			virtual uint32_t Read(uint8_t* p, uint32_t n) override
+			{
+				auto s = m_B2b; // copy
+				return s.Read(p, n);
+			}
+		};
+
+		template <uint32_t nBits_>
+		struct KeccakProcessor
+		{
+			static const uint32_t nBits = nBits_;
+			static const uint32_t nBytes = nBits / 8;
+
+			static const uint32_t nSizeWord = sizeof(uint64_t);
+			static const uint32_t nSizeBlock = (1600 - nBits * 2) / 8;
+			static const uint32_t nWordsBlock = nSizeBlock / nSizeWord;
+
+			KeccakProcessor()
+			{
+				ZeroObject(*this);
 			}
 
-			ECC::Hash::Value hv;
-			Read(hv);
-
-			memcpy(p, hv.m_pData, n);
-			return n;
-		}
-	};
-
-	struct Processor::DataProcessor::Sha256
-		:public Processor::DataProcessor::FixedResSize
-	{
-		ECC::Hash::Processor m_Hp;
-
-		virtual ~Sha256() {}
-		virtual void Write(const uint8_t* p, uint32_t n) override
-		{
-			m_Hp << Blob(p, n);
-		}
-		virtual void Read(ECC::Hash::Value& hv) override
-		{
-			ECC::Hash::Processor(m_Hp) >> hv;
-		}
-	};
-
-	struct Processor::DataProcessor::Blake2b
-		:public Processor::DataProcessor::Base
-	{
-		Impl::HashProcessor::Blake2b_Base m_B2b;
-
-		virtual ~Blake2b() {}
-		virtual void Write(const uint8_t* p, uint32_t n) override
-		{
-			m_B2b.Write(p, n);
-		}
-		virtual uint32_t Read(uint8_t* p, uint32_t n) override
-		{
-			auto s = m_B2b; // copy
-			return s.Read(p, n);
-		}
-	};
-
-	struct Processor::DataProcessor::Keccak256
-		:public Processor::DataProcessor::FixedResSize
-	{
-		SHA3_CTX m_State;
-
-		Keccak256()
-		{
-			keccak_init(&m_State);
-		}
-
-		virtual ~Keccak256() {}
-		virtual void Write(const uint8_t* p, uint32_t n) override
-		{
-			constexpr uint16_t naggle = std::numeric_limits<uint16_t>::max();
-			while (n > naggle)
+			void Write(const uint8_t* pSrc, uint32_t nSrc)
 			{
-				keccak_update(&m_State, p, naggle);
-				p += naggle;
-				n -= naggle;
+				if (m_LastWordBytes)
+				{
+					auto* pDst = m_pLastWordAsBytes + m_LastWordBytes;
+
+					if (m_LastWordBytes + nSrc < nSizeWord)
+					{
+						memcpy(pDst, pSrc, nSrc);
+						m_LastWordBytes += nSrc;
+						return;
+					}
+
+					uint32_t nPortion = nSizeWord - m_LastWordBytes;
+
+					memcpy(pDst, pSrc, nPortion);
+					pSrc += nPortion;
+					nSrc -= nPortion;
+
+					m_LastWordBytes = 0;
+					AddLastWord();
+				}
+
+				while (true)
+				{
+					if (nSrc < nSizeWord)
+					{
+						memcpy(m_pLastWordAsBytes, pSrc, nSrc);
+						m_LastWordBytes = nSrc;
+						return;
+					}
+
+					memcpy(m_pLastWordAsBytes, pSrc, nSizeWord);
+					pSrc += nSizeWord;
+					nSrc -= nSizeWord;
+
+					AddLastWord();
+				}
 			}
 
-			keccak_update(&m_State, p, static_cast<uint16_t>(n));
+			void Read(uint8_t* pRes)
+			{
+				// pad and transform
+				m_pLastWordAsBytes[m_LastWordBytes++] = 0x01;
+				memset0(m_pLastWordAsBytes + m_LastWordBytes, nSizeWord - m_LastWordBytes);
 
-		}
-		virtual void Read(ECC::Hash::Value& hv) override
+				AddLastWordRaw();
+
+				m_pState[nWordsBlock - 1] ^= 0x8000000000000000;
+
+				ethash_keccakf1600(m_pState);
+
+				for (uint32_t i = 0; i < (nBytes / nSizeWord); ++i)
+					reinterpret_cast<uint64_t*>(pRes)[i] = ByteOrder::from_le(m_pState[i]);
+			}
+
+		private:
+
+			uint64_t m_pState[25];
+
+			union {
+				uint64_t m_LastWord;
+				uint8_t m_pLastWordAsBytes[nSizeWord];
+			};
+
+			uint32_t m_iWord;
+			uint32_t m_LastWordBytes;
+
+
+			void AddLastWordRaw()
+			{
+				assert(m_iWord < nWordsBlock);
+				m_pState[m_iWord] ^= ByteOrder::to_le(m_LastWord);
+			}
+
+			void AddLastWord()
+			{
+				AddLastWordRaw();
+
+				if (++m_iWord == nWordsBlock)
+				{
+					ethash_keccakf1600(m_pState);
+					m_iWord = 0;
+				}
+			}
+		};
+
+
+		template <uint32_t nBits>
+		struct Keccak
+			:public FixedResSize<nBits / 8>
 		{
-			SHA3_CTX s = m_State; // copy
-			keccak_final(&s, hv.m_pData);
-		}
+			KeccakProcessor<nBits> m_State;
+
+			virtual void Write(const uint8_t* pSrc, uint32_t nSrc) override
+			{
+				m_State.Write(pSrc, nSrc);
+			}
+
+			virtual void Read(uintBig_t<nBits/8>& hv) override
+			{
+				m_State.Read(hv.m_pData);
+			}
+		};
+
 	};
 
 	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
@@ -1574,7 +1673,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashCreateSha256)
 	{
-		auto pRet = std::make_unique<DataProcessor::Sha256>();
+		auto pRet = std::make_unique<DataProcessor::Instance::Sha256>();
 		return AddHash(std::move(pRet));
 	}
 
@@ -1592,7 +1691,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(HashCreateBlake2b)
 	{
-		auto pRet = std::make_unique<DataProcessor::Blake2b>();
+		auto pRet = std::make_unique<DataProcessor::Instance::Blake2b>();
 		if (!pRet->m_B2b.Init(pPersonal, nPersonal, nResultSize))
 			return nullptr;
 
@@ -1600,15 +1699,24 @@ namespace bvm2 {
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
-	BVM_METHOD(HashCreateKeccak256)
+	BVM_METHOD(HashCreateKeccak)
 	{
-		auto pRet = std::make_unique<DataProcessor::Keccak256>();
-		return AddHash(std::move(pRet));
+		switch (nBits)
+		{
+		case 256:
+			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<256> >());
+		case 384:
+			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<384> >());
+		case 512:
+			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<512> >());
+		}
+
+		return 0;
 	}
 
-	BVM_METHOD_HOST(HashCreateKeccak256)
+	BVM_METHOD_HOST(HashCreateKeccak)
 	{
-		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak256();
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak(nBits);
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 

@@ -55,8 +55,11 @@ namespace Dummy
     {
         static const uint32_t s_iMethod = 8;
 
-        uint8_t m_pInp[15];
-        uint8_t m_pRes[32];
+        uint32_t m_Bits;
+        uint32_t m_Inp;
+        uint32_t m_NaggleBytes;
+        uint8_t m_pInp[520];
+        uint8_t m_pRes[64];
     };
 
     struct VerifyBeamHeader

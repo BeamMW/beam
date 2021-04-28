@@ -54,7 +54,8 @@
 
 #define BVMOp_HashCreateSha256(macro, sep)
 
-#define BVMOp_HashCreateKeccak256(macro, sep)
+#define BVMOp_HashCreateKeccak(macro, sep) \
+	macro(uint32_t, nBits)
 
 #define BVMOp_HashCreateBlake2b(macro, sep) \
 	macro(const void*, pPersonal) sep \
@@ -365,7 +366,7 @@
 	macro(0x43, Height   , get_RulesCfg) \
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
-	macro(0x4A, HashObj* , HashCreateKeccak256) \
+	macro(0x4A, HashObj* , HashCreateKeccak) \
 	macro(0x80, Secp_scalar* , Secp_Scalar_alloc) \
 	macro(0x81, void     , Secp_Scalar_free) \
 	macro(0x82, uint8_t  , Secp_Scalar_import) \

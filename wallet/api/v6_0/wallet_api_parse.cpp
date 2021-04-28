@@ -989,8 +989,6 @@ namespace beam::wallet
         for (auto& addr : res.list)
         {
             auto type = GetTokenType(addr.m_Address);
-            auto it = _ttypesMap.find(type);
-
             msg["result"].push_back(
             {
                 {"address",     addr.m_Address},
@@ -1003,7 +1001,7 @@ namespace beam::wallet
                 {"own_id",      addr.m_OwnID},
                 {"own_id_str",  std::to_string(addr.m_OwnID)},
                 {"wallet_id",   std::to_string(addr.m_walletID)},
-                {"type",        it != _ttypesMap.end() ? it->second : "unknown"}
+                {"type",        getTokenType(type)}
             });
 
             if (addr.m_Identity != Zero)
@@ -1022,10 +1020,15 @@ namespace beam::wallet
             {"result",
                 {
                     {"is_valid",  res.isValid},
-                    {"is_mine",  res.isMine},
+                    {"is_mine",   res.isMine},
+                    {"type",      getTokenType(res.type)}
                 }
             }
         };
+        if (res.payments)
+        {
+            msg["result"]["payments"] = *res.payments;
+        }
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const GetUtxo::Response& res, json& msg)

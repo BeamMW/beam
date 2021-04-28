@@ -1446,13 +1446,36 @@ namespace bvm2 {
 		{
 			Shaders::Dummy::Hash3 args;
 
-			memset(args.m_pInp, 'r', sizeof(args.m_pInp));
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			// Test vector is taken from here: https://asecuritysite.com/encryption/s3
+			static const char szTest[] = "abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567abcdefgh01234567111";
 
-			static const uint8_t pRes[] = { 0x80,0x3c,0xa0,0xf1,0x15,0xba,0x94,0x06,0xd3,0x78,0x15,0x9f,0xe7,0x34,0x32,0x0e,0x35,0x24,0xf6,0x07,0xf6,0x1c,0x17,0xb0,0x11,0x98,0xe3,0xd3,0xc4,0xfa,0x6a,0xd1 };
+			uintBig_t<256 / 8> hvRes2; hvRes2.Scan("16b7283e0cd3cc3a1fbcd0d34372bf1ee530a1c3d2229c84927ea8ee2bdf49da");
+			uintBig_t<384 / 8> hvRes3; hvRes3.Scan("5e72a175afd3d80982543e2decef851a9912cc114e5ae3693f5d82075f550fb867a2ba1bedd8f332afe67a754ed73f87");
+			uintBig_t<512 / 8> hvRes4; hvRes4.Scan("3987b7c9927bd9bb1804467490283ff6ffc7d378634efe51d62b28d8b81be30dffe34a999b77017efc954c37345900051d0e0823ac78bcbb2e248021b0e9a96c");
 
-			static_assert(sizeof(pRes) == sizeof(args.m_pRes));
-			verify_test(!memcmp(pRes, args.m_pRes, sizeof(args.m_pRes)));
+			const uint32_t nInp = static_cast<uint32_t>(sizeof(szTest) - 1);
+			static_assert(nInp <= sizeof(args.m_pInp));
+
+			memcpy(args.m_pInp, szTest, nInp);
+			args.m_Inp = nInp;
+
+			for (args.m_NaggleBytes = 1; ; args.m_NaggleBytes += 13)
+			{
+				args.m_Bits = hvRes2.nBits;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				verify_test(!memcmp(args.m_pRes, hvRes2.m_pData, hvRes2.nBytes));
+
+				args.m_Bits = hvRes3.nBits;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				verify_test(!memcmp(args.m_pRes, hvRes3.m_pData, hvRes3.nBytes));
+
+				args.m_Bits = hvRes4.nBits;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				verify_test(!memcmp(args.m_pRes, hvRes4.m_pData, hvRes4.nBytes));
+
+				if (args.m_NaggleBytes >= nInp)
+					break;
+			}
 		}
 
 		{

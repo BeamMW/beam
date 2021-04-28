@@ -148,6 +148,8 @@ namespace beam::wallet
         {
             bool isValid;
             bool isMine;
+            TokenType type = TokenType::Unknown;
+            boost::optional<size_t> payments;
         };
     };
 

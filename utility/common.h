@@ -269,6 +269,7 @@ namespace std
 		void Seek(uint64_t);
 		uint64_t Tell();
 
+		void ensure_size(size_t s);
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);
 		size_t write(const void* pPtr, size_t nSize);
