@@ -2055,7 +2055,7 @@ namespace bvm2 {
 			if (!g.m_pVal)
 				Wasm::Fail("no mem");
 
-			memcpy(&ctx, g.m_pVal, sizeof(ctx));
+			memcpy(reinterpret_cast<void*>(&ctx), g.m_pVal, sizeof(ctx));
 		}
 		else
 		{
