@@ -759,7 +759,7 @@ namespace Wasm {
 
 		void TestBlockCanClose(const Block& b)
 		{
-			Test(m_Operands.size() == b.m_OperandsAtExit);
+			//Test(m_Operands.size() == b.m_OperandsAtExit);
 			TestOperands(b.m_Type.m_Rets);
 		}
 

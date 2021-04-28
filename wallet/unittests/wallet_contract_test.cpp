@@ -350,7 +350,7 @@ namespace
 		TestLocalNode(const ByteBuffer& binaryTreasury
 			, Key::IKdf::Ptr pKdf
 			, uint16_t port = 32125
-			, const std::string& path = "mytest.db"
+			, const std::string& path = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\mytest.db"
 			, const std::vector<io::Address>& peers = {}
 		)
 		{
@@ -509,7 +509,8 @@ void TestContract()
 	auto walletDB = createWalletDB("wallet.db", true);
 	auto binaryTreasury = createTreasury(walletDB, {});
 
-	std::string contractPath = "test_contract.wasm";
+	//std::string contractPath = "test_contract.wasm";
+	std::string contractPath = "shader.wasm";//"test_contract.wasm";
 
 	MyDebugger debugger(contractPath);
 
@@ -859,7 +860,8 @@ void TestDebugger()
 		}
 	};
 
-	std::string contractPath = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\test_contract.wasm";
+	//std::string contractPath = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\test_contract.wasm";
+	std::string contractPath = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\shader.wasm";
 
 	// Construct the debugger.
 	Debugger debugger(onDebuggerEvent, contractPath);
@@ -1118,7 +1120,7 @@ void TestDebugger()
 	threadStartedEvent.threadId = threadId;
 	session->send(threadStartedEvent);
 
-	auto walletDB = createWalletDB("wallet.db", true);
+	auto walletDB = createWalletDB("c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\wallet.db", true);
 	auto binaryTreasury = createTreasury(walletDB, {});
 
 

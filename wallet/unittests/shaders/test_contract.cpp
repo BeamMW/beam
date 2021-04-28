@@ -55,10 +55,19 @@ static int Func2(int a)
     return a + j;
 }
 
+static int Func4()
+{
+    int a = 15;
+    int b = 7;
+    return 17 + a * b;
+}
+
 static void Func3(int& a)
 {
-    a = 3 * Func2(a);
+    a = 3 * Func2(a) + Func4();
 }
+
+
 
 export void Ctor(Upgradable::Create& r)
 {

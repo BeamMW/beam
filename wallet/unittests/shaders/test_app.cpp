@@ -116,7 +116,8 @@ ON_METHOD(manager, view)
 
 ON_METHOD(manager, create)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create Test contract", 0);
+    void* p = nullptr;
+    Env::GenerateKernel(nullptr, 0, &p, sizeof(p), nullptr, 0, nullptr, 0, "create Test contract", 0);
 }
 
 ON_METHOD(manager, destroy)
