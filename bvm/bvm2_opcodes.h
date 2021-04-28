@@ -162,6 +162,11 @@
 	macro(const void*, pSol) sep \
 	macro(uint32_t, nSol)
 
+#define BVMOp_get_EthMixHash(macro, sep) \
+	macro(HashValue&, hv) sep \
+	macro(uint32_t, iEpoch) sep \
+	macro(const HashValue512&, hvSeed)
+
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -382,6 +387,7 @@
 	macro(0x99, void     , Secp_Point_mul_J) \
 	macro(0x9A, void     , Secp_Point_mul_H) \
 	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
+	macro(0xB1, uint8_t  , get_EthMixHash) \
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \

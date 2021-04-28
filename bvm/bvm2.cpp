@@ -23,6 +23,7 @@
 #endif
 
 #include "ethash/include/ethash/keccak.h"
+#include "ethash/include/ethash/ethash.h"
 
 namespace beam {
 namespace bvm2 {
@@ -2016,6 +2017,87 @@ namespace bvm2 {
 		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
 	}
 
+	BVM_METHOD(get_EthMixHash)
+	{
+		DischargeUnits(Limits::Cost::BeamHashIII);
+		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
+	}
+	BVM_METHOD_HOST(get_EthMixHash)
+	{
+		ByteBuffer buf;
+		if (!LoadEthContext(buf, iEpoch))
+			return 0;
+
+#pragma pack (push, 1)
+
+		struct Hdr
+		{
+			uint32_t m_ItemsLight_LE;
+			uint32_t m_ItemsFull_LE;
+		};
+
+#pragma pack (pop)
+
+		struct Guard {
+			ethash_epoch_context* m_pVal = nullptr;
+			~Guard()
+			{
+				if (m_pVal)
+					ethash_destroy_epoch_context(m_pVal);
+			}
+		} g;
+
+		ethash_epoch_context ctx = { 0 };
+
+		if (buf.empty())
+		{
+			g.m_pVal = ethash_create_epoch_context(iEpoch);
+			if (!g.m_pVal)
+				Wasm::Fail("no mem");
+
+			memcpy(&ctx, g.m_pVal, sizeof(ctx));
+		}
+		else
+		{
+			Wasm::Test(buf.size() >= sizeof(Hdr));
+			auto pHdr = reinterpret_cast<Hdr*>(&buf.front());
+
+			ethash_epoch_context ctxInst2 = ethash_epoch_context{
+				static_cast<int>(iEpoch),
+				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
+				reinterpret_cast<ethash_hash512*>(&buf.front() + sizeof(Hdr)),
+				nullptr,
+				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
+
+			memcpy(&ctx, &ctxInst2, sizeof(ctx));
+		}
+
+		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
+		Wasm::Test(buf.empty() || (buf.size() == nSizeBuf));
+
+		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
+
+		if (buf.empty())
+		{
+			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
+			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
+
+			Hdr hdr1;
+			hdr1.m_ItemsFull_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.full_dataset_num_items));
+			hdr1.m_ItemsLight_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.light_cache_num_items));
+
+			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
+			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
+
+			Blob blob;
+			blob.p = &hdrRef;
+			blob.n = nSizeBuf;
+
+			SaveEthContext(blob, iEpoch);
+		}
+
+		return 1;
+	}
 
 
 	//BVM_METHOD(LoadVarEx)
