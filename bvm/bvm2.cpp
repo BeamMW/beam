@@ -2024,6 +2024,12 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(get_EthMixHash)
 	{
+		// ban ridiculously high epoch numbers, which may consume too much memory, cause overflows, etc.
+		// Our current limit is 1000. The memory size of this max epoch is ~147MB.
+		// This will be enough up to ethereum block 3mln, which is expected to appear on September 2029. (more than 8 years from now).
+		if (iEpoch > 1000)
+			return 0;
+
 		ByteBuffer buf;
 		if (!LoadEthContext(buf, iEpoch))
 			return 0;
