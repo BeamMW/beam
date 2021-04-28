@@ -95,6 +95,16 @@ namespace Dummy
         Secp_scalar_data m_pK[s_Ring];
     };
 
+    struct TestEthash
+    {
+        static const uint32_t s_iMethod = 12;
+
+        uint32_t m_BlockNumber;
+        HashValue m_HeaderHash; // pre-pow
+        uint64_t m_Nonce;
+        uint64_t m_Difficulty;
+    };
+
 #pragma pack (pop)
 
 }
