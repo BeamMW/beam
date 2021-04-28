@@ -413,6 +413,11 @@ void ethash_destroy_epoch_context(epoch_context* context) noexcept
     std::free(context);
 }
 
+void ethash_get_MixHash(ethash_hash256* pRes, const epoch_context* context, const ethash_hash512* seed) noexcept
+{
+    *pRes = hash_kernel(*context, *seed, calculate_dataset_item_1024);
+}
+
 ethash_result ethash_hash(
     const epoch_context* context, const hash256* header_hash, uint64_t nonce) noexcept
 {
