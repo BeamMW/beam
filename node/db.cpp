@@ -2449,27 +2449,31 @@ void NodeDB::StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1)
 	StreamShrinkInternal(StreamType::Key(0, t0), StreamType::Key(std::numeric_limits<uint32_t>::max(), t1));
 }
 
+struct NodeDB::BlobGuard
+{
+	sqlite3_blob* m_pPtr = nullptr;
+
+	~BlobGuard()
+	{
+		if (m_pPtr)
+			BEAM_VERIFY(SQLITE_OK == sqlite3_blob_close(m_pPtr));
+	}
+};
+
+void NodeDB::OpenBlob(BlobGuard& blob, const char* szTable, const char* szColumn, uint64_t rowid, bool bRW)
+{
+	TestRet(sqlite3_blob_open(m_pDb, "main", szTable, szColumn, rowid, bRW ? 1 : 0, &blob.m_pPtr));
+}
+
 void NodeDB::StreamIO(StreamType::Enum eType, uint64_t pos, uint8_t* p, uint64_t nCount, bool bWrite)
 {
-	struct Guard
-	{
-		sqlite3_blob* m_pPtr = nullptr;
-
-		~Guard()
-		{
-			if (m_pPtr)
-				BEAM_VERIFY(SQLITE_OK == sqlite3_blob_close(m_pPtr));
-		}
-	};
-
 	uint64_t nBlob0 = pos / s_StreamBlob;
 	uint32_t nOffs = static_cast<uint32_t>(pos % s_StreamBlob);
 
 	while (nCount)
 	{
-		Guard blob;
-
-		TestRet(sqlite3_blob_open(m_pDb, "main", TblStreams, TblStream_Value, StreamType::Key(nBlob0, eType), bWrite ? 1 : 0, &blob.m_pPtr));
+		BlobGuard blob;
+		OpenBlob(blob, TblStreams, TblStream_Value, StreamType::Key(nBlob0, eType), bWrite);
 
 		uint32_t nPortion = s_StreamBlob - nOffs;
 		if (nPortion > nCount)
@@ -2647,19 +2651,8 @@ bool NodeDB::CacheFind(const Blob& key, ByteBuffer& res)
 	rs.Step();
 	TestChanged1Row();
 
-	struct Guard
-	{
-		sqlite3_blob* m_pPtr = nullptr;
-
-		~Guard()
-		{
-			if (m_pPtr)
-				BEAM_VERIFY(SQLITE_OK == sqlite3_blob_close(m_pPtr));
-		}
-	};
-
-	Guard blob;
-	TestRet(sqlite3_blob_open(m_pDb, "main", TblCache, TblCache_Data, rowid, 0, &blob.m_pPtr));
+	BlobGuard blob;
+	OpenBlob(blob, TblCache, TblCache_Data, rowid, false);
 
 	uint32_t nSize = sqlite3_blob_bytes(blob.m_pPtr);
 	res.resize(nSize);

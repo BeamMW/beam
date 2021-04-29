@@ -808,6 +808,8 @@ private:
 		StreamResize(eType, n * sizeof(T), n0 * sizeof(T));
 	}
 
+	struct BlobGuard;
+	void OpenBlob(BlobGuard&, const char* szTable, const char* szColumn, uint64_t rowid, bool bRW);
 
 	static const Asset::ID s_AssetEmpty0;
 	void AssetInsertRaw(Asset::ID, const Asset::Full*);
