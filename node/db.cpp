@@ -2281,7 +2281,7 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 }
 
 NodeDB::StreamMmr::StreamMmr(NodeDB& db, StreamType::Enum eType, bool bStoreH0)
-	:m_StoreH0(bStoreH0)
+	:m_hStoreFrom(!bStoreH0)
 	,m_eType(eType)
 	,m_DB(db)
 {
@@ -2307,7 +2307,7 @@ void NodeDB::StreamMmr::ShrinkTo(uint64_t nCount)
 
 void NodeDB::StreamMmr::ResizeTo(uint64_t nCount)
 {
-	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_StoreH0) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_StoreH0) * sizeof(Merkle::Hash));
+	m_DB.StreamResize(m_eType, get_TotalHashes(nCount, m_hStoreFrom) * sizeof(Merkle::Hash), get_TotalHashes(m_Count, m_hStoreFrom) * sizeof(Merkle::Hash));
 	m_Count = nCount;
 }
 
@@ -2316,13 +2316,13 @@ void NodeDB::StreamMmr::LoadElement(Merkle::Hash& hv, const Merkle::Position& po
 	if (CacheFind(hv, pos))
 		return;
 
-	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), hv.m_pData, hv.nBytes, false);
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_hStoreFrom) * sizeof(Merkle::Hash), hv.m_pData, hv.nBytes, false);
 	Cast::NotConst(this)->CacheAdd(hv, pos);
 }
 
 void NodeDB::StreamMmr::SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos)
 {
-	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_StoreH0) * sizeof(Merkle::Hash), Cast::NotConst(hv.m_pData), hv.nBytes, true);
+	m_DB.StreamIO(m_eType, Pos2Idx(pos, m_hStoreFrom) * sizeof(Merkle::Hash), Cast::NotConst(hv.m_pData), hv.nBytes, true);
 	CacheAdd(hv, pos);
 }
 

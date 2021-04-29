@@ -585,7 +585,7 @@ public:
 	class StreamMmr
 		:public Merkle::FlatMmr
 	{
-		const bool m_StoreH0;
+		const uint8_t m_hStoreFrom;
 		StreamType::Enum m_eType;
 
 	public:
