@@ -2030,8 +2030,10 @@ namespace bvm2 {
 		if (iEpoch > 1000)
 			return 0;
 
-		ByteBuffer buf;
-		if (!LoadEthContext(buf, iEpoch))
+		Blob blob;
+		ZeroObject(blob);
+
+		if (!LoadEthContext(blob, iEpoch))
 			return 0;
 
 #pragma pack (push, 1)
@@ -2055,7 +2057,7 @@ namespace bvm2 {
 
 		ethash_epoch_context ctx = { 0 };
 
-		if (buf.empty())
+		if (!blob.n)
 		{
 			g.m_pVal = ethash_create_epoch_context(iEpoch);
 			if (!g.m_pVal)
@@ -2065,13 +2067,13 @@ namespace bvm2 {
 		}
 		else
 		{
-			Wasm::Test(buf.size() >= sizeof(Hdr));
-			auto pHdr = reinterpret_cast<Hdr*>(&buf.front());
+			Wasm::Test(blob.n >= sizeof(Hdr));
+			auto pHdr = reinterpret_cast<const Hdr*>(blob.p);
 
 			ethash_epoch_context ctxInst2 = ethash_epoch_context{
 				static_cast<int>(iEpoch),
 				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
-				reinterpret_cast<ethash_hash512*>(&buf.front() + sizeof(Hdr)),
+				reinterpret_cast<const ethash_hash512*>(reinterpret_cast<const uint8_t*>(blob.p) + sizeof(Hdr)),
 				nullptr,
 				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
 
@@ -2079,11 +2081,11 @@ namespace bvm2 {
 		}
 
 		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
-		Wasm::Test(buf.empty() || (buf.size() == nSizeBuf));
+		Wasm::Test(!blob.n || (blob.n == nSizeBuf));
 
 		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
 
-		if (buf.empty())
+		if (!blob.n)
 		{
 			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
 			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
@@ -2095,7 +2097,6 @@ namespace bvm2 {
 			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
 			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
 
-			Blob blob;
 			blob.p = &hdrRef;
 			blob.n = nSizeBuf;
 

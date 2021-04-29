@@ -458,7 +458,7 @@ namespace bvm2 {
 
 		std::map<uint32_t, ByteBuffer> m_EthashCache;
 
-		virtual bool LoadEthContext(ByteBuffer& res, uint32_t iEpoch) override
+		virtual bool LoadEthContext(Blob& res, uint32_t iEpoch) override
 		{
 			auto it = m_EthashCache.find(iEpoch);
 			if (m_EthashCache.end() != it)

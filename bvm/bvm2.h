@@ -212,7 +212,7 @@ namespace bvm2 {
 		virtual Height get_Height() { return 0; }
 		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
 
-		virtual bool LoadEthContext(ByteBuffer&, uint32_t iEpoch) { return false; }
+		virtual bool LoadEthContext(Blob&, uint32_t iEpoch) { return false; }
 		virtual void SaveEthContext(const Blob&, uint32_t iEpoch) {}
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
