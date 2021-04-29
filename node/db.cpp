@@ -121,6 +121,11 @@ namespace beam {
 #define TblContractLogs_Key		"Key"
 #define TblContractLogs_Data	"Data"
 
+#define TblCache				"Cache"
+#define TblCache_Key			"Key"
+#define TblCache_Data			"Data"
+#define TblCache_LastHit		"Hit"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -356,7 +361,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 28;
+	const uint64_t nVersionTop = 29;
 
 
 	Transaction t(*this);
@@ -416,6 +421,10 @@ void NodeDB::Open(const char* szPath)
 
 		case 27:
 			CreateTables27();
+			// no break;
+
+		case 28:
+			CreateTables28();
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -541,6 +550,7 @@ void NodeDB::Create()
 	CreateTables22();
 	CreateTables23();
 	CreateTables27();
+	CreateTables28();
 }
 
 void NodeDB::CreateTables20()
@@ -598,6 +608,17 @@ void NodeDB::CreateTables27()
 		") WITHOUT ROWID");
 
 	ExecQuick("CREATE INDEX [Idx" TblContractLogs "_Key" "] ON [" TblContractLogs "] ([" TblContractLogs_Key "],[" TblContractLogs_Pos "]);");
+}
+
+void NodeDB::CreateTables28()
+{
+	ExecQuick("CREATE TABLE [" TblCache "] ("
+		"[" TblCache_Key		"] BLOB NOT NULL,"
+		"[" TblCache_Data		"] BLOB NOT NULL,"
+		"[" TblCache_LastHit	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblCache "_Key" "] ON [" TblCache "] ([" TblCache_Key "]);");
+	ExecQuick("CREATE INDEX [Idx" TblCache "_Hit" "] ON [" TblCache "] ([" TblCache_LastHit "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2526,6 +2547,130 @@ void NodeDB::UniqueDeleteAll()
 	Recordset rs(*this, Query::UniqueDelAll, "DELETE FROM " TblUnique);
 	rs.Step();
 }
+
+void NodeDB::get_CacheState(CacheState& cs)
+{
+	Blob blob(&cs, sizeof(cs));
+	if (ParamGet(ParamID::CacheState, nullptr, &blob))
+	{
+		cs.m_HitCounter = ByteOrder::from_le(cs.m_HitCounter);
+		cs.m_SizeMax = ByteOrder::from_le(cs.m_SizeMax);
+		cs.m_SizeCurrent = ByteOrder::from_le(cs.m_SizeCurrent);
+	}
+	else
+	{
+		ZeroObject(cs);
+		cs.m_SizeMax = 512U * 1024U * 1024U; // default cache size is 512MB
+	}
+}
+
+void NodeDB::set_CacheState(CacheState& cs)
+{
+	if (cs.m_SizeCurrent > cs.m_SizeMax)
+	{
+		for (Recordset rs(*this, Query::CacheEnumByHit, "SELECT rowid,LENGTH(" TblCache_Data ") FROM " TblCache " ORDER BY " TblCache_LastHit); rs.Step(); )
+		{
+			uint64_t rowid, nSize;
+			rs.get(0, rowid);
+			rs.get(1, nSize);
+
+			if (nSize > cs.m_SizeCurrent)
+				ThrowInconsistent();
+
+			Recordset rs2(*this, Query::CacheDel, "DELETE FROM " TblCache " WHERE rowid=?");
+			rs2.put(0, rowid);
+			rs2.Step();
+			TestChanged1Row();
+
+			cs.m_SizeCurrent -= nSize;
+			if (cs.m_SizeCurrent <= cs.m_SizeMax)
+				break;
+		}
+
+	}
+
+	cs.m_HitCounter = ByteOrder::to_le(cs.m_HitCounter);
+	cs.m_SizeMax = ByteOrder::to_le(cs.m_SizeMax);
+	cs.m_SizeCurrent = ByteOrder::to_le(cs.m_SizeCurrent);
+
+	Blob blob(&cs, sizeof(cs));
+	ParamSet(ParamID::CacheState, nullptr, &blob);
+}
+
+void NodeDB::CacheSetMaxSize(uint64_t nSize)
+{
+	CacheState cs;
+	get_CacheState(cs);
+
+	cs.m_SizeMax = nSize;
+	set_CacheState(cs);
+}
+
+
+void NodeDB::CacheInsert(const Blob& key, const Blob& data)
+{
+	CacheState cs;
+	get_CacheState(cs);
+	if (data.n > cs.m_SizeMax)
+		return;
+
+	Recordset rs(*this, Query::CacheIns, "INSERT INTO " TblCache " (" TblCache_Key "," TblCache_Data "," TblCache_LastHit ") VALUES(?,?,?)");
+	rs.put(0, key);
+	rs.put(1, data);
+	rs.put(2, ++cs.m_HitCounter);
+
+	rs.Step();
+	TestChanged1Row();
+
+	cs.m_SizeCurrent += data.n;
+	set_CacheState(cs);
+}
+
+bool NodeDB::CacheFind(const Blob& key, ByteBuffer& res)
+{
+	Recordset rs(*this, Query::CacheFind, "SELECT rowid FROM " TblCache " WHERE " TblCache_Key "=?");
+	rs.put(0, key);
+
+	if (!rs.Step())
+		return false;
+
+	uint64_t rowid;
+	rs.get(0, rowid);
+
+	CacheState cs;
+	get_CacheState(cs);
+
+	rs.Reset(*this, Query::CacheUpdateHit, "UPDATE " TblCache " SET " TblCache_LastHit "=? WHERE rowid=?");
+	rs.put(0, ++cs.m_HitCounter);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+
+	struct Guard
+	{
+		sqlite3_blob* m_pPtr = nullptr;
+
+		~Guard()
+		{
+			if (m_pPtr)
+				BEAM_VERIFY(SQLITE_OK == sqlite3_blob_close(m_pPtr));
+		}
+	};
+
+	Guard blob;
+	TestRet(sqlite3_blob_open(m_pDb, "main", TblCache, TblCache_Data, rowid, 0, &blob.m_pPtr));
+
+	uint32_t nSize = sqlite3_blob_bytes(blob.m_pPtr);
+	res.resize(nSize);
+
+	if (nSize)
+		TestRet(sqlite3_blob_read(blob.m_pPtr, &res.front(), nSize, 0));
+
+	set_CacheState(cs);
+	return true;
+}
+
 
 const Asset::ID NodeDB::s_AssetEmpty0 = Asset::s_MaxCount;
 

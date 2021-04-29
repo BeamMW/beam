@@ -62,6 +62,7 @@ public:
 			EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
+			CacheState,
 		};
 	};
 
@@ -168,6 +169,11 @@ public:
 			UniqueFind,
 			UniqueDel,
 			UniqueDelAll,
+			CacheIns,
+			CacheFind,
+			CacheEnumByHit,
+			CacheUpdateHit,
+			CacheDel,
 
 			AssetFindOwner,
 			AssetFindMin,
@@ -637,6 +643,21 @@ public:
 	void UniqueDeleteStrict(const Blob& key);
 	void UniqueDeleteAll();
 
+	void CacheInsert(const Blob& key, const Blob& data);
+	bool CacheFind(const Blob& key, ByteBuffer&);
+	void CacheSetMaxSize(uint64_t);
+
+#pragma pack (push, 1)
+	struct CacheState
+	{
+		uint64_t m_HitCounter;
+		uint64_t m_SizeMax;
+		uint64_t m_SizeCurrent;
+	};
+#pragma pack (pop)
+
+	void get_CacheState(CacheState&);
+
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
 	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
@@ -749,6 +770,7 @@ private:
 	void CreateTables22();
 	void CreateTables23();
 	void CreateTables27();
+	void CreateTables28();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
@@ -791,6 +813,8 @@ private:
 	void AssetInsertRaw(Asset::ID, const Asset::Full*);
 	void AssetDeleteRaw(Asset::ID);
 	Asset::ID AssetFindMinFree(Asset::ID nMin);
+
+	void set_CacheState(CacheState&); // auto cleans the cache if necessary
 };
 
 
