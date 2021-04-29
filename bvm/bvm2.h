@@ -123,7 +123,7 @@ namespace bvm2 {
 			static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
 
 			static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
-			static const uint32_t EthMixHash        = ChargeFor<20*1000>::V;
+			static const uint32_t EthMixHash        = ChargeFor<500>::V; // very heavy operation, even with generated cache number of searches should be limited
 		};
 	};
 

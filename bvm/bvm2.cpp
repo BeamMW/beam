@@ -2019,7 +2019,7 @@ namespace bvm2 {
 
 	BVM_METHOD(get_EthMixHash)
 	{
-		DischargeUnits(Limits::Cost::BeamHashIII);
+		DischargeUnits(Limits::Cost::EthMixHash);
 		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
 	}
 	BVM_METHOD_HOST(get_EthMixHash)
