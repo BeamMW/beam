@@ -82,35 +82,28 @@ struct Ethash
 		typedef HashValue Hash;
 		const Hash* m_pProof;
 
-		struct Position {
-			uint32_t X;
-			uint32_t H;
-		};
-
 		void Verify(Item* pItems, const EpochParams& ep)
 		{
 			m_Count = ep.m_DatasetCount;
 			assert(m_Count);
 
-			Position pos;
-			pos.H = 0;
-			pos.X = 0;
-
-			while ((1U << pos.H) < m_Count)
-				pos.H++;
+			// evaluate target range. Beware of overflow (for large m_Count)
+			uint32_t nLast = 0;
+			while (nLast < m_Count)
+				nLast = (nLast << 1) | 1;
 
 			Hash hvRoot;
-			Evaluate(pItems, nSolutionElements, pos, hvRoot);
+			Evaluate(pItems, nSolutionElements, 0, (nLast >> 1) + 1, hvRoot);
 
 			Env::Halt_if(_POD_(hvRoot) != ep.m_hvRoot);
 		}
 
 
-		bool Evaluate(Item* pItems, uint32_t nItems, Position pos, Hash& hv)
+		bool Evaluate(Item* pItems, uint32_t nItems, uint32_t n, uint32_t nHalf, Hash& hv)
 		{
 			if (!nItems)
 			{
-				if ((pos.X << pos.H) >= m_Count)
+				if (n >= m_Count)
 					return false; // out
 
 				Env::Halt_if(!m_nProofRemaining);
@@ -121,7 +114,7 @@ struct Ethash
 			else
 			{
 				// can't be out, contains elements
-				if (!pos.H)
+				if (!nHalf)
 				{
 					const Hash1024& hvItem = *pItems->m_pElem;
 
@@ -137,17 +130,15 @@ struct Ethash
 				else
 				{
 
-					pos.X <<= 1;
-					pos.H--;
-					uint32_t nMid = (pos.X + 1) << pos.H;
+					uint32_t nMid = n + nHalf;
+					nHalf >>= 1;
 
 					auto n0 = PivotSplit(pItems, nItems, nMid);
 
-					Evaluate(pItems, n0, pos, hv);
+					Evaluate(pItems, n0, n, nHalf, hv);
 
-					pos.X++;
 					Hash hv2;
-					if (Evaluate(pItems + n0, nItems - n0, pos, hv2))
+					if (Evaluate(pItems + n0, nItems - n0, nMid, nHalf, hv2))
 						Merkle::Interpret(hv, hv, hv2);
 				}
 			}
