@@ -28,6 +28,10 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
+#include "../../core/mapped_file.h"
+#include "ethash/include/ethash/ethash.h"
+#include "ethash/lib/ethash/ethash-internal.hpp"
+
 namespace Shaders {
 
 	namespace Merkle {
@@ -2464,6 +2468,165 @@ namespace bvm2 {
 
 
 } // namespace bvm2
+
+namespace EthashUtils
+{
+	struct Hdr
+	{
+		uint32_t m_FullItems;
+		uint32_t m_CacheItems;
+	};
+
+	typedef ECC::Hash::Value Hash;
+
+	void GenerateLocalData(uint32_t iEpoch, const char* szPath)
+	{
+		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
+
+		uint32_t nFullItems = pCtx->full_dataset_num_items;
+
+		Hdr hdr;
+		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
+		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
+
+		std::FStream fs;
+		fs.Open(szPath, false, true);
+		fs.write(&hdr, sizeof(hdr));
+
+		Merkle::FixedMmr fmmr;
+		fmmr.Resize(nFullItems); // huge!
+
+		for (uint32_t i = 0; i < nFullItems; i++)
+		{
+			auto item = ethash::calculate_dataset_item_1024(*pCtx, i);
+
+			ECC::Hash::Value hv;
+			ECC::Hash::Processor()
+				<< Blob(item.bytes, sizeof(item.bytes))
+				>> hv;
+
+			fmmr.Append(hv);
+		}
+
+		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
+
+		auto& v = fmmr.get_Data();
+		fs.write(&v.front(), sizeof(v.front())* v.size());
+
+		ethash_destroy_epoch_context(pCtx);
+	}
+
+	struct MultiItemProofBuilder
+	{
+		const Hash* m_pHashes; // flat array
+		uint32_t m_Count;
+
+		std::vector<Hash> m_vRes;
+
+		static uint64_t Pos2Idx(const Merkle::Position& pos)
+		{
+			return Merkle::FlatMmr::Pos2Idx(pos, 0);
+		}
+
+		void Build(uint32_t* pIndices, uint32_t nIndices)
+		{
+			assert(m_Count);
+
+			Merkle::Position pos;
+			pos.H = 0;
+			pos.X = 0;
+
+			while ((1ULL << pos.H) < m_Count)
+				pos.H++;
+
+			BEAM_VERIFY(Build2(pIndices, nIndices, pos, false));
+		}
+
+	private:
+
+		bool Build2(uint32_t* pIndices, uint32_t nIndices, Merkle::Position pos, bool bFull)
+		{
+			if (!bFull)
+			{
+				uint64_t nVal = pos.X << pos.H;
+				if (nVal >= m_Count)
+					return false; // out-of-bounds
+
+				nVal += 1ULL << pos.H;
+				if (nVal <= m_Count)
+					bFull = true;
+			}
+
+			if (!pos.H || (!nIndices && bFull))
+			{
+				if (!nIndices)
+					m_vRes.push_back(m_pHashes[Pos2Idx(pos)]);
+			}
+			else
+			{
+				pos.X <<= 1;
+				pos.H--;
+				uint32_t nMid = static_cast<uint32_t>((pos.X + 1) << pos.H);
+
+				auto n0 = Shaders::PivotSplit(pIndices, nIndices, nMid);
+
+				BEAM_VERIFY(Build2(pIndices, n0, pos, bFull));
+
+				pos.X++;
+				bool bRes = Build2(pIndices + n0, nIndices - n0, pos, bFull);
+
+				if (bRes && !nIndices)
+				{
+					Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
+					m_vRes.pop_back();
+				}
+			}
+
+			return true;
+		}
+	};
+
+	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, Hash& hvRoot)
+	{
+		MappedFileRaw fmp;
+		fmp.Open(szPath);
+
+		auto& hdr = fmp.get_At<Hdr>(0);
+
+		ethash_epoch_context ctx = ethash_epoch_context{
+			0,
+			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
+			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
+			nullptr,
+			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
+
+		ECC::Hash::Value hvMix;
+		uint32_t pSolIndices[64];
+		ethash_hash1024 pSolItems[64];
+
+		ethash_get_MixHash2((ethash_hash256*)hvMix.m_pData, pSolIndices, pSolItems, &ctx, (ethash_hash512*)hvSeed.m_pData);
+
+		MultiItemProofBuilder mpb;
+		mpb.m_pHashes = &fmp.get_At<ECC::Hash::Value>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
+		mpb.m_Count = ctx.full_dataset_num_items;
+
+		mpb.Build(nullptr, 0); // root
+
+		hvRoot = mpb.m_vRes.front();
+		mpb.m_vRes.clear();
+
+		mpb.Build(pSolIndices, _countof(pSolIndices)); // proof for this set of indices
+
+		res.resize(sizeof(pSolItems) + sizeof(Hash) * mpb.m_vRes.size());
+		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
+		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(Hash) * mpb.m_vRes.size());
+
+		return ctx.full_dataset_num_items;
+	}
+
+} // namespace EthashUtils
+
+
 } // namespace beam
 
 void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
@@ -2484,6 +2647,15 @@ int main()
 		TestMergeSort();
 
 		MyProcessor proc;
+/*
+		{
+			uintBig_t<64> hvSeed;
+			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
+
+			ECC::Hash::Value hvEpochRoot;
+			beam::EthashUtils::GenerateProof("S:\\my_epoch-176.bin", hvSeed, proc.m_etHashProof, hvEpochRoot);
+		}
+*/
 		proc.TestAll();
 
 		MyManager man(proc.m_Vars);
