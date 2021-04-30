@@ -465,22 +465,6 @@ namespace bvm2 {
 			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
 		}
 
-		std::map<uint32_t, ByteBuffer> m_EthashCache;
-
-		virtual bool LoadEthContext(Blob& res, uint32_t iEpoch) override
-		{
-			auto it = m_EthashCache.find(iEpoch);
-			if (m_EthashCache.end() != it)
-				res = it->second;
-
-			return true;
-		}
-
-		virtual void SaveEthContext(const Blob& data, uint32_t iEpoch) override
-		{
-			data.Export(m_EthashCache[iEpoch]);
-		}
-
 		struct Action_Var
 			:public Action
 		{
@@ -1610,21 +1594,21 @@ namespace bvm2 {
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 		}
 
-		{
-			Shaders::Dummy::TestEthash args;
-			ZeroObject(args);
-			args.m_BlockNumber = 5306861;
-			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
-			args.m_Nonce = 0xd337f82001e992c5ULL;
-			args.m_Difficulty = 3250907161412814ULL;
+		//{
+		//	Shaders::Dummy::TestEthash args;
+		//	ZeroObject(args);
+		//	args.m_BlockNumber = 5306861;
+		//	args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
+		//	args.m_Nonce = 0xd337f82001e992c5ULL;
+		//	args.m_Difficulty = 3250907161412814ULL;
 
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+		//	verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // make sure it loads ok from our cache 
+		//	verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // make sure it loads ok from our cache 
 
-			args.m_Nonce++;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-		}
+		//	args.m_Nonce++;
+		//	verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		//}
 
 		if (!m_etHashProof.empty())
 		{

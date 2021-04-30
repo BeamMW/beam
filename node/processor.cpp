@@ -2319,8 +2319,6 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ContractLogs = 0;
 	std::vector<Merkle::Hash> m_vLogs;
 
-	std::vector<std::pair<uint32_t, ByteBuffer> > m_vEthEpocs;
-
 	ByteBuffer m_Rollback;
 
 	struct Ser
@@ -2364,7 +2362,6 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetEmit = 5;
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
-			static const Type EthEpoc = 8;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -2380,24 +2377,6 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
-
-		virtual bool LoadEthContext(Blob&, uint32_t iEpoch) override;
-		virtual void SaveEthContext(const Blob&, uint32_t iEpoch) override;
-
-#pragma pack (push, 1)
-		struct EthContextKey {
-			uint32_t m_Tag;
-			uint32_t m_iEpoch;
-
-			EthContextKey(uint32_t iEpoch)
-			{
-				m_Tag = ByteOrder::to_le(static_cast<uint32_t>(RecoveryTag::EthEpoc));
-				m_iEpoch = ByteOrder::to_le(iEpoch);
-			}
-		};
-#pragma pack (pop)
-
-		void AddEthContext(ByteBuffer&&, uint32_t iEpoch);
 
 		bool EnsureNoVars(const bvm2::ContractID&);
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
@@ -4681,61 +4660,6 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk,
 	return m_Bic.m_ContractLogs++;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::AddEthContext(ByteBuffer&& buf, uint32_t iEpoch)
-{
-	auto& x = m_Bic.m_vEthEpocs.emplace_back();
-	x.first = iEpoch;
-	x.second = std::move(buf);
-
-	if (m_Bic.m_Temporary)
-	{
-		BlockInterpretCtx::Ser ser(m_Bic);
-		RecoveryTag::Type nTag = RecoveryTag::EthEpoc;
-		ser & nTag;
-	}
-}
-
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadEthContext(Blob& res, uint32_t iEpoch)
-{
-	auto& vEpochs = m_Bic.m_vEthEpocs;
-	for (uint32_t iIdx = 0; ; iIdx++)
-	{
-		if (iIdx == vEpochs.size())
-		{
-			if (vEpochs.size() >= 2)
-			{
-				m_Bic.m_LimitExceeded = true;
-				Wasm::Fail("eth epoch limit");
-			}
-
-			EthContextKey key(iEpoch);
-			ByteBuffer buf;
-			if (!m_Proc.m_DB.CacheFind(Blob(&key, sizeof(key)), buf))
-				break;
-
-			AddEthContext(std::move(buf), iEpoch);
-		}
-
-		if (vEpochs[iIdx].first == iEpoch)
-		{
-			res = vEpochs[iIdx].second;
-			break;
-		}
-	}
-
-	return true;
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveEthContext(const Blob& data, uint32_t iEpoch)
-{
-	EthContextKey key(iEpoch);
-	m_Proc.m_DB.CacheInsert(Blob(&key, sizeof(key)), data);
-
-	ByteBuffer buf;
-	data.Export(buf);
-	AddEthContext(std::move(buf), iEpoch);
-}
-
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
 {
 	return m_Bic.m_Height - 1;
@@ -4890,13 +4814,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				if (bMmr && !m_Bic.m_vLogs.empty())
 					m_Bic.m_vLogs.pop_back();
 			}
-		}
-		break;
-
-		case RecoveryTag::EthEpoc:
-		{
-			if (!m_Bic.m_vEthEpocs.empty())
-				m_Bic.m_vEthEpocs.pop_back();
 		}
 		break;
 

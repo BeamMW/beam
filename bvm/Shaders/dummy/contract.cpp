@@ -211,44 +211,44 @@ export void Method_11(Dummy::TestRingSig& r)
 
 export void Method_12(Dummy::TestEthash& r)
 {
-    // 1. derive pow seed
-    HashValue512 hvSeed;
-    {
-        HashProcessor::Base hp;
-        hp.m_p = Env::HashCreateKeccak(512);
-        hp << r.m_HeaderHash;
+    //// 1. derive pow seed
+    //HashValue512 hvSeed;
+    //{
+    //    HashProcessor::Base hp;
+    //    hp.m_p = Env::HashCreateKeccak(512);
+    //    hp << r.m_HeaderHash;
 
-        auto val = Utils::FromLE(r.m_Nonce);
-        hp.Write(&val, sizeof(val));
+    //    auto val = Utils::FromLE(r.m_Nonce);
+    //    hp.Write(&val, sizeof(val));
 
-        hp >> hvSeed;
-    }
+    //    hp >> hvSeed;
+    //}
 
-    // 2. get mix hash
-    HashValue hvMix;
-    Env::Halt_if(!Env::get_EthMixHash(hvMix, r.m_BlockNumber / 30000, hvSeed));
+    //// 2. get mix hash
+    //HashValue hvMix;
+    //Env::Halt_if(!Env::get_EthMixHash(hvMix, r.m_BlockNumber / 30000, hvSeed));
 
-    // 3. 'final' hash
-    {
-        HashProcessor::Base hp;
-        hp.m_p = Env::HashCreateKeccak(256);
-        hp
-            << hvSeed
-            << hvMix
-            >> hvMix;
-    }
+    //// 3. 'final' hash
+    //{
+    //    HashProcessor::Base hp;
+    //    hp.m_p = Env::HashCreateKeccak(256);
+    //    hp
+    //        << hvSeed
+    //        << hvMix
+    //        >> hvMix;
+    //}
 
-    // 4. Test difficulty
-    MultiPrecision::UInt<sizeof(HashValue) / sizeof(MultiPrecision::Word)> val1; // 32 bytes, 8 words
-    val1.FromBE_T(hvMix);
+    //// 4. Test difficulty
+    //MultiPrecision::UInt<sizeof(HashValue) / sizeof(MultiPrecision::Word)> val1; // 32 bytes, 8 words
+    //val1.FromBE_T(hvMix);
 
-    MultiPrecision::UInt<sizeof(r.m_Difficulty) / sizeof(MultiPrecision::Word)> val2; // 8 bytes, 2 words
-    val2 = r.m_Difficulty;
+    //MultiPrecision::UInt<sizeof(r.m_Difficulty) / sizeof(MultiPrecision::Word)> val2; // 8 bytes, 2 words
+    //val2 = r.m_Difficulty;
 
-    auto val3 = val1 * val2; // 40 bytes, 10 words
-    
-    // check that 2 most significant words are 0
-    Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
+    //auto val3 = val1 * val2; // 40 bytes, 10 words
+    //
+    //// check that 2 most significant words are 0
+    //Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
 }
 
 export void Method_13(Dummy::TestEthash2& r)

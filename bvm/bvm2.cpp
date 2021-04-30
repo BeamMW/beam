@@ -23,7 +23,6 @@
 #endif
 
 #include "ethash/include/ethash/keccak.h"
-#include "ethash/include/ethash/ethash.h"
 
 namespace beam {
 namespace bvm2 {
@@ -2017,94 +2016,94 @@ namespace bvm2 {
 		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
 	}
 
-	BVM_METHOD(get_EthMixHash)
-	{
-		DischargeUnits(Limits::Cost::EthMixHash);
-		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
-	}
-	BVM_METHOD_HOST(get_EthMixHash)
-	{
-		// ban ridiculously high epoch numbers, which may consume too much memory, cause overflows, etc.
-		// Our current limit is 1000. The memory size of this max epoch is ~147MB.
-		// This will be enough up to ethereum block 3mln, which is expected to appear on September 2029. (more than 8 years from now).
-		if (iEpoch > 1000)
-			return 0;
-
-		Blob blob;
-		ZeroObject(blob);
-
-		if (!LoadEthContext(blob, iEpoch))
-			return 0;
-
-#pragma pack (push, 1)
-
-		struct Hdr
-		{
-			uint32_t m_ItemsLight_LE;
-			uint32_t m_ItemsFull_LE;
-		};
-
-#pragma pack (pop)
-
-		struct Guard {
-			ethash_epoch_context* m_pVal = nullptr;
-			~Guard()
-			{
-				if (m_pVal)
-					ethash_destroy_epoch_context(m_pVal);
-			}
-		} g;
-
-		ethash_epoch_context ctx = { 0 };
-
-		if (!blob.n)
-		{
-			g.m_pVal = ethash_create_epoch_context(iEpoch);
-			if (!g.m_pVal)
-				Wasm::Fail("no mem");
-
-			memcpy(reinterpret_cast<void*>(&ctx), g.m_pVal, sizeof(ctx));
-		}
-		else
-		{
-			Wasm::Test(blob.n >= sizeof(Hdr));
-			auto pHdr = reinterpret_cast<const Hdr*>(blob.p);
-
-			ethash_epoch_context ctxInst2 = ethash_epoch_context{
-				static_cast<int>(iEpoch),
-				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
-				reinterpret_cast<const ethash_hash512*>(reinterpret_cast<const uint8_t*>(blob.p) + sizeof(Hdr)),
-				nullptr,
-				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
-
-			memcpy(reinterpret_cast<void*>(&ctx), &ctxInst2, sizeof(ctx));
-		}
-
-		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
-		Wasm::Test(!blob.n || (blob.n == nSizeBuf));
-
-		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
-
-		if (!blob.n)
-		{
-			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
-			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
-
-			Hdr hdr1;
-			hdr1.m_ItemsFull_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.full_dataset_num_items));
-			hdr1.m_ItemsLight_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.light_cache_num_items));
-
-			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
-			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
-
-			blob.p = &hdrRef;
-			blob.n = nSizeBuf;
-
-			SaveEthContext(blob, iEpoch);
-		}
-
-		return 1;
-	}
+//	BVM_METHOD(get_EthMixHash)
+//	{
+//		DischargeUnits(Limits::Cost::EthMixHash);
+//		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
+//	}
+//	BVM_METHOD_HOST(get_EthMixHash)
+//	{
+//		// ban ridiculously high epoch numbers, which may consume too much memory, cause overflows, etc.
+//		// Our current limit is 1000. The memory size of this max epoch is ~147MB.
+//		// This will be enough up to ethereum block 3mln, which is expected to appear on September 2029. (more than 8 years from now).
+//		if (iEpoch > 1000)
+//			return 0;
+//
+//		Blob blob;
+//		ZeroObject(blob);
+//
+//		if (!LoadEthContext(blob, iEpoch))
+//			return 0;
+//
+//#pragma pack (push, 1)
+//
+//		struct Hdr
+//		{
+//			uint32_t m_ItemsLight_LE;
+//			uint32_t m_ItemsFull_LE;
+//		};
+//
+//#pragma pack (pop)
+//
+//		struct Guard {
+//			ethash_epoch_context* m_pVal = nullptr;
+//			~Guard()
+//			{
+//				if (m_pVal)
+//					ethash_destroy_epoch_context(m_pVal);
+//			}
+//		} g;
+//
+//		ethash_epoch_context ctx = { 0 };
+//
+//		if (!blob.n)
+//		{
+//			g.m_pVal = ethash_create_epoch_context(iEpoch);
+//			if (!g.m_pVal)
+//				Wasm::Fail("no mem");
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), g.m_pVal, sizeof(ctx));
+//		}
+//		else
+//		{
+//			Wasm::Test(blob.n >= sizeof(Hdr));
+//			auto pHdr = reinterpret_cast<const Hdr*>(blob.p);
+//
+//			ethash_epoch_context ctxInst2 = ethash_epoch_context{
+//				static_cast<int>(iEpoch),
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
+//				reinterpret_cast<const ethash_hash512*>(reinterpret_cast<const uint8_t*>(blob.p) + sizeof(Hdr)),
+//				nullptr,
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), &ctxInst2, sizeof(ctx));
+//		}
+//
+//		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
+//		Wasm::Test(!blob.n || (blob.n == nSizeBuf));
+//
+//		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
+//
+//		if (!blob.n)
+//		{
+//			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
+//			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
+//
+//			Hdr hdr1;
+//			hdr1.m_ItemsFull_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.full_dataset_num_items));
+//			hdr1.m_ItemsLight_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.light_cache_num_items));
+//
+//			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
+//			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
+//
+//			blob.p = &hdrRef;
+//			blob.n = nSizeBuf;
+//
+//			SaveEthContext(blob, iEpoch);
+//		}
+//
+//		return 1;
+//	}
 
 
 	//BVM_METHOD(LoadVarEx)

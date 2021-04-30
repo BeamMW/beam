@@ -124,7 +124,6 @@ namespace bvm2 {
 			static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
 
 			static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
-			static const uint32_t EthMixHash        = ChargeFor<500>::V; // very heavy operation, even with generated cache number of searches should be limited
 		};
 	};
 
@@ -212,9 +211,6 @@ namespace bvm2 {
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
 		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
-
-		virtual bool LoadEthContext(Blob&, uint32_t iEpoch) { return false; }
-		virtual void SaveEthContext(const Blob&, uint32_t iEpoch) {}
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
 			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
