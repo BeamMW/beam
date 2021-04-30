@@ -116,6 +116,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Difficulty);
 		ConvertOrd<bToShader>(x.m_Nonce);
 	}
+	template <bool bToShader> void Convert(Dummy::TestEthash2& x) {
+		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
+		ConvertOrd<bToShader>(x.m_Difficulty);
+		ConvertOrd<bToShader>(x.m_Nonce);
+	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
 	}
@@ -849,6 +854,8 @@ namespace bvm2 {
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
 
+		ByteBuffer m_etHashProof;
+
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
 			std::FStream fs;
@@ -964,6 +971,7 @@ namespace bvm2 {
 				//{
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
+				//case 13: Shaders::Dummy::Method_13(CastArg<Shaders::Dummy::TestEthash2>(pArgs)); return;
 				//}
 			}
 
@@ -1612,6 +1620,25 @@ namespace bvm2 {
 
 			args.m_Nonce++;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+		if (!m_etHashProof.empty())
+		{
+			ByteBuffer buf;
+			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_etHashProof.size());
+
+			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthash2*>(&buf.front());
+			memcpy(&args + 1, &m_etHashProof.front(), m_etHashProof.size());
+
+			ZeroObject(args);
+			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
+			args.m_Nonce = 0xd337f82001e992c5ULL;
+			args.m_Difficulty = 3250907161412814ULL;
+
+			args.m_EpochDatasetSize = 19922923;
+			args.m_EpochRoot.Scan("41d3b03a0a40ff17692b3f5ea9fd4c5163660f5c637a5c961a64061202822099");
+
+			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));

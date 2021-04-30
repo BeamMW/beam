@@ -3,6 +3,7 @@
 #include "contract.h"
 #include "../vault/contract.h"
 #include "../BeamHeader.h"
+#include "../Ethash.h"
 
 // Demonstration of the inter-shader interaction.
 
@@ -248,4 +249,13 @@ export void Method_12(Dummy::TestEthash& r)
     
     // check that 2 most significant words are 0
     Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
+}
+
+export void Method_13(Dummy::TestEthash2& r)
+{
+    Ethash::EpochParams ep;
+    ep.m_DatasetCount = r.m_EpochDatasetSize;
+    _POD_(ep.m_hvRoot) = r.m_EpochRoot;
+
+    Ethash::VerifyHdr(ep, r.m_HeaderHash, r.m_Nonce, r.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
 }

@@ -105,6 +105,21 @@ namespace Dummy
         uint64_t m_Difficulty;
     };
 
+    struct TestEthash2
+    {
+        static const uint32_t s_iMethod = 13;
+
+        HashValue m_HeaderHash; // pre-pow
+        uint64_t m_Nonce;
+        uint64_t m_Difficulty;
+
+        // epoch params (dataset size and our root hash), in the future contract must have them all hardcoded.
+        uint32_t m_EpochDatasetSize;
+        HashValue m_EpochRoot;
+
+        // followed by the proof
+    };
+
 #pragma pack (pop)
 
 }
