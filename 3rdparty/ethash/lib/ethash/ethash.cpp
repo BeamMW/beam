@@ -418,6 +418,50 @@ void ethash_get_MixHash(ethash_hash256* pRes, const epoch_context* context, cons
     *pRes = hash_kernel(*context, *seed, calculate_dataset_item_1024);
 }
 
+void ethash_get_MixHash2(ethash_hash256* pRes, uint32_t* pSolIndices, ethash_hash1024* pSolItems, const epoch_context* context, const ethash_hash512* seed) noexcept
+{
+    struct ContextPlus
+    {
+        epoch_context m_Ctx;
+        uint32_t* m_pResIndices;
+        ethash_hash1024* m_pResItems;
+
+        static hash1024 Func(const epoch_context& context, uint32_t index) noexcept
+        {
+            auto& ctxPlus = (ContextPlus&) (reinterpret_cast<const ContextPlus&>(context));
+            *ctxPlus.m_pResIndices++ = index;
+
+            *ctxPlus.m_pResItems = calculate_dataset_item_1024(context, index);
+            return *ctxPlus.m_pResItems++;
+        }
+
+    };
+
+    ContextPlus cplus = { *context, pSolIndices, pSolItems };
+    *pRes = hash_kernel(cplus.m_Ctx, *seed, ContextPlus::Func);
+}
+
+void ethash_get_MixHash3(ethash_hash256* pRes, uint32_t* pSolIndices, const ethash_hash1024* pSolItems, const epoch_context* context, const ethash_hash512* seed) noexcept
+{
+    struct ContextPlus
+    {
+        epoch_context m_Ctx;
+        uint32_t* m_pResIndices;
+        const ethash_hash1024* m_pResItems;
+
+        static hash1024 Func(const epoch_context& context, uint32_t index) noexcept
+        {
+            auto& ctxPlus = (ContextPlus&) (reinterpret_cast<const ContextPlus&>(context));
+            *ctxPlus.m_pResIndices++ = index;
+            return *ctxPlus.m_pResItems++;
+        }
+
+    };
+
+    ContextPlus cplus = { *context, pSolIndices, pSolItems };
+    *pRes = hash_kernel(cplus.m_Ctx, *seed, ContextPlus::Func);
+}
+
 ethash_result ethash_hash(
     const epoch_context* context, const hash256* header_hash, uint64_t nonce) noexcept
 {
