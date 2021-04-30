@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #pragma once
-#include "MergeSort.h"
+#include "Sort.h"
 
 struct BeamHashIII
 {
