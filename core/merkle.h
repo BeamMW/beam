@@ -177,6 +177,9 @@ namespace Merkle {
 	public:
 		FixedMmr(uint64_t nTotal = 0) { Resize(nTotal); }
 		void Resize(uint64_t nTotal);
+
+		const std::vector<Hash>& get_Data() const { return m_vHashes; }
+
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;
