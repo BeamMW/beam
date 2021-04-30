@@ -32,12 +32,20 @@ typedef uint64_t Amount;
 typedef uint32_t AssetID;
 typedef uint64_t Timestamp;
 
+#endif // HOST_BUILD
+
 #pragma pack (push, 1)
 
 template <uint32_t nBytes>
 struct Opaque {
     uint8_t m_p[nBytes];
 };
+
+#pragma pack (pop)
+
+#ifndef HOST_BUILD
+
+#pragma pack (push, 1)
 
 struct Secp_point_data {
     Opaque<32> X;
@@ -518,6 +526,13 @@ struct HashProcessor
         void Write(const HashValue512& hv)
         {
             Write(&hv, sizeof(hv));
+        }
+
+
+        template <uint32_t nBytes>
+        void Write(const Opaque<nBytes>& x)
+        {
+            Write(&x, sizeof(x));
         }
 
         void Write(const Secp_point_data& pd)
