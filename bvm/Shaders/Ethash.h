@@ -33,7 +33,7 @@ struct Ethash
 	struct Item
 	{
 		uint32_t m_nIndex;
-		uint32_t m_iElem;
+		const Hash1024* m_pElem;
 
 		bool operator < (uint32_t i) const
 		{
@@ -55,7 +55,7 @@ struct Ethash
 
         for (uint32_t i = 0; i < nSolutionElements; ++i)
         {
-			pItems[i].m_iElem = i;
+			pItems[i].m_pElem = pSol + i;
 			pItems[i].m_nIndex = fnv1(i ^ nSeedInit, ((uint32_t*) &hvMix)[i % nWords]) % nFullDatasetCount;
             const Hash1024& hvElem = pSol[i];
 
@@ -81,8 +81,6 @@ struct Ethash
 
 		typedef HashValue Hash;
 		const Hash* m_pProof;
-
-		const Hash1024* m_pSol;
 
 		struct Position {
 			uint32_t X;
@@ -125,7 +123,7 @@ struct Ethash
 				// can't be out, contains elements
 				if (!pos.H)
 				{
-					const Hash1024& hvItem = m_pSol[pItems->m_iElem];
+					const Hash1024& hvItem = *pItems->m_pElem;
 
 					{
 						HashProcessor::Sha256 hp;
@@ -134,7 +132,7 @@ struct Ethash
 					}
 
 					for (uint32_t i = 1; i < nItems; i++)
-						Env::Halt_if(_POD_(hvItem) != m_pSol[pItems[i].m_iElem]); // duplicated indexes in solution (unlikely but possible), but provided elements are different
+						Env::Halt_if(_POD_(hvItem) != *pItems[i].m_pElem); // duplicated indexes in solution (unlikely but possible), but provided elements are different
 				}
 				else
 				{
@@ -185,8 +183,7 @@ struct Ethash
 
 		// 3. Interpret merkle multi-proof, verify the epoch root commits to the specified solution elements.
 		MultiProofVerifier mpv;
-		mpv.m_pSol = (const Hash1024*) pProof;
-		mpv.m_pProof = (const MultiProofVerifier::Hash*) (mpv.m_pSol + nSolutionElements);
+		mpv.m_pProof = (const MultiProofVerifier::Hash*) (((const Hash1024*) pProof) + nSolutionElements);
 
 		uint32_t nMaxProofNodes = (nSizeProof - nFixSizePart) / sizeof(MultiProofVerifier::Hash);
 		mpv.m_nProofRemaining = nMaxProofNodes;
