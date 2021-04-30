@@ -995,6 +995,8 @@ namespace Wasm {
 		{
 			TestBlockCanClose(m_Blocks.front()); // if the return is from a nested block - assume the necessary unwind has already been done
 			WriteRet(); // end of function
+
+			Pop(m_Blocks.front().m_Type.m_Rets);
 		}
 
 		void On_i32_const() {
