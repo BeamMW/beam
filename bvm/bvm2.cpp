@@ -1723,7 +1723,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashWrite + Limits::Cost::HashWritePerByte * size);
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1735,7 +1735,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashWritePerByte * size);
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);

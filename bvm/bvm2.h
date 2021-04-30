@@ -114,8 +114,9 @@ namespace bvm2 {
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
 			static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
 			static const uint32_t FundsLock			= ChargeFor<50*1000>::V;
-			static const uint32_t HashOp			= ChargeFor<100*1000>::V;
-			static const uint32_t HashOpPerByte		= ChargeFor<1000*1000>::V;
+			static const uint32_t HashOp			= ChargeFor<1000*1000>::V;
+			static const uint32_t HashWrite			= ChargeFor<5 * 1000*1000>::V;
+			static const uint32_t HashWritePerByte	= ChargeFor<50*1000*1000>::V;
 
 			static const uint32_t Secp_ScalarInv		= ChargeFor<5*1000>::V;
 			static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;
