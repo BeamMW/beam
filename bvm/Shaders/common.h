@@ -32,20 +32,12 @@ typedef uint64_t Amount;
 typedef uint32_t AssetID;
 typedef uint64_t Timestamp;
 
-#endif // HOST_BUILD
-
 #pragma pack (push, 1)
 
 template <uint32_t nBytes>
 struct Opaque {
     uint8_t m_p[nBytes];
 };
-
-#pragma pack (pop)
-
-#ifndef HOST_BUILD
-
-#pragma pack (push, 1)
 
 struct Secp_point_data {
     Opaque<32> X;
@@ -79,6 +71,11 @@ inline void ConvertOrd(T&) {}
 #ifndef assert
 #   define assert(expr) do {} while (false)
 #endif // assert
+
+#else // HOST_BUILD
+
+template <uint32_t nBytes>
+using Opaque = beam::uintBig_t<nBytes>;
 
 #endif // HOST_BUILD
 
@@ -517,17 +514,6 @@ struct HashProcessor
         {
             Env::HashWrite(m_p, p, n);
         }
-
-        void Write(const HashValue& hv)
-        {
-            Write(&hv, sizeof(hv));
-        }
-
-        void Write(const HashValue512& hv)
-        {
-            Write(&hv, sizeof(hv));
-        }
-
 
         template <uint32_t nBytes>
         void Write(const Opaque<nBytes>& x)
