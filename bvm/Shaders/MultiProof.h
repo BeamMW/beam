@@ -17,6 +17,17 @@
 
 struct MultiProof
 {
+	template <typename TCount>
+	static TCount get_FirstHalf(TCount nTotalSize)
+	{
+		// evaluate target range. Beware of overflow (for large m_Count)
+		TCount nLast = 0;
+		while (nLast < nTotalSize)
+			nLast = (nLast << 1) | 1;
+
+		return (nLast >> 1) + 1;
+	}
+
 	template <class Base>
 	struct Verifier
 		:public Base
@@ -36,19 +47,12 @@ struct MultiProof
 			}
 		};
 
-		void EvaluateRoot(THash& hv, Item* pItems, uint32_t nItems, TCount nDataSetSize)
+		void EvaluateRoot(THash& hv, Item* pItems, uint32_t nItems, TCount nTotalSize)
 		{
-			if (nDataSetSize)
+			if (nTotalSize)
 			{
-				m_Count = nDataSetSize;
-
-				// evaluate target range. Beware of overflow (for large m_Count)
-				TCount nLast = 0;
-				while (nLast < m_Count)
-					nLast = (nLast << 1) | 1;
-
-				EvaluatePart(pItems, nItems, 0, (nLast >> 1) + 1, hv);
-					
+				m_Count = nTotalSize;
+				EvaluatePart(pItems, nItems, 0, get_FirstHalf(nTotalSize), hv);
 			}
 			else
 				_POD_(hv).SetZero();

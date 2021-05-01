@@ -24,12 +24,16 @@ struct Ethash
 
 	static const uint32_t nSolutionElements = 64;
 
-	struct MyMultiProof
+	struct ProofBase
 	{
 		typedef HashValue THash;
 		typedef uint32_t TCount;
 		typedef const Hash1024* TElement;
+	};
 
+	struct MyMultiProof
+		:public ProofBase
+	{
 		inline static void Evaluate(THash& hv, const Hash1024* pElem)
 		{
 			HashProcessor::Sha256 hp;
