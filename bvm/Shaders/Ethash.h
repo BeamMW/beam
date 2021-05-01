@@ -14,7 +14,7 @@
 
 #pragma once
 #include "Math.h"
-#include "Sort.h"
+#include "MultiProof.h"
 
 struct Ethash
 {
@@ -24,26 +24,52 @@ struct Ethash
 
 	static const uint32_t nSolutionElements = 64;
 
-	struct EpochParams
+	struct MyMultiProof
 	{
-		uint32_t m_DatasetCount;
-		HashValue m_hvRoot;
-	};
+		typedef HashValue THash;
+		typedef uint32_t TCount;
+		typedef const Hash1024* TElement;
 
-	struct Item
-	{
-		uint32_t m_nIndex;
-		const Hash1024* m_pElem;
-
-		bool operator < (uint32_t i) const
+		inline static void Evaluate(THash& hv, const Hash1024* pElem)
 		{
-			return m_nIndex < i;
+			HashProcessor::Sha256 hp;
+			hp << (*pElem) >> hv;
+		}
+
+		inline static void TestEqual(const Hash1024* p0, const Hash1024* p1)
+		{
+			Env::Halt_if(_POD_(*p0) != *p1);
+		}
+
+		inline static void InterpretHash(THash& hv, const THash& hv2)
+		{
+			Merkle::Interpret(hv, hv, hv2);
+		}
+
+		uint32_t m_nProofRemaining;
+		const THash* m_pProof;
+
+		inline void get_NextProofHash(THash& hv)
+		{
+			Env::Halt_if(!m_nProofRemaining);
+
+			_POD_(hv) = *m_pProof++;
+			m_nProofRemaining--;
 		}
 	};
 
+	typedef MultiProof::Verifier<MyMultiProof> MyVerifier;
+
+	struct EpochParams
+	{
+		uint32_t m_DatasetCount;
+		MyMultiProof::THash m_hvRoot;
+	};
+
+
 	//////////////////////////////////
 	// ethash solution interpreter. Takes solution elements as input (from global dataset), returns final point (mix-hash) and supposed positions of the provided elements
-	static void InterpretPath(uint32_t nFullDatasetCount, const Hash512& hvSeed, const Hash1024* pSol, Hash256& res, Item* pItems)
+	static void InterpretPath(uint32_t nFullDatasetCount, const Hash512& hvSeed, const Hash1024* pSol, Hash256& res, MyVerifier::Item* pItems)
 	{
         constexpr uint32_t nWords = sizeof(Hash1024) / sizeof(uint32_t);
 
@@ -55,8 +81,8 @@ struct Ethash
 
         for (uint32_t i = 0; i < nSolutionElements; ++i)
         {
-			pItems[i].m_pElem = pSol + i;
-			pItems[i].m_nIndex = fnv1(i ^ nSeedInit, ((uint32_t*) &hvMix)[i % nWords]) % nFullDatasetCount;
+			pItems[i].m_Element = pSol + i;
+			pItems[i].m_Index = fnv1(i ^ nSeedInit, ((uint32_t*) &hvMix)[i % nWords]) % nFullDatasetCount;
             const Hash1024& hvElem = pSol[i];
 
             for (uint32_t j = 0; j < nWords; ++j)
@@ -71,82 +97,6 @@ struct Ethash
             ((uint32_t*) &res)[i / 4] = h3;
         }
 	}
-
-	//////////////////////////////////
-	// Multi-merkle-proof verifier. Verifies that 
-	struct MultiProofVerifier
-	{
-		uint32_t m_Count;
-		uint32_t m_nProofRemaining;
-
-		typedef HashValue Hash;
-		const Hash* m_pProof;
-
-		void Verify(Item* pItems, const EpochParams& ep)
-		{
-			m_Count = ep.m_DatasetCount;
-			assert(m_Count);
-
-			// evaluate target range. Beware of overflow (for large m_Count)
-			uint32_t nLast = 0;
-			while (nLast < m_Count)
-				nLast = (nLast << 1) | 1;
-
-			Hash hvRoot;
-			Evaluate(pItems, nSolutionElements, 0, (nLast >> 1) + 1, hvRoot);
-
-			Env::Halt_if(_POD_(hvRoot) != ep.m_hvRoot);
-		}
-
-
-		bool Evaluate(Item* pItems, uint32_t nItems, uint32_t n, uint32_t nHalf, Hash& hv)
-		{
-			if (!nItems)
-			{
-				if (n >= m_Count)
-					return false; // out
-
-				Env::Halt_if(!m_nProofRemaining);
-
-				_POD_(hv) = *m_pProof++;
-				m_nProofRemaining--;
-			}
-			else
-			{
-				// can't be out, contains elements
-				if (!nHalf)
-				{
-					const Hash1024& hvItem = *pItems->m_pElem;
-
-					{
-						HashProcessor::Sha256 hp;
-						hp.Write(&hvItem, sizeof(hvItem));
-						hp >> hv;
-					}
-
-					for (uint32_t i = 1; i < nItems; i++)
-						Env::Halt_if(_POD_(hvItem) != *pItems[i].m_pElem); // duplicated indexes in solution (unlikely but possible), but provided elements are different
-				}
-				else
-				{
-
-					uint32_t nMid = n + nHalf;
-					nHalf >>= 1;
-
-					auto n0 = PivotSplit(pItems, nItems, nMid);
-
-					Evaluate(pItems, n0, n, nHalf, hv);
-
-					Hash hv2;
-					if (Evaluate(pItems + n0, nItems - n0, nMid, nHalf, hv2))
-						Merkle::Interpret(hv, hv, hv2);
-				}
-			}
-
-			return true;
-		}
-	};
-
 
 	// all-in-one verification
 	static uint32_t VerifyHdr(const EpochParams& ep, const HashValue& hvHeaderHash, uint64_t nonce, uint64_t difficulty, const void* pProof, uint32_t nSizeProof)
@@ -169,17 +119,19 @@ struct Ethash
 		Env::Halt_if(nFixSizePart > nSizeProof);
 
 		Hash256 hvMix;
-		Item pIndices[nSolutionElements];
+		MyVerifier::Item pIndices[nSolutionElements];
 		InterpretPath(ep.m_DatasetCount, hvSeed, (const Hash1024*) pProof, hvMix, pIndices);
 
 		// 3. Interpret merkle multi-proof, verify the epoch root commits to the specified solution elements.
-		MultiProofVerifier mpv;
-		mpv.m_pProof = (const MultiProofVerifier::Hash*) (((const Hash1024*) pProof) + nSolutionElements);
+		MyVerifier mpv;
+		mpv.m_pProof = (const MyVerifier::THash*) (((const Hash1024*) pProof) + nSolutionElements);
 
-		uint32_t nMaxProofNodes = (nSizeProof - nFixSizePart) / sizeof(MultiProofVerifier::Hash);
+		uint32_t nMaxProofNodes = (nSizeProof - nFixSizePart) / sizeof(MyVerifier::THash);
 		mpv.m_nProofRemaining = nMaxProofNodes;
 
-		mpv.Verify(pIndices, ep);
+		MyVerifier::THash hvEpochRoot;
+		mpv.EvaluateRoot(hvEpochRoot, pIndices, nSolutionElements, ep.m_DatasetCount);
+		Env::Halt_if(_POD_(hvEpochRoot) != ep.m_hvRoot);
 
 		// 4. 'final' hash
 		{
@@ -204,7 +156,7 @@ struct Ethash
 		Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
 
 		// all ok. Return the actually consumed size
-		return nFixSizePart + (nMaxProofNodes - mpv.m_nProofRemaining) * sizeof(MultiProofVerifier::Hash);
+		return nFixSizePart + (nMaxProofNodes - mpv.m_nProofRemaining) * sizeof(MyVerifier::THash);
 	}
 
 
