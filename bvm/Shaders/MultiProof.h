@@ -102,4 +102,76 @@ struct MultiProof
 		}
 	};
 
+
+	template <class Base>
+	struct Builder
+		:public Base
+	{
+		typedef typename Base::THash THash; // hash value. May be truncated
+		typedef typename Base::TCount TCount; // 32/64 
+		typedef typename Base::TElement TElement;
+
+		void Build(TCount* pIndices, uint32_t nIndices, TCount nTotalSize)
+		{
+			if (nTotalSize)
+			{
+				m_Count = nTotalSize;
+				BuildPart(pIndices, nIndices, 0, get_FirstHalf(nTotalSize), false);
+			}
+			else
+				Base::ProofPushZero();
+		}
+
+	private:
+
+		TCount m_Count; // total number of elements in the set
+
+		void BuildPart(TCount* pIndices, uint32_t nIndices, TCount n, TCount nHalf, bool bFull)
+		{
+			if (!bFull)
+			{
+				if (nHalf)
+				{
+					TCount n1 = n + (nHalf << 1);
+					if ((n1 <= m_Count) && (n1 > n)) // care of overflow
+						bFull = true;
+				}
+				else
+					bFull = true;
+			}
+
+			if (!nIndices && bFull)
+			{
+				// push the appropriate merkle tree element
+				if (Base::ProofPush(n, nHalf))
+					return; // ok
+
+				// Can happen if lower-level elements were not stored (to reduce the storage size).
+				assert(nHalf);
+			}
+
+			if (!nHalf)
+			{
+				assert(bFull && nIndices);
+				return; // reached the element(s) being-prooven
+			}
+
+			TCount nMid = n + nHalf;
+			nHalf >>= 1;
+
+			uint32_t n0 = PivotSplit(pIndices, nIndices, nMid);
+
+			BuildPart(pIndices, n0, n, nHalf, bFull);
+
+			if (nMid < m_Count)
+			{
+				BuildPart(pIndices + n0, nIndices - n0, nMid, nHalf, bFull);
+
+				if (!nIndices)
+					Base::ProofMerge();
+			}
+		}
+
+	};
+
 };

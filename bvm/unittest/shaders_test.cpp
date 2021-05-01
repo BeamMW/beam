@@ -2455,6 +2455,45 @@ namespace bvm2 {
 
 namespace EthashUtils
 {
+	struct MyMultiProof
+		:public Shaders::Dummy::Ethash::ProofBase
+	{
+		const THash* m_pHashes;
+		std::vector<THash> m_vRes;
+
+		void ProofPushZero()
+		{
+			m_vRes.emplace_back() = Zero;
+		}
+
+		bool ProofPush(TCount n, TCount nHalf)
+		{
+			Merkle::Position pos;
+
+			for (pos.H = 0; nHalf; pos.H++)
+			{
+				nHalf >>= 1;
+				assert(!(1 & n));
+				n >>= 1;
+			}
+
+			pos.X = n;
+
+			auto iHash = Merkle::FlatMmr::Pos2Idx(pos, 0);
+			m_vRes.push_back(m_pHashes[iHash]);
+
+			return true;
+		}
+
+		void ProofMerge()
+		{
+			assert(m_vRes.size() >= 2);
+			Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
+			m_vRes.pop_back();
+		}
+	};
+
+
 	struct Hdr
 	{
 		uint32_t m_FullItems;
@@ -2500,76 +2539,6 @@ namespace EthashUtils
 		ethash_destroy_epoch_context(pCtx);
 	}
 
-	struct MultiItemProofBuilder
-	{
-		const Hash* m_pHashes; // flat array
-		uint32_t m_Count;
-
-		std::vector<Hash> m_vRes;
-
-		static uint64_t Pos2Idx(const Merkle::Position& pos)
-		{
-			return Merkle::FlatMmr::Pos2Idx(pos, 0);
-		}
-
-		void Build(uint32_t* pIndices, uint32_t nIndices)
-		{
-			assert(m_Count);
-
-			Merkle::Position pos;
-			pos.H = 0;
-			pos.X = 0;
-
-			while ((1ULL << pos.H) < m_Count)
-				pos.H++;
-
-			BEAM_VERIFY(Build2(pIndices, nIndices, pos, false));
-		}
-
-	private:
-
-		bool Build2(uint32_t* pIndices, uint32_t nIndices, Merkle::Position pos, bool bFull)
-		{
-			if (!bFull)
-			{
-				uint64_t nVal = pos.X << pos.H;
-				if (nVal >= m_Count)
-					return false; // out-of-bounds
-
-				nVal += 1ULL << pos.H;
-				if (nVal <= m_Count)
-					bFull = true;
-			}
-
-			if (!pos.H || (!nIndices && bFull))
-			{
-				if (!nIndices)
-					m_vRes.push_back(m_pHashes[Pos2Idx(pos)]);
-			}
-			else
-			{
-				pos.X <<= 1;
-				pos.H--;
-				uint32_t nMid = static_cast<uint32_t>((pos.X + 1) << pos.H);
-
-				auto n0 = Shaders::PivotSplit(pIndices, nIndices, nMid);
-
-				BEAM_VERIFY(Build2(pIndices, n0, pos, bFull));
-
-				pos.X++;
-				bool bRes = Build2(pIndices + n0, nIndices - n0, pos, bFull);
-
-				if (bRes && !nIndices)
-				{
-					Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
-					m_vRes.pop_back();
-				}
-			}
-
-			return true;
-		}
-	};
-
 	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, Hash& hvRoot)
 	{
 		MappedFileRaw fmp;
@@ -2590,16 +2559,16 @@ namespace EthashUtils
 
 		ethash_get_MixHash2((ethash_hash256*)hvMix.m_pData, pSolIndices, pSolItems, &ctx, (ethash_hash512*)hvSeed.m_pData);
 
-		MultiItemProofBuilder mpb;
-		mpb.m_pHashes = &fmp.get_At<ECC::Hash::Value>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
-		mpb.m_Count = ctx.full_dataset_num_items;
+		typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
+		Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
 
-		mpb.Build(nullptr, 0); // root
+		mpb.m_pHashes = &fmp.get_At<MyBuilder::THash>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
+		mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
 
 		hvRoot = mpb.m_vRes.front();
 		mpb.m_vRes.clear();
 
-		mpb.Build(pSolIndices, _countof(pSolIndices)); // proof for this set of indices
+		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
 
 		res.resize(sizeof(pSolItems) + sizeof(Hash) * mpb.m_vRes.size());
 		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
