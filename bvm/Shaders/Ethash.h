@@ -26,7 +26,7 @@ struct Ethash
 
 	struct ProofBase
 	{
-		typedef HashValue THash;
+		typedef Opaque<20> THash; // truncated to 160 bits, to reduce the proof size. Still decent secury.
 		typedef uint32_t TCount;
 		typedef const Hash1024* TElement;
 	};
@@ -47,7 +47,8 @@ struct Ethash
 
 		inline static void InterpretHash(THash& hv, const THash& hv2)
 		{
-			Merkle::Interpret(hv, hv, hv2);
+			HashProcessor::Sha256 hp;
+			hp << hv << hv2 >> hv;
 		}
 
 		uint32_t m_nProofRemaining;

@@ -115,7 +115,7 @@ namespace Dummy
 
         // epoch params (dataset size and our root hash), in the future contract must have them all hardcoded.
         uint32_t m_EpochDatasetSize;
-        HashValue m_EpochRoot;
+        Opaque<20> m_EpochRoot;
 
         // followed by the proof
     };

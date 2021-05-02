@@ -843,6 +843,7 @@ namespace bvm2 {
 		ContractID m_cidDemoXdao;
 
 		ByteBuffer m_etHashProof;
+		uintBig_t<20> m_hvEpochRoot;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -1624,7 +1625,7 @@ namespace bvm2 {
 			args.m_Difficulty = 3250907161412814ULL;
 
 			args.m_EpochDatasetSize = 19922923;
-			args.m_EpochRoot.Scan("41d3b03a0a40ff17692b3f5ea9fd4c5163660f5c637a5c961a64061202822099");
+			args.m_EpochRoot = m_hvEpochRoot;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
@@ -2490,7 +2491,9 @@ namespace EthashUtils
 		void ProofMerge()
 		{
 			assert(m_vRes.size() >= 2);
-			Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
+			auto& hv = m_vRes[m_vRes.size() - 2];
+
+			ECC::Hash::Processor() << hv << m_vRes.back() >> hv;
 			m_vRes.pop_back();
 		}
 	};
@@ -2535,15 +2538,11 @@ namespace EthashUtils
 	};
 
 
-
-	typedef ECC::Hash::Value Hash;
-
-	void GenerateLocalData(uint32_t iEpoch, const char* szPath)
+	void GenerateLocalData(uint32_t iEpoch, const char* szPath, uint32_t h0)
 	{
 		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
 
 		uint32_t nFullItems = pCtx->full_dataset_num_items;
-		uint32_t h0 = 3; // skip first levels of the tree. Reduces the storage size by 2^3 = 8. During proof generation the elements at missing heights are rebuilt on-the-fly
 
 		Hdr hdr;
 		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
@@ -2621,7 +2620,7 @@ namespace EthashUtils
 	}
 
 
-	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, Hash& hvRoot)
+	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, ProofBase::THash& hvRoot)
 	{
 		MappedFileRaw fmp;
 		fmp.Open(szPath);
@@ -2655,9 +2654,9 @@ namespace EthashUtils
 
 		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
 
-		res.resize(sizeof(pSolItems) + sizeof(Hash) * mpb.m_vRes.size());
+		res.resize(sizeof(pSolItems) + sizeof(ProofBase::THash) * mpb.m_vRes.size());
 		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
-		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(Hash) * mpb.m_vRes.size());
+		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(ProofBase::THash) * mpb.m_vRes.size());
 
 		return ctx.full_dataset_num_items;
 	}
@@ -2687,14 +2686,13 @@ int main()
 		MyProcessor proc;
 /*
 		{
-			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin");
-			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2);
+			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin", 3); // skip 1st 3 levels, size reduction of 2^3 == 8
+			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2); // skip 2 more levels
 
 			uintBig_t<64> hvSeed;
 			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
 
-			ECC::Hash::Value hvEpochRoot;
-			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, hvEpochRoot);
+			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, proc.m_hvEpochRoot);
 		}
 */
 		proc.TestAll();
