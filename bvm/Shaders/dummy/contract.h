@@ -1,4 +1,5 @@
 #pragma once
+#include "../Eth.h"
 
 namespace Dummy
 {
@@ -118,6 +119,15 @@ namespace Dummy
         Opaque<20> m_EpochRoot;
 
         // followed by the proof
+    };
+
+    struct TestEthHeader
+    {
+        static const uint32_t s_iMethod = 14;
+
+        Eth::Header m_Header;
+        HashValue m_MixHash;
+        HashValue m_HeaderHash; // retval
     };
 
 #pragma pack (pop)

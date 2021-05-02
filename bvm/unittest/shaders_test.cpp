@@ -125,6 +125,14 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Difficulty);
 		ConvertOrd<bToShader>(x.m_Nonce);
 	}
+	template <bool bToShader> void Convert(Dummy::TestEthHeader& x) {
+		ConvertOrd<bToShader>(x.m_Header.m_Difficulty);
+		ConvertOrd<bToShader>(x.m_Header.m_Number);
+		ConvertOrd<bToShader>(x.m_Header.m_GasLimit);
+		ConvertOrd<bToShader>(x.m_Header.m_GasUsed);
+		ConvertOrd<bToShader>(x.m_Header.m_Time);
+		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
+	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
 	}
@@ -961,6 +969,7 @@ namespace bvm2 {
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
 				//case 13: Shaders::Dummy::Method_13(CastArg<Shaders::Dummy::TestEthash2>(pArgs)); return;
+				//case 14: Shaders::Dummy::Method_14(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
 				//}
 			}
 
@@ -1629,6 +1638,38 @@ namespace bvm2 {
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
+
+		{
+			Shaders::Dummy::TestEthHeader args;
+			ZeroObject(args);
+
+			args.m_Header.m_ParentHash.Scan("1e77d8f1267348b516ebc4f4da1e2aa59f85f0cbd853949500ffac8bfc38ba14");
+			args.m_Header.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			args.m_Header.m_Coinbase.Scan("2a65aca4d5fc5b5c859090a6c34d164135398226");
+			args.m_Header.m_Root.Scan("0b5e4386680f43c224c5c037efc0b645c8e1c3f6b30da0eec07272b4e6f8cd89");
+			args.m_Header.m_TxHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+			args.m_Header.m_ReceiptHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+			args.m_Header.m_Bloom = Zero;
+			args.m_Header.m_Extra.Scan("d583010202844765746885676f312e35856c696e7578");
+			args.m_Header.m_Difficulty = 6022643743806;
+			args.m_Header.m_Number = 400000; // height
+			args.m_Header.m_GasLimit = 3141592;
+			args.m_Header.m_GasUsed = 0;
+			args.m_Header.m_Time = 1445130204;
+
+			args.m_Header.m_Nonce = 0x6af23caae95692ef;
+			args.m_MixHash.Scan("3fbea7af642a4e20cd93a945a1f5e23bd72fc5261153e09102cf718980aeff38");
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+			ECC::Hash::Value hvExp;
+			hvExp.Scan("5d15649e25d8f3e2c0374946078539d200710afc977cdfc6a977bd23f20fa8e8");
+			verify_test(hvExp == args.m_HeaderHash);
+
+
+
+		}
+
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}
