@@ -76,6 +76,11 @@ namespace beam
 				reinterpret_cast<uint64_t*>(pRes)[i] = ByteOrder::from_le(m_pState[i]);
 		}
 
+		void operator >> (uintBig_t<nBytes>& hv)
+		{
+			Read(hv.m_pData);
+		}
+
 	private:
 
 		uint64_t m_pState[25];

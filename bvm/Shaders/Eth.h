@@ -148,12 +148,17 @@ namespace Eth
 
 		struct HashStream
 		{
+
+#ifdef HOST_BUILD
+			beam::KeccakProcessor<256> m_hp;
+#else // HOST_BUILD
 			HashProcessor::Base m_hp;
 
 			HashStream() {
 				m_hp.m_p = Env::HashCreateKeccak(256);
 			}
-			
+#endif // HOST_BUILD
+		
 			void Write(uint8_t x)
 			{
 				if (m_nBuf == _countof(m_pBuf))
@@ -203,7 +208,12 @@ namespace Eth
 				if (m_nBuf + n > _countof(m_pBuf))
 					return false;
 
+#ifdef HOST_BUILD
+				memcpy(m_pBuf + m_nBuf, p, n);
+#else // HOST_BUILD
 				Env::Memcpy(m_pBuf + m_nBuf, p, n);
+#endif // HOST_BUILD
+
 				m_nBuf += n;
 				return true;
 			}
