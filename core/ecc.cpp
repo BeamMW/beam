@@ -381,6 +381,16 @@ namespace ECC {
 		m_bInitialized = false;
 	}
 
+	void Hash::Processor::FinalizeTruncated(uint8_t* p, uint32_t nSize)
+	{
+		assert(nSize < Value::nBytes);
+
+		Value hv;
+		Finalize(hv);
+
+		memcpy(p, hv.m_pData, nSize);
+	}
+
 	void Hash::Processor::Write(const beam::Blob& v)
 	{
 		Write(v.p, v.n);

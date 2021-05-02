@@ -599,6 +599,7 @@ namespace ECC
 		}
 
 		void Finalize(Value&);
+		void FinalizeTruncated(uint8_t* p, uint32_t nSize);
 
 	public:
 		Processor();
@@ -613,6 +614,13 @@ namespace ECC
 		Processor& Serialize(const T&);
 
 		void operator >> (Value& hv) { Finalize(hv); }
+
+		template <uint32_t nBytes>
+		void operator >> (beam::uintBig_t<nBytes>& hv)
+		{
+			static_assert(nBytes < Value::nBytes);
+			FinalizeTruncated(hv.m_pData, hv.nBytes);
+		}
 
 		void Write(const void*, uint32_t);
 	};
