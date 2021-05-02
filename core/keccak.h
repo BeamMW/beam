@@ -1,5 +1,6 @@
 #pragma once
 #include "uintBig.h"
+#include "../utility/byteorder.h"
 #include "ethash/include/ethash/keccak.h"
 
 namespace beam
