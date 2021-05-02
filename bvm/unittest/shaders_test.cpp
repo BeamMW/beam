@@ -15,6 +15,7 @@
 #define HOST_BUILD
 
 #include "../../core/block_rw.h"
+#include "../../core/keccak.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/blobmap.h"
 #include "../bvm2.h"
