@@ -2455,16 +2455,52 @@ namespace bvm2 {
 
 namespace EthashUtils
 {
-	struct MyMultiProof
+	typedef Shaders::Dummy::Ethash::ProofBase ProofBase;
+
+	void EvaluateElement(ProofBase::THash& hv, ProofBase::TCount n, const ethash_epoch_context& ctx)
+	{
+		auto item = ethash::calculate_dataset_item_1024(ctx, n);
+
+		ECC::Hash::Processor()
+			<< Blob(item.bytes, sizeof(item.bytes))
+			>> hv;
+	}
+
+
+	struct Hdr
+	{
+		uint32_t m_FullItems;
+		uint32_t m_CacheItems;
+		uint32_t m_h0; // height from which the hashes are stored
+
+		// followed by the cache
+		// followed by the tree hashes
+	};
+
+	struct MyMultiProofBase
 		:public Shaders::Dummy::Ethash::ProofBase
 	{
-		const THash* m_pHashes;
 		std::vector<THash> m_vRes;
 
 		void ProofPushZero()
 		{
 			m_vRes.emplace_back() = Zero;
 		}
+
+		void ProofMerge()
+		{
+			assert(m_vRes.size() >= 2);
+			Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
+			m_vRes.pop_back();
+		}
+	};
+
+	struct MyMultiProof
+		:public MyMultiProofBase
+	{
+		const THash* m_pHashes;
+		const Hdr* m_pHdr;
+		const ethash_epoch_context* m_pCtx;
 
 		bool ProofPush(TCount n, TCount nHalf)
 		{
@@ -2479,26 +2515,26 @@ namespace EthashUtils
 
 			pos.X = n;
 
-			auto iHash = Merkle::FlatMmr::Pos2Idx(pos, 0);
-			m_vRes.push_back(m_pHashes[iHash]);
+			uint8_t h0 = static_cast<uint8_t>(ByteOrder::from_le(m_pHdr->m_h0));
+			if (pos.H < h0)
+			{
+				if (pos.H)
+					return false;
+
+				EvaluateElement(m_vRes.emplace_back(), n, *m_pCtx);
+			}
+			else
+			{
+				auto iHash = Merkle::FlatMmr::Pos2Idx(pos, h0);
+				m_vRes.push_back(m_pHashes[iHash]);
+			}
 
 			return true;
 		}
 
-		void ProofMerge()
-		{
-			assert(m_vRes.size() >= 2);
-			Merkle::Interpret(m_vRes[m_vRes.size() - 2], m_vRes.back(), true);
-			m_vRes.pop_back();
-		}
 	};
 
 
-	struct Hdr
-	{
-		uint32_t m_FullItems;
-		uint32_t m_CacheItems;
-	};
 
 	typedef ECC::Hash::Value Hash;
 
@@ -2507,37 +2543,83 @@ namespace EthashUtils
 		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
 
 		uint32_t nFullItems = pCtx->full_dataset_num_items;
+		uint32_t h0 = 3; // skip first levels of the tree. Reduces the storage size by 2^3 = 8. During proof generation the elements at missing heights are rebuilt on-the-fly
 
 		Hdr hdr;
 		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
 		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
+		hdr.m_h0 = ByteOrder::to_le(h0);
 
 		std::FStream fs;
 		fs.Open(szPath, false, true);
 		fs.write(&hdr, sizeof(hdr));
 
-		Merkle::FixedMmr fmmr;
-		fmmr.Resize(nFullItems); // huge!
-
-		for (uint32_t i = 0; i < nFullItems; i++)
-		{
-			auto item = ethash::calculate_dataset_item_1024(*pCtx, i);
-
-			ECC::Hash::Value hv;
-			ECC::Hash::Processor()
-				<< Blob(item.bytes, sizeof(item.bytes))
-				>> hv;
-
-			fmmr.Append(hv);
-		}
-
 		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
 
-		auto& v = fmmr.get_Data();
-		fs.write(&v.front(), sizeof(v.front())* v.size());
+		MyMultiProofBase wrk;
+
+		for (uint32_t i = 0; i < nFullItems; )
+		{
+			EvaluateElement(wrk.m_vRes.emplace_back(), i, *pCtx);
+
+			uint32_t nPos = ++i;
+			for (uint32_t h = 0; ; h++, nPos >>= 1)
+			{
+				if (h >= h0)
+					fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
+
+				if (1 & nPos)
+					break;
+
+				wrk.ProofMerge();
+			}
+		}
 
 		ethash_destroy_epoch_context(pCtx);
 	}
+
+	void CropLocalData(const char* szDst, const char* szSrc, uint32_t dh)
+	{
+		MappedFileRaw fmp;
+		fmp.Open(szSrc);
+
+		auto& hdrSrc = fmp.get_At<Hdr>(0);
+		uint32_t nSizeCache = sizeof(ethash_hash512) * ByteOrder::from_le(hdrSrc.m_CacheItems);
+		uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
+		uint32_t h0 = ByteOrder::from_le(hdrSrc.m_h0);
+
+		auto pCache = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
+		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr) + nSizeCache);
+
+		Hdr hdrDst = hdrSrc;
+		hdrDst.m_h0 = ByteOrder::to_le(h0 + dh);
+
+		std::FStream fs;
+		fs.Open(szDst, false, true);
+		fs.write(&hdrDst, sizeof(hdrDst));
+		fs.write(pCache, nSizeCache);
+
+		uint32_t nHashes0 = static_cast<uint32_t>(Merkle::FlatMmr::get_TotalHashes(nFullItems, static_cast<uint8_t>(h0)));
+		Merkle::Position pos;
+		ZeroObject(pos);
+
+		for (uint32_t i = 0; i < nHashes0; i++)
+		{
+			if (pos.H >= dh)
+				fs.write(pHashes + i, sizeof(ProofBase::THash));
+
+			const uint32_t nMsk = (2U << pos.H) - 1;
+
+			if (nMsk == (pos.X & nMsk))
+				pos.H++;
+			else
+			{
+				pos.H = 0;
+				pos.X++;
+			}
+		}
+	}
+
 
 	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, Hash& hvRoot)
 	{
@@ -2562,7 +2644,10 @@ namespace EthashUtils
 		typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
 		Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
 
+		mpb.m_pHdr = &hdr;
+		mpb.m_pCtx = &ctx;
 		mpb.m_pHashes = &fmp.get_At<MyBuilder::THash>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
+
 		mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
 
 		hvRoot = mpb.m_vRes.front();
@@ -2602,11 +2687,14 @@ int main()
 		MyProcessor proc;
 /*
 		{
+			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin");
+			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2);
+
 			uintBig_t<64> hvSeed;
 			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
 
 			ECC::Hash::Value hvEpochRoot;
-			beam::EthashUtils::GenerateProof("S:\\my_epoch-176.bin", hvSeed, proc.m_etHashProof, hvEpochRoot);
+			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, hvEpochRoot);
 		}
 */
 		proc.TestAll();
