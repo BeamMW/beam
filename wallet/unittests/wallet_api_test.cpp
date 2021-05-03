@@ -1860,7 +1860,7 @@ int main()
             "id" : "123",
             "method" : "block_details",
             "params" :
-            {                
+            {
             }
         }));
 
