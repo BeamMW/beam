@@ -682,7 +682,7 @@ namespace Wasm {
 		std::vector<Block> m_Blocks;
 		std::vector<uint8_t> m_Operands;
 		uint32_t m_WordsOperands = 0;
-
+		bool m_Unreachable = false;
 
 		Block& get_B() {
 			Test(!m_Blocks.empty());
@@ -797,7 +797,12 @@ namespace Wasm {
 		{
 			auto& b = get_B();
 
+			if (m_Unreachable && (m_Operands.size() > b.m_OperandsAtExit))
+				// sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
+				m_Operands.resize(b.m_OperandsAtExit);
+
 			TestBlockCanClose(b);
+
 			if (1 == m_Blocks.size())
 				WriteRet(); // end of function
 			else
@@ -807,6 +812,7 @@ namespace Wasm {
 			}
 
 			m_Blocks.pop_back();
+			m_Unreachable = false;
 
 			m_p0 = nullptr; // don't write
 		}
@@ -991,8 +997,7 @@ namespace Wasm {
 		{
 			TestBlockCanClose(m_Blocks.front()); // if the return is from a nested block - assume the necessary unwind has already been done
 			WriteRet(); // end of function
-
-			Pop(m_Blocks.front().m_Type.m_Rets);
+			m_Unreachable = true; // ignore operand stack state until the next block closes.
 		}
 
 		void On_i32_const() {
