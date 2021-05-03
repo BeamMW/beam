@@ -118,6 +118,8 @@ struct BlockHeader
 		}
 
 		void get_Hash(HashValue& out, const HashValue* pRules) const;
+
+		template <bool bUseEnv = true>
 		bool IsValid(const HashValue* pRules) const;
 
 	protected:

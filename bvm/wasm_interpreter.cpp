@@ -720,6 +720,12 @@ namespace Wasm {
 			Test(x == nType);
 		}
 
+		void Pop(const Vec<uint8_t>& vArgs)
+		{
+			for (uint32_t i = vArgs.n; i--; )
+				Pop(vArgs.p[i]);
+		}
+
 		void TestOperands(const Vec<uint8_t>& v)
 		{
 			if (!v.n)
@@ -1001,6 +1007,8 @@ namespace Wasm {
 		{
 			TestBlockCanClose(m_Blocks.front()); // if the return is from a nested block - assume the necessary unwind has already been done
 			WriteRet(); // end of function
+
+			Pop(m_Blocks.front().m_Type.m_Rets);
 		}
 
 		void On_i32_const() {
@@ -1057,8 +1065,7 @@ namespace Wasm {
 		{
 			const auto& tp = m_This.m_Types[iTypeIdx];
 
-			for (uint32_t i = tp.m_Args.n; i--; )
-				Pop(tp.m_Args.p[i]);
+			Pop(tp.m_Args);
 
 			for (uint32_t i = 0; i < tp.m_Rets.n; i++)
 				Push(tp.m_Rets.p[i]);

@@ -17,18 +17,9 @@
 
 namespace beam
 {
-	class MappedFile
+	struct MappedFileRaw
 	{
-	public:
 		typedef uint64_t Offset;
-
-	private:
-		struct Bank
-		{
-			Offset m_Tail;
-			uint64_t m_Total;
-			uint64_t m_Free;
-		};
 
 		static uint32_t s_PageSize;
 
@@ -41,22 +32,53 @@ namespace beam
 
 		Offset m_nMapping;
 		uint8_t* m_pMapping;
-		uint32_t m_nBank0;
-		uint32_t m_nBanks;
 
 		void ResetVarsFile();
 		void ResetVarsMapping();
 		void CloseMapping();
 		void OpenMapping();
-		//void Write(const void*, uint32_t);
-		//void WriteZero(uint32_t);
 		void Resize(Offset);
+
+		MappedFileRaw();
+		~MappedFileRaw();
+
+		void Open(const char* sz);
+		void Close();
+
+		template <typename T> T& get_At(Offset n) const
+		{
+			assert(m_pMapping && (m_nMapping >= n + sizeof(T)));
+			return *(T*) (m_pMapping + n);
+		}
+
+		Offset get_Offset(const void* p) const;
+		const uint8_t* get_Base() const { return m_pMapping; }
+	};
+
+	class MappedFile
+	{
+	public:
+
+		typedef MappedFileRaw::Offset Offset;
+
+	private:
+		struct Bank
+		{
+			Offset m_Tail;
+			uint64_t m_Total;
+			uint64_t m_Free;
+		};
+
+		MappedFileRaw m_Raw;
+
+		uint32_t m_nBank0;
+		uint32_t m_nBanks;
+
 		Bank& get_Bank(uint32_t iBank);
 
 	public:
 
 		MappedFile();
-		~MappedFile();
 
 		struct Defs
 		{
@@ -76,12 +98,18 @@ namespace beam
 
 		template <typename T> T& get_At(Offset n) const
 		{
-			assert(m_pMapping && (m_nMapping >= n + sizeof(T)));
-			return *(T*) (m_pMapping  + n);
+			return m_Raw.get_At<T>(n);
 		}
 
-		Offset get_Offset(const void* p) const;
-		const uint8_t* get_Base() const { return m_pMapping; }
+		Offset get_Offset(const void* p) const
+		{
+			return m_Raw.get_Offset(p);
+		}
+
+		const uint8_t* get_Base() const
+		{
+			return m_Raw.m_pMapping;
+		}
 
 		void* Allocate(uint32_t iBank, uint32_t nSize);
 		void Free(uint32_t iBank, void*);

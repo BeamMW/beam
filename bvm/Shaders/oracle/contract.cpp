@@ -1,7 +1,7 @@
 ////////////////////////
 // Oracle shader
 #include "../common.h"
-#include "../MergeSort.h"
+#include "../Sort.h"
 #include "../Math.h"
 #include "contract.h"
 

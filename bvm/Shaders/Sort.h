@@ -94,3 +94,27 @@ public:
 		return pSrc;
 	}
 };
+
+template <typename T, typename TPivot>
+static uint32_t PivotSplit(T* p, uint32_t n, TPivot pivot)
+{
+	for (uint32_t i = 0; i < n; )
+	{
+		if (p[i] < pivot)
+			i++;
+		else
+		{
+			do
+			{
+				if (p[--n] < pivot)
+				{
+					std::swap(p[i], p[n]);
+					i++;
+					break;
+				}
+			} while (i < n);
+		}
+	}
+
+	return n;
+}

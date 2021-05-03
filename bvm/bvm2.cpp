@@ -22,7 +22,7 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
-#include "ethash/include/ethash/keccak.h"
+#include "../core/keccak.h"
 
 namespace beam {
 namespace bvm2 {
@@ -1523,109 +1523,6 @@ namespace bvm2 {
 			}
 		};
 
-		template <uint32_t nBits_>
-		struct KeccakProcessor
-		{
-			static const uint32_t nBits = nBits_;
-			static const uint32_t nBytes = nBits / 8;
-
-			static const uint32_t nSizeWord = sizeof(uint64_t);
-			static const uint32_t nSizeBlock = (1600 - nBits * 2) / 8;
-			static const uint32_t nWordsBlock = nSizeBlock / nSizeWord;
-
-			KeccakProcessor()
-			{
-				ZeroObject(*this);
-			}
-
-			void Write(const uint8_t* pSrc, uint32_t nSrc)
-			{
-				if (m_LastWordBytes)
-				{
-					auto* pDst = m_pLastWordAsBytes + m_LastWordBytes;
-
-					if (m_LastWordBytes + nSrc < nSizeWord)
-					{
-						memcpy(pDst, pSrc, nSrc);
-						m_LastWordBytes += nSrc;
-						return;
-					}
-
-					uint32_t nPortion = nSizeWord - m_LastWordBytes;
-
-					memcpy(pDst, pSrc, nPortion);
-					pSrc += nPortion;
-					nSrc -= nPortion;
-
-					m_LastWordBytes = 0;
-					AddLastWord();
-				}
-
-				while (true)
-				{
-					if (nSrc < nSizeWord)
-					{
-						memcpy(m_pLastWordAsBytes, pSrc, nSrc);
-						m_LastWordBytes = nSrc;
-						return;
-					}
-
-					memcpy(m_pLastWordAsBytes, pSrc, nSizeWord);
-					pSrc += nSizeWord;
-					nSrc -= nSizeWord;
-
-					AddLastWord();
-				}
-			}
-
-			void Read(uint8_t* pRes)
-			{
-				// pad and transform
-				m_pLastWordAsBytes[m_LastWordBytes++] = 0x01;
-				memset0(m_pLastWordAsBytes + m_LastWordBytes, nSizeWord - m_LastWordBytes);
-
-				AddLastWordRaw();
-
-				m_pState[nWordsBlock - 1] ^= 0x8000000000000000;
-
-				ethash_keccakf1600(m_pState);
-
-				for (uint32_t i = 0; i < (nBytes / nSizeWord); ++i)
-					reinterpret_cast<uint64_t*>(pRes)[i] = ByteOrder::from_le(m_pState[i]);
-			}
-
-		private:
-
-			uint64_t m_pState[25];
-
-			union {
-				uint64_t m_LastWord;
-				uint8_t m_pLastWordAsBytes[nSizeWord];
-			};
-
-			uint32_t m_iWord;
-			uint32_t m_LastWordBytes;
-
-
-			void AddLastWordRaw()
-			{
-				assert(m_iWord < nWordsBlock);
-				m_pState[m_iWord] ^= ByteOrder::to_le(m_LastWord);
-			}
-
-			void AddLastWord()
-			{
-				AddLastWordRaw();
-
-				if (++m_iWord == nWordsBlock)
-				{
-					ethash_keccakf1600(m_pState);
-					m_iWord = 0;
-				}
-			}
-		};
-
-
 		template <uint32_t nBits>
 		struct Keccak
 			:public FixedResSize<nBits / 8>
@@ -1722,7 +1619,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashWrite + Limits::Cost::HashWritePerByte * size);
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1734,7 +1631,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashWritePerByte * size);
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);
@@ -2024,6 +1921,95 @@ namespace bvm2 {
 	{
 		return static_cast<int32_t>(0);
 	}
+
+//	BVM_METHOD(get_EthMixHash)
+//	{
+//		DischargeUnits(Limits::Cost::EthMixHash);
+//		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
+//	}
+//	BVM_METHOD_HOST(get_EthMixHash)
+//	{
+//		// ban ridiculously high epoch numbers, which may consume too much memory, cause overflows, etc.
+//		// Our current limit is 1000. The memory size of this max epoch is ~147MB.
+//		// This will be enough up to ethereum block 3mln, which is expected to appear on September 2029. (more than 8 years from now).
+//		if (iEpoch > 1000)
+//			return 0;
+//
+//		Blob blob;
+//		ZeroObject(blob);
+//
+//		if (!LoadEthContext(blob, iEpoch))
+//			return 0;
+//
+//#pragma pack (push, 1)
+//
+//		struct Hdr
+//		{
+//			uint32_t m_ItemsLight_LE;
+//			uint32_t m_ItemsFull_LE;
+//		};
+//
+//#pragma pack (pop)
+//
+//		struct Guard {
+//			ethash_epoch_context* m_pVal = nullptr;
+//			~Guard()
+//			{
+//				if (m_pVal)
+//					ethash_destroy_epoch_context(m_pVal);
+//			}
+//		} g;
+//
+//		ethash_epoch_context ctx = { 0 };
+//
+//		if (!blob.n)
+//		{
+//			g.m_pVal = ethash_create_epoch_context(iEpoch);
+//			if (!g.m_pVal)
+//				Wasm::Fail("no mem");
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), g.m_pVal, sizeof(ctx));
+//		}
+//		else
+//		{
+//			Wasm::Test(blob.n >= sizeof(Hdr));
+//			auto pHdr = reinterpret_cast<const Hdr*>(blob.p);
+//
+//			ethash_epoch_context ctxInst2 = ethash_epoch_context{
+//				static_cast<int>(iEpoch),
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
+//				reinterpret_cast<const ethash_hash512*>(reinterpret_cast<const uint8_t*>(blob.p) + sizeof(Hdr)),
+//				nullptr,
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), &ctxInst2, sizeof(ctx));
+//		}
+//
+//		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
+//		Wasm::Test(!blob.n || (blob.n == nSizeBuf));
+//
+//		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
+//
+//		if (!blob.n)
+//		{
+//			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
+//			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
+//
+//			Hdr hdr1;
+//			hdr1.m_ItemsFull_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.full_dataset_num_items));
+//			hdr1.m_ItemsLight_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.light_cache_num_items));
+//
+//			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
+//			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
+//
+//			blob.p = &hdrRef;
+//			blob.n = nSizeBuf;
+//
+//			SaveEthContext(blob, iEpoch);
+//		}
+//
+//		return 1;
+//	}
 
 	//BVM_METHOD(LoadVarEx)
 	//{

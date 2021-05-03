@@ -56,6 +56,7 @@ typedef Secp_point_data PubKey;
 typedef Opaque<32> ContractID;
 typedef Opaque<32> ShaderID;
 typedef Opaque<32> HashValue;
+typedef Opaque<64> HashValue512;
 typedef Opaque<32> Secp_scalar_data;
 
 template <bool bToShader, typename T>
@@ -70,6 +71,11 @@ inline void ConvertOrd(T&) {}
 #ifndef assert
 #   define assert(expr) do {} while (false)
 #endif // assert
+
+#else // HOST_BUILD
+
+template <uint32_t nBytes>
+using Opaque = beam::uintBig_t<nBytes>;
 
 #endif // HOST_BUILD
 
@@ -509,9 +515,10 @@ struct HashProcessor
             Env::HashWrite(m_p, p, n);
         }
 
-        void Write(const HashValue& hv)
+        template <uint32_t nBytes>
+        void Write(const Opaque<nBytes>& x)
         {
-            Write(&hv, sizeof(hv));
+            Write(&x, sizeof(x));
         }
 
         void Write(const Secp_point_data& pd)

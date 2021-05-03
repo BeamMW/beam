@@ -50,27 +50,30 @@ namespace beam
 	}
 
 	////////////////////////////////////////
-	// MappedFile
-	uint32_t MappedFile::s_PageSize = 0;
+	// MappedFileRaw
+	uint32_t MappedFileRaw::s_PageSize = 0;
 
-	MappedFile::MappedFile()
+	MappedFileRaw::MappedFileRaw()
 	{
 		ResetVarsFile();
 		ResetVarsMapping();
 	}
 
-	void MappedFile::ResetVarsFile()
+	MappedFileRaw::~MappedFileRaw()
+	{
+		Close();
+	}
+
+	void MappedFileRaw::ResetVarsFile()
 	{
 #ifdef WIN32
 		m_hFile = INVALID_HANDLE_VALUE;
 #else // WIN32
 		m_hFile = -1;
 #endif // WIN32
-
-		m_nBanks = 0;
 	}
 
-	void MappedFile::ResetVarsMapping()
+	void MappedFileRaw::ResetVarsMapping()
 	{
 #ifdef WIN32
 		m_hMapping = NULL;
@@ -80,42 +83,37 @@ namespace beam
 		m_nMapping = 0;
 	}
 
-	MappedFile::~MappedFile()
-	{
-		Close();
-	}
-
-	void MappedFile::CloseMapping()
+	void MappedFileRaw::CloseMapping()
 	{
 #ifdef WIN32
 		if (m_pMapping)
-            BEAM_VERIFY(UnmapViewOfFile(m_pMapping));
+			BEAM_VERIFY(UnmapViewOfFile(m_pMapping));
 		if (m_hMapping)
-            BEAM_VERIFY(CloseHandle(m_hMapping));
+			BEAM_VERIFY(CloseHandle(m_hMapping));
 #else // WIN32
 		if (m_pMapping)
-            BEAM_VERIFY(!munmap(m_pMapping, m_nMapping));
+			BEAM_VERIFY(!munmap(m_pMapping, m_nMapping));
 #endif // WIN32
 
 		ResetVarsMapping();
 	}
 
-	void MappedFile::Close()
+	void MappedFileRaw::Close()
 	{
 		CloseMapping();
 
 #ifdef WIN32
 		if (INVALID_HANDLE_VALUE != m_hFile)
-            BEAM_VERIFY(CloseHandle(m_hFile));
+			BEAM_VERIFY(CloseHandle(m_hFile));
 #else // WIN32
 		if (-1 != m_hFile)
-            BEAM_VERIFY(!close(m_hFile));
+			BEAM_VERIFY(!close(m_hFile));
 #endif // WIN32
 
 		ResetVarsFile();
 	}
 
-	void MappedFile::OpenMapping()
+	void MappedFileRaw::OpenMapping()
 	{
 		assert(!m_pMapping);
 
@@ -148,51 +146,7 @@ namespace beam
 #endif // WIN32
 	}
 
-	uint32_t MappedFile::Defs::get_Bank0() const
-	{
-		return AlignUp(m_nSizeSig, sizeof(Offset));
-	}
-
-	uint32_t MappedFile::Defs::get_SizeMin() const
-	{
-		static_assert(!(sizeof(Bank) % sizeof(Offset)), "");
-
-		return
-			get_Bank0() +
-			m_nBanks * sizeof(Bank) + 
-			AlignUp(m_nFixedHdr, sizeof(Offset));
-	}
-
-//	void MappedFile::Write(const void* p, uint32_t n)
-//	{
-//#ifdef WIN32
-//		DWORD dw;
-//		test_SysRet(!WriteFile(m_hFile, p, n, &dw, NULL));
-//#else // WIN32
-//		size_t nRet = write(m_hFile, p, n);
-//		Test::SysRet(nRet != n);
-//#endif // WIN32
-//	}
-
-	//void MappedFile::WriteZero(uint32_t n)
-	//{
-	//	uint8_t pBuf[0x400];
-	//	if (n <= sizeof(pBuf))
-	//		memset(pBuf, 0, n);
-	//	else
-	//	{
-	//		memset(pBuf, 0, sizeof(pBuf));
-	//		do
-	//		{
-	//			Write(pBuf, sizeof(pBuf));
-	//			n -= sizeof(pBuf);
-	//		} while (n > sizeof(pBuf));
-	//	}
-
-	//	Write(pBuf, n);
-	//}
-
-	void MappedFile::Resize(Offset n)
+	void MappedFileRaw::Resize(Offset n)
 	{
 #ifdef WIN32
 		test_SysRet(!SetFilePointerEx(m_hFile, (const LARGE_INTEGER&) n, NULL, FILE_BEGIN), "SetFilePointerEx");
@@ -202,7 +156,7 @@ namespace beam
 #endif // WIN32
 	}
 
-	void MappedFile::Open(const char* sz, const Defs& d, bool bReset /* = false */)
+	void MappedFileRaw::Open(const char* sz)
 	{
 		Close();
 
@@ -226,20 +180,91 @@ namespace beam
 #endif // WIN32
 
 		OpenMapping();
+	}
+
+	MappedFileRaw::Offset MappedFileRaw::get_Offset(const void* p) const
+	{
+		Offset x = ((const uint8_t*) p) - m_pMapping;
+		assert(x < m_nMapping);
+		return x;
+	}
+
+	//	void MappedFileRaw::Write(const void* p, uint32_t n)
+	//	{
+	//#ifdef WIN32
+	//		DWORD dw;
+	//		test_SysRet(!WriteFile(m_hFile, p, n, &dw, NULL));
+	//#else // WIN32
+	//		size_t nRet = write(m_hFile, p, n);
+	//		Test::SysRet(nRet != n);
+	//#endif // WIN32
+	//	}
+
+	//void MappedFileRaw::WriteZero(uint32_t n)
+	//{
+	//	uint8_t pBuf[0x400];
+	//	if (n <= sizeof(pBuf))
+	//		memset(pBuf, 0, n);
+	//	else
+	//	{
+	//		memset(pBuf, 0, sizeof(pBuf));
+	//		do
+	//		{
+	//			Write(pBuf, sizeof(pBuf));
+	//			n -= sizeof(pBuf);
+	//		} while (n > sizeof(pBuf));
+	//	}
+
+	//	Write(pBuf, n);
+	//}
+
+	////////////////////////////////////////
+	// MappedFile
+
+	MappedFile::MappedFile()
+	{
+		m_nBanks = 0;
+	}
+
+	void MappedFile::Close()
+	{
+		m_Raw.Close();
+		m_nBanks = 0;
+	}
+
+	uint32_t MappedFile::Defs::get_Bank0() const
+	{
+		return AlignUp(m_nSizeSig, sizeof(Offset));
+	}
+
+	uint32_t MappedFile::Defs::get_SizeMin() const
+	{
+		static_assert(!(sizeof(Bank) % sizeof(Offset)), "");
+
+		return
+			get_Bank0() +
+			m_nBanks * sizeof(Bank) + 
+			AlignUp(m_nFixedHdr, sizeof(Offset));
+	}
+
+	void MappedFile::Open(const char* sz, const Defs& d, bool bReset /* = false */)
+	{
+		Close();
+		m_Raw.Open(sz);
 
 		uint32_t nSizeMin = d.get_SizeMin();
-		if (bReset || (m_nMapping < nSizeMin) || memcmp(d.m_pSig, m_pMapping, d.m_nSizeSig))
+		if (bReset || (m_Raw.m_nMapping < nSizeMin) || memcmp(d.m_pSig, m_Raw.m_pMapping, d.m_nSizeSig))
 		{
-			bool bShouldZeroInit = (m_nMapping > d.m_nSizeSig);
-			CloseMapping();
+			bool bShouldZeroInit = (m_Raw.m_nMapping > d.m_nSizeSig);
+			m_Raw.CloseMapping();
 
 			if (bShouldZeroInit)
-				Resize(d.m_nSizeSig); // will zero-init all this data
+				m_Raw.Resize(d.m_nSizeSig); // will zero-init all this data
 
-			Resize(nSizeMin);
+			m_Raw.Resize(nSizeMin);
 
-			OpenMapping();
-			memcpy(m_pMapping, d.m_pSig, d.m_nSizeSig);
+			m_Raw.OpenMapping();
+			memcpy(m_Raw.m_pMapping, d.m_pSig, d.m_nSizeSig);
 		}
 
 		m_nBank0 = d.get_Bank0();
@@ -248,20 +273,13 @@ namespace beam
 
 	void* MappedFile::get_FixedHdr() const
 	{
-		return m_pMapping + m_nBank0 + m_nBanks * sizeof(Bank);
-	}
-
-	MappedFile::Offset MappedFile::get_Offset(const void* p) const
-	{
-		Offset x = ((const uint8_t*) p) - m_pMapping;
-		assert(x < m_nMapping);
-		return x;
+		return m_Raw.m_pMapping + m_nBank0 + m_nBanks * sizeof(Bank);
 	}
 
 	MappedFile::Bank& MappedFile::get_Bank(uint32_t iBank)
 	{
-		assert(m_pMapping && (iBank < m_nBanks));
-		return ((Bank*) (m_pMapping + m_nBank0))[iBank];
+		assert(m_Raw.m_pMapping && (iBank < m_nBanks));
+		return ((Bank*) (m_Raw.m_pMapping + m_nBank0))[iBank];
 	}
 
 	void MappedFile::EnsureReserve(uint32_t iBank, uint32_t nSize, uint32_t nMinFree)
@@ -269,14 +287,14 @@ namespace beam
 		while (get_Bank(iBank).m_Free < nMinFree)
 		{
 			// grow
-			Offset n0 = m_nMapping;
-			Offset n1 = AlignUp(n0, s_PageSize) + s_PageSize;
+			Offset n0 = m_Raw.m_nMapping;
+			Offset n1 = AlignUp(n0, m_Raw.s_PageSize) + m_Raw.s_PageSize;
 
 			nSize = AlignUp(nSize, sizeof(Offset));
 
-			CloseMapping();
-			Resize(n1);
-			OpenMapping();
+			m_Raw.CloseMapping();
+			m_Raw.Resize(n1);
+			m_Raw.OpenMapping();
 
 			Bank& b = get_Bank(iBank);
 			Offset* p = &b.m_Tail;
@@ -284,7 +302,7 @@ namespace beam
 			while (true)
 			{
 				Offset n0_ = n0 + nSize;
-				if (n0_ > m_nMapping)
+				if (n0_ > m_Raw.m_nMapping)
 					break;
 
 				assert(!*p);
@@ -320,8 +338,8 @@ namespace beam
 
 		*((Offset*) p) = b.m_Tail;
 
-		b.m_Tail = ((uint8_t*) p) - m_pMapping;
-		assert(b.m_Tail < m_nMapping);
+		b.m_Tail = ((uint8_t*) p) - m_Raw.m_pMapping;
+		assert(b.m_Tail < m_Raw.m_nMapping);
 
 		b.m_Free++;
 	}

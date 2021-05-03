@@ -26,6 +26,7 @@ namespace Shaders {
     typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
 	typedef ECC::uintBig HashValue;
+	typedef beam::uintBig_t<64> HashValue512;
     using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
@@ -60,6 +61,7 @@ namespace bvm2 {
 	using Shaders::Secp_scalar;
 	using Shaders::Secp_point;
 	using Shaders::HashValue;
+	using Shaders::HashValue512;
 	using Shaders::BlockHeader;
 
 	namespace Merkle {
@@ -112,8 +114,9 @@ namespace bvm2 {
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
 			static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
 			static const uint32_t FundsLock			= ChargeFor<50*1000>::V;
-			static const uint32_t HashOp			= ChargeFor<100*1000>::V;
-			static const uint32_t HashOpPerByte		= ChargeFor<1000*1000>::V;
+			static const uint32_t HashOp			= ChargeFor<1000*1000>::V;
+			static const uint32_t HashWrite			= ChargeFor<5 * 1000*1000>::V;
+			static const uint32_t HashWritePerByte	= ChargeFor<50*1000*1000>::V;
 
 			static const uint32_t Secp_ScalarInv		= ChargeFor<5*1000>::V;
 			static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;

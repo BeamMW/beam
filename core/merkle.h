@@ -157,13 +157,13 @@ namespace Merkle {
 	};
 
 	// All hashes are stored in a 'flat' stream/array in a 'diagonal' form.
-	// bStoreH0 specifies if hashes at H=0 should be stored (or omitted)
+	// hStoreFrom specifies the minimum height of elements that are stored
 	class FlatMmr
 		:public Mmr
 	{
 	public:
-		static uint64_t Pos2Idx(const Position& pos, bool bStoreH0);
-		static uint64_t get_TotalHashes(uint64_t nCount, bool bStoreH0);
+		static uint64_t Pos2Idx(const Position& pos, uint8_t hStoreFrom);
+		static uint64_t get_TotalHashes(uint64_t nCount, uint8_t hStoreFrom);
 	};
 
 	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
@@ -177,6 +177,9 @@ namespace Merkle {
 	public:
 		FixedMmr(uint64_t nTotal = 0) { Resize(nTotal); }
 		void Resize(uint64_t nTotal);
+
+		const std::vector<Hash>& get_Data() const { return m_vHashes; }
+
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;
