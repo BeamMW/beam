@@ -328,6 +328,26 @@ namespace
         WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
+    void testInvalidBlockDetailsJsonRpc(const std::string& msg)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data) override
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        ApiTest api;
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
     void testInvalidProcessInvokeDataJsonRpc(const std::string& msg)
     {
         class ApiTest : public WalletApiTest
@@ -1830,6 +1850,29 @@ int main()
             "params":
             {
                 "data": ["123", "456", "789"]
+            }
+        }));
+
+    // empty params
+    testInvalidBlockDetailsJsonRpc(JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id" : "123",
+            "method" : "block_details",
+            "params" :
+            {                
+            }
+        }));
+
+    // non-number height
+    testInvalidBlockDetailsJsonRpc(JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id" : "123",
+            "method" : "block_details",
+            "params" :
+            {
+                "height": "10"
             }
         }));
 
