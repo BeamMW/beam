@@ -757,11 +757,6 @@ namespace Wasm {
 			TestOperands(b.m_Type.m_Rets);
 		}
 
-		void TestBlockCanClose()
-		{
-			TestBlockCanClose(get_B());
-		}
-
 		void UpdTopBlockLabel()
 		{
 			m_This.m_Labels.m_Items[m_Blocks.back().m_iLabel] = static_cast<uint32_t>(m_This.m_Result.size());
@@ -800,13 +795,14 @@ namespace Wasm {
 
 		void BlockClose()
 		{
-			TestBlockCanClose();
+			auto& b = get_B();
 
+			TestBlockCanClose(b);
 			if (1 == m_Blocks.size())
 				WriteRet(); // end of function
 			else
 			{
-				if (!m_Blocks.back().m_Loop)
+				if (!b.m_Loop)
 					UpdTopBlockLabel();
 			}
 
