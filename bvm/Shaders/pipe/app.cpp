@@ -19,16 +19,16 @@
     macro(ContractID, cidRemote)
 
 #define Pipe_manager_get_NumOutCheckpoints(macro) \
-    macro(ContractID, cid) \
+    macro(ContractID, cid)
 
 #define Pipe_manager_get_OutCheckpoint(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, iIdx) \
     macro(uint32_t, bMsgs) \
-    macro(uint32_t, bProof) \
+    macro(uint32_t, bProof)
 
 #define Pipe_manager_get_InCheckpointDispute(macro) \
-    macro(ContractID, cid) \
+    macro(ContractID, cid)
 
 #define PipeRole_manager(macro) \
     macro(manager, view) \
@@ -36,11 +36,11 @@
     macro(manager, set_remote) \
     macro(manager, get_NumOutCheckpoints) \
     macro(manager, get_OutCheckpoint) \
-    macro(manager, get_InCheckpointDispute) \
+    macro(manager, get_InCheckpointDispute)
 
 
 #define PipeRoles_All(macro) \
-    macro(manager) \
+    macro(manager)
 
 export void Method_0()
 {
@@ -154,7 +154,7 @@ ON_METHOD(manager, get_OutCheckpoint)
         key1.m_KeyInContract.m_iMsg_BE = 0;
 
         auto key2 = key1;
-        key1.m_KeyInContract.m_iMsg_BE = static_cast<uint32_t>(-1);
+        key2.m_KeyInContract.m_iMsg_BE = static_cast<uint32_t>(-1); // maybe key2
 
         Env::VarsEnum_T(key1, key2);
 
@@ -234,7 +234,7 @@ export void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x10], szAction[0x10];
+    char szRole[0x10], szAction[0x19];
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
