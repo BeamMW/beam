@@ -267,12 +267,6 @@ namespace beam::wallet
             }
         }
 
-        auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
-        if (token)
-        {
-            msg["token"] = *token;
-        }
-
         if (showIdentities)
         {
             auto senderIdentity = tx.getSenderIdentity();
