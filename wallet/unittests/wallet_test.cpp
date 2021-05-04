@@ -395,7 +395,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -474,7 +476,10 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -572,7 +577,8 @@ namespace
         }
 
         // second transfer
-        auto preselectedCoins = sender.m_WalletDB->selectCoins(6, Zero);
+        vector<Coin> preselectedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, preselectedCoins, shieldedCoins, 0, false);
         CoinIDList preselectedIDs;
         for (const auto& c : preselectedCoins)
         {
@@ -920,7 +926,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1015,7 +1023,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1136,7 +1146,10 @@ namespace
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -1232,7 +1245,10 @@ namespace
         timer->start(1000, true, [&node]() {node.AddBlock(); });
         {
             TestWalletRig sender(senderDB, f);
-            WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+            vector<Coin> coins;
+            vector<ShieldedCoin> shieldedCoins;
+            sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+            WALLET_CHECK(coins.size() == 2);
             WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
@@ -2029,7 +2045,10 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 

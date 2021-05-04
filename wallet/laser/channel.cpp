@@ -129,7 +129,9 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
     assert(vInp.empty());
 
     Amount nDone = 0;
-    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired, nAssetID);
+    std::vector<Coin> coins;
+    std::vector<ShieldedCoin> shieldedCoins;
+    m_rHolder.getWalletDB()->selectCoins2(0, valRequired, nAssetID, coins, shieldedCoins, 0, false);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
                    [&nDone] (const Coin& coin) -> CoinID

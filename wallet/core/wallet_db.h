@@ -442,7 +442,6 @@ namespace beam::wallet
         // Selects a list of coins matching certain specified amount
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
-        virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
         virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
@@ -618,7 +617,6 @@ namespace beam::wallet
         virtual void SlotFree(uint32_t) override;
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
         void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 

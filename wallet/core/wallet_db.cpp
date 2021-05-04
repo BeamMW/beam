@@ -2797,10 +2797,6 @@ namespace beam::wallet
         return std::make_shared<TxStatusInterpreter>(txParams);
     }
 
-    vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
-    {
-        return selectCoinsEx(amount, assetId, false);
-    }
 
     void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {

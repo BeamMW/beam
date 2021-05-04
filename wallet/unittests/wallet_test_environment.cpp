@@ -73,23 +73,23 @@ public:
         return m_pKdf;
     }
 
-    std::vector<Coin> selectCoins(ECC::Amount amount, Asset::ID assetId) override
-    {
-        std::vector<Coin> res;
-        ECC::Amount t = 0;
-        for (auto& c : m_coins)
-        {
-            if (c.m_ID.m_AssetID != assetId) continue;
-            t += c.m_ID.m_Value;
-            c.m_status = Coin::Outgoing;
-            res.push_back(c);
-            if (t >= amount)
-            {
-                break;
-            }
-        }
-        return res;
-    }
+    // std::vector<Coin> selectCoins(ECC::Amount amount, Asset::ID assetId) override
+    // {
+    //     std::vector<Coin> res;
+    //     ECC::Amount t = 0;
+    //     for (auto& c : m_coins)
+    //     {
+    //         if (c.m_ID.m_AssetID != assetId) continue;
+    //         t += c.m_ID.m_Value;
+    //         c.m_status = Coin::Outgoing;
+    //         res.push_back(c);
+    //         if (t >= amount)
+    //         {
+    //             break;
+    //         }
+    //     }
+    //     return res;
+    // }
 
     uint64_t AllocateKidRange(uint64_t nCount) override
     {
