@@ -133,7 +133,7 @@ namespace beam::wallet {
     {
         const auto prefix = pref.empty() ? pref : pref + " ";
         const auto isPrintable = [](const std::string& str) -> bool {
-            std::locale loc("");
+            std::locale loc("C");
             return std::all_of(str.begin(), str.end(), [&loc](const char ch) -> bool {
                 return std::isprint(ch, loc);
             });

@@ -388,5 +388,22 @@ namespace bvm2 {
 		}
 	}
 
+	bool ManagerStd::get_SpecialParam(const char* sz, Blob& b)
+	{
+		if (!strcmp(sz, "contract.shader"))
+		{
+			b = m_BodyContract;
+			return true;
+		}
+
+		if (!strcmp(sz, "app.shader"))
+		{
+			b = m_BodyManager; // not really useful for the app shader to get its own bytecode, but ok.
+			return true;
+		}
+
+		return false;
+	}
+
 } // namespace bvm2
 } // namespace beam

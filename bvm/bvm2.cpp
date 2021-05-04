@@ -2466,12 +2466,16 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(DocGetBlob)
 	{
-		//if (!nLen)
-		//	return 0;
-
 		auto pVal = FindArg(szID);
 		if (!pVal)
-			return 0;
+		{
+			Blob b;
+			if (!get_SpecialParam(szID, b))
+				return 0;
+
+			memcpy(pOut, b.p, std::min(nLen, b.n));
+			return b.n;
+		}
 
 		uint32_t nSrcLen = static_cast<uint32_t>(pVal->size());
 		uint32_t nMax = nLen * 2;
