@@ -509,8 +509,8 @@ void TestContract()
 	auto walletDB = createWalletDB("wallet.db", true);
 	auto binaryTreasury = createTreasury(walletDB, {});
 
-	//std::string contractPath = "test_contract.wasm";
-	std::string contractPath = "shader.wasm";//"test_contract.wasm";
+	std::string contractPath = "test_contract.wasm";
+	//std::string contractPath = "shader.wasm";//"test_contract.wasm";
 
 	MyDebugger debugger(contractPath);
 
@@ -1177,9 +1177,9 @@ int main()
 	Rules::get().pForks[3].m_Height = 1;
 	Rules::get().UpdateChecksum();
 
-	TestDebugger();
+	//TestDebugger();
 
-	//TestContract();
+	TestContract();
 	//TestNode();
 
 
