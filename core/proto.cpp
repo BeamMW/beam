@@ -470,7 +470,7 @@ void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 
 void NodeConnection::ThrowUnexpected(const char* sz, NodeProcessingException::Type type)
 {
-   // throw NodeProcessingException(sz ? sz : "proto violation", type);
+    throw NodeProcessingException(sz ? sz : "proto violation", type);
 }
 
 void NodeConnection::Connect(const io::Address& addr, const boost::optional<io::Address> proxyAddr)
