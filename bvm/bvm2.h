@@ -141,7 +141,8 @@ namespace bvm2 {
 	{
 	protected:
 
-		void InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill);
+		std::vector<Wasm::Word> m_vStack;
+		void InitBase(uint32_t nStackBytes);
 
 		class Heap
 		{
@@ -333,7 +334,6 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
-		Wasm::Word m_pStack[Limits::StackSize / sizeof(Wasm::Word)];
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
@@ -408,7 +408,7 @@ namespace bvm2 {
 
 		Kind get_Kind() override { return Kind::Contract; }
 
-		void InitStack(uint8_t nFill = 0);
+		void InitStackPlus(uint32_t nStackBytesExtra);
 
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
@@ -425,8 +425,6 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
-
-		std::vector<Wasm::Word> m_vStack; // too large to have it as a member (this obj may be allocated on stack)
 
 		// aux mem we've allocated on heap
 		struct AuxAlloc {

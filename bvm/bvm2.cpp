@@ -155,38 +155,35 @@ namespace bvm2 {
 	};
 #pragma pack (pop)
 
-	void Processor::InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill)
+	void Processor::InitBase(uint32_t nStackBytes)
 	{
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
 		ZeroObject(m_Instruction);
 
-		m_Stack.m_pPtr = pStack;
+		m_vStack.resize((nStackBytes + sizeof(Wasm::Word) - 1) / sizeof(Wasm::Word), 0);
+
+		m_Stack.m_pPtr = m_vStack.empty() ? nullptr : &m_vStack.front();
 		m_Stack.m_BytesMax = nStackBytes;
 		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
 		m_Stack.m_Pos = 0;
 		m_Stack.m_PosMin = 0;
 
-		memset(pStack, nFill, nStackBytes);
-
-        decltype(m_vHeap)().swap(m_vHeap);
 		m_Heap.Clear();
+		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
 	}
 
-	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
+	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
 	{
-		InitBase(m_pStack, sizeof(m_pStack), nFill);
+		InitBase(Limits::StackSize + nStackBytes);
 	}
 
 	void ProcessorManager::InitMem()
 	{
-		const uint32_t nStackBytes = 0x20000; // 128K
-
-		m_vStack.resize(nStackBytes / sizeof(Wasm::Word));
-		InitBase(&m_vStack.front(), nStackBytes, 0);
+		InitBase(0x20000); // 128K
 
 		ZeroObject(m_AuxAlloc);
 		m_EnumType = EnumType::None;

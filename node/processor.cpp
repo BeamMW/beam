@@ -4420,7 +4420,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		if (m_Bic.m_pTxErrorInfo)
 			m_DbgCallstack.m_Enable = true;
 
-		InitStack();
+		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());

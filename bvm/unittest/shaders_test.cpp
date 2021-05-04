@@ -732,7 +732,7 @@ namespace bvm2 {
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
-			InitStack(0xcd);
+			InitStackPlus(0);
 
 			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
 
