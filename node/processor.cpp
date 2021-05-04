@@ -2362,6 +2362,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetEmit = 5;
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
+			static const Type Recharge = 8;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -4444,11 +4445,15 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		bRes = true;
 
-		//nUnits0 -= m_Charge.m_Units; // units burned by this invocation
-		//uint32_t nUnitsPerBlockLeft = m_Bic.m_ChargePerBlock.m_Units - nUnits0;
+		if (m_Bic.m_Temporary)
+		{
+			BlockInterpretCtx::Ser ser(m_Bic);
+			RecoveryTag::Type nTag = RecoveryTag::Recharge;
+			ser & nTag;
+			ser & m_Bic.m_ChargePerBlock;
+		}
 
 		m_Bic.m_ChargePerBlock = m_Charge;
-		//m_Bic.m_ChargePerBlock.m_Units = nUnitsPerBlockLeft;
 	}
 	catch (const Wasm::Exc& e)
 	{
@@ -4814,6 +4819,13 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				if (bMmr && !m_Bic.m_vLogs.empty())
 					m_Bic.m_vLogs.pop_back();
 			}
+		}
+		break;
+
+		case RecoveryTag::Recharge:
+		{
+			assert(m_Bic.m_Temporary);
+			der & m_Bic.m_ChargePerBlock;
 		}
 		break;
 
