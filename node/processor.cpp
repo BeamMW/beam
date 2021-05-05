@@ -786,9 +786,14 @@ Height NodeProcessor::get_MaxAutoRollback()
 	return Rules::get().MaxRollback;
 }
 
+Height NodeProcessor::get_LowestManualReturnHeight()
+{
+	return std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
+}
+
 Height NodeProcessor::get_LowestReturnHeight()
 {
-	Height hRet = std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
+	Height hRet = get_LowestManualReturnHeight();
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
 	Height hMaxRollback = get_MaxAutoRollback();
@@ -5119,10 +5124,11 @@ void NodeProcessor::RollbackTo(Height h)
 
 void NodeProcessor::AdjustManualRollbackHeight(Height& h)
 {
-	if (h < m_Extra.m_TxoHi)
+	Height hMin = get_LowestManualReturnHeight();
+	if (h < hMin)
 	{
-		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
-		h = m_Extra.m_TxoHi;
+		LOG_INFO() << "Can't go below Height " << hMin;
+		h = hMin;
 	}
 }
 

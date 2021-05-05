@@ -481,6 +481,7 @@ public:
 
 	// Lowest height to which it's possible to rollback.
 	Height get_LowestReturnHeight();
+	Height get_LowestManualReturnHeight();
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
