@@ -99,7 +99,6 @@ namespace beam::wallet
             {
                 if (state.m_Height >= Rules::get().pForks[3].m_Height)
                 {
-                    LOG_INFO() << "Rates F3 Received: ";
                     std::vector<ExchangeRate> receivedRates;
                     if (fromByteBuffer(buffer, receivedRates))
                     {
@@ -108,7 +107,6 @@ namespace beam::wallet
                 }
                 else
                 {
-                    LOG_INFO() << "Rates F2 Received: ";
                     std::vector<ExchangeRateF2> f2Rates;
                     if (fromByteBuffer(buffer, f2Rates))
                     {
