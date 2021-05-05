@@ -19,6 +19,35 @@
 
 namespace beam::wallet
 {
+    // This is old fork2 version, do not use it
+    // Will be deprecated after F3 and removed in 6.1
+    struct ExchangeRateF2
+    {
+        enum class CurrencyF2 : uint32_t
+        {
+            Beam,
+            Bitcoin,
+            Litecoin,
+            Qtum,
+            Usd,
+            Dogecoin,
+            Dash,
+            Ethereum,
+            Dai,
+            Usdt,
+            WBTC,
+            Bitcoin_Cash,
+            Unknown
+        };
+
+        CurrencyF2 m_currency;
+        CurrencyF2 m_unit;
+        Amount     m_rate;
+        Timestamp  m_updateTime;
+
+        SERIALIZE(m_currency, m_unit, m_rate, m_updateTime);
+    };
+
     struct ExchangeRate
     {
         Currency    m_from = Currency::UNKNOWN();
@@ -29,6 +58,8 @@ namespace beam::wallet
         SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         bool operator==(const ExchangeRate& other) const;
         bool operator!=(const ExchangeRate& other) const;
+
+        static ExchangeRate FromERH2(const ExchangeRateF2& r2);
     };
 
     typedef std::vector<ExchangeRate> ExchangeRates;

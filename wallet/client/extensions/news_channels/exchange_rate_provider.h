@@ -44,6 +44,7 @@ namespace beam::wallet
         
     private:
         void loadRatesToCache();
+        bool processRatesMessage(const ByteBuffer&);
         void processRates(const ExchangeRates& rates);
         void notifySubscribers(const ExchangeRates&) const;
 
