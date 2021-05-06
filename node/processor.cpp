@@ -810,7 +810,7 @@ Height NodeProcessor::get_LowestReturnHeight()
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	if (id.m_Height < get_LowestReturnHeight()) {
-		LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
+		m_UnreachableLog.Log(id);
 		return;
 	}
 
@@ -819,6 +819,22 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 	}
 
 	RequestData(id, bBlock, sidTrg);
+}
+
+void NodeProcessor::UnreachableLog::Log(const Block::SystemState::ID& id)
+{
+	uint32_t nTime_ms = GetTimeNnz_ms();
+	if (m_hvLast == id.m_Hash) {
+		// suppress spam logging for 10 sec.
+		if (m_Time_ms && (nTime_ms - m_Time_ms < 10000))
+			return;
+	}
+	else {
+		m_hvLast = id.m_Hash;
+	}
+
+	m_Time_ms = nTime_ms;
+	LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
 }
 
 struct NodeProcessor::MultiSigmaContext
@@ -5219,7 +5235,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 
 	if (!(bAlreadyChecked || s.IsValid()))
 	{
-		LOG_VERBOSE() << id << " header invalid!";
+		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 
@@ -5235,7 +5251,10 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	}
 
 	if (s.m_Height < get_LowestReturnHeight())
+	{
+		m_UnreachableLog.Log(id);
 		return DataStatus::Unreachable;
+	}
 
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;

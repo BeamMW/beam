@@ -377,6 +377,15 @@ public:
 		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_ManualSelection)
 	} m_ManualSelection;
 
+	struct UnreachableLog
+	{
+		uint32_t m_Time_ms = 0;
+		Merkle::Hash m_hvLast = Zero;
+
+		void Log(const Block::SystemState::ID&);
+
+	} m_UnreachableLog;
+
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
 
 	void SaveSyncData();
