@@ -345,7 +345,8 @@ namespace beam::wallet
         ByteBuffer paymentProof;
         struct Response
         {
-            storage::PaymentInfo paymentInfo;
+            boost::optional<storage::PaymentInfo> paymentInfo;
+            boost::optional<storage::ShieldedPaymentInfo> shieldedPaymentInfo;
         };
     };
 

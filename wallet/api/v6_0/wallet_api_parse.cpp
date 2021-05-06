@@ -1339,22 +1339,33 @@ namespace beam::wallet
 
     void WalletApi::getResponse(const JsonRpcId& id, const VerifyPaymentProof::Response& res, json& msg)
     {
-        msg = json
+        auto f = [&id](auto& pi)
         {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result",
-                {
-                    {"is_valid", res.paymentInfo.IsValid()},
+            return json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result",
+                    {
+                        {"is_valid", pi.IsValid()},
 
-                    {"sender", std::to_string(res.paymentInfo.m_Sender)},
-                    {"receiver", std::to_string(res.paymentInfo.m_Receiver)},
-                    {"amount", res.paymentInfo.m_Amount},
-                    {"kernel", std::to_string(res.paymentInfo.m_KernelID)},
-                    {"asset_id", res.paymentInfo.m_AssetID}
-                    //{"signature", std::to_string(res.paymentInfo.m_Signature)}
+                        {"sender", std::to_string(pi.m_Sender)},
+                        {"receiver", std::to_string(pi.m_Receiver)},
+                        {"amount", pi.m_Amount},
+                        {"kernel", std::to_string(pi.m_KernelID)},
+                        {"asset_id", pi.m_AssetID}
+                        //{"signature", std::to_string(res.paymentInfo.m_Signature)}
+                    }
                 }
-            }
+            };
         };
+        if (res.paymentInfo)
+        {
+            msg = f(*res.paymentInfo);
+        }
+        else if (res.shieldedPaymentInfo)
+        {
+            msg = f(*res.shieldedPaymentInfo);
+        }
     }
 }

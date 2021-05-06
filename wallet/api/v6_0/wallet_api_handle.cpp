@@ -810,7 +810,17 @@ namespace beam::wallet
         LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
         try
         {
-            doResponse(id, VerifyPaymentProof::Response{ storage::PaymentInfo::FromByteBuffer(data.paymentProof) });
+            VerifyPaymentProof::Response response;
+            try
+            {
+                response.paymentInfo = storage::PaymentInfo::FromByteBuffer(data.paymentProof);
+            }
+            catch(...)
+            {
+                response.shieldedPaymentInfo = storage::ShieldedPaymentInfo::FromByteBuffer(data.paymentProof);
+            }
+            
+            doResponse(id, response);
         }
         catch (...)
         {
