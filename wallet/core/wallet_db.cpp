@@ -1116,6 +1116,16 @@ namespace beam::wallet
         return m_ID.m_Value;
     }
 
+    Asset::ID Coin::getAssetID() const
+    {
+        return m_ID.m_AssetID;
+    }
+
+    std::string Coin::getType() const
+    {
+        return (const char*)FourCC::Text(m_ID.m_Type);
+    }
+
     std::string Coin::getStatusString() const
     {
         static std::map<Status, std::string> Strings 
@@ -5652,7 +5662,7 @@ namespace beam::wallet
         {
             if (c.m_spentHeight != MaxHeight)
             {
-                if (c.IsAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
                 {
                     c.m_Status = ShieldedCoin::Status::Consumed;
                 }
@@ -6669,6 +6679,31 @@ namespace beam::wallet
         }
     }
 
+    bool ShieldedCoin::isAsset(Asset::ID assetId) const
+    {
+        return isAsset() && (m_CoinID.m_AssetID == assetId);
+    }
+
+    std::string ShieldedCoin::toStringID() const
+    {
+        return std::to_string(m_TxoID);
+    }
+
+    Amount ShieldedCoin::getAmount() const
+    {
+        return m_CoinID.m_Value;
+    }
+
+    Asset::ID ShieldedCoin::getAssetID() const
+    {
+        return m_CoinID.m_AssetID;
+    }
+
+    std::string ShieldedCoin::getType() const
+    {
+        return "shld";
+    }
+
     uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
     {
         assert(N);
@@ -6682,6 +6717,22 @@ namespace beam::wallet
             nIdx = static_cast<uint32_t>(m_TxoID);
 
         return nIdx;
+    }
+
+    std::string ShieldedCoin::getStatusString() const
+    {
+        static std::map<Status, std::string> Strings
+        {
+            {Unavailable,   "unavailable"},
+            {Available,     "available"},
+            {Maturing,      "maturing"},
+            {Outgoing,      "outgoing"},
+            {Incoming,      "incoming"},
+            {Spent,         "spent"},
+            {Consumed,      "consumed"},
+        };
+
+        return Strings[m_Status];
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
@@ -6952,5 +7003,15 @@ namespace beam::wallet
             }
             default: return TokenType::Unknown;
         }
+    }
+
+    uint32_t GetCoinStatus(const Coin& c)
+    {
+        return c.m_status;
+    }
+
+    uint32_t GetCoinStatus(const ShieldedCoin& c)
+    {
+        return c.m_Status;
     }
 }

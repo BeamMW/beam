@@ -1040,23 +1040,14 @@ namespace beam::wallet
             {"result", json::array()}
         };
 
-        for (auto& utxo : res.utxos)
+        for (auto& c : res.coins)
         {
-            std::string createTxId = utxo.m_createTxId.is_initialized() ? std::to_string(*utxo.m_createTxId) : "";
-            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? std::to_string(*utxo.m_spentTxId) : "";
-
             msg["result"].push_back(
-            {
-                {"id", utxo.toStringID()},
-                {"asset_id", utxo.m_ID.m_AssetID},
-                {"amount", utxo.m_ID.m_Value},
-                {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"maturity", utxo.get_Maturity(res.confirmations_count)},
-                {"createTxId", createTxId},
-                {"spentTxId", spentTxId},
-                {"status", utxo.m_status},
-                {"status_string", utxo.getStatusString()}
-            });
+                {
+#define MACRO(name, type) {#name, c.name},
+                    BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+                });
+#undef MACRO
         }
     }
 
