@@ -17,7 +17,9 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 1
+#endif
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "wallet/api/i_wallet_api.h"

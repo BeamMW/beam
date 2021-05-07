@@ -161,7 +161,7 @@ option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" 
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 #endif()
 #it's enabled by default for testnet
-#add_definitions(-DLOG_VERBOSE_ENABLED=1)
+add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
