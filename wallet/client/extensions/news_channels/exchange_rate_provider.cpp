@@ -126,7 +126,6 @@ namespace beam::wallet
             }
             else
             {
-                assert(false);
                 throw std::runtime_error("failed to get system state");
             }
         }
