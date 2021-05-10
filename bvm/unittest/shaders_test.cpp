@@ -1127,15 +1127,30 @@ namespace bvm2 {
 		}
 	};
 
+	static void VerifyId(const ContractID& cidExp, const ContractID& cid, const char* szName)
+	{
+		if (cidExp != cid)
+		{
+			CidTxt ct;
+			ct.Set(cid);
+
+			printf("Incorrect %s. Actual value: %s\n", szName, ct.m_szBuf);
+			g_TestsFailed++;
+			fflush(stdout);
+		}
+	}
+
+#define VERIFY_ID(exp, actual) VerifyId(exp, actual, #exp)
+
 	void MyProcessor::TestVault()
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
-		verify_test(m_cidVault == Shaders::Vault::s_CID);
+		VERIFY_ID(Shaders::Vault::s_CID, m_cidVault);
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Vault);
-		verify_test(sid == Shaders::Vault::s_SID);
+		VERIFY_ID(Shaders::Vault::s_SID, sid);
 
 		m_lstUndo.Clear();
 
@@ -1704,7 +1719,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Sidechain);
-		verify_test(sid == Shaders::Sidechain::s_SID);
+		VERIFY_ID(Shaders::Sidechain::s_SID, sid);
 
 		{
 			const uint32_t nSeq = 10;
@@ -1969,7 +1984,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Perpetual);
-		verify_test(sid == Shaders::Perpetual::s_SID);
+		VERIFY_ID(Shaders::Perpetual::s_SID, sid);
 
 		{
 			Shaders::Perpetual::Create arg;
@@ -1995,7 +2010,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Pipe);
-		verify_test(sid == Shaders::Pipe::s_SID);
+		VERIFY_ID(Shaders::Pipe::s_SID, sid);
 
 		{
 			Shaders::Pipe::Create arg;
@@ -2121,7 +2136,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
-		verify_test(sid == Shaders::MirrorCoin::s_SID);
+		VERIFY_ID(Shaders::MirrorCoin::s_SID, sid);
 
 		{
 			Shaders::MirrorCoin::Create0 arg;
@@ -2207,7 +2222,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Faucet);
-		verify_test(sid == Shaders::Faucet::s_SID);
+		VERIFY_ID(Shaders::Faucet::s_SID, sid);
 
 		m_lstUndo.Clear();
 
@@ -2251,7 +2266,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Roulette);
-		verify_test(sid == Shaders::Roulette::s_SID);
+		VERIFY_ID(Shaders::Roulette::s_SID, sid);
 
 		Shaders::Roulette::Spin spin;
 		verify_test(RunGuarded_T(m_cidRoulette, spin.s_iMethod, spin));
@@ -2303,11 +2318,11 @@ namespace bvm2 {
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVoting, m_Code.m_Voting, zero));
-		verify_test(m_cidVoting == Shaders::Voting::s_CID);
+		VERIFY_ID(Shaders::Voting::s_CID, m_cidVoting);
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Voting);
-		verify_test(sid == Shaders::Voting::s_SID);
+		VERIFY_ID(Shaders::Voting::s_SID, sid);
 
 		m_lstUndo.Clear();
 		m_Height = 10;
@@ -2377,7 +2392,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
-		verify_test(sid == Shaders::DemoXdao::s_SID);
+		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
 	}
 
 
