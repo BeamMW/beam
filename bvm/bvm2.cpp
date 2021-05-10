@@ -408,15 +408,11 @@ namespace bvm2 {
 
 		// header
 		uint32_t nSizeHdr = sizeof(Header) + sizeof(Wasm::Word) * (nNumMethods - Header::s_MethodsMin);
-		c.m_Result.resize(nSizeHdr + c.m_Data.size());
+		c.m_Result.resize(nSizeHdr);
 		auto* pHdr = reinterpret_cast<Header*>(&c.m_Result.front());
 
 		pHdr->m_Version = ByteOrder::to_le(Header::s_Version);
 		pHdr->m_NumMethods = ByteOrder::to_le(nNumMethods);
-		pHdr->m_hdrData0 = ByteOrder::to_le(c.m_cmplData0);
-
-		if (!c.m_Data.empty())
-			memcpy(&c.m_Result.front() + nSizeHdr, &c.m_Data.front(), c.m_Data.size());
 
 		// the methods themselves are not assigned yet
 
@@ -430,6 +426,20 @@ namespace bvm2 {
 			uint32_t iMethod = it->first;
 			uint32_t iFunc = it->second;
 			pHdr->m_pMethod[iMethod] = ByteOrder::to_le(c.m_Labels.m_Items[iFunc]);
+		}
+
+		// Put data segment at the end
+		if (c.m_Data.empty())
+			pHdr->m_hdrData0 = 0; // irrelevant
+		else
+		{
+			uint32_t nPos = static_cast<uint32_t>(c.m_Result.size());
+
+			Wasm::Word val = c.m_cmplData0 + nSizeHdr - nPos; // overflow is ok
+			pHdr->m_hdrData0 = ByteOrder::to_le(val);
+
+			c.m_Result.resize(nPos + c.m_Data.size());
+			memcpy(&c.m_Result.front() + nPos, &c.m_Data.front(), c.m_Data.size());
 		}
 
 		res = std::move(c.m_Result);
