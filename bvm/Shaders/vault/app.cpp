@@ -132,26 +132,25 @@ ON_METHOD(manager, view_logs)
     _POD_(k1.m_Prefix.m_Cid) = cid;
     _POD_(k1.m_KeyInContract).SetObject(0xff);
 
-    Env::LogsEnum(&k0, sizeof(k0), &k1, sizeof(k1), nullptr, nullptr);
+    Env::LogReader lr(&k0, sizeof(k0), &k1, sizeof(k1), nullptr, nullptr);
 
     Env::DocArray gr("logs");
 
     while (true)
     {
-        HeightPos pos;
-        const Env::Key_T<Vault::Key>* pKey;
-        const Amount* pVal;
+        Env::Key_T<Vault::Key> key;
+        Amount val;
 
-        if (!Env::LogsMoveNext_T(pKey, pVal, pos))
+        if (!lr.MoveNext_T(key, val))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddNum("Height", pos.m_Height);
-        Env::DocAddNum("Pos", pos.m_Pos);
-        Env::DocAddBlob_T("Account", pKey->m_KeyInContract.m_Account);
-        Env::DocAddNum("AssetID", pKey->m_KeyInContract.m_Aid);
-        Env::DocAddNum("Amount", *pVal);
+        Env::DocAddNum("Height", lr.m_Pos.m_Height);
+        Env::DocAddNum("Pos", lr.m_Pos.m_Pos);
+        Env::DocAddBlob_T("Account", key.m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", key.m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", val);
     }
 }
 

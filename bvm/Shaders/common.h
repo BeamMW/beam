@@ -273,50 +273,41 @@ namespace Env {
         return 1;
     }
 
-
-    struct LogsReadState
-        :public AuxBuf
+    class LogReader
     {
-        uint32_t m_iSlot;
-    } g_Logs = { 0 };
+        uint32_t m_Handle = 0;
+    public:
 
-    inline void LogsEnum(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1, const HeightPos* pPosMin, const HeightPos* pPosMax)
-    {
-        if (g_Logs.m_iSlot)
-            Env::Logs_Close(g_Logs.m_iSlot);
+        HeightPos m_Pos;
 
-        g_Logs.m_iSlot = Logs_Enum(pKey0, nKey0, pKey1, nKey1, pPosMin, pPosMax);
-    }
-
-    inline uint8_t LogsMoveNext(const void** ppKey, uint32_t* pnKey, const void** ppVal, uint32_t* pnVal, HeightPos* pPos)
-    {
-        if (!g_Logs.m_iSlot)
-            return 0;
-
-        uint32_t nKey = 0, nVal = 0;
-        if (!Logs_MoveNext(g_Logs.m_iSlot, nullptr, nKey, nullptr, nVal, *pPos, 0))
-        {
-            g_Logs.m_iSlot = 0;
-            return 0;
+        LogReader(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1, const HeightPos* pPosMin, const HeightPos* pPosMax) {
+            m_Handle = Logs_Enum(pKey0, nKey0, pKey1, nKey1, pPosMin, pPosMax);
         }
 
-        g_Logs.Resize(nKey + nVal);
+        ~LogReader() {
+            Logs_Close(m_Handle);
+        }
 
-        auto* pBufVal = g_Logs.m_pBuf + nKey;
-        if (!Logs_MoveNext(g_Logs.m_iSlot, g_Logs.m_pBuf, nKey, pBufVal, nVal, *pPos, 1))
-            return 0;
+        bool MoveNext(void* pKey, uint32_t& nKey, void* pVal, uint32_t& nVal, uint8_t nRepeat)
+        {
+            return Logs_MoveNext(m_Handle, pKey, nKey, pVal, nVal, m_Pos, nRepeat);
+        }
 
-        *ppKey = g_Logs.m_pBuf;
-        *ppVal = pBufVal;
-        *pnKey = nKey;
-        *pnVal = nVal;
-        return 1;
-    }
+        template <typename TKey, typename TValue>
+        bool MoveNext_T(TKey& key, TValue& val)
+        {
+            while (true)
+            {
+                uint32_t nKey = sizeof(key), nVal = sizeof(val);
+                if (!MoveNext(&key, nKey, &val, nVal, 0))
+                    return false;
 
-
-
-
-
+                if ((sizeof(key) == nKey) && (sizeof(val) == nVal))
+                    break;
+            }
+            return true;
+        }
+    };
 
 
 
@@ -357,22 +348,6 @@ namespace Env {
         const TValue* pValue;
         return VarRead_T(key, pValue) ? pValue : nullptr;
 
-    }
-
-    template <typename TKey, typename TValue>
-    inline bool LogsMoveNext_T(const TKey*& pKey, const TValue*& pValue, HeightPos& pos)
-    {
-        while (true)
-        {
-            uint32_t nKey, nVal;
-            if (!LogsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal, &pos))
-                return false;
-
-            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
-                break;
-        }
-
-        return true;
     }
 
 } // namespace Env

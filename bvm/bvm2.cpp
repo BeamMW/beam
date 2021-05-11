@@ -2095,6 +2095,9 @@ namespace bvm2 {
 		if (!pObj)
 			return 0;
 
+		ZeroObject(pObj->m_LastKey);
+		ZeroObject(pObj->m_LastVal);
+
 		uint32_t nKey = m_mapReadVars.empty() ? 1 : m_mapReadVars.rbegin()->m_Key + 1;
 		pObj->m_Key = nKey;
 		m_mapReadVars.insert(*pObj.release());
@@ -2124,10 +2127,7 @@ namespace bvm2 {
 
 		auto& x = *it;
 		if (!nRepeat && !x.MoveNext())
-		{
-			m_mapReadVars.Delete(x);
 			return 0;
-		}
 
 		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
 		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
@@ -2172,6 +2172,10 @@ namespace bvm2 {
 		if (!pObj)
 			return 0;
 
+		ZeroObject(pObj->m_LastKey);
+		ZeroObject(pObj->m_LastVal);
+		ZeroObject(pObj->m_LastPos);
+
 		uint32_t nKey = m_mapReadLogs.empty() ? 1 : m_mapReadLogs.rbegin()->m_Key + 1;
 		pObj->m_Key = nKey;
 		m_mapReadLogs.insert(*pObj.release());
@@ -2201,10 +2205,7 @@ namespace bvm2 {
 
 		auto& x = *it;
 		if (!nRepeat && !x.MoveNext())
-		{
-			m_mapReadLogs.Delete(x);
 			return 0;
-		}
 
 		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
 		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
