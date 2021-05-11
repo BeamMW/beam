@@ -432,14 +432,7 @@ namespace bvm2 {
 			uint32_t m_Size;
 		} m_AuxAlloc;
 
-		enum EnumType {
-			None,
-			Vars,
-			Logs,
-		};
-
-		EnumType m_EnumType;
-
+		
 		uint8_t* ResizeAux(uint32_t);
 		void FreeAuxAllocGuarded();
 
@@ -457,10 +450,39 @@ namespace bvm2 {
 		virtual void InvokeExt(uint32_t) override;
 		virtual uint32_t get_HeapLimit() override;
 
-		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) {}
-		virtual bool VarsMoveNext(Blob& key, Blob& val) { return false; }
-		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) {}
-		virtual bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) { return false; }
+		struct IReadVars
+			:public intrusive::set_base_hook<uint32_t>
+		{
+			typedef std::unique_ptr<IReadVars> Ptr;
+			typedef intrusive::multiset_autoclear<IReadVars> Map;
+
+			Blob m_LastKey;
+			Blob m_LastVal;
+
+			virtual ~IReadVars() {}
+			virtual bool MoveNext() = 0;
+		};
+
+		struct IReadLogs
+			:public intrusive::set_base_hook<uint32_t>
+		{
+			typedef std::unique_ptr<IReadLogs> Ptr;
+			typedef intrusive::multiset_autoclear<IReadLogs> Map;
+
+			Blob m_LastKey;
+			Blob m_LastVal;
+			HeightPos m_LastPos;
+
+			virtual ~IReadLogs() {}
+			virtual bool MoveNext() = 0;
+		};
+
+		IReadVars::Map m_mapReadVars;
+		IReadLogs::Map m_mapReadLogs;
+
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) {}
+		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) {}
+
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
 		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }

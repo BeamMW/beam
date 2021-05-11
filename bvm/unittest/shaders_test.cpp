@@ -2410,39 +2410,37 @@ namespace bvm2 {
 		}
 
 		struct VarEnumCtx
+			:public IReadVars
 		{
-			ByteBuffer m_kMax;
 			BlobMap::Set::iterator m_it;
+			BlobMap::Set::iterator m_itEnd;
+
+			virtual bool MoveNext() override
+			{
+				if (m_it == m_itEnd)
+					return false;
+
+				const auto& x = *m_it;
+
+				m_LastKey = x.ToBlob();
+				m_LastVal = x.m_Data;
+
+				m_it++;
+				return true;
+			}
 		};
 
-		std::unique_ptr<VarEnumCtx> m_pVarEnum;
-
-		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) override
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
 		{
-			if (!m_pVarEnum)
-				m_pVarEnum = std::make_unique<VarEnumCtx>();
+			auto p = std::make_unique<VarEnumCtx>();
 
-			m_pVarEnum->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
-			kMax.Export(m_pVarEnum->m_kMax);
-		}
+			ZeroObject(p->m_LastKey);
+			ZeroObject(p->m_LastVal);
 
-		virtual bool VarsMoveNext(Blob& key, Blob& val) override
-		{
-			assert(m_pVarEnum);
-			auto& ctx = *m_pVarEnum;
-			const auto& x = *ctx.m_it;
+			p->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
+			p->m_itEnd = m_Vars.upper_bound(kMax, BlobMap::Set::Comparator());
 
-			key = x.ToBlob();
-			if (key > ctx.m_kMax)
-			{
-				m_pVarEnum.reset();
-				return false;
-			}
-
-			val = x.m_Data;
-
-			ctx.m_it++;
-			return true;
+			pRes = std::move(p);
 		}
 
 		void TestHeap()

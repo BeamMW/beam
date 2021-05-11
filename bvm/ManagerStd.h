@@ -32,44 +32,7 @@ namespace beam::bvm2 {
 			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
 		} m_UnfreezeEvt;
 
-		// params readout
-		struct RemoteRead
-			:public proto::FlyClient::Request::IHandler
-		{
-			struct RequestVars
-				:public proto::FlyClient::RequestContractVars
-			{
-				typedef boost::intrusive_ptr<Request> Ptr;
-
-				virtual ~RequestVars() {}
-
-				size_t m_Consumed;
-				ByteBuffer m_Buf;
-			};
-
-			struct RequestLogs
-				:public proto::FlyClient::RequestContractLogs
-			{
-				typedef boost::intrusive_ptr<Request> Ptr;
-
-				virtual ~RequestLogs() {}
-
-				bool m_AllCids;
-				size_t m_Consumed;
-				ByteBuffer m_Buf;
-			};
-
-			proto::FlyClient::Request::Ptr m_pRequest;
-
-			~RemoteRead() { Abort(); }
-
-			void Post(proto::FlyClient::Request&);
-			void Abort();
-
-			virtual void OnComplete(proto::FlyClient::Request&) override;
-
-			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_RemoteRead)
-		} m_RemoteRead;
+		struct RemoteRead;
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
@@ -77,10 +40,8 @@ namespace beam::bvm2 {
 	protected:
 		Height get_Height() override;
 		bool get_HdrAt(Block::SystemState::Full&) override;
-		void VarsEnum(const Blob& kMin, const Blob& kMax) override;
-		bool VarsMoveNext(Blob& key, Blob& val) override;
-		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax) override;
-		bool LogsMoveNext(Blob& key, Blob& val, HeightPos&) override;
+		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
+		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) override;
 		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
 		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
 		bool get_SpecialParam(const char*, Blob&) override;

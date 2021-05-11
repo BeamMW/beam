@@ -186,7 +186,6 @@ namespace bvm2 {
 		InitBase(0x20000); // 128K
 
 		ZeroObject(m_AuxAlloc);
-		m_EnumType = EnumType::None;
 		m_NeedComma = false;
 	}
 
@@ -2085,60 +2084,68 @@ namespace bvm2 {
 	//	return LoadAllVars(*pCallback);
 	//}
 
-	BVM_METHOD(VarsEnum)
+	BVM_METHOD(Vars_Enum)
 	{
-		OnHost_VarsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1);
+		return OnHost_Vars_Enum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1);
 	}
-	BVM_METHOD_HOST(VarsEnum)
+	BVM_METHOD_HOST(Vars_Enum)
 	{
-		FreeAuxAllocGuarded();
-		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1));
-		m_EnumType = EnumType::Vars;
-	}
-
-	BVM_METHOD(VarsMoveNext)
-	{
-		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
-		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
-		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
-		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
-
-		const void *pKey, *pVal;
-		uint32_t nKey, nVal;
-
-		if (!OnHost_VarsMoveNext(&pKey, &nKey, &pVal, &nVal))
+		IReadVars::Ptr pObj;
+		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
+		if (!pObj)
 			return 0;
 
-		uint8_t* pDst = ResizeAux(nKey + nVal);
+		uint32_t nKey = m_mapReadVars.empty() ? 1 : m_mapReadVars.rbegin()->m_Key + 1;
+		pObj->m_Key = nKey;
+		m_mapReadVars.insert(*pObj.release());
 
-		Wasm::to_wasm(pnKey_, nKey);
-		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
-		memcpy(pDst, pKey, nKey);
-
-		Wasm::to_wasm(pnVal_, nVal);
-		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
-		memcpy(pDst + nKey, pVal, nVal);
-
-		return 1;
+		return nKey;
 	}
-	BVM_METHOD_HOST(VarsMoveNext)
-	{
-		Wasm::Test(EnumType::Vars == m_EnumType); // illegal to call this method before VarsEnum
 
-		Blob key, data;
-		if (!VarsMoveNext(key, data))
+	BVM_METHOD(Vars_MoveNext)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+
+		auto nRet = OnHost_Vars_MoveNext(iSlot, get_AddrW(pKey, nKeySize), nKeySize, get_AddrW(pVal, nValSize), nValSize, nRepeat);
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Vars_MoveNext)
+	{
+		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
+		Wasm::Test(m_mapReadVars.end() != it);
+
+		auto& x = *it;
+		if (!nRepeat && !x.MoveNext())
 		{
-			FreeAuxAllocGuarded();
-			m_EnumType = EnumType::None;
+			m_mapReadVars.Delete(x);
 			return 0;
 		}
 
-		*ppKey = key.p;
-		*pnKey = key.n;
-		*ppVal = data.p;
-		*pnVal = data.n;
+		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
+		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
 
+		nKey = x.m_LastKey.n;
+		nVal = x.m_LastVal.n;
 		return 1;
+	}
+
+	BVM_METHOD(Vars_Close)
+	{
+		return OnHost_Vars_Close(iSlot);
+	}
+	BVM_METHOD_HOST(Vars_Close)
+	{
+		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
+		Wasm::Test(m_mapReadVars.end() != it);
+		m_mapReadVars.Delete(*it);
 	}
 
 	const HeightPos* Processor::FromWasmOpt(Wasm::Word pPos, HeightPos& buf)
@@ -2153,65 +2160,70 @@ namespace bvm2 {
 		return &buf;
 	}
 
-	BVM_METHOD(LogsEnum)
+	BVM_METHOD(Logs_Enum)
 	{
 		HeightPos posMin, posMax;
-		OnHost_LogsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1, FromWasmOpt(pPosMin, posMin), FromWasmOpt(pPosMax, posMax));
+		return OnHost_Logs_Enum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1, FromWasmOpt(pPosMin, posMin), FromWasmOpt(pPosMax, posMax));
 	}
-	BVM_METHOD_HOST(LogsEnum)
+	BVM_METHOD_HOST(Logs_Enum)
 	{
-		FreeAuxAllocGuarded();
-		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax);
-		m_EnumType = EnumType::Logs;
-	}
-
-	BVM_METHOD(LogsMoveNext)
-	{
-		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
-		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
-		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
-		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
-		auto& pos_ = get_AddrAsW<HeightPos>(pPos);
-
-		const void *pKey, *pVal;
-		uint32_t nKey, nVal;
-
-		if (!OnHost_LogsMoveNext(&pKey, &nKey, &pVal, &nVal, &pos_))
+		IReadLogs::Ptr pObj;
+		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
+		if (!pObj)
 			return 0;
 
-		uint8_t* pDst = ResizeAux(nKey + nVal);
+		uint32_t nKey = m_mapReadLogs.empty() ? 1 : m_mapReadLogs.rbegin()->m_Key + 1;
+		pObj->m_Key = nKey;
+		m_mapReadLogs.insert(*pObj.release());
 
-		Wasm::to_wasm(pnKey_, nKey);
-		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
-		memcpy(pDst, pKey, nKey);
-
-		Wasm::to_wasm(pnVal_, nVal);
-		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
-		memcpy(pDst + nKey, pVal, nVal);
-
-		pos_.m_Height = Wasm::to_wasm(pos_.m_Height);
-		pos_.m_Pos = Wasm::to_wasm(pos_.m_Pos);
-
-		return 1;
+		return nKey;
 	}
-	BVM_METHOD_HOST(LogsMoveNext)
-	{
-		Wasm::Test(EnumType::Logs == m_EnumType); // illegal to call this method before LogsEnum
 
-		Blob key, val;
-		if (!LogsMoveNext(key, val, *pPos))
+	BVM_METHOD(Logs_MoveNext)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+
+		auto nRet = OnHost_Logs_MoveNext(iSlot, get_AddrW(pKey, nKeySize), nKeySize, get_AddrW(pVal, nValSize), nValSize, get_AddrAsW<HeightPos>(pos), nRepeat);
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Logs_MoveNext)
+	{
+		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
+		Wasm::Test(m_mapReadLogs.end() != it);
+
+		auto& x = *it;
+		if (!nRepeat && !x.MoveNext())
 		{
-			FreeAuxAllocGuarded();
-			m_EnumType = EnumType::None;
+			m_mapReadLogs.Delete(x);
 			return 0;
 		}
 
-		*ppKey = key.p;
-		*pnKey = key.n;
-		*ppVal = val.p;
-		*pnVal = val.n;
+		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
+		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
+		pos = x.m_LastPos;
 
+		nKey = x.m_LastKey.n;
+		nVal = x.m_LastVal.n;
 		return 1;
+	}
+
+	BVM_METHOD(Logs_Close)
+	{
+		return OnHost_Logs_Close(iSlot);
+	}
+	BVM_METHOD_HOST(Logs_Close)
+	{
+		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
+		Wasm::Test(m_mapReadLogs.end() != it);
+		m_mapReadLogs.Delete(*it);
 	}
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
