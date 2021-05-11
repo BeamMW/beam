@@ -16,6 +16,8 @@
 
 #ifndef HOST_BUILD
 
+#pragma clang section bss = "disable_bss_for_global_zeroinitialized_vars_use_standard_data_section"
+
 // Common ord types
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
