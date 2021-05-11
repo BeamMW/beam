@@ -332,16 +332,16 @@ ON_METHOD(my_account, view_staking)
             _POD_(uk.m_KeyInContract.m_ID) = e.m_ID;
             MyPkMaterial::SetGet(uk);
 
-            const Amount* pAmount;
-            if (Env::VarRead_T(uk, pAmount))
+            Amount amount;
+            if (Env::VarReader::Read_T(uk, amount))
             {
                 Env::DocGroup gr("");
                 Env::DocAddBlob_T("pid", uk.m_KeyInContract.m_ID);
-                Env::DocAddNum("Amount", *pAmount);
+                Env::DocAddNum("Amount", amount);
 
                 Env::DocAddText("Status", e.m_Finished ? "available" : "locked");
 
-                (e.m_Finished ? totalAvail : totalLocked) += *pAmount;
+                (e.m_Finished ? totalAvail : totalLocked) += amount;
             }
         }
     }
@@ -368,10 +368,10 @@ ON_METHOD(my_account, proposal_view)
     _POD_(uk.m_KeyInContract.m_ID) = pid;
     MyPkMaterial::SetGet(uk);
 
-    const Amount* pAmount;
-    if (Env::VarRead_T(uk, pAmount))
+    Amount amount;
+    if (Env::VarReader::Read_T(uk, amount))
     {
-        Env::DocAddNum("My_Amount", *pAmount);
+        Env::DocAddNum("My_Amount", amount);
         Env::DocAddText("Status", bIsFinished ? "available" : "locked");
     }
 }

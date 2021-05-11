@@ -138,13 +138,13 @@ ON_METHOD(manager, view_params)
     k.m_Prefix.m_Cid = cid;
     k.m_KeyInContract = 0;
 
-    auto* pVal = Env::VarRead_T<Faucet::Params>(k);
-    if (!pVal)
+    Faucet::Params pars;
+    if (!Env::VarReader::Read_T(k, pars))
         return OnError("failed to read");
 
     Env::DocGroup gr("params");
-    Env::DocAddNum("backlogPeriod", pVal->m_BacklogPeriod);
-    Env::DocAddNum("withdrawLimit", pVal->m_MaxWithdraw);
+    Env::DocAddNum("backlogPeriod", pars.m_BacklogPeriod);
+    Env::DocAddNum("withdrawLimit", pars.m_MaxWithdraw);
 }
 
 ON_METHOD(manager, view_funds)

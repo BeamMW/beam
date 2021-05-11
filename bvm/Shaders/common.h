@@ -429,23 +429,6 @@ namespace Env {
         VarsEnum(&key0, sizeof(key0), &key1, sizeof(key1));
     }
 
-    template <typename TKey, typename TValue>
-    inline bool VarRead_T(const TKey& key, const TValue*& pValue)
-    {
-        VarsEnum_T(key, key);
-
-        const TKey* pKey;
-        return VarsMoveNext_T(pKey, pValue);
-    }
-
-    template <typename TValue, typename TKey>
-    inline const TValue* VarRead_T(const TKey& key)
-    {
-        const TValue* pValue;
-        return VarRead_T(key, pValue) ? pValue : nullptr;
-
-    }
-
 } // namespace Env
 
 namespace std {

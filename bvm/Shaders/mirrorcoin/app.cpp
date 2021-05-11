@@ -81,18 +81,22 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-const MirrorCoin::Global* get_Global(const ContractID& cid)
+struct GlobalPlus
+    :public MirrorCoin::Global
 {
-    Env::Key_T<uint8_t> gk;
-    _POD_(gk.m_Prefix.m_Cid) = cid;
-    gk.m_KeyInContract = 0;
+    bool get(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> gk;
+        _POD_(gk.m_Prefix.m_Cid) = cid;
+        gk.m_KeyInContract = 0;
 
-    auto* pG = Env::VarRead_T<MirrorCoin::Global>(gk);
-    if (!pG)
+        if (Env::VarReader::Read_T(gk, *this))
+            return true;
+
         OnError("no global state");
-
-    return pG;
-}
+        return false;
+    }
+};
 
 struct IncomingWalker
 {
@@ -115,14 +119,14 @@ struct IncomingWalker
 
     bool Restart(uint32_t iStartFrom)
     {
-        auto* pG = get_Global(m_Cid);
-        if (!pG)
+        GlobalPlus g;
+        if (!g.get(m_Cid))
             return false;
 
-        m_cidRemote = pG->m_Remote;
+        m_cidRemote = g.m_Remote;
 
         Env::Key_T<Pipe::MsgHdr::KeyIn> k1;
-        k1.m_Prefix.m_Cid = pG->m_PipeID;
+        k1.m_Prefix.m_Cid = g.m_PipeID;
         k1.m_KeyInContract.m_iCheckpoint_BE = Utils::FromBE(iStartFrom);
         k1.m_KeyInContract.m_iMsg_BE = 0;
 
@@ -228,16 +232,16 @@ ON_METHOD(manager, destroy)
 
 ON_METHOD(manager, view_params)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     Env::DocGroup gr("params");
 
-    Env::DocAddNum("aid", pG->m_Aid);
-    Env::DocAddNum("isMirror", (uint32_t) pG->m_IsMirror);
-    Env::DocAddBlob_T("RemoteID", pG->m_Remote);
-    Env::DocAddBlob_T("PipeID", pG->m_PipeID);
+    Env::DocAddNum("aid", g.m_Aid);
+    Env::DocAddNum("isMirror", (uint32_t) g.m_IsMirror);
+    Env::DocAddBlob_T("RemoteID", g.m_Remote);
+    Env::DocAddBlob_T("PipeID", g.m_PipeID);
 
     // TODO: make sure the Pipe is indeed operated by the conventional Pipe shader with adequate params
 }
@@ -268,8 +272,8 @@ ON_METHOD(user, view_incoming)
 
 ON_METHOD(user, send)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     MirrorCoin::Send pars;
@@ -280,7 +284,7 @@ ON_METHOD(user, send)
         _POD_(pars.m_User) = pkDst;
 
     FundsChange fc;
-    fc.m_Aid = pG->m_Aid;
+    fc.m_Aid = g.m_Aid;
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
@@ -289,26 +293,26 @@ ON_METHOD(user, send)
 
 ON_METHOD(user, receive_all)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     FundsChange pFc[2];
     pFc[0].m_Aid = 0;
     pFc[0].m_Consume = 1;
-    pFc[1].m_Aid = pG->m_Aid;
+    pFc[1].m_Aid = g.m_Aid;
     pFc[1].m_Consume = 0;
 
     {
         // get pipe comission
         Env::Key_T<Pipe::StateIn::Key> ksi;
-        ksi.m_Prefix.m_Cid = pG->m_PipeID;
+        ksi.m_Prefix.m_Cid = g.m_PipeID;
 
-        auto* pPipe = Env::VarRead_T<Pipe::StateIn>(ksi);
-        if (!pPipe)
+        Pipe::StateIn pipe;
+        if (!Env::VarReader::Read_T(ksi, pipe))
             OnError("no pipe state");
 
-        pFc[0].m_Amount = pPipe->m_Cfg.m_ComissionPerMsg;
+        pFc[0].m_Amount = pipe.m_Cfg.m_ComissionPerMsg;
     }
 
 

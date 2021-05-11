@@ -107,14 +107,11 @@ struct StateInfoPlus
         k.m_Prefix.m_Cid = cid;
         k.m_KeyInContract = 0;
 
-        auto* pState = Env::VarRead_T<Roulette::State>(k);
-        if (!pState)
+        if (!Env::VarReader::Read_T(k, m_State))
         {
             OnError("failed to read");
             return false;
         }
-
-        m_State = *pState;
 
         DealerKey dk;
         PubKey pk;
