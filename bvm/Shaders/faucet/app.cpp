@@ -75,24 +75,24 @@ void OnError(const char* sz)
 
 typedef Env::Key_T<Faucet::Key> KeyAccount;
 
-void DumpAccounts()
+void DumpAccounts(Env::VarReader& r)
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyAccount* pAccount;
-        const Faucet::AccountData* pVal;
+        KeyAccount key;
+        Faucet::AccountData d;
 
-        if (!Env::VarsMoveNext_T(pAccount, pVal))
+        if (!r.MoveNext_T(key, d))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddBlob_T("Account", pAccount->m_KeyInContract.m_Account);
-        Env::DocAddNum("AssetID", pAccount->m_KeyInContract.m_Aid);
-        Env::DocAddNum("Amount", pVal->m_Amount);
-        Env::DocAddNum("h0", pVal->m_h0);
+        Env::DocAddBlob_T("Account", key.m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", key.m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", d.m_Amount);
+        Env::DocAddNum("h0", d.m_h0);
     }
 }
 
@@ -106,8 +106,8 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
     _POD_(k1) = k0;
     k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
-    Env::VarsEnum_T(k0, k1);
-    DumpAccounts();
+    Env::VarReader r(k0, k1);
+    DumpAccounts(r);
 }
 
 ON_METHOD(manager, view)
@@ -169,8 +169,8 @@ ON_METHOD(manager, view_accounts)
     k1.m_Cid = cid;
     k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
-    DumpAccounts();
+    Env::VarReader r(k0, k1); // enum all internal contract vars
+    DumpAccounts(r);
 }
 
 ON_METHOD(manager, view_account)

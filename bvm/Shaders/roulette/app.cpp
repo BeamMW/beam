@@ -153,7 +153,7 @@ struct StateInfoPlus
 
 // This function assumes that ANOTHER function that does vars enum was called before
 // Students, never ever write code like this ))
-void EnumAndDump(const StateInfoPlus& sip)
+void EnumAndDump(Env::VarReaderEx<true>& r, const StateInfoPlus& sip)
 {
     if (sip.m_RoundOver)
         Env::DocAddNum("WinSector", sip.m_State.m_iWinner);
@@ -162,20 +162,20 @@ void EnumAndDump(const StateInfoPlus& sip)
 
     while (true)
     {
-        const KeyPlayer* pPlayer;
-        const Roulette::BidInfo* pVal;
+        KeyPlayer key;
+        Roulette::BidInfo bi;
 
-        if (!Env::VarsMoveNext_T(pPlayer, pVal))
+        if (!r.MoveNext_T(key, bi))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddBlob_T("Player", pPlayer->m_KeyInContract);
-        Env::DocAddNum("Sector", pVal->m_iSector);
-        Env::DocAddNum("iRound", pVal->m_iRound);
+        Env::DocAddBlob_T("Player", key.m_KeyInContract);
+        Env::DocAddNum("Sector", bi.m_iSector);
+        Env::DocAddNum("iRound", bi.m_iRound);
 
         Amount nWin;
-        Env::DocAddText("Status", sip.get_BidStatus(*pVal, nWin));
+        Env::DocAddText("Status", sip.get_BidStatus(bi, nWin));
 
         if (nWin)
             Env::DocAddNum("Prize", nWin);
@@ -183,12 +183,12 @@ void EnumAndDump(const StateInfoPlus& sip)
 }
 
 // 
-void EnumBid(const PubKey& pubKey, const ContractID& cid)
+void EnumBid(Env::VarReaderEx<true>& r, const PubKey& pubKey, const ContractID& cid)
 {
     KeyPlayer k;
     k.m_Prefix.m_Cid = cid;
     k.m_KeyInContract = pubKey;
-    Env::VarsEnum_T(k, k);
+    r.Enum_T(k, k);
 }
 
 void DumpBid(const PubKey& pubKey, const ContractID& cid)
@@ -197,8 +197,9 @@ void DumpBid(const PubKey& pubKey, const ContractID& cid)
     if (!sip.Init(cid))
         return;
 
-    EnumBid(pubKey, cid);
-    EnumAndDump(sip);
+    Env::VarReaderEx<true> r;
+    EnumBid(r, pubKey, cid);
+    EnumAndDump(r, sip);
 }
 
 ON_METHOD(manager, view)
@@ -305,8 +306,8 @@ ON_METHOD(manager, view_bids)
     k1.m_Cid = cid;
     k1.m_Tag = 1;
 
-    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
-    EnumAndDump(sip);
+    Env::VarReaderEx<true> r(k0, k1); // enum all internal contract vars
+    EnumAndDump(r, sip);
 }
 
 ON_METHOD(manager, view_bid)
@@ -354,18 +355,19 @@ ON_METHOD(player, take)
     Roulette::Take arg;
     DerivePlayerPk(arg.m_Player, cid);
 
-    EnumBid(arg.m_Player, cid);
+    Env::VarReaderEx<true> r;
+    EnumBid(r, arg.m_Player, cid);
 
-    const KeyPlayer* pPlayer;
-    const Roulette::BidInfo* pVal;
+    KeyPlayer key;
+    Roulette::BidInfo bi;
 
-    if (!Env::VarsMoveNext_T(pPlayer, pVal))
+    if (!r.MoveNext_T(key, bi))
         return OnError("no bid");
 
     FundsChange fc;
     fc.m_Aid = sip.m_State.m_Aid; // receive funds of a specific asset type
 
-    sip.get_BidStatus(*pVal, fc.m_Amount);
+    sip.get_BidStatus(bi, fc.m_Amount);
 
     if (!fc.m_Amount)
         return OnError("you lost");

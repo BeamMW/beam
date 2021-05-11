@@ -104,6 +104,7 @@ struct IncomingWalker
     IncomingWalker(const ContractID& cid) :m_Cid(cid) {}
 
     ContractID m_cidRemote;
+    Env::VarReaderEx<true> m_Reader;
 
 #pragma pack (push, 1)
     struct MyMsg
@@ -113,8 +114,8 @@ struct IncomingWalker
     };
 #pragma pack (pop)
 
-    const Env::Key_T<Pipe::MsgHdr::KeyIn>* m_pKey;
-    const MyMsg* m_pMsg;
+    Env::Key_T<Pipe::MsgHdr::KeyIn> m_Key;
+    MyMsg m_Msg;
 
 
     bool Restart(uint32_t iStartFrom)
@@ -133,7 +134,7 @@ struct IncomingWalker
         auto k2 = k1;
         k2.m_KeyInContract.m_iCheckpoint_BE = -1;
 
-        Env::VarsEnum_T(k1, k2);
+        m_Reader.Enum_T(k1, k2);
         return true;
     }
 
@@ -141,13 +142,13 @@ struct IncomingWalker
     {
         while (true)
         {
-            if (!Env::VarsMoveNext_T(m_pKey, m_pMsg))
+            if (!m_Reader.MoveNext_T(m_Key, m_Msg))
                 return false;
 
-            if ((_POD_(m_pMsg->m_Sender) != m_cidRemote) || (_POD_(m_pMsg->m_Receiver) != m_Cid))
+            if ((_POD_(m_Msg.m_Sender) != m_cidRemote) || (_POD_(m_Msg.m_Receiver) != m_Cid))
                 continue;
 
-            if (pPk && (_POD_(*pPk) !=m_pMsg->m_User))
+            if (pPk && (_POD_(*pPk) !=m_Msg.m_User))
                 continue;
 
             return true;
@@ -166,12 +167,12 @@ void ViewIncoming(const ContractID& cid, const PubKey* pPk, uint32_t iStartFrom)
     while (wlk.MoveNext(pPk))
     {
         Env::DocGroup gr("");
-        Env::DocAddNum("iCheckpoint", Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iCheckpoint_BE));
-        Env::DocAddNum("iMsg", Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iMsg_BE));
-        Env::DocAddNum("amount", wlk.m_pMsg->m_Amount);
+        Env::DocAddNum("iCheckpoint", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iCheckpoint_BE));
+        Env::DocAddNum("iMsg", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iMsg_BE));
+        Env::DocAddNum("amount", wlk.m_Msg.m_Amount);
 
         if (!pPk)
-            Env::DocAddBlob_T("User", wlk.m_pMsg->m_User);
+            Env::DocAddBlob_T("User", wlk.m_Msg.m_User);
     }
 }
 
@@ -327,10 +328,10 @@ ON_METHOD(user, receive_all)
     for (; wlk.MoveNext(&pk); nCount++)
     {
         MirrorCoin::Receive pars;
-        pars.m_iCheckpoint = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iCheckpoint_BE);
-        pars.m_iMsg = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iMsg_BE);
+        pars.m_iCheckpoint = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iCheckpoint_BE);
+        pars.m_iMsg = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iMsg_BE);
 
-        pFc[1].m_Amount = wlk.m_pMsg->m_Amount;
+        pFc[1].m_Amount = wlk.m_Msg.m_Amount;
 
         SigRequest sig;
         sig.m_pID = &cid;

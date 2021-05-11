@@ -227,27 +227,25 @@ ON_METHOD(manager, proposal_view)
 
     Env::DocArray gr("funds_locked");
 
-    {
-        KeyUser k0, k1;
-        _POD_(k0.m_Prefix.m_Cid) = cid;
-        _POD_(k0.m_KeyInContract.m_ID) = pid;
-        _POD_(k0.m_KeyInContract.m_Pk).SetZero();
-        _POD_(k1) = k0;
-        _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
-        Env::VarsEnum_T(k0, k1);
-    }
+    KeyUser k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_ID) = pid;
+    _POD_(k0.m_KeyInContract.m_Pk).SetZero();
+    _POD_(k1) = k0;
+    _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
+    Env::VarReader r(k0, k1);
 
     while (true)
     {
-        const KeyUser* pKey;
-        const Amount* pVal;
-        if (!Env::VarsMoveNext_T(pKey, pVal))
+        KeyUser key;
+        Amount val;
+        if (!r.MoveNext_T(key, val))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddBlob_T("Pk", pKey->m_KeyInContract.m_Pk);
-        Env::DocAddNum("Amount", *pVal);
+        Env::DocAddBlob_T("Pk", key.m_KeyInContract.m_Pk);
+        Env::DocAddNum("Amount", val);
     }
 }
 

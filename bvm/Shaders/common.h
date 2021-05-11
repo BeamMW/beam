@@ -406,23 +406,6 @@ namespace Env {
     };
 
 
-
-    template <typename TKey, typename TValue>
-    inline bool VarsMoveNext_T(const TKey*& pKey, const TValue*& pValue)
-    {
-        while (true)
-        {
-            uint32_t nKey, nVal;
-            if (!VarsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal))
-                return false;
-
-            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
-                break;
-        }
-
-        return true;
-    }
-
     template <typename TKey0, typename TKey1>
     inline void VarsEnum_T(const TKey0& key0, const TKey1& key1)
     {
