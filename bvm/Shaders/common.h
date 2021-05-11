@@ -238,7 +238,7 @@ namespace Env {
         :public AuxBuf
     {
         uint32_t m_iSlot;
-    } g_Vars = { 0 };
+    } g_Vars = { { 0 } };
 
     inline void VarsEnum(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1)
     {
