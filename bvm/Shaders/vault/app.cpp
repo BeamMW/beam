@@ -75,23 +75,23 @@ void OnError(const char* sz)
 typedef Env::Key_T<Vault::Key> KeyAccount;
 
 
-void DumpAccounts()
+void DumpAccounts(Env::VarReader& r)
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyAccount* pAccount;
-        const Amount* pAmount;
+        KeyAccount key;
+        Amount amount;
         
-        if (!Env::VarsMoveNext_T(pAccount, pAmount))
+        if (!r.MoveNext_T(key, amount))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddBlob_T("Account", pAccount->m_KeyInContract.m_Account);
-        Env::DocAddNum("AssetID", pAccount->m_KeyInContract.m_Aid);
-        Env::DocAddNum("Amount", *pAmount);
+        Env::DocAddBlob_T("Account", key.m_KeyInContract.m_Account);
+        Env::DocAddNum("AssetID", key.m_KeyInContract.m_Aid);
+        Env::DocAddNum("Amount", amount);
     }
 }
 
@@ -105,8 +105,8 @@ void DumpAccount(const PubKey& pubKey, const ContractID& cid)
     _POD_(k1) = k0;
     k1.m_KeyInContract.m_Aid = static_cast<AssetID>(-1);
 
-    Env::VarsEnum_T(k0, k1);
-    DumpAccounts();
+    Env::VarReader r(k0, k1);
+    DumpAccounts(r);
 }
 
 ON_METHOD(manager, view)
@@ -132,7 +132,7 @@ ON_METHOD(manager, view_logs)
     _POD_(k1.m_Prefix.m_Cid) = cid;
     _POD_(k1.m_KeyInContract).SetObject(0xff);
 
-    Env::LogReader lr(&k0, sizeof(k0), &k1, sizeof(k1), nullptr, nullptr);
+    Env::LogReader lr(k0, k1);
 
     Env::DocArray gr("logs");
 
@@ -162,8 +162,8 @@ ON_METHOD(manager, view_accounts)
     _POD_(k1.m_Cid) = cid;
     k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
-    DumpAccounts();
+    Env::VarReader r(k0, k1); // enum all internal contract vars
+    DumpAccounts(r);
 }
 
 ON_METHOD(manager, view_account)
