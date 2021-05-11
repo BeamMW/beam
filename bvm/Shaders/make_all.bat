@@ -16,10 +16,8 @@ call make_shader demoXdao/contract
 call make_shader faucet/app
 call make_shader mirrorcoin/app
 call make_shader perpetual/app
-call make_shader pipe/app
 call make_shader playground/app
 call make_shader roulette/app
-call make_shader sidechain/app
 call make_shader vault/app
 call make_shader voting/app
 call make_shader demoXdao/app
