@@ -197,10 +197,10 @@ export void Method_0()
         {
             Env::DocGroup root("");
 
-            Env::DocAddBlob_T("cid", wlk.m_pPos->m_Cid);
+            Env::DocAddBlob_T("cid", wlk.m_Key.m_KeyInContract.m_Cid);
             Env::DocAddNum("Height", wlk.m_Height);
 
-            _POD_(cid) = wlk.m_pPos->m_Cid;
+            _POD_(cid) = wlk.m_Key.m_KeyInContract.m_Cid;
         }
     }
 

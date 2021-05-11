@@ -214,65 +214,6 @@ namespace Env {
 
 #pragma pack (pop)
 
-    // Wrapper for old-style vars/logs enum
-    // Remove when all appshaders are updated
-    struct AuxBuf
-    {
-        uint8_t* m_pBuf;
-        uint32_t m_nBuf;
-
-        void Resize(uint32_t n)
-        {
-            if (m_nBuf < n)
-            {
-                if (m_pBuf)
-                    Heap_Free(m_pBuf);
-
-                m_pBuf = (uint8_t*) Heap_Alloc(n);
-                m_nBuf = n;
-            }
-        }
-    };
-
-    struct VarsReadState
-        :public AuxBuf
-    {
-        uint32_t m_iSlot;
-    } g_Vars = { { 0 } };
-
-    inline void VarsEnum(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1)
-    {
-        if (g_Vars.m_iSlot)
-            Env::Vars_Close(g_Vars.m_iSlot);
-
-        g_Vars.m_iSlot = Vars_Enum(pKey0, nKey0, pKey1, nKey1);
-    }
-
-    inline uint8_t VarsMoveNext(const void** ppKey, uint32_t* pnKey, const void** ppVal, uint32_t* pnVal)
-    {
-        if (!g_Vars.m_iSlot)
-            return 0;
-
-        uint32_t nKey = 0, nVal = 0;
-        if (!Vars_MoveNext(g_Vars.m_iSlot, nullptr, nKey, nullptr, nVal, 0))
-        {
-            g_Vars.m_iSlot = 0;
-            return 0;
-        }
-
-        g_Vars.Resize(nKey + nVal);
-
-        auto* pBufVal = g_Vars.m_pBuf + nKey;
-        if (!Vars_MoveNext(g_Vars.m_iSlot, g_Vars.m_pBuf, nKey, pBufVal, nVal, 1))
-            return 0;
-
-        *ppKey = g_Vars.m_pBuf;
-        *ppVal = pBufVal;
-        *pnKey = nKey;
-        *pnVal = nVal;
-        return 1;
-    }
-
     template <bool bFlexible = false>
     class VarReaderEx
     {
@@ -404,13 +345,6 @@ namespace Env {
             return true;
         }
     };
-
-
-    template <typename TKey0, typename TKey1>
-    inline void VarsEnum_T(const TKey0& key0, const TKey1& key1)
-    {
-        VarsEnum(&key0, sizeof(key0), &key1, sizeof(key1));
-    }
 
 } // namespace Env
 

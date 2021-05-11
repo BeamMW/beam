@@ -126,30 +126,32 @@ struct ProposalWrap
         m_Height = Env::get_Height() + 1;
     }
 
-    const KeyProposal* m_pKey;
-    const Voting::Proposal_MaxVars* m_pVal;
+    KeyProposal m_Key;
+    Voting::Proposal_MaxVars m_Proposal;
     uint32_t m_Variants;
 
-    static void EnumAll(const ContractID& cid)
+    Env::VarReaderEx<true> m_Reader;
+
+    void EnumAll(const ContractID& cid)
     {
         KeyProposal k0, k1;
         _POD_(k0.m_Prefix.m_Cid) = cid;
         _POD_(k0.m_KeyInContract).SetZero();
         _POD_(k1.m_Prefix.m_Cid) = cid;
         _POD_(k1.m_KeyInContract).SetObject(0xff);
-        Env::VarsEnum_T(k0, k1);
+        m_Reader.Enum_T(k0, k1);
     }
 
     bool MoveNext()
     {
         while (true)
         {
-            uint32_t nKey, nVal;
-            if (!Env::VarsMoveNext((const void**) &m_pKey, &nKey, (const void**) &m_pVal, &nVal))
+            uint32_t nKey = sizeof(m_Key), nVal = sizeof(m_Proposal);
+            if (!m_Reader.MoveNext(&m_Key, nKey, &m_Proposal, nVal, 0))
                 break;
-            if ((sizeof(*m_pKey) == nKey) && (nVal >= sizeof(Voting::Proposal)))
+            if ((sizeof(m_Key) == nKey) && (nVal >= sizeof(Voting::Proposal)))
             {
-                m_Variants = (nVal - sizeof(Voting::Proposal)) / sizeof(m_pVal->m_pAmount[0]);
+                m_Variants = (nVal - sizeof(Voting::Proposal)) / sizeof(m_Proposal.m_pAmount[0]);
                 return true;
             }
         }
@@ -161,7 +163,7 @@ struct ProposalWrap
         KeyProposal k;
         _POD_(k.m_Prefix.m_Cid) = cid;
         _POD_(k.m_KeyInContract) = pid;
-        Env::VarsEnum_T(k, k);
+        m_Reader.Enum_T(k, k);
 
         if (MoveNext())
             return true;
@@ -171,24 +173,24 @@ struct ProposalWrap
     }
 
     bool IsStarted() const {
-        return m_Height >= m_pVal->m_Params.m_hMin;
+        return m_Height >= m_Proposal.m_Params.m_hMin;
     }
     bool IsFinished() const {
-        return m_Height > m_pVal->m_Params.m_hMax;
+        return m_Height > m_Proposal.m_Params.m_hMax;
     }
 
     void Print() const
     {
         Env::DocAddNum("Variants", m_Variants);
-        Env::DocAddNum("hMin", m_pVal->m_Params.m_hMin);
-        Env::DocAddNum("hMax", m_pVal->m_Params.m_hMax);
-        Env::DocAddNum("Aid", m_pVal->m_Params.m_Aid);
+        Env::DocAddNum("hMin", m_Proposal.m_Params.m_hMin);
+        Env::DocAddNum("hMax", m_Proposal.m_Params.m_hMax);
+        Env::DocAddNum("Aid", m_Proposal.m_Params.m_Aid);
         Env::DocAddText("Status", IsFinished() ? "finished" : IsStarted() ? "in_progress" : "published");
 
         Env::DocGroup grVotes("votes");
         for (uint32_t i = 0; i < m_Variants; i++)
         {
-            Amount val = m_pVal->m_pAmount[i];
+            Amount val = m_Proposal.m_pAmount[i];
             if (val)
             {
                 char sz[10];
@@ -212,7 +214,7 @@ ON_METHOD(manager, proposals_view_all)
 
         Env::DocGroup gr("");
     
-        Env::DocAddBlob_T("ID", pw.m_pKey->m_KeyInContract);
+        Env::DocAddBlob_T("ID", pw.m_Key.m_KeyInContract);
         pw.Print();
     }
 }
@@ -310,7 +312,7 @@ ON_METHOD(my_account, view_staking)
         if (pw.IsStarted())
         {
             auto& x = vec.emplace_back();
-            _POD_(x.m_ID) = pw.m_pKey->m_KeyInContract;
+            _POD_(x.m_ID) = pw.m_Key.m_KeyInContract;
             _POD_(x.m_Finished) = pw.IsFinished();
 
         }
@@ -384,7 +386,7 @@ void VoteOrWithdraw(const ContractID& cid, const Voting::Proposal::ID& pid, Amou
         if (!pw.Read(cid, pid))
             return;
 
-        fc.m_Aid = pw.m_pVal->m_Params.m_Aid;
+        fc.m_Aid = pw.m_Proposal.m_Params.m_Aid;
     }
 
     Voting::Vote arg;
