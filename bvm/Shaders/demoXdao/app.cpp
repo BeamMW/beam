@@ -107,33 +107,18 @@ ON_METHOD(manager, view)
         Env::DocAddBlob_T("cid", cid1);
     }
 
-    struct Entry {
-        ContractID m_Cid;
-        Height m_Height;
-    };
-
-    Utils::Vector<Entry> vUpgr;
-    {
-        WalkerContracts wlk;
-        for (wlk.Enum(Upgradable::s_SID); wlk.MoveNext(); )
-        {
-            auto& e = vUpgr.emplace_back();
-            _POD_(e.m_Cid) = wlk.m_Key.m_KeyInContract.m_Cid;
-            e.m_Height = wlk.m_Height;
-        }
-    }
-
     Env::DocArray gr("contracts");
 
     PubKey pk;
     Env::DerivePk(pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
 
-    for (uint32_t i = 0; i < vUpgr.m_Count; i++)
+    WalkerContracts wlk;
+    for (wlk.Enum(Upgradable::s_SID); wlk.MoveNext(); )
     {
-        const auto& e = vUpgr.m_p[i];
+        const auto& cid = wlk.m_Key.m_KeyInContract.m_Cid; // alias
 
         Env::Key_T<uint8_t> key;
-        key.m_Prefix.m_Cid = e.m_Cid;
+        key.m_Prefix.m_Cid = cid;
         key.m_KeyInContract = Upgradable::State::s_Key;
 
         Upgradable::State s;
@@ -147,8 +132,8 @@ ON_METHOD(manager, view)
         {
             Env::DocGroup root("");
 
-            Env::DocAddBlob_T("cid", e.m_Cid);
-            Env::DocAddNum("Height", e.m_Height);
+            Env::DocAddBlob_T("cid", cid);
+            Env::DocAddNum("Height", wlk.m_Height);
 
             Env::DocAddNum("owner", (uint32_t) ((_POD_(s.m_Pk) == pk) ? 1 : 0));
             Env::DocAddNum("min_upgrade_delay", s.m_hMinUpgadeDelay);
