@@ -22,6 +22,7 @@ inline void BlockHeader::Full::get_Hash(HashValue& out, const HashValue* pRules)
     get_HashInternal(out, true, pRules);
 }
 
+template <bool bUseEnv>
 inline bool BlockHeader::Full::IsValid(const HashValue* pRules) const
 {
     if (!TestDifficulty())
@@ -29,6 +30,14 @@ inline bool BlockHeader::Full::IsValid(const HashValue* pRules) const
 
     HashValue hv;
     get_HashInternal(hv, false, pRules);
+
+    if constexpr (bUseEnv)
+    {
+        return Env::VerifyBeamHashIII(
+            &hv, sizeof(hv),
+            m_PoW.m_pNonce, sizeof(m_PoW.m_pNonce),
+            m_PoW.m_pIndices, sizeof(m_PoW.m_pIndices));
+    }
 
     return BeamHashIII::Verify(
         &hv, sizeof(hv),

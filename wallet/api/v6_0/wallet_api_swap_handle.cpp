@@ -54,7 +54,7 @@ namespace beam::wallet
     {
         if (!swaps->isCoinClientConnected(swapCoin))
         {
-            const auto message = std::string("No connection with the") + std::to_string(swapCoin) + " wallet";
+            const auto message = std::string("No connection with the ") + std::to_string(swapCoin) + " wallet";
             throw jsonrpc_exception(ApiError::SwapFailToConnect, message);
         }
     }

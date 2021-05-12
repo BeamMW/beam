@@ -27,7 +27,7 @@ bool ProtocolBase::on_new_message(uint64_t fromStream, MsgType type, const void*
     LOG_VERBOSE() << __FUNCTION__ << TRACE(int(type));
     bool ret = callback(_dispatchTable[type].msgHandler, _errorHandler, *_deserializer, fromStream, data, size);
     if (!ret) {
-        LOG_ERROR() << "err " << __FUNCTION__ << TRACE(int(type)) << TRACE(ret);
+        LOG_VERBOSE() << "err " << __FUNCTION__ << TRACE(int(type)) << TRACE(ret);
     }
     return ret;
 }

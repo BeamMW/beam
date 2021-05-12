@@ -29,7 +29,9 @@ namespace Shaders {
 #include "../../bvm/Shaders/pipe/contract.h"
 } // namespace Shaders
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace beam {

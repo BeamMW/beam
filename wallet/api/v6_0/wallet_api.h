@@ -145,6 +145,8 @@ namespace beam::wallet
 
         virtual void OnComplete(proto::FlyClient::Request&) override;
 
+        std::string getTokenType(TokenType type) const;
+
     protected:
         // Do not access these directly, use getters
         IWalletDB::Ptr       _wdb;

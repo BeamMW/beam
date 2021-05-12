@@ -201,6 +201,14 @@ namespace fs = std::filesystem;
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
+#define ENUM_EXCHANGE_RATES_FIELDS29(each, sep, obj) \
+    each(currency,      currency,       INTEGER,            obj) sep \
+    each(unit,          unit,           INTEGER,            obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
+
+#define EXCHANGE_RATES_FIELDS29 ENUM_EXCHANGE_RATES_FIELDS29(LIST, COMMA, )
+
 #define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
     each(cfrom,         from.m_value,   TEXT NOT NULL,      obj) sep \
     each(cto,           to.m_value,     TEXT NOT NULL,      obj) sep \
@@ -208,6 +216,15 @@ namespace fs = std::filesystem;
     each(updateTime,    updateTime,     INTEGER,            obj)
 
 #define EXCHANGE_RATES_FIELDS ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, )
+
+#define ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(each, sep, obj) \
+    each(height,        height,         INTEGER,            obj) sep \
+    each(currency,      currency,       INTEGER,            obj) sep \
+    each(unit,          unit,           INTEGER,            obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
+
+#define EXCHANGE_RATES_HISTORY_FIELDS29 ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
     each(height,        height,         INTEGER,            obj) sep \
@@ -1099,6 +1116,16 @@ namespace beam::wallet
         return m_ID.m_Value;
     }
 
+    Asset::ID Coin::getAssetID() const
+    {
+        return m_ID.m_AssetID;
+    }
+
+    std::string Coin::getType() const
+    {
+        return (const char*)FourCC::Text(m_ID.m_Type);
+    }
+
     std::string Coin::getStatusString() const
     {
         static std::map<Status, std::string> Strings 
@@ -1311,9 +1338,23 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateExchangeRatesTable29(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS29(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void CreateExchangeRatesTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateExchangeRatesHistoryTable29(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1387,7 +1428,8 @@ namespace beam::wallet
             // move old data to temp table
             if (!IsTableCreated(walletDB, (tableName + "_del").c_str()))
             {
-                const std::string req = "ALTER TABLE " + tableName + " RENAME TO " + tableName + "_del;";
+                const std::string req = "ALTER TABLE " + tableName + " RENAME TO " + tableName + "_del;"
+                                        "DROP INDEX IF EXISTS " + tableName + "WalletIDIndex;";
                 int ret = sqlite3_exec(db, req.c_str(), NULL, NULL, NULL);
                 throwIfError(ret, db);
             }
@@ -2183,7 +2225,7 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 18...";
                     walletDB->MigrateCoins();
                     CreateNotificationsTable(walletDB->_db);
-                    CreateExchangeRatesTable(walletDB->_db);
+                    CreateExchangeRatesTable29(walletDB->_db);
                     AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
                     // no break
 
@@ -2221,7 +2263,7 @@ namespace beam::wallet
 
                 case DbVersion25:
                     LOG_INFO() << "Converting DB from format 25...";
-                    CreateExchangeRatesHistoryTable(walletDB->_db);
+                    CreateExchangeRatesHistoryTable29(walletDB->_db);
                     // no break
 
                 case DbVersion26:
@@ -5616,7 +5658,7 @@ namespace beam::wallet
         {
             if (c.m_spentHeight != MaxHeight)
             {
-                if (c.IsAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
                 {
                     c.m_Status = ShieldedCoin::Status::Consumed;
                 }
@@ -6633,6 +6675,31 @@ namespace beam::wallet
         }
     }
 
+    bool ShieldedCoin::isAsset(Asset::ID assetId) const
+    {
+        return isAsset() && (m_CoinID.m_AssetID == assetId);
+    }
+
+    std::string ShieldedCoin::toStringID() const
+    {
+        return std::to_string(m_TxoID);
+    }
+
+    Amount ShieldedCoin::getAmount() const
+    {
+        return m_CoinID.m_Value;
+    }
+
+    Asset::ID ShieldedCoin::getAssetID() const
+    {
+        return m_CoinID.m_AssetID;
+    }
+
+    std::string ShieldedCoin::getType() const
+    {
+        return "shld";
+    }
+
     uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
     {
         assert(N);
@@ -6646,6 +6713,22 @@ namespace beam::wallet
             nIdx = static_cast<uint32_t>(m_TxoID);
 
         return nIdx;
+    }
+
+    std::string ShieldedCoin::getStatusString() const
+    {
+        static std::map<Status, std::string> Strings
+        {
+            {Unavailable,   "unavailable"},
+            {Available,     "available"},
+            {Maturing,      "maturing"},
+            {Outgoing,      "outgoing"},
+            {Incoming,      "incoming"},
+            {Spent,         "spent"},
+            {Consumed,      "consumed"},
+        };
+
+        return Strings[m_Status];
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
@@ -6916,5 +6999,15 @@ namespace beam::wallet
             }
             default: return TokenType::Unknown;
         }
+    }
+
+    uint32_t GetCoinStatus(const Coin& c)
+    {
+        return c.m_status;
+    }
+
+    uint32_t GetCoinStatus(const ShieldedCoin& c)
+    {
+        return c.m_Status;
     }
 }

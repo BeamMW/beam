@@ -20,7 +20,9 @@
 #include "../../core/serialization_adapters.h"
 #include <boost/core/ignore_unused.hpp>
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace beam {

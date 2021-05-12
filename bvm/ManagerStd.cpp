@@ -47,102 +47,196 @@ namespace bvm2 {
 		get_ParentObj().OnUnfreezed();
 	}
 
-	void ManagerStd::RemoteRead::Abort()
+
+	struct ManagerStd::RemoteRead
 	{
-		if (m_pRequest) {
-			m_pRequest->m_pTrg = nullptr;
-			m_pRequest.reset();
-		}
-	}
+		struct Base
+			:public proto::FlyClient::Request::IHandler
+		{
+			ManagerStd* m_pThis;
+			proto::FlyClient::Request::Ptr m_pRequest;
 
-	void ManagerStd::RemoteRead::Post(proto::FlyClient::Request& r)
+			~Base() { Abort(); }
+
+			void Post()
+			{
+				assert(m_pRequest);
+				Wasm::Test(m_pThis->m_pNetwork != nullptr);
+
+				m_pThis->m_Freeze++;
+				m_pThis->m_pNetwork->PostRequest(*m_pRequest, *this);
+			}
+
+			void Abort()
+			{
+				if (m_pRequest) {
+					m_pRequest->m_pTrg = nullptr;
+					m_pRequest.reset();
+				}
+			}
+
+			virtual void OnComplete(proto::FlyClient::Request&)
+			{
+				assert(m_pRequest && m_pRequest->m_pTrg);
+				m_pThis->Unfreeze();
+			}
+		};
+
+		struct Vars
+			:public Base
+			,public IReadVars
+		{
+			size_t m_Consumed;
+			ByteBuffer m_Buf;
+
+			virtual bool MoveNext() override
+			{
+				assert(m_pRequest);
+				auto& r = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pRequest);
+
+				if (r.m_pTrg)
+				{
+					r.m_pTrg = nullptr;
+					m_Consumed = 0;
+					m_Buf = std::move(r.m_Res.m_Result);
+					if (m_Buf.empty())
+						r.m_Res.m_bMore = false;
+				}
+
+				if (m_Consumed == m_Buf.size())
+					return false;
+
+				auto* pBuf = &m_Buf.front();
+
+				Deserializer der;
+				der.reset(pBuf + m_Consumed, m_Buf.size() - m_Consumed);
+
+				der
+					& m_LastKey.n
+					& m_LastVal.n;
+
+				m_Consumed = m_Buf.size() - der.bytes_left();
+
+				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
+				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
+				Wasm::Test(nTotal <= der.bytes_left());
+
+				m_LastKey.p = pBuf + m_Consumed;
+				m_Consumed += m_LastKey.n;
+
+				m_LastVal.p = pBuf + m_Consumed;
+				m_Consumed += m_LastVal.n;
+
+				if ((m_Consumed == m_Buf.size()) && r.m_Res.m_bMore)
+				{
+					r.m_Res.m_bMore = false;
+
+					// ask for more
+					m_LastKey.Export(r.m_Msg.m_KeyMin);
+					r.m_Msg.m_bSkipMin = true;
+
+					Post();
+				}
+
+				return true;
+			}
+		};
+
+
+		struct Logs
+			:public Base
+			,public IReadLogs
+		{
+			size_t m_Consumed;
+			ByteBuffer m_Buf;
+
+			virtual bool MoveNext() override
+			{
+				assert(m_pRequest);
+				auto& r = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pRequest);
+
+				if (r.m_pTrg)
+				{
+					r.m_pTrg = nullptr;
+					m_Consumed = 0;
+					m_Buf = std::move(r.m_Res.m_Result);
+					if (m_Buf.empty())
+						r.m_Res.m_bMore = false;
+				}
+
+				if (m_Consumed == m_Buf.size())
+					return false;
+
+				auto* pBuf = &m_Buf.front();
+
+				Deserializer der;
+				der.reset(pBuf + m_Consumed, m_Buf.size() - m_Consumed);
+
+				der
+					& m_LastPos
+					& m_LastKey.n
+					& m_LastVal.n;
+
+				if (m_LastPos.m_Height)
+				{
+					r.m_Msg.m_PosMin.m_Height += m_LastPos.m_Height;
+					r.m_Msg.m_PosMin.m_Pos = 0;
+				}
+
+				r.m_Msg.m_PosMin.m_Pos += m_LastPos.m_Pos;
+				m_LastPos = r.m_Msg.m_PosMin;
+
+				m_Consumed = m_Buf.size() - der.bytes_left();
+
+				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
+				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
+				Wasm::Test(nTotal <= der.bytes_left());
+
+				m_LastKey.p = pBuf + m_Consumed;
+				m_Consumed += m_LastKey.n;
+
+				m_LastVal.p = pBuf + m_Consumed;
+				m_Consumed += m_LastVal.n;
+
+				if ((m_Consumed == m_Buf.size()) && r.m_Res.m_bMore)
+				{
+					// ask for more
+					r.m_Res.m_bMore = false;
+					r.m_Msg.m_PosMin.m_Pos++;
+
+					Post();
+				}
+
+				return true;
+			}
+		};
+
+	};
+
+
+	void ManagerStd::VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pOut)
 	{
-		Wasm::Test(get_ParentObj().m_pNetwork != nullptr);
+		auto p = std::make_unique<RemoteRead::Vars>();
+		p->m_pThis = this;
 
-		Abort();
-		m_pRequest.reset(&r);
-
-		get_ParentObj().m_Freeze++;
-		get_ParentObj().m_pNetwork->PostRequest(r, *this);
-	}
-
-	void ManagerStd::RemoteRead::OnComplete(proto::FlyClient::Request&)
-	{
-		assert(m_pRequest && m_pRequest->m_pTrg);
-		get_ParentObj().Unfreeze();
-	}
-
-	void ManagerStd::VarsEnum(const Blob& kMin, const Blob& kMax)
-	{
-		boost::intrusive_ptr<RemoteRead::RequestVars> pReq(new RemoteRead::RequestVars);
+		boost::intrusive_ptr<proto::FlyClient::RequestContractVars> pReq(new proto::FlyClient::RequestContractVars);
 		auto& r = *pReq;
 
 		kMin.Export(r.m_Msg.m_KeyMin);
 		kMax.Export(r.m_Msg.m_KeyMax);
 
-		m_RemoteRead.Post(r);
+		p->m_pRequest = std::move(pReq);
+		p->Post();
+
+		pOut = std::move(p);
 	}
 
-	bool ManagerStd::VarsMoveNext(Blob& key, Blob& val)
+	void ManagerStd::LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut)
 	{
-		if (!m_RemoteRead.m_pRequest || (proto::FlyClient::Request::Type::ContractVars != m_RemoteRead.m_pRequest->get_Type()))
-			return false; // enum was not called
-		auto& r = Cast::Up<RemoteRead::RequestVars>(*m_RemoteRead.m_pRequest);
+		auto p = std::make_unique<RemoteRead::Logs>();
+		p->m_pThis = this;
 
-		if (r.m_pTrg)
-		{
-			r.m_pTrg = nullptr;
-			r.m_Consumed = 0;
-			r.m_Buf = std::move(r.m_Res.m_Result);
-			if (r.m_Buf.empty())
-				r.m_Res.m_bMore = false;
-		}
-
-		if (r.m_Consumed == r.m_Buf.size())
-		{
-			m_RemoteRead.Abort();
-			return false;
-		}
-
-		auto* pBuf = &r.m_Buf.front();
-
-		Deserializer der;
-		der.reset(pBuf + r.m_Consumed, r.m_Buf.size() - r.m_Consumed);
-
-		der
-			& key.n
-			& val.n;
-
-		r.m_Consumed = r.m_Buf.size() - der.bytes_left();
-
-		uint32_t nTotal = key.n + val.n;
-		Wasm::Test(nTotal >= key.n); // no overflow
-		Wasm::Test(nTotal <= der.bytes_left());
-
-		key.p = pBuf + r.m_Consumed;
-		r.m_Consumed += key.n;
-
-		val.p = pBuf + r.m_Consumed;
-		r.m_Consumed += val.n;
-
-		if ((r.m_Consumed == r.m_Buf.size()) && r.m_Res.m_bMore)
-		{
-			r.m_Res.m_bMore = false;
-
-			// ask for more
-			key.Export(r.m_Msg.m_KeyMin);
-			r.m_Msg.m_bSkipMin = true;
-
-			m_Freeze++;
-			m_pNetwork->PostRequest(r, m_RemoteRead);
-		}
-
-		return true;
-	}
-
-	void ManagerStd::LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax)
-	{
-		boost::intrusive_ptr<RemoteRead::RequestLogs> pReq(new RemoteRead::RequestLogs);
+		boost::intrusive_ptr<proto::FlyClient::RequestContractLogs> pReq(new proto::FlyClient::RequestContractLogs);
 		auto& r = *pReq;
 
 		kMin.Export(r.m_Msg.m_KeyMin);
@@ -156,73 +250,12 @@ namespace bvm2 {
 		else
 			r.m_Msg.m_PosMax.m_Height = MaxHeight;
 
-		m_RemoteRead.Post(r);
+		p->m_pRequest = std::move(pReq);
+		p->Post();
+
+		pOut = std::move(p);
 	}
 
-	bool ManagerStd::LogsMoveNext(Blob& key, Blob& val, HeightPos& pos)
-	{
-		if (!m_RemoteRead.m_pRequest || (proto::FlyClient::Request::Type::ContractLogs != m_RemoteRead.m_pRequest->get_Type()))
-			return false; // enum was not called
-		auto& r = Cast::Up<RemoteRead::RequestLogs>(*m_RemoteRead.m_pRequest);
-
-		if (r.m_pTrg)
-		{
-			r.m_pTrg = nullptr;
-			r.m_Consumed = 0;
-			r.m_Buf = std::move(r.m_Res.m_Result);
-			if (r.m_Buf.empty())
-				r.m_Res.m_bMore = false;
-		}
-
-		if (r.m_Consumed == r.m_Buf.size())
-		{
-			m_RemoteRead.Abort();
-			return false;
-		}
-
-		auto* pBuf = &r.m_Buf.front();
-
-		Deserializer der;
-		der.reset(pBuf + r.m_Consumed, r.m_Buf.size() - r.m_Consumed);
-
-		der
-			& pos
-			& key.n
-			& val.n;
-
-		if (pos.m_Height)
-		{
-			r.m_Msg.m_PosMin.m_Height += pos.m_Height;
-			r.m_Msg.m_PosMin.m_Pos = 0;
-		}
-
-		r.m_Msg.m_PosMin.m_Pos += pos.m_Pos;
-		pos = r.m_Msg.m_PosMin;
-
-		r.m_Consumed = r.m_Buf.size() - der.bytes_left();
-
-		uint32_t nTotal = key.n + val.n;
-		Wasm::Test(nTotal >= key.n); // no overflow
-		Wasm::Test(nTotal <= der.bytes_left());
-
-		key.p = pBuf + r.m_Consumed;
-		r.m_Consumed += key.n;
-
-		val.p = pBuf + r.m_Consumed;
-		r.m_Consumed += val.n;
-
-		if ((r.m_Consumed == r.m_Buf.size()) && r.m_Res.m_bMore)
-		{
-			// ask for more
-			r.m_Res.m_bMore = false;
-			r.m_Msg.m_PosMin.m_Pos++;
-
-			m_Freeze++;
-			m_pNetwork->PostRequest(r, m_RemoteRead);
-		}
-
-		return true;
-	}
 
 	Height ManagerStd::get_Height()
 	{
@@ -386,6 +419,23 @@ namespace bvm2 {
 
 			v.m_Spend.AddSpend(x.m_Aid, val);
 		}
+	}
+
+	bool ManagerStd::get_SpecialParam(const char* sz, Blob& b)
+	{
+		if (!strcmp(sz, "contract.shader"))
+		{
+			b = m_BodyContract;
+			return true;
+		}
+
+		if (!strcmp(sz, "app.shader"))
+		{
+			b = m_BodyManager; // not really useful for the app shader to get its own bytecode, but ok.
+			return true;
+		}
+
+		return false;
 	}
 
 } // namespace bvm2

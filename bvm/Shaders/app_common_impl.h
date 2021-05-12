@@ -16,7 +16,6 @@
 
 struct WalkerContracts
 {
-
 #pragma pack (push, 1)
 	struct SidCid {
 		ShaderID m_Sid;
@@ -26,8 +25,10 @@ struct WalkerContracts
 
 	typedef Env::Key_T<SidCid> KeySidCid;
 
-	const SidCid* m_pPos;
+	KeySidCid m_Key;
 	Height m_Height;
+
+	Env::VarReaderEx<true> m_Reader;
 
 	void Enum(const ShaderID* pSid)
 	{
@@ -43,7 +44,7 @@ struct WalkerContracts
 		if (!pSid)
 			_POD_(k1.m_KeyInContract.m_Sid).SetObject(0xff);
 
-		Env::VarsEnum_T(k0, k1);
+		m_Reader.Enum_T(k0, k1);
 	}
 
 	void Enum()
@@ -58,14 +59,10 @@ struct WalkerContracts
 
 	bool MoveNext()
 	{
-		const KeySidCid* pKey;
-		const Height* pHeight_be;
-
-		if (!Env::VarsMoveNext_T(pKey, pHeight_be))
+		if (!m_Reader.MoveNext_T(m_Key, m_Height))
 			return false;
 
-		m_pPos = &pKey->m_KeyInContract;
-		m_Height = Utils::FromBE(*pHeight_be);
+		m_Height = Utils::FromBE(m_Height);
 		return true;
 	}
 };
@@ -79,7 +76,7 @@ inline void EnumAndDumpContracts(const ShaderID& sid)
 	{
 		Env::DocGroup root("");
 
-		Env::DocAddBlob_T("cid", wlk.m_pPos->m_Cid);
+		Env::DocAddBlob_T("cid", wlk.m_Key.m_KeyInContract.m_Cid);
 		Env::DocAddNum("Height", wlk.m_Height);
 	}
 }
@@ -100,6 +97,7 @@ struct WalkerFunds
 
 	AssetID m_Aid;
 	ValueFunds m_Val;
+	Env::VarReaderEx<true> m_Reader;
 
 	void Enum(const ContractID& cid, const AssetID* pAid = nullptr)
 	{
@@ -110,7 +108,7 @@ struct WalkerFunds
 		if (pAid)
 		{
 			k0.m_KeyInContract = Utils::FromBE(*pAid);
-			Env::VarsEnum_T(k0, k0);
+			m_Reader.Enum_T(k0, k0);
 		}
 		else
 		{
@@ -120,21 +118,21 @@ struct WalkerFunds
 			k0.m_KeyInContract = 0;
 			k1.m_KeyInContract = static_cast<AssetID>(-1);
 
-			Env::VarsEnum_T(k0, k1);
+			m_Reader.Enum_T(k0, k1);
 		}
 	}
 
 	bool MoveNext()
 	{
-		const KeyFunds* pKey;
-		const ValueFunds* pVal;
+		KeyFunds key;
+		ValueFunds val;
 
-		if (!Env::VarsMoveNext_T(pKey, pVal))
+		if (!m_Reader.MoveNext_T(key, val))
 			return false;
 
-		m_Aid = Utils::FromBE(pKey->m_KeyInContract);
-		m_Val.m_Lo = Utils::FromBE(pVal->m_Lo);
-		m_Val.m_Hi = Utils::FromBE(pVal->m_Hi);
+		m_Aid = Utils::FromBE(key.m_KeyInContract);
+		m_Val.m_Lo = Utils::FromBE(val.m_Lo);
+		m_Val.m_Hi = Utils::FromBE(val.m_Hi);
 
 		return true;
 	}

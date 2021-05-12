@@ -73,6 +73,8 @@ namespace beam::wallet
         bool isAsset(Asset::ID) const;
         std::string toStringID() const;
         Amount getAmount() const;
+        Asset::ID getAssetID() const;
+        std::string getType() const;
 
         typedef CoinID ID; // unique identifier for the coin
         ID m_ID;
@@ -253,13 +255,19 @@ namespace beam::wallet
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
-        bool IsAsset() const {
+        bool isAsset() const {
             return m_CoinID.m_AssetID != 0;
         }
+        bool isAsset(Asset::ID) const;
 
         bool IsMaturityValid() const {
             return m_Status != Status::Unavailable && m_Status != Status::Incoming;
         }
+
+        std::string toStringID() const;
+        Amount getAmount() const;
+        Asset::ID getAssetID() const;
+        std::string getType() const;
 
         Height get_Maturity(Height offset) const {
             return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
@@ -309,12 +317,25 @@ namespace beam::wallet
             // 2: Spend urgently, or the window will close
         };
 
+        std::string getStatusString() const;
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
         static void Sort(std::vector<WithStatus>&);
 
     private:
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
+
+    template<typename T>
+    std::string GetCoinCreateTxID(const T& c)
+    {
+        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+    }
+
+    template<typename T>
+    std::string GetCoinSpentTxID(const T& c)
+    {
+        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+    }
 
     // Notifications for all collection changes
     enum class ChangeAction
@@ -1187,4 +1208,8 @@ namespace beam::wallet
     std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
     TokenType GetTokenType(const std::string& token);
+
+    // used in API 
+    uint32_t GetCoinStatus(const Coin& c);
+    uint32_t GetCoinStatus(const ShieldedCoin& c);
 }  // namespace beam::wallet

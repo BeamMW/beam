@@ -1,4 +1,5 @@
 #pragma once
+#include "../Eth.h"
 
 namespace Dummy
 {
@@ -93,6 +94,40 @@ namespace Dummy
         // signature
         Secp_scalar_data m_e;
         Secp_scalar_data m_pK[s_Ring];
+    };
+
+    struct TestEthash
+    {
+        static const uint32_t s_iMethod = 12;
+
+        uint32_t m_BlockNumber;
+        HashValue m_HeaderHash; // pre-pow
+        uint64_t m_Nonce;
+        uint64_t m_Difficulty;
+    };
+
+    struct TestEthash2
+    {
+        static const uint32_t s_iMethod = 13;
+
+        HashValue m_HeaderHash; // pre-pow
+        uint64_t m_Nonce;
+        uint64_t m_Difficulty;
+
+        // epoch params (dataset size and our root hash), in the future contract must have them all hardcoded.
+        uint32_t m_EpochDatasetSize;
+        Opaque<20> m_EpochRoot;
+
+        // followed by the proof
+    };
+
+    struct TestEthHeader
+    {
+        static const uint32_t s_iMethod = 14;
+
+        Eth::Header m_Header;
+        HashValue m_MixHash;
+        HashValue m_HeaderHash; // retval
     };
 
 #pragma pack (pop)

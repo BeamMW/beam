@@ -83,4 +83,10 @@ namespace beam::wallet
            throw jsonrpc_exception(code, errmsg);
         }
     }
+
+    std::string WalletApi::getTokenType(TokenType type) const
+    {
+        auto it = _ttypesMap.find(type);
+        return it != _ttypesMap.end() ? it->second : "unknown";
+    }
 }

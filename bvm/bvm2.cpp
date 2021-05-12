@@ -22,7 +22,7 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
-#include "ethash/include/ethash/keccak.h"
+#include "../core/keccak.h"
 
 namespace beam {
 namespace bvm2 {
@@ -155,41 +155,37 @@ namespace bvm2 {
 	};
 #pragma pack (pop)
 
-	void Processor::InitBase(Wasm::Word* pStack, uint32_t nStackBytes, uint8_t nFill)
+	void Processor::InitBase(uint32_t nStackBytes)
 	{
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
 		ZeroObject(m_Instruction);
 
-		m_Stack.m_pPtr = pStack;
+		m_vStack.resize((nStackBytes + sizeof(Wasm::Word) - 1) / sizeof(Wasm::Word), 0);
+
+		m_Stack.m_pPtr = m_vStack.empty() ? nullptr : &m_vStack.front();
 		m_Stack.m_BytesMax = nStackBytes;
 		m_Stack.m_BytesCurrent = m_Stack.m_BytesMax;
 		m_Stack.m_Pos = 0;
 		m_Stack.m_PosMin = 0;
 
-		memset(pStack, nFill, nStackBytes);
-
-        decltype(m_vHeap)().swap(m_vHeap);
 		m_Heap.Clear();
+		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
 	}
 
-	void ProcessorContract::InitStack(uint8_t nFill /* = 0 */)
+	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
 	{
-		InitBase(m_pStack, sizeof(m_pStack), nFill);
+		InitBase(Limits::StackSize + nStackBytes);
 	}
 
 	void ProcessorManager::InitMem()
 	{
-		const uint32_t nStackBytes = 0x20000; // 128K
-
-		m_vStack.resize(nStackBytes / sizeof(Wasm::Word));
-		InitBase(&m_vStack.front(), nStackBytes, 0);
+		InitBase(0x20000); // 128K
 
 		ZeroObject(m_AuxAlloc);
-		m_EnumType = EnumType::None;
 		m_NeedComma = false;
 	}
 
@@ -411,15 +407,11 @@ namespace bvm2 {
 
 		// header
 		uint32_t nSizeHdr = sizeof(Header) + sizeof(Wasm::Word) * (nNumMethods - Header::s_MethodsMin);
-		c.m_Result.resize(nSizeHdr + c.m_Data.size());
+		c.m_Result.resize(nSizeHdr);
 		auto* pHdr = reinterpret_cast<Header*>(&c.m_Result.front());
 
 		pHdr->m_Version = ByteOrder::to_le(Header::s_Version);
 		pHdr->m_NumMethods = ByteOrder::to_le(nNumMethods);
-		pHdr->m_hdrData0 = ByteOrder::to_le(c.m_cmplData0);
-
-		if (!c.m_Data.empty())
-			memcpy(&c.m_Result.front() + nSizeHdr, &c.m_Data.front(), c.m_Data.size());
 
 		// the methods themselves are not assigned yet
 
@@ -433,6 +425,20 @@ namespace bvm2 {
 			uint32_t iMethod = it->first;
 			uint32_t iFunc = it->second;
 			pHdr->m_pMethod[iMethod] = ByteOrder::to_le(c.m_Labels.m_Items[iFunc]);
+		}
+
+		// Put data segment at the end
+		if (c.m_Data.empty())
+			pHdr->m_hdrData0 = 0; // irrelevant
+		else
+		{
+			uint32_t nPos = static_cast<uint32_t>(c.m_Result.size());
+
+			Wasm::Word val = c.m_cmplData0 + nSizeHdr - nPos; // overflow is ok
+			pHdr->m_hdrData0 = ByteOrder::to_le(val);
+
+			c.m_Result.resize(nPos + c.m_Data.size());
+			memcpy(&c.m_Result.front() + nPos, &c.m_Data.front(), c.m_Data.size());
 		}
 
 		res = std::move(c.m_Result);
@@ -1523,109 +1529,6 @@ namespace bvm2 {
 			}
 		};
 
-		template <uint32_t nBits_>
-		struct KeccakProcessor
-		{
-			static const uint32_t nBits = nBits_;
-			static const uint32_t nBytes = nBits / 8;
-
-			static const uint32_t nSizeWord = sizeof(uint64_t);
-			static const uint32_t nSizeBlock = (1600 - nBits * 2) / 8;
-			static const uint32_t nWordsBlock = nSizeBlock / nSizeWord;
-
-			KeccakProcessor()
-			{
-				ZeroObject(*this);
-			}
-
-			void Write(const uint8_t* pSrc, uint32_t nSrc)
-			{
-				if (m_LastWordBytes)
-				{
-					auto* pDst = m_pLastWordAsBytes + m_LastWordBytes;
-
-					if (m_LastWordBytes + nSrc < nSizeWord)
-					{
-						memcpy(pDst, pSrc, nSrc);
-						m_LastWordBytes += nSrc;
-						return;
-					}
-
-					uint32_t nPortion = nSizeWord - m_LastWordBytes;
-
-					memcpy(pDst, pSrc, nPortion);
-					pSrc += nPortion;
-					nSrc -= nPortion;
-
-					m_LastWordBytes = 0;
-					AddLastWord();
-				}
-
-				while (true)
-				{
-					if (nSrc < nSizeWord)
-					{
-						memcpy(m_pLastWordAsBytes, pSrc, nSrc);
-						m_LastWordBytes = nSrc;
-						return;
-					}
-
-					memcpy(m_pLastWordAsBytes, pSrc, nSizeWord);
-					pSrc += nSizeWord;
-					nSrc -= nSizeWord;
-
-					AddLastWord();
-				}
-			}
-
-			void Read(uint8_t* pRes)
-			{
-				// pad and transform
-				m_pLastWordAsBytes[m_LastWordBytes++] = 0x01;
-				memset0(m_pLastWordAsBytes + m_LastWordBytes, nSizeWord - m_LastWordBytes);
-
-				AddLastWordRaw();
-
-				m_pState[nWordsBlock - 1] ^= 0x8000000000000000;
-
-				ethash_keccakf1600(m_pState);
-
-				for (uint32_t i = 0; i < (nBytes / nSizeWord); ++i)
-					reinterpret_cast<uint64_t*>(pRes)[i] = ByteOrder::from_le(m_pState[i]);
-			}
-
-		private:
-
-			uint64_t m_pState[25];
-
-			union {
-				uint64_t m_LastWord;
-				uint8_t m_pLastWordAsBytes[nSizeWord];
-			};
-
-			uint32_t m_iWord;
-			uint32_t m_LastWordBytes;
-
-
-			void AddLastWordRaw()
-			{
-				assert(m_iWord < nWordsBlock);
-				m_pState[m_iWord] ^= ByteOrder::to_le(m_LastWord);
-			}
-
-			void AddLastWord()
-			{
-				AddLastWordRaw();
-
-				if (++m_iWord == nWordsBlock)
-				{
-					ethash_keccakf1600(m_pState);
-					m_iWord = 0;
-				}
-			}
-		};
-
-
 		template <uint32_t nBits>
 		struct Keccak
 			:public FixedResSize<nBits / 8>
@@ -1722,7 +1625,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashWrite)
 	{
-		DischargeUnits(Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashWrite + Limits::Cost::HashWritePerByte * size);
 
 		m_DataProcessor.FindStrict(pHash).Write(get_AddrR(p, size), size);
 	}
@@ -1734,7 +1637,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashGetValue)
 	{
-		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashOpPerByte * size);
+		DischargeUnits(Limits::Cost::HashOp + Limits::Cost::HashWritePerByte * size);
 
 		uint8_t* pDst_ = get_AddrW(pDst, size);
 		uint32_t n = m_DataProcessor.FindStrict(pHash).Read(pDst_, size);
@@ -2016,6 +1919,94 @@ namespace bvm2 {
 		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
 	}
 
+//	BVM_METHOD(get_EthMixHash)
+//	{
+//		DischargeUnits(Limits::Cost::EthMixHash);
+//		return OnHost_get_EthMixHash(get_AddrAsW<HashValue>(hv), iEpoch, get_AddrAsR<HashValue512>(hvSeed));
+//	}
+//	BVM_METHOD_HOST(get_EthMixHash)
+//	{
+//		// ban ridiculously high epoch numbers, which may consume too much memory, cause overflows, etc.
+//		// Our current limit is 1000. The memory size of this max epoch is ~147MB.
+//		// This will be enough up to ethereum block 3mln, which is expected to appear on September 2029. (more than 8 years from now).
+//		if (iEpoch > 1000)
+//			return 0;
+//
+//		Blob blob;
+//		ZeroObject(blob);
+//
+//		if (!LoadEthContext(blob, iEpoch))
+//			return 0;
+//
+//#pragma pack (push, 1)
+//
+//		struct Hdr
+//		{
+//			uint32_t m_ItemsLight_LE;
+//			uint32_t m_ItemsFull_LE;
+//		};
+//
+//#pragma pack (pop)
+//
+//		struct Guard {
+//			ethash_epoch_context* m_pVal = nullptr;
+//			~Guard()
+//			{
+//				if (m_pVal)
+//					ethash_destroy_epoch_context(m_pVal);
+//			}
+//		} g;
+//
+//		ethash_epoch_context ctx = { 0 };
+//
+//		if (!blob.n)
+//		{
+//			g.m_pVal = ethash_create_epoch_context(iEpoch);
+//			if (!g.m_pVal)
+//				Wasm::Fail("no mem");
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), g.m_pVal, sizeof(ctx));
+//		}
+//		else
+//		{
+//			Wasm::Test(blob.n >= sizeof(Hdr));
+//			auto pHdr = reinterpret_cast<const Hdr*>(blob.p);
+//
+//			ethash_epoch_context ctxInst2 = ethash_epoch_context{
+//				static_cast<int>(iEpoch),
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsLight_LE)),
+//				reinterpret_cast<const ethash_hash512*>(reinterpret_cast<const uint8_t*>(blob.p) + sizeof(Hdr)),
+//				nullptr,
+//				static_cast<int>(ByteOrder::from_le(pHdr->m_ItemsFull_LE)) };
+//
+//			memcpy(reinterpret_cast<void*>(&ctx), &ctxInst2, sizeof(ctx));
+//		}
+//
+//		uint32_t nSizeBuf = sizeof(Hdr) + ctx.light_cache_num_items * sizeof(HashValue512);
+//		Wasm::Test(!blob.n || (blob.n == nSizeBuf));
+//
+//		ethash_get_MixHash((ethash_hash256*) hv.m_pData, &ctx, (ethash_hash512*) hvSeed.m_pData);
+//
+//		if (!blob.n)
+//		{
+//			static_assert(sizeof(ctx) >= sizeof(Hdr)); // the context is allocated as ctx + cache at once. It's safe to overwrite the preceeding portion by our header
+//			//assert(reinterpret_cast<const uint8_t*>(ctx.light_cache) == reinterpret_cast<const uint8_t*>(g.m_pVal + 1));
+//
+//			Hdr hdr1;
+//			hdr1.m_ItemsFull_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.full_dataset_num_items));
+//			hdr1.m_ItemsLight_LE = ByteOrder::to_le(static_cast<uint32_t>(ctx.light_cache_num_items));
+//
+//			Hdr& hdrRef = reinterpret_cast<Hdr*>(Cast::NotConst(ctx.light_cache))[-1];
+//			TemporarySwap<Hdr> tmpSwap(hdr1, hdrRef);
+//
+//			blob.p = &hdrRef;
+//			blob.n = nSizeBuf;
+//
+//			SaveEthContext(blob, iEpoch);
+//		}
+//
+//		return 1;
+//	}
 
 
 	//BVM_METHOD(LoadVarEx)
@@ -2093,60 +2084,68 @@ namespace bvm2 {
 	//	return LoadAllVars(*pCallback);
 	//}
 
-	BVM_METHOD(VarsEnum)
+	BVM_METHOD(Vars_Enum)
 	{
-		OnHost_VarsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1);
+		return OnHost_Vars_Enum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1);
 	}
-	BVM_METHOD_HOST(VarsEnum)
+	BVM_METHOD_HOST(Vars_Enum)
 	{
-		FreeAuxAllocGuarded();
-		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1));
-		m_EnumType = EnumType::Vars;
-	}
-
-	BVM_METHOD(VarsMoveNext)
-	{
-		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
-		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
-		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
-		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
-
-		const void *pKey, *pVal;
-		uint32_t nKey, nVal;
-
-		if (!OnHost_VarsMoveNext(&pKey, &nKey, &pVal, &nVal))
+		IReadVars::Ptr pObj;
+		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
+		if (!pObj)
 			return 0;
 
-		uint8_t* pDst = ResizeAux(nKey + nVal);
+		ZeroObject(pObj->m_LastKey);
+		ZeroObject(pObj->m_LastVal);
 
-		Wasm::to_wasm(pnKey_, nKey);
-		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
-		memcpy(pDst, pKey, nKey);
+		uint32_t nKey = m_mapReadVars.empty() ? 1 : m_mapReadVars.rbegin()->m_Key + 1;
+		pObj->m_Key = nKey;
+		m_mapReadVars.insert(*pObj.release());
 
-		Wasm::to_wasm(pnVal_, nVal);
-		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
-		memcpy(pDst + nKey, pVal, nVal);
+		return nKey;
+	}
 
+	BVM_METHOD(Vars_MoveNext)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+
+		auto nRet = OnHost_Vars_MoveNext(iSlot, get_AddrW(pKey, nKeySize), nKeySize, get_AddrW(pVal, nValSize), nValSize, nRepeat);
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Vars_MoveNext)
+	{
+		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
+		Wasm::Test(m_mapReadVars.end() != it);
+
+		auto& x = *it;
+		if (!nRepeat && !x.MoveNext())
+			return 0;
+
+		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
+		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
+
+		nKey = x.m_LastKey.n;
+		nVal = x.m_LastVal.n;
 		return 1;
 	}
-	BVM_METHOD_HOST(VarsMoveNext)
+
+	BVM_METHOD(Vars_Close)
 	{
-		Wasm::Test(EnumType::Vars == m_EnumType); // illegal to call this method before VarsEnum
-
-		Blob key, data;
-		if (!VarsMoveNext(key, data))
-		{
-			FreeAuxAllocGuarded();
-			m_EnumType = EnumType::None;
-			return 0;
-		}
-
-		*ppKey = key.p;
-		*pnKey = key.n;
-		*ppVal = data.p;
-		*pnVal = data.n;
-
-		return 1;
+		return OnHost_Vars_Close(iSlot);
+	}
+	BVM_METHOD_HOST(Vars_Close)
+	{
+		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
+		Wasm::Test(m_mapReadVars.end() != it);
+		m_mapReadVars.Delete(*it);
 	}
 
 	const HeightPos* Processor::FromWasmOpt(Wasm::Word pPos, HeightPos& buf)
@@ -2161,65 +2160,71 @@ namespace bvm2 {
 		return &buf;
 	}
 
-	BVM_METHOD(LogsEnum)
+	BVM_METHOD(Logs_Enum)
 	{
 		HeightPos posMin, posMax;
-		OnHost_LogsEnum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1, FromWasmOpt(pPosMin, posMin), FromWasmOpt(pPosMax, posMax));
+		return OnHost_Logs_Enum(get_AddrR(pKey0, nKey0), nKey0, get_AddrR(pKey1, nKey1), nKey1, FromWasmOpt(pPosMin, posMin), FromWasmOpt(pPosMax, posMax));
 	}
-	BVM_METHOD_HOST(LogsEnum)
+	BVM_METHOD_HOST(Logs_Enum)
 	{
-		FreeAuxAllocGuarded();
-		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax);
-		m_EnumType = EnumType::Logs;
-	}
-
-	BVM_METHOD(LogsMoveNext)
-	{
-		auto ppKey_ = get_AddrW(ppKey, sizeof(Wasm::Word));
-		auto pnKey_ = get_AddrW(pnKey, sizeof(Wasm::Word));
-		auto ppVal_ = get_AddrW(ppVal, sizeof(Wasm::Word));
-		auto pnVal_ = get_AddrW(pnVal, sizeof(Wasm::Word));
-		auto& pos_ = get_AddrAsW<HeightPos>(pPos);
-
-		const void *pKey, *pVal;
-		uint32_t nKey, nVal;
-
-		if (!OnHost_LogsMoveNext(&pKey, &nKey, &pVal, &nVal, &pos_))
+		IReadLogs::Ptr pObj;
+		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
+		if (!pObj)
 			return 0;
 
-		uint8_t* pDst = ResizeAux(nKey + nVal);
+		ZeroObject(pObj->m_LastKey);
+		ZeroObject(pObj->m_LastVal);
+		ZeroObject(pObj->m_LastPos);
 
-		Wasm::to_wasm(pnKey_, nKey);
-		Wasm::to_wasm(ppKey_, m_AuxAlloc.m_pPtr);
-		memcpy(pDst, pKey, nKey);
+		uint32_t nKey = m_mapReadLogs.empty() ? 1 : m_mapReadLogs.rbegin()->m_Key + 1;
+		pObj->m_Key = nKey;
+		m_mapReadLogs.insert(*pObj.release());
 
-		Wasm::to_wasm(pnVal_, nVal);
-		Wasm::to_wasm(ppVal_, m_AuxAlloc.m_pPtr + nKey);
-		memcpy(pDst + nKey, pVal, nVal);
+		return nKey;
+	}
 
-		pos_.m_Height = Wasm::to_wasm(pos_.m_Height);
-		pos_.m_Pos = Wasm::to_wasm(pos_.m_Pos);
+	BVM_METHOD(Logs_MoveNext)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
 
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+
+		auto nRet = OnHost_Logs_MoveNext(iSlot, get_AddrW(pKey, nKeySize), nKeySize, get_AddrW(pVal, nValSize), nValSize, get_AddrAsW<HeightPos>(pos), nRepeat);
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Logs_MoveNext)
+	{
+		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
+		Wasm::Test(m_mapReadLogs.end() != it);
+
+		auto& x = *it;
+		if (!nRepeat && !x.MoveNext())
+			return 0;
+
+		memcpy(pKey, x.m_LastKey.p, std::min(nKey, x.m_LastKey.n));
+		memcpy(pVal, x.m_LastVal.p, std::min(nVal, x.m_LastVal.n));
+		pos = x.m_LastPos;
+
+		nKey = x.m_LastKey.n;
+		nVal = x.m_LastVal.n;
 		return 1;
 	}
-	BVM_METHOD_HOST(LogsMoveNext)
+
+	BVM_METHOD(Logs_Close)
 	{
-		Wasm::Test(EnumType::Logs == m_EnumType); // illegal to call this method before LogsEnum
-
-		Blob key, val;
-		if (!LogsMoveNext(key, val, *pPos))
-		{
-			FreeAuxAllocGuarded();
-			m_EnumType = EnumType::None;
-			return 0;
-		}
-
-		*ppKey = key.p;
-		*pnKey = key.n;
-		*ppVal = val.p;
-		*pnVal = val.n;
-
-		return 1;
+		return OnHost_Logs_Close(iSlot);
+	}
+	BVM_METHOD_HOST(Logs_Close)
+	{
+		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
+		Wasm::Test(m_mapReadLogs.end() != it);
+		m_mapReadLogs.Delete(*it);
 	}
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
@@ -2473,12 +2478,16 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(DocGetBlob)
 	{
-		//if (!nLen)
-		//	return 0;
-
 		auto pVal = FindArg(szID);
 		if (!pVal)
-			return 0;
+		{
+			Blob b;
+			if (!get_SpecialParam(szID, b))
+				return 0;
+
+			memcpy(pOut, b.p, std::min(nLen, b.n));
+			return b.n;
+		}
 
 		uint32_t nSrcLen = static_cast<uint32_t>(pVal->size());
 		uint32_t nMax = nLen * 2;
