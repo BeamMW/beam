@@ -819,6 +819,20 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to parse invoke data");
         }
 
+        LOG_INFO() << "onParseProcessInvokeData";
+        for (const auto& entry: realData)
+        {
+            LOG_INFO() << "\tCid: "     << entry.m_Cid;
+            LOG_INFO() << "\tMethod: "  << entry.m_iMethod;
+            LOG_INFO() << "\tCharge: " << entry.m_Charge;
+            LOG_INFO() << "\tComment: " << entry.m_sComment;
+
+            for (const auto& spend: entry.m_Spend)
+            {
+                LOG_INFO() << "\t (aid, amount): (" << spend.first << ", " << spend.second << ")";
+            }
+        }
+
         MethodInfo info;
         info.spendOffline = false;
         info.comment = beam::bvm2::getFullComment(realData);
