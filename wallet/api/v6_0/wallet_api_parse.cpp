@@ -294,16 +294,8 @@ namespace beam::wallet
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        if (!this->_appId.empty())
-        {
-            auto &fs = Transaction::FeeSettings::get(MaxHeight);
-            return getBeamFeeParam(params, name, fs.get_DefaultStd());
-        }
-        else
-        {
-            auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
-            return getBeamFeeParam(params, name, fs.get_DefaultStd());
-        }
+        auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const

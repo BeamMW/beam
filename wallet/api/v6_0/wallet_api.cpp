@@ -89,4 +89,62 @@ namespace beam::wallet
         auto it = _ttypesMap.find(type);
         return it != _ttypesMap.end() ? it->second : "unknown";
     }
+
+    IWalletDB::Ptr WalletApi::getWalletDB() const
+    {
+        if (_wdb == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
+        }
+
+        assertWalletThread();
+        return _wdb;
+    }
+
+    Wallet::Ptr WalletApi::getWallet() const
+    {
+        if (_wallet == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
+        }
+
+        assertWalletThread();
+        return _wallet;
+    }
+
+    ISwapsProvider::Ptr WalletApi::getSwaps() const
+    {
+        if (_swaps == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NoSwapsError);
+        }
+
+        assertWalletThread();
+        return _swaps;
+    }
+
+    IShadersManager::Ptr WalletApi::getContracts() const
+    {
+        if (_contracts == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NotSupported);
+        }
+
+        assertWalletThread();
+        return _contracts;
+    }
+
+    void WalletApi::assertWalletThread() const
+    {
+        if (_wallet == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
+        }
+        _wallet->assertThread();
+    }
+
+    Height WalletApi::get_CurrentHeight() const
+    {
+       return getWallet()->get_CurrentHeight();
+    }
 }

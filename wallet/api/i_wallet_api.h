@@ -128,15 +128,15 @@ namespace beam::wallet
             {}
         };
 
-        // this should be safe to call in any thread.
+        // should be called in API's/InitData's reactor thread
         // returns info on success / calls sendAPIResponse on parse error
         virtual boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) = 0;
 
-        // doesn't throw
         // should be called in API's/InitData's reactor thread
         // calls handler::sendAPIResponse on result (can be async)
         virtual ApiSyncMode executeAPIRequest(const char* data, size_t size) = 0;
 
+        // Safe to call from any thread
         // form correct error json for given code and optional message
         virtual std::string fromError(const std::string& request, ApiError code, const std::string& optionalErrorText) = 0;
 

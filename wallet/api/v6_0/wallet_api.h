@@ -35,46 +35,13 @@ namespace beam::wallet
                   ISwapsProvider::Ptr swaps,
                   IShadersManager::Ptr contracts);
 
-        virtual IWalletDB::Ptr getWalletDB() const
-        {
-            if (_wdb == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
-            }
-            return _wdb;
-        }
+        IWalletDB::Ptr       getWalletDB() const;
+        Wallet::Ptr          getWallet() const;
+        ISwapsProvider::Ptr  getSwaps() const;
+        IShadersManager::Ptr getContracts() const;
+        Height               get_CurrentHeight() const;
 
-        virtual Wallet::Ptr getWallet() const
-        {
-            if (_wallet == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
-            }
-            return _wallet;
-        }
-
-        virtual ISwapsProvider::Ptr getSwaps() const
-        {
-            if (_swaps == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NoSwapsError);
-            }
-            return _swaps;
-        }
-
-        virtual IShadersManager::Ptr getContracts() const
-        {
-            if (_contracts == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotSupported);
-            }
-            return _contracts;
-        }
-
-        virtual Height get_CurrentHeight() const
-        {
-            return getWallet()->get_CurrentHeight();
-        }
+        void assertWalletThread() const;
 
         #define RESPONSE_FUNC(api, name, ...) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);

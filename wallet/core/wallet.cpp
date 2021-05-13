@@ -170,6 +170,8 @@ namespace beam::wallet
         , m_OwnedNodesOnline(0)
     {
         assert(walletDB);
+        _myThread = std::this_thread::get_id();
+
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
         RegisterTransactionType(TxType::Contract, make_unique<ContractTransaction::Creator>(m_WalletDB));
@@ -2259,5 +2261,14 @@ namespace beam::wallet
     bool Wallet::IsMobileNodeEnabled() const
     {
         return !m_OwnedNodesOnline && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
+    }
+
+    void Wallet::assertThread() const
+    {
+        if (_myThread != std::this_thread::get_id())
+        {
+            assert(false);
+            throw std::runtime_error("Wallet accessed from wrong thread");
+        }
     }
 }
