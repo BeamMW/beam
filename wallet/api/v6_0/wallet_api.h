@@ -166,7 +166,7 @@ namespace beam::wallet
                 , _wapi(wapi)
             {}
 
-            virtual void OnComplete(proto::FlyClient::Request&) override;
+            void OnComplete(proto::FlyClient::Request&) override;
 
         private:
             JsonRpcId _id;
