@@ -35,11 +35,11 @@ namespace beam::wallet
                   ISwapsProvider::Ptr swaps,
                   IShadersManager::Ptr contracts);
 
-        IWalletDB::Ptr       getWalletDB() const;
-        Wallet::Ptr          getWallet() const;
-        ISwapsProvider::Ptr  getSwaps() const;
-        IShadersManager::Ptr getContracts() const;
-        Height               get_CurrentHeight() const;
+        virtual IWalletDB::Ptr       getWalletDB() const;
+        virtual Wallet::Ptr          getWallet() const;
+        virtual ISwapsProvider::Ptr  getSwaps() const;
+        virtual IShadersManager::Ptr getContracts() const;
+        virtual Height               get_CurrentHeight() const;
 
         void assertWalletThread() const;
 
