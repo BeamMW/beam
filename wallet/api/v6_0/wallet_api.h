@@ -23,7 +23,6 @@ namespace beam::wallet
 {
     class WalletApi
         : public ApiBase
-        , private proto::FlyClient::Request::IHandler
     {
     public:
         // MUST BE SAFE TO CALL FROM ANY THREAD
@@ -143,8 +142,6 @@ namespace beam::wallet
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
         Amount getBeamFeeParam(const json& params, const std::string& name) const;
 
-        virtual void OnComplete(proto::FlyClient::Request&) override;
-
         std::string getTokenType(TokenType type) const;
 
     protected:
@@ -156,11 +153,25 @@ namespace beam::wallet
         std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
         IShadersManager::Ptr  _contracts;
 
-        struct RequestHeaderMsg : public proto::FlyClient::RequestEnumHdrs
+        struct RequestHeaderMsg
+            : public proto::FlyClient::RequestEnumHdrs
+            , public proto::FlyClient::Request::IHandler
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
+
+            RequestHeaderMsg(const JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
+                : _id(id)
+                , _guard(guard)
+                , _wapi(wapi)
+            {}
+
+            virtual void OnComplete(proto::FlyClient::Request&) override;
+
+        private:
             JsonRpcId _id;
+            std::weak_ptr<bool> _guard;
+            WalletApi& _wapi;
         };
 
         std::map<TokenType, std::string> _ttypesMap;

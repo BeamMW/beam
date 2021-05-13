@@ -950,22 +950,27 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
-
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _contractsGuard, *this));
         request->m_Msg.m_Height = data.blockHeight;
-        request->_id = id;
 
-        getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
+        getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);
     }
 
-    void WalletApi::OnComplete(proto::FlyClient::Request& request)
+    void WalletApi::RequestHeaderMsg::OnComplete(proto::FlyClient::Request& request)
     {
+        auto guard = _guard.lock();
+        if (!guard)
+        {
+            LOG_WARNING() << "API destroyed before fly client response received.";
+            return;
+        }
+
         auto headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
         headerRequest.m_pTrg = nullptr;
 
         if (headerRequest.m_vStates.size() != 1)
         {
-            sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
+            _wapi.sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
             return;
         }
 
@@ -997,6 +1002,6 @@ namespace beam::wallet
         response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
         response.rulesHash = rulesHash;
 
-        doResponse(headerRequest._id, response);
+        _wapi.doResponse(headerRequest._id, response);
     }
 }

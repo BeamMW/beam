@@ -179,8 +179,8 @@ namespace beam::wallet
         {
             struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
             {
-                ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
-                std::string getStatus() const override
+                explicit ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
+                [[nodiscard]] std::string getStatus() const override
                 {
                     if (m_status == TxStatus::Registering)
                         return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
@@ -294,8 +294,16 @@ namespace beam::wallet
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        if (!this->_appId.empty())
+        {
+            auto &fs = Transaction::FeeSettings::get(MaxHeight);
+            return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        }
+        else
+        {
+            auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
+            return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        }
     }
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
