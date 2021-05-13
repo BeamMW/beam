@@ -406,6 +406,7 @@ int main_impl(int argc, char* argv[])
                         {
 						    if (!addr.port())
 						    {
+								LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
 							    addr.port(port);
 						    }
 
