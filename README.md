@@ -55,7 +55,7 @@ Latest documentation is here: https://documentation.beam.mw
 
 Things that make BEAM special include:
 
-* Users have complete control over privacy - a user decides which information will be available and to which parties, having complete control over his personal data in accordance to his will and applicable laws.
+* Users have complete control over privacy - a user decides which information will be available and to which parties, having complete control over their personal data in accordance to their will and applicable laws.
 * Confidentiality without penalty - in BEAM confidential transactions do not cause bloating of the blockchain, avoiding excessive computational overhead or penalty on performance or scalability while completely concealing the transaction value.
 * No trusted setup required
 * Blocks are mined using Equihash Proof-of-Work algorithm.
@@ -73,7 +73,7 @@ years.
 
 ### Roadmap
 
-See Beam Roadmap for 2020 on https://beam.mw
+See Beam Roadmap for 2021 on https://beam.mw
 
 ### Community projects
 
