@@ -34,14 +34,14 @@ namespace beam::wallet
 
         if (!params["coins"].is_array() || params["coins"].empty())
         {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Coins parameter must be an array of strings (coin IDs).");
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Coins parameter must be an array of strings (coin IDs).");
         }
 
         for (const auto& cid : params["coins"])
         {
             if (!cid.is_string())
             {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Coin ID in the coins array must be a string.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Coin ID in the coins array must be a string.");
             }
 
             std::string sCid = cid;
@@ -155,15 +155,17 @@ namespace beam::wallet
         {
             struct ApiTxStatusInterpreter : public TxStatusInterpreter
             {
-                ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-                virtual ~ApiTxStatusInterpreter() {}
-                std::string getStatus() const override
+                explicit ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+                ~ApiTxStatusInterpreter() override = default;
+
+                [[nodiscard]] std::string getStatus() const override
                 {
                     if (m_status == TxStatus::Registering)
                         return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
                     return TxStatusInterpreter::getStatus();
                 }
             };
+
             statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
         }
         else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
