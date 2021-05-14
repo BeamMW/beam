@@ -42,6 +42,8 @@ namespace beam::wallet
         virtual Height               get_CurrentHeight() const;
 
         void assertWalletThread() const;
+        void checkCAEnabled() const;
+        bool getCAEnabled() const;
 
         #define RESPONSE_FUNC(api, name, ...) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);

@@ -71,7 +71,7 @@ namespace beam::wallet
         }
 
         static bool hasParam(const json &params, const std::string &name);
-        static void checkCAEnabled();
+
     protected:
         struct Method
         {

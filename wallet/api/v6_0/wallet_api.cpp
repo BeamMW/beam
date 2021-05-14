@@ -147,4 +147,19 @@ namespace beam::wallet
     {
        return getWallet()->get_CurrentHeight();
     }
+
+    void WalletApi::checkCAEnabled() const
+    {
+        TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
+        if (TxFailureReason::Count != res)
+        {
+            throw jsonrpc_exception(ApiError::NotSupported, GetFailureMessage(res));
+        }
+    }
+
+    bool WalletApi::getCAEnabled() const
+    {
+        TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
+        return res == TxFailureReason::Count;
+    }
 }
