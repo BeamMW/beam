@@ -296,28 +296,6 @@ struct MyPkMaterial
 
 ON_METHOD(my_account, view_staking)
 {
-    struct Entry {
-        Voting::Proposal::ID m_ID;
-        bool m_Finished;
-    };
-    Utils::Vector<Entry> vec;
-
-    ProposalWrap pw;
-    pw.EnumAll(cid);
-    while (true)
-    {
-        if (!pw.MoveNext())
-            break;
-
-        if (pw.IsStarted())
-        {
-            auto& x = vec.emplace_back();
-            _POD_(x.m_ID) = pw.m_Key.m_KeyInContract;
-            _POD_(x.m_Finished) = pw.IsFinished();
-
-        }
-    }
-
     Amount totalLocked = 0, totalAvail = 0;
 
     KeyUser uk;
@@ -326,10 +304,19 @@ ON_METHOD(my_account, view_staking)
     {
         Env::DocArray gr0("pids");
 
-        for (uint32_t i = 0; i < vec.m_Count; i++)
+        ProposalWrap pw;
+        pw.EnumAll(cid);
+        while (true)
         {
-            const auto& e = vec.m_p[i];
-            _POD_(uk.m_KeyInContract.m_ID) = e.m_ID;
+            if (!pw.MoveNext())
+                break;
+
+            if (!pw.IsStarted())
+                continue;
+
+            bool bFinished = pw.IsFinished();
+
+            _POD_(uk.m_KeyInContract.m_ID) = pw.m_Key.m_KeyInContract;
             MyPkMaterial::SetGet(uk);
 
             Amount amount;
@@ -339,9 +326,9 @@ ON_METHOD(my_account, view_staking)
                 Env::DocAddBlob_T("pid", uk.m_KeyInContract.m_ID);
                 Env::DocAddNum("Amount", amount);
 
-                Env::DocAddText("Status", e.m_Finished ? "available" : "locked");
+                Env::DocAddText("Status", bFinished ? "available" : "locked");
 
-                (e.m_Finished ? totalAvail : totalLocked) += amount;
+                (bFinished ? totalAvail : totalLocked) += amount;
             }
         }
     }

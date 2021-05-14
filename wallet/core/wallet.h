@@ -163,6 +163,7 @@ namespace beam::wallet
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         void EnableBodyRequests(bool value);
+        void assertThread() const; // throws if not in wallet thread
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -257,6 +258,7 @@ namespace beam::wallet
         bool IsMobileNodeEnabled() const;
 
     private:
+        std::thread::id _myThread;
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state

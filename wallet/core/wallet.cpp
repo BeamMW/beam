@@ -170,6 +170,8 @@ namespace beam::wallet
         , m_OwnedNodesOnline(0)
     {
         assert(walletDB);
+        _myThread = std::this_thread::get_id();
+
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
         RegisterTransactionType(TxType::Contract, make_unique<ContractTransaction::Creator>(m_WalletDB));
@@ -574,6 +576,8 @@ namespace beam::wallet
     void Wallet::confirm_asset(const Asset::ID assetId)
     {
         MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = {0};
+        pVal->m_SubTxID = 0;
         pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
         pVal->m_Msg.m_AssetID = assetId;
 
@@ -1028,10 +1032,10 @@ namespace beam::wallet
         get_tip(sTip);
 
         std::string msgPrefix;
-        if (req.m_TxID.end() != std::find(req.m_TxID.begin(), req.m_TxID.end(), true)) // any non-zero val in array
+        if (!std::all_of(req.m_TxID.begin(), req.m_TxID.end(), [](const auto& v) { return v == 0; })) // any non-zero val in array
         {
             stringstream ss;
-            ss << req.m_TxID << "[" << req.m_SubTxID << "] ";
+            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
             msgPrefix = ss.str();
         }
 
@@ -1041,7 +1045,7 @@ namespace beam::wallet
             const auto height = m_WalletDB->getCurrentHeight();
 
             m_WalletDB->saveAsset(info, height);
-            LOG_INFO() << msgPrefix << "Received proof for Asset with ID " << info.m_ID;
+            LOG_INFO() << msgPrefix << (msgPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
 
             if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
             {
@@ -1060,7 +1064,7 @@ namespace beam::wallet
 
             if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
-                wasset->LogInfo(req.m_TxID, req.m_SubTxID);
+                wasset->LogInfo(msgPrefix);
             }
 
             if (tx)
@@ -2257,5 +2261,14 @@ namespace beam::wallet
     bool Wallet::IsMobileNodeEnabled() const
     {
         return !m_OwnedNodesOnline && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
+    }
+
+    void Wallet::assertThread() const
+    {
+        if (_myThread != std::this_thread::get_id())
+        {
+            assert(false);
+            throw std::runtime_error("Wallet accessed from wrong thread");
+        }
     }
 }

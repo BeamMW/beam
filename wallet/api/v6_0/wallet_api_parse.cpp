@@ -179,8 +179,8 @@ namespace beam::wallet
         {
             struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
             {
-                ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
-                std::string getStatus() const override
+                explicit ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
+                [[nodiscard]] std::string getStatus() const override
                 {
                     if (m_status == TxStatus::Registering)
                         return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
@@ -288,7 +288,7 @@ namespace beam::wallet
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
         return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
@@ -811,6 +811,20 @@ namespace beam::wallet
         catch(std::runtime_error&)
         {
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to parse invoke data");
+        }
+
+        LOG_INFO() << "onParseProcessInvokeData";
+        for (const auto& entry: realData)
+        {
+            LOG_INFO() << "\tCid: "     << entry.m_Cid;
+            LOG_INFO() << "\tMethod: "  << entry.m_iMethod;
+            LOG_INFO() << "\tCharge: " << entry.m_Charge;
+            LOG_INFO() << "\tComment: " << entry.m_sComment;
+
+            for (const auto& spend: entry.m_Spend)
+            {
+                LOG_INFO() << "\t (aid, amount): (" << spend.first << ", " << spend.second << ")";
+            }
         }
 
         MethodInfo info;

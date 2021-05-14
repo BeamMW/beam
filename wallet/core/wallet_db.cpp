@@ -3762,7 +3762,7 @@ namespace beam::wallet
         }
 
         sw.stop();
-        LOG_DEBUG() << "visitTx  elapsed time: " << sw.milliseconds() << " ms\n";
+        LOG_DEBUG() << "visitTx elapsed time: " << sw.milliseconds() << " ms";
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
