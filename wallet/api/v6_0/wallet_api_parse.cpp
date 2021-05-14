@@ -1273,25 +1273,37 @@ namespace beam::wallet
 
                 jtotals["asset_id"] = totals.AssetId;
 
-                if (totals.Avail <= kMaxAllowedInt) {
-                    jtotals["available"] = AmountBig::get_Lo(totals.Avail);
-                }
-                jtotals["available_str"] = std::to_string(totals.Avail);
+                auto avail = totals.Avail; avail += totals.AvailShielded;
+                jtotals["available_str"] = std::to_string(avail);
 
-                if (totals.Incoming <= kMaxAllowedInt) {
-                    jtotals["receiving"] = AmountBig::get_Lo(totals.Incoming);
+                if (avail <= kMaxAllowedInt)
+                {
+                    jtotals["available"] = AmountBig::get_Lo(avail);
                 }
-                jtotals["receiving_str"] = std::to_string(totals.Incoming);
 
-                if (totals.Outgoing <= kMaxAllowedInt) {
-                    jtotals["sending"] = AmountBig::get_Lo(totals.Outgoing);
-                }
-                jtotals["sending_str"] = std::to_string(totals.Outgoing);
+                auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
+                jtotals["receiving_str"] = std::to_string(incoming);
 
-                if (totals.Maturing <= kMaxAllowedInt) {
-                    jtotals["maturing"] = AmountBig::get_Lo(totals.Maturing);
+                if (totals.Incoming <= kMaxAllowedInt)
+                {
+                    jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
-                jtotals["maturing_str"] = std::to_string(totals.Maturing);
+
+                auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
+                jtotals["sending_str"] = std::to_string(outgoing);
+
+                if (totals.Outgoing <= kMaxAllowedInt)
+                {
+                    jtotals["sending"] = AmountBig::get_Lo(outgoing);
+                }
+
+                auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
+                jtotals["maturing_str"] = std::to_string(maturing);
+
+                if (totals.Maturing <= kMaxAllowedInt)
+                {
+                    jtotals["maturing"] = AmountBig::get_Lo(maturing);
+                }
 
                 msg["result"]["totals"].push_back(jtotals);
             }
