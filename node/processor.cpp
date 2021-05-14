@@ -174,6 +174,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
 	}
 
+	TestDefinitionStrict();
+
 	CommitDB();
 
 	m_Horizon.Normalize();
@@ -287,8 +289,6 @@ void NodeProcessor::InitializeMapped(const char* sz)
 	NodeDB::WalkerContractData wlk;
 	for (m_DB.ContractDataEnum(wlk); wlk.MoveNext(); )
 		m_Mapped.m_Contract.Toggle(wlk.m_Key, wlk.m_Val, true);
-
-	TestDefinitionStrict();
 }
 
 void NodeProcessor::TestDefinitionStrict()
@@ -6517,8 +6517,6 @@ void NodeProcessor::RebuildNonStd()
 	} wlk(*this);
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
-
-	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
