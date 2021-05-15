@@ -66,7 +66,6 @@ namespace beam::wallet {
     {
         [[maybe_unused]] auto message = createMessage(offer);
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
-        //message;
     }
 
     bool DexBoard::onMessage(uint64_t, ByteBuffer&&)
@@ -81,9 +80,10 @@ namespace beam::wallet {
         auto order = parseMessage(msg);
         if (!order)
         {
-            LOG_INFO() << "DexBoard oder message received: " << order->sellCoin << "->" << order->buyCoin << ":" << order->amount;
             return false;
         }
+
+        LOG_INFO() << "DexBoard oder message received: " << order->sellCoin << "->" << order->buyCoin << ":" << order->amount;
 
         auto it = _orders.find(order->orderID);
         _orders[order->orderID] = *order;
@@ -132,6 +132,11 @@ namespace beam::wallet {
             if (!fromByteBuffer(msg.m_content, order))
             {
                 throw std::runtime_error("failed to parse order body");
+            }
+
+            if (order.version < DexOrder::getCurrentVersion())
+            {
+                throw std::runtime_error("Obsolette order version - ignoring");
             }
 
             SignatureHandler sig;

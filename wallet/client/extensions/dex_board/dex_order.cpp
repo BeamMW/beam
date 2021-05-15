@@ -17,15 +17,20 @@ namespace beam::wallet {
 
     namespace
     {
-        const uint32_t kCurrentOfferVer = 2;
+        const uint32_t kCurrentOfferVer = 3;
+    }
+
+    uint32_t DexOrder::getCurrentVersion()
+    {
+        return kCurrentOfferVer;
     }
 
     DexOrder::DexOrder()
-        : version(0)
+        : version(kCurrentOfferVer)
     {
     }
 
-     DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount)
+     DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t exp)
         : version(kCurrentOfferVer)
         , orderID(orderId)
         , sbbsID(sbbsId)
@@ -33,6 +38,7 @@ namespace beam::wallet {
         , sellCoin(sellCoin)
         , buyCoin(buyCoin)
         , amount(amount)
+        , expiration(exp)
         , isMy(true)
      {
      }

@@ -19,16 +19,17 @@ namespace beam::wallet
     class DexOrder
     {
     public:
+        static uint32_t getCurrentVersion();
         DexOrder();
 
         // TODO:DEX anything better than walletID?
-        DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount);
+        DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t exp);
 
         // TODO:DEX check version
         // TODO:DEX check that error is generated if any field is missing
         // TODO:DEX check that error is generated if bad version and nothing more is parsed
         // TODO:DEX any exceptions?
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, buyCoin, amount);
+        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, buyCoin, amount, expiration);
 
         bool operator==(const DexOrder& other) const
         {
@@ -43,6 +44,7 @@ namespace beam::wallet
         Asset::ID  sellCoin;
         Asset::ID  buyCoin;
         Amount     amount;
+        time_t     expiration;
         bool       isMy;
     };
 }
