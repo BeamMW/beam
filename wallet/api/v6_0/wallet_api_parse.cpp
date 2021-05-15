@@ -583,6 +583,64 @@ namespace beam::wallet
         return std::make_pair(txDelete, MethodInfo());
     }
 
+    std::pair<Register, IWalletApi::MethodInfo> WalletApi::onParseRegister(const JsonRpcId& id, const json& params)
+    {
+        return onParseRegisterUnregister<Register>(false, id, params);
+    }
+
+    std::pair<Unregister, IWalletApi::MethodInfo> WalletApi::onParseUnregister(const JsonRpcId& id, const json& params)
+    {
+        return onParseRegisterUnregister<Unregister>(false, id, params);
+    }
+
+    template <typename T>
+    std::pair<T, IWalletApi::MethodInfo> WalletApi::onParseRegisterUnregister(bool doRegister, const JsonRpcId& id, const json& params)
+    {
+        T data;
+        data.asset_meta = getMandatoryParam<std::string>(params, "asset_meta");
+
+        WalletAssetMeta meta(data.asset_meta);
+        // ensure that asset meta has all required parameters at a minimum
+        const auto chkMetadata = [&](bool cond, const std::string& param) -> auto {
+            if (cond) {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, param + " is a required asset descriptor, but was not included.");
+            }
+        };
+
+        chkMetadata(meta.GetSchemaVersion() == 0, "SCH_VER");
+        chkMetadata(meta.GetName().empty(), "N");
+        chkMetadata(meta.GetShortName().empty(), "SN");
+        chkMetadata(meta.GetUnitName().empty(), "UN");
+        chkMetadata(meta.GetNthUnitName().empty(), "NTHUN");
+
+        if (hasParam(params, "coins"))
+        {
+            data.coins = readCoinsParameter(id, params);
+        }
+
+        data.fee = getBeamFeeParam(params, "fee");
+        data.txId = getOptionalParam<ValidTxID>(params, "txId");
+
+        MethodInfo info;
+        info.fee = data.fee;
+
+        if (doRegister)
+        {
+            // is there an actual Beam to Groth value somewhere in wallet API source?
+            // additionally, is this correct behaviour?
+            info.spend[Asset::s_BeamID] = (Amount) 3000 * 100000000;
+        }
+        else
+        {
+            info.receive[Asset::s_BeamID] = (Amount) 3000 * 100000000;
+        }
+
+        return std::make_pair(data, info);
+    }
+
+    template std::pair<Register, IWalletApi::MethodInfo> WalletApi::onParseRegisterUnregister(bool doRegister, const JsonRpcId& id, const json& params);
+    template std::pair<Unregister, IWalletApi::MethodInfo> WalletApi::onParseRegisterUnregister(bool doRegister, const JsonRpcId& id, const json& params);
+
     std::pair<Issue, IWalletApi::MethodInfo> WalletApi::onParseIssue(const JsonRpcId& id, const json& params)
     {
         return onParseIssueConsume<Issue>(true, id, params);
@@ -1060,6 +1118,34 @@ namespace beam::wallet
     }
 
     void WalletApi::getResponse(const JsonRpcId& id, const Send::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"txId", std::to_string(res.txId)}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const Register::Response& res, json& msg)
+    {
+        msg = json
+        {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result",
+                    {
+                        {"txId", std::to_string(res.txId)}
+                    }
+                }
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const Unregister::Response& res, json& msg)
     {
         msg = json
         {

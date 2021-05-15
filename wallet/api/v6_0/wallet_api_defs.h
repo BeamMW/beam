@@ -56,6 +56,8 @@ namespace beam::wallet
     macro(AddrList,              "addr_list",               API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(ValidateAddress,       "validate_address",        API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
     macro(Send,                  "tx_send",                 API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
+    macro(Register,              "tx_asset_register",       API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED /* TODO: I feel like apps shouldn't be allowed to do this, but I also don't know what this refers to in "apps". */)   \
+    macro(Unregister,            "tx_asset_unregister",     API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(Issue,                 "tx_asset_issue",          API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
     macro(Consume,               "tx_asset_consume",        API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
     macro(TxAssetInfo,           "tx_asset_info",           API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
@@ -168,6 +170,32 @@ namespace beam::wallet
         boost::optional<CoinIDList>  coins;
         boost::optional<TxID>        txId;
         boost::optional<Asset::ID>   assetId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Register
+    {
+        Amount fee = 0;
+        std::string asset_meta;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct Unregister
+    {
+        Amount fee = 0;
+        std::string asset_meta;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
 
         struct Response
         {

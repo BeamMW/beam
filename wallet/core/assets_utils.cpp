@@ -218,7 +218,7 @@ namespace beam::wallet {
 
     unsigned WalletAssetMeta::GetSchemaVersion() const
     {
-        const auto it = _values.find(SHORT_NAME_KEY);
+        const auto it = _values.find(VERSION_KEY);
         return it != _values.end() ? std::to_unsigned(it->second, false) : 0;
     }
 
