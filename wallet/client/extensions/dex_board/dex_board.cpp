@@ -136,7 +136,7 @@ namespace beam::wallet {
 
             if (order.version < DexOrder::getCurrentVersion())
             {
-                throw std::runtime_error("Obsolette order version - ignoring");
+                throw std::runtime_error("Obsolete order version - ignoring");
             }
 
             SignatureHandler sig;

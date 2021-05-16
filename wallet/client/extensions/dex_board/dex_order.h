@@ -29,7 +29,7 @@ namespace beam::wallet
         // TODO:DEX check that error is generated if any field is missing
         // TODO:DEX check that error is generated if bad version and nothing more is parsed
         // TODO:DEX any exceptions?
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, buyCoin, amount, expiration);
+        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, buyCoin, amount)//, expiration);
 
         bool operator==(const DexOrder& other) const
         {
