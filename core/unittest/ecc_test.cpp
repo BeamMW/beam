@@ -37,6 +37,8 @@
 #	pragma warning (disable: 4706 4701)
 #endif
 
+#include <ethash/keccak.hpp>
+
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 #include "secp256k1-zkp/src/group_impl.h"
 #include "secp256k1-zkp/src/scalar_impl.h"
@@ -2754,6 +2756,281 @@ void RunBenchmark()
 
 } // namespace ECC
 
+namespace
+{
+	static constexpr size_t hash_size = 32;
+	typedef std::array<uint8_t, hash_size> h256_t;
+	typedef std::array<uint8_t, 2 * hash_size> TrieKeyInNibbles;
+
+	// Validates prefix, compares "sharedNibbles(or key-end if leaf node)" and returns TrieKey offset
+	int RemovePrefix(const beam::ByteBuffer& encodedPath, const TrieKeyInNibbles& key, int keyPos)
+	{
+		// encodedPath to nibbles
+		beam::ByteBuffer nibbles(2 * encodedPath.size());
+		for (uint8_t i = 0; i < encodedPath.size(); i++)
+		{
+			nibbles[i * 2] = encodedPath[i] >> 4;
+			nibbles[i * 2 + 1] = encodedPath[i] & 15;
+		}
+
+		// checking prefix
+		/* 0 - even extension node
+		 * 1 - odd extension node
+		 * 2 - even leaf node
+		 * 3 - odd leaf node
+		*/
+		assert(nibbles[0] <= 3 && "The proof has the incorrect format!");
+
+		// even extension node OR even leaf node -> skips 2 nibbles
+		uint8_t offset = (nibbles[0] == 0 || nibbles[0] == 2) ? 2 : 1;
+
+		// checking that key contains nibbles
+		if (std::equal(nibbles.cbegin() + offset, nibbles.cend(),
+					   key.cbegin() + keyPos, key.cbegin() + keyPos + (nibbles.size() - offset)))
+		{
+			return static_cast<int>(nibbles.size() - offset);
+		}
+
+		assert(false && "encodedPath not found in the key");
+		return -1;
+	}
+
+	TrieKeyInNibbles GetTrieKeyInNibbles(const beam::ByteBuffer& key)
+	{
+		// get keccak256
+		auto hash = ethash::keccak256(key.data(), key.size());
+
+		// to nibbles
+		TrieKeyInNibbles nibbles{};
+		for (uint8_t i = 0; i < sizeof(hash.bytes); i++)
+		{
+			nibbles[i * 2] = hash.bytes[i] >> 4;
+			nibbles[i * 2 + 1] = hash.bytes[i] & 15;
+		}
+		return nibbles;
+	}
+
+	// extract item length and set "position" to the begin of the item data
+	int RLPDecodeLength(const beam::ByteBuffer& input, int& position)
+	{
+		constexpr uint8_t kOffsetList = 0xc0;
+		constexpr uint8_t kOffsetString = 0x80;
+
+		uint32_t offset = kOffsetList;
+		if (input[position] < kOffsetList)
+		{
+			if (input[position] < 0x80)
+			{
+				return 1;
+			}
+			offset = kOffsetString;
+		}
+
+		uint32_t length = 0;
+		if (input[position] <= offset + 55)
+		{
+			length = input[position++] - offset;
+		}
+		else
+		{
+			int now = input[position++] - offset - 55;
+			for (int i = 0; i < now; i++)
+			{
+				length = length * 256 + input[position++];
+			}
+		}
+		return length;
+	}
+
+	std::vector<beam::ByteBuffer> RLPDecodeList(const beam::ByteBuffer& input)
+	{
+		int index = 0;
+		int length = RLPDecodeLength(input, index);
+		int end = length + index;
+		std::vector<beam::ByteBuffer> result;
+
+		while (index < end)
+		{
+			// get item length
+			int itemLength = RLPDecodeLength(input, index);
+			// copy item
+			result.push_back({input.cbegin() + index, input.cbegin() + index + itemLength });
+
+			index += itemLength;
+		}
+		return result;
+	}
+
+	beam::ByteBuffer PadStorageKey(const beam::ByteBuffer& key)
+	{
+		beam::ByteBuffer result(32);
+		std::copy(key.cbegin(), key.cend(), result.end() - key.size());
+		return result;
+	}
+
+	std::pair<beam::ByteBuffer, bool> VerifyEthProof(const beam::ByteBuffer& key, const std::vector<beam::ByteBuffer>& proof, const beam::ByteBuffer& rootHash)
+	{
+		assert(rootHash.size() == 32);
+		beam::ByteBuffer newExpectedRoot = rootHash;
+		uint8_t keyPos = 0;
+		TrieKeyInNibbles trieKey = GetTrieKeyInNibbles(key);
+
+		for (int i = 0; i < proof.size(); i++)
+		{
+			// TODO: is always a hash? check some samples with currentNode.size() < 32 bytes
+			std::vector<beam::ByteBuffer> currentNode = RLPDecodeList(proof[i]);
+			auto nodeHash = ethash::keccak256(proof[i].data(), proof[i].size());
+
+			if (!std::equal(std::begin(newExpectedRoot), std::end(newExpectedRoot), std::begin(nodeHash.bytes)))
+			{
+				assert(false && "newExpectedRoot != keccak(rlp.encodeList(currentNode))");
+				return std::make_pair(beam::ByteBuffer(), false);
+			}
+
+			if (keyPos > trieKey.size())
+			{
+				assert(false && "keyPos > trieKey.size()");
+				return std::make_pair(beam::ByteBuffer(), false);;
+			}
+			switch (currentNode.size())
+			{
+				// branch node
+			case 17:
+			{
+				if (keyPos == trieKey.size())
+				{
+					if (i == proof.size() - 1)
+						// value stored in the branch
+						return std::make_pair(currentNode.back(), true);
+					else
+						assert(false && "i != proof.size() - 1");
+
+					return std::make_pair(beam::ByteBuffer(), false);
+				}
+				newExpectedRoot = currentNode[trieKey[keyPos]];
+				keyPos += 1;
+				break;
+			}
+			// leaf or extension node
+			case 2:
+			{
+				int offset = RemovePrefix(currentNode[0], trieKey, keyPos);
+
+				if (offset == -1)
+					return std::make_pair(beam::ByteBuffer(), false);
+
+				keyPos += static_cast<uint8_t>(offset);
+				if (keyPos == trieKey.size())
+				{
+					// leaf node
+					if (i == proof.size() - 1)
+					{
+						return std::make_pair(currentNode[1], true);
+					}
+					return std::make_pair(beam::ByteBuffer(), false);
+				}
+				else
+				{
+					// extension node
+					newExpectedRoot = currentNode[1];
+				}
+				break;
+			}
+			default:
+			{
+				assert(false && "Unexpected node type, all nodes must be length 17 or 2");
+				return std::make_pair(beam::ByteBuffer(), false);
+			}
+			}
+		}
+		assert(false && "Length of Proof is not enough");
+		return std::make_pair(beam::ByteBuffer(), false);
+	}
+} // namespace
+
+void TestEthProof()
+{
+	std::cout << "TestEthProof: " << std::endl;
+	{
+		// storage proof
+		beam::ByteBuffer key = PadStorageKey(beam::from_hex(""));
+
+		std::vector<beam::ByteBuffer> proof;
+		proof.push_back(beam::from_hex("f8518080a036bb5f2fd6f99b186600638644e2f0396989955e201672f7e81e8c8f466ed5b98080808080808080808080a0f70bd5b82fa5222804070e8400da42b4ae39eb527a42f19106acf68ea58a4eb38080"));
+		proof.push_back(beam::from_hex("e5a0390decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563838204d2"));
+
+		beam::ByteBuffer rootHash = beam::from_hex("c14953a64f69632619636fbdf327e883436b9fd1b1025220e50fb70ab7d2e2a8");
+		auto result = VerifyEthProof(key, proof, rootHash);
+		std::cout << "result1: " << result.second << " data: " << beam::to_hex(result.first.data(), result.first.size()) << std::endl;
+		auto expected = beam::from_hex("8204d2");
+		verify_test(expected == result.first);
+	}
+	{
+		// storage proof
+		beam::ByteBuffer key = PadStorageKey(beam::from_hex("d471a47ea0f50e55ea9fc248daa217279ed7ea3bb54c9c503788b85e674a93d1"));
+
+		std::vector<beam::ByteBuffer> proof;
+		proof.push_back(beam::from_hex("f8518080a036bb5f2fd6f99b186600638644e2f0396989955e201672f7e81e8c8f466ed5b98080808080808080808080a0f70bd5b82fa5222804070e8400da42b4ae39eb527a42f19106acf68ea58a4eb38080"));
+		proof.push_back(beam::from_hex("e5a032bb43bc21210266ddc05034de2daca42e3506a91e276b749025c15863ae53858382162e"));
+
+		beam::ByteBuffer rootHash = beam::from_hex("c14953a64f69632619636fbdf327e883436b9fd1b1025220e50fb70ab7d2e2a8");
+		auto result = VerifyEthProof(key, proof, rootHash);
+		std::cout << "result2: " << result.second << " data: " << beam::to_hex(result.first.data(), result.first.size()) << std::endl;
+		auto expected = beam::from_hex("82162e");
+		verify_test(expected == result.first);
+	}
+
+	{
+		// storage proof, block 12343176, eth_getProof: ["0xdAC17F958D2ee523a2206206994597C13D831ec7",["","1"]
+		beam::ByteBuffer key = PadStorageKey(beam::from_hex("01"));
+
+		std::vector<beam::ByteBuffer> proof;
+		proof.push_back(beam::from_hex("f90211a07a2ce39a11358e8a7f8da45b80d08afa60097a1deedb5992d39e2d4d769da8aaa03ab41e236ce16bd6dc15eb163d3aea699c5e359c2ef2c1cf5631214cad693be0a00d12ad9adcf36a3d3bd21e1a02ccf34aebb5b77dacbb4b4761cfa70db4f04c1ea0e3f63e97e6c62f6280e09b010bc3fdc8eef3c683e3c8cb8d38b7b60d9fed52a2a09e39e31a51e30ab13f5d4bbce7b9026edf41b4bc6cd38cf1a7a2b229b95dcf27a0400df84090cd315346809102419e002b647057836a311e98e7d59712f68f878ba0370e9b56601dda64ffe83193faabeeda91d8b99c4d9b35c862b6dbddd48a8835a055224420d68561714b632a9eba019afb29556b1f68d3165863670e98fb222bada05a004836b53f2bd41a0ac545fc8c7d33532f77e0b8677512d1065ea527105a69a08acd7743fb04fb6b9380fdb4787935da854a39af79bb5ae732472cda74c52899a07e692859c910664aaeec226d687f89c29a61748ecd626b146dbf37232b6f919fa0a4578e1e5f0db4cffc27a375ca543895037dca18e7de3ba4d30a9a3105146f73a0df35ebfadd932a8ac5cf17a1208a48ccfb9662f5506d918bb69cb794c9669675a088399bd0ca90dbe0fc41b460cbd9e7e5f3e394cafd0961fefa54ba4c825121dea0b875465890ebfcb9b429d58ea6031d3d1ecd3873939a7a850da43d571ac165ada058a29ede92418a9ea6ac33b1ca58c46b8822bfed1dcab8d676593e774cbd5a9780"));
+		proof.push_back(beam::from_hex("f90211a0c93f7eee3b23466a9e574f047b3202beadef419e7b5ae5c2d2c8670c21f4d36ca077f099b6af9d7e9f96be0f965591a0ebf8304c31977eaaeda4f8fb3fff4367b2a06567f3d9d2dc9bbdbfeb247c506136660d5fef2a81c5c0c8f3d342e382e03ae5a0c3b2b2f552a2669e5d50c31242bd95c5f50c070cb9a47c9d3a0cce1e64b42e1fa0b9575ba0abf30b81180f64f3a8146fb664eac8bd996fa18975df295830d8a302a0e332e722e52a4e83bd7017636e9347b39850bd0019be467e802046221c4d4440a06d6fa77b796c1ba876a437256820180fc63cd16b82e7aae2abdc2b665d912086a0589c5aec6dd08717b07a324b9cc93011ba7bab0bcc629ad87953a1eee8b75154a074d54cd625b7622d9ee6f8fde565679dbf594e7da27d61d049f6548cf8506a79a0178c53711818072fcd5fe03e537b95f778b0521ad03f35400987690aeec8eaf1a024d312acc5938625223d385c87d25ea0ba2204ff03e32bfa2f44913d4e3cb05da0c0e71a34335c9161137656ef3758908aa2c00a6cae2acc3f1476df7c38ffe003a00b5eb8c2b6f831657a490e6bd65c1c620f60bf2ff557d6b4f1670e2417d7cd0ea0d9ccd4922ec03e0b25923aee5ccaf10d40141948c08ee0bc41c720ad921e58a0a0d2b85b7d1dd59ed34f84fcb2820a169bbaf6d567d973e3976d010f201dc2aca2a0aea08ff453c5e2391eca9f7f421e3f6dc1bde9ca2e6a6647469f6012bf7fa61980"));
+		proof.push_back(beam::from_hex("f90211a0cf7e578c80b1b042acca94a884a1e120ad1f4a3783e4b6adff90577483e996baa0c1422e28b753610c2006cc9072631727620bb62c4167dc396b14c154cf968319a07f425517a674b47de186f9ee2359fca2271b95b4cbca13172d7d2cc07636d748a0c765affa494db1f9d764f486a017e9394b3e4949e4fa1b4e7a6e1f2fa4caa721a006b32ffa240ea616ec8e8cb7b3e506911dc6ddbf0e6876a8df305addac90d1dfa05214249b5491de4499d74952b97608687105a66213163b649a752702daee5636a0c62156a939b2e029b99948123bce8ac45bc896c438f1e01bf16fae303d532607a02302e2613f97766e189fcc6ebfc3dcaa0bd5dc95b3ebab8a79b5cd7e10e16fdea00fff19f604e24da2537fb6248dc62db56911aa7dc955bcd06399a4eabd002801a0edec90d330c4f12dd9f87fe6713e7985486d951242702340f70f0bc2ecaeafc2a069f09fa0f261b1906d8d1b4f5e5b5ce233229de1a2a56dab3255b08fa894915ca05d0d06e9ee70629031d05a4ed7d4af465017beaeb851c7170f465f5bbda3ac5ea0f817703d3fcb3ca260cf06e3b2d4a1407205acc2779213f31861198f7d6b1246a072f17d6d0c7a41a65d55520d43560eee1dea4e104c86eadd8e72e2f742c886b0a0978f46ab770df6c5c5e357c291b0d2c1cd7c26cf8bb45ab944679e34f8ccff02a0a6ec6713c9ca0171c812e6d3ef14fc97dfeff29c153282822f9b0ac71abfe74380"));
+		proof.push_back(beam::from_hex("f90211a0dbdd876c2186685b95d07cf3bdb44d69706b388cf8ca6a5f4682317c3670ef08a0d01ec1cbfadbe1bbf99160590abd75032dd29f33d76dcde27bdf0a34f6d8914ba00a6451d43317c31ea4d69dccc9175ad7eeffb4a27b7c9b72a5a8b73b6580fcd3a005ee975db94e4dbda76df33f4d50ac80511233b3e9326d4a4ace49b8d9c1df55a00c6eaa0b03bdb1db1286a43aea5f1eeb2ea154d7354d450da37362bd5a291ceaa0c02b3e9310d3e4630a0443af8d937331e4be5eec9dd40735786a74c07cc871a5a0da0f060f83c0a69e47e56d6e5884b79ac72e9ed191a54cd2e0b314f498619082a059a04c3558231a20637a57c82032395ab9a3fbac32c184e1570bc33125b7dff5a012f675b236e15050ef7b2bf235865fb21724ba1b1411b55d7b3ee0450beb439ca08a09660dd277b627d21cd54bb8cdc697841ac998b6665c5bf9b26e3033435c91a0d927193d2da1e27e49706fb381a2ec080ea394d3eee045b9fdbd40f2889b40f2a09979204db7a328a9dd00beb6b958a827a344a3a8d29f863cb39395099b4b84eea080bb8a6a42f1563526ca45c649c5f95bf483dd22f9020eea2e44a6932626f19ea077f6a5b1beab01720e3ba734f766348acbaa16d01fa123266391965a96b4656ba055a8cc551b3d67d0eacc2da84f7826a4235f084732bd069ebe65df230bd85e65a0417d94944dd69f2288702e398e3cb51f7ede202a128b1152e23a8040b7d8b97080"));
+		proof.push_back(beam::from_hex("f90211a0e30fc8d408cedc94aebf46c75bf4be02c532c99efd6d1e33f1a85fcffc615a57a04b8ec869cc5a906ccf5084d6834b97885a49fb96bdba4fc3c46c345b74dc53e2a02ac394ea10a9ba607c6e407678d1b5c159dc4cedde82e6b30b7b5372b05f723ea0253d251cd481101ed14f3a64021aa9b824e24dde6be7413fd916be5b67c51f84a0055ab49d90591e63c5ef73fa6b96df471ab7fe7463d1a27d5fdffea7270c979fa0a595ba43e3b8fe530476225d2792d40c0ce6af97065ac6051919bb1bb0ddf283a09a4ad4fcb177fa5849f1a69d21003262d1cae41d01964d394b0a7d27181c165ba0b503ee795ae25ed74d32f18f978d5986d37f41dc420c7d1dc533dc46b709005ca06f785cfbca37c8a476078f5e85ffe2a4160866e1df062a41af9333b09e743a70a021308e6d3171ed853115e23499d2ca02dbb26e57efbd1a7067a8f370f5da250aa0a056f3262f0512c7681a43e8c09e3dd3a103e9d041189558bf7f8a5cba687b27a097a64b6e7f3badecc5c0f66205afec16f7a86896c58450a0274d5e0c2993bc9ca00d13f9ad2cdc27a8d0cd5b5739a7578e9525d2cf939c1c227e9ad3ed69f876e6a098ec78a01fc6aae494a4bff7e3e0be24ded144c0fe6fb2545237fa08819310b8a06e5b942add7296d2158cbf4d2030f26b94139c93f82021f61814368eb32c92b6a0fd739c72b5372ca7fa3f81d41ce82a891c850a55d3746a8859225704cf6bc08a80"));
+		proof.push_back(beam::from_hex("f8918080808080808080a0cd1443e0ef5eb5e12861ba3447a6084feb9140ce4c46f8385c1c0d9ebcef1c7580a060d604788c3325154194e53a7bd702e32df3fc1277d1d4c17ea6d009ed36a84d80a0415474d1e98945423d3c3c7603c7bef9d367f9bef3f99265d0b0c1c5f24da732a0a18cf4a77a1fad0aef92205ab3c909461cb3ebd8a4a82641591bf17e260c7c4d808080"));
+		proof.push_back(beam::from_hex("f8518080808080a07a11f43bae392095e072aa90db0667436923071d22b76d40a8a082bf496737c280a0e2c4cae024ed30d373d8ccbf4fd6377f9213089e1e4d7a4f658fa533f3075455808080808080808080"));
+		proof.push_back(beam::from_hex("e79d327612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6888758851a8df731ef"));
+
+		beam::ByteBuffer rootHash = beam::from_hex("1394917cc2e15bbbd6e21b511898e8bb361dab9e85602a3d5e1ad7470cda41f7");
+		auto result = VerifyEthProof(key, proof, rootHash);
+		std::cout << "result3: " << result.second << " data: " << beam::to_hex(result.first.data(), result.first.size()) << std::endl;
+		auto expected = beam::from_hex("8758851a8df731ef");
+		verify_test(expected == result.first);
+	}
+
+	{
+		// account proof, block 12343176, eth_getProof: ["0xdAC17F958D2ee523a2206206994597C13D831ec7",["","1"]
+		// "address": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+		// "balance": "0x1"
+		// "codeHash": "0xb44fb4e949d0f78f87f79ee46428f23a2a5713ce6fc6e0beb3dda78c2ac1ea55"
+		// "nonce": "0x1"
+		// "storageHash": "0x1394917cc2e15bbbd6e21b511898e8bb361dab9e85602a3d5e1ad7470cda41f7"
+
+		// block "stateRoot": "0x0b5edae32250cf7177f3aba0fd5b77aab7675cef51fec3a238b4f52f2ed2f1bf"
+
+		beam::ByteBuffer key = beam::from_hex("dac17f958d2ee523a2206206994597c13d831ec7");
+		std::vector<beam::ByteBuffer> proof;
+		proof.push_back(beam::from_hex("f90211a088ce75369e79ae0742a76db0334fe625610703fcbaa56c0cd53da0cff9532bf1a0a81dea17b8fbf0db793adeaceca4bd19206520914316b7beb9a1d6174f7a0c19a0ca1d27fa9858c34dfb41937739792104e5c62d8cae1b7a782ac2c450e1551e27a0aa713b118a2e454605a2ca9efb5b86361d38c3e1e3b3f2245a38e2ceb9989d54a0383a7d60ac668094625e342abe9e5caba41c39201bef37c8ae06d88aa60cd99da02196f15b443a0608a212c83a98236be84caea2aea93fd1b012eb069671d1a3faa0caf45819accb5f43afc4f8d89b89be46f926d75f572248a5d04f8366abad33e1a090d0ac1885259ddc8223de0cad30761a6097362a09271bfc985c1bb3d26b532fa07ba28f2eec260a77063869438b2ce75360fc7e5c62c661b15af18d6b0979ea0ba06e608a8f8e669533de183aae14e0b071c70b2f6757f5760875d9be484db7e4bba01b2a5692be2a2f588b6c90f916f67a677faf1ea80d288bdda62c8ecb9f6f22f8a0ffd2cfa18c3ea9bcc7a8f4655224b39a4187907e778629d09c023b52877e5e77a0cc64a70aec56ebd4a0da2b31b80751c4f0690336725a4fccabbb59977e4d4d23a0ff99a0f2a42cc9f5002e431ec1f6f9f6bd94f03e0323f55636eb1724047fd20da0a870351bd7f385e1e397887ba255f505146a57b86b09a6dca6c1cf886789f669a066c58358e40f3c19492e5badda1f8ec4e9c05d9647b48358919d1b7a9188515a80"));
+		proof.push_back(beam::from_hex("f90211a01fe18caf16c26982f463355c52745ae93c45958393b73f04956ed7113ac06445a0714ae2be0e81ec033bbba2f8f518f4de0c48c171185231c0cf4c59724fa55d70a00f69603b0940d4b5e4b81d8201109facc7bebe16ecb421ac0129c8d61fde0220a07ef8b68efa236f696c881704a20075efcff31a2025a8b7b7f881ce6e096a1396a008bb6a26954478066bbddc1a22ab41f081da8d3de194eb499ee8598a829fbbfda08a74cd7dd8c92fb50def3708830b2aaba253c61607a81cb24a25a1918b416385a06a030ceeb62c104c469d0149d0389604313da29716d1d5b614f65d4ab9c0d080a00ed101210a39150b40e4320f0ee68f8400843d82d45c40d6c84f3fc9046532fba0392c1806055a499e9f2b85914e4e1a9e41d89b282b828baf03e9582a12fb4e4ba0342922c5404bf6b9d533da2e00e22c907e084c9eb6206713e9f711f9661beb1ca071fe40069c4d99e9fc74ec33da77d48be78fca9cf020d5f483f94b1125de5720a09e0405e49649a4ff22956b67b0305cd65d1977a66b3dad59a8b91c9f37f3351fa0dfaece107c01bd5f9824078409fbe2db68c8b5151e4518f82921236ab7ba43c1a0f91c9955ba311fa46b5e010e45cf3345fbfb99ac9fc7005027042f7faa701891a0518e05e535e96022fad7f7135b3a170be52d048bf5828a42caf0ac2bd1e0b34aa0fce7f2880019af805738cc2ee63160992161eba558707768f282161c2186e70580"));
+		proof.push_back(beam::from_hex("f90211a06015a51733ab0614892487f0c4def00a1a0ad6df22cd3c2af6b1a38c9add6581a00cba6dfc381385abdc9877a0824c53589338e3ad8cc7002a1d34c867d1d22603a01a97f4f01eb890b00e0066c17791a3deae99a31bdb635f5e79338e75620783a2a078e98c304bafe75caaf2e81eba553437c7f90c2b2b7d61e449fd2fa0eeb43cdda08d869b3ec155b51504c10d43eef2a7e60980ee3c17c6774c37ad6fcc9b186923a03fa4ffcf0ff209cfb69226f111be9a4d925de57be8618bc6e25af2956be7bcd2a073115efacb5c60a5d8b3be4aaeffa9a202119bcce0c907bccbee3a7d511ddf29a076fd7c745fab93d793ead073753f4b49a3fbdc7030407ade4cf7d66b9a60a0b9a01c02ade489f4205b33924a16978ea7b2f65fc45884e283dd9dcce268a3523e6da0e3eb7d9429459e98bb405ebf66ca0f8cc9ad9e4d38ee91c23860b85419cd9d5aa01d2cd5aaab180d330edf6e2a434fc1cd74c182723229678ac57ef16ec9c5bdcfa0da09c9dec7ef0fbcd6ed8500fc7ddf250783871803d5e9a0f17e436f1f3c4ebaa02213ff0fc544a913cfcdbf5b5d5dae92a6d6beed34dc8f91d9bb9c8f5066e221a031446451ae6ea69af0474a5cf21aadc27822736cf76ae02885c4c2e2135a267ea0c18d6df662d43e0e1955644e0eaf53d95d7d824cd21d65c15d83f6196b9ac20da0e73b0a7cff02fb0f2cf93918675e0566f03532c990bb12575c1eeeee08f36d7f80"));
+		proof.push_back(beam::from_hex("f90211a0c6dfd621fa04f87ef16b8e15d56eea82d8b2a58beb6d52f6c7feaf54182587d6a0b7b01212574b3438bb4088f6325e7548b3dfe6dd20cd28b7b2aa39d2f60af62fa0bb08e4268594cad73aebac02249a6613a3d292907436afec4671f6503311d62da092da28b7cc4bf871a1005b735f233a00c94aba69b85ccc1fc33fb19eea3587cda00783e4a1e33e059a6a9323ce9c14e54f4b99994c8307c7379aee31feea511202a053bb7b76ce8d7b105f161719f19775ae40d204db9798b8e2dd902ce0b53d53aca0d879a4b374072b1ac41d540f3075fc466888354c007d339a9ee87bc5d143f787a03cfc10d6ae750b4e75e186cfb5b7b7f68a9f7d95861f876ad0380c8ad60e1b09a09a74aa641184c10c1d50f58cfc6dabb429b9016c489cf77a0ba5fdb9f6f9f5bba096a2edad15cd89c19e3b14bb1dcff39766000e26e7295378f4ca1559d0ae5393a0fe12a4c5f5eb6fbdf32265c3de852a71c404b38c4e524af541ac7d8da9ae9559a03636b69e82dbfd9e490a194470505148a1820b4cc38bf2703e970aac227a3b21a075822ac5d37176d75b0c962d9bef38ae4f9a38fbf7e88b151b3bb6586e779f5aa0b874030586bb2afeda5f8a190c6e618a3ad7576dc5633321dd645af9a355b613a0da6ab4c058711b78aaf707ce33c8565187f5a288c7cebc6b0e6bddcfd34dfab8a0fe88683e4c9f0398c027b30d700f3a50775e1eba44f175d87e2241518214889380"));
+		proof.push_back(beam::from_hex("f90211a0a4873537bd9afa0deed42da8b3aa00ef8da55fb213ede33f7d02065dba5cb7b3a01d152cb14da2ab2c402a85a854d70eb9383c79cc93d8d8d677026a02bfd0a279a068d2153407ec1d3a0136f3b277f9ec8c0362e89fc17261859ef91973dae5db46a0fc831d9e2c4432d9301811fe7fd6c6f5efec0cc285dbed6678caed68cd943d0fa0cab3890b3dc986c6838a1f0ac0087596bbd95535d1de54cf65de0aecf151ae77a000733891fce719629b1849de130681e5ebd6e213f0cd86e66c1642d04f1da670a0de8bc3c6c7fdb9c94843450c8ba69c652d24d6bb3ba8343cc5f3c2f856635f45a066fdbc394540455c4f11584c08787d1524d42f11572b119ba672e123954601aea02fb3697ecff1b72cc691e0fc1238a060d4eb6fd399bae56a83fd0248dc3f5031a05b4b47a212d4a48f3bc2439ec3fb2b2ac905889ecaaafecae87950d747755e59a0205c79430fd378d6f17f21403f18ea630805f6a20d94541103d5bbf1a2ea9a6da0d93308e4e9c8363cf6bf35580eb3165dca9dcdcb12ea38e0dbba8808ef6bc650a03349bf65d9eee483a274d35542a298055fd322a43224a7b4d1fe771a86744cbba0ce8337540e50ecc4895226a8ff0746385ce97111ba8ef819109122340cd8cc78a0ec06eea7fd8bfd26e9ff5e18e3d68de90d4518792dcf236bd1a51d953200f8c9a012733a5b582b1ace379ff86df467ebf9aa7ef735e4b08a3df5549178eae3aceb80"));
+		proof.push_back(beam::from_hex("f90211a07a897343f2a35dd209df6a11195b84b58354cdf49514bfb671743b7d23d2a7a7a0f060906007684bba15aca67b8b8de5d52359d79ee8e0d5427c9816cc1f89b403a094b12d7fac3b4de0552f0659d66ce35481e873892366c2a13a52f889bc75899ca03b67732e981ed319791eed3403358d8a46f6afce4ea5347409ee8085bdc771c8a03ef6974fb165ccedc4d1272e8cef18fc7c7dd158051fa4fcbe50cf52309289e9a0a8140506311bf44f0d792bfe2ce6037f1dbdaa1d63b26b4084895b8d3e969304a030559f34bea90c745e0ca7627fe4ceefa63e2c07de88050b1259d79a2239ee7ea0b7feabab413608ad631d118c347b2bde0cd2a3165ffa2ed7198cda508a560a38a0677045650b4182e4184227e1229c7262edbe3fae9ad3dbc684240d5d713d98d9a0cc886c3090b518b63139fead8a2bb7cc6f914ec7382fcf07200b6e91b6390558a00c237252c62534e8a754bdb8f1c26112c1cc138861e56f02e951f63d89592d96a084d94ccb5e7ab094c94b91e2b9087c9c320e12841d73e698f611643f77bf257fa09ca36b56637983cb709bd476f08e9e924d7fb8c18bca370445bc8920323b21aea03dfa5652ca85286eee16bd84db578dd9b505846efc6b96181744c43dfa861fa5a09112c918f5bf090466c34febf5a8bda067ad7078e21760c9f540df9af737a9f7a04b767f6b38c7a6439a4b7b6066207638b9656c416f9ad09a3ee52c600e681c4780"));
+		proof.push_back(beam::from_hex("f90111a01e7af2031302c134bbb3a6778c8cf033caa30300730c2f72e404cc7364cfec7780a09d1fde7ccd25f8c5a45399cd0bf2bc90006fd468f1a4cffa95a5a4eae7872b84a00b3a26a05b5494fb3ff6f0b3897688a5581066b20b07ebab9252d169d928717f80a01e2a1ed3d1572b872bbf09ee44d2ed737da31f01de3c0f4b4e1f0467400664618080a085687925842a6e20bf1d2412ce7249699b4111225d87c7c8959072b0cbab78ffa07aad8ea34d91339abdfdc55b0d5e0aa4fc3c506f56fd2518b6f8c7c5d2ed254880a0e9864fdfaf3693b2602f56cd938ccd494b8634b1f91800ef02203a3609ca4c21a05904860db3383d925f9a36578fcea05e0ef02ee49d21ce50d0df7056df00b0f880808080"));
+		proof.push_back(beam::from_hex("f8669d3802a763f7db875346d03fbf86f137de55814b191c069e721f47474733b846f8440101a01394917cc2e15bbbd6e21b511898e8bb361dab9e85602a3d5e1ad7470cda41f7a0b44fb4e949d0f78f87f79ee46428f23a2a5713ce6fc6e0beb3dda78c2ac1ea55"));
+
+		beam::ByteBuffer rootHash = beam::from_hex("794660825d2bd07c747766045fc64a32710043ed9808f3fba249ded6cb607993");
+		auto result = VerifyEthProof(key, proof, rootHash);
+		std::cout << "result4: " << result.second << " data: " << beam::to_hex(result.first.data(), result.first.size()) << std::endl;
+
+		auto expected = beam::from_hex("f8440101a01394917cc2e15bbbd6e21b511898e8bb361dab9e85602a3d5e1ad7470cda41f7a0b44fb4e949d0f78f87f79ee46428f23a2a5713ce6fc6e0beb3dda78c2ac1ea55");
+		verify_test(expected == result.first);
+	}
+}
+
 int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
@@ -2767,6 +3044,8 @@ int main()
 	beam::Rules::get().pForks[3].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
+
+	TestEthProof();
 
 	secp256k1_context_destroy(g_psecp256k1);
 
