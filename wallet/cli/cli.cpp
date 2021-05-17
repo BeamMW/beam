@@ -1741,15 +1741,15 @@ namespace
 
     int ExportMinerKey(const po::variables_map& vm)
     {
-        auto pass = GetPassword(vm);
-        auto walletDB = OpenDataBase(vm, pass);
-
-        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
-        if (subKey < 1)
+        if (vm.count(cli::KEY_SUBKEY) == 0)
         {
             cout << kErrorSubkeyNotSpecified << endl;
             return -1;
         }
+        auto pass = GetPassword(vm);
+        auto walletDB = OpenDataBase(vm, pass);
+
+        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Positive<uint32_t>>().value;
 
         Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
         if (!pMaster)

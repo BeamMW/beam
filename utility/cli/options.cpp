@@ -437,7 +437,7 @@ namespace beam
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
-            (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "miner key index (use with export_miner_key)")
+            (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
