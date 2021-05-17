@@ -986,6 +986,7 @@ namespace beam::wallet
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
+        const char* kMinConfirmationsCount = "MinConfirmationsCount";
         constexpr char kIsTreasuryHandled[] = "IsTreasuryHandled";
         constexpr char kNeedToRequestBodies[] = "NeedToRequestBodies";
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
@@ -2817,6 +2818,18 @@ namespace beam::wallet
     void IWalletDB::set_MaxPrivacyLockTimeLimitHours(uint8_t val)
     {
         storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
+    }
+
+    int IWalletDB::get_MinConfirmationsCount() const
+    {
+        int ret = 0;
+        storage::getVar(*this, kMinConfirmationsCount, ret);
+        return ret;
+    }
+
+    void IWalletDB::set_MinConfirmationsCount(int val)
+    {
+        storage::setVar(*this, kMinConfirmationsCount, val);
     }
 
     void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)

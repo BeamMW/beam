@@ -344,6 +344,22 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
+        int minConfirmations = GetWalletDB()->get_MinConfirmationsCount();
+        if (minConfirmations)
+        {
+            Height hProof = 0;
+            if (GetParameter<Height>(TxParameterID::KernelProofHeight, hProof) && hProof)
+            {
+                auto currHeight = GetWalletDB()->getCurrentHeight();
+                if (currHeight - hProof < minConfirmations)
+                {
+                    UpdateTxDescription(TxStatus::Confirming);
+                    GetGateway().UpdateOnNextTip(GetTxID());
+                    return;
+                }
+            }
+        }
+
         LOG_INFO() << m_Context << " Transaction completed";
         UpdateTxDescription(TxStatus::Completed);
         GetGateway().on_tx_completed(GetTxID());

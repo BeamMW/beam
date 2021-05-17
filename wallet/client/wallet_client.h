@@ -254,6 +254,10 @@ namespace beam::wallet
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
+        void setMinConfirmationsCount(int val) override;
+        void getMinConfirmationsCount(AsyncCallback<int>&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress

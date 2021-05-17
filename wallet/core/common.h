@@ -124,7 +124,8 @@ namespace beam::wallet
         Canceled,
         Completed,
         Failed,
-        Registering
+        Registering,
+        Confirming
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \

@@ -448,6 +448,9 @@ namespace beam::wallet
         uint8_t get_MaxPrivacyLockTimeLimitHours() const;
         void set_MaxPrivacyLockTimeLimitHours(uint8_t);
 
+        int get_MinConfirmationsCount() const;
+        void set_MinConfirmationsCount(int);
+
 		struct IRecoveryProgress
 		{
 			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery

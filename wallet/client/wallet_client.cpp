@@ -343,6 +343,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
+    void setMinConfirmationsCount(int limit) override
+    {
+        call_async(&IWalletModelAsync::setMinConfirmationsCount, limit);
+    }
+
+    void getMinConfirmationsCount(AsyncCallback<int>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getMinConfirmationsCount, std::move(callback));
+    }
+
 
     void enableBodyRequests(bool value) override
     {
@@ -384,7 +394,9 @@ namespace beam::wallet
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
-        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) {
+             onTxStatus(action, items);
+              })
         , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
@@ -1578,6 +1590,20 @@ namespace beam::wallet
     void WalletClient::getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback)
     {
         auto limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours();
+        postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
+        {
+            cb(res);
+        });
+    }
+
+    void WalletClient::setMinConfirmationsCount(int val)
+    {
+        m_walletDB->set_MinConfirmationsCount(val);
+    }
+
+    void WalletClient::getMinConfirmationsCount(AsyncCallback<int>&& callback)
+    {
+        auto limit = m_walletDB->get_MinConfirmationsCount();
         postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
         {
             cb(res);

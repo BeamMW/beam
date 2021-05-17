@@ -726,6 +726,8 @@ namespace beam::wallet
                 return "cancelled";
             case TxStatus::Completed:
                 return m_selfTx ? "completed" : (m_sender ? "sent" : "received");
+            case TxStatus::Confirming:
+                return "confirming";
             default:
                 BOOST_ASSERT_MSG(false, kErrorUnknownTxStatus);
                 return "unknown";
