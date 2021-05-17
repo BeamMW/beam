@@ -2763,7 +2763,7 @@ namespace
 	typedef std::array<uint8_t, 2 * hash_size> TrieKeyInNibbles;
 
 	// Validates prefix, compares "sharedNibbles(or key-end if leaf node)" and returns TrieKey offset
-	int RemovePrefix(const beam::ByteBuffer& encodedPath, const TrieKeyInNibbles& key, int keyPos)
+	int RemovePrefix(const beam::ByteBuffer& encodedPath, const TrieKeyInNibbles& key, uint8_t keyPos)
 	{
 		// encodedPath to nibbles
 		beam::ByteBuffer nibbles(2 * encodedPath.size());
@@ -2811,7 +2811,7 @@ namespace
 	}
 
 	// extract item length and set "position" to the begin of the item data
-	int RLPDecodeLength(const beam::ByteBuffer& input, int& position)
+	uint32_t RLPDecodeLength(const beam::ByteBuffer& input, uint32_t& position)
 	{
 		constexpr uint8_t kOffsetList = 0xc0;
 		constexpr uint8_t kOffsetString = 0x80;
@@ -2833,8 +2833,8 @@ namespace
 		}
 		else
 		{
-			int now = input[position++] - offset - 55;
-			for (int i = 0; i < now; i++)
+			uint32_t now = input[position++] - offset - 55;
+			for (uint32_t i = 0; i < now; i++)
 			{
 				length = length * 256 + input[position++];
 			}
@@ -2844,15 +2844,15 @@ namespace
 
 	std::vector<beam::ByteBuffer> RLPDecodeList(const beam::ByteBuffer& input)
 	{
-		int index = 0;
-		int length = RLPDecodeLength(input, index);
-		int end = length + index;
+		uint32_t index = 0;
+		uint32_t length = RLPDecodeLength(input, index);
+		uint32_t end = length + index;
 		std::vector<beam::ByteBuffer> result;
 
 		while (index < end)
 		{
 			// get item length
-			int itemLength = RLPDecodeLength(input, index);
+			uint32_t itemLength = RLPDecodeLength(input, index);
 			// copy item
 			result.push_back({input.cbegin() + index, input.cbegin() + index + itemLength });
 
@@ -2875,7 +2875,7 @@ namespace
 		uint8_t keyPos = 0;
 		TrieKeyInNibbles trieKey = GetTrieKeyInNibbles(key);
 
-		for (int i = 0; i < proof.size(); i++)
+		for (uint32_t i = 0; i < proof.size(); i++)
 		{
 			// TODO: is always a hash? check some samples with currentNode.size() < 32 bytes
 			std::vector<beam::ByteBuffer> currentNode = RLPDecodeList(proof[i]);
