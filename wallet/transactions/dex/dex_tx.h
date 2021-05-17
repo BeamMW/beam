@@ -24,9 +24,9 @@ namespace beam::wallet
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
             Asset::ID coinMy,
-            Amount amountPeer,
-            Asset::ID coinPeer,
             Amount amountMy,
+            Asset::ID coinPeer,
+            Amount amountPeer,
             const boost::optional<TxID>& txId = boost::none
     );
 

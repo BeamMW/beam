@@ -1105,7 +1105,7 @@ namespace beam::wallet
         {
             if (auto order = dex->getOrder(orderId))
             {
-                auto params = CreateDexTransactionParams(order->sbbsID, orderId);
+                auto params = CreateDexTransactionParams(orderId, order->sbbsID, order->buyCoin, order->amount, order->sellCoin, order->amount * 10);
                 startTransaction(std::move(params));
             }
         }

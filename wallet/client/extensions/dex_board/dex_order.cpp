@@ -30,7 +30,7 @@ namespace beam::wallet
     {
     }
 
-    DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t expiration)
+    DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, beam::Timestamp expiration)
         : version(kCurrentOfferVer)
         , orderID(orderId)
         , sbbsID(sbbsId)
@@ -38,14 +38,14 @@ namespace beam::wallet
         , sellCoin(sellCoin)
         , buyCoin(buyCoin)
         , amount(amount)
-        , expiration(expiration)
         , isMy(true)
+        , expiration(expiration)
     {
     }
 
     bool DexOrder::IsExpired() const
     {
-        const auto now = std::time(nullptr);
+        const auto now = beam::getTimestamp();
         return expiration <= now;
     }
 

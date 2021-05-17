@@ -23,7 +23,7 @@ namespace beam::wallet
         DexOrder();
 
         // TODO:DEX anything better than walletID?
-        DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t expiration);
+        DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, beam::Timestamp expiration);
 
         // TODO:DEX check version
         // TODO:DEX check that error is generated if any field is missing
@@ -49,7 +49,7 @@ namespace beam::wallet
         Asset::ID  buyCoin = Asset::s_BeamID;
         Amount     amount = 0;
         Amount     progress = 0;
-        time_t     expiration = 0;
         bool       isMy;
+        beam::Timestamp expiration = 0;
     };
 }
