@@ -618,7 +618,7 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-            LOG_INFO() << "wallet sucessfully opened...";
+            LOG_INFO() << "wallet successfully opened...";
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
