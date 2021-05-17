@@ -105,8 +105,8 @@ namespace beam::wallet
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
 
-        virtual void setMinConfirmationsCount(int val) = 0;
-        virtual void getMinConfirmationsCount(AsyncCallback<int>&& callback) = 0;
+        virtual void setMinConfirmationsCount(uint32_t val) = 0;
+        virtual void getMinConfirmationsCount(AsyncCallback<uint32_t>&& callback) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() {}

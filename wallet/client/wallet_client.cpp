@@ -343,12 +343,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
-    void setMinConfirmationsCount(int limit) override
+    void setMinConfirmationsCount(uint32_t limit) override
     {
         call_async(&IWalletModelAsync::setMinConfirmationsCount, limit);
     }
 
-    void getMinConfirmationsCount(AsyncCallback<int>&& callback) override
+    void getMinConfirmationsCount(AsyncCallback<uint32_t>&& callback) override
     {
         call_async(&IWalletModelAsync::getMinConfirmationsCount, std::move(callback));
     }
@@ -1596,12 +1596,12 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::setMinConfirmationsCount(int val)
+    void WalletClient::setMinConfirmationsCount(uint32_t val)
     {
         m_walletDB->set_MinConfirmationsCount(val);
     }
 
-    void WalletClient::getMinConfirmationsCount(AsyncCallback<int>&& callback)
+    void WalletClient::getMinConfirmationsCount(AsyncCallback<uint32_t>&& callback)
     {
         auto limit = m_walletDB->get_MinConfirmationsCount();
         postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 

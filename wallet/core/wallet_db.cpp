@@ -2820,14 +2820,14 @@ namespace beam::wallet
         storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
     }
 
-    int IWalletDB::get_MinConfirmationsCount() const
+    uint32_t IWalletDB::get_MinConfirmationsCount() const
     {
-        int ret = 0;
+        uint32_t ret = 0;
         storage::getVar(*this, kMinConfirmationsCount, ret);
         return ret;
     }
 
-    void IWalletDB::set_MinConfirmationsCount(int val)
+    void IWalletDB::set_MinConfirmationsCount(uint32_t val)
     {
         storage::setVar(*this, kMinConfirmationsCount, val);
     }

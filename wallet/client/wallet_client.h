@@ -255,8 +255,8 @@ namespace beam::wallet
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
 
-        void setMinConfirmationsCount(int val) override;
-        void getMinConfirmationsCount(AsyncCallback<int>&& callback) override;
+        void setMinConfirmationsCount(uint32_t val) override;
+        void getMinConfirmationsCount(AsyncCallback<uint32_t>&& callback) override;
 
         void enableBodyRequests(bool value) override;
 
