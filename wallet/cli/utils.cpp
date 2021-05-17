@@ -86,7 +86,7 @@ bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, boo
 {
     if (auto it = vm.find(cli::FEE); it != vm.end())
     {
-        fee = it->second.as<Nonnegative<Amount>>().value;
+        fee = it->second.as<Positive<Amount>>().value;
         auto minFee = get_MinFee(wallet, hasShieldedOutputs);
         if (checkFee && (fee < minFee))
         {
