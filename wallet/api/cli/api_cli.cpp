@@ -493,6 +493,7 @@ int main(int argc, char* argv[])
                 (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
                 (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
                 (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
+                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -534,7 +535,7 @@ int main(int argc, char* argv[])
             }
 
             ReadCfgFromFileCommon(vm, desc);
-            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
+            ReadCfgFromFile(vm, desc);
             vm.notify();
 
             if (!IWalletApi::ValidateAPIVersion(options.apiVersion))

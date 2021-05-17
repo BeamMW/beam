@@ -250,6 +250,7 @@ namespace beam
         const char* ALLOWED_ORIGIN = "allowed_origin";
         const char* BLOCK_DETAILS = "block_details";
         const char* BLOCK_HEIGHT = "block_height";
+        const char* CONFIG_FILE_PATH = "config_file";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -367,7 +368,7 @@ namespace beam
         }
     };
 
-    pair<po::options_description, po::options_description> createOptionsDescription(int flags)
+    pair<po::options_description, po::options_description> createOptionsDescription(int flags, const std::string& configFile)
     {
         po::options_description general_options("General");
         general_options.add_options()
@@ -376,7 +377,8 @@ namespace beam
             (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
-            (cli::GIT_COMMIT_HASH, "print git commit hash value");
+            (cli::GIT_COMMIT_HASH, "print git commit hash value")
+            (cli::CONFIG_FILE_PATH, po::value<string>()->default_value(configFile), "path to the config file");
 
         po::options_description node_options("Node options");
         node_options.add_options()
@@ -635,6 +637,11 @@ namespace beam
         return rules_options;
     }
 
+    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
+    {
+        return ReadCfgFromFile(vm, desc, vm[cli::CONFIG_FILE_PATH].as<std::string>().c_str());
+    }
+
     bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
         const auto fullPath = boost::filesystem::system_complete(szFile).string();
@@ -652,7 +659,7 @@ namespace beam
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
+    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
         po::positional_options_description positional;
@@ -667,7 +674,7 @@ namespace beam
         po::store(parser.run(), vm); // value stored first is preferred
 
         ReadCfgFromFileCommon(vm, options);
-        ReadCfgFromFile(vm, options, configFile);
+        ReadCfgFromFile(vm, options);
 
         getRulesOptions(vm);
 

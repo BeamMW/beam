@@ -2756,12 +2756,12 @@ int main_impl(int argc, char* argv[])
 
     try
     {
-        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS);
+        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS, kDefaultConfigFile);
 
         po::variables_map vm;
         try
         {
-            vm = getOptions(argc, argv, kDefaultConfigFile, options, true);
+            vm = getOptions(argc, argv, options, true);
         }
         catch (const po::invalid_option_value& e)
         {

@@ -93,6 +93,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+        (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
     ;
 
     cliOptions.add(createRulesOptionsDescription());
@@ -119,7 +120,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         }
 
         ReadCfgFromFileCommon(vm, cliOptions);
-        ReadCfgFromFile(vm, cliOptions, "explorer-node.cfg");
+        ReadCfgFromFile(vm, cliOptions);
 
         vm.notify();
 

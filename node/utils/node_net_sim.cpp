@@ -943,7 +943,7 @@ int main_Guarded(int argc, char* argv[])
     CfgFieldsAll(THE_MACRO)
 #undef THE_MACRO
 
-    auto [options, visibleOptions] = createOptionsDescription(0);
+    auto [options, visibleOptions] = createOptionsDescription(0, "node_net_sim.cfg");
     boost::ignore_unused(visibleOptions);
     options.add_options()
         (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase")
@@ -955,7 +955,7 @@ int main_Guarded(int argc, char* argv[])
         
         ;
 
-    po::variables_map vm = getOptions(argc, argv, "node_net_sim.cfg", options, true);
+    po::variables_map vm = getOptions(argc, argv, options, true);
 
     bool bLocalMode = vm[szLocalMode].as<bool>();
 
