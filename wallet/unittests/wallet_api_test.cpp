@@ -1596,6 +1596,85 @@ void TestAssetsAPI()
     TestGetAssetInfo();
 }
 
+void testCalcChange()
+{
+    std::string msg = JSON_CODE(
+        {
+            "jsonrpc":"2.0",
+            "id" : 4,
+            "method" : "calc_change",
+            "params" :
+            {
+                "amount" : 1234,
+                "asset_id" : 2,
+                "fee" : 10000,
+                "is_push_transaction" : true
+            }
+        });
+    struct ApiTest : public WalletApiTest
+    {
+        void onAPIError(const json& msg) override
+        {
+            m_Failed = true;
+        }
+
+        void onHandleCalcChange(const JsonRpcId& id, const CalcChange& data) override
+        {
+            WALLET_CHECK(id == 4);
+
+            WALLET_CHECK(data.amount == 1234);
+            WALLET_CHECK(data.assetId && *data.assetId == 2);
+            WALLET_CHECK(data.explicitFee == 10000);
+            WALLET_CHECK(data.isPushTransaction == true);
+        }
+
+        explicit ApiTest(Fork fork) : WalletApiTest(fork) {}
+        bool m_Failed = false;
+    };
+
+    {
+        // no assets support
+        ApiTest apiNoFork(NoFork);
+        WALLET_CHECK(ApiSyncMode::DoneSync == apiNoFork.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(apiNoFork.m_Failed == true);
+    }
+
+    ApiTest api(Fork2);
+    WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    WALLET_CHECK(api.m_Failed == false);
+
+    {
+        json res;
+        CalcChange::Response response = {};
+        response.assetChange = 100;
+        response.change = 8000000000;
+        response.explicitFee = 700000000;
+
+        api.getResponse(123, response, res);
+        testResultHeader(res);
+
+        WALLET_CHECK(res["id"] == 123);
+        auto& r = res["result"];
+        WALLET_CHECK(r["asset_change"] == 100);
+        WALLET_CHECK(r["asset_change_str"] == "100");
+        WALLET_CHECK(r["change"] == 8000000000);
+        WALLET_CHECK(r["change_str"] == "8000000000");
+        WALLET_CHECK(r["explicit_fee"] == 700000000);
+        WALLET_CHECK(r["explicit_fee_str"] == "700000000");
+        WALLET_CHECK(r.size() == 6);
+    }
+    testInvalidJsonRpc(Fork3, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc":"2.0",
+        "id" : 4,
+        "method" : "calc_change",
+        "params" :
+        {
+
+        }
+    }));
+}
+
 int main()
 {
     wallet::g_AssetsEnabled = true;
@@ -2309,6 +2388,7 @@ int main()
         }));
 
     testAppsApi();
+    testCalcChange();
 
     return WALLET_CHECK_RESULT;
 }
