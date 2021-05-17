@@ -147,7 +147,7 @@ namespace beam::wallet
     protected:
 
         virtual bool IsConventional() { return true; }
-        virtual void FinalyzeTxInternal();
+        virtual void FinalizeTxInternal();
 
         struct KeyKeeperHandler
             :public IPrivateKeyKeeper2::Handler
@@ -193,7 +193,6 @@ namespace beam::wallet
         void SetStatus(Status::Type);
         virtual void FillUserData(Output::User::Packed* user);
     };
-
 
 
     class SimpleTxBuilder
@@ -258,7 +257,7 @@ namespace beam::wallet
         virtual bool SignTxReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
-        virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
+        virtual void FinalizeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
         virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
         void FillUserData(Output::User::Packed* user) override;
     };

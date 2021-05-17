@@ -37,7 +37,7 @@ namespace beam::wallet {
             ECC::Scalar::Native m_skAsset;
             PeerID m_pidAsset;
 
-            void FinalyzeTxInternal() override; // also signs the kernel
+            void FinalizeTxInternal() override; // also signs the kernel
         };
     };
 }

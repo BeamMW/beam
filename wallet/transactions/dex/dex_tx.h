@@ -21,7 +21,7 @@
 namespace beam::wallet {
     TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId = boost::none);
 
-    class DexTxBuilder;
+    class DexSimpleSwapBuilder;
     class DexTransaction
         : public BaseTransaction
     {
@@ -57,6 +57,6 @@ namespace beam::wallet {
         void UpdateImpl() override;
 
     private:
-        std::shared_ptr<DexTxBuilder> _builder;
+        std::shared_ptr<DexSimpleSwapBuilder> _builder;
     };
 }

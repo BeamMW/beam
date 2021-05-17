@@ -847,10 +847,10 @@ namespace beam::wallet
 
         assert(!IsGeneratingInOuts());
 
-        FinalyzeTxInternal();
+        FinalizeTxInternal();
     }
 
-    void BaseTxBuilder::FinalyzeTxInternal()
+    void BaseTxBuilder::FinalizeTxInternal()
     {
         m_pTransaction->Normalize();
         VerifyTx();
@@ -1047,7 +1047,7 @@ namespace beam::wallet
             AddOffset(k);
     }
 
-    void MutualTxBuilder::FinalyzeTxInternal()
+    void MutualTxBuilder::FinalizeTxInternal()
     {
         // add peer in/out/offs
         AddPeerOffset();
@@ -1060,7 +1060,7 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::PeerOutputs, vOuts))
             MoveIntoVec(m_pTransaction->m_vOutputs, vOuts);
 
-        SimpleTxBuilder::FinalyzeTxInternal();
+        SimpleTxBuilder::FinalizeTxInternal();
     }
 
     void MutualTxBuilder::SignSender(bool initial)

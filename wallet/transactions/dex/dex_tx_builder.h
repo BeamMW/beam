@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,33 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "wallet/core/base_tx_builder.h"
 #include "wallet/core/base_transaction.h"
+#include "wallet/core/base_tx_builder.h"
 
 namespace beam::wallet
 {
-    class LockTxBuilder
-        :public MutualTxBuilder
+    class DexSimpleSwapBuilder
+        : public MutualTxBuilder
     {
     public:
-        LockTxBuilder(BaseTransaction& tx, Amount amount);
+        explicit DexSimpleSwapBuilder(BaseTransaction& tx);
 
-
-    private:
-
-        bool IsConventional() override { return false; }
-        void SendToPeer(SetTxParameter&&) override;
-        void FinalizeTxInternal() override;
-
-        ECC::Scalar::Native m_Sk; // blinding factor
-        ECC::Point::Native m_PubKeyN;
-        ECC::Point m_PubKey;
-        ECC::NoLeak<ECC::uintBig> m_SeedSk;
-
-        void EvaluateSelfFields();
-        void EvaluateOutput(Output&, ECC::RangeProof::Confidential& proof);
+    protected:
+        void SendToPeer(SetTxParameter&& msgSub) override;
     };
 }

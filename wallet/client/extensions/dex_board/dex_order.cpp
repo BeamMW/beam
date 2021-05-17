@@ -13,11 +13,11 @@
 // limitations under the License.
 #include "dex_order.h"
 
-namespace beam::wallet {
-
+namespace beam::wallet
+{
     namespace
     {
-        const uint32_t kCurrentOfferVer = 3;
+        const uint32_t kCurrentOfferVer = 4;
     }
 
     uint32_t DexOrder::getCurrentVersion()
@@ -30,7 +30,7 @@ namespace beam::wallet {
     {
     }
 
-     DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t exp)
+    DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, time_t expiration)
         : version(kCurrentOfferVer)
         , orderID(orderId)
         , sbbsID(sbbsId)
@@ -38,8 +38,25 @@ namespace beam::wallet {
         , sellCoin(sellCoin)
         , buyCoin(buyCoin)
         , amount(amount)
-        , expiration(exp)
+        , expiration(expiration)
         , isMy(true)
-     {
-     }
+    {
+    }
+
+    bool DexOrder::IsExpired() const
+    {
+        const auto now = std::time(nullptr);
+        return expiration <= now;
+    }
+
+    bool DexOrder::IsCompleted() const
+    {
+        assert(progress <= amount);
+        return progress >= amount;
+    }
+
+    bool DexOrder::CanAccept() const
+    {
+        return !isMy && !IsExpired() && !IsCompleted();
+    }
 }

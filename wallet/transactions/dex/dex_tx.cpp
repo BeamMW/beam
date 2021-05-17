@@ -13,12 +13,14 @@
 // limitations under the License.
 #include "dex_tx.h"
 #include "wallet/core/wallet.h"
+#include "dex_tx_builder.h"
 
 namespace beam::wallet
 {
     TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
+            //.SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::PeerID, peerID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID);
     }
@@ -41,18 +43,24 @@ namespace beam::wallet
         const auto orderId = params.GetParameter<DexOrderID>(TxParameterID::DexOrderID);
         if (!orderId)
         {
-            throw InvalidTransactionParametersException("Missing order id");
+            throw InvalidTransactionParametersException("DexSimpleSwap missing order id");
         }
 
         const auto selfTx = params.GetParameter<bool>(TxParameterID::IsSelfTx);
         if (!selfTx)
         {
-            throw InvalidTransactionParametersException("Missing IsSelfTx");
+            throw InvalidTransactionParametersException("DexSimpleSwap missing IsSelfTx");
         }
 
         if (*selfTx)
         {
             throw InvalidTransactionParametersException("DexSimpleSwap transaction cannot be sent to the self");
+        }
+
+        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyID);
+        if (!myID)
+        {
+             throw InvalidTransactionParametersException("DexSimpleSwap MyID");
         }
 
         return params;
@@ -103,6 +111,21 @@ namespace beam::wallet
 
     void DexTransaction::UpdateImpl()
     {
-         CompleteTx();
+        if (!_builder)
+        {
+            _builder = std::make_shared<DexSimpleSwapBuilder>(*this);
+        }
+
+        if (_builder->m_AssetID)
+        {
+            _builder->VerifyAssetsEnabled();
+
+            if (CheckAsset(_builder->m_AssetID) != AssetCheckResult::OK)
+                // can be request for async operation or simple fail
+                // in both cases we should jump out of here
+                return;
+        }
+
+
     }
 }
