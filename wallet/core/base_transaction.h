@@ -92,25 +92,26 @@ namespace beam::wallet
 
             }
 
-            INegotiatorGateway& GetGateway() const
+            [[nodiscard]] INegotiatorGateway& GetGateway() const
             {
                 return m_Gateway;
             }
 
-            IWalletDB::Ptr GetWalletDB() const
+            [[nodiscard]] IWalletDB::Ptr GetWalletDB() const
             {
                 return m_WalletDB;
             }
 
-            const TxID& GetTxID() const
+            [[nodiscard]] const TxID& GetTxID() const
             {
                 return m_TxID;
             }
 
-            SubTxID GetSubTxID() const
+            [[nodiscard]] SubTxID GetSubTxID() const
             {
                 return m_SubTxID;
             }
+
         private:
             INegotiatorGateway& m_Gateway;
             IWalletDB::Ptr m_WalletDB;

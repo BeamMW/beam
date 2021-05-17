@@ -18,8 +18,17 @@
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/base_tx_builder.h"
 
-namespace beam::wallet {
-    TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId = boost::none);
+namespace beam::wallet
+{
+    TxParameters CreateDexTransactionParams(
+            const DexOrderID& dexOrderID,
+            const WalletID& peerID,
+            Asset::ID coinMy,
+            Amount amountPeer,
+            Asset::ID coinPeer,
+            Amount amountMy,
+            const boost::optional<TxID>& txId = boost::none
+    );
 
     class DexSimpleSwapBuilder;
     class DexTransaction

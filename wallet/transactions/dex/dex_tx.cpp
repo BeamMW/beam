@@ -17,7 +17,14 @@
 
 namespace beam::wallet
 {
-    TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId)
+    TxParameters CreateDexTransactionParams(
+            const DexOrderID& dexOrderID,
+            const WalletID& peerID,
+            Asset::ID coinMy,
+            Amount amountPeer,
+            Asset::ID coinPeer,
+            Amount amountMy,
+            const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             //.SetParameter(TxParameterID::MyID, myID)
@@ -126,6 +133,7 @@ namespace beam::wallet
                 return;
         }
 
-
+        int a = 0;
+        a++;
     }
 }
