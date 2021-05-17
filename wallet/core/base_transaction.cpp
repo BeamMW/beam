@@ -344,6 +344,7 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
+        // TODO(zavarza) use getCoinConfirmationsOffset
         int minConfirmations = GetWalletDB()->get_MinConfirmationsCount();
         if (minConfirmations)
         {
@@ -351,7 +352,7 @@ namespace beam::wallet
             if (GetParameter<Height>(TxParameterID::KernelProofHeight, hProof) && hProof)
             {
                 auto currHeight = GetWalletDB()->getCurrentHeight();
-                if (currHeight - hProof < minConfirmations)
+                if (currHeight - hProof < static_cast<uint8_t>(minConfirmations))
                 {
                     UpdateTxDescription(TxStatus::Confirming);
                     GetGateway().UpdateOnNextTip(GetTxID());
