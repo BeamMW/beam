@@ -2759,6 +2759,11 @@ namespace
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
+			//{
+			//	Rlp::Node res;
+			//	//res.Read(bs);
+			//}
+
 		}
 		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
 		{

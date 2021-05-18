@@ -60,16 +60,16 @@ namespace Eth
 
 			explicit Node(uint64_t n)
 				: m_Type(Type::Integer)
-				, m_Integer(n)
 				, m_nLen(0)
+				, m_Integer(n)
 			{
 			}
 
 			template <uint32_t N>
 			Node(const Node(&nodes)[N])
 				: m_Type(Type::List)
-				, m_pC(nodes)
 				, m_nLen(N)
+				, m_pC(nodes)
 			{
 			}
 
