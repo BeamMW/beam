@@ -22,6 +22,8 @@
 #include "../bvm2_impl.h"
 
 #include <sstream>
+#include <algorithm>
+#include <iterator>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -70,6 +72,7 @@ namespace Shaders {
 #include "../Shaders/Math.h"
 #include "../Shaders/Sort.h"
 #include "../Shaders/BeamHeader.h"
+#include "../Shaders/Eth.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
@@ -2726,6 +2729,127 @@ void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs
 	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
 }
 
+namespace 
+{
+	void TestRLP()
+	{
+		using namespace Shaders;
+		using namespace beam;
+
+		struct ByteStream
+		{
+			ByteBuffer m_Buffer;
+
+			void Write(uint8_t b)
+			{
+				m_Buffer.emplace_back(b);
+			}
+
+			void Write(const uint8_t* p, uint32_t n)
+			{
+				::std::copy(p, p + n, ::std::back_inserter(m_Buffer));
+			}
+		};
+
+		using namespace Eth;
+
+		// The string 'dog' = [0x83, 'd', 'o', 'g']
+		{
+			Rlp::Node n(to_opaque("dog"));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
+		}
+		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
+		{
+			Rlp::Node nodes[] = { Rlp::Node(to_opaque("cat")), Rlp::Node(to_opaque("dog")) };
+			Rlp::Node list(nodes);
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g' }));
+		}
+
+		// The empty string('null') = [0x80]
+		{
+			Rlp::Node n(to_opaque(""));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+		}
+		
+		auto createEmptyList = []()
+		{
+			Rlp::Node list;
+			list.m_Type = Rlp::Node::Type::List;
+			list.m_nLen = 0;
+			return list;
+		};
+
+		//The empty list = [0xc0]
+		{
+			Rlp::Node list = createEmptyList();
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc0 }));
+		}
+
+			
+		//The integer 0 = [0x80]
+		{
+			Rlp::Node n(0);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+		}
+
+		//The encoded integer 0 ('\x00') = [0x00]
+		{
+			Rlp::Node n(to_opaque("\0"));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x00 }));
+		}
+
+
+		//The encoded integer 15 ('\x0f') = [0x0f]
+		{
+			Rlp::Node n(to_opaque("\x0f"));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x0f }));
+		}
+
+		//The encoded integer 1024 ('\x04\x00') = [0x82, 0x04, 0x00]
+		{
+			Rlp::Node n(to_opaque("\x04\x0"));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x82, 0x04, 0x00 }));
+		}
+
+		//The set theoretical representation of three, [[], [[]], [[], [[]] ] ] = [0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]
+		{
+			Rlp::Node n1[1] = { createEmptyList() };
+			Rlp::Node n2[2] = { createEmptyList(), Rlp::Node(n1) };
+			Rlp::Node n3[3] = { createEmptyList(), Rlp::Node(n1), Rlp::Node(n2)};
+			Rlp::Node root(n3);
+			ByteStream bs;
+			root.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0 }));
+		}
+
+		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
+		{
+			Rlp::Node n(to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit"));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+		}
+	}
+}
+
 int main()
 {
 	try
@@ -2737,6 +2861,7 @@ int main()
 		using namespace beam::bvm2;
 
 		TestMergeSort();
+		TestRLP();
 
 		MyProcessor proc;
 /*
