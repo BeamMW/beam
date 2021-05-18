@@ -83,10 +83,11 @@ namespace beam::wallet {
             return false;
         }
 
-        LOG_INFO() << "DexBoard oder message received: " << order->sellCoin << "->" << order->buyCoin << ":" << order->amount;
+        LOG_INFO() << "DexBoard oder message received: ";
+        order->LogInfo();
 
-        auto it = _orders.find(order->orderID);
-        _orders[order->orderID] = *order;
+        auto it = _orders.find(order->getID());
+        _orders[order->getID()] = *order;
 
         if (it == _orders.end())
         {
@@ -104,21 +105,10 @@ namespace beam::wallet {
 
     BroadcastMsg DexBoard::createMessage(const DexOrder& order)
     {
-        const auto kdf = _wdb.get_SbbsKdf();
-        if (!kdf)
-        {
-            throw std::runtime_error("cannot get sbbs kdf");
-        }
+        const auto pkdf = _wdb.get_SbbsKdf();
 
-        using PrivateKey = ECC::Scalar::Native;
-        using PublicKey = PeerID;
-
-        PrivateKey sk;
-        PublicKey pk;
-        kdf->DeriveKey(sk, ECC::Key::ID(order.sbbsKeyIDX, Key::Type::Bbs));
-        pk.FromSk(sk);
-
-        auto buffer  = toByteBuffer(order);
+        auto sk = order.derivePrivateKey(pkdf);
+        auto buffer = toByteBuffer(order);
         auto message = BroadcastMsgCreator::createSignedMessage(buffer, sk);
 
         return message;
@@ -128,52 +118,10 @@ namespace beam::wallet {
     {
         try
         {
-            DexOrder order;
-            if (!fromByteBuffer(msg.m_content, order))
-            {
-                throw std::runtime_error("failed to parse order body");
-            }
-
-            if (order.version < DexOrder::getCurrentVersion())
-            {
-                throw std::runtime_error("Obsolete order version - ignoring");
-            }
-
-            SignatureHandler sig;
-            sig.m_data = msg.m_content;
-
-            if (!fromByteBuffer(msg.m_signature, sig.m_Signature))
-            {
-                throw std::runtime_error("failed to parse signature");
-            }
-
-            if (!sig.IsValid(order.sbbsID.m_Pk))
-            {
-                throw std::runtime_error("failed to verify signature");
-            }
-
-            //
-            // Check is this is our offer
-            //
-            const auto kdf = _wdb.get_SbbsKdf();
-            if (!kdf)
-            {
-                throw std::runtime_error("cannot get sbbs kdf");
-            }
-
-            using PrivateKey = ECC::Scalar::Native;
-            using PublicKey = PeerID;
-
-            PrivateKey sk;
-            PublicKey pk;
-            kdf->DeriveKey(sk, ECC::Key::ID(order.sbbsKeyIDX, Key::Type::Bbs));
-            pk.FromSk(sk);
-            order.isMy = pk == order.sbbsID.m_Pk;
-
-            // TODO:DEX check order validity
+            const auto pkdf = _wdb.get_SbbsKdf();
+            DexOrder order(msg.m_content, msg.m_signature, pkdf);
             return order;
         }
-        // TODO:DEX any non-std errors?
         catch(std::runtime_error& err)
         {
             LOG_WARNING() << "DexBoard parse error: " << err.what();

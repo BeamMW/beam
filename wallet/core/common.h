@@ -102,15 +102,23 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const AmountBig::Type amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
-            : m_value{amount}
-            , m_showPoint{showPoint}
-            , m_coinName{coinName}
-            , m_grothName{grothName}
+        explicit PrintableAmount(
+            const AmountBig::Type amount,
+            bool showPoint = false,
+            Asset::ID assetID = Asset::s_BeamID,
+            std::string coinName = std::string(),
+            std::string grothName = std::string()
+        )
+            : m_value(amount)
+            , m_showPoint(showPoint)
+            , m_assetID(assetID)
+            , m_coinName(std::move(coinName))
+            , m_grothName(std::move(grothName))
         {}
 
         const AmountBig::Type m_value;
         bool m_showPoint;
+        Asset::ID m_assetID;
         std::string m_coinName;
         std::string m_grothName;
     };

@@ -6283,7 +6283,7 @@ namespace beam::wallet
             s
                 << "Sender:            " << std::to_string(m_Sender) << "\n"
                 << "Receiver:          " << std::to_string(m_Receiver) << "\n"
-                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, m_AssetID, names.first, names.second) << "\n"
                 << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
@@ -6332,7 +6332,7 @@ namespace beam::wallet
             s
                 << "Sender:            " << std::to_string(m_Sender) << "\n"
                 << "Receiver:          " << std::to_string(m_Receiver) << "\n"
-                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, m_AssetID, names.first, names.second) << "\n"
                 << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }

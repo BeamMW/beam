@@ -73,12 +73,9 @@ namespace beam::wallet::lelantus
             ShieldedCoin& sc = *shieldedCoin;
             Asset::ID aid = sc.m_CoinID.m_AssetID;
 
-            const auto unitName = aid ? kAmountASSET : "";
-            const auto nthName = aid ? kAmountAGROTH : "";
-
             LOG_INFO() << m_Context << " Extracting from shielded pool:"
-                << " ID - " << shieldedId << ", amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
-                << ", receiving amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, unitName, nthName)
+                << " ID - " << shieldedId << ", amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, aid)
+                << ", receiving amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, aid)
                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             IPrivateKeyKeeper2::ShieldedInput si;
@@ -91,7 +88,6 @@ namespace beam::wallet::lelantus
             bb.Add(si);
 
             bb.CompleteBalance();
-
             builder.SaveCoins();
         }
 

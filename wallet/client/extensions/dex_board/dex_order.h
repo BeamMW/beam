@@ -19,37 +19,56 @@ namespace beam::wallet
     class DexOrder
     {
     public:
+        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, sellAmount, buyCoin, sellToBuyRate, expireTime);
         static uint32_t getCurrentVersion();
-        DexOrder();
 
-        // TODO:DEX anything better than walletID?
-        DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, beam::Timestamp expiration);
-
-        // TODO:DEX check version
-        // TODO:DEX check that error is generated if any field is missing
-        // TODO:DEX check that error is generated if bad version and nothing more is parsed
-        // TODO:DEX any exceptions?
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, buyCoin, amount, progress, expiration);
+        DexOrder() = default;
+        DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
+        DexOrder(DexOrderID orderId,
+                 WalletID   sbbsId,
+                 uint64_t   sbbsKeyIdx,
+                 Asset::ID  sellCoin,
+                 Amount     sellAmount,
+                 Asset::ID  buyCoin,
+                 Amount     sellToBuyRate,
+                 Timestamp  expiration);
 
         bool operator==(const DexOrder& other) const
         {
-            // TODO:DEX check if this correct & enough
             return orderID == other.orderID;
         }
 
+        [[nodiscard]] uint32_t getVersion() const;
+        [[nodiscard]] bool IsMine() const;
         [[nodiscard]] bool IsExpired() const;
         [[nodiscard]] bool IsCompleted() const;
         [[nodiscard]] bool CanAccept() const;
+        [[nodiscard]] const DexOrderID& getID() const;
+        [[nodiscard]] const WalletID& getSBBSID() const;
+        [[nodiscard]] Asset::ID getBuyCoin() const;
+        [[nodiscard]] Asset::ID getSellCoin() const;
+        [[nodiscard]] Asset::ID getIBuyCoin() const;
+        [[nodiscard]] Asset::ID getISellCoin() const;
+        [[nodiscard]] Amount getISellAmount() const;
+        [[nodiscard]] Amount getIBuyAmount() const;
+        [[nodiscard]] Amount getBuyAmount() const;
+        [[nodiscard]] Timestamp getExpiration() const;
+        void LogInfo() const;
 
-        uint32_t   version;
-        DexOrderID orderID;     // UUID
-        WalletID   sbbsID;      // here wallet listens for order processing
-        uint64_t   sbbsKeyIDX;  // index used to generate SBBS key, to identify OUR orders
-        Asset::ID  sellCoin = Asset::s_BeamID;
-        Asset::ID  buyCoin = Asset::s_BeamID;
-        Amount     amount = 0;
-        Amount     progress = 0;
-        bool       isMy;
-        beam::Timestamp expiration = 0;
+        [[nodiscard]] ECC::Scalar::Native derivePrivateKey(beam::Key::IKdf::Ptr) const;
+        [[nodiscard]] PeerID derivePublicKey(beam::Key::IKdf::Ptr) const;
+
+    private:
+        uint32_t   version       = 0;
+        DexOrderID orderID;      // UUID
+        WalletID   sbbsID;       // here wallet listens for order processing
+        uint64_t   sbbsKeyIDX    = 0; // index used to generate SBBS key, to identify OUR orders
+        Asset::ID  sellCoin      = Asset::s_BeamID;
+        Amount     sellAmount    = 0;
+        Asset::ID  buyCoin       = Asset::s_BeamID;
+        Amount     sellToBuyRate = 0;
+        Amount     sellProgress  = 0;
+        bool       isMine        = false;
+        Timestamp  expireTime    = 0;
     };
 }

@@ -248,11 +248,11 @@ namespace beam::wallet
 
                 if (val < 0)
                 {
-                    const bool isAsset = aid != Asset::s_InvalidID;
-                    LOG_ERROR() << m_Builder.m_Tx.GetTxID()
-                                << "[" << m_Builder.m_SubTxID << "]"
-                                << " Missing "
-                                << PrintableAmount(Amount(-val), false, isAsset ? kAmountASSET : "",  isAsset ? kAmountAGROTH : "");
+                    LOG_ERROR()
+                        << m_Builder.m_Tx.GetTxID()
+                        << "[" << m_Builder.m_SubTxID << "]"
+                        << " Missing "
+                        << PrintableAmount(Amount(-val), false, aid);
 
                     throw TransactionFailedException(!m_Builder.m_Tx.IsInitiator(), TxFailureReason::NoInputs);
                 }

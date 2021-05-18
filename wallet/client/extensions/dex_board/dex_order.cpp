@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "dex_order.h"
+#include "utility/logger.h"
+#include "core/common.h"
 
 namespace beam::wallet
 {
@@ -25,38 +27,171 @@ namespace beam::wallet
         return kCurrentOfferVer;
     }
 
-    DexOrder::DexOrder()
-        : version(kCurrentOfferVer)
+    DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
     {
+        if (!fromByteBuffer(buffer, *this))
+        {
+            throw std::runtime_error("DexOrder::DexOrder failed to parse order body");
+        }
+
+        if (version != DexOrder::getCurrentVersion())
+        {
+            throw std::runtime_error("DexOrder::DexOrder obsolete order version");
+        }
+
+        SignatureHandler sig;
+        sig.m_data = signature;
+
+        if (!fromByteBuffer(signature, sig.m_Signature))
+        {
+            throw std::runtime_error("DexOrder::DexOrder failed to parse signature");
+        }
+
+        if (!sig.IsValid(sbbsID.m_Pk))
+        {
+            throw std::runtime_error("DexOrder::DexOrder failed to verify signature");
+        }
+
+        auto pubkey = derivePublicKey(pkdf);
+        isMine = pubkey == sbbsID.m_Pk;
     }
 
-    DexOrder::DexOrder(DexOrderID orderId, WalletID sbbsId, uint64_t sbbsKeyIdx, Asset::ID sellCoin, Asset::ID buyCoin, Amount amount, beam::Timestamp expiration)
+    DexOrder::DexOrder(DexOrderID orderId,
+                 WalletID   sbbsId,
+                 uint64_t   sbbsKeyIdx,
+                 Asset::ID  sellCoin,
+                 Amount     sellAmount,
+                 Asset::ID  buyCoin,
+                 Amount     sellToBuyRate,
+                 Timestamp  expiration)
         : version(kCurrentOfferVer)
         , orderID(orderId)
         , sbbsID(sbbsId)
         , sbbsKeyIDX(sbbsKeyIdx)
         , sellCoin(sellCoin)
+        , sellAmount(sellAmount)
         , buyCoin(buyCoin)
-        , amount(amount)
-        , isMy(true)
-        , expiration(expiration)
+        , sellToBuyRate(sellToBuyRate)
+        , isMine(true)
+        , expireTime(expiration)
     {
+    }
+
+    uint32_t DexOrder::getVersion() const
+    {
+        return version;
     }
 
     bool DexOrder::IsExpired() const
     {
         const auto now = beam::getTimestamp();
-        return expiration <= now;
+        return expireTime <= now;
     }
 
     bool DexOrder::IsCompleted() const
     {
-        assert(progress <= amount);
-        return progress >= amount;
+        assert(sellProgress <= sellAmount);
+        return sellProgress >= sellAmount;
     }
 
     bool DexOrder::CanAccept() const
     {
-        return !isMy && !IsExpired() && !IsCompleted();
+        return !isMine && !IsExpired() && !IsCompleted();
+    }
+
+    void DexOrder::LogInfo() const
+    {
+        if (isMine)
+        {
+            LOG_INFO()
+                << "\tI sell " << PrintableAmount(sellAmount, true, sellCoin)
+                << "\tI buy  " << PrintableAmount(getBuyAmount(), true, buyCoin);
+        }
+        else
+        {
+            LOG_INFO()
+                << "\tOther sells " << PrintableAmount(sellAmount, true, sellCoin)
+                << "\tOther buys  " << PrintableAmount(getBuyAmount(), true, buyCoin);
+        }
+    }
+
+    const DexOrderID& DexOrder::getID() const
+    {
+        return orderID;
+    }
+
+    const WalletID& DexOrder::getSBBSID() const
+    {
+        return sbbsID;
+    }
+
+    Asset::ID DexOrder::getBuyCoin() const
+    {
+        return buyCoin;
+    }
+
+    Asset::ID DexOrder::getSellCoin() const
+    {
+        return sellCoin;
+    }
+
+    Asset::ID DexOrder::getIBuyCoin() const
+    {
+        return isMine ? buyCoin : sellCoin;
+    }
+
+    Asset::ID DexOrder::getISellCoin() const
+    {
+        return isMine ? sellCoin : buyCoin;
+    }
+
+    Amount DexOrder::getISellAmount() const
+    {
+        return isMine ? sellAmount : getBuyAmount();
+    }
+
+    Amount DexOrder::getIBuyAmount() const
+    {
+        return isMine ? getBuyAmount() : sellAmount;
+    }
+
+    Amount DexOrder::getBuyAmount() const
+    {
+       return 0;
+    }
+
+    bool DexOrder::IsMine() const
+    {
+        return isMine;
+    }
+
+    Timestamp DexOrder::getExpiration() const
+    {
+        return expireTime;
+    }
+
+    ECC::Scalar::Native DexOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
+    {
+        if (!pkdf)
+        {
+            throw std::runtime_error("DexOrder::getPrivateKey - no KDF");
+        }
+
+        using PrivateKey = ECC::Scalar::Native;
+
+        PrivateKey sk;
+        pkdf->DeriveKey(sk, ECC::Key::ID(sbbsKeyIDX, Key::Type::Bbs));
+
+        return sk;
+    }
+
+    PeerID DexOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
+    {
+        auto privKey = derivePrivateKey(pkdf);
+
+        PeerID pubKey;
+        pubKey.FromSk(privKey);
+
+        return pubKey;
     }
 }

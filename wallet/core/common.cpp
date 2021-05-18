@@ -210,7 +210,6 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
     {
         os << std::to_string(amount);
-        
         return os;
     }
 }  // namespace beam
