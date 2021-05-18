@@ -110,6 +110,27 @@ namespace std
         cpp_int intval;
         import_bits(intval, amount.m_value.m_pData, amount.m_value.m_pData + decltype(amount.m_value)::nBytes);
 
+        std::string unitName = amount.m_coinName;
+        if(unitName.empty())
+        {
+            if (amount.m_assetID == Asset::s_BeamID)
+            {
+                unitName = kBEAM;
+            }
+            else
+            {
+                std::stringstream ss;
+                ss << kASSET << "_" << amount.m_assetID;
+                unitName = ss.str();
+            }
+        }
+
+        std::string grothName = amount.m_grothName;
+        if (grothName.empty())
+        {
+            grothName = amount.m_assetID == Asset::s_BeamID ? kGROTH : kAGROTH;
+        }
+
         if (amount.m_showPoint)
         {
             const auto maxGroths = std::lround(std::log10(Rules::Coin));
@@ -133,13 +154,13 @@ namespace std
 
             if (intval >= Rules::Coin)
             {
-                ss << coin << " " << (amount.m_coinName.empty() ? "BEAMs" : amount.m_coinName);
+                ss << coin << " " << unitName;
             }
 
             if (groth > 0 || intval == 0)
             {
                 ss << (intval >= Rules::Coin ? (" ") : "")
-                   << groth << " " << (amount.m_grothName.empty() ? "GROTH" : amount.m_grothName);
+                   << groth << " " << grothName;
             }
 
             return ss.str();
