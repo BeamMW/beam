@@ -348,6 +348,8 @@ namespace Env {
 
 } // namespace Env
 
+#ifndef HOST_BUILD
+
 namespace std {
     
     template <typename T>
@@ -370,6 +372,7 @@ namespace std {
     }
 }
 
+#endif // HOST_BUILD
 
 namespace Utils {
 

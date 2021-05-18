@@ -14,8 +14,19 @@
 
 #pragma once
 
+#include "common.h"
+
 namespace Eth
 {
+
+	void MemCopy(void* dest, const void* src, uint32_t n)
+	{
+#ifdef HOST_BUILD
+		memcpy(dest, src, n);
+#else // HOST_BUILD
+		Env::Memcpy(dest, src, n);
+#endif // HOST_BUILD
+	}
 
 	struct Rlp
 	{
@@ -32,10 +43,35 @@ namespace Eth
 			uint32_t m_nLen; // for strings and lists
 
 			union {
-				Node* m_pC;
+				const Node* m_pC;
 				const uint8_t* m_pBuf;
 				uint64_t m_Integer;
 			};
+
+			template <uint32_t nBytes>
+			explicit Node(const Opaque<nBytes>& hv)
+				: m_Type(Type::String)
+				, m_nLen(nBytes)
+				, m_pBuf(reinterpret_cast<const uint8_t*>(&hv))
+			{
+			}
+
+			Node() = default;
+
+			explicit Node(uint64_t n)
+				: m_Type(Type::Integer)
+				, m_Integer(n)
+				, m_nLen(0)
+			{
+			}
+
+			template <uint32_t N>
+			Node(const Node(&nodes)[N])
+				: m_Type(Type::List)
+				, m_pC(nodes)
+				, m_nLen(N)
+			{
+			}
 
 			template <uint32_t nBytes>
 			void Set(const Opaque<nBytes>& hv)
@@ -51,7 +87,7 @@ namespace Eth
 				m_Integer = n;
 			}
 
-			static uint8_t get_BytesFor(uint64_t n)
+			static constexpr uint8_t get_BytesFor(uint64_t n)
 			{
 				uint8_t nLen = 0;
 				while (n)
@@ -126,7 +162,10 @@ namespace Eth
 
 				case Type::String:
 					{
-						WriteSize(s, 0x80, m_nLen);
+						if (m_nLen != 1 || m_pBuf[0] >= 0x80)
+						{
+							WriteSize(s, 0x80, m_nLen);
+						}
 						s.Write(m_pBuf, m_nLen);
 					}
 					break;
@@ -220,7 +259,29 @@ namespace Eth
 		};
 	};
 
+	template <uint32_t N>
+	constexpr uint32_t strlen(char const (&s)[N])
+	{
+		return N-1;
+	}
 
+	template<typename T, uint32_t N>
+	constexpr auto to_opaque(T const (&s)[N])
+	{
+		constexpr auto size = sizeof(T) * N;
+		Opaque<size> r;
+		MemCopy(&r, &s, size);
+		return r;
+	}
+
+	template<uint32_t N>
+	constexpr auto to_opaque(char const (&s)[N])
+	{
+		constexpr auto size = sizeof(char) * N-1;
+		Opaque<size> r;
+		MemCopy(&r, &s, size);
+		return r;
+	}
 
 
 	struct Header
