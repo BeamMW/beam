@@ -344,8 +344,7 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
-        // TODO(zavarza) use getCoinConfirmationsOffset
-        auto minConfirmations = GetWalletDB()->get_MinConfirmationsCount();
+        auto minConfirmations = GetWalletDB()->getCoinConfirmationsOffset();
         if (minConfirmations)
         {
             Height hProof = 0;

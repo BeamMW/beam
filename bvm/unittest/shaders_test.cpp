@@ -2735,6 +2735,7 @@ namespace
 	{
 		using namespace Shaders;
 		using namespace beam;
+		using namespace Eth;
 
 		struct ByteStream
 		{
@@ -2751,28 +2752,60 @@ namespace
 			}
 		};
 
-		using namespace Eth;
+		struct RlpVisitor
+		{
+			struct Node
+			{
+				Rlp::Node::Type m_Type;
+				ByteBuffer m_Buffer;
+			};
 
+			bool OnNode(const Rlp::Node& node)
+			{
+				auto& item = m_Items.emplace_back();
+				item.m_Type = node.m_Type;
+				item.m_Buffer.assign(node.m_pBuf, node.m_pBuf + node.m_nLen);
+				return false;
+			}
+
+	
+			std::vector<Node> m_Items;
+		};
+
+		auto dog = to_opaque("dog");
 		// The string 'dog' = [0x83, 'd', 'o', 'g']
 		{
-			Rlp::Node n(to_opaque("dog"));
+			Rlp::Node n(dog);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
-			//{
-			//	Rlp::Node res;
-			//	//res.Read(bs);
-			//}
 
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
 		}
 		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
 		{
-			Rlp::Node nodes[] = { Rlp::Node(to_opaque("cat")), Rlp::Node(to_opaque("dog")) };
+			auto cat = to_opaque("cat");
+			Rlp::Node nodes[] = {Rlp::Node(cat), Rlp::Node(dog)};
 			Rlp::Node list(nodes);
 
 			ByteStream bs;
 			list.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			RlpVisitor vt;
+			verify_test(!Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size()-1, vt));
+			
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items[0].m_Buffer == ByteBuffer({ 'c', 'a', 't' }));
+			verify_test(v2.m_Items[1].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
+			
 		}
 
 		// The empty string('null') = [0x80]
@@ -2781,6 +2814,9 @@ namespace
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());
 		}
 		
 		auto createEmptyList = []()
@@ -2798,6 +2834,9 @@ namespace
 			ByteStream bs;
 			list.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0xc0 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.empty());
 		}
 
 			
@@ -2807,31 +2846,48 @@ namespace
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());// == ByteBuffer({ '\0' }));
 		}
 
 		//The encoded integer 0 ('\x00') = [0x00]
 		{
-			Rlp::Node n(to_opaque("\0"));
+			auto op = to_opaque("\0");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x00 }));
-		}
 
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x00 }));
+		}
 
 		//The encoded integer 15 ('\x0f') = [0x0f]
 		{
-			Rlp::Node n(to_opaque("\x0f"));
+			auto op = to_opaque("\x0f");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x0f }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x0f }));
 		}
 
 		//The encoded integer 1024 ('\x04\x00') = [0x82, 0x04, 0x00]
 		{
-			Rlp::Node n(to_opaque("\x04\x0"));
+			auto op = to_opaque("\x04\x0");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x82, 0x04, 0x00 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x04, 0x00 }));
 		}
 
 		//The set theoretical representation of three, [[], [[]], [[], [[]] ] ] = [0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]
@@ -2843,14 +2899,39 @@ namespace
 			ByteStream bs;
 			root.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.size() == 7);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items.size() == 3);
+			verify_test(v2.m_Items[0].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[1].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[2].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v3;
+			verify_test(Rlp::Decode(v2.m_Items[1].m_Buffer.data(), (uint32_t)v2.m_Items[1].m_Buffer.size(), v3));
+			verify_test(v3.m_Items.size() == 1 && v3.m_Items[0].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v4;
+			verify_test(Rlp::Decode(v2.m_Items[2].m_Buffer.data(), (uint32_t)v2.m_Items[2].m_Buffer.size(), v4));
+			verify_test(v4.m_Items.size() == 2 && v4.m_Items[0].m_Type == Rlp::Node::Type::List && v4.m_Items[1].m_Type == Rlp::Node::Type::List);
 		}
 
 		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
 		{
-			Rlp::Node n(to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit"));
+			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
 		}
 	}
 }
