@@ -43,9 +43,9 @@ namespace Eth
 	}
 
 	template<uint32_t N>
-	constexpr auto to_opaque(char const (&s)[N])
+	auto to_opaque(char const (&s)[N])
 	{
-		constexpr auto size = sizeof(char) * N - 1;
+		constexpr auto size = sizeof(char) * (N - 1);
 		Opaque<size> r;
 		MemCopy(&r, &s, size);
 		return r;
@@ -69,7 +69,7 @@ namespace Eth
 				const Node* m_pC;
 				const uint8_t* m_pBuf;
 				uint64_t m_Integer;
-			};
+			} ;
 
 			template <uint32_t nBytes>
 			explicit Node(const Opaque<nBytes>& hv)

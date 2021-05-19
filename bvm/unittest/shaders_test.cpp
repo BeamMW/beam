@@ -2772,9 +2772,10 @@ namespace
 			std::vector<Node> m_Items;
 		};
 
+		auto dog = to_opaque("dog");
 		// The string 'dog' = [0x83, 'd', 'o', 'g']
 		{
-			Rlp::Node n(to_opaque("dog"));
+			Rlp::Node n(dog);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
@@ -2785,7 +2786,8 @@ namespace
 		}
 		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
 		{
-			Rlp::Node nodes[] = { Rlp::Node(to_opaque("cat")), Rlp::Node(to_opaque("dog")) };
+			auto cat = to_opaque("cat");
+			Rlp::Node nodes[] = {Rlp::Node(cat), Rlp::Node(dog)};
 			Rlp::Node list(nodes);
 
 			ByteStream bs;
@@ -2851,7 +2853,8 @@ namespace
 
 		//The encoded integer 0 ('\x00') = [0x00]
 		{
-			Rlp::Node n(to_opaque("\0"));
+			auto op = to_opaque("\0");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x00 }));
@@ -2863,7 +2866,8 @@ namespace
 
 		//The encoded integer 15 ('\x0f') = [0x0f]
 		{
-			Rlp::Node n(to_opaque("\x0f"));
+			auto op = to_opaque("\x0f");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x0f }));
@@ -2875,7 +2879,8 @@ namespace
 
 		//The encoded integer 1024 ('\x04\x00') = [0x82, 0x04, 0x00]
 		{
-			Rlp::Node n(to_opaque("\x04\x0"));
+			auto op = to_opaque("\x04\x0");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x82, 0x04, 0x00 }));
@@ -2917,7 +2922,8 @@ namespace
 
 		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
 		{
-			Rlp::Node n(to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit"));
+			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
+			Rlp::Node n(op);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
