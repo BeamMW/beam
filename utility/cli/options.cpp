@@ -133,6 +133,7 @@ namespace beam
         const char* STRATUM_PORT = "stratum_port";
         const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
         const char* STRATUM_USE_TLS = "stratum_use_tls";
+        const char* WEBSOCKET_PORT = "websocket_port";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
@@ -170,6 +171,7 @@ namespace beam
         const char* PRINT_TXO = "print_txo";
         const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
+        const char* MANUAL_SELECT = "manual_select";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -193,6 +195,7 @@ namespace beam
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
+        const char* UTXO_LIST = "utxo_list";
         const char* CANCEL_TX = "cancel_tx";
         const char* DELETE_TX = "delete_tx";
         const char* TX_DETAILS = "tx_details";
@@ -207,6 +210,8 @@ namespace beam
         const char* FEE_FULL = "fee,f";
         const char* LOG_LEVEL = "log_level";
         const char* FILE_LOG_LEVEL = "file_log_level";
+        const char* LOG_ERROR = "error";
+        const char* LOG_WARNING = "warning";
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
@@ -243,6 +248,8 @@ namespace beam
         const char* PROXY_USE = "proxy";
         const char* PROXY_ADDRESS = "proxy_addr";
         const char* ALLOWED_ORIGIN = "allowed_origin";
+        const char* BLOCK_DETAILS = "block_details";
+        const char* BLOCK_HEIGHT = "block_height";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -253,6 +260,7 @@ namespace beam
         const char* ETH_SWAP_AMOUNT = "eth_swap_amount";
         // values
         const char* EXPIRATION_TIME_24H = "24h";
+        const char* EXPIRATION_TIME_AUTO  = "auto";
         const char* EXPIRATION_TIME_NEVER = "never";
         const char* EXPIRATION_TIME_NOW = "now";
         // laser
@@ -281,8 +289,9 @@ namespace beam
         const char* API_TLS_KEY = "tls_key";
         const char* API_TLS_REQUEST_CERTIFICATE = "tls_request_cert";
         const char* API_TLS_REJECT_UNAUTHORIZED = "tls_reject_unauthorized";
-        const char* API_USE_ACL= "use_acl";
+        const char* API_USE_ACL  = "use_acl";
         const char* API_ACL_PATH = "acl_path";
+        const char* API_VERSION  = "api_version";
 
         // treasury
         const char* TR_OPCODE = "tr_op";
@@ -295,6 +304,7 @@ namespace beam
 
         // ui
         const char* APPDATA_PATH = "appdata";
+        const char* APPS_REMOTE_DEBUG_PORT = "remote-debugging-port";
 
         // assets
         const char* ASSET_ISSUE       = "issue";
@@ -304,7 +314,6 @@ namespace beam
         const char* ASSET_UNREGISTER  = "asset_unreg";
         const char* ASSET_ID          = "asset_id";
         const char* ASSET_METADATA    = "asset_meta";
-        const char* ASSETS            = "assets";
         const char* WITH_ASSETS       = "enable_assets";
 
         // broadcaster
@@ -319,14 +328,17 @@ namespace beam
         const char* EXCHANGE_UNIT     = "exch_unit";
 
         // lelantus
-        const char* INSERT_TO_POOL      = "insert_to_pool";
-        const char* EXTRACT_FROM_POOL   = "extract_from_pool";
-        const char* SHIELDED_UTXOS      = "shielded_utxos";
-        const char* SHIELDED_ID         = "shielded_id";
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
-        const char* OFFLINE_ADDRESS     = "offline";
+        const char* OFFLINE_COUNT       = "offline_count";
         const char* PUBLIC_OFFLINE      = "public_offline";
         const char* ENABLE_LELANTUS     = "enable_lelantus";
+        const char* SEND_OFFLINE        = "offline";
+
+        // shaders
+        const char* SHADER_INVOKE       = "shader";
+        const char* SHADER_ARGS         = "shader_args";
+        const char* SHADER_BYTECODE_APP      = "shader_app_file";
+        const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
     }
 
 
@@ -345,7 +357,7 @@ namespace beam
             return x.m_Packed;
         }
 
-        static std::string get(ECC::uintBig& x) {
+        static std::string get(const ECC::uintBig& x) {
             return x.str();
         }
 
@@ -361,8 +373,8 @@ namespace beam
         general_options.add_options()
             (cli::HELP_FULL, "list all available options and commands")
             (cli::VERSION_FULL, "print project version")
-            (cli::LOG_LEVEL, po::value<string>(), "set log level [info|debug|verbose]")
-            (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [info|debug|verbose]")
+            (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::GIT_COMMIT_HASH, "print git commit hash value");
 
@@ -380,11 +392,13 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
+            (cli::WEBSOCKET_PORT, po::value<uint16_t>()->default_value(0), "port to start websocket server on, it allows to communicate with node from web browser")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
             (cli::PRINT_ROLLBACK_STATS, po::value<bool>()->default_value(false), "Analyze and print recent reverted branches, check if there were double-spends.")
             (cli::MANUAL_ROLLBACK, po::value<Height>(), "Explicit rollback to height. The current consequent state will be forbidden (no automatic going up the same path)")
+            (cli::MANUAL_SELECT, po::value<std::string>(), "Explicit correct block selection at the specified height. Auto-rollback below this height if current branch is different")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check")
             (cli::VACUUM, po::value<bool>()->default_value(false), "DB vacuum (compact)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
@@ -417,10 +431,11 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
             (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
+            (cli::UTXO_LIST, "print the list of UTXOs (should be used with info command)")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
-            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_24H), "expiration time for own address [24h|never|now]")
+            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
@@ -431,9 +446,14 @@ namespace beam
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "node poll period in milliseconds. Set to 0 to keep connection forever. Poll period would be no shorter than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
+            (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
+            (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
+            (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
-            (cli::OFFLINE_ADDRESS, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
-            (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)");
+            (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
+            (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
+            (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
+            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -449,6 +469,10 @@ namespace beam
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
+
+        po::options_description uidebug("UI debug options");
+        uidebug.add_options()
+            (cli::APPS_REMOTE_DEBUG_PORT, po::value<uint32_t>()->default_value(0), "contracts applications remote debug port");
 
         po::options_description swap_options("Atomic swap");
         swap_options.add_options()
@@ -480,7 +504,6 @@ namespace beam
         wallet_assets_options.add_options()
             (cli::ASSET_ID,         po::value<Positive<uint32_t>>(), "asset ID")
             (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
-            (cli::ASSETS,           "print assets (should be used with an info command)")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
 #ifdef BEAM_LASER_SUPPORT
@@ -501,13 +524,6 @@ namespace beam
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "transaction fee (in GROTH, 100,000,000 groth = 1 BEAM)")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 #endif  // BEAM_LASER_SUPPORT
-
-        // Basic lelantus operations are disabled starting from v5.1
-        // po::options_description lelantus_options("Lelantus-MW");
-        // lelantus_options.add_options()
-        //    (cli::SHIELDED_UTXOS, "print all shielded UTXO info from the pool")
-        //    (cli::SHIELDED_ID, po::value<Nonnegative<TxoID>>(), "shielded UTXO ID")
-        //    (cli::SHIELDED_TX_HISTORY, "print Lelantus-MW transaction history");
 
         po::options_description options{ "OPTIONS" };
         po::options_description visible_options{ "OPTIONS" };
@@ -530,8 +546,6 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
-            // Basic lelantus operations are disabled starting from v5.1
-            // options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
@@ -540,8 +554,6 @@ namespace beam
 
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
-            // Basic lelantus operations are disabled starting from v5.1
-            // visible_options.add(lelantus_options);
 
             if(Rules::get().CA.Enabled)
             {
@@ -558,6 +570,8 @@ namespace beam
         {
             options.add(uioptions);
             visible_options.add(uioptions);
+            options.add(uidebug);
+            visible_options.add(uidebug);
         }
 
         po::options_description rules_options = createRulesOptionsDescription();
@@ -664,6 +678,8 @@ namespace beam
     {
         const map<std::string, int> logLevels
         {
+            { cli::LOG_ERROR, LOG_LEVEL_ERROR },
+            { cli::LOG_WARNING, LOG_LEVEL_WARNING },
             { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
             { cli::INFO, LOG_LEVEL_INFO },
             { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }

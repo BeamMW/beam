@@ -1,0 +1,356 @@
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "wallet_status",
+    "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo",
+    "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo",
+    "params": {
+        "sort": {
+            "field": "amount",
+            "direction": "asc"
+        }
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_utxo",
+    "params":  {
+        "count": 10,
+        "skip": 0,
+        "sort": {
+            "field": "status"
+        }
+    }
+   
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "set_confirmations_count",
+    "params": {
+        "count": 5
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_confirmations_count",
+    "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_offers_list",
+    "params": {}
+}
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_offers_list",
+    "params": {}
+}
+
+###
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_get_balance",
+    "params": {
+        "coin": "btc"
+    }
+}
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_offers_board",
+    "params": {}
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_create_offer",
+    "params": {
+        "send_amount": 44000000000,
+        "send_currency": "beam",
+        "receive_amount": 2000000000,
+        "receive_currency": "btc",
+        "beam_fee": 100,
+        "fee_rate": 90000,
+        "offer_expires": 30,
+        "comment": "API"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_offer_status",
+    "params": {
+        "tx_id": "a36671ceb9d844e2baa44798ee1e915a"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_cancel_offer",
+    "params": {
+        "txId" : "a36671ceb9d844e2baa44798ee1e915a"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_publish_offer",
+    "params": {
+        "token": "TJfqqvZNnsGH33yWH8YYvma8eoUWKnecn6mfC97MrrdMw1a8q6hVTpTCrGqcmkzDCyxc6hrzARRUakreNGopRXUxfYAPGS1RS3sYdr3wrXtoycDNTsPWcDTzqUt68sMqCtRtEt2XGZR7x8QXqDXNiexecpdK467Wo8zehxNA"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "swap_accept_offer",
+    "params": {
+        "receive_amount": 500000000,
+        "receive_currency": "btc",
+        "send_amount": 5500000000,
+        "send_currency": "beam",
+        "beam_fee": 100,
+        "fee_rate": 90000,
+        "comment": "API-accept",
+        "token" : "6xewkUBnRZXrRKwwnseyFaufaPvGAvcjMG1DmQKtJvyyKvamsmRgcAVoyBFcDWp93ZcF6sFuiGYUmoLFkrXQLnASyX53ppziXy1MNePox7TGRZX1smSBuNMBgQCoQzW2j3EEs3yqRXgF6wkpjMZq6iCrY1E9sxDoGGxwyEt"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 126,
+    "method": "swap_accept_offer",
+    "params": {
+        "token": "Jk6G34NFBZVdUhZkRAy5eetuuZ1vivQcP7PiwcKC7G4WVvY4P5X2qABegCAtCAP8WTLffaWysu8VUQCotc6UPxLLELPTJzEbZpeG9Z19UU5cHRe47p6KTgF7sE3b1EiqWMpPuR1rjtDgAKfjouksQgPg9d3DmTnDQMiD"
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "tx_list",
+    "params": {}
+}
+
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 8,
+    "method":"addr_list",
+    "params":
+    {
+        "own" : true
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 2,
+    "method":"tx_send", 
+    "params":
+    {
+        "value": 100000000,
+        "fee": 10000000,
+        "from": "39e3fa0873541ba279e31922f222870b123c7d5e8a9639d7b9d9c3b3c2fa9db2f54",
+        "address": "2DWjfstQoaLMYYgvc4NBTTGqSSyXjq9y5CGHxZHuRm36ySRtyqTPNExT5G8VzFhbJE7B7KxvMYnmDuzaSiC869ffuSCeY9rwvkqixGMXu9WTwSaCzj1xjww5hHVrqbyTh5fbjA1zTRUp3ZswiPHXvKG24GTmmcm8CF4rBM3qcnANfccACmNGJrN2fQfDTa93nC9Wtr6WvSqv9dL6aRC6sJ4jvtRaDgvxVafihL7cLyBByoHWNpqWBdAwEgCJ6DerXWy692Yrzy6Q1R2nDbLj4kuR1AXe9kTZoiJsXB6i56vzUxNq5Q2L5sAcuu8M8pEZz9S6UQFtvuJYbgGxLDr5BiTG3BWRA3UjQJ4aqAnKSgdEGmNcb7XwaEVS5oLjo8f4kN783N7m2azsCszaVRs1aEH4WoHj7soLJTp7A8mH2rjrKfu8pPZe1Mx1bsHgsqdpJ4GKn5aKKKXyTZKsBKMn3GrMqmcDuZAuC5Hy5HbbxDEYST3ofmuy3Wb4tDn1468ZnsjVK",
+        "comment": "thank you!",
+        "asset_id": 0,
+        "offline": false
+    }
+}
+
+###
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 4,
+    "method":"tx_status", 
+    "params":
+    {
+        "txId" : "365ed3c560ed493499036fff66d059a2" 
+    }
+}
+
+### Regular old style address
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "create_address",
+    "params" :
+    {
+        "type": "regular",
+        "expiration" : "auto",
+        "comment" : "John Smith"
+    }
+}
+
+### Regular new style address
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0", 
+    "id" : 1,
+    "method" : "create_address", 
+    "params" :
+    {
+        "type": "regular",
+        "expiration" : "auto",
+        "comment" : "John Smith New Style",
+        "new_style_regular" : true
+    }
+}
+
+### Offline address
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "create_address",
+    "params" :
+    {
+        "type": "offline",
+        "expiration" : "auto",
+        "comment" : "John Smith"
+    }
+}
+
+######## Explorer node #######################
+###
+
+GET http://127.0.0.1:8888/status HTTP/1.1
+
+###
+
+GET http://127.0.0.1:8888/blocks?height=13600&n=100 HTTP/1.1
+
+###
+
+GET http://127.0.0.1:8888/swap_offers HTTP/1.1
+
+###

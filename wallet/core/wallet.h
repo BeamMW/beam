@@ -72,8 +72,7 @@ namespace beam::wallet
 
     };
 
-
-    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
+    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
 
     // Interface for wallet observer. 
@@ -128,7 +127,8 @@ namespace beam::wallet
         virtual ~Wallet();
         void CleanupNetwork();
 
-        void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
+        void SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint);
+        proto::FlyClient::INetwork::Ptr GetNodeEndpoint();
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         // Rescans the blockchain from scratch
@@ -152,6 +152,7 @@ namespace beam::wallet
         void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
+        Height get_CurrentHeight() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -162,6 +163,7 @@ namespace beam::wallet
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         void EnableBodyRequests(bool value);
+        void assertThread() const; // throws if not in wallet thread
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -178,6 +180,7 @@ namespace beam::wallet
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
+        void confirm_asset(const Asset::ID assetId);
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
@@ -255,6 +258,7 @@ namespace beam::wallet
         bool IsMobileNodeEnabled() const;
 
     private:
+        std::thread::id _myThread;
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -328,7 +332,10 @@ namespace beam::wallet
             };
         };
 
-#define THE_MACRO(type, msgOut, msgIn) \
+#define REQUEST_Cmp_less_Single { return false; }
+#define REQUEST_Cmp_less_Multiple ;
+
+#define THE_MACRO(type) \
         struct MyRequest##type \
             :public Request##type \
             ,public boost::intrusive::set_base_hook<> \
@@ -367,13 +374,31 @@ namespace beam::wallet
             return true; \
         }
 
-        REQUEST_TYPES_All(THE_MACRO)
+#define WalletFlyClientRequests_All(macro) \
+	macro(Utxo) \
+	macro(Kernel) \
+	macro(Kernel2) \
+	macro(Events) \
+	macro(Transaction) \
+	macro(ShieldedList) \
+	macro(ProofShieldedOutp) \
+	macro(Asset) \
+	macro(StateSummary) \
+	macro(ShieldedOutputsAt) \
+    macro(BodyPack) \
+    macro(Body)
+
+
+    WalletFlyClientRequests_All(THE_MACRO)
+
 #undef THE_MACRO
+#undef REQUEST_Cmp_less_Single
+#undef REQUEST_Cmp_less_Multiple
 
 
         IWalletDB::Ptr m_WalletDB; 
         
-        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        proto::FlyClient::INetwork::Ptr m_NodeEndpoint;
         std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         struct VoucherManager

@@ -277,7 +277,7 @@ namespace beam::wallet {
 
         pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
 
-        if (m_MineOutgoing)
+        if (m_MineOutgoing && !Rules::get().FakePoW)
         {
             proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
@@ -291,7 +291,7 @@ namespace beam::wallet {
                 m_Miner.m_vThreads.resize(nThreads);
 
                 for (uint32_t i = 0; i < nThreads; i++)
-                    m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i);
+                    m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
             }
 
             std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);

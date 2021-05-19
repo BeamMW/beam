@@ -25,6 +25,8 @@
 #include <iomanip>
 
 #include "pow/external_pow.h"
+#include "websocket/websocket_server.h"
+
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -35,6 +37,102 @@
 using namespace std;
 using namespace beam;
 using namespace ECC;
+
+namespace
+{
+	using namespace beam;
+	using namespace beam::wallet;
+
+	class WebClient
+		: public  WebSocketServer::ClientHandler  // We handle web socket client
+		, public std::enable_shared_from_this<WebClient>
+	{
+	public:
+		WebClient(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose, uint16_t nodePort)
+			: m_wsSend(std::move(wsSend))
+			, m_wsClose(std::move(wsClose))
+		{
+			auto& r = io::Reactor::get_Current();
+			r.tcp_connect(io::Address::localhost().port(nodePort), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
+		}
+
+		~WebClient() noexcept override
+		{
+			auto& r = io::Reactor::get_Current();
+			r.cancel_tcp_connect(uint64_t(this));
+		}
+	private:
+		void ReactorThread_onWSDataReceived(const std::string& data) override
+		{
+			m_DataQueue.push(data);
+			if (m_Stream)
+			{
+				ProcessDataQueue();
+			}
+		}
+
+		void ProcessDataQueue()
+		{
+			while (!m_DataQueue.empty())
+			{
+				auto& d = m_DataQueue.front();
+				m_Stream->write(d.data(), d.size());
+				m_DataQueue.pop();
+			}
+		}
+
+		void OnConnected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
+		{
+			if (newStream)
+			{
+				LOG_DEBUG() << "Websocket proxy connected to the node";
+				m_Stream = std::move(newStream);
+				m_Stream->enable_read(
+					[this](io::ErrorCode what, void* data, size_t size) -> bool
+					{
+						m_wsSend(std::string((const char*)data, size));
+						return true;
+					});
+				ProcessDataQueue();
+			}
+			else
+			{
+				std::stringstream ss;
+				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
+				LOG_DEBUG() << ss.str();
+				m_wsClose(ss.str());
+			}
+		}
+	private:
+		WebSocketServer::SendFunc m_wsSend;
+		WebSocketServer::CloseFunc m_wsClose;
+		io::TcpStream::Ptr m_Stream;
+		std::queue<std::string> m_DataQueue;
+
+	};
+
+	class WebSocketProxy : public WebSocketServer
+	{
+	public:
+		WebSocketProxy(SafeReactor::Ptr reactor, uint16_t port, uint16_t nodePort,
+			const std::string& allowedOrigin)
+			: WebSocketServer(std::move(reactor), port, allowedOrigin)
+			, m_NodePort(nodePort)
+		{
+		}
+
+		virtual ~WebSocketProxy() = default;
+
+	private:
+		WebSocketServer::ClientHandler::Ptr ReactorThread_onNewWSClient(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose) override
+		{
+			return std::make_shared<WebClient>(wsSend, wsClose, m_NodePort);
+		}
+
+	private:
+		uint16_t m_NodePort;
+	};
+}
 
 namespace
 {
@@ -206,7 +304,8 @@ int main_impl(int argc, char* argv[])
             }
 
 			{
-				reactor = io::Reactor::create();
+				SafeReactor::Ptr safeReactor = SafeReactor::create();
+				reactor = safeReactor->ptr();
 				io::Reactor::Scope scope(*reactor);
 
 				io::Reactor::GracefulIntHandler gih(*reactor);
@@ -226,6 +325,12 @@ int main_impl(int argc, char* argv[])
 
 				{
 					beam::Node node;
+
+					std::unique_ptr<WebSocketProxy> webSocketProxy;
+					if (auto wsPort = vm[cli::WEBSOCKET_PORT].as<uint16_t>(); wsPort > 0)
+					{
+						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsPort, port, "");
+					}
 
                     NodeObserver observer(node);
 
@@ -301,6 +406,7 @@ int main_impl(int argc, char* argv[])
                         {
 						    if (!addr.port())
 						    {
+								LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
 							    addr.port(port);
 						    }
 
@@ -392,7 +498,28 @@ int main_impl(int argc, char* argv[])
 						if (h >= Rules::HeightGenesis)
 							node.get_Processor().ManualRollbackTo(h);
 						else
-							node.get_Processor().ForbidActiveAt(0);
+							node.get_Processor().m_ManualSelection.ResetAndSave();
+
+						node.RefreshCongestions();
+					}
+
+					if (vm.count(cli::MANUAL_SELECT))
+					{
+						node.get_Processor().m_ManualSelection.Reset();
+
+						auto s = vm[cli::MANUAL_SELECT].as<std::string>();
+
+						Block::SystemState::ID sid;
+						auto iPos = s.find('-');
+						if ((s.npos != iPos) && (s.size() > iPos + sid.m_Hash.nTxtLen))
+						{
+							sid.m_Height = std::stoull(s);
+							sid.m_Hash.Scan(&s.front() + iPos + 1);
+
+							node.get_Processor().ManualSelect(sid);
+						}
+						else
+							node.get_Processor().m_ManualSelection.ResetAndSave();
 
 						node.RefreshCongestions();
 					}

@@ -119,17 +119,17 @@ private:
         Object(const Object&) = delete;
         Object& operator=(const Object&) = delete;
 
-        Object(Object&& o) :
+        Object(Object&& o) noexcept :
             _reactor(std::move(o._reactor)),
             _handle(o._handle)
         {
-            o._handle = 0;
+            o._handle = nullptr;
         }
 
-        Object& operator=(Object&& o) {
+        Object& operator=(Object&& o) noexcept {
             _reactor = std::move(o._reactor);
             _handle = o._handle;
-            o._handle = 0;
+            o._handle = nullptr;
             return *this;
         }
 
@@ -139,7 +139,7 @@ private:
 
         void async_close() {
             if (_handle) {
-                _handle->data = 0;
+                _handle->data = nullptr;
                 if (_reactor) {
                     _reactor->async_close(_handle);
                     _reactor.reset();

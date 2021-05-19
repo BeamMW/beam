@@ -40,126 +40,126 @@ matrix:
 # OSX Release
 ###############################################################################
 
-    - os: osx
-      language: cpp
-      osx_image: xcode10.2
-      install:
-        - export TZ=GMT-3
-        - sudo systemsetup -gettimezone
-        - brew unlink cmake
-        - brew install cmake
-        - brew link cmake
-        - brew upgrade --ignore-pinned icu4c
-        - brew uninstall --ignore-dependencies sfcgal
-        - brew uninstall --ignore-dependencies cgal
-        - brew uninstall --ignore-dependencies node
-        - brew uninstall --ignore-dependencies postgresql
-        - brew uninstall --ignore-dependencies postgis
-        - brew uninstall --ignore-dependencies boost
-        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
-        - brew install ./boost.rb
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
-        - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
-        - tar xvf macos_cert.tar
-        # create custom keychain
-        - security create-keychain -p travis macos-build.keychain
-        - security default-keychain -s macos-build.keychain
-        - security unlock-keychain -p travis macos-build.keychain
-        - security set-keychain-settings -t 3600 -l ~/Library/Keychains/macos-build.keychain
-        # import certificates
-        - security import distkey.p12 -P $MACOS_DISTRIBUTION_KEY_PASSWORD  -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
-        - security import devapp.cer -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
-        - security set-key-partition-list -S "apple-tool:,apple:" -s -k travis macos-build.keychain
-      env: 
-        - BUILD_TYPE=Release
-        - OS_FOLDER=mac
-      script:
-        - git apply 3rdparty/protobuf-patch.diff
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
-        - make -j$(sysctl -n hw.ncpu)
-        #  - ctest --verbose
-        # extract build version
-        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
-        - echo BEAM_VERSION = $BEAM_VERSION
-        # sign our builds
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/cli/beam-wallet$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
-        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
-
-###############################################################################
-# IOS OS64 SIMULATOR64 COMBINED
-###############################################################################
-
-    - os: osx
-      language: cpp
-      cache: ccache
-      osx_image: xcode10.2
-      install:
-        - export TZ=GMT-3
-        - brew update
-        - brew unlink cmake
-        - brew install cmake ccache
-        - brew link cmake
-        - export PATH="/usr/local/opt/ccache/libexec:$PATH"
-        - brew uninstall --ignore-dependencies boost
-        - git clone --depth=1 https://github.com/BeamMW/boost-ios.git /Users/travis/boost-ios
-        - git clone --depth=1 https://github.com/BeamMW/boost-ios-simulator.git /Users/travis/boost-ios-simulator
-        - git clone --depth=1 https://github.com/BeamMW/openssl-ios.git /Users/travis/openssl-ios
-        - git clone --depth=1 https://github.com/leetal/ios-cmake.git /Users/travis/toolchain-ios
-      env: 
-        - BUILD_TYPE=Release
-        - OPENSSL_ROOT_DIR="/Users/travis/openssl-ios/"
-        - OPENSSL_CRYPTO_LIBRARY="/Users/travis/openssl-ios/lib/libcrypto.a"
-        - OPENSSL_INCLUDE_DIR="/Users/travis/openssl-ios/include"
-        - OPENSSL_SSL_LIBRARY="/Users/travis/openssl-ios/lib/libssl.a"
-        - OPENSSL_LIBRARIES="/Users/travis/openssl-ios/lib"
-      script:
-        - git apply 3rdparty/protobuf-patch.diff
-        - export BOOST_ROOT_IOS="/Users/travis/boost-ios"
-        - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
-        - make -C ./build -j$(sysctl -n hw.ncpu)
-        - export BOOST_ROOT_IOS="/Users/travis/boost-ios-simulator"
-        - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build-simulator
-        - make -C ./build-simulator -j$(sysctl -n hw.ncpu)
-      after_success:
-        # extract build version
-        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
-        - echo BEAM_VERSION = $BEAM_VERSION
-        - mkdir -p /Users/travis/beam-ios/include
-        - mkdir -p /Users/travis/beam-ios/lib
-        - find ./build -name \*.a -type f -exec cp {} /Users/travis/beam-ios/lib/ \;
-        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
-        - cp ./build/core/version.h /Users/travis/beam-ios/include/core/
-        - mkdir -p /Users/travis/beam-ios-simulator/include
-        - mkdir -p /Users/travis/beam-ios-simulator/lib
-        - find ./build-simulator -name \*.a -type f -exec cp {} /Users/travis/beam-ios-simulator/lib/ \;
-        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios-simulator/include/
-        - cp ./build/core/version.h /Users/travis/beam-ios-simulator/include/core/
-        - mkdir -p /Users/travis/beam-ios-combined/include
-        - mkdir -p /Users/travis/beam-ios-combined/lib
-        - find /Users/travis/beam-ios/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output /Users/travis/beam-ios-combined/lib/$(basename "$file") "$file" /Users/travis/beam-ios-simulator/lib/$(basename "$file"); done;
-        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios-combined/include/
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios
-        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios
-        - tar -cvzf beam-ios-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios
-        - cp beam-ios-$BEAM_VERSION.tar.gz beam-ios.tar.gz
-        - tar -cvzf beam-ios-simulator-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios-simulator
-        - cp beam-ios-simulator-$BEAM_VERSION.tar.gz beam-ios-simulator.tar.gz
-        - tar -cvzf beam-ios-combined-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios-combined
-        - cp beam-ios-combined-$BEAM_VERSION.tar.gz beam-ios-combined.tar.gz
-        - curl --retry 3 --ftp-create-dirs -T beam-ios-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T beam-ios.tar.gz $BUILDS_SERVER_LATEST_PATH/
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-$BEAM_VERSION.tar.gz
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios.tar.gz
-        - curl --retry 3 --ftp-create-dirs -T beam-ios-simulator-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T beam-ios-simulator.tar.gz $BUILDS_SERVER_LATEST_PATH/
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-simulator-$BEAM_VERSION.tar.gz
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios-simulator.tar.gz
-        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined.tar.gz $BUILDS_SERVER_LATEST_PATH/
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-combined-$BEAM_VERSION.tar.gz
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios-combined.tar.gz
+#    - os: osx
+#      language: cpp
+#      osx_image: xcode10.1
+#      install:
+#        - export TZ=GMT-3
+#        - sudo systemsetup -gettimezone
+#        - brew unlink cmake
+#        - brew install cmake
+#        - brew link cmake
+#        - brew upgrade --ignore-pinned icu4c
+#        - brew uninstall --ignore-dependencies sfcgal
+#        - brew uninstall --ignore-dependencies cgal
+#        - brew uninstall --ignore-dependencies node
+#        - brew uninstall --ignore-dependencies postgresql
+#        - brew uninstall --ignore-dependencies postgis
+#        - brew uninstall --ignore-dependencies boost
+#        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
+#        - brew install ./boost.rb
+#        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl@1.1"
+#        - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
+#        - tar xvf macos_cert.tar
+#        # create custom keychain
+#        - security create-keychain -p travis macos-build.keychain
+#        - security default-keychain -s macos-build.keychain
+#        - security unlock-keychain -p travis macos-build.keychain
+#        - security set-keychain-settings -t 3600 -l ~/Library/Keychains/macos-build.keychain
+#        # import certificates
+#        - security import distkey.p12 -P $MACOS_DISTRIBUTION_KEY_PASSWORD  -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+#        - security import devapp.cer -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+#        - security set-key-partition-list -S "apple-tool:,apple:" -s -k travis macos-build.keychain
+#      env: 
+#        - BUILD_TYPE=Release
+#        - OS_FOLDER=mac
+#      script:
+#        - git apply 3rdparty/protobuf-patch.diff
+#        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On -DBEAM_HW_WALLET=Off .
+#        - make -j$(sysctl -n hw.ncpu)
+#        - ctest --verbose
+#        # extract build version
+#        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
+#        - echo BEAM_VERSION = $BEAM_VERSION
+#        # sign our builds
+#        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
+#        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/cli/beam-wallet$BEAM_TARGET_SUFFIX
+#        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/api/wallet-api$BEAM_TARGET_SUFFIX
+#        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
+#
+################################################################################
+## IOS OS64 SIMULATOR64 COMBINED
+################################################################################
+#
+#    - os: osx
+#      language: cpp
+#      cache: ccache
+#      osx_image: xcode10.1
+#      install:
+#        - export TZ=GMT-3
+#        - brew update
+#        - brew unlink cmake
+#        - brew install cmake ccache
+#        - brew link cmake
+#        - export PATH="/usr/local/opt/ccache/libexec:$PATH"
+#        - brew uninstall --ignore-dependencies boost
+#        - git clone --depth=1 https://github.com/BeamMW/boost-ios.git /Users/travis/boost-ios
+#        - git clone --depth=1 https://github.com/BeamMW/boost-ios-simulator.git /Users/travis/boost-ios-simulator
+#        - git clone --depth=1 https://github.com/BeamMW/openssl-ios.git /Users/travis/openssl-ios
+#        - git clone --depth=1 https://github.com/leetal/ios-cmake.git /Users/travis/toolchain-ios
+#      env: 
+#        - BUILD_TYPE=Release
+#        - OPENSSL_ROOT_DIR="/Users/travis/openssl-ios/"
+#        - OPENSSL_CRYPTO_LIBRARY="/Users/travis/openssl-ios/lib/libcrypto.a"
+#        - OPENSSL_INCLUDE_DIR="/Users/travis/openssl-ios/include"
+#        - OPENSSL_SSL_LIBRARY="/Users/travis/openssl-ios/lib/libssl.a"
+#        - OPENSSL_LIBRARIES="/Users/travis/openssl-ios/lib"
+#      script:
+#        - git apply 3rdparty/protobuf-patch.diff
+#        - export BOOST_ROOT_IOS="/Users/travis/boost-ios"
+#        - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
+#        - make -C ./build -j$(sysctl -n hw.ncpu)
+#        - export BOOST_ROOT_IOS="/Users/travis/boost-ios-simulator"
+#        - cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=/Users/travis/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build-simulator
+#        - make -C ./build-simulator -j$(sysctl -n hw.ncpu)
+#      after_success:
+#        # extract build version
+#        - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
+#        - echo BEAM_VERSION = $BEAM_VERSION
+#        - mkdir -p /Users/travis/beam-ios/include
+#        - mkdir -p /Users/travis/beam-ios/lib
+#        - find ./build -name \*.a -type f -exec cp {} /Users/travis/beam-ios/lib/ \;
+#        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios/include/
+#        - cp ./build/core/version.h /Users/travis/beam-ios/include/core/
+#        - mkdir -p /Users/travis/beam-ios-simulator/include
+#        - mkdir -p /Users/travis/beam-ios-simulator/lib
+#        - find ./build-simulator -name \*.a -type f -exec cp {} /Users/travis/beam-ios-simulator/lib/ \;
+#        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios-simulator/include/
+#        - cp ./build/core/version.h /Users/travis/beam-ios-simulator/include/core/
+#        - mkdir -p /Users/travis/beam-ios-combined/include
+#        - mkdir -p /Users/travis/beam-ios-combined/lib
+#        - find /Users/travis/beam-ios/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output /Users/travis/beam-ios-combined/lib/$(basename "$file") "$file" /Users/travis/beam-ios-simulator/lib/$(basename "$file"); done;
+#        - rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . /Users/travis/beam-ios-combined/include/
+#        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios
+#        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios
+#        - tar -cvzf beam-ios-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios
+#        - cp beam-ios-$BEAM_VERSION.tar.gz beam-ios.tar.gz
+#        - tar -cvzf beam-ios-simulator-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios-simulator
+#        - cp beam-ios-simulator-$BEAM_VERSION.tar.gz beam-ios-simulator.tar.gz
+#        - tar -cvzf beam-ios-combined-$BEAM_VERSION.tar.gz -C /Users/travis beam-ios-combined
+#        - cp beam-ios-combined-$BEAM_VERSION.tar.gz beam-ios-combined.tar.gz
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios.tar.gz $BUILDS_SERVER_LATEST_PATH/
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-$BEAM_VERSION.tar.gz
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios.tar.gz
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios-simulator-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios-simulator.tar.gz $BUILDS_SERVER_LATEST_PATH/
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-simulator-$BEAM_VERSION.tar.gz
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios-simulator.tar.gz
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+#        - curl --retry 3 --ftp-create-dirs -T beam-ios-combined.tar.gz $BUILDS_SERVER_LATEST_PATH/
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/ios/" beam-ios-combined-$BEAM_VERSION.tar.gz
+#        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/ios/" beam-ios-combined.tar.gz
 
 ###############################################################################
 # Linux Debug
@@ -503,60 +503,55 @@ before_script:
 
 after_success:
   # deploy using ftp server
+  - BEAM_ROOT_DIR=$HOME/build/BeamMW/beam
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
-  - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
+  #- tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
+  #- tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
   - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/api/ wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
-  # - tar -cvzf wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service wallet-service$BEAM_TARGET_SUFFIX
-  # - tar -cvzf sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service sbbs-monitor$BEAM_TARGET_SUFFIX
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
   - tar -cvzf broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/broadcaster broadcaster$BEAM_TARGET_SUFFIX
-    
+  - tar -cvzf beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz -C $BEAM_ROOT_DIR/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg -C $BEAM_ROOT_DIR/wallet/cli beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg -C $BEAM_ROOT_DIR/bvm Shaders
+
   # upload binaries to FTP
-  - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  #- curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  #- curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  # - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  # - curl --retry 3 --ftp-create-dirs -T sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
   # upload binaries to FTP, to the latest folder
   - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER
-  - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-api$BEAM_TARGET_SUFFIX.tar.gz
-  # - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-service$BEAM_TARGET_SUFFIX.tar.gz
-  # - curl --retry 3 --ftp-create-dirs -T sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/broadcaster$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-shader-pack$BEAM_TARGET_SUFFIX.tar.gz
 
   # upload binaries to S3
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
-  # - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
-  # - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-wallet-shaders$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
 
   # prep for deploy to AWS S3, latest folder
-  - cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - cp wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-api$BEAM_TARGET_SUFFIX.tar.gz
-  # - cp wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-service$BEAM_TARGET_SUFFIX.tar.gz
-  # - cp sbbs-monitor$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - cp explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - cp broadcaster$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz broadcaster$BEAM_TARGET_SUFFIX.tar.gz
+  - cp beam-shader-pack$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node-wallet-shaders$BEAM_TARGET_SUFFIX.tar.gz
 
   # upload binaries to S3, to the latest folder
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  #- artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX.tar.gz
-  # - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX.tar.gz
-  # - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" sbbs-monitor$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" broadcaster$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node-wallet-shaders$BEAM_TARGET_SUFFIX.tar.gz
 
 notifications:
   email:

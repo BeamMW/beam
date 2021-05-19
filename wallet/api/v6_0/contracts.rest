@@ -1,0 +1,26 @@
+###
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "invoke_contract",
+    "params": {
+        "contract_file": "/home/op/projects/red-envelope/html/faucetManager.wasm",
+        "args": "role=manager,action=view"
+    }
+}
+
+###
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "process_invoke_data",
+    "params": {
+        "data": [123, 456, 789]
+    }
+}

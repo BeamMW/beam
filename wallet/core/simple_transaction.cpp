@@ -54,24 +54,18 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        TestSenderAddress(parameters, m_WalletDB);
-
+        CheckSenderAddress(parameters, m_WalletDB);
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
     SimpleTransaction::SimpleTransaction(const TxContext& context)
-        : BaseTransaction{ context }
+        : BaseTransaction (TxType::Simple, context)
     {
-    }
-
-    TxType SimpleTransaction::GetType() const
-    {
-        return TxType::Simple;
     }
 
     bool SimpleTransaction::IsInSafety() const
     {
-        State txState = GetState();
+        const auto txState = GetState<State>();
         return txState == State::KernelConfirmation;
     }
 
@@ -79,7 +73,6 @@ namespace beam::wallet
         :public MutualTxBuilder
     {
         using MutualTxBuilder::MutualTxBuilder;
-
         void SendToPeer(SetTxParameter&&) override;
     };
 
@@ -143,7 +136,6 @@ namespace beam::wallet
         m_Tx.SendTxParametersStrict(move(msg));
     }
 
-
     bool SimpleTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
     {
         if (kDefaultSubTxID != subTxID)
@@ -171,20 +163,16 @@ namespace beam::wallet
         case TxParameterID::PeerOffset:
         case TxParameterID::FailureReason: // to be able to cancel transaction until we haven't sent any response
             return true;
-
         default:
             return false;
         }
-
     }
 
     void SimpleTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
         {
-            m_IsSelfTx = IsSelfTx();
-
-            m_TxBuilder = m_IsSelfTx ?
+            m_TxBuilder = IsSelfTx() ?
                 make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID) :
                 make_shared<MyBuilder>(*this, kDefaultSubTxID);
         }
@@ -192,7 +180,7 @@ namespace beam::wallet
         auto sharedBuilder = m_TxBuilder; // extra ref?
 
         SimpleTxBuilder& builder = *m_TxBuilder;
-        MyBuilder* pMutualBuilder = m_IsSelfTx ? nullptr : &Cast::Up<MyBuilder>(builder);
+        MyBuilder* pMutualBuilder = IsSelfTx() ? nullptr : &Cast::Up<MyBuilder>(builder);
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -240,7 +228,6 @@ namespace beam::wallet
             }
 
             BaseTxBuilder::Balance bb(builder);
-            bb.AddPreselected();
 
             if (pMutualBuilder && pMutualBuilder->m_IsSender)
             {
@@ -287,7 +274,7 @@ namespace beam::wallet
             stringstream ss;
             ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
                 << PrintableAmount(builder.m_Amount, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                << " (fee: " << PrintableAmount(GetFeeWithAdditionalValueForShieldedInputs(builder)) << ")";
+                << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
@@ -344,154 +331,4 @@ namespace beam::wallet
         SetCompletedTxCoinStatuses(hProof);
         CompleteTx();
     }
-
-    SimpleTransaction::AssetCheckResult SimpleTransaction::CheckAsset(Asset::ID assetId)
-    {
-        if (assetId == Asset::s_InvalidID)
-        {
-            // No asset - no error
-            return AssetCheckResult::OK;
-        }
-
-        const auto confirmAsset = [&]() {
-            m_assetCheckState = ACConfirmation;
-            SetParameter(TxParameterID::AssetInfoFull, Asset::Full());
-            SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
-            SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
-            GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
-        };
-
-        bool printInfo = true;
-        if (m_assetCheckState == ACInitial)
-        {
-            if (const auto oinfo = GetWalletDB()->findAsset(assetId))
-            {
-                SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo));
-                SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
-                m_assetCheckState = ACCheck;
-            }
-            else
-            {
-                confirmAsset();
-                return AssetCheckResult::Async;
-            }
-        }
-
-        if (m_assetCheckState == ACConfirmation)
-        {
-            Height auHeight = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
-            {
-                OnFailed(TxFailureReason::AssetConfirmFailed, true);
-                return AssetCheckResult::Fail;
-            }
-
-            Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
-            {
-                GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
-                return AssetCheckResult::Async;
-            }
-
-            m_assetCheckState = ACCheck;
-            printInfo = false;
-        }
-
-        if (m_assetCheckState == ACCheck)
-        {
-            Asset::Full infoFull;
-            if (!GetParameter(TxParameterID::AssetInfoFull, infoFull) || !infoFull.IsValid())
-            {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
-                return AssetCheckResult::Fail;
-            }
-
-            Height acHeight = 0;
-            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || !acHeight)
-            {
-                OnFailed(TxFailureReason::NoAssetInfo, true);
-                return AssetCheckResult::Fail;
-            }
-
-            const auto currHeight = GetWalletDB()->getCurrentHeight();
-            WalletAsset info(infoFull, acHeight);
-
-            if (info.CanRollback(currHeight))
-            {
-                OnFailed(TxFailureReason::AssetLocked, true);
-                return AssetCheckResult::Fail;
-            }
-
-            const auto getRange = [](WalletAsset& info) -> auto {
-                HeightRange result;
-                result.m_Min = info.m_LockHeight;
-                result.m_Max = AmountBig::get_Lo(info.m_LockHeight) > 0 ? info.m_RefreshHeight : info.m_LockHeight;
-                result.m_Max += Rules::get().CA.LockPeriod;
-                return result;
-            };
-
-            HeightRange hrange = getRange(info);
-            if (info.m_Value > AmountBig::Type(0U))
-            {
-                GetWalletDB()->visitCoins([&](const Coin& coin) -> bool {
-                    if (coin.m_ID.m_AssetID != assetId) return true;
-                    if (coin.m_confirmHeight > hrange.m_Max) return true;
-                    if (coin.m_confirmHeight < hrange.m_Min) return true;
-
-                    const Height h1 = coin.m_spentHeight != MaxHeight ? coin.m_spentHeight : currHeight;
-                    if (info.m_RefreshHeight < h1)
-                    {
-                        info.m_RefreshHeight = h1;
-                        hrange = getRange(info);
-                    }
-                    return true;
-                });
-            }
-
-            if (!hrange.IsInRange(currHeight) || hrange.m_Max < currHeight)
-            {
-                confirmAsset();
-                return AssetCheckResult::Async;
-            }
-
-            if (printInfo)
-            {
-                if (const auto& asset = GetWalletDB()->findAsset(assetId))
-                {
-                    asset->LogInfo(GetTxID(), GetSubTxID());
-                }
-            }
-
-            return AssetCheckResult::OK;
-        }
-
-        assert(!"Wrong logic in SimpleTransaction::CheckAsset");
-        OnFailed(TxFailureReason::Unknown, true);
-        return AssetCheckResult::Fail;
-    }
-
-    void SimpleTransaction::NotifyTransactionRegistered()
-    {
-        SetTxParameter msg;
-		uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
-        msg.AddParameter(TxParameterID::TransactionRegistered, nCode);
-        SendTxParameters(move(msg));
-    }
-
-    bool SimpleTransaction::IsSelfTx() const
-    {
-        WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
-        auto address = GetWalletDB()->getAddress(peerID);
-        return address.is_initialized() && address->isOwn();
-    }
-
-    SimpleTransaction::State SimpleTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
 }

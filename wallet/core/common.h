@@ -23,6 +23,7 @@
 #include <algorithm>
 #include "wallet/client/extensions/news_channels/version_info.h"
 #include "wallet/core/exchange_rate.h"
+#include "wallet/core/dex.h"
 #include "utility/std_extension.h"
 
 namespace beam::wallet
@@ -40,7 +41,9 @@ namespace beam::wallet
     MACRO(PullTransaction, 8,  "lelantus mw pull") \
     MACRO(VoucherRequest,  9,  "lelantus voucher request") \
     MACRO(VoucherResponse, 10, "lelantus voucher response") \
-    MACRO(UnlinkFunds,     11, "unlink") 
+    MACRO(UnlinkFunds,     11, "unlink") \
+    MACRO(Contract,        12, "contract") \
+    MACRO(DexSimpleSwap,   13, "dex simple swap")
 
     enum class TxType : uint8_t
     {
@@ -58,9 +61,6 @@ namespace beam::wallet
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
-    constexpr Amount kMinFeeInGroth = 100;
-    constexpr Amount kShieldedCoinMinFeeInGroth = Transaction::FeeSettings::MinShieldedFee;
-    constexpr Amount kShieldedTxMinFeeInGroth = kMinFeeInGroth + kShieldedCoinMinFeeInGroth;
 
 #pragma pack (push, 1)
     struct WalletID
@@ -262,12 +262,6 @@ namespace beam::wallet
         return obj;
     }
 
-    constexpr Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels = 1)
-    {
-        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
-        return (numberOfOutputs + numberOfKenrnels) * 10;
-    }
-
     using ShieldedVoucherList = std::vector<ShieldedTxo::Voucher>;
 
 #define BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO) \
@@ -314,17 +308,19 @@ namespace beam::wallet
     MACRO(PeerInputs,                      80,  std::vector<Input::Ptr>) \
     MACRO(PeerOutputs,                     81,  std::vector<Output::Ptr>) \
     MACRO(TransactionRegistered,           90,  uint8_t) \
+    MACRO(TransactionRegisteredExtraInfo,  91,  std::string) \
     MACRO(FailureReason,                   92,  TxFailureReason) \
     MACRO(PaymentConfirmation,             99,  ECC::Signature) \
     /* MaxPrivacy */ \
     MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
     /* allows to restore receiver address from */ \
-    MACRO(PeerOwnID,                       101, uint64_t) \
+    MACRO(PeerOwnID,                       101, uint64_t)   \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
     MACRO(PeerLockImage,                   115, Hash::Value) \
-    MACRO(AssetMetadata,                   116, std::string) \
+    MACRO(AssetMetadata,                   116, std::string)\
+    MACRO(DexOrderID,                      117, DexOrderID) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -334,7 +330,7 @@ namespace beam::wallet
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
     MACRO(ClientVersion,                   126, std::string) \
-    MACRO(LibraryVersion,                  127, std::string) 
+    MACRO(LibraryVersion,                  127, std::string)\
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
@@ -360,6 +356,8 @@ namespace beam::wallet
 
         Offset = 140,
 
+        ContractDataPacked = 141,
+
         UserConfirmationToken = 143,
 
         Status = 151,
@@ -378,11 +376,13 @@ namespace beam::wallet
         SharedCommitment = 174,
 
         Inputs = 180,
-        InputsShielded = 181,
+        ExtraKernels = 181,
         InputCoins = 183,
         OutputCoins = 184,
         InputCoinsShielded = 185,
         Outputs = 190,
+        AppID = 191,
+        AppName = 192,
 
         Kernel = 200,
         PreImage = 201,
@@ -392,16 +392,11 @@ namespace beam::wallet
         AtomicSwapPrivateKey = 205,
         AtomicSwapWithdrawAddress = 206,
         AtomicSwapExternalHeight = 207,
-
         InternalFailureReason = 210,
-
         AddressType = 211,
-        
         SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
-
         State = 255
-
     };
 
     using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
@@ -559,6 +554,16 @@ namespace beam::wallet
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
 
+    class ContractTxStatusInterpreter : public TxStatusInterpreter
+    {
+    public:
+        explicit ContractTxStatusInterpreter(const TxParameters& txParams);
+        ~ContractTxStatusInterpreter() override = default;
+        [[nodiscard]] std::string getStatus() const override;
+    protected:
+        wallet::TxType m_txType = wallet::TxType::AssetInfo;
+    };
+    
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
@@ -601,11 +606,13 @@ namespace beam::wallet
         [[nodiscard]] bool canCancel() const;
         [[nodiscard]] bool canDelete() const;
         [[nodiscard]] std::string getTxTypeString() const;
-        [[nodiscard]] std::string getAmountInSecondCurrency(ExchangeRate::Currency) const;
+        [[nodiscard]] Amount getExchangeRate(const Currency& target) const;
         [[nodiscard]] std::string getToken() const;
         [[nodiscard]] std::string getSenderIdentity() const;
         [[nodiscard]] std::string getReceiverIdentity() const;
         [[nodiscard]] std::string getIdentity(bool isSender) const;
+        [[nodiscard]] std::string getSender() const;
+        [[nodiscard]] std::string getReceiver() const;
         [[nodiscard]] std::string getAddressFrom() const;
         [[nodiscard]] std::string getAddressTo() const;
 
@@ -787,7 +794,7 @@ namespace beam::wallet
         std::shared_ptr<Notifier> m_notifier;
     };
  
-    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params);
+    bool LoadReceiverParams(const TxParameters& receiverParams, TxParameters& params, TxAddressType addressType);
 
     // Check current time with the timestamp of last received block
     // If it is more than 10 minutes, the walelt is considered not in sync
@@ -807,6 +814,7 @@ namespace beam::wallet
 
     extern bool g_AssetsEnabled; // global flag
     TxFailureReason CheckAssetsEnabled(Height h);
+    bool isFork3(Height h);
 
     ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
     ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);
@@ -815,9 +823,7 @@ namespace beam::wallet
     using VersionFunc = std::function<void(const std::string&, const std::string&)>;
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
     void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
-    Amount CalculateShieldedFeeByKernelsCount(size_t shieldedCount);
-    Amount GetShieldedFee(const TxParameters& tx, SubTxID subTxID = kDefaultSubTxID);
-
+    uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
     TxAddressType GetAddressType(const std::string& address);
 }    // beam::wallet

@@ -33,6 +33,9 @@ namespace proto {
 #define BeamNodeMsg_GetHdr(macro) \
     macro(Block::SystemState::ID, ID)
 
+#define BeamNodeMsg_EnumHdrs(macro) \
+    macro(HeightRange, Height)
+
 #define BeamNodeMsg_Hdr(macro) \
     macro(Block::SystemState::Full, Description)
 
@@ -46,8 +49,12 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Status(macro) \
+#define BeamNodeMsg_Status0(macro) \
     macro(uint8_t, Value)
+
+#define BeamNodeMsg_Status(macro) \
+    macro(uint8_t, Value) \
+    macro(std::string, ExtraInfo)
 
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
@@ -126,9 +133,13 @@ namespace proto {
     macro(Asset::Full, Info) \
     macro(Merkle::Proof, Proof)
 
-#define BeamNodeMsg_ShieldedList(macro) \
+#define BeamNodeMsg_ShieldedList0(macro) \
     macro(TxoID, ShieldedOuts) \
     macro(std::vector<ECC::Point::Storage>, Items)
+
+#define BeamNodeMsg_ShieldedList(macro) \
+    macro(std::vector<ECC::Point::Storage>, Items) \
+    macro(ECC::Hash::Value, State1)
 
 #define BeamNodeMsg_ProofState(macro) \
     macro(Merkle::HardProof, Proof)
@@ -139,10 +150,6 @@ namespace proto {
 
 #define BeamNodeMsg_ProofChainWork(macro) \
     macro(Block::ChainWorkProof, Proof)
-
-#define BeamNodeMsg_Login0(macro) \
-    macro(ECC::Hash::Value, CfgChecksum) \
-    macro(uint8_t, Flags)
 
 #define BeamNodeMsg_Login(macro) \
     macro(std::vector<ECC::Hash::Value>, Cfgs) \
@@ -246,9 +253,40 @@ namespace proto {
 #define BeamNodeMsg_ShieldedOutputsAt(macro) \
     macro(TxoID, ShieldedOuts)
 
+#define BeamNodeMsg_ContractVarsEnum(macro) \
+    macro(ByteBuffer, KeyMin) \
+    macro(ByteBuffer, KeyMax) \
+    macro(bool, bSkipMin)
+
+#define BeamNodeMsg_ContractVars(macro) \
+    macro(ByteBuffer, Result) \
+    macro(bool, bMore)
+
+#define BeamNodeMsg_ContractLogsEnum(macro) \
+    macro(ByteBuffer, KeyMin) \
+    macro(ByteBuffer, KeyMax) \
+    macro(HeightPos, PosMin) \
+    macro(HeightPos, PosMax)
+
+#define BeamNodeMsg_ContractLogs(macro) \
+    macro(ByteBuffer, Result) \
+    macro(bool, bMore)
+
+#define BeamNodeMsg_GetContractVar(macro) \
+    macro(ByteBuffer, Key)
+
+#define BeamNodeMsg_ContractVar(macro) \
+    macro(ByteBuffer, Value) \
+    macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_GetContractLogProof(macro) \
+    macro(HeightPos, Pos)
+
+#define BeamNodeMsg_ContractLogProof(macro) \
+    macro(Merkle::Proof, Proof)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
-    macro(0x00, Login0) \
     macro(0x01, Bye) \
     macro(0x02, Ping) \
     macro(0x03, Pong) \
@@ -262,7 +300,8 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Status) \
+    macro(0x0e, Status0) \
+    macro(0x44, Status) \
     macro(0x0f, Login) \
     /* blockchain status */ \
     macro(0x10, NewTip) \
@@ -280,8 +319,6 @@ namespace proto {
     macro(0x1c, ProofUtxo) \
     macro(0x1d, GetProofChainWork) \
     macro(0x1e, ProofChainWork) \
-    /* macro(0x20, MacroblockGet) Deprecated */ \
-    /* macro(0x21, Macroblock) Deprecated */ \
     macro(0x22, GetCommonState) \
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
@@ -295,10 +332,19 @@ namespace proto {
     macro(0x21, ProofShieldedInp) \
     macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
-    macro(0x2b, ShieldedList) \
+    macro(0x2b, ShieldedList0) \
+    macro(0x3d, ShieldedList) \
+    macro(0x1f, ContractVarsEnum) \
+    macro(0x2d, ContractVars) \
+    macro(0x40, ContractLogsEnum) \
+    macro(0x41, ContractLogs) \
+    macro(0x38, GetContractVar) \
+    macro(0x3c, ContractVar) \
+    macro(0x33, EnumHdrs) \
+    macro(0x42, GetContractLogProof) \
+    macro(0x43, ContractLogProof) \
     /* onwer-relevant */ \
     macro(0x2c, GetEvents) \
-    /* macro(0x2d, EventsLegacy) Deprecated */ \
     macro(0x34, Events) \
     macro(0x37, EventsSerif) \
     macro(0x2e, GetBlockFinalization) \
@@ -308,14 +354,12 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    /* macro(0x38, BbsMsgV0) Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    /* macro(0x3c, BbsPickChannelV0) Deprecated */ \
-    /* macro(0x3d, BbsPickChannelResV0) Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
+    /* stats */ \
     macro(0x45, GetStateSummary) \
     macro(0x46, StateSummary) \
     macro(0x47, GetShieldedOutputsAt) \
@@ -342,10 +386,11 @@ namespace proto {
             // 4 - Supports proto::Events (replaces proto::EventsLegacy)
             // 5 - Supports Events serif, max num of events per message increased from 64 to 1024
             // 6 - Newer Event::AssetCtl, newer Utxo events
-            // 7 - Supports GetShieldedOutputsAt request
+            // 7 - GetShieldedOutputsAt
+            // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
 
             static const uint32_t Minimum = 4;
-            static const uint32_t Maximum = 7;
+            static const uint32_t Maximum = 8;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
@@ -505,6 +550,7 @@ namespace proto {
     inline void ZeroInit(PeerID& x) { x = Zero; }
     inline void ZeroInit(io::Address& x) { }
     inline void ZeroInit(ByteBuffer&) { }
+    inline void ZeroInit(std::string&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
@@ -515,6 +561,7 @@ namespace proto {
 	inline void ZeroInit(BodyBuffers&) { }
     inline void ZeroInit(Asset::Info& x) { x.Reset(); }
     inline void ZeroInit(Asset::Full& x) { x.Reset(); }
+    inline void ZeroInit(HeightPos& x) { ZeroObject(x); }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;
@@ -540,6 +587,7 @@ namespace proto {
         static constexpr uint32_t s_LtcSwapOffersChannel = s_MaxWalletChannels + 1;
         static constexpr uint32_t s_QtumSwapOffersChannel = s_MaxWalletChannels + 2;
         static constexpr uint32_t s_BroadcastChannel = s_MaxWalletChannels + 3;
+        static constexpr uint32_t s_DexOffersChannel = s_MaxWalletChannels + 4;
 
 		typedef uintBig_t<4> NonceType;
 
@@ -562,7 +610,12 @@ namespace proto {
 
 		static const uint8_t LimitExceeded = 0x13; // block limit exceeded (tx too large, too many shielded ins/outs, etc.)
 		static const uint8_t InvalidInput = 0x14; // non-existing or non-matured inputs referenced
-	};
+
+        static const uint8_t ContractFailFirst = 0x30;
+        static const uint8_t ContractFailLast = 0x3f;
+
+        static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
+    };
 
 
 #define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
@@ -727,8 +780,9 @@ namespace proto {
 		virtual void OnMsg(Ping&&) override;
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
-		virtual void OnMsg(Login0&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(ShieldedList0&&) override;
+        virtual void OnMsg(Status0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

@@ -51,10 +51,10 @@ namespace beam::wallet
 
     void ExchangeRateProvider::loadRatesToCache()
     {
-        const auto& rates = m_storage.getExchangeRates();
+        const auto& rates = m_storage.getLatestExchangeRates();
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             m_cache[uniqID] = rate;
         }
     }
@@ -69,12 +69,12 @@ namespace beam::wallet
         return rates;
     }
 
-    void ExchangeRateProvider::processRates(std::vector<ExchangeRate> rates)
+    void ExchangeRateProvider::processRates(const std::vector<ExchangeRate>& rates)
     {
         std::vector<ExchangeRate> changedRates;
         for (const auto& rate : rates)
         {
-            const auto uniqID = std::make_pair(rate.m_currency, rate.m_unit);
+            const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             const auto storedRateIt = m_cache.find(uniqID);
             if (storedRateIt == std::cend(m_cache)
             || storedRateIt->second.m_updateTime < rate.m_updateTime)
@@ -90,53 +90,89 @@ namespace beam::wallet
         }
     }
 
-    bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
+    bool ExchangeRateProvider::processRatesMessage(const ByteBuffer& buffer)
     {
-        if (m_isEnabled)
+        try
         {
-            try
+            Block::SystemState::ID state;
+            if (m_storage.getSystemStateID(state))
             {
-                BroadcastMsg res;
-                if (m_validator.processMessage(input, res))
+                if (state.m_Height >= Rules::get().pForks[3].m_Height)
                 {
                     std::vector<ExchangeRate> receivedRates;
-                    if (fromByteBuffer(res.m_content, receivedRates))
+                    if (fromByteBuffer(buffer, receivedRates))
                     {
                         processRates(receivedRates);
                     }
                 }
+                else
+                {
+                    std::vector<ExchangeRateF2> f2Rates;
+                    if (fromByteBuffer(buffer, f2Rates))
+                    {
+                        std::vector<ExchangeRate> receivedRates;
+                        for(const auto& r2: f2Rates)
+                        {
+                            auto newRate = ExchangeRate::FromERH2(r2);
+                            receivedRates.push_back(newRate);
+                        }
+
+                        assert(receivedRates.size() == f2Rates.size());
+                        processRates(receivedRates);
+                    }
+                }
+
+                return true;
             }
-            catch(...)
+            else
             {
-                LOG_WARNING() << "broadcast message processing exception";
-                return false;
+                throw std::runtime_error("failed to get system state");
             }
         }
-        return true;
+        catch(const std::exception& ex)
+        {
+            LOG_WARNING() << "broadcast rate message processing exception: " << ex.what();
+            return false;
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "broadcast rate message processing exception";
+            return false;
+        }
+    }
+
+    bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
+    {
+        if (!m_isEnabled)
+        {
+            return true;
+        }
+
+        BroadcastMsg res;
+        if (m_validator.processMessage(input, res))
+        {
+            return processRatesMessage(res.m_content);
+        }
+
+        return false;
     }
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
     {
-        if (m_isEnabled && m_validator.isSignatureValid(msg))
+        if (!m_isEnabled)
         {
-            try
-            {
-                std::vector<ExchangeRate> rates;
-                if (fromByteBuffer(msg.m_content, rates))
-                {
-                    processRates(rates);
-                }
-            }
-            catch(...)
-            {
-                LOG_WARNING() << "broadcast message processing exception";
-                return false;
-            }
+            return true;
         }
-        return true;
+        
+        if (m_validator.isSignatureValid(msg))
+        {
+            return processRatesMessage(msg.m_content);
+        }
+
+        return false;
     }
 
-    void ExchangeRateProvider::Subscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Subscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -145,7 +181,7 @@ namespace beam::wallet
         if (it == m_subscribers.end()) m_subscribers.push_back(observer);
     }
 
-    void ExchangeRateProvider::Unsubscribe(IExchangeRateObserver* observer)
+    void ExchangeRateProvider::Unsubscribe(IExchangeRatesObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(),
                             m_subscribers.end(),
@@ -154,7 +190,7 @@ namespace beam::wallet
         m_subscribers.erase(it);
     }
 
-    void ExchangeRateProvider::notifySubscribers(const std::vector<ExchangeRate>& rates) const
+    void ExchangeRateProvider::notifySubscribers(const ExchangeRates& rates) const
     {
         for (const auto sub : m_subscribers)
         {

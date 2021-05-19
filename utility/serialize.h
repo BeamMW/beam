@@ -85,7 +85,7 @@ public:
     }
 
     SerializeBuffer buffer() {
-        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
+        return { (_os.m_vec.empty() ? nullptr : (const char*)&_os.m_vec.front()), _os.m_vec.size() };
     }
 
     template <typename T> Serializer& operator&(const T& object) {

@@ -22,9 +22,9 @@ namespace beam
 
 	// Simple arithmetics. For casual use only (not performance-critical)
 
-	class uintBigImpl {
-	protected:
-		void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
+	struct uintBigImpl {
+
+		static void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
 		// all those return carry (exceeding byte)
 		static uint8_t _Inc(uint8_t* pDst, uint32_t nDst);
@@ -37,7 +37,8 @@ namespace beam
 
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
-		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&); // truncates if too long
+		static void _PrintFull(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
 		static uint32_t _Scan(uint8_t* pDst, const char*, uint32_t nTxtLen);
@@ -109,7 +110,7 @@ namespace beam
 
 	template <uint32_t nBytes_>
 	struct uintBig_t
-		:public uintBigImpl
+		:protected uintBigImpl
 	{
 		static const uint32_t nBits = nBytes_ << 3;
 		static const uint32_t nBytes = nBytes_;

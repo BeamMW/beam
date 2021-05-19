@@ -18,6 +18,7 @@
 #include "lelantus.h"
 #include "merkle.h"
 #include "difficulty.h"
+#include "../utility/executor.h"
 
 namespace beam
 {
@@ -105,6 +106,28 @@ namespace beam
 		COMPARISON_VIA_CMP
 	};
 
+	std::ostream& operator << (std::ostream&, const HeightHash&);
+
+    struct HeightPos
+    {
+        Height m_Height;
+        uint32_t m_Pos;
+
+		HeightPos() {}
+		HeightPos(Height h, uint32_t pos = 0)
+			:m_Height(h)
+			,m_Pos(pos)
+		{}
+
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_Height
+                & m_Pos;
+        }
+    };
+
 	struct Asset
 	{
 		typedef uint32_t ID; // 1-based asset index. 0 is reserved for default asset (Beam)
@@ -126,8 +149,11 @@ namespace beam
 
 		struct Metadata
 		{
-			ByteBuffer m_Value = {};
+			ByteBuffer m_Value;
 			ECC::Hash::Value m_Hash = Zero; // not serialized
+
+			void set_String(const std::string&, bool bLegacy);
+			void get_String(std::string&) const;
 
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
@@ -171,6 +197,8 @@ namespace beam
 
 			static void ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val);
 
+			static void Expose(ECC::Oracle&, Height hScheme, const Ptr&);
+
 			struct CmList
 				:public Sigma::CmList
 			{
@@ -205,10 +233,17 @@ namespace beam
 			static const ECC::Point::Compact& get_H();
 		};
 	};
+
 	struct Rules
 	{
 		Rules();
 		static Rules& get();
+
+		struct Scope {
+			const Rules* m_pPrev;
+			Scope(const Rules&);
+			~Scope();
+		};
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
@@ -291,17 +326,26 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[3];
+		HeightHash pForks[4];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
-		size_t FindFork(Height) const;
-		Height get_ForkMaxHeightSafe(size_t iFork) const;
+		uint32_t FindFork(Height) const;
+		Height get_ForkMaxHeightSafe(uint32_t iFork) const;
 		std::string get_SignatureStr() const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 		bool IsForkHeightsConsistent() const;
+	};
+
+	class ExecutorMT_R
+		:public ExecutorMT
+	{
+		virtual void StartThread(std::thread&, uint32_t iThread) override;
+		void RunThreadInternal(uint32_t iThread, const Rules&);
+		virtual void RunThread(uint32_t iThread);
+
 	};
 
 	struct CoinID
@@ -402,11 +446,14 @@ namespace beam
 		AmountBig::Type m_Fee;
 		AmountBig::Type m_Coinbase;
 
-		uint64_t m_Kernels;
-		uint64_t m_Inputs; // all types
-		uint64_t m_Outputs; // all types
-		uint64_t m_InputsShielded;
-		uint64_t m_OutputsShielded;
+		uint32_t m_Kernels;
+		uint32_t m_KernelsNonStd;
+		uint32_t m_Inputs; // MW only
+		uint32_t m_Outputs; // MW only
+		uint32_t m_InputsShielded;
+		uint32_t m_OutputsShielded;
+		uint32_t m_Contract;
+		uint32_t m_ContractSizeExtra;
 
 		TxStats() { Reset(); }
 
@@ -572,6 +619,8 @@ namespace beam
 
 	struct ShieldedTxo
 	{
+		static void UpdateState(ECC::Hash::Value&, const ECC::Point::Storage&);
+
 		struct Ticket
 		{
 			ECC::Point m_SerialPub; // blinded
@@ -609,8 +658,8 @@ namespace beam
 		Asset::Proof::Ptr m_pAsset;
 		Ticket m_Ticket;
 
-		void Prepare(ECC::Oracle&) const;
-		bool IsValid(ECC::Oracle&, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
+		void Prepare(ECC::Oracle&, Height hScheme) const;
+		bool IsValid(ECC::Oracle&, Height hScheme, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
 
 		void operator = (const ShieldedTxo&); // clone
 
@@ -739,7 +788,9 @@ namespace beam
 	macro(3, ShieldedOutput) \
 	macro(4, ShieldedInput) \
 	macro(5, AssetCreate) \
-	macro(6, AssetDestroy)
+	macro(6, AssetDestroy) \
+	macro(7, ContractCreate) \
+	macro(8, ContractInvoke) \
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -883,6 +934,7 @@ namespace beam
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const = 0;
 		void CopyFrom(const TxKernelNonStd&);
+		virtual void AddStats(TxStats&) const override;
 	};
 
 	struct TxKernelAssetControl
@@ -981,6 +1033,10 @@ namespace beam
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
 
+		struct NotSerialized {
+			ECC::Hash::Value m_hvShieldedState;
+		} m_NotSerialized;
+
 		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
 
 		virtual ~TxKernelShieldedInput() {}
@@ -991,6 +1047,55 @@ namespace beam
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractControl
+		:public TxKernelNonStd
+	{
+		ECC::Point m_Commitment; // arbitrary blinding factor + all the values consumed/emitted by the contract
+		ECC::Signature m_Signature; // aggreagtedmulti-signature of the blinding factor + all the keys required by the contract
+
+		ByteBuffer m_Args;
+
+		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void AddStats(TxStats&) const override;
+
+		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds);
+
+	protected:
+		void CopyFrom(const TxKernelContractControl&);
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractCreate
+		:public TxKernelContractControl
+	{
+		ByteBuffer m_Data;
+
+		typedef std::unique_ptr<TxKernelContractCreate> Ptr;
+
+		virtual ~TxKernelContractCreate() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+		virtual void AddStats(TxStats&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelContractInvoke
+		:public TxKernelContractControl
+	{
+		ECC::uintBig m_Cid;
+		uint32_t m_iMethod;
+
+		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;
+
+		virtual ~TxKernelContractInvoke() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -1109,15 +1214,25 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
-			Amount m_ShieldedInput;
-			Amount m_ShieldedOutput;
+			Amount m_ShieldedInputTotal; // including 1 kernel price
+			Amount m_ShieldedOutputTotal; // including 1 kernel price
+			Amount m_Default; // for std tx
 
-			static constexpr Amount MinShieldedFee = Rules::Coin / 100;
+			struct Bvm {
+				Amount m_ChargeUnitPrice;
+				Amount m_Minimum;
+				Amount m_ExtraBytePrice;
+				uint32_t m_ExtraSizeFree;
+			} m_Bvm;
 
-			FeeSettings(); // defaults
+			static const FeeSettings& get(Height);
 
 			Amount Calculate(const Transaction&) const;
 			Amount Calculate(const TxStats&) const;
+			Amount CalculateForBvm(const TxStats&, uint32_t nBvmCharge) const;
+
+			Amount get_DefaultStd() const;
+			Amount get_DefaultShieldedOut(uint32_t nNumShieldedOutputs = 1) const;
 		};
 	};
 
@@ -1159,6 +1274,9 @@ namespace beam
 			struct Helper;
 		};
 
+		static void get_HashContractVar(Merkle::Hash&, const Blob& key, const Blob& val);
+		static void get_HashContractLog(Merkle::Hash&, const Blob& key, const Blob& val, uint32_t nPos);
+
 		struct SystemState
 		{
 			typedef HeightHash ID;
@@ -1170,16 +1288,27 @@ namespace beam
 
 				// The state Definition is defined as Hash[ History | Live ]
 				// Before Fork2: Live = Utxos
-				// Past Fork2: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
+				// Before Fork3: Live = Hash[ Utxos | Hash[Shielded | Assets] ]
+				// Past Fork3:
+				//		CSA = Hash[ Contracts | Hash[Shielded | Assets] ]
+				//		KL = Hash[ Kernels | Logs ]
+				//		Live = Hash[ KL | CSA ]
 
 				bool get_Definition(Merkle::Hash&);
 				void GenerateProof(); // same as above, except it's used for proof generation, and the resulting hash is not evaluated
 
 				virtual bool get_History(Merkle::Hash&);
 				virtual bool get_Live(Merkle::Hash&);
+				virtual bool get_CSA(Merkle::Hash&);
+				virtual bool get_KL(Merkle::Hash&);
 				virtual bool get_Utxos(Merkle::Hash&);
+				virtual bool get_Kernels(Merkle::Hash&);
+				virtual bool get_Logs(Merkle::Hash&);
 				virtual bool get_Shielded(Merkle::Hash&);
 				virtual bool get_Assets(Merkle::Hash&);
+				virtual bool get_Contracts(Merkle::Hash&);
+
+				bool get_SA(Merkle::Hash&);
 			};
 
 			struct Sequence
@@ -1192,7 +1321,7 @@ namespace beam
 
 				struct Element
 				{
-					Merkle::Hash	m_Kernels; // of this block only
+					Merkle::Hash	m_Kernels; // Before Fork3: kernels (of this block only), after Fork3: Utxos
 					Merkle::Hash	m_Definition;
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
@@ -1222,11 +1351,15 @@ namespace beam
 
 				bool IsValidProofKernel(const TxKernel&, const TxKernel::LongProof&) const;
 				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
+				bool IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof&) const;
+
+				bool IsValidProofLog(const Merkle::Hash& hvLog, const Merkle::Proof&) const;
 
 				bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				bool IsValidProofShieldedOutp(const ShieldedTxo::DescriptionOutp&, const Merkle::Proof&) const;
 				bool IsValidProofShieldedInp(const ShieldedTxo::DescriptionInp&, const Merkle::Proof&) const;
 				bool IsValidProofAsset(const Asset::Full&, const Merkle::Proof&) const;
+				bool IsValidProofContract(const Blob& key, const Blob& val, const Merkle::Proof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP
@@ -1353,8 +1486,6 @@ namespace beam
 				& m_Outer;
 		}
 	};
-
-	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
 
 	class TxBase::Context
 	{

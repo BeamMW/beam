@@ -13,4 +13,6 @@ public class TransactionParametersDTO
     public long amount;
     public BOOL versionError;
     public String version;
+
+    public int addressType;
 }

@@ -30,6 +30,8 @@ public class WalletAddressDTO
     {
         Expired,
         OneDay,
-        Never
+        Never,
+        AsIs,
+        Auto
     }
 }

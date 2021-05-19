@@ -34,7 +34,7 @@ public:
     }
 
     T* alloc() {
-        T* h = 0;
+        T* h = nullptr;
         if (!_pool.empty()) {
             h = _pool.back();
             _pool.pop_back();

@@ -1,5 +1,5 @@
 # TODO: determine CMAKE_SYSTEM_NAME on OS/390.  Currently assumes "OS/390".
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.9)
 #project(libuv)
 #enable_testing()
 
@@ -123,6 +123,11 @@ endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD")
   list(APPEND uv_sources src/unix/freebsd.c)
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
+  list(APPEND uv_sources src/unix/posix-hrtime.c src/unix/no-fsevents.c src/unix/posix-poll.c)
+  #list(APPEND uv_libraries kvm)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")

@@ -46,7 +46,7 @@ public:
 			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
-			SyncTarget, // deprecated
+			Deprecated_1, // SyncTarget
 			Deprecated_2,
 			Treasury,
 			EventsOwnerID, // hash of keys used to scan and record events
@@ -54,19 +54,20 @@ public:
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
-			UtxoStamp,
-			ShieldedOutputs,
+			MappingStamp,
+			Deprecated_3, // ShieldedOutputs
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
 			EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
+			CacheState,
 		};
 	};
 
 	struct Flags1 {
-		static const uint64_t PendingMigrate21 = 1;
+		static const uint64_t PendingRebuildNonStd = 1;
 	};
 
 	struct Query
@@ -79,8 +80,8 @@ public:
 			Scheme,
 			AutoincrementID,
 			ParamGet,
-			ParamIns,
-			ParamUpd,
+			ParamSet,
+			ParamDel,
 			StateIns,
 			StateDel,
 			StateGet,
@@ -167,6 +168,12 @@ public:
 			UniqueIns,
 			UniqueFind,
 			UniqueDel,
+			UniqueDelAll,
+			CacheIns,
+			CacheFind,
+			CacheEnumByHit,
+			CacheUpdateHit,
+			CacheDel,
 
 			AssetFindOwner,
 			AssetFindMin,
@@ -174,15 +181,28 @@ public:
 			AssetDel,
 			AssetGet,
 			AssetSetVal,
+			AssetsDelAll,
 
 			AssetEvtsInsert,
 			AssetEvtsEnumBwd,
 			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
-			ShieldedStatisticGet,
+			ContractDataFind,
+			ContractDataFindNext,
+			ContractDataInsert,
+			ContractDataUpdate,
+			ContractDataDel,
+			ContractDataEnum,
+			ContractDataEnumAll,
+			ContractDataDelAll,
+
+			ContractLogInsert,
+			ContractLogDel,
+			ContractLogEnum,
+			ContractLogEnumCid,
+
 			ShieldedStatisticSel,
-			ShieldedStatisticUp,
 			ShieldedStatisticIns,
 			ShieldedStatisticDel,
 
@@ -204,6 +224,7 @@ public:
 			Shielded,
 			ShieldedMmr,
 			AssetsMmr,
+			ShieldedState,
 
 			count
 		};
@@ -297,6 +318,7 @@ public:
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
 	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
+	bool ParamDelSafe(uint32_t ID);
 
 	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
 	void ParamIntSet(uint32_t ID, uint64_t val);
@@ -320,7 +342,7 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
+	uint32_t get_StateExtra(uint64_t rowid, void*, uint32_t nSize);
 	TxoID get_StateTxos(uint64_t rowid);
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
@@ -521,12 +543,33 @@ public:
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
-	void ShieldedResize(uint64_t n, uint64_t n0);
-	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
-	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
+	void ShieldedResize(uint64_t n, uint64_t n0) {
+		StreamResize_T<ECC::Point::Storage>(StreamType::Shielded, n, n0);
+	}
+
+	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount) {
+		StreamIO_T(StreamType::Shielded, pos, Cast::NotConst(p), nCount, true);
+	}
+
+	void ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount) {
+		StreamIO_T(StreamType::Shielded, pos, p, nCount, false);
+	}
+
+	void ShieldedStateResize(uint64_t n, uint64_t n0) {
+		StreamResize_T<ECC::Hash::Value>(StreamType::ShieldedState, n, n0);
+	}
+
+	void ShieldedStateWrite(uint64_t pos, const ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, Cast::NotConst(p), nCount, true);
+	}
+
+	void ShieldedStateRead(uint64_t pos, ECC::Hash::Value* p, uint64_t nCount) {
+		StreamIO_T(StreamType::ShieldedState, pos, p, nCount, false);
+	}
 
 	void ShieldedOutpSet(Height h, uint64_t count);
 	uint64_t ShieldedOutpGet(Height h);
+	void ShieldedOutpDelFrom(Height h);
 
 	struct WalkerSystemState
 	{
@@ -542,7 +585,7 @@ public:
 	class StreamMmr
 		:public Merkle::FlatMmr
 	{
-		const bool m_StoreH0;
+		const uint8_t m_hStoreFrom;
 		StreamType::Enum m_eType;
 
 	public:
@@ -598,6 +641,22 @@ public:
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
 	bool UniqueFind(const Blob& key, Recordset&);
 	void UniqueDeleteStrict(const Blob& key);
+	void UniqueDeleteAll();
+
+	void CacheInsert(const Blob& key, const Blob& data);
+	bool CacheFind(const Blob& key, ByteBuffer&);
+	void CacheSetMaxSize(uint64_t);
+
+#pragma pack (push, 1)
+	struct CacheState
+	{
+		uint64_t m_HitCounter;
+		uint64_t m_SizeMax;
+		uint64_t m_SizeCurrent;
+	};
+#pragma pack (pop)
+
+	void get_CacheState(CacheState&);
 
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
@@ -605,6 +664,7 @@ public:
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
+	void AssetsDelAll();
 
 	struct AssetEvt
 	{
@@ -626,6 +686,61 @@ public:
 	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
 	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint32_t);
 	void AssetEvtsDeleteFrom(Height);
+
+	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
+	bool ContractDataFindNext(Blob& key, Recordset&); // key in-out
+	void ContractDataInsert(const Blob& key, const Blob&);
+	void ContractDataUpdate(const Blob& key, const Blob&);
+	void ContractDataDel(const Blob& key);
+	void ContractDataDelAll();
+
+	struct WalkerContractData
+	{
+		Recordset m_Rs;
+		Blob m_Key;
+		Blob m_Val;
+		bool MoveNext();
+	};
+
+	void ContractDataEnum(WalkerContractData&, const Blob& keyMin, const Blob& keyMax);
+	void ContractDataEnum(WalkerContractData&);
+
+	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
+
+	struct ContractLog
+	{
+#pragma pack (push, 1)
+		struct PosPacked {
+			uintBigFor<Height>::Type m_Height;
+			uintBigFor<uint32_t>::Type m_Idx;
+		};
+#pragma pack (pop)
+
+		typedef const ECC::Hash::Value Cid;
+
+		struct Entry
+		{
+			HeightPos m_Pos;
+			Blob m_Key;
+			Blob m_Val;
+		};
+
+		struct Walker
+		{
+			PosPacked m_bufMin, m_bufMax;
+
+			Recordset m_Rs;
+			Entry m_Entry;
+			bool MoveNext();
+		};
+	};
+
+	void ContractLogInsert(const ContractLog::Entry&);
+	void ContractLogDel(const HeightPos& posMin, const HeightPos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
+	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
+
+	void TestChanged1Row();
 
 private:
 
@@ -653,6 +768,9 @@ private:
 	void CreateTables20();
 	void CreateTables21();
 	void CreateTables22();
+	void CreateTables23();
+	void CreateTables27();
+	void CreateTables28();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
@@ -671,8 +789,6 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void put_Cursor(const StateID& sid); // jump
 
-	void TestChanged1Row();
-
 	void MigrateFrom18();
 	void MigrateFrom20();
 
@@ -680,13 +796,27 @@ private:
 
 	void StreamIO(StreamType::Enum, uint64_t pos, uint8_t*, uint64_t nCount, bool bWrite);
 	void StreamResize(StreamType::Enum, uint64_t n, uint64_t n0);
+	void StreamShrinkInternal(uint64_t k0, uint64_t k1);
 
-	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
+	template <typename T>
+	void StreamIO_T(StreamType::Enum eType, uint64_t pos, T* p, uint64_t nCount, bool bWrite) {
+		StreamIO(eType, pos * sizeof(T), reinterpret_cast<uint8_t*>(p), nCount * sizeof(T), bWrite);
+	}
+
+	template <typename T>
+	void StreamResize_T(StreamType::Enum eType, uint64_t n, uint64_t n0) {
+		StreamResize(eType, n * sizeof(T), n0 * sizeof(T));
+	}
+
+	struct BlobGuard;
+	void OpenBlob(BlobGuard&, const char* szTable, const char* szColumn, uint64_t rowid, bool bRW);
 
 	static const Asset::ID s_AssetEmpty0;
 	void AssetInsertRaw(Asset::ID, const Asset::Full*);
 	void AssetDeleteRaw(Asset::ID);
 	Asset::ID AssetFindMinFree(Asset::ID nMin);
+
+	void set_CacheState(CacheState&); // auto cleans the cache if necessary
 };
 
 

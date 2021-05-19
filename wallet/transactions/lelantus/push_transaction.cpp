@@ -34,19 +34,13 @@ namespace beam::wallet::lelantus
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        wallet::TestSenderAddress(parameters, m_walletDB);
-
+        wallet::CheckSenderAddress(parameters, m_walletDB);
         return wallet::ProcessReceiverAddress(parameters, m_walletDB, false);
     }
 
     PushTransaction::PushTransaction(const TxContext& context)
-        : BaseTransaction(context)
+        : BaseTransaction(TxType::PushTransaction, context)
     {
-    }
-
-    TxType PushTransaction::GetType() const
-    {
-        return TxType::PushTransaction;
     }
 
     bool PushTransaction::IsInSafety() const
@@ -74,7 +68,7 @@ namespace beam::wallet::lelantus
             LOG_INFO()
                  << m_Context << " Sending to shielded pool "
                  << PrintableAmount(builder.m_Value, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                 << " (fee: " << PrintableAmount(GetFeeWithAdditionalValueForShieldedInputs(builder)) << ")";
+                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             builder.SaveCoins();
         }

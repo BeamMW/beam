@@ -52,6 +52,27 @@ namespace beam {
 		s << sz;
 	}
 
+	void uintBigImpl::_PrintFull(const uint8_t* pDst, uint32_t nDst, std::ostream& s)
+	{
+		const uint32_t nNaggle = 8;
+
+		char sz[nNaggle * 2 + 1];
+		while (nDst)
+		{
+			bool bLast = (nDst <= nNaggle);
+
+			_Print(pDst, bLast ? nDst : nNaggle, sz);
+			s << sz;
+
+			if (bLast)
+				break;
+
+			pDst += nNaggle;
+			nDst -= nNaggle;
+		}
+
+	}
+
 	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, char* sz)
 	{
 		for (uint32_t i = 0; i < nDst; i++)

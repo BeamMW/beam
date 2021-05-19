@@ -23,6 +23,7 @@
 #include "utility/test_helpers.h"
 #include "laser_test_utils.h"
 #include "test_helpers.h"
+#include "wallet_test_node.h"
 
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
@@ -45,70 +46,77 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    auto wdbFirst = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w1.db", false, true);
-    wdbFirst->AllocateKidRange(100500);
-    auto wdbSecond = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w2.db", false, true);
+    auto testAll = [&](Amount fee) {
+        auto wdbFirst = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w1.db", false, true);
+        wdbFirst->AllocateKidRange(100500);
+        auto wdbSecond = createSqliteWalletDB(std::string(test_name(__FILE__)) + "-w2.db", false, true);
 
-    // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
-    Lightning::Channel::Params params = {kRevisionMaxLifeTime, kLockTime, kPostLockReserve, kFee};
-    auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
-    auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
+        // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
+        Lightning::Channel::Params params = { kRevisionMaxLifeTime, kLockTime, kPostLockReserve, fee };
+        auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
+        auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
 
-    LaserObserver observer_1, observer_2;
-    laser::ChannelIDPtr channel_1, channel_2;
-    bool laser1Fail = false, laser2Fail = false;
+        LaserObserver observer_1, observer_2;
+        laser::ChannelIDPtr channel_1, channel_2;
+        bool laser1Fail = false, laser2Fail = false;
 
-    observer_1.onOpened = observer_2.onOpened = [] (const laser::ChannelIDPtr& chID)
-    {
-        WALLET_CHECK(false);
-    };
-    observer_1.onOpenFailed = [&laser1Fail] (const laser::ChannelIDPtr& chID)
-    {
-        laser1Fail = true;
-    };
-    observer_2.onOpenFailed = [&laser2Fail] (const laser::ChannelIDPtr& chID)
-    {
-        laser2Fail = true;
-    };
-    laserFirst->AddObserver(&observer_1);
-    laserSecond->AddObserver(&observer_2);
-
-    auto newBlockFunc = [&] (Height height)
-    {
-        if (height > kMaxTestHeight)
+        observer_1.onOpened = observer_2.onOpened = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_ERROR() << "Test laser OPEN FAIL: time expired";
             WALLET_CHECK(false);
-            io::Reactor::get_Current().stop();
-        }
-
-        if (height == kTestStartBlock)
+        };
+        observer_1.onOpenFailed = [&laser1Fail](const laser::ChannelIDPtr& chID)
         {
-            laserFirst->WaitIncoming(100000000, 100000000, kFee);
-            auto firstWalletID = laserFirst->getWaitingWalletID();
-            laserSecond->OpenChannel(100000000, 100000000, kFee, firstWalletID, kOpenTxDh);
-        }
-
-        if (laser1Fail && laser2Fail)
+            laser1Fail = true;
+        };
+        observer_2.onOpenFailed = [&laser2Fail](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser OPEN FAIL: finished";
-            io::Reactor::get_Current().stop();
-        }
+            laser2Fail = true;
+        };
+        laserFirst->AddObserver(&observer_1);
+        laserSecond->AddObserver(&observer_2);
+
+        auto newBlockFunc = [&](Height height)
+        {
+            if (height > kMaxTestHeight)
+            {
+                LOG_ERROR() << "Test laser OPEN FAIL: time expired";
+                WALLET_CHECK(false);
+                io::Reactor::get_Current().stop();
+            }
+
+            if (height == kTestStartBlock)
+            {
+                laserFirst->WaitIncoming(100000000, 100000000, fee);
+                auto firstWalletID = laserFirst->getWaitingWalletID();
+                laserSecond->OpenChannel(100000000, 100000000, fee, firstWalletID, kOpenTxDh);
+            }
+
+            if (laser1Fail && laser2Fail)
+            {
+                LOG_INFO() << "Test laser OPEN FAIL: finished";
+                io::Reactor::get_Current().stop();
+            }
+        };
+
+        Node node;
+        NodeObserver observer([&]()
+        {
+            auto cursor = node.get_Processor().m_Cursor;
+            newBlockFunc(cursor.m_Sid.m_Height);
+        });
+        auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond, 10);
+        InitNodeToTest(
+            node, binaryTreasury, &observer, kDefaultTestNodePort,
+            kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
+        ConfigureNetwork(*laserFirst, *laserSecond);
+
+        mainReactor->run();
     };
 
-    Node node;
-    NodeObserver observer([&]()
-    {
-        auto cursor = node.get_Processor().m_Cursor;
-        newBlockFunc(cursor.m_Sid.m_Height);
-    });
-    auto binaryTreasury = MakeTreasury(wdbFirst, wdbSecond, 10);
-    InitNodeToTest(
-        node, binaryTreasury, &observer, kDefaultTestNodePort,
-        kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
-    ConfigureNetwork(*laserFirst, *laserSecond);
-
-    mainReactor->run();
+    testAll(kFee);
+    Rules::get().pForks[3].m_Height = 2;
+    Rules::get().UpdateChecksum();
+    testAll(kFeeAfter3dFork);
 
     return WALLET_CHECK_RESULT;
 }

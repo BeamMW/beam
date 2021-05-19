@@ -92,6 +92,7 @@ namespace ECC
 
 	class Commitment;
 	class Oracle;
+	struct MultiMac;
 
 	struct Scalar
 	{
@@ -186,6 +187,9 @@ namespace ECC
 		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;
 		void CreateNonces(const Config&, const Hash::Value& msg, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SetNoncePub(const Config&, const Scalar::Native* pNonce);
+
+	protected:
+		bool IsValidPartialInternal(const Config&, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
 	};
 
 

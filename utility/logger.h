@@ -198,7 +198,7 @@ class LogMessage {
 public:
     LogMessageHeader header;
 
-    LogMessage(int _level, const char* _file=0, int _line=0, const char* _func=0);
+    LogMessage(int _level, const char* _file=nullptr, int _line=0, const char* _func=nullptr);
 
     LogMessage(const LogMessageHeader& h);
 
@@ -219,7 +219,7 @@ public:
 private:
     void init_formatter();
 
-    std::ostream* _formatter=0;
+    std::ostream* _formatter=nullptr;
 };
 
 

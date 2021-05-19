@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "lelantus_reg_creators.h"
-#include "unlink_transaction.h"
 #include "push_transaction.h"
-#include "pull_transaction.h"
 
 namespace beam::wallet::lelantus
 {

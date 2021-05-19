@@ -22,6 +22,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "simple_transaction.h"
+#include "contract_transaction.h"
 #include "strings_resources.h"
 #include "assets_utils.h"
 
@@ -66,15 +67,15 @@ namespace beam::wallet
         }
     }
 
-    // @param SBBS address as string
-    // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
+    // @param address as string
+    // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve or a valid token
     bool CheckReceiverAddress(const std::string& addr)
     {
         auto p = ParseParameters(addr);
         return !!p;
     }
 
-    void TestSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
     {
         const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
         if (!myID)
@@ -83,7 +84,17 @@ namespace beam::wallet
         }
 
         auto senderAddr = walletDB->getAddress(*myID);
-        if (!senderAddr || !senderAddr->isOwn() || senderAddr->isExpired())
+        if (!senderAddr)
+        {
+            throw SenderInvalidAddressException();
+        }
+
+        if (!senderAddr->isOwn())
+        {
+            throw SenderInvalidAddressException();
+        }
+
+        if(senderAddr->isExpired())
         {
             throw SenderInvalidAddressException();
         }
@@ -159,8 +170,11 @@ namespace beam::wallet
         , m_OwnedNodesOnline(0)
     {
         assert(walletDB);
+        _myThread = std::this_thread::get_id();
+
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
+        RegisterTransactionType(TxType::Contract, make_unique<ContractTransaction::Creator>(m_WalletDB));
         m_IsTreasuryHandled = storage::isTreasuryHandled(*m_WalletDB);
         m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
     }
@@ -173,11 +187,11 @@ namespace beam::wallet
     void Wallet::CleanupNetwork()
     {
         // clear all requests
-#define THE_MACRO(type, msgOut, msgIn) \
+#define THE_MACRO(type) \
                 while (!m_Pending##type.empty()) \
                     DeleteReq(*m_Pending##type.begin());
 
-        REQUEST_TYPES_All(THE_MACRO)
+        WalletFlyClientRequests_All(THE_MACRO)
 #undef THE_MACRO
 
         m_MessageEndpoints.clear();
@@ -229,9 +243,14 @@ namespace beam::wallet
         return m_WalletDB->get_History();
     }
 
-    void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
+    void Wallet::SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint)
     {
         m_NodeEndpoint = std::move(nodeEndpoint);
+    }
+
+    proto::FlyClient::INetwork::Ptr  Wallet::GetNodeEndpoint()
+    {
+        return m_NodeEndpoint;
     }
 
     void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
@@ -348,6 +367,13 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
+    Height Wallet::get_CurrentHeight() const
+    {
+        Block::SystemState::Full s;
+        get_tip(s);
+        return s.m_Height;
+    }
+
     size_t Wallet::GetUnsafeActiveTransactionsCount() const
     {
         return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
@@ -406,6 +432,16 @@ namespace beam::wallet
         on_tx_completed(txID);
     }
 
+#define WALLET_REQUEST_Single(type) \
+    bool Wallet::MyRequest##type::operator < (const MyRequest##type& x) const { return false; }
+
+    WALLET_REQUEST_Single(Events)
+    WALLET_REQUEST_Single(StateSummary)
+    WALLET_REQUEST_Single(ShieldedOutputsAt)
+    WALLET_REQUEST_Single(BodyPack)
+    WALLET_REQUEST_Single(Body)
+
+
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
     {
         return m_Msg.m_Utxo < x.m_Msg.m_Utxo;
@@ -423,17 +459,24 @@ namespace beam::wallet
 
     bool Wallet::MyRequestAsset::operator < (const MyRequestAsset& x) const
     {
-        return m_TxID < x.m_TxID;
+        if (m_TxID < x.m_TxID) {
+            return true;
+        }
+
+        if (m_Msg.m_AssetID < x.m_Msg.m_AssetID) {
+            return true;
+        }
+
+        if (m_Msg.m_Owner < x.m_Msg.m_Owner) {
+            return true;
+        }
+
+        return false;
     }
 
     bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
     {
         return m_TxID < x.m_TxID;
-    }
-
-    bool Wallet::MyRequestEvents::operator < (const MyRequestEvents& x) const
-    {
-        return false;
     }
 
     bool Wallet::MyRequestProofShieldedOutp::operator < (const MyRequestProofShieldedOutp& x) const
@@ -446,42 +489,22 @@ namespace beam::wallet
         return m_TxID < x.m_TxID;
     }
 
-    bool Wallet::MyRequestStateSummary::operator < (const MyRequestStateSummary& x) const
-    {
-        return false;
-    }
-
-    bool Wallet::MyRequestShieldedOutputsAt::operator < (const MyRequestShieldedOutputsAt& x) const
-    {
-        return m_Msg.m_Height < x.m_Msg.m_Height;
-    }
-
-    bool Wallet::MyRequestBodyPack::operator < (const MyRequestBodyPack& x) const
-    {
-        return false;
-    }
-
-    bool Wallet::MyRequestBody::operator < (const MyRequestBody& x) const
-    {
-        return false;
-    }
-
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
 
         switch (r.get_Type())
         {
-#define THE_MACRO(type, msgOut, msgIn) \
-    case Request::Type::type: \
-        { \
-            MyRequest##type& x = static_cast<MyRequest##type&>(r); \
-            get_ParentObj().DeleteReq(x); \
-            get_ParentObj().OnRequestComplete(x); \
-        } \
-        break;
+#define THE_MACRO(type) \
+        case Request::Type::type: \
+            { \
+                MyRequest##type& x = static_cast<MyRequest##type&>(r); \
+                get_ParentObj().DeleteReq(x); \
+                get_ParentObj().OnRequestComplete(x); \
+            } \
+            break;
 
-            REQUEST_TYPES_All(THE_MACRO)
+            WalletFlyClientRequests_All(THE_MACRO)
 #undef THE_MACRO
 
         default:
@@ -524,31 +547,43 @@ namespace beam::wallet
 
     void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
-        if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
-        {
-            MyRequestAsset::Ptr pVal(new MyRequestAsset);
-            pVal->m_TxID = txID;
-            pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = ownerID;
-            pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = txID;
+        pVal->m_SubTxID = subTxID;
+        pVal->m_Msg.m_Owner = ownerID;
+        pVal->m_Msg.m_AssetID = Asset::s_InvalidID;
 
-            if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
+        if (PostReqUnique(*pVal))
+        {
+           LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
         }
     }
 
     void Wallet::confirm_asset(const TxID& txID, Asset::ID assetId, SubTxID subTxID)
     {
-        if (auto it = m_ActiveTransactions.find(txID); it != m_ActiveTransactions.end())
-        {
-            MyRequestAsset::Ptr pVal(new MyRequestAsset);
-            pVal->m_TxID = txID;
-            pVal->m_SubTxID = subTxID;
-            pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
-            pVal->m_Msg.m_AssetID = assetId;
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = txID;
+        pVal->m_SubTxID = subTxID;
+        pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
+        pVal->m_Msg.m_AssetID = assetId;
 
-            if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
+        }
+    }
+
+    void Wallet::confirm_asset(const Asset::ID assetId)
+    {
+        MyRequestAsset::Ptr pVal(new MyRequestAsset);
+        pVal->m_TxID = {0};
+        pVal->m_SubTxID = 0;
+        pVal->m_Msg.m_Owner = Asset::s_InvalidOwnerID;
+        pVal->m_Msg.m_AssetID = assetId;
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << "Get proof for asset with id: " << assetId;
         }
     }
 
@@ -851,7 +886,8 @@ namespace beam::wallet
                 LOG_WARNING() << "Special msg failed: " << exc.what();
             }
         }
-        else {
+        else
+        {
             OnTransactionMsg(myID, msg);
         }
     }
@@ -859,11 +895,14 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
         LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
+        if (!r.m_Res.m_ExtraInfo.empty())
+            LOG_DEBUG() << "Extra info: " << r.m_Res.m_ExtraInfo;
 
         auto it = m_ActiveTransactions.find(r.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
+            it->second->SetParameter(TxParameterID::TransactionRegisteredExtraInfo, r.m_Res.m_ExtraInfo, r.m_SubTxID);
             it->second->SetParameter(TxParameterID::TransactionRegisteredInternal, r.m_Res.m_Value, r.m_SubTxID);
             UpdateTransaction(r.m_TxID);
         }
@@ -982,42 +1021,65 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAsset& req)
     {
+        BaseTransaction::Ptr tx;
         const auto it = m_ActiveTransactions.find(req.m_TxID);
-        if (m_ActiveTransactions.end() == it)
+        if (m_ActiveTransactions.end() != it)
         {
-            return;
+           tx = it->second;
         }
 
         Block::SystemState::Full sTip;
         get_tip(sTip);
-        auto tx = it->second;
+
+        std::string msgPrefix;
+        if (!std::all_of(req.m_TxID.begin(), req.m_TxID.end(), [](const auto& v) { return v == 0; })) // any non-zero val in array
+        {
+            stringstream ss;
+            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
+            msgPrefix = ss.str();
+        }
 
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info  = req.m_Res.m_Info;
             const auto height = m_WalletDB->getCurrentHeight();
+
             m_WalletDB->saveAsset(info, height);
+            LOG_INFO() << msgPrefix << (msgPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
 
-            tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
-
-            if (tx->GetType() == TxType::AssetReg)
+            if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
             {
-                m_WalletDB->markAssetOwned(info.m_ID);
-            }
+                std::string strMeta;
+                info.m_Metadata.get_String(strMeta);
 
-            stringstream ss;
-            ss << req.m_TxID << "[" << req.m_SubTxID << "]";
-            const auto prefix = ss.str();
-            LOG_INFO() << prefix << " Received proof for Asset with ID " << info.m_ID;
+                if (beam::wallet::GetAssetOwnerID(maserKdf, strMeta) == info.m_Owner)
+                {
+                    m_WalletDB->markAssetOwned(info.m_ID);
+                }
+            }
+            else
+            {
+                LOG_WARNING() << msgPrefix << "Unable to get master key. Asset's " << req.m_Res.m_Info.m_ID << " ownership won't be checked.";
+            }
 
             if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
             {
-                wasset->LogInfo(req.m_TxID, req.m_SubTxID);
+                wasset->LogInfo(msgPrefix);
             }
 
-            UpdateTransaction(tx);
+            if (tx)
+            {
+                tx->SetParameter(TxParameterID::AssetConfirmedHeight, height, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetInfoFull, info, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0), req.m_SubTxID);
+                UpdateTransaction(tx);
+            }
+            else
+            {
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, height, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, info, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, Height(0), true);
+            }
         }
         else
         {
@@ -1035,10 +1097,19 @@ namespace beam::wallet
                 }
             }
 
-            tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
-            tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
-            UpdateTransaction(tx);
+            if (tx)
+            {
+                tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
+                UpdateTransaction(tx);
+            }
+            else
+            {
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, Height(0), true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, Asset::Full(), true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, true);
+            }
         }
     }
 
@@ -1069,19 +1140,9 @@ namespace beam::wallet
         r.m_callback(r.m_Msg.m_Id0, r.m_Msg.m_Count, r.m_Res);
     }
 
-    void Wallet::OnRequestComplete(MyRequestProofShieldedInp& r)
-    {
-        // TODO(alex.starun): implement this
-    }
-
     void Wallet::OnRequestComplete(MyRequestProofShieldedOutp& r)
     {
         r.m_callback(r.m_Res); // either successful or not
-    }
-
-    void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
-    {
-        assert(false);
     }
 
     void Wallet::OnRequestComplete(MyRequestStateSummary& r)
@@ -1152,7 +1213,7 @@ namespace beam::wallet
         {
             m_Wallet.m_WalletDB->insertEvent(h, b, k);
         }
-
+/*
         struct WalletDBWalkerEvent : NodeProcessor::Recognizer::WalkerEventBase
         {
             IWalletDB::Ptr m_WalletDB;
@@ -1199,6 +1260,27 @@ namespace beam::wallet
             auto w = std::make_unique<WalletDBWalkerEvent>(m_Wallet.m_WalletDB);
             w->Find(key);
             return w;
+        }*/
+
+        bool FindEvents(const Blob& key, NodeProcessor::Recognizer::IEventHandler& handler) override
+        {
+            bool bFound = false;
+
+            m_Wallet.m_WalletDB->visitEvents(0, key, [&handler, &bFound](Height h, ByteBuffer&& b)
+            {
+                Blob body = b;
+                // skip index
+                body.n -= sizeof(NodeDB::EventIndexType);
+                ((const uint8_t*&) body.p) += sizeof(NodeDB::EventIndexType);
+
+                if (!handler.OnEvent(h, body))
+                    return true; // continue
+
+                bFound = true;
+                return false; // stop
+            });
+
+            return bFound;
         }
     };
 
@@ -1532,7 +1614,6 @@ namespace beam::wallet
         {
             std::setmin(c.m_confirmHeight, h); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
-
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
             for (const auto& [txid, txptr] : m_ActiveTransactions)
@@ -1823,6 +1904,7 @@ namespace beam::wallet
             // we are not ready to process transactions
             return;
         }
+
         std::unordered_set<BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
@@ -1836,6 +1918,25 @@ namespace beam::wallet
                     pTx->Update();
             }
         }
+
+        std::set<beam::Asset::ID> assets;
+        m_WalletDB->visitCoins([&assets] (const Coin& c) -> bool {
+            if (c.m_ID.m_AssetID) {
+                assets.insert(c.m_ID.m_AssetID);
+            }
+            return true;
+        });
+
+        m_WalletDB->visitAssets([&assets] (const WalletAsset& asset) -> bool {
+           assets.erase(asset.m_ID);
+           return true;
+        });
+
+        for (auto assetId: assets)
+        {
+            confirm_asset(assetId);
+        }
+
         LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
         assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
         storage::setNeedToRequestBodies(*m_WalletDB, false); // disable bodies requests after importing recovery or rescan
@@ -1909,6 +2010,21 @@ namespace beam::wallet
 
     void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
     {
+        //
+        // Extend Auto addresses
+        //
+        if (auto addr = m_WalletDB->getAddress(myID); addr)
+        {
+            if (!addr->isPermanent())
+            {
+                addr->setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
+                m_WalletDB->saveAddress(*addr);
+            }
+        }
+
+        //
+        // Process transaction request
+        //
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
         {
@@ -1953,8 +2069,8 @@ namespace beam::wallet
         if (!pTx)
             return;
 
-        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
+        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), true); // true in order to get ChangeAction::Added
         pTx->SetParameter(TxParameterID::MyID, myID, false);
         pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
         pTx->SetParameter(TxParameterID::IsInitiator, false, false);
@@ -2081,7 +2197,7 @@ namespace beam::wallet
     void Wallet::RestoreTransactionFromShieldedCoin(ShieldedCoin& coin)
     {
         // add virtual transaction for receiver
-        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin);
+        storage::restoreTransactionFromShieldedCoin(*m_WalletDB, coin, *this);
     }
 
     void Wallet::SetTreasuryHandled(bool value)
@@ -2145,5 +2261,14 @@ namespace beam::wallet
     bool Wallet::IsMobileNodeEnabled() const
     {
         return !m_OwnedNodesOnline && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
+    }
+
+    void Wallet::assertThread() const
+    {
+        if (_myThread != std::this_thread::get_id())
+        {
+            assert(false);
+            throw std::runtime_error("Wallet accessed from wrong thread");
+        }
     }
 }

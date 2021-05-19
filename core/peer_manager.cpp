@@ -194,7 +194,7 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	ret->m_LastConnectAttempt = 0;
 	ret->m_LastActivity_ms = 0;
 
-	LOG_INFO() << *ret << " New";
+	LOG_VERBOSE() << *ret << " New";
 
 	return ret;
 }
@@ -247,7 +247,7 @@ void PeerManager::SetRatingInternal(PeerInfo& pi, uint32_t val, bool ban)
 
 	m_Ratings.insert(pi.m_RawRating);
 
-	LOG_INFO() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value << ", <Bps>=" << Rating::ToBps(pi.m_RawRating.m_Value);
+	LOG_VERBOSE() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value << ", <Bps>=" << Rating::ToBps(pi.m_RawRating.m_Value);
 }
 
 void PeerManager::RemoveAddr(PeerInfo& pi)
@@ -265,7 +265,7 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 	if (addr == pi.m_Addr.m_Value)
 		return;
 
-	LOG_INFO() << pi << " Address changed to " << addr;
+	LOG_VERBOSE() << pi << " Address changed to " << addr;
 
 	RemoveAddr(pi);
 

@@ -17,8 +17,10 @@
 #include "../core/radixtree.h"
 #include "../core/proto.h"
 #include "../core/treasury.h"
+#include "../core/mapped_file.h"
 #include "../utility/dvector.h"
 #include "../utility/executor.h"
+#include "../utility/containers.h"
 #include "db.h"
 #include "txpool.h"
 
@@ -36,7 +38,96 @@ class NodeProcessor
 
 	NodeDB::Transaction m_DbTx;
 
-	UtxoTreeMapped m_Utxos;
+
+	class Mapped
+	{
+		MappedFile m_Mapping;
+
+		struct Type;
+
+	protected:
+
+		template <typename T>
+		T* Allocate(uint32_t iBank)
+		{
+			return (T*) m_Mapping.Allocate(iBank, sizeof(T));
+		}
+
+	public:
+
+		struct Utxo
+			:public UtxoTree
+		{
+			virtual intptr_t get_Base() const override;
+
+			virtual Leaf* CreateLeaf() override;
+			virtual void DeleteEmptyLeaf(Leaf*) override;
+			virtual Joint* CreateJoint() override;
+			virtual void DeleteJoint(Joint*) override;
+
+			virtual MyLeaf::IDQueue* CreateIDQueue() override;
+			virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
+			virtual MyLeaf::IDNode* CreateIDNode() override;
+			virtual void DeleteIDNode(MyLeaf::IDNode*) override;
+
+			friend class Mapped;
+
+			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+
+			void EnsureReserve();
+
+			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Utxo)
+		} m_Utxo;
+
+		struct Contract
+			:public RadixHashOnlyTree
+		{
+			virtual intptr_t get_Base() const override;
+
+			virtual Leaf* CreateLeaf() override;
+			virtual void DeleteLeaf(Leaf* p) override;
+			virtual Joint* CreateJoint() override;
+			virtual void DeleteJoint(Joint*) override;
+
+			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+
+			friend class Mapped;
+
+			void EnsureReserve();
+
+			void Toggle(const Blob& key, const Blob& data, bool bAdd);
+			static bool IsStored(const Blob& key);
+
+			IMPLEMENT_GET_PARENT_OBJ(Mapped, m_Contract)
+		} m_Contract;
+
+		void OnDirty();
+
+		typedef Merkle::Hash Stamp;
+
+		~Mapped() { Close(); }
+
+		bool Open(const char* sz, const Stamp&);
+		bool IsOpen() const { return m_Mapping.get_Base() != nullptr; }
+
+		void Close();
+		void FlushStrict(const Stamp&);
+
+#pragma pack(push, 1)
+		struct Hdr
+		{
+			MappedFile::Offset m_Dirty; // boolean, just aligned
+			Stamp m_Stamp;
+			MappedFile::Offset m_RootUtxo;
+			MappedFile::Offset m_RootContract;
+		};
+#pragma pack(pop)
+
+		Hdr& get_Hdr();
+	};
+
+
+	Mapped m_Mapped;
 
 	size_t m_nSizeUtxoComission;
 
@@ -51,11 +142,11 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
-	void Migrate21();
+	void RebuildNonStd();
 	void InitializeUtxos();
 	bool TestDefinition();
 	void TestDefinitionStrict();
-	void CommitUtxosAndDB();
+	void CommitMappingAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
@@ -74,8 +165,12 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 
-	void InternalAssetAdd(Asset::Full&);
-	void InternalAssetDel(Asset::ID);
+	void InternalAssetAdd(Asset::Full&, bool bMmr);
+	void InternalAssetDel(Asset::ID, bool bMmr);
+
+	bool HandleAssetCreate(const PeerID&, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&);
+	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned);
+	bool HandleAssetDestroy(const PeerID&, BlockInterpretCtx&, Asset::ID);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
@@ -99,12 +194,14 @@ class NodeProcessor
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
 
-	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
+	void ReadOffset(ECC::Scalar&, uint64_t rowid);
+	void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
+
+	void ReadKrns(uint64_t rowid, TxVectors::Eternal&);
 
 	void InitCursor(bool bMovingUp);
-	bool InitUtxoMapping(const char*, bool bForceReset);
-	void InitializeUtxos(const char*);
-	static void OnCorrupted();
+	bool InitMapping(const char*, bool bForceReset);
+	void InitializeMapped(const char*);
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -123,13 +220,9 @@ class NodeProcessor
 			bool IsContained(const NodeDB::StateID&);
 		};
 
-		typedef boost::intrusive::list<TipCongestion> TipList;
+		typedef intrusive::list_autoclear<TipCongestion> TipList;
 		TipList m_lstTips;
 
-		~CongestionCache() { Clear(); }
-
-		void Clear();
-		void Delete(TipCongestion*);
 		TipCongestion* Find(const NodeDB::StateID&);
 
 	} m_CongestionCache;
@@ -160,7 +253,12 @@ class NodeProcessor
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
 
+	void AdjustManualRollbackHeight(Height&);
+	void ManualRollbackInternal(Height);
+
 public:
+
+	static void OnCorrupted();
 
 	struct StartParams {
 		bool m_CheckIntegrity = false;
@@ -172,14 +270,14 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
-	static bool ExtractTreasury(const Blob&, Treasury::Data&);
-	static void get_UtxoMappingPath(std::string&, const char*);
+    static bool ExtractTreasury(const Blob&, Treasury::Data&);
+	static void get_MappingPath(std::string&, const char*);
 
 	NodeProcessor();
 	virtual ~NodeProcessor();
 
-	bool ForbidActiveAt(Height);
 	void ManualRollbackTo(Height);
+	void ManualSelect(const Block::SystemState::ID&);
 
 	struct Horizon {
 
@@ -203,6 +301,27 @@ public:
 
 	} m_Horizon;
 
+#pragma pack (push, 1)
+	struct StateExtra
+	{
+		struct Base {
+			ECC::Scalar m_TotalOffset;
+		};
+
+		struct Comms
+		{
+			Merkle::Hash m_hvCSA;
+			Merkle::Hash m_hvLogs;
+		};
+
+		struct Full
+			:public Base
+			,public Comms
+		{
+		};
+	};
+#pragma pack (pop)
+
 	struct Cursor
 	{
 		// frequently used data
@@ -212,8 +331,12 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-
+		StateExtra::Full m_StateExtra;
+		Merkle::Hash m_hvKernels;
+		bool m_bKernels;
 	} m_Cursor;
+
+	void EnsureCursorKernels();
 
 	struct Extra
 	{
@@ -237,9 +360,31 @@ public:
 
 	} m_SyncData;
 
-	Block::SystemState::ID m_sidForbidden;
-	void LogForbiddenState();
-	void ResetForbiddenStateVar();
+	struct ManualSelection
+	{
+		Block::SystemState::ID m_Sid; // set to MaxHeight if inactive
+		bool m_Forbidden; // if not forbidden - this is the only valid state at the specified height
+
+		bool Load();
+		void Save() const;
+		void Log() const;
+		void Reset();
+		void ResetAndSave();
+
+		bool IsAllowed(Height, const Merkle::Hash&) const;
+		bool IsAllowed(const Merkle::Hash&) const;
+
+		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_ManualSelection)
+	} m_ManualSelection;
+
+	struct UnreachableLog
+	{
+		uint32_t m_Time_ms = 0;
+		Merkle::Hash m_hvLast = Zero;
+
+		void Log(const Block::SystemState::ID&);
+
+	} m_UnreachableLog;
 
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
 
@@ -269,7 +414,8 @@ public:
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
-	UtxoTree& get_Utxos() { return m_Utxos; }
+	UtxoTree& get_Utxos() { return m_Mapped.m_Utxo; }
+	RadixHashOnlyTree& get_Contracts() { return m_Mapped.m_Contract; }
 
 	struct Evaluator
 		:public Block::SystemState::Evaluator
@@ -279,8 +425,26 @@ public:
 
 		virtual bool get_History(Merkle::Hash&) override;
 		virtual bool get_Utxos(Merkle::Hash&) override;
+		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
 		virtual bool get_Shielded(Merkle::Hash&) override;
 		virtual bool get_Assets(Merkle::Hash&) override;
+		virtual bool get_Contracts(Merkle::Hash&) override;
+	};
+
+	struct EvaluatorEx
+		:public Evaluator
+	{
+		using Evaluator::Evaluator;
+
+		void set_Kernels(const TxVectors::Eternal&);
+		void set_Logs(const std::vector<Merkle::Hash>&);
+
+		Merkle::Hash m_hvKernels;
+		StateExtra::Comms m_Comms;
+		virtual bool get_Kernels(Merkle::Hash&) override;
+		virtual bool get_Logs(Merkle::Hash&) override;
+		virtual bool get_CSA(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
@@ -311,7 +475,10 @@ public:
 		virtual void OnProof(Merkle::Hash&, bool);
 	};
 
+	struct ProofBuilder_PrevState;
+
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
+	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
 
@@ -323,6 +490,7 @@ public:
 
 	// Lowest height to which it's possible to rollback.
 	Height get_LowestReturnHeight();
+	Height get_LowestManualReturnHeight();
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -374,9 +542,10 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
-	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
+	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
-	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob&);
+	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
+	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
@@ -451,6 +620,7 @@ public:
 	struct IKrnWalker
 		:public TxKernel::IWalker
 	{
+		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
 	};
 
@@ -518,16 +688,21 @@ public:
 		void set_Strict(const Blob&);
 	};
 
+	struct AssetCreateInfoPacked {
+		PeerID m_Owner;
+		// followed by metadata
+	};
+
 #pragma pack (pop)
 
 	struct Recognizer
 	{
-		struct WalkerEventBase
+		struct IEventHandler
 		{
-			virtual ~WalkerEventBase() = default;
-			virtual bool MoveNext() { return false; }
-			virtual const Blob& get_Body() const { throw std::runtime_error("unexpected"); }
+			// returns true to stop enumeration
+			virtual bool OnEvent(Height, const Blob& body) = 0;
 		};
+
 		struct IHandler
 		{
 			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
@@ -540,9 +715,9 @@ public:
 			}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
-			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {};
+			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
 			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
-			virtual std::unique_ptr<WalkerEventBase> FindEvents(const Blob& key) { return std::make_unique<WalkerEventBase>(); }
+			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
 		Recognizer(IHandler& h, Extra& extra);
 
@@ -571,63 +746,16 @@ public:
 		Extra& m_Extra;
 	};
 
-	struct RecognizerHandler : Recognizer::IHandler
-	{
-		NodeProcessor& m_Proc;
-		RecognizerHandler(NodeProcessor& proc) : m_Proc(proc) {};
-		void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) override
-		{
-			m_Proc.get_ViewerKeys(vk);
-		}
-
-		bool IsDummy(const CoinID& cid) const override
-		{
-			return m_Proc.IsDummy(cid);
-		}
-
-		void OnDummy(const CoinID& cid, Height h) override
-		{
-			m_Proc.OnDummy(cid, h);
-		}
-
-		void OnEvent(Height h, const proto::Event::Base& evt) override
-		{
-			m_Proc.OnEvent(h, evt);
-		}
-
-		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
-		{
-			NodeDB::WalkerAssetEvt wlk;
-			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-			event = static_cast<NodeDB::AssetEvt>(wlk);
-		}
-
-		void InsertEvent(Height h, const Blob& b, const Blob& key) override
-		{
-			m_Proc.m_DB.InsertEvent(h, b, key);
-		}
-
-		struct NodeDBWalkerEvent : Recognizer::WalkerEventBase
-		{
-			NodeDB::WalkerEvent m_Wlk;
-			bool MoveNext() override { return m_Wlk.MoveNext(); }
-			const Blob& get_Body() const override { return m_Wlk.m_Body; }
-		};
-
-		std::unique_ptr<Recognizer::WalkerEventBase> FindEvents(const Blob& key) override
-		{ 
-			auto res = std::make_unique<NodeDBWalkerEvent>();
-			m_Proc.m_DB.FindEvents(res->m_Wlk, key);
-			return res;
-		}
-	};
-	RecognizerHandler m_RecognizerHandler;
-	Recognizer m_Recognizer;
+	struct MyRecognizer;
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
 
 	static bool IsDummy(const CoinID&);
+
+	static bool IsContractVarStoredInMmr(const Blob& key) {
+		return Mapped::Contract::IsStored(key);
+	}
 
 	struct Mmr
 	{
@@ -637,6 +765,10 @@ public:
 		NodeDB::StreamMmr m_Assets;
 
 	} m_Mmr;
+
+	TxoID get_ShieldedInputs() const {
+		return m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
+	}
 
 	struct ValidatedCache
 	{
@@ -698,7 +830,7 @@ public:
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
-	void GenerateNewHdr(BlockContext&);
+	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 };

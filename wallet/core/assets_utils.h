@@ -31,6 +31,11 @@ namespace beam::wallet {
         std::string GetNthUnitName() const;
         std::string GetName() const;
         std::string GetShortName() const;
+        std::string GetShortDesc() const;
+        std::string GetLongDesc() const;
+        std::string GetSiteUrl() const;
+        std::string GetPaperUrl() const;
+        std::string GetColor() const;
         unsigned GetSchemaVersion() const;
 
     private:
@@ -43,17 +48,22 @@ namespace beam::wallet {
         std::string _meta;
     };
 
+    struct IWalletDB;
     class WalletAsset: public Asset::Full
     {
     public:
         WalletAsset() = default;
         WalletAsset(const Asset::Full& full, Height refreshHeight);
         ~WalletAsset() = default;
+
         bool CanRollback(Height from) const;
+        bool IsExpired(IWalletDB& wdb);
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;
 
         Height  m_RefreshHeight = 0;
         int32_t m_IsOwned = 0;
     };
+
+    PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& meta);
 }

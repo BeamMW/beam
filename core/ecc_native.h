@@ -444,6 +444,18 @@ namespace ECC
 		}
 	};
 
+	struct MultiMac_Dyn
+		:public MultiMac
+	{
+		std::vector<Casual> m_vCasual;
+		std::vector<Scalar::Native> m_vKCasual;
+		std::vector<const Prepared*> m_vpPrepared;
+		std::vector<Scalar::Native> m_vKPrepared;
+		std::vector<Prepared::Fast::Wnaf> m_vWnafPrepared;
+
+		void Prepare(uint32_t nMaxCasual, uint32_t nMaxPrepared);
+	};
+
 	struct ScalarGenerator
 	{
 		// needed to quickly calculate power of a predefined scalar.
@@ -559,7 +571,6 @@ namespace ECC
 	{
 		bool m_bInitialized;
 
-		void Write(const void*, uint32_t);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
@@ -588,6 +599,7 @@ namespace ECC
 		}
 
 		void Finalize(Value&);
+		void FinalizeTruncated(uint8_t* p, uint32_t nSize);
 
 	public:
 		Processor();
@@ -602,6 +614,15 @@ namespace ECC
 		Processor& Serialize(const T&);
 
 		void operator >> (Value& hv) { Finalize(hv); }
+
+		template <uint32_t nBytes>
+		void operator >> (beam::uintBig_t<nBytes>& hv)
+		{
+			static_assert(nBytes < Value::nBytes);
+			FinalizeTruncated(hv.m_pData, hv.nBytes);
+		}
+
+		void Write(const void*, uint32_t);
 	};
 
 	class Hash::Mac

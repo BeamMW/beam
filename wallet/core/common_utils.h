@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "wallet/core/wallet_db.h"
@@ -19,44 +18,29 @@
 
 namespace beam::wallet
 {
-WalletAddress GenerateNewAddress(
-        const IWalletDB::Ptr& walletDB,
-        const std::string& label,
-        WalletAddress::ExpirationStatus expirationStatus
-            = WalletAddress::ExpirationStatus::OneDay,
-        bool saveRequired = true);
-bool ReadTreasury(ByteBuffer&, const std::string& sPath);
-    std::string TxIDToString(const TxID& txId);
+    bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 
-struct Change {
-    //
-    // if assetId is BEAM then changeAsset == changeBeam
-    //
-    Amount    changeBeam  = 0;
-    Amount    changeAsset = 0;
-    Asset::ID assetId     = Asset::s_BeamID;
-};
+    Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded);
 
-Change CalcChange(const IWalletDB::Ptr& walletDB, Amount amountAsset, Amount beamFee, Asset::ID assetId);
-Amount AccumulateCoinsSum(const std::vector<Coin>& vSelStd, const std::vector<ShieldedCoin>& vSelShielded);
+    struct CoinsSelectionInfo
+    {
+        Amount m_requestedSum = 0U;
+        Amount m_selectedSumAsset = 0U; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
+        Amount m_selectedSumBeam = 0U;
+        Amount m_changeAsset = 0U; // if assetId is BEAM then changeAsset == changeBeam
+        Amount m_changeBeam = 0U;
+        Amount m_minimalRawFee = 0U; // the very minimum fee for tx elements, wouldn't suffice for decoys
+        Amount m_minimalExplicitFee = 0U; // the minimum recommended for this tx type.
+        Amount m_explicitFee = 0U;
+        Amount m_involuntaryFee = 0U;
 
-struct ShieldedCoinsSelectionInfo
-{
-    Amount requestedSum = 0;
-    Amount selectedSumBeam = 0;
-    Amount selectedSumAsset = 0; // if assetId is BEAM then selectedSumAsset == selectedSumBeam
-    Amount requestedFee = 0;
-    Amount selectedFee = 0;
-    Amount minimalFee = 0;
-    Amount shieldedInputsFee = 0;
-    Amount shieldedOutputsFee = 0;
-    Amount changeBeam = 0;
-    Amount changeAsset = 0; // if assetId is BEAM then changeAsset == changeBeam
-    Asset::ID assetID = Asset::s_BeamID;
-    bool isEnought = true;
-};
-ShieldedCoinsSelectionInfo CalcShieldedCoinSelectionInfo(const IWalletDB::Ptr& walletDB, Amount requestedSum, Amount requestedFee, Asset::ID assetId, bool isPushTx = false);
+        Asset::ID m_assetID = Asset::s_BeamID;
+        bool m_isEnought = true;
 
-class BaseTxBuilder;
-Amount GetFeeWithAdditionalValueForShieldedInputs(const BaseTxBuilder& builder);
-}  // namespace beam::wallet
+        // set m_requestedSum, m_assetID and m_explicitFee before calling the following
+        void Calculate(Height, const IWalletDB::Ptr& walletDB, bool isPushTx = false);
+
+        Amount get_TotalFee() const;
+        Amount get_NettoValue() const;
+    };
+}

@@ -212,6 +212,11 @@ struct Node
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
+	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
+
+        // for step-by-step tests
+	void GenerateFakeBlocks(uint32_t n);
+
 private:
 
 	struct Processor
@@ -232,7 +237,7 @@ private:
 		void Stop();
 
 		struct MyExecutorMT
-			:public ExecutorMT
+			:public ExecutorMT_R
 		{
 			virtual void RunThread(uint32_t) override;
 
@@ -359,7 +364,7 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type&, Amount& feeReserve) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
@@ -382,19 +387,19 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff);
 	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
-	uint8_t OnTransactionStem(Transaction::Ptr&&);
-	uint8_t OnTransactionFluff(Transaction::Ptr&&, const PeerID*, Dandelion::Element*);
+	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
 	bool AddDummyInputRaw(Transaction& tx, const CoinID&);
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
-	void AddDummyOutputs(Transaction&);
+	void AddDummyOutputs(Transaction&, Amount feeReserve);
 	Height SampleDummySpentHeight();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
+	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
 
@@ -552,7 +557,7 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
-
+		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
@@ -572,6 +577,7 @@ private:
 		virtual void OnMsg(proto::GetHdr&&) override;
 		virtual void OnMsg(proto::GetHdrPack&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
+		virtual void OnMsg(proto::EnumHdrs&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::GetBodyPack&&) override;
 		virtual void OnMsg(proto::Body&&) override;
@@ -600,6 +606,10 @@ private:
 		virtual void OnMsg(proto::GetEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 		virtual void OnMsg(proto::GetStateSummary&&) override;
+		virtual void OnMsg(proto::ContractVarsEnum&&) override;
+		virtual void OnMsg(proto::ContractLogsEnum&&) override;
+		virtual void OnMsg(proto::GetContractVar&&) override;
+		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 	};
 
@@ -661,6 +671,9 @@ private:
 	{
 		std::vector<PerThread> m_vThreads;
 		io::AsyncEvent::Ptr m_pEvtMined;
+		uint32_t m_FakeBlocksToGenerate = 0;
+
+		void RunMinerThread(const io::Reactor::Ptr&, const Rules&);
 
 		struct Task
 			:public NodeProcessor::GeneratedBlock
@@ -674,7 +687,7 @@ private:
 			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
-		bool IsEnabled() { return m_External.m_pSolver || !m_vThreads.empty(); }
+		bool IsEnabled() const;
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 

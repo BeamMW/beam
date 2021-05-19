@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "fly_client.h"
+#include "../utility/executor.h"
 
 namespace beam {
 namespace proto {
@@ -34,8 +35,10 @@ void FlyClient::NetworkStd::Connect()
                 continue;
 
             c.ResetAll();
-            if (m_Cfg.m_UseProxy) c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
-            else c.Connect(c.m_Addr);
+            if (m_Cfg.m_UseProxy)
+                c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
+            else
+                c.Connect(c.m_Addr);
         }
     }
     else
@@ -118,7 +121,8 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
-	msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    m_This.OnLoginSetup(msg);
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
@@ -315,6 +319,7 @@ void FlyClient::NetworkStd::Connection::StartSync()
     }
     else
     {
+        // starting search
         // starting search
         m_pSync.reset(new SyncCtx);
         m_pSync->m_LowHeight = m_Tip.m_Height;
@@ -569,8 +574,7 @@ void FlyClient::NetworkStd::PostRequestInternal(Request& r)
 {
     assert(r.m_pTrg);
 
-    RequestNode* pNode = new RequestNode;
-    m_lst.push_back(*pNode);
+    RequestNode* pNode = m_lst.Create_back();
     pNode->m_pRequest = &r;
 
     OnNewRequests();
@@ -639,18 +643,6 @@ void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
     m_lst.push_back(n);
 }
 
-void FlyClient::NetworkStd::RequestList::Clear()
-{
-    while (!empty())
-        Delete(front());
-}
-
-void FlyClient::NetworkStd::RequestList::Delete(RequestNode& n)
-{
-    erase(s_iterator_to(n));
-    delete &n;
-}
-
 void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
 {
     assert(n.m_pRequest);
@@ -661,13 +653,20 @@ void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
 
 FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Request::Type x)
 {
+    auto& r = get_FirstRequest();
+
+    if (r.get_Type() != x)
+        ThrowUnexpected();
+
+    return r;
+}
+
+FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequest()
+{
     if (m_lst.empty())
         ThrowUnexpected();
     RequestNode& n = m_lst.front();
     assert(n.m_pRequest);
-
-    if (n.m_pRequest->get_Type() != x)
-        ThrowUnexpected();
 
     return *n.m_pRequest;
 }
@@ -831,14 +830,143 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
 {
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestEnumHdrs& req)
 {
-    return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 8);
+}
+
+bool details::ExtraData<proto::HdrPack>::DecodeAndCheck(const HdrPack& msg)
+{
+    if (msg.m_vElements.empty())
+        return true; // this is allowed
+
+    // PoW verification is heavy for big packs. Do it in parallel
+    std::vector<Block::SystemState::Full> v;
+    v.resize(msg.m_vElements.size());
+
+    Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
+    Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+
+    for (size_t i = 1; i < msg.m_vElements.size(); i++)
+    {
+        Block::SystemState::Full& s0 = v[i - 1];
+        Block::SystemState::Full& s1 = v[i];
+
+        s0.get_Hash(s1.m_Prev);
+        s1.m_Height = s0.m_Height + 1;
+        Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
+        s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
+    }
+
+    struct MyTask
+        :public Executor::TaskSync
+    {
+        const Block::SystemState::Full* m_pV;
+        uint32_t m_Count;
+        bool m_Valid;
+
+        virtual ~MyTask() {}
+
+        virtual void Exec(Executor::Context& ctx) override
+        {
+            uint32_t i0, nCount;
+            ctx.get_Portion(i0, nCount, m_Count);
+            TestRange(i0, nCount);
+        }
+
+        void TestRange(uint32_t i0, uint32_t nCount)
+        {
+            nCount += i0;
+            for (; i0 < nCount; i0++)
+                if (!m_pV[i0].IsValid())
+                    m_Valid = false;
+        }
+    };
+
+    MyTask t;
+    t.m_pV = &v.front();
+    t.m_Count = static_cast<uint32_t>(v.size());
+    t.m_Valid = true;
+
+    if (Executor::s_pInstance)
+        Executor::s_pInstance->ExecAll(t);
+    else
+        t.TestRange(0, t.m_Count);
+
+    if (t.m_Valid)
+        m_vStates = std::move(v);
+
+    return t.m_Valid;
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestEnumHdrs& req)
+{
+    if (!req.DecodeAndCheck(req.m_Res))
+        ThrowUnexpected();
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
+{
+    auto& r = get_FirstRequest();
+    auto type = r.get_Type();
+    if (type == Request::Type::EnumHdrs)
+    {
+        auto& req = Cast::Up<RequestEnumHdrs>(get_FirstRequestStrict(Request::Type::EnumHdrs));
+        OnFirstRequestDone(IsSupported(req));
+    }
+    else if (type == Request::Type::BodyPack)
+    {
+        auto& req = Cast::Up<RequestBodyPack>(get_FirstRequestStrict(Request::Type::BodyPack));
+        OnFirstRequestDone(IsSupported(req));
+    }
+    else
+    {
+        ThrowUnexpected();
+    }
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogs& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogs& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
+{
+    if (!req.m_Res.m_Proof.empty() && !m_Tip.IsValidProofContract(req.m_Msg.m_Key, req.m_Res.m_Value, req.m_Res.m_Proof))
+        ThrowUnexpected();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogProof& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 8);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogProof& req)
+{
+    // can't validate the proof in-place, the appropriate header is not part of the reply
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::Extension::get(m_LoginFlags) >= 7);
+    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 7);
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& req)
@@ -861,6 +989,11 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBody& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBody& req)
 {
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
+{
+    return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
@@ -958,11 +1091,6 @@ void FlyClient::NetworkStd::Connection::OnMsg(EventsSerif&& msg)
 void FlyClient::NetworkStd::Connection::OnMsg(PeerInfo&& msg)
 {
     m_This.m_Client.OnNewPeer(msg.m_ID, msg.m_LastAddr);
-}
-
-void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
-{
-    OnMsg(BodyPack{});
 }
 
 } // namespace proto

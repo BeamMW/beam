@@ -5,11 +5,12 @@ add_library(pbkdf STATIC
    pkcs5_pbkdf2.c
    sha512.c
    zeroize.c
+   crypto/keccak256.c
 )
 
 add_subdirectory(secp256k1-zkp)
+add_subdirectory(ethash)
 if (BEAM_ATOMIC_SWAP_SUPPORT)
-    add_subdirectory(ethash)
     add_subdirectory(libbitcoin)
 endif()
 add_subdirectory(sqlite)

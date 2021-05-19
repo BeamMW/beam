@@ -16,7 +16,6 @@
 #include "utility/logger.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/wallet.h"
-#include "assets_kdf_utils.h"
 
 namespace beam::wallet
 {
@@ -57,7 +56,7 @@ namespace beam::wallet
     }
 
     AssetInfoTransaction::AssetInfoTransaction(const TxContext& context)
-        : AssetTransaction(context)
+        : AssetTransaction(TxType::AssetInfo, context)
     {
     }
 
@@ -68,7 +67,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::Initial)
+        if (GetState<State>() == State::Initial)
         {
             UpdateTxDescription(TxStatus::InProgress);
             SetState(State::AssetConfirmation);
@@ -76,7 +75,7 @@ namespace beam::wallet
             return;
         }
 
-        if (GetState() == State::AssetConfirmation)
+        if (GetState<State>() == State::AssetConfirmation)
         {
             Height auHeight = 0;
             GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
@@ -97,7 +96,7 @@ namespace beam::wallet
             SetState(State::AssetCheck);
         }
 
-        if (GetState() == State::AssetCheck)
+        if (GetState<State>() == State::AssetCheck)
         {
             Asset::Full info;
             if (!GetParameter(TxParameterID::AssetInfoFull, info) || !info.IsValid())
@@ -125,30 +124,9 @@ namespace beam::wallet
             }
 
             std::string strMeta;
-            fromByteBuffer(info.m_Metadata.m_Value, strMeta);
+            info.m_Metadata.get_String(strMeta);
             SetParameter(TxParameterID::AssetMetadata, strMeta);
             SetParameter(TxParameterID::AssetID, info.m_ID);
-
-            try
-            {
-                auto masterKdf = get_MasterKdfStrict();
-                if (beam::wallet::GetAssetOwnerID(masterKdf, strMeta) == info.m_Owner)
-                {
-                    GetWalletDB()->markAssetOwned(info.m_ID);
-                    LOG_INFO() << GetTxID() << " You own this asset";
-                }
-            }
-            catch(const TransactionFailedException& ex)
-            {
-                if (ex.GetReason() == TxFailureReason::NoMasterKey)
-                {
-                    LOG_WARNING() << GetTxID() << " Unable to get master key. Asset ownership won't be checked.";
-                }
-                else
-                {
-                    throw;
-                }
-            }
         }
 
         SetState(State::Finalzing);
@@ -172,22 +150,10 @@ namespace beam::wallet
         throw TransactionFailedException(true, TxFailureReason::NoAssetId);
     }
 
-    TxType AssetInfoTransaction::GetType() const
-    {
-        return TxType::AssetInfo;
-    }
-
-    AssetInfoTransaction::State AssetInfoTransaction::GetState() const
-    {
-        State state = State::Initial;
-        GetParameter(TxParameterID::State, state);
-        return state;
-    }
-
     bool AssetInfoTransaction::IsInSafety() const
     {
-        State txState = GetState();
-        return txState >= State::AssetCheck;
+        auto state = GetState<State>();
+        return state >= State::AssetCheck;
     }
 
     Asset::ID AssetInfoTransaction::GetAssetID() const

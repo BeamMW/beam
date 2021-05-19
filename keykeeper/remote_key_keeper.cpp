@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "remote_key_keeper.h"
+#include "utility/byteorder.h"
 #include "utility/executor.h"
 
 extern "C" {
@@ -123,14 +124,12 @@ namespace beam::wallet
 	    struct Proto
 	    {
 		    template <typename T> static void h2n_u(T& x) {
-			    auto x_ = x;
-			    reinterpret_cast<typename uintBigFor<T>::Type&>(x) = x_;
+                x = ByteOrder::to_be(x);
 		    }
 
 		    template <typename T> static void n2h_u(T& x) {
-			    auto x_ = x;
-			    reinterpret_cast<typename uintBigFor<T>::Type&>(x_).Export(x);
-		    }
+                x = ByteOrder::from_be(x);
+            }
 
 		    static void h2n(uint16_t& x) { h2n_u(x); }
 		    static void n2h(uint16_t& x) { n2h_u(x); }
@@ -685,6 +684,9 @@ namespace beam::wallet
             m_Msg.m_Out.m_pKExtra[0] = Ecc2BC(m_M.m_User.m_pExtra[0].m_Value);
             m_Msg.m_Out.m_pKExtra[1] = Ecc2BC(m_M.m_User.m_pExtra[1].m_Value);
 
+            if (m_pOutput->m_pAsset)
+                m_Msg.m_Out.m_ptAssetGen = Ecc2BC(m_pOutput->m_pAsset->m_hGen);
+
             InvokeProto(m_Msg);
         }
 
@@ -811,6 +813,17 @@ namespace beam::wallet
             krn.UpdateMsg();
             m_Oracle << krn.m_Msg;
 
+            if (krn.m_Height.m_Min >= Rules::get().pForks[3].m_Height)
+            {
+                m_Oracle << krn.m_NotSerialized.m_hvShieldedState;
+                Asset::Proof::Expose(m_Oracle, krn.m_Height.m_Min, krn.m_pAsset);
+
+                m_Msg.m_Out.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
+
+                if (krn.m_pAsset)
+                    m_Msg.m_Out.m_ptAssetGen = Ecc2BC(krn.m_pAsset->m_hGen);
+            }
+
             // generate seed for Sigma proof blinding. Use mix of deterministic + random params
             //ECC::GenRandom(m_hvSigmaSeed);
             ECC::Hash::Processor()
@@ -829,7 +842,7 @@ namespace beam::wallet
             Setup();
 
             {
-                ExecutorMT exec;
+                ExecutorMT_R exec;
                 Executor::Scope scope(exec);
 
                 // proof phase1 generation (the most computationally expensive)
@@ -1136,8 +1149,11 @@ namespace beam::wallet
             ECC::Oracle oracle;
             oracle << krn1.m_Msg;
 
-            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, oracle, m_M.m_HideAssetAlways);
+            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
             krn1.MsgToID();
+
+            if (krn1.m_Txo.m_pAsset)
+                out.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
 
             SerializerIntoStaticBuf ser(&out.m_RangeProof);
             ser& krn1.m_Txo.m_RangeProof;

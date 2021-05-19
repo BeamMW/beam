@@ -684,24 +684,6 @@ void NodeConnection::OnLogin(Login&&)
 {
 }
 
-void NodeConnection::OnMsg(Login0&& msg0)
-{
-	const Rules& r = Rules::get();
-
-	if (msg0.m_CfgChecksum != r.pForks[0].m_Hash)
-	{
-		std::ostringstream os;
-		os << "Incompatible peer cfg: " << msg0.m_CfgChecksum;
-
-		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
-	}
-
-	Login msg;
-	msg.m_Flags = msg0.m_Flags;
-
-	OnLoginInternal(std::move(msg));
-}
-
 void NodeConnection::OnMsg(Login&& msg)
 {
 	if (msg.m_Cfgs.empty()) // Peers send cfgs only on 1st login
@@ -959,6 +941,20 @@ void NodeConnection::OnMsg(Time&& msg)
 
 		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::TimeOutOfSync);
 	}
+}
+
+void NodeConnection::OnMsg(ShieldedList0&& msg)
+{
+    proto::ShieldedList msg2;
+    msg2.m_Items = std::move(msg.m_Items);
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
+}
+
+void NodeConnection::OnMsg(Status0&& msg)
+{
+    proto::Status msg2;
+    msg2.m_Value = msg.m_Value;
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
 }
 
 /////////////////////////

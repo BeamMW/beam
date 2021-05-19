@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "core/block_crypt.h"
 #include "wallet/core/common.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
@@ -21,16 +22,20 @@
 #include "wallet/core/node_network.h"
 #include "wallet/core/private_key_keeper.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/core/contracts/i_shaders_manager.h"
 #include "wallet_model_async.h"
-#include "wallet/client/changes_collector.h"
-#include "wallet/client/extensions/notifications/notification_observer.h"
-#include "wallet/client/extensions/notifications/notification_center.h"
-#include "wallet/client/extensions/broadcast_gateway/interface.h"
-#include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
-#include "wallet/client/extensions/news_channels/exchange_rate_provider.h"
+#include "changes_collector.h"
+#include "extensions/notifications/notification_observer.h"
+#include "extensions/notifications/notification_center.h"
+#include "extensions/broadcast_gateway/interface.h"
+#include "extensions/broadcast_gateway/broadcast_msg_validator.h"
+#include "extensions/news_channels/exchange_rate_provider.h"
+
+#include "extensions/dex_board/dex_board.h"
+#include "extensions/dex_board/dex_order.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
-#include "wallet/client/extensions/offers_board/swap_offer.h"
+#include "extensions/offers_board/swap_offers_observer.h"
+#include "extensions/offers_board/swap_offer.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #include <thread>
@@ -39,24 +44,24 @@
 namespace beam::wallet
 {
 #if defined(BEAM_TESTNET)
-    const char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
+    constexpr char kBroadcastValidatorPublicKey[] = "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
 #elif defined(BEAM_MAINNET)
-    const char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
+    constexpr char kBroadcastValidatorPublicKey[] = "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
 #else
-    const char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
+    constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
 #endif
     struct WalletStatus
     {
         struct AssetStatus
         {
-            Amount available = 0;
-            Amount receiving = 0;
-            Amount receivingIncoming = 0;
-            Amount receivingChange = 0;
-            Amount sending = 0;
-            Amount maturing = 0;
-            Amount maturingMP = 0;
-            Amount shielded = 0;
+            AmountBig::Type available = 0U;
+            AmountBig::Type receiving = 0U;
+            AmountBig::Type receivingIncoming = 0U;
+            AmountBig::Type receivingChange = 0U;
+            AmountBig::Type sending    = 0U;
+            AmountBig::Type maturing   = 0U;
+            AmountBig::Type maturingMP = 0U;
+            AmountBig::Type shielded   = 0U;
         };
 
         bool HasStatus(Asset::ID assetId) const;
@@ -86,11 +91,12 @@ namespace beam::wallet
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private INodeConnectionObserver
-        , private IExchangeRateObserver
+        , private IExchangeRatesObserver
         , private INotificationsObserver
+        , private DexBoard::IObserver
     {
     public:
-        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -98,6 +104,11 @@ namespace beam::wallet
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
+        Wallet::Ptr getWallet(); // can return null
+
+        IShadersManager::Ptr getAppsShaders(const std::string& appid, const std::string& appname);
+        void releaseAppsShaders(const std::string& appid);
+
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
@@ -120,33 +131,26 @@ namespace beam::wallet
     protected:
         // Call this before derived class is destructed to ensure
         // that no virtual function calls below will result in purecall
-        void stopReactor();
+        void stopReactor(bool detachThread = false);
 
-        using MessageFunction = std::function<void()>;
+        IWalletDB::Ptr getWalletDB();
 
         // use this function to post function call to client's main loop
+        using MessageFunction = std::function<void()>;
         void postFunctionToClientContext(MessageFunction&& func);
-
-        struct DeferredBalanceUpdate
-            :public io::IdleEvt
-        {
-            virtual void OnSchedule() override;
-            IMPLEMENT_GET_PARENT_OBJ(WalletClient, m_DeferredBalanceUpdate)
-        } m_DeferredBalanceUpdate;
 
         // Callbacks
         virtual void onStatus(const WalletStatus& status) {}
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
-        virtual void onShieldedCoinsSelectionCalculated(const ShieldedCoinsSelectionInfo& selectionRes) {}
-        virtual void onNeedExtractShieldedCoins(bool val) {}
-        virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) {}
+        virtual void onCoinsSelectionCalculated(const CoinsSelectionInfo&) {}
+        virtual void onNormalCoinsChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) {}
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
-        virtual void onGetAddress(const WalletID& id, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
+        virtual void onGetAddress(const WalletID& token, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
@@ -164,11 +168,14 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
+        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        virtual void onStopped() {}
+
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
-        void onExchangeRates(const std::vector<ExchangeRate>&) override {}
+        void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
-        
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
 #endif
@@ -192,7 +199,8 @@ namespace beam::wallet
         void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
         void getWalletStatus() override;
         void getTransactions() override;
-        void getUtxosStatus() override;
+        void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
+        void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
@@ -200,31 +208,37 @@ namespace beam::wallet
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        void getDexOrders() override;
+        void publishDexOrder(const DexOrder&) override;
+        void acceptDexOrder(const DexOrderID&) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
-        void saveAddress(const WalletAddress& address, bool bOwn) override;
+        void saveAddress(const WalletAddress& address) override;
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
-        void deleteAddress(const WalletID& id) override;
-        void deleteAddress(const std::string& addr) override;
-        void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
-        void activateAddress(const WalletID& id) override;
-        void getAddress(const WalletID& id) override;
-        void getAddress(const WalletID& id, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
-        void getAddress(const std::string& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void deleteAddress(const WalletID& addr) override;
+        void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override;
+        void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expirationTime) override;
+        void activateAddress(const WalletID& addr) override;
+        void getAddress(const WalletID& addr) override;
+        void getAddress(const WalletID& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void getAddressByToken(const std::string& token, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
+        void deleteAddressByToken(const std::string& token) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
         void rescan() override;
         void exportPaymentProof(const TxID& id) override;
-        void checkAddress(const std::string& addr) override;
+        void checkNetworkAddress(const std::string& addr) override;
         void importRecovery(const std::string& path) override;
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
         void exportTxHistoryToCsv() override;
-        // void getAssetInfo(const Asset::ID) override;
+        void getAssetInfo(const Asset::ID) override;
+        void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override;
+        void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
@@ -236,22 +250,16 @@ namespace beam::wallet
         void getExchangeRates() override;
         void getPublicAddress() override;
 
-        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<ShieldedVoucherList>&& callback) override;
+        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
-
-        void getCoins(Asset::ID assetId, AsyncCallback<std::vector<Coin>>&& callback) override;
-        void getShieldedCoins(Asset::ID assetId, AsyncCallback<std::vector<ShieldedCoin>>&& callback) override;
-
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
-        std::vector<Coin> getUtxos(Asset::ID assetId) const;
-        
         void updateStatus();
         void updateClientState(WalletStatus&&);
         void updateMaxPrivacyStats(const WalletStatus& status);
@@ -261,8 +269,21 @@ namespace beam::wallet
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
         beam::TxoID getTotalShieldedCount() const;
+        const Rules& getRules() const;
 
     private:
+        //
+        // Dex
+        //
+        std::weak_ptr<DexBoard> _dex;
+
+        //
+        // Shaders support
+        //
+        IShadersManager::WeakPtr _appsShaders;   // this is used only for applications support
+        IShadersManager::WeakPtr _clientShaders; // this is used internally in the wallet client (callShader method)
+        ShaderCallback _clientShadersCback;
+
         // Asset info can be requested multiple times for the same ID
         // We collect all such events and process them in bulk at
         // the end of the libuv cycle ignoring duplicate reuqests
@@ -270,7 +291,12 @@ namespace beam::wallet
         std::set<Asset::ID>  m_ainfoRequests;
         beam::io::Timer::Ptr m_ainfoDelayed;
 
+        // Scheduled balance updae
+        beam::io::Timer::Ptr m_balanceDelayed;
+        void scheduleBalance();
+
         std::shared_ptr<std::thread> m_thread;
+        const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
         IWalletModelAsync::Ptr m_async;
@@ -307,8 +333,8 @@ namespace beam::wallet
 
         struct AddressKey
         {
-            typedef WalletID type;
-            const type& operator()(const WalletAddress& c) const { return c.m_walletID; }
+            typedef std::string type;
+            const type& operator()(const WalletAddress& c) const { return c.m_Address; }
         };
         ChangesCollector <WalletAddress, AddressKey> m_AddressChangesCollector;
 
@@ -324,7 +350,7 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
-        ShieldedCoinsSelectionInfo m_shieldedCoinsSelectionResult;
+        CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;

@@ -23,7 +23,10 @@
 #include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
+#include "../../utility/blobmap.h"
 #include "../../core/unittest/mini_blockchain.h"
+#include "../../bvm/bvm2.h"
+#include "../../bvm/ManagerStd.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -671,6 +674,122 @@ namespace beam
 		verify_test(!myMmr.m_Miss);
 
 		tr.Commit();
+
+		// Contract data
+		NodeDB::Recordset rs;
+		Blob blob1;
+		ECC::Hash::Value hvKey = 234U, hvVal = 1232U, hvKey2;
+		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
+
+		blob1 = hvKey;
+		verify_test(!db.ContractDataFindNext(blob1, rs));
+
+		db.ContractDataInsert(hvKey, hvVal);
+		verify_test(!db.ContractDataFindNext(blob1, rs));
+
+		hvVal.Inc();
+		db.ContractDataUpdate(hvKey, hvVal);
+
+		verify_test(db.ContractDataFind(hvKey, blob1, rs));
+		verify_test(Blob(hvVal) == blob1);
+
+		blob1 = hvKey2;
+		hvKey2 = hvKey;
+		hvKey2.Inc();
+		verify_test(!db.ContractDataFindNext(blob1, rs));
+
+		hvKey2 = hvKey;
+		hvKey2.Negate();
+		hvKey2 += ECC::Hash::Value(2U);
+		hvKey2.Negate();
+		verify_test(db.ContractDataFindNext(blob1, rs));
+		verify_test(Blob(hvKey) == blob1);
+
+		db.ContractDataDel(hvKey);
+		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
+
+		// contract logs
+		NodeDB::ContractLog::Entry cdl;
+		bvm2::ContractID cid = 15U;
+		cdl.m_Key = cid;
+
+		hvKey = 1043U;
+		hvKey2 = 1045U;
+
+		cdl.m_Val = hvKey;
+
+		cdl.m_Pos.m_Height = 15;
+		cdl.m_Pos.m_Pos = 3;
+		db.ContractLogInsert(cdl);
+
+		cdl.m_Pos.m_Height = 16;
+		db.ContractLogInsert(cdl);
+
+		cid = 19U;
+		cdl.m_Pos.m_Height = 17;
+		cdl.m_Pos.m_Pos = 4;
+		db.ContractLogInsert(cdl);
+
+		NodeDB::ContractLog::Walker wlkCdl;
+		db.ContractLogEnum(wlkCdl, HeightPos(0), HeightPos(MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogEnum(wlkCdl, cid, cid, HeightPos(0), HeightPos(MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		db.ContractLogDel(HeightPos(0), HeightPos(16, 0xffff));
+
+		db.ContractLogEnum(wlkCdl, HeightPos(0), HeightPos(MaxHeight));
+		verify_test(wlkCdl.MoveNext());
+		verify_test(!wlkCdl.MoveNext());
+
+		// Cache
+		{
+			ECC::Hash::Value key1 = 1U;
+			ECC::Hash::Value key2 = 2U;
+			ECC::Hash::Value key3 = 3U;
+
+			db.CacheInsert(key1, key1);
+			db.CacheInsert(key2, key2);
+			db.CacheInsert(key3, key3);
+
+			NodeDB::CacheState cs;
+			db.get_CacheState(cs);
+			verify_test(cs.m_HitCounter == 3);
+			verify_test(cs.m_SizeCurrent == key1.nBytes * 3);
+
+			ByteBuffer buf;
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.get_CacheState(cs);
+			verify_test(cs.m_HitCounter == 4);
+
+			db.CacheSetMaxSize(key1.nBytes * 2); // should throw out key1
+			db.get_CacheState(cs);
+			verify_test(cs.m_SizeCurrent == cs.m_SizeMax);
+			verify_test(!db.CacheFind(key1, buf));
+
+			verify_test(db.CacheFind(key3, buf));
+			verify_test(Blob(buf) == Blob(key3));
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.CacheInsert(key1, key1); // should throw out key3
+			verify_test(!db.CacheFind(key3, buf));
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.CacheSetMaxSize(0);
+			verify_test(!db.CacheFind(key2, buf));
+
+			db.get_CacheState(cs);
+			verify_test(cs.m_SizeCurrent == 0);
+		}
 	}
 
 #ifdef WIN32
@@ -941,7 +1060,8 @@ namespace beam
 
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
-				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false));
+				uint32_t nBvmCharge = 0;
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -951,7 +1071,7 @@ namespace beam
 				Transaction::KeyType key;
 				pTx->get_Key(key);
 
-				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key, 0);
 			}
 
 			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);
@@ -1576,6 +1696,22 @@ namespace beam
 		DeleteFile(g_sz3);
 	}
 
+	namespace bvm2
+	{
+		void Compile(ByteBuffer& res, const char* sz, Processor::Kind kind)
+		{
+			std::FStream fs;
+			fs.Open(sz, true, true);
+
+			res.resize(static_cast<size_t>(fs.get_Remaining()));
+			if (!res.empty())
+				fs.read(&res.front(), res.size());
+
+			bvm2::Processor::Compile(res, res, kind);
+		}
+
+	}
+
 
 
 	void TestNodeClientProto()
@@ -1597,7 +1733,7 @@ namespace beam
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Sync.Hi = 10;
 		node.m_Cfg.m_Horizon.m_Sync.Lo = 14;
-		node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
+		//node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
@@ -1611,6 +1747,7 @@ namespace beam
 			const Height m_HeightTrg = 75;
 
 			MiniWallet m_Wallet;
+			NodeProcessor* m_pProc = nullptr;
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
@@ -1621,6 +1758,7 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
+			std::list<std::pair<Height, Merkle::Hash> > m_queProofLogsExpected;
 
 			struct
 			{
@@ -1635,6 +1773,15 @@ namespace beam
 				bool m_EvtEmitted = false;
 
 			} m_Assets;
+
+			struct
+			{
+				Height m_pStage[9]; // ctor, list, deposit, proof, print, withdraw, print, dtor, logs
+				uint32_t m_Done = 0;
+				bvm2::ContractID m_Cid;
+				bool m_VarProof = false;
+
+			} m_Contract;
 
 			Height m_hEvts = 0;
 			bool m_bEvtsPending = false;
@@ -1695,6 +1842,7 @@ namespace beam
 					m_queProofsExpected.empty() &&
 					m_queProofsKrnExpected.empty() &&
 					m_queProofsStateExpected.empty() &&
+					m_queProofLogsExpected.empty() &&
 					!m_nChainWorkProofsPending;
 			}
 
@@ -1756,8 +1904,8 @@ namespace beam
 				if (!sdp.m_Output.m_Value)
 					return false;
 
-				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedOutput;
+				auto& fs = Transaction::FeeSettings::get(h + 1);
+				Amount fee = fs.get_DefaultStd() + fs.m_ShieldedOutputTotal;
 
 				sdp.m_Output.m_Value -= fee;
 
@@ -1798,7 +1946,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, oracle);
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
 
 					pKrn->MsgToID();
 
@@ -1879,12 +2027,13 @@ namespace beam
 
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
+				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
 				pKrn->Sign(p, 0, true); // hide asset, although it's beam
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
-				Amount fee = 100;
-				fee += Transaction::FeeSettings().m_ShieldedInput;
+				auto& fs = Transaction::FeeSettings::get(h + 1);
+				Amount fee = fs.get_DefaultStd() + fs.m_ShieldedInputTotal;
 
 				msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, p.m_Witness.m_R_Output, false);
@@ -1997,6 +2146,7 @@ namespace beam
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
+				t.Test(m_Contract.m_VarProof, "Contract variable proof not received");
 
 				return t.m_AllDone;
 			}
@@ -2126,6 +2276,7 @@ namespace beam
 
 					MaybeCreateAsset(msgTx, val);
 					MaybeEmitAsset(msgTx, val);
+					MaybeInvokeContract(msgTx, val);
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
@@ -2234,6 +2385,314 @@ namespace beam
 				return true;
 			}
 
+			struct MyManager
+				:public bvm2::ManagerStd
+			{
+				MyClient& m_This;
+
+				bool m_Done = false;
+				bool m_Err = false;
+
+				MyManager(MyClient& me)
+					:m_This(me)
+				{
+				}
+
+				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override
+				{
+					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, szComment, nCharge);
+
+					if (!iMethod)
+					{
+						assert(!m_vInvokeData.empty());
+						const auto& item = m_vInvokeData.back();
+
+						bvm2::get_Cid(m_This.m_Contract.m_Cid, item.m_Data, item.m_Args);
+					}
+				}
+
+				void OnDone(const std::exception* pExc) override
+				{
+					m_Done = true;
+					m_Err = !!pExc;
+
+					m_This.m_Contract.m_Done++;
+
+					if (m_This.m_pMan)
+					{
+						if (!m_Err)
+							printf("manager shader: %s\n", m_Out.str().c_str());
+
+						//m_This.m_pMan.reset();
+					}
+				}
+
+				struct DelayedStart
+					:public io::IdleEvt
+				{
+					void OnSchedule() override
+					{
+						cancel();
+						get_ParentObj().StartRun(1);
+					}
+
+					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
+
+				} m_DelayedStart;
+			};
+
+			std::unique_ptr<MyManager> m_pMan;
+
+			struct MyNetwork
+				:public proto::FlyClient::INetwork
+			{
+				MyClient& m_This;
+				MyNetwork(MyClient& me) :m_This(me) {}
+
+				virtual void Connect() override {}
+				virtual void Disconnect() override {}
+				virtual void BbsSubscribe(BbsChannel, Timestamp, proto::FlyClient::IBbsReceiver*) override {}
+
+				proto::FlyClient::Request::Ptr m_pReq;
+
+				virtual void PostRequestInternal(proto::FlyClient::Request& r) override
+				{
+					switch (r.get_Type())
+					{
+					case proto::FlyClient::Request::Type::ContractVars:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVars>(r).m_Msg);
+						break;
+
+					case proto::FlyClient::Request::Type::ContractLogs:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractLogs>(r).m_Msg);
+						break;
+
+					case proto::FlyClient::Request::Type::ContractVar:
+						m_This.Send(Cast::Up<proto::FlyClient::RequestContractVar>(r).m_Msg);
+						break;
+
+					default:
+						return;
+					}
+
+					m_pReq = &r;
+				}
+
+				void OnComplete2()
+				{
+					auto pReq = std::move(m_pReq);
+					pReq->m_pTrg->OnComplete(*pReq);
+				}
+
+				void OnMsg(proto::ContractVars&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
+
+				void OnMsg(proto::ContractLogs&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
+
+				void OnMsg(proto::ContractVar&& msg)
+				{
+					if (m_pReq && m_pReq->m_pTrg)
+					{
+						auto& x = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pReq);
+						x.m_Res = std::move(msg);
+						OnComplete2();
+					}
+				}
+			};
+
+			std::shared_ptr<MyNetwork> m_pMyNetwork;
+
+			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
+			{
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
+					return false;
+
+				if (m_pMan)
+				{
+					auto& proc = *m_pMan;
+					if (!proc.m_Done)
+						return false; // pending
+
+					if (!proc.m_vInvokeData.empty())
+					{
+						bvm2::FundsMap fm;
+
+						HeightRange hr;
+						hr.m_Min = s.m_Height + 1;
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							const auto& cdata = proc.m_vInvokeData[i];
+							fm += cdata.m_Spend;
+							fm.AddSpend(0, cdata.get_FeeMin(hr.m_Min));
+						}
+
+						AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
+						if (valSpend > static_cast<AmountSigned>(val))
+							return false; // not enough funds
+
+						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						{
+							const auto& x = proc.m_vInvokeData[i];
+							x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr, x.get_FeeMin(hr.m_Min));
+						}
+
+						val -= valSpend;
+
+						printf("Invoking contract, action=%s...\n", proc.m_Args["action"].c_str());
+					}
+
+					m_pMan.reset();
+				}
+
+				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
+					return false;
+
+				if (m_Contract.m_Done && (s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4))
+					return false;
+
+				m_pMan = std::make_unique<MyManager>(*this);
+				MyManager& proc = *m_pMan;
+
+				proc.m_pPKdf = m_Wallet.m_pKdf;
+
+				bvm2::Compile(proc.m_BodyManager, "vault/app.wasm", bvm2::Processor::Kind::Manager);
+				bvm2::Compile(proc.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
+
+				if (!m_pMyNetwork)
+					m_pMyNetwork = std::make_shared<MyNetwork>(*this);
+
+				proc.m_pNetwork = m_pMyNetwork;
+
+				if (m_Contract.m_Done)
+					proc.set_ArgBlob("cid", m_Contract.m_Cid);
+
+				switch (m_Contract.m_Done)
+				{
+				case 0: // ctor
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "create";
+					break;
+
+				case 1: // list
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "view";
+					break;
+
+				case 2: // deposit
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "deposit";
+					proc.m_Args["amount"] = "700000";
+					break;
+
+				case 4:
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "get_proof";
+					break;
+
+				case 5: // withdraw
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "withdraw";
+					proc.m_Args["amount"] = "700000";
+					break;
+
+				case 7: // dtor
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "destroy";
+					break;
+
+				case 8: // logs
+					proc.m_Args["role"] = "manager";
+					proc.m_Args["action"] = "view_logs";
+
+					{
+						// proofs for logs
+						NodeDB::ContractLog::Walker wlk;
+						for (m_pProc->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						{
+							proto::GetContractLogProof msgOut;
+							msgOut.m_Pos = wlk.m_Entry.m_Pos;
+							Send(msgOut);
+
+							auto& x = m_queProofLogsExpected.emplace_back();
+							x.first = wlk.m_Entry.m_Pos.m_Height;
+							Block::get_HashContractLog(x.second, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val, wlk.m_Entry.m_Pos.m_Pos);
+						}
+					}
+
+					break;
+
+				default: // print
+					proc.m_Args["role"] = "my_account";
+					proc.m_Args["action"] = "view";
+
+				}
+
+				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
+
+				printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
+				proc.m_DelayedStart.start();
+
+
+				return true;
+			}
+
+			virtual void OnMsg(proto::ContractVars&& msg) override
+			{
+				if (m_pMyNetwork)
+					m_pMyNetwork->OnMsg(std::move(msg));
+			}
+
+			virtual void OnMsg(proto::ContractLogs&& msg) override
+			{
+				if (m_pMyNetwork)
+					m_pMyNetwork->OnMsg(std::move(msg));
+			}
+
+			virtual void OnMsg(proto::ContractVar&& msg) override
+			{
+				if (m_pMyNetwork)
+				{
+					if (!msg.m_Proof.empty() && m_pMyNetwork->m_pReq && (proto::FlyClient::Request::ContractVar == m_pMyNetwork->m_pReq->get_Type()))
+					{
+						auto& r = Cast::Up<proto::FlyClient::RequestContractVar>(*m_pMyNetwork->m_pReq);
+						verify_test(m_vStates.back().IsValidProofContract(r.m_Msg.m_Key, msg.m_Value, msg.m_Proof));
+
+						m_Contract.m_VarProof = true;
+					}
+
+					m_pMyNetwork->OnMsg(std::move(msg));
+				}
+			}
+
+			virtual void OnMsg(proto::ContractLogProof&& msg) override
+			{
+				verify_test(!m_queProofLogsExpected.empty());
+				auto& x = m_queProofLogsExpected.front();
+
+				const auto& s = m_vStates[x.first - Rules::HeightGenesis];
+				verify_test(s.IsValidProofLog(x.second, msg.m_Proof));
+
+				m_queProofLogsExpected.pop_front();
+			}
+
+
 			void MaybeAskEvents()
 			{
 				if (m_bEvtsPending || m_vStates.empty())
@@ -2311,14 +2770,11 @@ namespace beam
 						ECC::Point::Native exc;
 						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
 
-						Merkle::Hash hv = msg.m_Kernel->m_Internal.m_ID;
-						Merkle::Interpret(hv, msg.m_Proof);
-
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
 						verify_test(s.m_Height == msg.m_Height);
 
-						verify_test(s.m_Kernels == hv);
+						verify_test(s.IsValidProofKernel(msg.m_Kernel->m_Internal.m_ID, msg.m_Proof));
 					}
 				}
 				else
@@ -2503,6 +2959,7 @@ namespace beam
 		};
 
 		MyClient cl(node.m_Keys.m_pMiner);
+		cl.m_pProc = &node.get_Processor();
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -2576,6 +3033,9 @@ namespace beam
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
+
+		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
+		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
 
 		ECC::SetRandom(node2);
 		node2.Initialize();
@@ -2657,9 +3117,11 @@ namespace beam
 		node.PrintTxos();
 
 		NodeProcessor& proc = node.get_Processor();
-		proc.ManualRollbackTo(3);
-		verify_test(proc.m_Cursor.m_ID.m_Height >= 3); // it won't necessarily reach 3
-		verify_test(proc.m_sidForbidden.m_Height > Rules::HeightGenesis); // some rollback with forbidden state update must take place
+		Height h0 = proc.m_Cursor.m_Full.m_Height;
+		proc.ManualRollbackTo(h0 - 5);
+		verify_test(proc.m_Cursor.m_ID.m_Height >= h0 - 5); // it can be adjusted up
+		verify_test(proc.m_Cursor.m_Full.m_Height < h0); // some rollback with forbidden state update must take place
+		verify_test(proc.m_ManualSelection.m_Forbidden);
 	}
 
 
@@ -2858,10 +3320,19 @@ namespace beam
 
 				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
+				RequestEnumHdrs::Ptr pHdrs(new RequestEnumHdrs);
+				pHdrs->m_Msg.m_Height.m_Min = 0;
+				pHdrs->m_Msg.m_Height.m_Max = MaxHeight; // result should be truncated
+
+				net.PostRequest(*pHdrs, *this);
+				m_nProofsExpected++;
+
 				SetTimer(90 * 1000);
 				m_bRunning = true;
 				io::Reactor::get_Current().run();
 				KillTimer();
+
+				verify_test(!pHdrs->m_vStates.empty());
 			}
 		};
 
@@ -3021,8 +3492,11 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz2);
 	}
 
+	beam::Rules::get().MaxRollback = 100;
 	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
 	beam::Rules::get().UpdateChecksum();
@@ -3033,17 +3507,43 @@ void TestAll()
 	beam::TestNodeClientProto();
 
 	{
-		// test utxo set image rebuilding with shielded in/outs
+		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+		{
+			// test migration
+			beam::NodeDB db;
+			db.Open(beam::g_sz);
+			db.ParamIntSet(beam::NodeDB::ParamID::Flags1, beam::NodeDB::Flags1::PendingRebuildNonStd);
+		}
+
+		// test mapping image rebuilding with shielded in/outs and contracts
 		beam::io::Reactor::Ptr pReactor(beam::io::Reactor::create());
 		beam::io::Reactor::Scope scope(*pReactor);
 
 		std::string sPath;
-		beam::NodeProcessor::get_UtxoMappingPath(sPath, beam::g_sz);
+		beam::NodeProcessor::get_MappingPath(sPath, beam::g_sz);
 		beam::DeleteFile(sPath.c_str());
 
 		beam::Node node;
 		node.m_Cfg.m_sPathLocal = beam::g_sz;
 		node.Initialize();
+
+		auto& p = node.get_Processor();
+
+		beam::Block::SystemState::ID sid;
+		sid.m_Height = 15;
+		sid.m_Hash = beam::Zero;
+
+		p.ManualSelect(sid); // won't go down, can't rollback that deep
+
+		sid.m_Height = p.m_Cursor.m_Full.m_Height;
+		p.get_DB().get_StateHash(p.FindActiveAtStrict(sid.m_Height), sid.m_Hash);
+		p.ManualSelect(sid); // already at correct branch, won't go down
+		verify_test(sid.m_Height == p.m_Cursor.m_Full.m_Height);
+
+		sid.m_Hash.Inv();
+		p.ManualSelect(sid); // should go down
+		verify_test(sid.m_Height > p.m_Cursor.m_Full.m_Height);
 	}
 
 	beam::DeleteFile(beam::g_sz);

@@ -22,7 +22,15 @@
 #include "wallet/core/common_utils.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
+#ifndef __EMSCRIPTEN__
 #include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <emscripten.h>
+#include <emscripten/threading.h>
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
 #include <core/block_crypt.h>
 #include <core/shielded.h>
 #include "nlohmann/json.hpp"
@@ -37,6 +45,8 @@
 
 #include "base_transaction.h"
 #include "node/processor.h"
+#include "wallet/core/strings_resources.h"
+#include <boost/format.hpp>
 
 #define NOSEP
 #define COMMA ", "
@@ -51,12 +61,12 @@
     each(assetId,        ID.m_AssetID,  INTEGER, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
-    each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
-    each(spentHeight,    spentHeight,   INTEGER, obj) sep \
-    each(createTxId,     createTxId,    BLOB, obj) sep \
-    each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(maturity,       maturity,            INTEGER NOT NULL, obj) sep \
+    each(confirmHeight,  confirmHeight,       INTEGER, obj) sep \
+    each(spentHeight,    spentHeight,         INTEGER, obj) sep \
+    each(createTxId,     createTxId,          BLOB, obj) sep \
+    each(spentTxId,      spentTxId,           BLOB, obj) sep \
+    each(sessionId,      OBSOLETTEsessionId,  INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -191,18 +201,35 @@
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
-#define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
+#define ENUM_EXCHANGE_RATES_FIELDS29(each, sep, obj) \
     each(currency,      currency,       INTEGER,            obj) sep \
     each(unit,          unit,           INTEGER,            obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
+#define EXCHANGE_RATES_FIELDS29 ENUM_EXCHANGE_RATES_FIELDS29(LIST, COMMA, )
+
+#define ENUM_EXCHANGE_RATES_FIELDS(each, sep, obj) \
+    each(cfrom,         from.m_value,   TEXT NOT NULL,      obj) sep \
+    each(cto,           to.m_value,     TEXT NOT NULL,      obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
+
 #define EXCHANGE_RATES_FIELDS ENUM_EXCHANGE_RATES_FIELDS(LIST, COMMA, )
 
-#define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
+#define ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(each, sep, obj) \
     each(height,        height,         INTEGER,            obj) sep \
     each(currency,      currency,       INTEGER,            obj) sep \
     each(unit,          unit,           INTEGER,            obj) sep \
+    each(rate,          rate,           INTEGER,            obj) sep \
+    each(updateTime,    updateTime,     INTEGER,            obj)
+
+#define EXCHANGE_RATES_HISTORY_FIELDS29 ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(LIST, COMMA, )
+
+#define ENUM_EXCHANGE_RATES_HISTORY_FIELDS(each, sep, obj) \
+    each(height,        height,         INTEGER,            obj) sep \
+    each(cfrom,         from.m_value,   TEXT NOT NULL,      obj) sep \
+    each(cto,           to.m_value,     TEXT NOT NULL,      obj) sep \
     each(rate,          rate,           INTEGER,            obj) sep \
     each(updateTime,    updateTime,     INTEGER,            obj)
 
@@ -281,7 +308,7 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
-        struct CoinSelector3
+        struct CoinSelector
         {
             typedef std::vector<Coin> Coins;
             typedef std::vector<size_t> Indexes;
@@ -290,7 +317,7 @@ namespace beam::wallet
 
             const Coins& m_Coins; // input coins must be in ascending order, without zeroes
             
-            CoinSelector3(const Coins& coins)
+            CoinSelector(const Coins& coins)
                 :m_Coins(coins)
             {
             }
@@ -964,7 +991,8 @@ namespace beam::wallet
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   = 29;
+        const int DbVersion   =30;
+        const int DbVersion29 = 29;
         const int DbVersion28 = 28;
         const int DbVersion27 = 27;
         const int DbVersion26 = 26;
@@ -991,7 +1019,7 @@ namespace beam::wallet
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
-        , m_sessionId(EmptyCoinSession)
+        , m_OBSOLETTEsessionId(EmptyCoinSession)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
@@ -1023,7 +1051,7 @@ namespace beam::wallet
 
     bool Coin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && (m_ID.m_AssetID == assetId);
+        return m_ID.m_AssetID == assetId;
     }
 
     bool Coin::IsMaturityValid() const
@@ -1088,6 +1116,16 @@ namespace beam::wallet
         return m_ID.m_Value;
     }
 
+    Asset::ID Coin::getAssetID() const
+    {
+        return m_ID.m_AssetID;
+    }
+
+    std::string Coin::getType() const
+    {
+        return (const char*)FourCC::Text(m_ID.m_Type);
+    }
+
     std::string Coin::getStatusString() const
     {
         static std::map<Status, std::string> Strings 
@@ -1126,9 +1164,9 @@ namespace beam::wallet
     bool WalletDB::isInitialized(const string& path)
     {
 #ifdef WIN32
-        return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
+        return fs::exists(Utf8toUtf16(path.c_str()));
 #else
-        return boost::filesystem::exists(path);
+        return fs::exists(path);
 #endif
     }
 
@@ -1300,16 +1338,30 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateExchangeRatesTable29(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS29(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void CreateExchangeRatesTable(sqlite3* db)
         {
-            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit)) WITHOUT ROWID;";
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateExchangeRatesHistoryTable29(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
 
         void CreateExchangeRatesHistoryTable(sqlite3* db)
         {
-            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
+            const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto, updateTime)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1373,11 +1425,11 @@ namespace beam::wallet
 
         void MigrateAddressesFrom24(WalletDB* walletDB, sqlite3* db, const std::string& tableName)
         {
-
             // move old data to temp table
             if (!IsTableCreated(walletDB, (tableName + "_del").c_str()))
             {
-                const std::string req = "ALTER TABLE " + tableName + " RENAME TO " + tableName + "_del;";
+                const std::string req = "ALTER TABLE " + tableName + " RENAME TO " + tableName + "_del;"
+                                        "DROP INDEX IF EXISTS " + tableName + "WalletIDIndex;";
                 int ret = sqlite3_exec(db, req.c_str(), NULL, NULL, NULL);
                 throwIfError(ret, db);
             }
@@ -1440,6 +1492,172 @@ namespace beam::wallet
                     auto addressType = GetAddressType(originalAddress);
                     storage::setTxParameter(*walletDB, txID, TxParameterID::AddressType, addressType, false);
                 }
+            }
+        }
+
+        struct ExchangeRate29
+        {
+            enum class CurrType: uint32_t
+            {};
+
+            CurrType    m_from = CurrType(0);
+            CurrType    m_to   = CurrType(0);
+            Amount      m_rate = 0;
+            Timestamp   m_updateTime = 0;
+            SERIALIZE(m_from, m_to, m_rate, m_updateTime);
+        };
+
+
+        Currency exchangeCurr29to30(ExchangeRate29::CurrType curr29)
+        {
+            switch(static_cast<uint32_t>(curr29)) {
+                case 0: return  Currency::BEAM();
+                case 1: return  Currency::BTC();
+                case 2: return  Currency::LTC();
+                case 3: return  Currency::QTUM();
+                case 4: return  Currency::USD();
+                case 5: return  Currency::DOGE();
+                case 6: return  Currency::DASH();
+                case 7: return  Currency::ETH();
+                case 8: return  Currency::DAI();
+                case 9: return  Currency::USDT();
+                case 10: return Currency::WBTC();
+                case 11: return Currency::BCH();
+                default: return Currency::UNKNOWN();
+            }
+        }
+
+        void MigrateRatesFrom29 (WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME "_del"))
+            {
+                const char* req = "ALTER TABLE " EXCHANGE_RATES_NAME " RENAME TO " EXCHANGE_RATES_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_NAME))
+            {
+                CreateExchangeRatesTable(db);
+            }
+
+            {
+                const char* req = "SELECT currency, unit, rate, updateTime FROM " EXCHANGE_RATES_NAME "_del;";
+                for (sqlite::Statement stm(walletDB, req); stm.step();)
+                {
+                    ExchangeRate rate;
+
+                    ExchangeRate29::CurrType from29;
+                    ExchangeRate29::CurrType to29;
+
+                    stm.get(0, from29);
+                    stm.get(1, to29);
+                    stm.get(2, rate.m_rate);
+                    stm.get(3, rate.m_updateTime);
+
+                    rate.m_from = exchangeCurr29to30(from29);
+                    rate.m_to   = exchangeCurr29to30(to29);
+
+                    walletDB->saveExchangeRate(rate);
+                }
+            }
+
+            {
+                const char* req = "DROP TABLE " EXCHANGE_RATES_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+        }
+
+        void MigrateRatesHistoryFrom29 (WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_HISTORY_NAME "_del"))
+            {
+                const char* req = "ALTER TABLE " EXCHANGE_RATES_HISTORY_NAME " RENAME TO " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+
+            if (!IsTableCreated(walletDB, EXCHANGE_RATES_HISTORY_NAME))
+            {
+                CreateExchangeRatesHistoryTable(db);
+            }
+
+            {
+                const char* req = "SELECT currency, unit, rate, updateTime, height FROM " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                for (sqlite::Statement stm(walletDB, req); stm.step();)
+                {
+                    ExchangeRateAtPoint rate;
+
+                    ExchangeRate29::CurrType from29;
+                    ExchangeRate29::CurrType to29;
+
+                    stm.get(0, from29);
+                    stm.get(1, to29);
+                    stm.get(2, rate.m_rate);
+                    stm.get(3, rate.m_updateTime);
+                    stm.get(4, rate.m_height);
+
+                    rate.m_from = exchangeCurr29to30(from29);
+                    rate.m_to   = exchangeCurr29to30(to29);
+
+                    walletDB->saveExchangeRate(rate);
+                }
+            }
+
+            {
+                const char* req = "DROP TABLE " EXCHANGE_RATES_HISTORY_NAME "_del;";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+        }
+
+        void MigrateTxRatesFrom29to30(WalletDB* walletDB, sqlite3* db)
+        {
+            struct UpdateInfo
+            {
+                TxID txID = TxID();
+                uint64_t subTxID = kDefaultSubTxID;
+                std::vector<ExchangeRate> rates;
+            };
+
+            std::vector<UpdateInfo> updates;
+
+            sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, subTxID, value FROM " TX_PARAMS_NAME " WHERE paramID=?1;");
+            stm.bind(1, TxParameterID::ExchangeRates);
+            while (stm.step())
+            {
+                UpdateInfo updateInfo;
+                ByteBuffer buffer;
+
+                stm.get(0, updateInfo.txID);
+                stm.get(1, updateInfo.subTxID);
+                stm.get(2, buffer);
+
+                std::vector<ExchangeRate29> rates29;
+                if (fromByteBuffer(buffer, rates29))
+                {
+                    for (const auto& rate29: rates29)
+                    {
+                        ExchangeRate rate30;
+                        rate30.m_from       = exchangeCurr29to30(rate29.m_from);
+                        rate30.m_to         = exchangeCurr29to30(rate29.m_to);
+                        rate30.m_rate       = rate29.m_rate;
+                        rate30.m_updateTime = rate29.m_updateTime;
+                        updateInfo.rates.push_back(rate30);
+                    }
+                    updates.push_back(updateInfo);
+                }
+                else
+                {
+                    throw std::runtime_error("MigrateTxRatesFrom29to30 - failed to read v29 rates vector");
+                }
+            }
+
+            for (const auto& updateInfo: updates)
+            {
+                storage::setTxParameter(*walletDB, updateInfo.txID, static_cast<SubTxID>(updateInfo.subTxID), TxParameterID::ExchangeRates, updateInfo.rates, false);
+                LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
         }
 
@@ -1903,7 +2121,7 @@ namespace beam::wallet
                             // lockedHeight - skip
                             stm.get(9, coin.m_createTxId);
                             stm.get(10, coin.m_spentTxId);
-                            stm.get(11, coin.m_sessionId);
+                            stm.get(11, coin.m_OBSOLETTEsessionId);
 
                             if (Coin::Status::Spent == static_cast<Coin::Status>(status))
                             {
@@ -2007,7 +2225,7 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 18...";
                     walletDB->MigrateCoins();
                     CreateNotificationsTable(walletDB->_db);
-                    CreateExchangeRatesTable(walletDB->_db);
+                    CreateExchangeRatesTable29(walletDB->_db);
                     AddAddressIdentityColumn(walletDB.get(), walletDB->_db);
                     // no break
 
@@ -2045,7 +2263,7 @@ namespace beam::wallet
 
                 case DbVersion25:
                     LOG_INFO() << "Converting DB from format 25...";
-                    CreateExchangeRatesHistoryTable(walletDB->_db);
+                    CreateExchangeRatesHistoryTable29(walletDB->_db);
                     // no break
 
                 case DbVersion26:
@@ -2062,9 +2280,16 @@ namespace beam::wallet
                 case DbVersion28:
                     LOG_INFO() << "Converting DB from format 28...";
                     CreateEventsTable(walletDB->_db);
-
-                    storage::setVar(*walletDB, Version, DbVersion);
                     // no break
+
+                case DbVersion29:
+                    LOG_INFO() << "Converting DB from format 29...";
+                    MigrateRatesFrom29(walletDB.get(), walletDB->_db);
+                    MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
+                    MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
+
+                    // no break
+                    storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
                     CreateTxParamsIndex(walletDB->_db);
@@ -2084,9 +2309,9 @@ namespace beam::wallet
 
                 walletDB->flushDB();
             }
-            catch (...)
+            catch (std::runtime_error& err)
             {
-                LOG_ERROR() << "Database migration failed";
+                LOG_ERROR() << "Database migration failed: " << err.what();
                 walletDB->rollbackDB();
                 throw DatabaseMigrationException();
             }
@@ -2184,7 +2409,7 @@ namespace beam::wallet
                 stm.get(6, coin.m_spentHeight);
                 stm.get(7, coin.m_createTxId);
                 stm.get(8, coin.m_spentTxId);
-                stm.get(9, coin.m_sessionId);
+                stm.get(9, coin.m_OBSOLETTEsessionId);
 
                 saveCoin(coin);
             }
@@ -2209,10 +2434,7 @@ namespace beam::wallet
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
             TxParameterID::TransactionType,
-            TxParameterID::Amount,
-            TxParameterID::MyID,
-            TxParameterID::CreateTime,
-            TxParameterID::IsSender }
+            TxParameterID::CreateTime}
     {
 
     }
@@ -2368,23 +2590,25 @@ namespace beam::wallet
         return (comm2 == comm);
     }
 
-	void IWalletDB::ImportRecovery(const std::string& path)
+	void IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway)
 	{
 		IRecoveryProgress prog;
-		BEAM_VERIFY(ImportRecovery(path, prog));
+		BEAM_VERIFY(ImportRecovery(path, gateway, prog));
 	}
 
-	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
+	bool IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway, IRecoveryProgress& prog)
 	{
         struct MyParser
             :public RecoveryInfo::IRecognizer
         {
             IWalletDB& m_This;
+            INegotiatorGateway& m_Gateway;
             IRecoveryProgress& m_Progr;
             TxoID m_ShieldedOuts = 0;
 
-            MyParser(IWalletDB& db, IRecoveryProgress& progr)
+            MyParser(IWalletDB& db, INegotiatorGateway& gateway, IRecoveryProgress& progr)
                 :m_This(db)
+                ,m_Gateway(gateway)
                 ,m_Progr(progr)
             {
             }
@@ -2462,7 +2686,7 @@ namespace beam::wallet
 
                 m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_CoinID.m_Key;
 
-                storage::restoreTransactionFromShieldedCoin(m_This, sc);
+                storage::restoreTransactionFromShieldedCoin(m_This, sc, m_Gateway);
 
                 return true;
             }
@@ -2487,16 +2711,16 @@ namespace beam::wallet
                 return true;
             }
 
-            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg) override
+            bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg, Height h) override
             {
                 m_ShieldedOuts++;
-                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg);
+                return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg, h);
             }
 
 
         };
 
-        MyParser p(*this, prog);
+        MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 
         if (p.Proceed(path.c_str()))
@@ -2548,8 +2772,18 @@ namespace beam::wallet
     {
         addr.m_createTime = beam::getTimestamp();
         addr.m_OwnID = AllocateKidRange(1);
+
         get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
         get_Identity(addr.m_Identity, addr.m_OwnID);
+
+        LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_walletID);
+
+        if (!addr.m_label.empty())
+        {
+            LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
+        }
+
+        addr.m_Address = std::to_string(addr.m_walletID);
     }
 
     void IWalletDB::get_Identity(PeerID& pid, uint64_t ownID) const
@@ -2610,7 +2844,7 @@ namespace beam::wallet
         return selectCoinsEx(amount, assetId, false);
     }
 
-    void WalletDB::selectCoins2(Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
+    void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
         if (!nTrg)
             return;
@@ -2620,8 +2854,8 @@ namespace beam::wallet
         vector<ShieldedCoin::WithStatus> vShielded;
         size_t iPosShielded = 0;
 
-        Transaction::FeeSettings fs;
-        Amount feeShielded = fs.m_ShieldedInput + fs.m_Kernel;
+        auto& fs = Transaction::FeeSettings::get(h);
+        Amount feeShielded = fs.m_ShieldedInputTotal;
 
         if (nMaxShielded)
         {
@@ -2750,8 +2984,8 @@ namespace beam::wallet
             }
         }
 
-        CoinSelector3 csel(coins);
-        CoinSelector3::Result res = csel.Select(amount);
+        CoinSelector csel(coins);
+        CoinSelector::Result res = csel.Select(amount);
 
         if (res.first >= amount)
         {
@@ -2767,6 +3001,29 @@ namespace beam::wallet
         }
 
         return coinsSel;
+    }
+
+    std::vector<Coin> WalletDB::getNormalCoins(Asset::ID assetId) const
+    {
+        std::vector<Coin> coins;
+        visitCoins([&coins, assetId](const Coin& coin) -> bool {
+            if (coin.m_ID.m_AssetID == assetId)
+            {
+                coins.push_back(coin);
+            }
+            return true;
+        });
+        return coins;
+    }
+
+    std::vector<Coin> WalletDB::getAllNormalCoins() const
+    {
+        std::vector<Coin> coins;
+        visitCoins([&coins](const Coin& coin) -> bool {
+            coins.push_back(coin);
+            return true;
+        });
+        return coins;
     }
 
     std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId) const
@@ -3029,12 +3286,6 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::removeCoin(const Coin::ID& cid)
-    {
-        removeCoinImpl(cid);
-        notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins({cid}));
-    }
-
     void WalletDB::clearCoins()
     {
         sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
@@ -3082,11 +3333,11 @@ namespace beam::wallet
         }
     };
 
-    void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func)
+    void WalletDB::visitShieldedCoins(std::function<bool(const ShieldedCoin& info)> func) const
     {
         ShieldedStatusCtx ssc(*this);
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY Key;"); // the order is not importantt, but at least it should be by indexed field
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " ORDER BY ID;");
         while (stm.step())
         {
             ShieldedCoin coin;
@@ -3100,11 +3351,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func)
+    void WalletDB::visitShieldedCoinsUnspent(const std::function<bool(const ShieldedCoin& info)>& func) const
     {
         ShieldedStatusCtx ssc(*this);
 
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight <0;");
+        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE spentHeight <0 ORDER BY ID;");
         while (stm.step())
         {
             ShieldedCoin coin;
@@ -3118,7 +3369,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::visitCoins(function<bool(const Coin& coin)> func)
+    void WalletDB::visitCoins(function<bool(const Coin& coin)> func) const
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
         sqlite::Statement stm(this, req);
@@ -3271,22 +3522,26 @@ namespace beam::wallet
         }
     }
 
+    std::vector<ShieldedCoin> WalletDB::getAllShieldedCoins() const
+    {
+        std::vector<ShieldedCoin> coins;
+        visitShieldedCoins([&coins] (const ShieldedCoin& coin) -> bool {
+            coins.push_back(coin);
+            return true;
+        });
+        return coins;
+    }
+
     std::vector<ShieldedCoin> WalletDB::getShieldedCoins(Asset::ID assetId) const
     {
-        ShieldedStatusCtx ssc(*this);
-
-        sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE assetID=?1 ORDER BY ID;");
-        stm.bind(1, assetId);
         std::vector<ShieldedCoin> coins;
-
-        while (stm.step())
-        {
-            auto& coin = coins.emplace_back();
-            int colIdx = 0;
-            ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
-            storage::DeduceStatus(*this, coin, ssc.m_hTip);
-        }
-
+        visitShieldedCoins([&coins, assetId] (const ShieldedCoin& coin) -> bool {
+            if (coin.m_CoinID.m_AssetID == assetId)
+            {
+                coins.push_back(coin);
+            }
+            return true;
+        });
         return coins;
     }
 
@@ -3445,7 +3700,6 @@ namespace beam::wallet
         notifyShieldedCoinsChanged(ChangeAction::Updated, v);
     }
 
-
     void WalletDB::visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const
     {
         helpers::StopWatch sw;
@@ -3512,7 +3766,7 @@ namespace beam::wallet
         }
 
         sw.stop();
-        LOG_DEBUG() << "visitTx  elapsed time: " << sw.milliseconds() << " ms\n";
+        LOG_DEBUG() << "visitTx elapsed time: " << sw.milliseconds() << " ms";
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -3806,15 +4060,13 @@ namespace beam::wallet
         }
     }
 
-    boost::optional<WalletAddress> WalletDB::getAddress(
-        const WalletID& id, bool isLaser) const
+    boost::optional<WalletAddress> WalletDB::getAddressByToken(const std::string& token, bool isLaser) const
     {
-        const std::string addrTableName =
-            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
-        auto req = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
-        sqlite::Statement stm(this, req.c_str());
+        const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        auto req = "SELECT * FROM " + addrTableName + " WHERE Address=?1;";
 
-        stm.bind(1, id);
+        sqlite::Statement stm(this, req.c_str());
+        stm.bind(1, token);
 
         if (stm.step())
         {
@@ -3827,15 +4079,13 @@ namespace beam::wallet
         return boost::optional<WalletAddress>();
     }
 
-    boost::optional<WalletAddress> WalletDB::getAddress(
-        const std::string& addressStr, bool isLaser) const
+    boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id, bool isLaser) const
     {
-        const std::string addrTableName =
-            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
-        auto req = "SELECT * FROM " + addrTableName + " WHERE Address=?1;";
-        sqlite::Statement stm(this, req.c_str());
+        const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        auto req = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
 
-        stm.bind(1, addressStr);
+        sqlite::Statement stm(this, req.c_str());
+        stm.bind(1, id);
 
         if (stm.step())
         {
@@ -3867,79 +4117,106 @@ namespace beam::wallet
         return res;
     }
 
-    void WalletDB::saveAddress(const WalletAddress& address, bool isLaser)
+    void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
     {
-        const std::string addrTableName =
-            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
-        ChangeAction action = ChangeAction::Added;
-        std::string addressStr = address.m_Address;
-        if (addressStr.empty())
+        const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+
+        WalletAddress address = addr;
+        if (address.m_Address.empty())
         {
             assert(address.m_walletID != Zero);
-            addressStr = std::to_string(address.m_walletID);
+            address.m_Address = std::to_string(address.m_walletID);
         }
-        {
-            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
-            sqlite::Statement stm2(this, selectReq.c_str());
-            stm2.bind(1, addressStr);
 
-            if (stm2.step())
+        auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
+        sqlite::Statement stmToken(this, selectByToken.c_str());
+        stmToken.bind(1, address.m_Address);
+
+        if (stmToken.step())
+        {
             {
-                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE address=?1;";
+                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6, OwnID=?7, Identity=?8 WHERE address=?1;";
                 sqlite::Statement stm(this, updateReq.c_str());
 
-                stm.bind(1, addressStr);
+                stm.bind(1, address.m_Address);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
+                stm.bind(6, address.m_walletID);
+                stm.bind(7, address.m_OwnID);
+                stm.bind(8, address.m_Identity);
                 stm.step();
+            }
 
-                action = ChangeAction::Updated;
-            }
-            else
+            if (!isLaser)
             {
-                WalletAddress copyAddress = address;
-                copyAddress.m_Address = addressStr;
-                auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
-                sqlite::Statement stm(this, insertReq.c_str());
-                int colIdx = 0;
-                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, copyAddress);
-                stm.step();
+                notifyAddressChanged(ChangeAction::Updated, { address });
             }
+
+            return;
+        }
+
+        // This check is intentional, it skips MaxPrivacy addresses
+        if (address.m_walletID.IsValid())
+        {
+            auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+            sqlite::Statement stmWid(this, selectByWid.c_str());
+            stmWid.bind(1, address.m_walletID);
+
+            if (stmWid.step())
+            {
+                {
+                    auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, OwnID=?7, Identity=?8 WHERE walletID=?6;";
+                    sqlite::Statement stm(this, updateReq.c_str());
+
+                    stm.bind(1, address.m_Address);
+                    stm.bind(2, address.m_label);
+                    stm.bind(3, address.m_category);
+                    stm.bind(4, address.m_duration);
+                    stm.bind(5, address.m_createTime);
+                    stm.bind(6, address.m_walletID);
+                    stm.bind(7, address.m_OwnID);
+                    stm.bind(8, address.m_Identity);
+                    stm.step();
+                }
+
+                if (!isLaser)
+                {
+                    notifyAddressChanged(ChangeAction::Updated, {address});
+                }
+
+                return;
+            }
+        }
+
+        {
+            auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq.c_str());
+            int colIdx = 0;
+            ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+            stm.step();
         }
 
         if (!isLaser)
         {
-            notifyAddressChanged(action, { address });
+            notifyAddressChanged(ChangeAction::Added, { address });
         }
     }
 
-    void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
+    void WalletDB::generateAndSaveDefaultAddress()
     {
-        auto address = getAddress(id, isLaser);
-        if (address)
-        {
-            const std::string addrTableName =
-                isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
-
-            auto req = "DELETE FROM " + addrTableName + " WHERE walletID=?1;";
-            sqlite::Statement stm(this, req.c_str());
-
-            stm.bind(1, id);
-
-            stm.step();
-
-            if (!isLaser)
-            {
-                notifyAddressChanged(ChangeAction::Removed, {*address});
-            }
-        }
+        WalletAddress address;
+        createAddress(address);
+        address.m_label = kDefaultAddrLabel;
+        address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
+        saveAddress(address);
+        LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
     }
 
-    void WalletDB::deleteAddress(const std::string& addr, bool isLaser)
+    void WalletDB::deleteAddressByToken(const std::string& addr, bool isLaser)
     {
-        auto address = getAddress(addr, isLaser);
+        auto address = getAddressByToken(addr, isLaser);
         if (address)
         {
             const std::string addrTableName =
@@ -3949,12 +4226,32 @@ namespace beam::wallet
             sqlite::Statement stm(this, req.c_str());
 
             stm.bind(1, addr);
-
             stm.step();
 
             if (!isLaser)
             {
                 notifyAddressChanged(ChangeAction::Removed, { *address });
+            }
+        }
+    }
+
+    void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
+    {
+        auto address = getAddress(id, isLaser);
+        assert(address.is_initialized());
+
+        if (address)
+        {
+            const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+            const auto req = "DELETE FROM " + addrTableName + " WHERE walletID=?1;";
+            sqlite::Statement stm(this, req.c_str());
+
+            stm.bind(1, id);
+            stm.step();
+
+            if (!isLaser)
+            {
+                notifyAddressChanged(ChangeAction::Removed, {*address});
             }
         }
     }
@@ -4016,7 +4313,7 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor)
+    void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
     {
         const char* select = "SELECT * FROM " ASSETS_NAME " ORDER BY ID;";
         sqlite::Statement stm(this, select);
@@ -4042,7 +4339,7 @@ namespace beam::wallet
         }
     }
 
-    boost::optional<WalletAsset> WalletDB::findAsset(Asset::ID assetId)
+    boost::optional<WalletAsset> WalletDB::findAsset(Asset::ID assetId) const
     {
         const char* find = "SELECT * FROM " ASSETS_NAME " WHERE ID=?1;";
         sqlite::Statement stmFind(this, find);
@@ -4069,7 +4366,7 @@ namespace beam::wallet
         return asset;
     }
 
-    boost::optional<WalletAsset> WalletDB::findAsset(const PeerID& ownerID)
+    boost::optional<WalletAsset> WalletDB::findAsset(const PeerID& ownerID) const
     {
         const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE Owner=?1;";
         sqlite::Statement stmFind(this, find);
@@ -4301,9 +4598,10 @@ namespace beam::wallet
         }
     }
 
-    std::vector<ExchangeRate> WalletDB::getExchangeRates() const
+    std::vector<ExchangeRate> WalletDB::getLatestExchangeRates() const
     {
-        std::vector<ExchangeRate> res;
+        ExchangeRates res;
+
         const char* req = "SELECT * FROM " EXCHANGE_RATES_NAME " ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
 
@@ -4313,25 +4611,26 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_FIELDS(STM_GET_LIST, NOSEP, rate);
         }
+
         return res;
     }
 
     void WalletDB::saveExchangeRate(const ExchangeRate& rate)
     {
-        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE currency=?1 AND unit=?2;";
+        const char* selectReq = "SELECT * FROM " EXCHANGE_RATES_NAME " WHERE cfrom=?1 AND cto=?2;";
         sqlite::Statement selectStm(this, selectReq);
-        selectStm.bind(1, rate.m_currency);
-        selectStm.bind(2, rate.m_unit);
+        selectStm.bind(1, rate.m_from.m_value);
+        selectStm.bind(2, rate.m_to.m_value);
 
         if (selectStm.step())
         {
-            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE currency=?3 AND unit=?4;";
+            const char* updateReq = "UPDATE " EXCHANGE_RATES_NAME " SET rate=?1, updateTime=?2 WHERE cfrom=?3 AND cto=?4;";
             sqlite::Statement updateStm(this, updateReq);
 
             updateStm.bind(1, rate.m_rate);
             updateStm.bind(2, rate.m_updateTime);
-            updateStm.bind(3, rate.m_currency);
-            updateStm.bind(4, rate.m_unit);
+            updateStm.bind(3, rate.m_from.m_value);
+            updateStm.bind(4, rate.m_to.m_value);
             updateStm.step();
         }
         else
@@ -4344,28 +4643,29 @@ namespace beam::wallet
         }
     }
 
-    ExchangeRateHistoryEntity WalletDB::getExchangeRateHistoryEntity(
-        ExchangeRate::Currency currency, ExchangeRate::Currency unit, uint64_t height) const
+    boost::optional<ExchangeRateAtPoint> WalletDB::getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const
     {
-        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE currency=?1 AND unit=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
+        const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE cfrom=?1 AND cto=?2 AND height<=?3 ORDER BY updateTime DESC LIMIT 1;";
         sqlite::Statement stm(this, req);
-        stm.bind(1, currency);
-        stm.bind(2, unit);
-        stm.bind(3, height);
+        stm.bind(1, from.m_value);
+        stm.bind(2, to.m_value);
+        stm.bind(3, maxHeight);
 
-        ExchangeRateHistoryEntity rate;
         while (stm.step())
         {
             int colIdx = 0;
+            ExchangeRateAtPoint rate;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
+            return rate;
         }
 
-        return rate;
+        return boost::none;
     }
 
-    std::vector<ExchangeRateHistoryEntity> WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
+    ExchangeRatesHistory WalletDB::getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const
     {
-        std::vector<ExchangeRateHistoryEntity> res;
+        ExchangeRatesHistory res;
+
         const char* req = "SELECT * FROM " EXCHANGE_RATES_HISTORY_NAME " WHERE height<=?1 AND height>=?2 ORDER BY updateTime DESC;";
         sqlite::Statement stm(this, req);
         stm.bind(1, endHeight);
@@ -4377,10 +4677,11 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_EXCHANGE_RATES_HISTORY_FIELDS(STM_GET_LIST, NOSEP, rate);
         }
+
         return res;
     }
 
-    void WalletDB::saveExchangeRateHistoryEntity(const ExchangeRateHistoryEntity& rate)
+    void WalletDB::saveExchangeRate(const ExchangeRateAtPoint& rate)
     {
         const char* insertReq = "INSERT INTO " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EXCHANGE_RATES_HISTORY_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, insertReq);
@@ -4835,6 +5136,12 @@ namespace beam::wallet
         {
             m_DbTransaction->commit();
             m_DbTransaction.reset();
+
+#ifdef __EMSCRIPTEN__
+            MAIN_THREAD_ASYNC_EM_ASM(
+                FS.syncfs(false, function() {});
+            );
+#endif
         }
     }
 
@@ -4916,61 +5223,6 @@ namespace beam::wallet
 
             }
         }
-    }
-
-    bool WalletDB::lockCoins(const CoinIDList& list, uint64_t session)
-    {
-        auto coins = getCoinsByID(list);
-        for (auto& coin : coins)
-        {
-            if (coin.m_sessionId == 0)
-            {
-                coin.m_sessionId = session;
-            }
-            else
-            {
-                // error, coin already locked
-                return false;
-            }
-        }
-
-        saveCoins(coins);
-
-        return !coins.empty();
-    }
-
-    bool WalletDB::unlockCoins(uint64_t session)
-    {
-        const char* req = "UPDATE " STORAGE_NAME " SET sessionId=0 WHERE sessionId=?1;";
-        sqlite::Statement stm(this, req);
-
-        stm.bind(1, session);
-
-        stm.step();
-
-        return sqlite3_changes(_db) > 0;
-    }
-
-    CoinIDList WalletDB::getLockedCoins(uint64_t session) const
-    {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE sessionId=?1;";
-        sqlite::Statement stm(this, req);
-
-        stm.bind(1, session);
-
-        CoinIDList list;
-
-        while (stm.step())
-        {
-            Coin coin;
-
-            int colIdx = 0;
-            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-
-            list.push_back(coin.m_ID);
-        }
-
-        return list;
     }
 
     std::vector<OutgoingWalletMessage> WalletDB::getWalletMessages() const
@@ -5162,14 +5414,14 @@ namespace beam::wallet
                     return false;
                 }
 
-                address->setExpiration(status);
+                address->setExpirationStatus(status);
                 walletDB.saveAddress(*address);
             }
             else
             {
                 for (auto& address : walletDB.getAddresses(true))
                 {
-                    address.setExpiration(status);
+                    address.setExpirationStatus(status);
                     walletDB.saveAddress(address);
                 }
             }
@@ -5207,7 +5459,7 @@ namespace beam::wallet
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
-                    totals.Avail += value;
+                    totals.Avail   += value;
                     totals.Unspent += value;
                     switch (c.m_ID.m_Type)
                     {
@@ -5277,11 +5529,8 @@ namespace beam::wallet
                 const AmountBig::Type value = c.m_CoinID.m_Value;
                 switch(c.m_Status) {
                     case ShieldedCoin::Status::Available:
-                        if (AmountBig::get_Lo(value) > Transaction::FeeSettings::MinShieldedFee)  // shielded dust
-                        {
-                            totals.AvailShielded += value;
-                            totals.UnspentShielded += value;
-                        }
+                        totals.AvailShielded += value;
+                        totals.UnspentShielded += value;
                         break;
                     case ShieldedCoin::Status::Maturing:
                         totals.MaturingShielded += value;
@@ -5413,7 +5662,7 @@ namespace beam::wallet
         {
             if (c.m_spentHeight != MaxHeight)
             {
-                if (c.IsAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
                 {
                     c.m_Status = ShieldedCoin::Status::Consumed;
                 }
@@ -5568,7 +5817,7 @@ namespace beam::wallet
             }
         }
 
-        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin)
+        void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway)
         {
             // add virtual transaction for receiver
             beam::Block::SystemState::Full tip;
@@ -5622,20 +5871,42 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::PeerID, WalletID())
                     .SetParameter(TxParameterID::Status, TxStatus::Completed)
                     .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
+                    .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
                     .SetParameter(TxParameterID::IsSender, false)
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::KernelProofHeight, coin.m_confirmHeight);
+                    .SetParameter(TxParameterID::AddressType, addressType);
+
+                const auto assetId = coin.m_CoinID.m_AssetID;
+                if (assetId != Asset::s_BeamID)
+                {
+                    if (const auto oinfo = db.findAsset(assetId))
+                    {
+                        WalletAsset info(*oinfo);
+                        if (info.IsExpired(db))
+                        {
+                            gateway.confirm_asset(txID, assetId);
+                        }
+                        else
+                        {
+                            params.SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo))
+                                    .SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
+                        }
+                    }
+                    else
+                    {
+                        gateway.confirm_asset(txID, assetId);
+                    }
+                }
 
                 if (message->m_MaxPrivacyMinAnonymitySet)
                 {
                     params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, message->m_MaxPrivacyMinAnonymitySet);
                 }
-                params.SetParameter(TxParameterID::AddressType, addressType);
 
-                auto packed = params.Pack();
+                const auto packed = params.Pack();
                 for (const auto& p : packed)
                 {
                     storage::setTxParameter(db, *params.GetTxID(), p.first, p.second, true);
@@ -5693,7 +5964,7 @@ namespace beam::wallet
                             else
                             {
                                 address.m_createTime = currentTime;
-                                address.m_duration = WalletAddress::AddressExpiration24h;
+                                address.m_duration = WalletAddress::AddressExpirationAuto;
                             }
                             if (auto it = jsonAddress.find(Fields::Category); it != jsonAddress.end()) // for compatibility with older export
                             {
@@ -5881,9 +6152,6 @@ namespace beam::wallet
 
                 array<TxParameterID, 5> mandatoryTxParams = { 
                         TxParameterID::TransactionType,
-                        TxParameterID::IsSender,
-                        TxParameterID::Amount,
-                        TxParameterID::MyID,
                         TxParameterID::CreateTime
                 };
 
@@ -5959,6 +6227,29 @@ namespace beam::wallet
             return false;
         }
 
+        std::pair<std::string, std::string> getAssetNames(beam::Asset::ID assetID, const IWalletDB& wdb)
+        {
+            std::string uname, nthname;
+
+            if (assetID)
+            {
+                uname = kAmountASSET;
+                nthname = kAmountAGROTH;
+
+                if (auto asset = wdb.findAsset(assetID))
+                {
+                    WalletAssetMeta meta(*asset);
+                    if (meta.isStd())
+                    {
+                        uname = meta.GetUnitName();
+                        nthname = meta.GetNthUnitName();
+                    }
+                }
+            }
+
+            return std::make_pair(uname, nthname);
+        }
+
         PaymentInfo::PaymentInfo()
         {
             Reset();
@@ -5975,15 +6266,16 @@ namespace beam::wallet
             return pc.IsValid(m_Receiver.m_Pk);
         }
 
-        std::string PaymentInfo::to_string() const
+        std::string PaymentInfo::to_string(const IWalletDB& wdb) const
         {
+            const auto names = getAssetNames(m_AssetID, wdb);
+
             std::ostringstream s;
             s
-                << "Sender:   " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, m_AssetID ? kAmountASSET : "", m_AssetID ? kAmountAGROTH : "") << std::endl
-                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
-
+                << "Sender:            " << std::to_string(m_Sender) << "\n"
+                << "Receiver:          " << std::to_string(m_Receiver) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
 
@@ -6023,15 +6315,16 @@ namespace beam::wallet
             return true;
         }
 
-        std::string ShieldedPaymentInfo::to_string() const
+        std::string ShieldedPaymentInfo::to_string(const IWalletDB& wdb) const
         {
+            const auto names = getAssetNames(m_AssetID, wdb);
+
             std::ostringstream s;
             s
-                << "Sender:   " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount:   " << PrintableAmount(m_Amount, false, m_AssetID ? kAmountASSET : "", m_AssetID ? kAmountAGROTH : "") << std::endl
-                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
-
+                << "Sender:            " << std::to_string(m_Sender) << "\n"
+                << "Receiver:          " << std::to_string(m_Receiver) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
 
@@ -6075,7 +6368,7 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, oracle, m_HideAssetAlways);
+            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle, m_HideAssetAlways);
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
@@ -6089,7 +6382,7 @@ namespace beam::wallet
             ByteBuffer ExportSimplePaymentProof(const IWalletDB& walletDB, const TxID& txID)
             {
                 PaymentInfo pi;
-                uint64_t nAddrOwnID;
+                uint64_t nAddrOwnID = 0;
 
                 bool bSuccess =
                     (
@@ -6111,14 +6404,14 @@ namespace beam::wallet
                 // There might be old transactions without asset id
                 if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
                 {
-                    pi.m_AssetID = Asset::s_InvalidID;
-                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0";
+                    pi.m_AssetID = Asset::s_BeamID;
+                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0 (BEAM)";
                 }
 
                 if (bSuccess)
                 {
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
-                    LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
+                    std::cout << "Payment tx details:\n" << pi.to_string(walletDB) << "\n";
+                    std::cout << "Sender address own ID: " << nAddrOwnID << std::endl;
 
                     Serializer ser;
                     ser& pi;
@@ -6169,13 +6462,13 @@ namespace beam::wallet
                         ECC::Oracle oracle;
                         oracle << nestedKernel.m_Msg;
                         ShieldedTxo::Data::OutputParams outputParams;
-                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, oracle);
+                        outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, rootKernel->m_Height.m_Min, oracle);
                         pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];
                         pi.m_pMessage[1] = outputParams.m_User.m_pMessage[1];
                     }
                     pi.m_HideAssetAlways = ((pi.m_AssetID == Asset::s_InvalidID) && nestedKernel.m_Txo.m_pAsset);
                     pi.RestoreKernelID();
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+                    std::cout << "Payment tx details:\n" << pi.to_string(walletDB) << std::endl;
 
                     Serializer ser;
                     ser& pi;
@@ -6192,7 +6485,7 @@ namespace beam::wallet
             }
 
             template<typename T>
-            bool VerifyPaymentProofImpl(const ByteBuffer& data)
+            bool VerifyPaymentProofImpl(const ByteBuffer& data, const IWalletDB& wdb)
             {
                 try
                 {
@@ -6203,7 +6496,7 @@ namespace beam::wallet
                         return false;
                     }
 
-                    LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
+                    std::cout << "Payment tx details:\n" << pi.to_string(wdb) << "Verified." << std::endl;
 
                     return true;
                 }
@@ -6236,95 +6529,12 @@ namespace beam::wallet
             return ByteBuffer();
         }
 
-        bool VerifyPaymentProof(const ByteBuffer& data)
+        bool VerifyPaymentProof(const ByteBuffer& data, const IWalletDB& wdb)
         {
-            return VerifyPaymentProofImpl<PaymentInfo>(data)
-                || VerifyPaymentProofImpl<ShieldedPaymentInfo>(data);
+            return VerifyPaymentProofImpl<PaymentInfo>(data, wdb)
+                || VerifyPaymentProofImpl<ShieldedPaymentInfo>(data, wdb);
         }
 
-        std::string getIdentity(const TxParameters& txParams, bool isSender)
-        {
-            auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
-                              : txParams.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
-
-            return v ? std::to_string(*v) : "";
-        }
-
-        std::string getToken(const TxParameters& txParams)
-        {
-            auto token = txParams.GetParameter<std::string>(TxParameterID::OriginalToken);
-            return token ? *token : "";
-        }
-
-        std::string ExportTxHistoryToCsv(const IWalletDB& db)
-        {
-            // TODO:ASSETS TODO:SWAP add to history if necessary https://github.com/BeamMW/beam/issues/1362
-            std::stringstream ss;
-            ss << "Type" << ","
-               << "Date | Time" << ","
-               << "\"Amount, BEAM\"" << ","
-               << "\"Amount, USD\"" << ","
-               << "\"Amount, BTC\"" << ","
-               << "\"Transaction fee, BEAM\"" << ","
-               << "Status" << ","
-               << "Comment" << "," 
-               << "Transaction ID" << ","
-               << "Kernel ID" << "," 
-               << "Sending address" << ","
-               << "Sending identity" << ","
-               << "Receiving address" << ","
-               << "Receiving identity" << ","
-               << "Token" << ","
-               << "Payment proof" << std::endl;
-
-            auto transactions = db.getTxHistory(TxType::Simple);
-            auto maxPrivacyTx = db.getTxHistory(TxType::PushTransaction);
-            transactions.reserve(transactions.size() + maxPrivacyTx.size());
-            copy(maxPrivacyTx.begin(), maxPrivacyTx.end(), back_inserter(transactions));
-            sort(transactions.begin(), transactions.end(),
-                [](const TxDescription& a, const TxDescription& b)
-                {
-                    return a.m_createTime > b.m_createTime;   
-                }
-            );
-            
-            for (const auto& tx : transactions)
-            {
-                string strProof;
-                if (tx.m_status == TxStatus::Completed &&
-                    tx.m_sender &&
-                    !tx.m_selfTx)
-                {
-                    auto proof = storage::ExportPaymentProof(db, tx.m_txId);
-                    strProof.resize(proof.size() * 2);
-                    beam::to_hex(strProof.data(), proof.data(), proof.size());
-                }
-
-                std::string amountInUsd = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Usd);
-                std::string amountInBtc = tx.getAmountInSecondCurrency(ExchangeRate::Currency::Bitcoin);
-                Amount shieldedFee = GetShieldedFee(tx);
-
-
-                auto statusInterpreter = db.getStatusInterpreter(tx);
-                ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
-                   << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
-                   << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount, BEAM
-                   << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
-                   << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-                   << "\"" << PrintableAmount(tx.m_fee + shieldedFee, true) << "\"" << ","          // Transaction fee, BEAM
-                   << statusInterpreter->getStatus() << ","                                         // Status
-                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
-                   << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
-                   << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
-                   << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                  // Sending address
-                   << getIdentity(tx, tx.m_sender) << ","                                           // Sending identity
-                   << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                 // Receiving address
-                   << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving identity
-                   << getToken(tx) << ","                                                           // Token
-                   << strProof << std::endl;                                                        // Payment proof
-            }
-            return ss.str();
-        }
 
         void SaveVouchers(IWalletDB& walletDB, const ShieldedVoucherList& vouchers, const WalletID& walletID)
         {
@@ -6370,8 +6580,10 @@ namespace beam::wallet
 
     ////////////////////////
     // WalletAddress
-    WalletAddress::WalletAddress()
+    WalletAddress::WalletAddress(const std::string& label, const std::string& category)
         : m_walletID(Zero)
+        , m_label(label)
+        , m_category(category)
         , m_createTime(0)
         , m_duration(AddressExpiration24h)
         , m_OwnID(0)
@@ -6422,7 +6634,25 @@ namespace beam::wallet
         m_label = label;
     }
 
-    void WalletAddress::setExpiration(WalletAddress::ExpirationStatus status)
+    void WalletAddress::setCategory(const std::string& category)
+    {
+        m_category = category;
+    }
+
+    void WalletAddress::setExpirationTime(beam::Timestamp expirationTime)
+    {
+        if (m_createTime <= expirationTime)
+        {
+            m_duration = expirationTime - getCreateTime();
+        }
+        else
+        {
+            assert(!"invalid expiration time");
+            setExpirationStatus(ExpirationStatus::Expired);
+        }
+    }
+
+    void WalletAddress::setExpirationStatus(WalletAddress::ExpirationStatus status)
     {
         switch (status)
         {
@@ -6432,11 +6662,11 @@ namespace beam::wallet
                 m_duration = getTimestamp() - m_createTime - 1;
                 break;
             }
-        case ExpirationStatus::OneDay:
+        case ExpirationStatus::Auto:
             {
                 // set expiration date since current timestamp
                 auto delta = getTimestamp() - m_createTime;
-                m_duration = delta + WalletAddress::AddressExpiration24h;
+                m_duration = delta + WalletAddress::AddressExpirationAuto;
                 break;
             }
         case ExpirationStatus::Never:
@@ -6444,10 +6674,34 @@ namespace beam::wallet
                 m_duration = AddressExpirationNever;
                 break;
             }
-        
         default:
             break;
         }
+    }
+
+    bool ShieldedCoin::isAsset(Asset::ID assetId) const
+    {
+        return m_CoinID.m_AssetID == assetId;
+    }
+
+    std::string ShieldedCoin::toStringID() const
+    {
+        return std::to_string(m_TxoID);
+    }
+
+    Amount ShieldedCoin::getAmount() const
+    {
+        return m_CoinID.m_Value;
+    }
+
+    Asset::ID ShieldedCoin::getAssetID() const
+    {
+        return m_CoinID.m_AssetID;
+    }
+
+    std::string ShieldedCoin::getType() const
+    {
+        return "shld";
     }
 
     uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
@@ -6463,6 +6717,22 @@ namespace beam::wallet
             nIdx = static_cast<uint32_t>(m_TxoID);
 
         return nIdx;
+    }
+
+    std::string ShieldedCoin::getStatusString() const
+    {
+        static std::map<Status, std::string> Strings
+        {
+            {Unavailable,   "unavailable"},
+            {Available,     "available"},
+            {Maturing,      "maturing"},
+            {Outgoing,      "outgoing"},
+            {Incoming,      "incoming"},
+            {Spent,         "spent"},
+            {Consumed,      "consumed"},
+        };
+
+        return Strings[m_Status];
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
@@ -6575,12 +6845,18 @@ namespace beam::wallet
 
     namespace
     {
-        TxParameters GenerateCommonAddressPart(Amount amount, const std::string& clientVersion)
+        TxParameters GenerateCommonAddressPart(Amount amount, Asset::ID assetId, const std::string& clientVersion)
         {
             TxParameters params;
+
             if (amount > 0)
             {
                 params.SetParameter(TxParameterID::Amount, amount);
+            }
+
+            if (assetId != Asset::s_InvalidID)
+            {
+                params.SetParameter(TxParameterID::AssetID, assetId);
             }
 
             if (!clientVersion.empty())
@@ -6593,125 +6869,149 @@ namespace beam::wallet
         }
     }
 
-    std::string GenerateOfflineAddress(const WalletAddress& address, Amount amount, const ShieldedVoucherList& vouchers)
+    std::string GenerateOfflineToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion)
     {
-        TxParameters offlineParameters;
-        offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        // add voucher parameter
-        offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        offlineParameters.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        offlineParameters.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
-        offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
-        if (amount > 0)
-        {
-            offlineParameters.SetParameter(TxParameterID::Amount, amount);
-        }
-        return std::to_string(offlineParameters);
-    }
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
-    std::string GenerateRegularAddress(const WalletAddress& address, Amount amount, bool isPermanent, const std::string& clientVersion)
-    {
-        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+        params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
+        params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
+        params.SetParameter(TxParameterID::PeerID,              address.m_walletID);
+        params.SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
+        params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
+        params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
 
-        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
-        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
-        params.SetParameter(TxParameterID::IsPermanentPeerID, isPermanent);
-        params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
         return std::to_string(params);
     }
 
-    std::string GenerateMaxPrivacyAddress(const WalletAddress& address, Amount amount, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
+    std::string GenerateMaxPrivacyToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
     {
-        TxParameters params = GenerateCommonAddressPart(amount, clientVersion);
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
         params.SetParameter(TxParameterID::Voucher, voucher);
+
         return std::to_string(params);
     }
 
-    std::string GeneratePublicOfflineAddress(const IWalletDB& walletDB)
+    std::string GeneratePublicToken(const IWalletDB& walletDB, const std::string& clientVersion)
     {
-        TxParameters params;
+        TxParameters params = GenerateCommonAddressPart(0, Asset::s_InvalidID, clientVersion);
+
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
         AppendLibraryVersion(params);
+
         return std::to_string(params);
     }
 
-    std::string GenerateAddress(IWalletDB::Ptr walletDB, TxAddressType type, bool newStyleRegular, const string& label, WalletAddress::ExpirationStatus expiration, const std::string& existingSBBS, uint32_t offlineCount)
+    std::string  GenerateRegularOldToken(const WalletAddress& address)
     {
+        return std::to_string(address.m_walletID);
+    }
+
+    std::string  GenerateRegularNewToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion)
+    {
+        TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
+
+        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
+        params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
+
+        return std::to_string(params);
+    }
+
+    std::string  GenerateToken (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
+    {
+        if (type == TokenType::Public)
+        {
+            auto token = GeneratePublicToken(*walletDB, "");
+            LOG_INFO() << "Generated public offline address: " << token;
+            return token;
+        }
+
         switch (type)
         {
-        case beam::wallet::TxAddressType::Unknown:
-            throw std::runtime_error("Unknown address type");
+        case TokenType::RegularOldStyle:
+            {
+                auto token = GenerateRegularOldToken(address);
+                LOG_INFO() << "Generated regular old style address: " << token;
+                return token;
+            }
 
-        case beam::wallet::TxAddressType::Regular:
-            {
-                boost::optional<WalletAddress> address;
-                if (!existingSBBS.empty())
-                {
-                    auto receiver = existingSBBS;
-                    bool isValid = true;
-                    WalletID walletID;
-                    ByteBuffer buffer = from_hex(receiver, &isValid);
-                    if (!isValid || !walletID.FromBuf(buffer))
-                    {
-                        throw std::runtime_error("Invalid address");
-                    }
-                    address = walletDB->getAddress(walletID);
-                    if (!address)
-                    {
-                        throw std::runtime_error("Cannot get address, there is no SBBS");
-                    }
-                    if (address->isExpired())
-                    {
-                        throw std::runtime_error("Cannot get address, it is expired");
-                    }
-                    if (!address->isPermanent())
-                    {
-                        throw std::runtime_error("The address expiration time must be never.");
-                    }
-                }
-                else
-                {
-                    address = GenerateNewAddress(walletDB, label, expiration);
-                }
-                if (newStyleRegular)
-                {
-                    return GenerateRegularAddress(*address, 0, address->isPermanent(), "");
-                }
-                else
-                {
-                    return std::to_string(address->m_walletID);
-                }
+        case TokenType::RegularNewStyle:
+             {
+                auto token = GenerateRegularNewToken(address, 0, 0, "");
+                LOG_INFO() << "Generated regular new style address:" << token;
+                return token;
             }
-        case beam::wallet::TxAddressType::AtomicSwap:
-            throw std::runtime_error("Unsupported address type");
 
-        case beam::wallet::TxAddressType::Offline:
+        case TokenType::Offline:
             {
-                LOG_INFO() << "Generating offline address";
-                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, offlineCount);
-                return GenerateOfflineAddress(walletAddress, 0, vouchers);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, offlineCount ? *offlineCount : 10);
+                auto token = GenerateOfflineToken(address, 0, 0, vouchers, "");
+                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << *offlineCount;
+                return token;
             }
-        case beam::wallet::TxAddressType::MaxPrivacy:
+
+        case TokenType::MaxPrivacy:
             {
-                LOG_INFO() << "Generating max privacy address";
-                auto walletAddress = GenerateNewAddress(walletDB, label, WalletAddress::ExpirationStatus::Never);
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-                return GenerateMaxPrivacyAddress(walletAddress, 0, vouchers[0], "");
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, 1);
+                auto token = GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                LOG_INFO() << "Generated max privacy address: " << token;
+                return token;
             }
-        case beam::wallet::TxAddressType::PublicOffline:
-            {
-                LOG_INFO() << "Generating public offline address";
-                return GeneratePublicOfflineAddress(*walletDB);
-            }
+
         default:
             throw std::runtime_error("Unexpected address type");
         }
+    }
+
+    TokenType GetTokenType(const std::string& token)
+    {
+        const auto addrType = GetAddressType(token);
+        switch (addrType)
+        {
+            case TxAddressType::Offline: return TokenType::Offline;
+            case TxAddressType::MaxPrivacy: return TokenType::MaxPrivacy;
+            case TxAddressType::PublicOffline: return TokenType::Public;
+            case TxAddressType::Regular:
+            {
+                if(auto params = ParseParameters(token))
+                {
+                    WalletID wid;
+                    if(!params->GetParameter(TxParameterID::PeerID, wid))
+                    {
+                        assert(false);
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    if (std::to_string(wid) == token)
+                    {
+                        return TokenType::RegularOldStyle;
+                    }
+
+                    return TokenType::RegularNewStyle;
+                }
+                else
+                {
+                    assert(false);
+                    return TokenType::Unknown;
+                }
+            }
+            default: return TokenType::Unknown;
+        }
+    }
+
+    uint32_t GetCoinStatus(const Coin& c)
+    {
+        return c.m_status;
+    }
+
+    uint32_t GetCoinStatus(const ShieldedCoin& c)
+    {
+        return c.m_Status;
     }
 }
