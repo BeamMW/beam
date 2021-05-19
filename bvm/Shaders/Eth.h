@@ -28,6 +28,29 @@ namespace Eth
 #endif // HOST_BUILD
 	}
 
+
+	template <uint32_t N>
+	constexpr uint32_t strlen(char const (&s)[N])
+	{
+		return N - 1;
+	}
+
+	Opaque<1> to_opaque(char s)
+	{
+		Opaque<1> r;
+		MemCopy(&r, &s, 1);
+		return r;
+	}
+
+	template<uint32_t N>
+	constexpr auto to_opaque(char const (&s)[N])
+	{
+		constexpr auto size = sizeof(char) * N - 1;
+		Opaque<size> r;
+		MemCopy(&r, &s, size);
+		return r;
+	}
+
 	struct Rlp
 	{
 		struct Node
@@ -184,6 +207,93 @@ namespace Eth
 			}
 		};
 
+		template<typename Visitor>
+		static bool Decode(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			uint32_t position = 0;
+			auto decodeInteger = [&](uint8_t nBytes, uint32_t& length)
+			{
+				if (nBytes > size - position)
+					return false; 
+				length = 0;
+				while (nBytes--)
+				{
+					length = input[position++] + length * 256;
+				}
+				return true;
+			};
+
+			while (position < size)
+			{
+				auto b = input[position++];
+				if (b <= 0x7f)  // single byte
+				{
+					visitor.OnNode(Rlp::Node(to_opaque(b)));
+				}
+				else
+				{
+					uint32_t length = 0;
+					if (b <= 0xb7) // short string
+					{
+						length = b - 0x80;
+						if (length > size - position)
+							return false;
+						DecodeString(input + position, length, visitor);
+					}
+					else if (b <= 0xbf) // long string
+					{
+						if (!decodeInteger(b - 0xb7, length) || length > size - position)
+							return false;
+						DecodeString(input + position, length, visitor);
+					}
+					else if (b <= 0xf7) // short list
+					{
+						length = b - 0xc0;
+						if (length > size - position)
+							return false;
+						if (!DecodeList(input + position, length, visitor))
+							return false;
+					}
+					else if (b <= 0xff) // long list
+					{
+						if (!decodeInteger(b - 0xf7, length) || length > size - position)
+							return false;
+						if (!DecodeList(input + position, length, visitor))
+							return false;
+					}
+					else
+					{
+						return false;
+					}
+					position += length;
+				}
+			}
+			return true;
+		}
+
+		template <typename Visitor>
+		static void DecodeString(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			Rlp::Node n;
+			n.m_Type = Rlp::Node::Type::String;
+			n.m_nLen = size;
+			n.m_pBuf = input;
+			visitor.OnNode(n);
+		}
+
+		template <typename Visitor>
+		static bool DecodeList(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			Rlp::Node n;
+			n.m_Type = Rlp::Node::Type::List;
+			n.m_nLen = size;
+			n.m_pBuf = input;
+			if (visitor.OnNode(n))
+			{
+				return Decode(input, size, visitor);
+			}
+			return true;
+		}
 
 		struct HashStream
 		{
@@ -258,31 +368,6 @@ namespace Eth
 			}
 		};
 	};
-
-	template <uint32_t N>
-	constexpr uint32_t strlen(char const (&s)[N])
-	{
-		return N-1;
-	}
-
-	template<typename T, uint32_t N>
-	constexpr auto to_opaque(T const (&s)[N])
-	{
-		constexpr auto size = sizeof(T) * N;
-		Opaque<size> r;
-		MemCopy(&r, &s, size);
-		return r;
-	}
-
-	template<uint32_t N>
-	constexpr auto to_opaque(char const (&s)[N])
-	{
-		constexpr auto size = sizeof(char) * N-1;
-		Opaque<size> r;
-		MemCopy(&r, &s, size);
-		return r;
-	}
-
 
 	struct Header
 	{
