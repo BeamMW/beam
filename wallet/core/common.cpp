@@ -913,7 +913,8 @@ namespace beam::wallet
     {
         return m_status == TxStatus::Pending
             || m_status == TxStatus::InProgress
-            || m_status == TxStatus::Registering;
+            || m_status == TxStatus::Registering
+            || m_status == TxStatus::Confirming;
     }
 
     bool TxDescription::canCancel() const
