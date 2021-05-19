@@ -16,10 +16,18 @@
 
 namespace beam::wallet
 {
+    typedef std::pair<Asset::ID, Asset::ID> DexMarket;
+
+    enum class DexMarketSide: uint32_t
+    {
+        Sell,
+        Buy
+    };
+
     class DexOrder
     {
     public:
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, sellCoin, sellAmount, buyCoin, sellToBuyRate, expireTime);
+        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, market.first, market.second, side, origSize, origPrice, remainingSize, expireTime);
         static uint32_t getCurrentVersion();
 
         DexOrder() = default;
@@ -27,10 +35,10 @@ namespace beam::wallet
         DexOrder(DexOrderID orderId,
                  WalletID   sbbsId,
                  uint64_t   sbbsKeyIdx,
-                 Asset::ID  sellCoin,
-                 Amount     sellAmount,
-                 Asset::ID  buyCoin,
-                 Amount     sellToBuyRate,
+                 DexMarket  market,
+                 DexMarketSide side,
+                 Amount     size,
+                 Amount     price,
                  Timestamp  expiration);
 
         bool operator==(const DexOrder& other) const
@@ -45,30 +53,37 @@ namespace beam::wallet
         [[nodiscard]] bool CanAccept() const;
         [[nodiscard]] const DexOrderID& getID() const;
         [[nodiscard]] const WalletID& getSBBSID() const;
-        [[nodiscard]] Asset::ID getBuyCoin() const;
-        [[nodiscard]] Asset::ID getSellCoin() const;
-        [[nodiscard]] Asset::ID getIBuyCoin() const;
-        [[nodiscard]] Asset::ID getISellCoin() const;
-        [[nodiscard]] Amount getISellAmount() const;
-        [[nodiscard]] Amount getIBuyAmount() const;
-        [[nodiscard]] Amount getBuyAmount() const;
         [[nodiscard]] Timestamp getExpiration() const;
+        [[nodiscard]] DexMarketSide getSide() const;
+        [[nodiscard]] Amount getPrice() const;
+        [[nodiscard]] Amount getSize() const;
+
+        //
+        // These are to easily create transactions
+        //
+        [[nodiscard]] Asset::ID getISendCoin() const;
+        [[nodiscard]] Asset::ID getIReceiveCoin() const;
+        [[nodiscard]] Amount getISendAmount() const;
+        [[nodiscard]] Amount getIReceiveAmount() const;
+
         void LogInfo() const;
 
         [[nodiscard]] ECC::Scalar::Native derivePrivateKey(beam::Key::IKdf::Ptr) const;
         [[nodiscard]] PeerID derivePublicKey(beam::Key::IKdf::Ptr) const;
 
     private:
-        uint32_t   version       = 0;
-        DexOrderID orderID;      // UUID
-        WalletID   sbbsID;       // here wallet listens for order processing
-        uint64_t   sbbsKeyIDX    = 0; // index used to generate SBBS key, to identify OUR orders
-        Asset::ID  sellCoin      = Asset::s_BeamID;
-        Amount     sellAmount    = 0;
-        Asset::ID  buyCoin       = Asset::s_BeamID;
-        Amount     sellToBuyRate = 0;
-        Amount     sellProgress  = 0;
-        bool       isMine        = false;
-        Timestamp  expireTime    = 0;
+        uint32_t      version = 0;
+        DexOrderID    orderID;      // UUID
+        WalletID      sbbsID;       // here wallet listens for order processing
+        uint64_t      sbbsKeyIDX = 0; // index used to generate SBBS key, to identify OUR orders
+        DexMarket     market;
+        DexMarketSide side;
+
+        Amount  origSize = 0;
+        Amount  origPrice = 0;
+        Amount  remainingSize = 0;
+
+        bool       isMine     = false;
+        Timestamp  expireTime = 0;
     };
 }

@@ -1108,10 +1108,10 @@ namespace beam::wallet
                 auto params = CreateDexTransactionParams(
                                 orderId,
                                 order->getSBBSID(),
-                                order->getIBuyCoin(),
-                                order->getIBuyAmount(),
-                                order->getISellCoin(),
-                                order->getISellAmount());
+                                order->getISendCoin(),
+                                order->getISendAmount(),
+                                order->getIReceiveCoin(),
+                                order->getIReceiveAmount());
 
                 startTransaction(std::move(params));
             }

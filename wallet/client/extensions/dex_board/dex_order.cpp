@@ -19,7 +19,7 @@ namespace beam::wallet
 {
     namespace
     {
-        const uint32_t kCurrentOfferVer = 4;
+        const uint32_t kCurrentOfferVer = 6;
     }
 
     uint32_t DexOrder::getCurrentVersion()
@@ -27,9 +27,9 @@ namespace beam::wallet
         return kCurrentOfferVer;
     }
 
-    DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
+    DexOrder::DexOrder(const ByteBuffer& content, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
     {
-        if (!fromByteBuffer(buffer, *this))
+        if (!fromByteBuffer(content, *this))
         {
             throw std::runtime_error("DexOrder::DexOrder failed to parse order body");
         }
@@ -40,7 +40,7 @@ namespace beam::wallet
         }
 
         SignatureHandler sig;
-        sig.m_data = signature;
+        sig.m_data = content;
 
         if (!fromByteBuffer(signature, sig.m_Signature))
         {
@@ -49,7 +49,7 @@ namespace beam::wallet
 
         if (!sig.IsValid(sbbsID.m_Pk))
         {
-            throw std::runtime_error("DexOrder::DexOrder failed to verify signature");
+            throw std::runtime_error("DexOrder::DexOrder  failed to verify signature");
         }
 
         auto pubkey = derivePublicKey(pkdf);
@@ -59,19 +59,20 @@ namespace beam::wallet
     DexOrder::DexOrder(DexOrderID orderId,
                  WalletID   sbbsId,
                  uint64_t   sbbsKeyIdx,
-                 Asset::ID  sellCoin,
-                 Amount     sellAmount,
-                 Asset::ID  buyCoin,
-                 Amount     sellToBuyRate,
+                 DexMarket  market,
+                 DexMarketSide side,
+                 Amount     size,
+                 Amount     price,
                  Timestamp  expiration)
         : version(kCurrentOfferVer)
         , orderID(orderId)
         , sbbsID(sbbsId)
         , sbbsKeyIDX(sbbsKeyIdx)
-        , sellCoin(sellCoin)
-        , sellAmount(sellAmount)
-        , buyCoin(buyCoin)
-        , sellToBuyRate(sellToBuyRate)
+        , market(std::move(market))
+        , side(side)
+        , origSize(size)
+        , origPrice(price)
+        , remainingSize(size)
         , isMine(true)
         , expireTime(expiration)
     {
@@ -90,8 +91,7 @@ namespace beam::wallet
 
     bool DexOrder::IsCompleted() const
     {
-        assert(sellProgress <= sellAmount);
-        return sellProgress >= sellAmount;
+        return remainingSize == 0;
     }
 
     bool DexOrder::CanAccept() const
@@ -101,6 +101,7 @@ namespace beam::wallet
 
     void DexOrder::LogInfo() const
     {
+        /*
         if (isMine)
         {
             LOG_INFO()
@@ -113,6 +114,7 @@ namespace beam::wallet
                 << "\tOther sells " << PrintableAmount(sellAmount, true, sellCoin)
                 << "\tOther buys  " << PrintableAmount(getBuyAmount(), true, buyCoin);
         }
+        */
     }
 
     const DexOrderID& DexOrder::getID() const
@@ -125,39 +127,61 @@ namespace beam::wallet
         return sbbsID;
     }
 
-    Asset::ID DexOrder::getBuyCoin() const
+    Asset::ID DexOrder::getISendCoin() const
     {
-        return buyCoin;
+        if (isMine)
+        {
+            throw std::runtime_error("should not create tx from own orders");
+            return side == DexMarketSide::Sell ? market.first : market.second;
+        }
+        else
+        {
+            return side == DexMarketSide::Sell ? market.second : market.first;
+        }
     }
 
-    Asset::ID DexOrder::getSellCoin() const
+    Asset::ID DexOrder::getIReceiveCoin() const
     {
-        return sellCoin;
+        if (isMine)
+        {
+            throw std::runtime_error("should not create tx from own orders");
+            return side == DexMarketSide::Sell ? market.second : market.first;
+        }
+        else
+        {
+            return side == DexMarketSide::Sell ? market.first : market.second;
+        }
     }
 
-    Asset::ID DexOrder::getIBuyCoin() const
+    Amount DexOrder::getISendAmount() const
     {
-        return isMine ? buyCoin : sellCoin;
+        if (isMine)
+        {
+            throw std::runtime_error("should not create tx from own orders");
+            return  side == DexMarketSide::Sell ? origSize : origSize * origPrice;
+        }
+        else
+        {
+             return  side == DexMarketSide::Sell ? origSize * origPrice : origSize;
+        }
     }
 
-    Asset::ID DexOrder::getISellCoin() const
+    Amount DexOrder::getIReceiveAmount() const
     {
-        return isMine ? sellCoin : buyCoin;
+        if (isMine)
+        {
+            throw std::runtime_error("should not create tx from own orders");
+            return side == DexMarketSide::Sell ? origSize * origPrice : origSize;
+        }
+        else
+        {
+            return side == DexMarketSide::Sell ? origSize : origSize * origPrice;
+        }
     }
 
-    Amount DexOrder::getISellAmount() const
+    DexMarketSide DexOrder::getSide() const
     {
-        return isMine ? sellAmount : getBuyAmount();
-    }
-
-    Amount DexOrder::getIBuyAmount() const
-    {
-        return isMine ? getBuyAmount() : sellAmount;
-    }
-
-    Amount DexOrder::getBuyAmount() const
-    {
-       return 0;
+        return side;
     }
 
     bool DexOrder::IsMine() const
@@ -182,16 +206,30 @@ namespace beam::wallet
         PrivateKey sk;
         pkdf->DeriveKey(sk, ECC::Key::ID(sbbsKeyIDX, Key::Type::Bbs));
 
+        // Do not delete FromSk can change sk
+        PeerID pubKey;
+        pubKey.FromSk(sk);
+
         return sk;
     }
 
     PeerID DexOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
     {
-        auto privKey = derivePrivateKey(pkdf);
+        auto privKey = derivePrivateKey(std::move(pkdf));
 
         PeerID pubKey;
         pubKey.FromSk(privKey);
 
         return pubKey;
+    }
+
+    Amount DexOrder::getPrice() const
+    {
+        return origPrice;
+    }
+
+    Amount DexOrder::getSize() const
+    {
+        return origSize;
     }
 }
