@@ -101,20 +101,21 @@ namespace beam::wallet
 
     void DexOrder::LogInfo() const
     {
-        /*
         if (isMine)
         {
+            PrintableAmount sell(getISendAmount(), true, getISendCoin());
+            PrintableAmount buy(getIReceiveAmount(), true, getIReceiveCoin());
+
             LOG_INFO()
-                << "\tI sell " << PrintableAmount(sellAmount, true, sellCoin)
-                << "\tI buy  " << PrintableAmount(getBuyAmount(), true, buyCoin);
+                << "\tI sell " << sell
+                << "\n\tI buy  " << buy;
         }
-        else
-        {
-            LOG_INFO()
-                << "\tOther sells " << PrintableAmount(sellAmount, true, sellCoin)
-                << "\tOther buys  " << PrintableAmount(getBuyAmount(), true, buyCoin);
-        }
-        */
+        //else
+        //{
+        //    LOG_INFO()
+          //      << "\tOther sells " << PrintableAmount(sellAmount, true, sellCoin)
+            //    << "\tOther buys  " << PrintableAmount(getBuyAmount(), true, buyCoin);
+        //}
     }
 
     const DexOrderID& DexOrder::getID() const
@@ -131,7 +132,6 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            throw std::runtime_error("should not create tx from own orders");
             return side == DexMarketSide::Sell ? market.first : market.second;
         }
         else
@@ -144,7 +144,6 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            throw std::runtime_error("should not create tx from own orders");
             return side == DexMarketSide::Sell ? market.second : market.first;
         }
         else
@@ -157,7 +156,6 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            throw std::runtime_error("should not create tx from own orders");
             return  side == DexMarketSide::Sell ? origSize : origSize * origPrice;
         }
         else
@@ -170,7 +168,6 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            throw std::runtime_error("should not create tx from own orders");
             return side == DexMarketSide::Sell ? origSize * origPrice : origSize;
         }
         else
