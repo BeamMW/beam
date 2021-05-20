@@ -288,34 +288,34 @@ namespace beam::wallet
         struct ExtraData :public AllTasks {
             struct Transaction
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Utxo { Coin::ID m_CoinID; };
             struct Kernel
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Kernel2
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Asset
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct ProofShieldedOutp
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
                 ProofShildedOutputCallback m_callback;
             };
             struct ShieldedList
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 ShieldedListCallback m_callback;
             };
             struct ShieldedOutputsAt
@@ -324,11 +324,11 @@ namespace beam::wallet
             };
             struct BodyPack
             {
-                Height m_StartHeight;
+                Height m_StartHeight = MaxHeight;
             };
             struct Body
             {
-                Height m_Height;
+                Height m_Height = MaxHeight;
             };
         };
 

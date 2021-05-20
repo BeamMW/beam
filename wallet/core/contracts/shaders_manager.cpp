@@ -163,7 +163,7 @@ namespace beam::wallet {
         if (pExc != nullptr)
         {
             boost::optional<std::string> error = boost::none;
-            if (strlen(pExc->what()) > 0)
+            if (pExc->what() && pExc->what()[0] != 0)
             {
                 error = std::string(pExc->what());
             }
@@ -244,8 +244,8 @@ namespace beam::wallet {
             throw std::runtime_error("Unexpected AppID in releaseAPP");
         }
 
-        _currentAppId = std::string();
-        _currentAppName = std::string();
+        _currentAppId.clear();
+        _currentAppName.clear();
     }
 
     IShadersManager::Ptr IShadersManager::CreateInstance(

@@ -1099,7 +1099,7 @@ namespace beam::wallet
             // internal non std kernel
             // ShieldedTxo
             ShieldedTxo::Ticket     m_TxoTicket;
-            Amount                  m_Amount;
+            Amount                  m_Amount = 0;
             Asset::ID               m_AssetID = Asset::s_InvalidID;
             bool                    m_HideAssetAlways = false;
 
