@@ -24,6 +24,9 @@ namespace beam::wallet
     public:
         explicit DexSimpleSwapBuilder(BaseTransaction& tx);
 
+        Asset::ID m_ReceiveAssetID = 0;
+        Amount m_ReceiveAmount = 0;
+
     protected:
         void SendToPeer(SetTxParameter&& msgSub) override;
     };

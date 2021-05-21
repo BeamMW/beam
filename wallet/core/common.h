@@ -392,6 +392,8 @@ namespace beam::wallet
         Outputs = 190,
         AppID = 191,
         AppName = 192,
+        DexReceiveAsset = 193,
+        DexReceiveAmount = 194,
 
         Kernel = 200,
         PreImage = 201,

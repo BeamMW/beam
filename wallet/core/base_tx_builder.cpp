@@ -924,7 +924,6 @@ namespace beam::wallet
         , m_Lifetime(kDefaultTxLifetime)
     {
         GetParameter(TxParameterID::Amount, m_Amount);
-
         GetParameter(TxParameterID::AssetID, m_AssetID);
         GetParameter(TxParameterID::Lifetime, m_Lifetime);
     }

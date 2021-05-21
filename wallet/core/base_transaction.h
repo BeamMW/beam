@@ -255,7 +255,6 @@ namespace beam::wallet
         static TxFailureReason KeyKeeperErrorToFailureReason(IPrivateKeyKeeper2::Status::Type);
         IAsyncContext& GetAsyncAcontext() const;
         bool IsInitiator() const;
-        uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
         void UpdateOnNextTip();
@@ -292,7 +291,7 @@ namespace beam::wallet
         };
 
         AssetCheckResult CheckAsset(Asset::ID);
-        AssetCheckState m_assetCheckState = AssetCheckState::ACInitial;
+        std::map<Asset::ID, AssetCheckState> m_assetCheckState;
 
     protected:
         virtual bool CheckExpired();

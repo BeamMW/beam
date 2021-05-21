@@ -19,7 +19,7 @@ namespace beam::wallet
 {
     namespace
     {
-        const uint32_t kCurrentOfferVer = 6;
+        const uint32_t kCurrentOfferVer = 7;
     }
 
     uint32_t DexOrder::getCurrentVersion()
@@ -103,19 +103,20 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            PrintableAmount sell(getISendAmount(), true, getISendCoin());
-            PrintableAmount buy(getIReceiveAmount(), true, getIReceiveCoin());
+            PrintableAmount sell(getISendAmount(), false, getISendCoin());
+            PrintableAmount buy(getIReceiveAmount(), false, getIReceiveCoin());
 
-            LOG_INFO()
-                << "\tI sell " << sell
-                << "\n\tI buy  " << buy;
+            LOG_INFO() << "\tI sell " << sell;
+            LOG_INFO() << "\tI buy " << buy;
         }
-        //else
-        //{
-        //    LOG_INFO()
-          //      << "\tOther sells " << PrintableAmount(sellAmount, true, sellCoin)
-            //    << "\tOther buys  " << PrintableAmount(getBuyAmount(), true, buyCoin);
-        //}
+        else
+        {
+            PrintableAmount sell(getIReceiveAmount(), false, getIReceiveCoin());
+            PrintableAmount buy(getISendAmount(), false, getISendCoin());
+
+            LOG_INFO() << "\tOther sells " << sell;
+            LOG_INFO() << "\tOther buys " << buy;
+        }
     }
 
     const DexOrderID& DexOrder::getID() const
@@ -156,11 +157,11 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            return  side == DexMarketSide::Sell ? origSize : origSize * origPrice;
+            return  side == DexMarketSide::Sell ? origSize : origSize * origPrice / Rules::Coin;
         }
         else
         {
-             return  side == DexMarketSide::Sell ? origSize * origPrice : origSize;
+             return  side == DexMarketSide::Sell ? origSize * origPrice / Rules::Coin : origSize;
         }
     }
 
@@ -168,11 +169,11 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            return side == DexMarketSide::Sell ? origSize * origPrice : origSize;
+            return side == DexMarketSide::Sell ? origSize * origPrice / Rules::Coin : origSize;
         }
         else
         {
-            return side == DexMarketSide::Sell ? origSize : origSize * origPrice;
+            return side == DexMarketSide::Sell ? origSize : origSize * origPrice / Rules::Coin;
         }
     }
 

@@ -21,13 +21,12 @@ namespace beam::wallet
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
             Asset::ID coinMy,
-            Amount amountPeer,
-            Asset::ID coinPeer,
             Amount amountMy,
+            Asset::ID coinPeer,
+            Amount amountPeer,
             const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
-            //.SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::PeerID, peerID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID);
     }
@@ -67,8 +66,18 @@ namespace beam::wallet
         const auto myID = params.GetParameter<WalletID>(TxParameterID::MyID);
         if (!myID)
         {
-             throw InvalidTransactionParametersException("DexSimpleSwap MyID");
+             throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
         }
+
+        auto waddr = _wdb->getAddress(*myID);
+        if (!waddr || !waddr->isOwn())
+        {
+            throw SenderInvalidAddressException();
+        }
+
+        params.SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
+        // May be in the future
+        // params.SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
 
         return params;
     }
@@ -87,21 +96,25 @@ namespace beam::wallet
     bool DexTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
     {
         if (kDefaultSubTxID != subTxID)
-            return false; // irrelevant
+        {
+            return false;
+        }
 
         switch (paramID)
         {
         case TxParameterID::IsSender: // TODO:DEX - change this. It should be checked and set by Creator during construction
         case TxParameterID::Amount:
         case TxParameterID::AssetID:
+        case TxParameterID::DexReceiveAmount:
+        case TxParameterID::DexReceiveAsset:
         case TxParameterID::Fee:
-        case TxParameterID::MinHeight:
-        case TxParameterID::MaxHeight:
+        case TxParameterID::MinHeight: // TODO: check where set
+        case TxParameterID::MaxHeight: // TODO: check where set
         case TxParameterID::Message:
-        case TxParameterID::Lifetime:
+        case TxParameterID::Lifetime:  // TODO: check where set
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::PeerWalletIdentity:
+        case TxParameterID::PeerWalletIdentity: // TODO: check if really passed
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:
@@ -123,17 +136,132 @@ namespace beam::wallet
             _builder = std::make_shared<DexSimpleSwapBuilder>(*this);
         }
 
-        if (_builder->m_AssetID)
+        if (_builder->m_Coins.IsEmpty())
         {
             _builder->VerifyAssetsEnabled();
 
-            if (CheckAsset(_builder->m_AssetID) != AssetCheckResult::OK)
-                // can be request for async operation or simple fail
-                // in both cases we should jump out of here
-                return;
+            if (_builder->m_AssetID != Asset::s_BeamID)
+            {
+                if (CheckAsset(_builder->m_AssetID) != AssetCheckResult::OK)
+                {
+                    // can be request for async operation or simple fail
+                    // in both cases we should jump out of here
+                    return;
+                }
+            }
+
+            if (_builder->m_ReceiveAssetID != Asset::s_BeamID)
+            {
+                if (CheckAsset(_builder->m_ReceiveAssetID) != AssetCheckResult::OK)
+                {
+                    // can be request for async operation or simple fail
+                    // in both cases we should jump out of here
+                    return;
+                }
+            }
+
+            UpdateTxDescription(TxStatus::InProgress);
+
+            BaseTxBuilder::Balance bb(*_builder);
+            if (_builder->m_IsSender)
+            {
+                bb.m_Map[_builder->m_AssetID].m_Value -= _builder->m_Amount;
+                bb.m_Map[_builder->m_ReceiveAssetID].m_Value += _builder->m_ReceiveAmount;
+                bb.m_Map[Asset::s_BeamID].m_Value -= _builder->m_Fee;
+                bb.CreateOutput(_builder->m_ReceiveAmount, _builder->m_ReceiveAssetID, Key::Type::Regular);
+
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+            }
+            else
+            {
+                bb.m_Map[_builder->m_AssetID].m_Value += _builder->m_Amount;
+                bb.m_Map[_builder->m_ReceiveAssetID].m_Value -= _builder->m_ReceiveAmount;
+                bb.CreateOutput(_builder->m_Amount, _builder->m_AssetID, Key::Type::Regular);
+            }
+            bb.CompleteBalance();
+
+            //
+            // Sender always pays all fees
+            //
+            if (_builder->m_IsSender)
+            {
+                TxStats tsExtra;
+                tsExtra.m_Outputs = 1; // peer always adds only 1 output
+                _builder->CheckMinimumFee(&tsExtra);
+            }
+
+            std::stringstream ss;
+            ss << GetTxID();
+
+            if (_builder->m_IsSender)
+            {
+                ss << " Sending via DEX "
+                   << PrintableAmount(_builder->m_Amount, false, _builder->m_AssetID);
+
+                ss << " and Receiving "
+                   << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
+            }
+            else
+            {
+                ss << " Receiving via DEX "
+                   << PrintableAmount(_builder->m_Amount, false, _builder->m_AssetID);
+
+                ss << " and Sending "
+                   << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
+            }
+
+            ss << " (fee: " << PrintableAmount(_builder->m_Fee) << ")";
+
+            LOG_INFO() << ss.str();
+            _builder->SaveCoins();
         }
 
-        int a = 0;
-        a++;
+        if (!_builder->SignTx())
+        {
+            return;
+        }
+
+        assert(_builder->m_pKrn);
+        if (_builder->m_IsSender)
+        {
+            uint8_t nRegistered = proto::TxStatus::Unspecified;
+            if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+            {
+                if (CheckExpired())
+                    return;
+
+                _builder->FinalyzeTx();
+
+                GetGateway().register_tx(GetTxID(), _builder->m_pTransaction);
+                SetState(State::Registration);
+                return;
+            }
+
+            if (proto::TxStatus::Ok != nRegistered)
+            {
+                Height lastUnconfirmedHeight = 0;
+                if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+                {
+                    OnFailed(TxFailureReason::FailedToRegister, true);
+                    return;
+                }
+            }
+        }
+
+        Height hProof = 0;
+        GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
+        {
+            SetState(State::KernelConfirmation);
+            ConfirmKernel(_builder->m_pKrn->m_Internal.m_ID);
+            return;
+        }
+
+        SetCompletedTxCoinStatuses(hProof);
+        CompleteTx();
     }
 }

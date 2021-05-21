@@ -51,12 +51,10 @@ namespace beam::wallet
 
     private:
         explicit DexTransaction(const TxContext& context);
+
         enum class State : uint8_t
         {
             Initial,
-            Invitation,
-            PeerConfirmation,
-            InvitationConfirmation,
             Registration,
             KernelConfirmation,
         };

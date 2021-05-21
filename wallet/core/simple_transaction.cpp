@@ -202,8 +202,13 @@ namespace beam::wallet
                 if (GetParameter(TxParameterID::MyID, wid))
                 {
                     auto waddr = GetWalletDB()->getAddress(wid);
-                    if (waddr && waddr->isOwn())
+                    if (waddr)
                     {
+                        if (!waddr->isOwn())
+                        {
+                            assert(false);
+                            throw std::runtime_error("Not own address in MyID");
+                        }
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
                         SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
                     }
