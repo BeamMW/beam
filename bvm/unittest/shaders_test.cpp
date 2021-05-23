@@ -1653,7 +1653,7 @@ namespace bvm2 {
 			args.m_Difficulty = 3250907161412814ULL;
 
 			args.m_EpochDatasetSize = 19922923;
-			args.m_EpochRoot = m_hvEpochRoot;
+			args.m_iEpoch = 176;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}

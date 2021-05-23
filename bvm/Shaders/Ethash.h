@@ -29,6 +29,8 @@ struct Ethash
 		typedef Opaque<20> THash; // truncated to 160 bits, to reduce the proof size. Still decent secury.
 		typedef uint32_t TCount;
 		typedef const Hash1024* TElement;
+
+		static const uint32_t nEpochsTotal = 1024;
 	};
 
 	struct MyMultiProof
@@ -38,6 +40,15 @@ struct Ethash
 		{
 			HashProcessor::Sha256 hp;
 			hp << (*pElem) >> hv;
+		}
+
+		inline static void EvaluateEpoch(THash& hv, const THash& hvEpochRoot, uint32_t nEpochElements)
+		{
+			HashProcessor::Sha256 hp;
+			hp
+				<< hvEpochRoot
+				<< nEpochElements
+				>> hv;
 		}
 
 		inline static void TestEqual(const Hash1024* p0, const Hash1024* p1)
@@ -54,22 +65,21 @@ struct Ethash
 		uint32_t m_nProofRemaining;
 		const THash* m_pProof;
 
-		inline void get_NextProofHash(THash& hv)
+		inline const THash& get_NextProofHash()
 		{
 			Env::Halt_if(!m_nProofRemaining);
 
-			_POD_(hv) = *m_pProof++;
 			m_nProofRemaining--;
+			return *m_pProof++;
+		}
+
+		inline void get_NextProofHash(THash& hv)
+		{
+			_POD_(hv) = get_NextProofHash();
 		}
 	};
 
 	typedef MultiProof::Verifier<MyMultiProof> MyVerifier;
-
-	struct EpochParams
-	{
-		uint32_t m_DatasetCount;
-		MyMultiProof::THash m_hvRoot;
-	};
 
 
 	//////////////////////////////////
@@ -104,7 +114,7 @@ struct Ethash
 	}
 
 	// all-in-one verification
-	static uint32_t VerifyHdr(const EpochParams& ep, const HashValue& hvHeaderHash, uint64_t nonce, uint64_t difficulty, const void* pProof, uint32_t nSizeProof)
+	static uint32_t VerifyHdr(uint32_t iEpoch, uint32_t nDatasetCount, const HashValue& hvHeaderHash, uint64_t nonce, uint64_t difficulty, const void* pProof, uint32_t nSizeProof)
 	{
 		// 1. derive pow seed
 		Hash512 hvSeed;
@@ -125,18 +135,37 @@ struct Ethash
 
 		Hash256 hvMix;
 		MyVerifier::Item pIndices[nSolutionElements];
-		InterpretPath(ep.m_DatasetCount, hvSeed, (const Hash1024*) pProof, hvMix, pIndices);
+		InterpretPath(nDatasetCount, hvSeed, (const Hash1024*) pProof, hvMix, pIndices);
 
-		// 3. Interpret merkle multi-proof, verify the epoch root commits to the specified solution elements.
+		// 3. Interpret merkle multi-proof, evaluate the epoch root
 		MyVerifier mpv;
 		mpv.m_pProof = (const MyVerifier::THash*) (((const Hash1024*) pProof) + nSolutionElements);
 
 		uint32_t nMaxProofNodes = (nSizeProof - nFixSizePart) / sizeof(MyVerifier::THash);
 		mpv.m_nProofRemaining = nMaxProofNodes;
 
-		MyVerifier::THash hvEpochRoot;
-		mpv.EvaluateRoot(hvEpochRoot, pIndices, nSolutionElements, ep.m_DatasetCount);
-		Env::Halt_if(_POD_(hvEpochRoot) != ep.m_hvRoot);
+		MyVerifier::THash hvRoot;
+		mpv.EvaluateRoot(hvRoot, pIndices, nSolutionElements, nDatasetCount);
+
+		// Promote the epoch root to super root, and verify it.
+		mpv.EvaluateEpoch(hvRoot, hvRoot, nDatasetCount);
+
+		for (uint32_t h = 0; (1U << h) < MyVerifier::nEpochsTotal; h++, iEpoch >>= 1)
+		{
+			const auto& hv = mpv.get_NextProofHash();
+
+			HashProcessor::Sha256 hp;
+
+			if (1 & iEpoch)
+				hp << hv << hvRoot;
+			else
+				hp << hvRoot << hv;
+			
+			hp >> hvRoot;
+		}
+
+		static const MyVerifier::THash s_SuperRoot = { 0x1C,0x36,0x97,0x82,0xF3,0xC5,0xA8,0x96,0x9E,0xD9,0x45,0x52,0xD6,0x3D,0x2C,0xF0,0x68,0x9E,0xF6,0x4A };
+		Env::Halt_if(_POD_(hvRoot) != s_SuperRoot);
 
 		// 4. 'final' hash
 		{

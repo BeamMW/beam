@@ -255,11 +255,7 @@ export void Method_12(Dummy::TestEthash& r)
 
 export void Method_13(Dummy::TestEthash2& r)
 {
-    Ethash::EpochParams ep;
-    ep.m_DatasetCount = r.m_EpochDatasetSize;
-    _POD_(ep.m_hvRoot) = r.m_EpochRoot;
-
-    Ethash::VerifyHdr(ep, r.m_HeaderHash, r.m_Nonce, r.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
+    Ethash::VerifyHdr(r.m_iEpoch, r.m_EpochDatasetSize, r.m_HeaderHash, r.m_Nonce, r.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
 }
 
 export void Method_14(Dummy::TestEthHeader& r)
