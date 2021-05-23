@@ -854,8 +854,11 @@ namespace bvm2 {
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
 
-		ByteBuffer m_etHashProof;
-		uintBig_t<20> m_hvEpochRoot;
+		struct {
+			uint32_t m_iEpoch;
+			uint32_t m_DatasetCount;
+			ByteBuffer m_Proof;
+		} m_EthProof;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -1639,21 +1642,21 @@ namespace bvm2 {
 		//	verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		//}
 
-		if (!m_etHashProof.empty())
+		if (!m_EthProof.m_Proof.empty())
 		{
 			ByteBuffer buf;
-			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_etHashProof.size());
+			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_EthProof.m_Proof.size());
 
 			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthash2*>(&buf.front());
-			memcpy(&args + 1, &m_etHashProof.front(), m_etHashProof.size());
+			memcpy(&args + 1, &m_EthProof.m_Proof.front(), m_EthProof.m_Proof.size());
 
 			ZeroObject(args);
 			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
 			args.m_Nonce = 0xd337f82001e992c5ULL;
 			args.m_Difficulty = 3250907161412814ULL;
 
-			args.m_EpochDatasetSize = 19922923;
-			args.m_iEpoch = 176;
+			args.m_EpochDatasetSize = m_EthProof.m_DatasetCount;
+			args.m_iEpoch = m_EthProof.m_iEpoch;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
@@ -2529,11 +2532,15 @@ namespace EthashUtils
 	struct Hdr
 	{
 		uint32_t m_FullItems;
-		uint32_t m_CacheItems;
 		uint32_t m_h0; // height from which the hashes are stored
-
-		// followed by the cache
 		// followed by the tree hashes
+	};
+
+	struct HdrCache
+	{
+		uint32_t m_FullItems;
+		uint32_t m_CacheItems;
+		// followed by the cache
 	};
 
 	struct MyMultiProofBase
@@ -2553,6 +2560,14 @@ namespace EthashUtils
 
 			ECC::Hash::Processor() << hv << m_vRes.back() >> hv;
 			m_vRes.pop_back();
+		}
+
+		static void EvaluateEpoch(THash& hv, const THash& hvEpochRoot, uint32_t nEpochElements)
+		{
+			ECC::Hash::Processor()
+				<< hvEpochRoot
+				<< nEpochElements
+				>> hv;
 		}
 	};
 
@@ -2595,17 +2610,15 @@ namespace EthashUtils
 
 	};
 
-
-	void GenerateLocalData(uint32_t iEpoch, const char* szPath, uint32_t h0)
+	void GenerateLocalCache(uint32_t iEpoch, const char* szPath)
 	{
 		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
 
 		uint32_t nFullItems = pCtx->full_dataset_num_items;
 
-		Hdr hdr;
+		HdrCache hdr;
 		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
 		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
-		hdr.m_h0 = ByteOrder::to_le(h0);
 
 		std::FStream fs;
 		fs.Open(szPath, false, true);
@@ -2613,11 +2626,45 @@ namespace EthashUtils
 
 		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
 
+		ethash_destroy_epoch_context(pCtx);
+	}
+
+	ethash_epoch_context ReadLocalCache(MappedFileRaw& fmp, const char* szPath)
+	{
+		fmp.Open(szPath);
+
+		auto& hdr = fmp.get_At<HdrCache>(0);
+
+		return ethash_epoch_context{
+			0,
+			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
+			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
+			nullptr,
+			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
+	}
+
+	void GenerateLocalData(uint32_t iEpoch, const char* szPathCache, const char* szPathMerkle, uint32_t h0)
+	{
+		GenerateLocalCache(iEpoch, szPathCache);
+
+		MappedFileRaw fmpCache;
+		auto ctx = ReadLocalCache(fmpCache, szPathCache);
+
+		uint32_t nFullItems = ctx.full_dataset_num_items;
+
+		Hdr hdr;
+		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
+		hdr.m_h0 = ByteOrder::to_le(h0);
+
+		std::FStream fs;
+		fs.Open(szPathMerkle, false, true);
+		fs.write(&hdr, sizeof(hdr));
+
 		MyMultiProofBase wrk;
 
 		for (uint32_t i = 0; i < nFullItems; )
 		{
-			EvaluateElement(wrk.m_vRes.emplace_back(), i, *pCtx);
+			EvaluateElement(wrk.m_vRes.emplace_back(), i, ctx);
 
 			uint32_t nPos = ++i;
 			for (uint32_t h = 0; ; h++, nPos >>= 1)
@@ -2631,8 +2678,56 @@ namespace EthashUtils
 				wrk.ProofMerge();
 			}
 		}
+	}
 
-		ethash_destroy_epoch_context(pCtx);
+	void GenerateSuperTree(const char* szRes, const char* szPathCache, const char* szPathMerkle, uint32_t h0)
+	{
+		std::FStream fs;
+		fs.Open(szRes, false, true);
+
+		MyMultiProofBase wrk;
+
+		for (uint32_t i = 0; i < ProofBase::nEpochsTotal; )
+		{
+			{
+				std::string sPath = szPathCache;
+				sPath += std::to_string(i) + ".cache";
+
+				MappedFileRaw fmpCache;
+				auto ctx = ReadLocalCache(fmpCache, sPath.c_str());
+
+				sPath = szPathMerkle;
+				sPath += std::to_string(i) + ".tre" + std::to_string(h0);
+
+				MappedFileRaw fmpMerkle;
+				fmpMerkle.Open(sPath.c_str());
+
+				auto& hdrSrc = fmpMerkle.get_At<Hdr>(0);
+				uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
+
+				typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
+				Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
+
+				mpb.m_pHdr = &hdrSrc;
+				mpb.m_pCtx = &ctx;
+				mpb.m_pHashes = &fmpMerkle.get_At<MyBuilder::THash>(sizeof(Hdr));
+
+				mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
+
+				mpb.EvaluateEpoch(wrk.m_vRes.emplace_back(), mpb.m_vRes.front(), nFullItems);
+			}
+
+			uint32_t nPos = ++i;
+			for (uint32_t h = 0; ; h++, nPos >>= 1)
+			{
+				fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
+
+				if (1 & nPos)
+					break;
+
+				wrk.ProofMerge();
+			}
+		}
 	}
 
 	void CropLocalData(const char* szDst, const char* szSrc, uint32_t dh)
@@ -2641,12 +2736,10 @@ namespace EthashUtils
 		fmp.Open(szSrc);
 
 		auto& hdrSrc = fmp.get_At<Hdr>(0);
-		uint32_t nSizeCache = sizeof(ethash_hash512) * ByteOrder::from_le(hdrSrc.m_CacheItems);
 		uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
 		uint32_t h0 = ByteOrder::from_le(hdrSrc.m_h0);
 
-		auto pCache = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
-		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr) + nSizeCache);
+		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
 
 		Hdr hdrDst = hdrSrc;
 		hdrDst.m_h0 = ByteOrder::to_le(h0 + dh);
@@ -2654,7 +2747,6 @@ namespace EthashUtils
 		std::FStream fs;
 		fs.Open(szDst, false, true);
 		fs.write(&hdrDst, sizeof(hdrDst));
-		fs.write(pCache, nSizeCache);
 
 		uint32_t nHashes0 = static_cast<uint32_t>(Merkle::FlatMmr::get_TotalHashes(nFullItems, static_cast<uint8_t>(h0)));
 		Merkle::Position pos;
@@ -2677,20 +2769,13 @@ namespace EthashUtils
 		}
 	}
 
-
-	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, ProofBase::THash& hvRoot)
+	uint32_t GenerateProof(uint32_t iEpoch, const char* szPathCache, const char* szPathMerkle, const char* szPathSuperTree, const uintBig_t<64>& hvSeed, ByteBuffer& res)
 	{
-		MappedFileRaw fmp;
-		fmp.Open(szPath);
+		MappedFileRaw fmpCache, fmpMerkle, fmpSuperTree;
+		fmpMerkle.Open(szPathMerkle);
+		auto ctx = ReadLocalCache(fmpCache, szPathCache);
 
-		auto& hdr = fmp.get_At<Hdr>(0);
-
-		ethash_epoch_context ctx = ethash_epoch_context{
-			0,
-			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
-			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
-			nullptr,
-			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
+		auto& hdr = fmpMerkle.get_At<Hdr>(0);
 
 		ECC::Hash::Value hvMix;
 		uint32_t pSolIndices[64];
@@ -2703,14 +2788,25 @@ namespace EthashUtils
 
 		mpb.m_pHdr = &hdr;
 		mpb.m_pCtx = &ctx;
-		mpb.m_pHashes = &fmp.get_At<MyBuilder::THash>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
-
-		mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
-
-		hvRoot = mpb.m_vRes.front();
-		mpb.m_vRes.clear();
+		mpb.m_pHashes = &fmpMerkle.get_At<MyBuilder::THash>(sizeof(Hdr));
 
 		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
+
+		fmpSuperTree.Open(szPathSuperTree);
+		const auto* pSuper = &fmpSuperTree.get_At<MyBuilder::THash>(0);
+
+		for (uint8_t h = 0; ; h++)
+		{
+			uint32_t nMsk = 1U << h;
+			if (nMsk >= ProofBase::nEpochsTotal)
+				break;
+
+			Merkle::Position pos;
+			pos.X = (iEpoch >> h) ^ 1;
+			pos.H = h;
+
+			mpb.m_vRes.push_back(pSuper[Merkle::FlatMmr::Pos2Idx(pos, 0)]);
+		}
 
 		res.resize(sizeof(pSolItems) + sizeof(ProofBase::THash) * mpb.m_vRes.size());
 		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
@@ -2950,17 +3046,60 @@ int main()
 		TestRLP();
 
 		MyProcessor proc;
-/*
-		{
-			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin", 3); // skip 1st 3 levels, size reduction of 2^3 == 8
-			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2); // skip 2 more levels
 
+		const char szPathData[] = "S:\\Beam\\Data\\EthEpoch\\";
+
+		{
+
+			// 1. Create local data for all the epochs (VERY long)
+
+/*
+			ExecutorMT_R exec;
+
+			for (uint32_t iEpoch = 0; iEpoch < 1024; iEpoch++)
+			{
+				struct MyTask :public Executor::TaskAsync
+				{
+					uint32_t m_iEpoch;
+
+					void Exec(Executor::Context&) override
+					{
+						std::string sPath = szPathData + std::to_string(m_iEpoch);
+
+						//+"-3.bin"
+
+						beam::EthashUtils::GenerateLocalData(m_iEpoch, (sPath + ".cache").c_str(), (sPath + ".tre3").c_str(), 3); // skip 1st 3 levels, size reduction of 2^3 == 8
+
+						beam::EthashUtils::CropLocalData((sPath + ".tre5").c_str(), (sPath + ".tre3").c_str(), 2); // skip 2 more levels
+					}
+				};
+
+				auto pTask = std::make_unique<MyTask>();
+				pTask->m_iEpoch = iEpoch;
+				exec.Push(std::move(pTask));
+			}
+			exec.Flush(0);
+*/
+
+			// 2. Generate the 'SuperTree'
+			//beam::EthashUtils::GenerateSuperTree((std::string(szPathData) + "Super.tre").c_str(), szPathData, szPathData, 3);
+
+			// 3. Generate proof
+
+/*
 			uintBig_t<64> hvSeed;
 			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
 
-			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, proc.m_hvEpochRoot);
-		}
+			proc.m_EthProof.m_iEpoch = 176;
+			proc.m_EthProof.m_DatasetCount = beam::EthashUtils::GenerateProof(
+				proc.m_EthProof.m_iEpoch,
+				(std::string(szPathData) + "176.cache").c_str(),
+				(std::string(szPathData) + "176.tre5").c_str(),
+				(std::string(szPathData) + "Super.tre").c_str(),
+				hvSeed, proc.m_EthProof.m_Proof);
 */
+		}
+
 		proc.TestAll();
 
 		MyManager man(proc.m_Vars);
