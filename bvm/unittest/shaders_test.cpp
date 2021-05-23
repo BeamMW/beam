@@ -3047,9 +3047,9 @@ int main()
 
 		MyProcessor proc;
 
-		const char szPathData[] = "S:\\Beam\\Data\\EthEpoch\\";
-
 		{
+
+			// const char szPathData[] = "S:\\Beam\\Data\\EthEpoch\\";
 
 			// 1. Create local data for all the epochs (VERY long)
 
