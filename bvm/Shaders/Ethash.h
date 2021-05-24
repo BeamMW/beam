@@ -114,21 +114,8 @@ struct Ethash
 	}
 
 	// all-in-one verification
-	static uint32_t VerifyHdr(uint32_t iEpoch, uint32_t nDatasetCount, const HashValue& hvHeaderHash, uint64_t nonce, uint64_t difficulty, const void* pProof, uint32_t nSizeProof)
+	static uint32_t VerifyHdr(uint32_t iEpoch, uint32_t nDatasetCount, const Hash512& hvSeed, uint64_t nonce, uint64_t difficulty, const void* pProof, uint32_t nSizeProof)
 	{
-		// 1. derive pow seed
-		Hash512 hvSeed;
-		{
-			HashProcessor::Base hp;
-			hp.m_p = Env::HashCreateKeccak(512);
-			hp << hvHeaderHash;
-
-			nonce = Utils::FromLE(nonce);
-			hp.Write(&nonce, sizeof(nonce));
-
-			hp >> hvSeed;
-		}
-
 		// 2. Use provided solution items, simulate pow path
 		constexpr uint32_t nFixSizePart = sizeof(Hash1024) * nSolutionElements;
 		Env::Halt_if(nFixSizePart > nSizeProof);

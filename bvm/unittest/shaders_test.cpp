@@ -119,16 +119,6 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::TestRingSig& x) {
 	}
-	template <bool bToShader> void Convert(Dummy::TestEthash& x) {
-		ConvertOrd<bToShader>(x.m_BlockNumber);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
-	template <bool bToShader> void Convert(Dummy::TestEthash2& x) {
-		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
 	template <bool bToShader> void Convert(Dummy::TestEthHeader& x) {
 		ConvertOrd<bToShader>(x.m_Header.m_Difficulty);
 		ConvertOrd<bToShader>(x.m_Header.m_Number);
@@ -136,6 +126,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Header.m_GasUsed);
 		ConvertOrd<bToShader>(x.m_Header.m_Time);
 		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
+		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
 	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
@@ -855,10 +846,12 @@ namespace bvm2 {
 		ContractID m_cidDemoXdao;
 
 		struct {
-			uint32_t m_iEpoch;
+
+			Shaders::Eth::Header m_Header;
 			uint32_t m_DatasetCount;
 			ByteBuffer m_Proof;
-		} m_EthProof;
+
+		} m_Eth;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -975,8 +968,7 @@ namespace bvm2 {
 				//{
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
-				//case 13: Shaders::Dummy::Method_13(CastArg<Shaders::Dummy::TestEthash2>(pArgs)); return;
-				//case 14: Shaders::Dummy::Method_14(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
+				//case 12: Shaders::Dummy::Method_12(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
 				//}
 			}
 
@@ -1642,56 +1634,20 @@ namespace bvm2 {
 		//	verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		//}
 
-		if (!m_EthProof.m_Proof.empty())
+		if (!m_Eth.m_Proof.empty())
 		{
 			ByteBuffer buf;
-			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_EthProof.m_Proof.size());
+			buf.resize(sizeof(Shaders::Dummy::TestEthHeader) + m_Eth.m_Proof.size());
 
-			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthash2*>(&buf.front());
-			memcpy(&args + 1, &m_EthProof.m_Proof.front(), m_EthProof.m_Proof.size());
+			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthHeader*>(&buf.front());
+			memcpy(&args + 1, &m_Eth.m_Proof.front(), m_Eth.m_Proof.size());
 
 			ZeroObject(args);
-			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
-			args.m_Nonce = 0xd337f82001e992c5ULL;
-			args.m_Difficulty = 3250907161412814ULL;
-
-			args.m_EpochDatasetSize = m_EthProof.m_DatasetCount;
-			args.m_iEpoch = m_EthProof.m_iEpoch;
+			args.m_Header = m_Eth.m_Header;
+			args.m_EpochDatasetSize = m_Eth.m_DatasetCount;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
-
-		{
-			Shaders::Dummy::TestEthHeader args;
-			ZeroObject(args);
-
-			args.m_Header.m_ParentHash.Scan("1e77d8f1267348b516ebc4f4da1e2aa59f85f0cbd853949500ffac8bfc38ba14");
-			args.m_Header.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
-			args.m_Header.m_Coinbase.Scan("2a65aca4d5fc5b5c859090a6c34d164135398226");
-			args.m_Header.m_Root.Scan("0b5e4386680f43c224c5c037efc0b645c8e1c3f6b30da0eec07272b4e6f8cd89");
-			args.m_Header.m_TxHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_ReceiptHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_Bloom = Zero;
-			args.m_Header.m_Extra.Scan("d583010202844765746885676f312e35856c696e7578");
-			args.m_Header.m_Difficulty = 6022643743806;
-			args.m_Header.m_Number = 400000; // height
-			args.m_Header.m_GasLimit = 3141592;
-			args.m_Header.m_GasUsed = 0;
-			args.m_Header.m_Time = 1445130204;
-
-			args.m_Header.m_Nonce = 0x6af23caae95692ef;
-			args.m_MixHash.Scan("3fbea7af642a4e20cd93a945a1f5e23bd72fc5261153e09102cf718980aeff38");
-
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			ECC::Hash::Value hvExp;
-			hvExp.Scan("5d15649e25d8f3e2c0374946078539d200710afc977cdfc6a977bd23f20fa8e8");
-			verify_test(hvExp == args.m_HeaderHash);
-
-
-
-		}
-
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}
@@ -3084,20 +3040,39 @@ int main()
 			// 2. Generate the 'SuperTree'
 			//beam::EthashUtils::GenerateSuperTree((std::string(szPathData) + "Super.tre").c_str(), szPathData, szPathData, 3);
 
+
+			// eth block number 12496979
+			auto& hdr = proc.m_Eth.m_Header;
+			hdr.m_ParentHash.Scan("7a4bf8dc58922f2f8814399542abb379d0b0cc295687f3d5c32e0ce0b9005e3d");
+			hdr.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			hdr.m_Coinbase.Scan("ea674fdde714fd979de3edf0f56aa9716b898ec8");
+			hdr.m_Root.Scan("416e7a6de2f67bdb1321c8a9fda385f91e5cd13ddaf1d7b943321110c38be679");
+			hdr.m_TxHash.Scan("127d45c910e002965ca732674236310e0bc2880f05df3d85492550a605867891");
+			hdr.m_ReceiptHash.Scan("de44f15c086f97cbc6255359280916a75c7a23785941ebacf98be5ae5554b0e9");
+			hdr.m_Bloom.Scan("55a861f3f6165d14d38f269a8823d263888cd00d94984854c7a50081198a2b2f922c356c07949a35d040535a1e400dd11e18838449433926924593ad55e6682b605c64922b02a33efcebf28d14aa5cf30522133c9b48380eee4616fcc2475715dcad428cbf818c8601d6d3002100f9c8566dd46488380603c2c94ff7048c9be4c954cb7fc616ef71b4d147ec40973e4611359fa9af6f5068097a2b67891115a1e7dfa91137b721e25785df8cfd41f7e18bc03ea50a035021c166864a8c00cd255dd004762b87a4f16bc6d2b406db3a1d0358ee036e65797bc55872ce0cea246582fd68118d1a6008e04c9c6c90b27694cc33764c5b4b834884bb7306a073faa1");
+			hdr.m_nExtra = hdr.m_Extra.Scan("65746865726d696e652d6575726f70652d6e6f72746831") / 2;
+			hdr.m_Difficulty = 0x1ac0292081bbf2;
+			hdr.m_Number = 0xbeb053; // height
+			hdr.m_GasLimit = 0xe4e157;
+			hdr.m_GasUsed = 0xe4c170;
+			hdr.m_Time = 0x60ab9baf;
+			hdr.m_Nonce = 0x9e2b2184779e0239;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
 			// 3. Generate proof
+			/*
+			auto iEpoch = hdr.get_Epoch();
+			std::string sEpoch = std::to_string(iEpoch);
 
-/*
-			uintBig_t<64> hvSeed;
-			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
-
-			proc.m_EthProof.m_iEpoch = 176;
-			proc.m_EthProof.m_DatasetCount = beam::EthashUtils::GenerateProof(
-				proc.m_EthProof.m_iEpoch,
-				(std::string(szPathData) + "176.cache").c_str(),
-				(std::string(szPathData) + "176.tre5").c_str(),
+			proc.m_Eth.m_DatasetCount = beam::EthashUtils::GenerateProof(
+				iEpoch,
+				(std::string(szPathData) + sEpoch + ".cache").c_str(),
+				(std::string(szPathData) + sEpoch + ".tre5").c_str(),
 				(std::string(szPathData) + "Super.tre").c_str(),
-				hvSeed, proc.m_EthProof.m_Proof);
-*/
+				hvSeed, proc.m_Eth.m_Proof);
+			*/
 		}
 
 		proc.TestAll();
