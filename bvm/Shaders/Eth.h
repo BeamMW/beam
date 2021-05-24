@@ -378,7 +378,8 @@ namespace Eth
 		Opaque<32> m_TxHash;
 		Opaque<32> m_ReceiptHash;
 		Opaque<256> m_Bloom;
-		Opaque<22> m_Extra;
+		Opaque<32> m_Extra;
+		uint32_t m_nExtra; // can be less than maximum size
 
 		uint64_t m_Difficulty;
 		uint64_t m_Number; // height
@@ -440,6 +441,7 @@ namespace Eth
 			pN[10].Set(m_GasUsed);
 			pN[11].Set(m_Time);
 			pN[12].Set(m_Extra);
+			pN[12].m_nLen = m_nExtra;
 
 			Rlp::Node nRoot;
 			nRoot.m_Type = Rlp::Node::Type::List;
