@@ -397,6 +397,31 @@ namespace Eth
 			get_HashInternal(hv, &hvMixHash);
 		}
 
+		void get_SeedForPoW(Opaque<64>& hv) const
+		{
+			Opaque<32> x;
+			get_HashForPow(x);
+
+#ifdef HOST_BUILD
+			beam::KeccakProcessor<512> hp;
+#else // HOST_BUILD
+			HashProcessor::Base hp;
+			hp.m_p = Env::HashCreateKeccak(512);
+#endif // HOST_BUILD
+
+			hp << x;
+
+			auto nonce = Utils::FromLE(m_Nonce);
+			hp.Write(&nonce, sizeof(nonce));
+
+			hp >> hv;
+		}
+
+		uint32_t get_Epoch() const
+		{
+			return static_cast<uint32_t>(m_Number / 30000);
+		}
+
 	private:
 
 		void get_HashInternal(Opaque<32>& hv, const Opaque<32>* phvMix) const
