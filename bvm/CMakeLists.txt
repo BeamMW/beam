@@ -16,6 +16,8 @@ target_link_libraries(bvm
         ethash
 )
 
+add_subdirectory(ethash_service)
+
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
 endif()
