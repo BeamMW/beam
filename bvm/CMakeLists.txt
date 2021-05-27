@@ -16,7 +16,9 @@ target_link_libraries(bvm
         ethash
 )
 
-add_subdirectory(ethash_service)
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(ethash_service)
+endif()
 
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
