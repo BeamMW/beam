@@ -11,14 +11,78 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
+
+#include "utility/io/tcpserver.h"
+#include "utility/io/sslserver.h"
+#include "utility/helpers.h"
+#include "p2p/line_protocol.h"
+#include "http/http_connection.h"
+#include "http/http_msg_creator.h"
+#include "utility/io/json_serializer.h"
+#include "3rdparty/nlohmann/json.hpp"
+#include <boost/algorithm/string.hpp>
+#include "utility/string_helpers.h"
+
+#include "wallet/api/i_wallet_api.h" // TODO: extract ACL and handller to separate header
 
 namespace beam
 {
+    using json = nlohmann::json;
+    //wallet::IWalletApi::ACL loadACL(const std::string& path);
 
-    class IWalletApiServer
+    wallet::IWalletApi::ACL loadACL(const std::string& path)
+    {
+        std::ifstream file(path);
+        std::string line;
+        wallet::IWalletApi::ACL::value_type keys;
+        int curLine = 1;
+
+        while (std::getline(file, line))
+        {
+            boost::algorithm::trim(line);
+
+            auto key = string_helpers::split(line, ':');
+            bool parsed = false;
+
+            static const char* READ_ACCESS = "read";
+            static const char* WRITE_ACCESS = "write";
+
+            if (key.size() == 2)
+            {
+                boost::algorithm::trim(key[0]);
+                boost::algorithm::trim(key[1]);
+
+                parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
+            }
+
+            if (!parsed)
+            {
+                LOG_ERROR() << "ACL parsing error, line " << curLine;
+                return boost::none;
+            }
+
+            keys.insert({ key[0], key[1] == WRITE_ACCESS });
+            curLine++;
+        }
+
+        if (keys.empty())
+        {
+            LOG_WARNING() << "ACL file is empty";
+        }
+        else
+        {
+            LOG_INFO() << "ACL file successfully loaded";
+        }
+
+        return wallet::IWalletApi::ACL(keys);
+    }
+
+    class IApiServer
     {
     public:
         virtual void closeConnection(uint64_t id) = 0;
+        virtual std::unique_ptr<wallet::IWalletApi> createApiInstance(const std::string& version, wallet::IWalletApiHandler& handler) = 0;
     };
 
     class IServerConnection
@@ -28,17 +92,27 @@ namespace beam
         virtual ~IServerConnection() {}
     };
 
-    class WalletApiServer
-        : public IWalletApiServer
+    class ApiServer
+        : public IApiServer
     {
     public:
-        WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
-            Wallet::Ptr wallet,
-            proto::FlyClient::NetworkStd::Ptr nnet,
+
+        static constexpr size_t PACKER_FRAGMENTS_SIZE = 4096;
+
+        struct TlsOptions
+        {
+            bool use;
+            std::string certPath;
+            std::string keyPath;
+            bool requestCertificate;
+            bool rejectUnauthorized;
+        };
+
+        ApiServer(const std::string& apiVersion,
             io::Reactor& reactor,
             io::Address listenTo,
             bool useHttp,
-            IWalletApi::ACL acl,
+            wallet::IWalletApi::ACL acl,
             const TlsOptions& tlsOptions,
             const std::vector<uint32_t>& whitelist)
 
@@ -47,24 +121,15 @@ namespace beam
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
             , _tlsOptions(tlsOptions)
-            , _walletDB(walletDB)
-            , _wallet(wallet)
-            , _network(nnet)
             , _acl(acl)
             , _whitelist(whitelist)
         {
             start();
         }
 
-        ~WalletApiServer()
+        ~ApiServer()
         {
             stop();
-        }
-
-        void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
-        {
-            _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
-            _swapsProvider->initSwapFeature(nnet, wnet);
         }
 
     protected:
@@ -113,17 +178,7 @@ namespace beam
         template<typename T>
         IServerConnection::Ptr createConnection(io::TcpStream::Ptr&& newStream)
         {
-            if (!_walletData)
-            {
-                _walletData = std::make_unique<IWalletApi::InitData>();
-                _walletData->walletDB = _walletDB;
-                _walletData->wallet = _wallet;
-                _walletData->swaps = _swapsProvider;
-                _walletData->acl = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
-            }
-
-            return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
+            return std::make_shared<T>(_apiVersion, *this, std::move(newStream));
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -156,15 +211,15 @@ namespace beam
     private:
         class TcpApiConnection
             : public IServerConnection
-            , public IWalletApiHandler
+            , public wallet::IWalletApiHandler
         {
         public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IApiServer& server, io::TcpStream::Ptr&& newStream)
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
             {
-                _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
+                _walletApi = server.createApiInstance(apiVersion, *this);
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
             }
@@ -205,24 +260,24 @@ namespace beam
             }
 
         private:
-            IWalletApi::Ptr _walletApi;
-            IWalletApiServer& _server;
+            wallet::IWalletApi::Ptr _walletApi;
+            IApiServer& _server;
             io::TcpStream::Ptr _stream;
             LineProtocol _lineProtocol;
         };
 
         class HttpApiConnection
             : public IServerConnection
-            , public IWalletApiHandler
+            , public wallet::IWalletApiHandler
         {
         public:
-            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IApiServer& server, io::TcpStream::Ptr&& newStream)
                 : _server(server)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
             {
-                _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
+                _walletApi = server.createApiInstance(apiVersion, *this);
 
                 newStream->enable_keepalive(1);
                 auto peer = newStream->peer_address();
@@ -270,7 +325,7 @@ namespace beam
                     auto data = msg.msg->get_body(size);
 
                     const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
-                    _keepalive = asyncResult == ApiSyncMode::RunningAsync;
+                    _keepalive = asyncResult == wallet::ApiSyncMode::RunningAsync;
                 }
 
                 if (!_keepalive)
@@ -317,17 +372,17 @@ namespace beam
             }
 
             HttpConnection::Ptr _connection;
-            IWalletApiServer& _server;
+            IApiServer&         _server;
             bool                _keepalive;
             HttpMsgCreator      _msgCreator;
             HttpMsgCreator      _packer;
             io::SerializedMsg   _headers;
             io::SerializedMsg   _body;
-            IWalletApi::Ptr     _walletApi;
+            wallet::IWalletApi::Ptr     _walletApi;
         };
 
         std::string        _apiVersion;
-        io::Reactor& _reactor;
+        io::Reactor&       _reactor;
         io::TcpServer::Ptr _server;
         io::Address        _bindAddress;
         bool               _useHttp;
@@ -335,16 +390,9 @@ namespace beam
 
         std::unordered_map<uint64_t, IServerConnection::Ptr> _connections;
         std::vector<uint64_t> _pendingToClose;
-        IWalletApi::ACL _acl;
+        
         std::vector<uint32_t> _whitelist;
-
-        // specific for wallet API
-        IWalletDB::Ptr _walletDB;
-        Wallet::Ptr _wallet;
-        proto::FlyClient::NetworkStd::Ptr _network;
-
-        std::shared_ptr<ApiCliSwap> _swapsProvider;
-        std::unique_ptr<IWalletApi::InitData> _walletData;
-
+    protected:
+        wallet::IWalletApi::ACL _acl;
     };
 }

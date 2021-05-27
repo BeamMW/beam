@@ -12,4 +12,8 @@ target_link_libraries(ethash-service
         keccak
         ethash
         cli
+        http
+        utility
+        p2p
+        wallet_api
 )

@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef HOST_BUILD
+#define HOST_BUILD
+#endif
+
 #include "ethash_utils.h"
 #include "core/block_crypt.h"
 #include "utility/cli/options.h"
 #include "utility/io/reactor.h"
-#include "utility/io/tcpserver.h"
-#include "utility/helpers.h"
-#include "p2p/line_protocol.h"
-#include "http/http_connection.h"
-#include "http/http_msg_creator.h"
-#include "utility/io/json_serializer.h"
-#include "3rdparty/nlohmann/json.hpp"
+#include "utility/logger.h"
+#include "utility/hex.h"
+#include "utility/byteorder.h"
+
 #include <boost/filesystem.hpp>
+
+#include "wallet/api/cli/api_server.h"
+#include "wallet/api/v6_0/api_base.h"
+
+#include "shaders_ethash.h"
 
 using namespace beam;
 namespace fs = boost::filesystem;
@@ -33,17 +39,26 @@ namespace
     const char* PROVER = "prover";
     const char* DATA_PATH = "path";
     const char* GENERATE = "generate";
-    
-    int GenerateLocalData(const po::variables_map& vm)
+
+    struct Options
     {
-        auto p = vm.find(DATA_PATH);
-        if (p == vm.end())
-        {
-            std::cerr << "'" << DATA_PATH << "' is not specified\n";
-            return -1;
-        }
-        std::string dataPath = p->second.as<std::string>();
-        fs::path path(Utf8toUtf16(dataPath));
+        bool        useHttp = false;
+        uint16_t    port = 0;
+        bool        useAcl = false;
+        std::string aclPath;
+        ApiServer::TlsOptions tlsOptions;
+    };
+
+    struct MyOptions : Options
+    {
+        std::string dataPath;
+    };
+
+
+    
+    int GenerateLocalData(const MyOptions& options)
+    {
+        fs::path path(Utf8toUtf16(options.dataPath));
         if (!fs::exists(path))
         {
             fs::create_directories(path);
@@ -81,307 +96,125 @@ namespace
         return 0;
     }
 
-    const size_t PACKER_FRAGMENTS_SIZE = 4096;
+    using wallet::JsonRpcId;
 
-    class IWalletApiServer
+#define BEAM_ETHASH_SERVICE_API_METHODS(macro) \
+    macro(GetProof,           "get_proof",                 API_READ_ACCESS)  
+    
+    struct GetProof 
     {
-    public:
-        virtual void closeConnection(uint64_t id) = 0;
+        Shaders::Ethash::Hash512 hvSeed;
+        uint32_t epoch = 0;
+        struct Response
+        {
+            uint32_t   datasetCount = 0;
+            ByteBuffer proof;
+        };
     };
 
-    class IServerConnection
+    class ProverApi : public wallet::ApiBase
     {
     public:
-        typedef std::shared_ptr<IServerConnection> Ptr;
-        virtual ~IServerConnection() {}
-    };
-
-    class WalletApiServer
-        : public IWalletApiServer
-    {
-    public:
-        WalletApiServer(io::Address listenTo, bool useHttp)
-            : _bindAddress(listenTo)
-            , _useHttp(useHttp)
+        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, std::string& dataPath)
+            : wallet::ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
+            , m_DataPath(std::move(dataPath))
         {
-            start();
-        }
-
-        ~WalletApiServer()
-        {
-            stop();
-        }
-
-
-    protected:
-        void start()
-        {
-            LOG_INFO() << "Start server on " << _bindAddress;
-
-            try
+            if (!m_DataPath.empty() && m_DataPath.back() != '\\' && m_DataPath.back() != '/')
             {
-                _server = io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
-
+                m_DataPath.push_back('/');
             }
-            catch (const std::exception& e)
-            {
-                LOG_ERROR() << "cannot start server: " << e.what();
-            }
+#define REG_FUNC(api, name, writeAccess)    \
+        _methods[name] = {                                                \
+            [this] (const JsonRpcId &id, const json &msg) {               \
+                auto parseRes = onParse##api(id, msg);                    \
+                onHandle##api(id, parseRes.first);                        \
+            },                                                            \
+            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
+                auto parseRes = onParse##api(id, msg);                    \
+                return parseRes.second;                                   \
+            },                                                            \
+            writeAccess, false, false                                     \
+        };
+        BEAM_ETHASH_SERVICE_API_METHODS(REG_FUNC)
+#undef REG_FUNC
         }
 
-        void stop()
-        {
-        }
-
-        void closeConnection(uint64_t id) override
-        {
-            _pendingToClose.push_back(id);
-        }
-
-    private:
-
-        void checkConnections()
-        {
-            // clean closed connections
-            {
-                for (auto id : _pendingToClose)
-                {
-                    _connections.erase(id);
-                }
-
-                _pendingToClose.clear();
-            }
-        }
+        BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_HANDLE_FUNC)
+        BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_PARSE_FUNC)
 
         template<typename T>
-        IServerConnection::Ptr createConnection(io::TcpStream::Ptr&& newStream)
+        void doResponse(const JsonRpcId& id, const T& response)
         {
-            return std::make_shared<T>(*this, std::move(newStream));
+            json msg;
+            getResponse(id, response, msg);
+            _handler.sendAPIResponse(msg);
         }
-
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
-        {
-            if (errorCode == 0)
-            {
-                auto peer = newStream->peer_address();
-
-                LOG_DEBUG() << "+peer " << peer;
-
-                checkConnections();
-
-                _connections[peer.u64()] = _useHttp
-                    ? createConnection<HttpApiConnection>(std::move(newStream))
-                    : createConnection<TcpApiConnection>(std::move(newStream));
-            }
-
-            LOG_DEBUG() << "on_stream_accepted";
-        }
-
     private:
-        class TcpApiConnection
-            : public IServerConnection
-            //, public IWalletApiHandler
-        {
-        public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream)
-                : _server(server)
-                , _stream(std::move(newStream))
-                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
-            {
-              //  _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
-                _stream->enable_keepalive(2);
-                _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
-            }
-
-           /* void sendAPIResponse(const json& result) override
-            {
-                serialize_json_msg(_lineProtocol, result);
-            }*/
-
-            void on_write(io::SharedBuffer&& msg)
-            {
-                _stream->write(msg);
-            }
-
-            bool on_raw_message(void* data, size_t size)
-            {
-                //_walletApi->executeAPIRequest(static_cast<const char*>(data), size);
-                return size > 0;
-            }
-
-            bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
-            {
-                if (errorCode != 0)
-                {
-                    LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
-                    _server.closeConnection(_stream->peer_address().u64());
-                    return false;
-                }
-
-                if (!_lineProtocol.new_data_from_stream(data, size))
-                {
-                    LOG_INFO() << "stream corrupted";
-                    _server.closeConnection(_stream->peer_address().u64());
-                    return false;
-                }
-
-                return true;
-            }
-
-        private:
-            IWalletApiServer& _server;
-            io::TcpStream::Ptr _stream;
-            LineProtocol _lineProtocol;
-        };
-
-        class HttpApiConnection
-            : public IServerConnection
-           // , public IWalletApiHandler
-        {
-        public:
-            HttpApiConnection(/*const std::string& apiVersion, */IWalletApiServer& server, io::TcpStream::Ptr&& newStream/*, IWalletApi::InitData& walletData*/)
-                : _server(server)
-                , _keepalive(false)
-                , _msgCreator(2000)
-                , _packer(PACKER_FRAGMENTS_SIZE)
-            {
-               // _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
-
-                newStream->enable_keepalive(1);
-                auto peer = newStream->peer_address();
-
-                _connection = std::make_unique<HttpConnection>(
-                    peer.u64(),
-                    BaseConnection::inbound,
-                    BIND_THIS_MEMFN(on_request),
-                    1024 * 1024,
-                    1024,
-                    std::move(newStream)
-                    );
-            }
-
-           /* void sendAPIResponse(const json& result) override
-            {
-                serialize_json_msg(_body, _packer, result);
-                _keepalive = send(_connection, 200, "OK");
-            }*/
-
-        private:
-            bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
-            {
-                if ((msg.what != HttpMsgReader::http_message || !msg.msg) && msg.what != HttpMsgReader::message_too_long)
-                {
-                    LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
-                    _connection->shutdown();
-                    _server.closeConnection(id);
-                    return false;
-                }
-
-                if (msg.what == HttpMsgReader::message_too_long)
-                {
-                    _keepalive = send(_connection, 413, "Payload Too Large");
-                }
-                else if (msg.msg->get_path() != "/api/wallet")
-                {
-                    _keepalive = send(_connection, 404, "Not Found");
-                }
-                else
-                {
-                    _body.clear();
-
-                    size_t size = 0;
-                    auto data = msg.msg->get_body(size);
-
-                   // const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
-                   // _keepalive = asyncResult == ApiSyncMode::RunningAsync;
-                }
-
-                if (!_keepalive)
-                {
-                    _connection->shutdown();
-                    _server.closeConnection(id);
-                }
-
-                return _keepalive;
-            }
-
-            bool send(const HttpConnection::Ptr& conn, int code, const char* message)
-            {
-                assert(conn);
-
-                size_t bodySize = 0;
-                for (const auto& f : _body) { bodySize += f.size; }
-
-                bool ok = _msgCreator.create_response(
-                    _headers,
-                    code,
-                    message,
-                    0,
-                    0,
-                    1,
-                    "application/json",
-                    bodySize
-                );
-
-                if (ok) {
-                    auto result = conn->write_msg(_headers);
-                    if (result && bodySize > 0) {
-                        result = conn->write_msg(_body);
-                    }
-                    if (!result) ok = false;
-                }
-                else {
-                    LOG_ERROR() << "cannot create response";
-                }
-
-                _headers.clear();
-                _body.clear();
-                return (ok && code == 200);
-            }
-
-            HttpConnection::Ptr _connection;
-            IWalletApiServer& _server;
-            bool                _keepalive;
-            HttpMsgCreator      _msgCreator;
-            HttpMsgCreator      _packer;
-            io::SerializedMsg   _headers;
-            io::SerializedMsg   _body;
-            //IWalletApi::Ptr     _walletApi;
-        };
-
-        //std::string        _apiVersion;
-        io::Reactor& _reactor;
-        io::TcpServer::Ptr _server;
-        io::Address        _bindAddress;
-        bool               _useHttp;
-        //TlsOptions         _tlsOptions;
-
-        std::unordered_map<uint64_t, IServerConnection::Ptr> _connections;
-
-        //IWalletDB::Ptr _walletDB;
-        //Wallet::Ptr _wallet;
-        //proto::FlyClient::NetworkStd::Ptr _network;
-
-        //std::shared_ptr<ApiCliSwap> _swapsProvider;
-        //std::unique_ptr<IWalletApi::InitData> _walletData;
-        std::vector<uint64_t> _pendingToClose;
-        //IWalletApi::ACL _acl;
-        //std::vector<uint32_t> _whitelist;
+        std::string m_DataPath;
     };
 
-    int RunProver(const po::variables_map& vm)
+    class ProverApiServer : public ApiServer
     {
-        auto p = vm.find(cli::PORT);
-        if (p == vm.end())
+        using ApiServer::ApiServer;
+
+        std::unique_ptr<wallet::IWalletApi> createApiInstance(const std::string& version, wallet::IWalletApiHandler& handler) override
         {
-            std::cerr << "'" << cli::PORT << "' is not specified\n";
-            return -1;
+            return std::make_unique<ProverApi>(handler, _acl, "", "", m_DataPath);
         }
 
+        std::string m_DataPath;
+    };
+
+    void ProverApi::getResponse(const JsonRpcId& id, const GetProof::Response& data, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"dataset_count", data.datasetCount},
+                    {"proof", beam::to_hex(data.proof.data(), data.proof.size())}
+                }
+            }
+        };
+    }
+
+    void ProverApi::onHandleGetProof(const JsonRpcId& id, const GetProof& data)
+    {
+        GetProof::Response res;
+        std::string sEpoch = std::to_string(data.epoch);
+        res.datasetCount = beam::EthashUtils::GenerateProof(
+            data.epoch,
+            (m_DataPath + sEpoch + ".cache").c_str(),
+            (m_DataPath + sEpoch + ".tre5").c_str(),
+            (m_DataPath + "Super.tre").c_str(),
+            data.hvSeed, res.proof);
+        doResponse(id, res);
+    }
+
+    std::pair<GetProof, wallet::IWalletApi::MethodInfo> ProverApi::onParseGetProof(const JsonRpcId & id, const json & msg)
+    {
+        GetProof data;
+        data.epoch = ProverApi::getMandatoryParam<uint32_t>(msg, "epoch");
+        std::string strSeed = ProverApi::getMandatoryParam<wallet::NonEmptyString>(msg, "seed");
+        auto buffer = from_hex(strSeed);
+        if (buffer.size() > sizeof(data.hvSeed))
+        {
+            throw wallet::jsonrpc_exception(wallet::ApiError::InvalidParamsJsonRpc, "Failed to parse seed data");
+        }
+        data.hvSeed = Blob(&buffer[0], (uint32_t)buffer.size());
+        return std::make_pair(data, MethodInfo());
+    }
+
+    int RunProver(const Options& options)
+    {
         io::Reactor::Ptr reactor = io::Reactor::create();
-        io::Address listenTo = io::Address().port(p->second.as<uint16_t>());
+        io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
+        ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::IWalletApi::ACL()), options.tlsOptions, {});
 
         reactor->run();
         return 0;
@@ -390,20 +223,36 @@ namespace
 
 int main(int argc, char* argv[])
 {
-    
-    struct
-    {
-        uint16_t port;
-    } options;
-
+    const auto path = boost::filesystem::system_complete("./logs");
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "", path.string());
+    MyOptions options;
     po::options_description desc("Ethash service options");
     desc.add_options()
         (cli::HELP_FULL, "list of all options")
         (PROVER, "run prover server")
         (GENERATE, "create local data for all the epochs (VERY long)")
-        (DATA_PATH, po::value<std::string>()->default_value("EthEpoch"), "directory for generated data")
-        (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start prover server on")
+        (DATA_PATH, po::value<std::string>(&options.dataPath)->default_value("EthEpoch"), "directory for generated data")
+        (cli::PORT_FULL, po::value<uint16_t>(&options.port)->default_value(10000), "port to start prover server on")
+        (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
     ;
+
+    po::options_description authDesc("User authorization options");
+    authDesc.add_options()
+        (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
+        (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("prover-api.acl"), "path to ACL file")
+        ;
+
+    po::options_description tlsDesc("TLS protocol options");
+    tlsDesc.add_options()
+        (cli::API_USE_TLS, po::value<bool>(&options.tlsOptions.use)->default_value(false), "use TLS protocol")
+        (cli::API_TLS_CERT, po::value<std::string>(&options.tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
+        (cli::API_TLS_KEY, po::value<std::string>(&options.tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
+        (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&options.tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
+        (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&options.tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
+        ;
+
+    desc.add(authDesc);
+    desc.add(tlsDesc);
 
     po::variables_map vm;
 
@@ -412,6 +261,8 @@ int main(int argc, char* argv[])
         .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
         .run(), vm);
 
+    vm.notify();
+
     if (vm.count(cli::HELP))
     {
         std::cout << desc << std::endl;
@@ -419,11 +270,11 @@ int main(int argc, char* argv[])
     }
     if (vm.count(GENERATE))
     {
-        return GenerateLocalData(vm);
+        return GenerateLocalData(options);
     }
     if (vm.count(PROVER))
     {
-        return RunProver(vm);
+        return RunProver(options);
     }
 
     return 0;

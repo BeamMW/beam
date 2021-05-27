@@ -25,21 +25,7 @@
 #include "ethash/include/ethash/ethash.h"
 #include "ethash/lib/ethash/ethash-internal.hpp"
 
-namespace Shaders
-{
-	using PubKey = ECC::Point;
-	using Secp_point_data = ECC::Point;
-	using Secp_scalar_data = ECC::Scalar;
-	using AssetID = beam::Asset::ID;
-	using ContractID = ECC::uintBig;
-	using HashValue = ECC::uintBig;
-	using beam::Amount;
-	using beam::Height;
-	using beam::Timestamp;
-	using beam::HeightPos;
-
-#include "bvm/Shaders/Ethash.h"
-}
+#include "shaders_ethash.h"
 
 namespace beam::EthashUtils
 {
