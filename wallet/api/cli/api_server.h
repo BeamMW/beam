@@ -390,9 +390,9 @@ namespace beam
 
         std::unordered_map<uint64_t, IServerConnection::Ptr> _connections;
         std::vector<uint64_t> _pendingToClose;
-        
-        std::vector<uint32_t> _whitelist;
     protected:
         wallet::IWalletApi::ACL _acl;
+    private:
+        std::vector<uint32_t> _whitelist;
     };
 }

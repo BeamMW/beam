@@ -27,5 +27,14 @@ namespace Shaders
 	using beam::Timestamp;
 	using beam::HeightPos;
 
+	template<bool bToShader, typename T>
+	inline void ConvertOrd(T& x)
+	{
+		if constexpr (bToShader)
+			x = beam::ByteOrder::to_le(x);
+		else
+			x = beam::ByteOrder::from_le(x);
+	}
+
 #include "bvm/Shaders/Ethash.h"
 }

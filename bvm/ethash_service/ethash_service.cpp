@@ -58,7 +58,7 @@ namespace
     
     int GenerateLocalData(const MyOptions& options)
     {
-        fs::path path(Utf8toUtf16(options.dataPath));
+        fs::path path(options.dataPath);
         if (!fs::exists(path))
         {
             fs::create_directories(path);
