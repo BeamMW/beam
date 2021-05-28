@@ -68,7 +68,7 @@ namespace
 
         ExecutorMT_R exec;
 
-        for (uint32_t iEpoch = 0; iEpoch < 1024; iEpoch++)
+        for (uint32_t iEpoch = 0; iEpoch < Shaders::Ethash::ProofBase::nEpochsTotal ; iEpoch++)
         {
             struct MyTask :public Executor::TaskAsync
             {
@@ -78,7 +78,7 @@ namespace
                 void Exec(Executor::Context&) override
                 {
                     EthashUtils::GenerateLocalData(m_iEpoch, (m_Path + ".cache").c_str(), (m_Path + ".tre3").c_str(), 3); // skip 1st 3 levels, size reduction of 2^3 == 8
-                   // EthashUtils::CropLocalData((m_Path + ".tre5").c_str(), (m_Path + ".tre3").c_str(), 2); // skip 2 more levels
+                    EthashUtils::CropLocalData((m_Path + ".tre5").c_str(), (m_Path + ".tre3").c_str(), 2); // skip 2 more levels
                 }
             };
 
@@ -115,9 +115,9 @@ namespace
     class ProverApi : public wallet::ApiBase
     {
     public:
-        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, std::string& dataPath)
+        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, const std::string& dataPath)
             : wallet::ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
-            , m_DataPath(std::move(dataPath))
+            , m_DataPath(dataPath)
         {
             if (!m_DataPath.empty() && m_DataPath.back() != '\\' && m_DataPath.back() != '/')
             {
@@ -154,7 +154,7 @@ namespace
         std::string m_DataPath;
     };
 
-    class ProverApiServer : public ApiServer
+    struct ProverApiServer : public ApiServer
     {
         using ApiServer::ApiServer;
 
@@ -208,14 +208,14 @@ namespace
         return std::make_pair(data, MethodInfo());
     }
 
-    int RunProver(const Options& options)
+    int RunProver(const MyOptions& options)
     {
         io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
         ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::IWalletApi::ACL()), options.tlsOptions, {});
-
+        server.m_DataPath = options.dataPath;
         reactor->run();
         return 0;
     }
