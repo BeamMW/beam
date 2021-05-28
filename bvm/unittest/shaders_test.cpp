@@ -86,6 +86,7 @@ namespace Shaders {
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/bridge/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -327,6 +328,9 @@ namespace Shaders {
 	}
 	namespace DemoXdao {
 #include "../Shaders/demoXdao/contract.cpp"
+	}
+	namespace Bridge {
+#include "../Shaders/bridge/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -828,6 +832,7 @@ namespace bvm2 {
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
 			ByteBuffer m_DemoXdao;
+			ByteBuffer m_Bridge;
 
 		} m_Code;
 
@@ -844,6 +849,7 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
+		ContractID m_cidBridge;
 
 		struct {
 
@@ -1056,6 +1062,7 @@ namespace bvm2 {
 		void TestMirrorCoin();
 		void TestVoting();
 		void TestDemoXdao();
+		void TestBridge();
 
 		void TestAll();
 	};
@@ -1086,6 +1093,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
 		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_Bridge, "bridge/contract.wasm");
 
 		TestVault();
 		TestFaucet();
@@ -1099,6 +1107,7 @@ namespace bvm2 {
 		TestPerpetual();
 		TestPipe();
 		TestMirrorCoin();
+		TestBridge();
 	}
 
 	struct CidTxt
@@ -2355,6 +2364,20 @@ namespace bvm2 {
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
 		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+	}
+
+	void MyProcessor::TestBridge()
+	{
+		Zero_ zero;
+		verify_test(ContractCreate_T(m_cidBridge, m_Code.m_Bridge, zero));
+
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code.m_Bridge);
+
+		CidTxt ct;
+		ct.Set(sid);
+
+		std::cout << "TestBridge" << std::endl;
 	}
 
 
