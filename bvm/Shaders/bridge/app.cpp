@@ -111,13 +111,6 @@ namespace manager
 
     void GetAid(const ContractID& cid)
     {
-        /*Env::Key_T<uint32_t> key;
-        key.m_KeyInContract = 0;
-        key.m_Prefix.m_Cid = cid;
-
-        uint32_t aid;
-        Env::VarReader::Read_T(key, aid);*/
-
         Env::DocAddNum32("aid", ReadAid(cid));
     }
 } // namespace manager
@@ -158,8 +151,6 @@ export void Method_0()
             {
                 Env::DocGroup grMethod("unlock");
                 Env::DocAddText("cid", "ContractID");
-                /*Env::DocAddText("aid", "uint32");
-                Env::DocAddText("amount", "uint32");*/
             }
             {
                 Env::DocGroup grMethod("lock");
@@ -232,11 +223,7 @@ export void Method_1()
         {
             ContractID cid;
             Env::DocGet("cid", cid);
-            /*uint32_t amount = 0;
-            Env::DocGetNum32("amount", &amount);
-            uint32_t aid = 0;
-            Env::DocGetNum32("aid", &aid);*/
-            manager::Unlock(cid/*, aid, amount*/);
+            manager::Unlock(cid);
             return;
         }
         if (!Env::Strcmp(szAction, "lock"))
