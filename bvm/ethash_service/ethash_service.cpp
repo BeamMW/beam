@@ -179,18 +179,21 @@ namespace
                 }
             }
         };
+        LOG_DEBUG() << "Response: \n" << msg.dump();
     }
 
     void ProverApi::onHandleGetProof(const JsonRpcId& id, const GetProof& data)
     {
         GetProof::Response res;
         std::string sEpoch = std::to_string(data.epoch);
+        LOG_DEBUG() << "Gettring proof for epoch: " << sEpoch;
         res.datasetCount = beam::EthashUtils::GenerateProof(
             data.epoch,
             (m_DataPath + sEpoch + ".cache").c_str(),
             (m_DataPath + sEpoch + ".tre5").c_str(),
             (m_DataPath + "Super.tre").c_str(),
             data.hvSeed, res.proof);
+        LOG_DEBUG() << "Got proof";
         doResponse(id, res);
     }
 
