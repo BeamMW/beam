@@ -2345,8 +2345,111 @@ namespace bvm2 {
 		}
 	}
 
+	struct LutGenerator
+	{
+		typedef uint64_t TX;
+		typedef double TY;
+		virtual double Evaluate(TX) = 0;
+
+		std::vector<TX> m_vX;
+		std::vector<TY> m_vY;
+		std::vector<uint32_t> m_vYNorm;
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double yPrecise, double tolerance)
+		{
+			const TX& xPrev = m_vX.back();
+			const TY& yPrev = m_vY.back();
+
+			double yInterp = yPrev + (y1 - yPrev) * (x - xPrev) / (x1 - xPrev);
+
+			double yErr = yInterp - yPrecise;
+			return (fabs(yErr / yPrecise) <= tolerance);
+		}
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double tolerance)
+		{
+			double yPrecise = Evaluate(x);
+			return IsGoodEnough(x, x1, y1, yPrecise, tolerance);
+		}
+
+		void Generate(TX x0, TX x1, double tolerance)
+		{
+			assert(x0 < x1);
+
+			m_vX.push_back(x0);
+			m_vY.push_back(Evaluate(x0));
+
+			double y1 = Evaluate(x1);
+
+			while (true)
+			{
+				TX xNext = x1;
+				TY yNext = y1;
+
+				uint32_t nCycles = 0;
+				for (; ; nCycles++)
+				{
+					// probe 3 points: begin, end, mid
+					const TX& xPrev = m_vX.back();
+					TX dx = xNext - xPrev;
+					TX xMid = xPrev + dx / 2;
+					double yMid = Evaluate(xMid);
+
+					bool bOk = true;
+					double tolerance_der = tolerance / (double) (dx - 2);
+					if (bOk && !IsGoodEnough(xPrev + 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xNext - 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xMid, xNext, yNext, yMid, tolerance))
+						bOk = false;
+
+					if (bOk)
+						break;
+
+					xNext = xMid;
+					yNext = yMid;
+				}
+
+				m_vX.push_back(xNext);
+				m_vY.push_back(yNext);
+
+				if (!nCycles)
+					break;
+			}
+
+		}
+
+		void Normalize(uint32_t nMax)
+		{
+			double maxVal = 0;
+			for (size_t i = 0; i < m_vY.size(); i++)
+				std::setmax(maxVal, m_vY[i]);
+
+			m_vYNorm.resize(m_vY.size());
+			for (size_t i = 0; i < m_vY.size(); i++)
+				m_vYNorm[i] = static_cast<uint32_t>(nMax * m_vY[i] / maxVal);
+		}
+	};
+
 	void MyProcessor::TestDemoXdao()
 	{
+		//struct MyLutGenerator
+		//	:public LutGenerator
+		//{
+		//	virtual double Evaluate(TX x)
+		//	{
+		//		double k = ((double) x) / (double) (Shaders::g_Beam2Groth * 100);
+		//		return pow(k, 0.7);
+		//	}
+		//};
+
+		//MyLutGenerator lg;
+		//lg.Generate(Shaders::g_Beam2Groth * 16, Shaders::g_Beam2Groth * 1000000, 0.1);
+		//lg.Normalize(1000000);
+
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
 
