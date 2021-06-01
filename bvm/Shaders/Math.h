@@ -408,4 +408,46 @@ namespace Utils {
 		return a;
 	}
 
+	namespace details {
+
+		template <uint32_t nBits> struct Order
+		{
+			template <typename T>
+			static uint32_t Get(T n)
+			{
+				constexpr uint32_t nHalf = nBits / 2;
+				uint32_t n2 = static_cast<uint32_t>(n >> nHalf);
+
+				if (n2)
+					return nHalf + Order<nHalf>::Get(n2);
+
+				if constexpr (nHalf < 32)
+				{
+					constexpr uint32_t nMask = (1U << nHalf) - 1;
+					n2 = static_cast<uint32_t>(n) & nMask;
+				}
+				else
+					n2 = static_cast<uint32_t>(n);
+
+				return Order<nHalf>::Get(n2);
+			}
+		};
+
+		template <> struct Order<1>
+		{
+			template <typename T>
+			static uint32_t Get(T n)
+			{
+				return !!n;
+			}
+		};
+
+	} // namespace details
+
+	template <typename T>
+	inline uint32_t GetOrder(T n)
+	{
+		return details::Order<sizeof(T) * 8>::Get(n);
+	}
+
 } // namespace Utils
