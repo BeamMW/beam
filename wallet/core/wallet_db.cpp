@@ -5840,11 +5840,11 @@ namespace beam::wallet
             {
                 addressType = TxAddressType::PublicOffline;
             }
+            storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
 
             auto tx = db.getTx(txID);
             if (tx)
             {
-                storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
                 storage::setTxParameter(db, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
                 return;
             }
@@ -5872,8 +5872,7 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::AddressType, addressType);
+                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
                 const auto assetId = coin.m_CoinID.m_AssetID;
                 if (assetId != Asset::s_BeamID)
