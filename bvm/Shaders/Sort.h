@@ -157,7 +157,7 @@ inline TY LutCalculate(const TX* pX, const TY* pY, uint32_t nLut, const TX& x)
 	// y0,y1 are not necessarily in ascending order. Use signed arithmetics
 	int64_t val =
 		((int64_t) (pY[n] - y0)) *
-		((int64_t) (pX[n] - x)) /
+		((int64_t) (x - pX[n - 1])) /
 		((int64_t) (pX[n] - pX[n - 1]));
 
 	return static_cast<TY>(y0 + val);
