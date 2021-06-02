@@ -132,6 +132,12 @@ namespace MultiPrecision
 			set_Ord<0>(x);
 		}
 
+		template <uint32_t wa>
+		void operator = (const UInt<wa>& a)
+		{
+			Assign<0, wa>(wa);
+		}
+
 		template <uint32_t nShiftWords, typename T>
 		void Set(T val)
 		{
@@ -239,6 +245,61 @@ namespace MultiPrecision
 			return carry >> nWordBits;
 		}
 
+
+		template <uint32_t wa, uint32_t wb>
+		void SetDiv(const UInt<wa>& a, const UInt<wa>& b)
+		{
+			UInt<wa> resid;
+			SetDiv(a, b, resid);
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		void SetDiv(UInt<wa>& a, const UInt<wb>& b, UInt<wa>& resid)
+		{
+			resid = a;
+
+			UInt<nWords + wb> div;
+			div.Assign<nWords>(b);
+
+			constexpr Word nMsk0 = ((Word) 1) << (nWordBits - 1);
+
+			Word nMsk = nMsk0;
+			Word res = 0;
+
+			for (uint32_t iWord = nWords; ; )
+			{
+				div.template RShift<1>();
+
+				if (resid >= div)
+				{
+					resid -= div;
+					res |= nMsk;
+				}
+
+				nMsk >>= 1;
+
+				if (!nMsk)
+				{
+					get_AsArr()[--iWord] = res;
+
+					if (!iWord)
+						break;
+
+					nMsk = nMsk0;
+					res = 0;
+				}
+			}
+		}
+
+		template <uint32_t wb>
+		UInt<nWords> operator / (const UInt<wb>& b) const
+		{
+			UInt<nWords> ret;
+			ret.SetDiv(*this, b);
+			return ret;
+		}
+
+
 	protected:
 		template <uint32_t wx>
 		friend struct UInt;
@@ -296,6 +357,23 @@ namespace MultiPrecision
 
 			return Base::_Cmp(a);
 		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>& a)
+		{
+			m_Val = a.template get_Val<nWords - nShiftWords>();
+			Base::template Assign<nShiftWords>(a);
+		}
+
+		template <uint32_t nBits>
+		void RShift(Word carry = 0)
+		{
+			static_assert(nBits && nBits < nWordBits);
+
+			Base::RShift<nBits>(m_Val);
+			m_Val = (m_Val >> nBits) | (carry << (nWordBits - nBits));
+		}
+
 	};
 
 	template <> struct UInt<0>
@@ -354,6 +432,16 @@ namespace MultiPrecision
 		int _Cmp(const UInt<wa>& a) const
 		{
 			return 0;
+		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>&)
+		{
+		}
+
+		template <uint32_t nBits>
+		void RShift(Word carry)
+		{
 		}
 	};
 
