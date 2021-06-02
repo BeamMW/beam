@@ -26,6 +26,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iterator>
+#include <math.h>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
