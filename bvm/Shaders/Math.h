@@ -135,7 +135,14 @@ namespace MultiPrecision
 		template <uint32_t wa>
 		void operator = (const UInt<wa>& a)
 		{
-			Assign<0, wa>(wa);
+			Assign<0>(a);
+		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>& a)
+		{
+			m_Val = a.template get_Val<nWords - nShiftWords>();
+			Base::template Assign<nShiftWords>(a);
 		}
 
 		template <uint32_t nShiftWords, typename T>
@@ -249,17 +256,15 @@ namespace MultiPrecision
 		template <uint32_t wa, uint32_t wb>
 		void SetDiv(const UInt<wa>& a, const UInt<wa>& b)
 		{
-			UInt<wa> resid;
-			SetDiv(a, b, resid);
+			UInt<wa> resid = a;
+			SetDivResid(resid, b);
 		}
 
 		template <uint32_t wa, uint32_t wb>
-		void SetDiv(UInt<wa>& a, const UInt<wb>& b, UInt<wa>& resid)
+		void SetDivResid(UInt<wa>& resid, const UInt<wb>& b)
 		{
-			resid = a;
-
 			UInt<nWords + wb> div;
-			div.Assign<nWords>(b);
+			div.template Assign<nWords>(b);
 
 			constexpr Word nMsk0 = ((Word) 1) << (nWordBits - 1);
 
@@ -358,19 +363,12 @@ namespace MultiPrecision
 			return Base::_Cmp(a);
 		}
 
-		template <uint32_t nShiftWords, uint32_t wa>
-		void Assign(const UInt<wa>& a)
-		{
-			m_Val = a.template get_Val<nWords - nShiftWords>();
-			Base::template Assign<nShiftWords>(a);
-		}
-
 		template <uint32_t nBits>
 		void RShift(Word carry = 0)
 		{
 			static_assert(nBits && nBits < nWordBits);
 
-			Base::RShift<nBits>(m_Val);
+			Base::template RShift<nBits>(m_Val);
 			m_Val = (m_Val >> nBits) | (carry << (nWordBits - nBits));
 		}
 
