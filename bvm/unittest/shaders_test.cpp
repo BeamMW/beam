@@ -254,6 +254,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
+	}
+
 	namespace Env {
 
 
@@ -1037,6 +1042,7 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -2457,6 +2463,33 @@ namespace bvm2 {
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
 		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_BeamLock = 1;
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
 	}
 
 
