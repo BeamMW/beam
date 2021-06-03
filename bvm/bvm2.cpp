@@ -160,7 +160,7 @@ namespace bvm2 {
 		ZeroObject(m_Code);
 		ZeroObject(m_Data);
 		ZeroObject(m_LinearMem);
-		ZeroObject(m_Instruction);
+		m_Instruction.m_p0 = m_Instruction.m_p1 = nullptr;
 
 		m_vStack.resize((nStackBytes + sizeof(Wasm::Word) - 1) / sizeof(Wasm::Word), 0);
 
