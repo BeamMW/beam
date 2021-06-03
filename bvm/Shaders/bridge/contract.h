@@ -1,11 +1,32 @@
 #pragma once
+//#include "../Eth.h"
 
 namespace Bridge
 {
     // Hash of the compiled shader bytecode
-    static const ShaderID s_SID = { 0xb0,0xed,0x6b,0x13,0x81,0xf8,0x82,0x9b,0x08,0xf1,0x45,0x55,0xc3,0x3e,0x5c,0xc0,0xdf,0x19,0x04,0xb8,0x5b,0xb9,0x14,0xb9,0x13,0x82,0x16,0xa4,0xd6,0xd8,0x51,0x98 };
+    static const ShaderID s_SID = { 0x9c,0x40,0x75,0xe2,0xc8,0x08,0xf7,0x26,0x4d,0x33,0xdf,0x2d,0xbf,0x64,0xb4,0xa6,0x39,0x80,0x6c,0x54,0x2b,0x88,0x35,0x8c,0x52,0x23,0x23,0x27,0xd7,0x8f,0x89,0xfc };
 
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
+    struct Header
+    {
+        Opaque<32> m_ParentHash;
+        Opaque<32> m_UncleHash;
+        Opaque<20> m_Coinbase;
+        Opaque<32> m_Root;
+        Opaque<32> m_TxHash;
+        Opaque<32> m_ReceiptHash;
+        Opaque<256> m_Bloom;
+        Opaque<32> m_Extra;
+        uint32_t m_nExtra; // can be less than maximum size
+
+        uint64_t m_Difficulty;
+        uint64_t m_Number; // height
+        uint64_t m_GasLimit;
+        uint64_t m_GasUsed;
+        uint64_t m_Time;
+        uint64_t m_Nonce;
+    };
+
     struct Unlock
     {
         static const uint32_t s_iMethod = 2;
@@ -21,10 +42,16 @@ namespace Bridge
 
     struct InMsg
     {
-        static const uint32_t s_iMethod = 4;
         uint32_t m_Amount;
         uint8_t m_Finalized;
         PubKey m_Pk;
+    };
+
+    struct ImportMessage
+    {
+        static const uint32_t s_iMethod = 4;
+        InMsg m_Msg;
+        Header m_Header;
     };
 
     struct Finalized

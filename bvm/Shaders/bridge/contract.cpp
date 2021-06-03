@@ -1,11 +1,12 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../Eth.h"
 
 // Method_0 - constructor, called once when the contract is deployed
 export void Ctor(void*)
 {
-    const char meta[] = "testcoin9";
+    const char meta[] = "testcoin10";
     AssetID aid = Env::AssetCreate(meta, sizeof(meta) - 1);
 
     uint32_t key = 0;
@@ -45,10 +46,10 @@ export void Method_3(const Bridge::Lock& value)
     Env::FundsLock(aid, value.m_Amount);
 }
 
-export void Method_4(const Bridge::InMsg& value)
+export void Method_4(const Bridge::ImportMessage& value)
 {
     uint32_t key = 1;
-    Bridge::InMsg tmp = value;
+    Bridge::InMsg tmp = value.m_Msg;
     tmp.m_Finalized = 0;
     Env::SaveVar_T(key, tmp);
 }

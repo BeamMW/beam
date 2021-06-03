@@ -41,13 +41,17 @@ namespace manager
         EnumAndDumpContracts(Bridge::s_SID);
     }
 
-    void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk)
+    void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk, const Bridge::Header& header)
     {
-        Bridge::InMsg arg;
+        Bridge::ImportMessage arg;
+        Bridge::InMsg msg;
 
-        arg.m_Amount = amount;
-        arg.m_Pk = pk;
-        arg.m_Finalized = 0;
+        msg.m_Amount = amount;
+        msg.m_Pk = pk;
+        msg.m_Finalized = 0;
+        arg.m_Msg = msg;
+
+        _POD_(arg.m_Header) = header;
 
         Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Import message", 0);
     }
@@ -202,7 +206,24 @@ export void Method_1()
             Env::DocGetNum32("amount", &amount);
             PubKey pk;
             Env::DocGet("pubkey", pk);
-            manager::ImportMsg(cid, amount, pk);
+            
+            Bridge::Header header;
+            Env::DocGet("parentHash", header.m_ParentHash);
+            Env::DocGet("uncleHash", header.m_UncleHash);
+            Env::DocGetBlob("coinbase", &header.m_Coinbase, sizeof(header.m_Coinbase)); //??
+            Env::DocGet("root", header.m_Root);
+            Env::DocGet("txHash", header.m_TxHash);
+            Env::DocGet("receiptHash", header.m_ReceiptHash);
+            Env::DocGetBlob("bloom", &header.m_Bloom, sizeof(header.m_Bloom)); // ??
+            header.m_nExtra = Env::DocGetBlob("extra", &header.m_Extra, sizeof(header.m_Extra)); // ??
+            
+            Env::DocGetNum64("difficulty", &header.m_Difficulty);
+            Env::DocGetNum64("number", &header.m_Number);
+            Env::DocGetNum64("gasLimit", &header.m_GasLimit);
+            Env::DocGetNum64("gasUsed", &header.m_GasUsed);
+            Env::DocGetNum64("time", &header.m_Time);
+            Env::DocGetNum64("nonce", &header.m_Nonce);
+            manager::ImportMsg(cid, amount, pk, header);
             return;
         }
         if (!Env::Strcmp(szAction, "exportMsg"))
