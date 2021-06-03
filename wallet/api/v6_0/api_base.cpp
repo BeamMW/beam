@@ -375,13 +375,4 @@ namespace beam::wallet {
         }
         return boost::none;
     }
-
-    void ApiBase::checkCAEnabled()
-    {
-        TxFailureReason res = wallet::CheckAssetsEnabled(MaxHeight);
-        if (TxFailureReason::Count != res)
-        {
-            throw jsonrpc_exception(ApiError::NotSupported, GetFailureMessage(res));
-        }
-    }
 }

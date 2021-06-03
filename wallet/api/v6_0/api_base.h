@@ -71,7 +71,7 @@ namespace beam::wallet
         }
 
         static bool hasParam(const json &params, const std::string &name);
-        static void checkCAEnabled();
+
     protected:
         struct Method
         {
@@ -99,6 +99,11 @@ namespace beam::wallet
             try
             {
                 return func();
+            }
+            catch (const nlohmann::detail::type_error& e)
+            {
+                auto error = formError(rpcid, ApiError::InvalidParamsJsonRpc, e.what());
+                _handler.onParseError(error);
             }
             catch (const nlohmann::detail::exception& e)
             {

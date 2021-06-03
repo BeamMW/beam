@@ -2,6 +2,7 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 #include "../upgradable/contract.h"
+#include "../upgradable/app_common_impl.h"
 #include "../Math.h"
 
 #define DemoXdao_manager_deploy_version(macro)
@@ -60,107 +61,37 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-void get_CidFromSid(ContractID& cid, const ShaderID& sid)
-{
-    HashProcessor::Sha256()
-        << "bvm.cid"
-        << sid
-        << static_cast<uint32_t>(0)
-        >> cid;
-}
-
-Height FindDeployed(const ContractID& cid, const ShaderID& sid)
-{
-    Env::Key_T<WalkerContracts::SidCid> key;
-    _POD_(key.m_Prefix.m_Cid).SetZero();
-    key.m_Prefix.m_Tag = KeyTag::SidCid;
-
-    _POD_(key.m_KeyInContract.m_Sid) = sid;
-    _POD_(key.m_KeyInContract.m_Cid) = cid;
-
-    const auto* pHeight_be = Env::VarRead_T<Height>(key);
-    return pHeight_be ? Utils::FromBE(*pHeight_be) : 0;
-}
-
 ON_METHOD(manager, view)
 {
-    // Calculate the CID of the current version
-    ContractID cid0, cid1;
-    get_CidFromSid(cid0, DemoXdao::s_SID_0);
-    get_CidFromSid(cid1, DemoXdao::s_SID);
-
-    Height  h = FindDeployed(cid0, DemoXdao::s_SID_0);
-    if (h)
-    {
-        Env::DocGroup gr0("ver0");
-
-        Env::DocAddNum("Height", h);
-        Env::DocAddBlob_T("cid", cid0);
-    }
-
-    h = FindDeployed(cid1, DemoXdao::s_SID);
-    if (h)
-    {
-        Env::DocGroup gr0("ver1");
-
-        Env::DocAddNum("Height", h);
-        Env::DocAddBlob_T("cid", cid1);
-    }
-
-    struct Entry {
-        ContractID m_Cid;
-        Height m_Height;
+    static const ShaderID s_pSid[] = {
+        DemoXdao::s_SID_0,
+        DemoXdao::s_SID_1,
+        DemoXdao::s_SID // latest version
     };
 
-    Utils::Vector<Entry> vUpgr;
-    {
-        WalkerContracts wlk;
-        for (wlk.Enum(Upgradable::s_SID); wlk.MoveNext(); )
-        {
-            auto& e = vUpgr.emplace_back();
-            _POD_(e.m_Cid) = wlk.m_pPos->m_Cid;
-            e.m_Height = wlk.m_Height;
-        }
-    }
+    ContractID pVerCid[_countof(s_pSid)];
+    Height pVerDeploy[_countof(s_pSid)];
+
+    WalkerUpgradable wlk;
+    wlk.m_VerInfo.m_Count = _countof(s_pSid);
+    wlk.m_VerInfo.s_pSid = s_pSid;
+    wlk.m_VerInfo.m_pCid = pVerCid;
+    wlk.m_VerInfo.m_pHeight = pVerDeploy;
+
+    wlk.m_VerInfo.Init();
+    wlk.m_VerInfo.Dump();
 
     Env::DocArray gr("contracts");
 
     PubKey pk;
     Env::DerivePk(pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
 
-    for (uint32_t i = 0; i < vUpgr.m_Count; i++)
+    for (wlk.Enum(); wlk.MoveNext(); )
     {
-        const auto& e = vUpgr.m_p[i];
+        Env::DocGroup root("");
+        wlk.DumpCurrent();
 
-        Env::Key_T<uint8_t> key;
-        key.m_Prefix.m_Cid = e.m_Cid;
-        key.m_KeyInContract = Upgradable::State::s_Key;
-
-        auto* pS = Env::VarRead_T<Upgradable::State>(key);
-        if (!pS)
-            continue;
-
-        uint32_t nVerCurrent = (_POD_(cid0) == pS->m_Cid) ? 0 : (_POD_(cid1) == pS->m_Cid) ? 1 : 1000;
-        uint32_t nVerNext = (_POD_(cid0) == pS->m_cidNext) ? 0 : (_POD_(cid1) == pS->m_cidNext) ? 1 : 1000;
-
-        if ((nVerCurrent >= 0) || (nVerNext >= 0))
-        {
-            Env::DocGroup root("");
-
-            Env::DocAddBlob_T("cid", e.m_Cid);
-            Env::DocAddNum("Height", e.m_Height);
-
-            Env::DocAddNum("owner", (uint32_t) ((_POD_(pS->m_Pk) == pk) ? 1 : 0));
-            Env::DocAddNum("min_upgrade_delay", pS->m_hMinUpgadeDelay);
-
-            Env::DocAddNum("current_version", nVerCurrent);
-
-            if (pS->m_hNextActivate != static_cast<Height>(-1))
-            {
-                Env::DocAddNum("next_version", nVerNext);
-                Env::DocAddNum("next_height", pS->m_hNextActivate);
-            }
-        }
+        Env::DocAddNum("owner", (uint32_t) ((_POD_(wlk.m_State.m_Pk) == pk) ? 1 : 0));
     }
 }
 
@@ -211,11 +142,11 @@ Amount get_ContractLocked(AssetID aid, const ContractID& cid)
         Amount m_Lo;
     };
 
-    const auto* pVal = Env::VarRead_T<AmountBig>(key);
-    if (!pVal)
+    AmountBig val;
+    if (!Env::VarReader::Read_T(key, val))
         return 0;
 
-    return Utils::FromBE(pVal->m_Lo);
+    return Utils::FromBE(val.m_Lo);
 }
 
 AssetID get_TrgAid(const ContractID& cid)
@@ -224,14 +155,14 @@ AssetID get_TrgAid(const ContractID& cid)
     _POD_(key.m_Prefix.m_Cid) = cid;
     key.m_KeyInContract = 0;
 
-    const auto* pS = Env::VarRead_T<DemoXdao::State>(key);
-    if (!pS)
+    DemoXdao::State s;
+    if (!Env::VarReader::Read_T(key, s))
     {
         OnError("no such contract");
         return 0;
     }
 
-    return pS->m_Aid;
+    return s.m_Aid;
 }
 
 ON_METHOD(manager, view_params)
@@ -252,8 +183,8 @@ ON_METHOD(manager, view_stake)
     _POD_(key.m_Prefix.m_Cid) = cid;
     Env::DerivePk(key.m_KeyInContract, &cid, sizeof(cid));
 
-    const auto* pAmount = Env::VarRead_T<Amount>(key);
-    Env::DocAddNum("stake", pAmount ? *pAmount : 0);
+    Amount amount;
+    Env::DocAddNum("stake", Env::VarReader::Read_T(key, amount) ? amount : 0);
 }
 
 ON_METHOD(manager, lock)

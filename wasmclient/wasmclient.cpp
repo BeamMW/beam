@@ -201,7 +201,9 @@ public:
         , m_DbPath(dbName)
         , m_Pass(pass)
         , m_Node(node)
-    {}
+    {
+        wallet::g_AssetsEnabled = true;
+    }
 
     void sendAPIResponse(const json& result) override
     {

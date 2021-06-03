@@ -105,7 +105,7 @@ namespace beam::wallet {
         _async = !_done;
     }
 
-     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
+    void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
     {
         try
         {
@@ -117,6 +117,15 @@ namespace beam::wallet {
 
             std::string sComment = bvm2::getFullComment(invokeData);
             ByteBuffer msg(sComment.begin(), sComment.end());
+
+            if (_currentAppId.empty() && _currentAppName.empty())
+            {
+                LOG_INFO () << "ShadersManager::ProcessTxData";
+            }
+            else
+            {
+                LOG_INFO () << "ShadersManager::ProcessTxData for " << _currentAppId << ", " << _currentAppName;
+            }
 
             auto params = CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, invokeData)

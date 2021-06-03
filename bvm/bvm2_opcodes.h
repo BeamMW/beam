@@ -239,19 +239,24 @@
 	macro(Height, h) sep \
 	macro(HashValue&, res)
 
-#define BVMOp_VarsEnum(macro, sep) \
+#define BVMOp_Vars_Enum(macro, sep) \
 	macro(const void*, pKey0) sep \
 	macro(uint32_t, nKey0) sep \
 	macro(const void*, pKey1) sep \
 	macro(uint32_t, nKey1)
 
-#define BVMOp_VarsMoveNext(macro, sep) \
-	macro(const void**, ppKey) sep \
-	macro(uint32_t*, pnKey) sep \
-	macro(const void**, ppVal) sep \
-	macro(uint32_t*, pnVal)
+#define BVMOp_Vars_MoveNext(macro, sep) \
+	macro(uint32_t, iSlot) sep \
+	macro(void*, pKey) sep \
+	macro(uint32_t&, nKey) sep \
+	macro(void*, pVal) sep \
+	macro(uint32_t&, nVal) sep \
+	macro(uint8_t, nRepeat)
 
-#define BVMOp_LogsEnum(macro, sep) \
+#define BVMOp_Vars_Close(macro, sep) \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_Logs_Enum(macro, sep) \
 	macro(const void*, pKey0) sep \
 	macro(uint32_t, nKey0) sep \
 	macro(const void*, pKey1) sep \
@@ -259,12 +264,17 @@
 	macro(const HeightPos*, pPosMin) sep \
 	macro(const HeightPos*, pPosMax)
 
-#define BVMOp_LogsMoveNext(macro, sep) \
-	macro(const void**, ppKey) sep \
-	macro(uint32_t*, pnKey) sep \
-	macro(const void**, ppVal) sep \
-	macro(uint32_t*, pnVal) sep \
-	macro(HeightPos*, pPos)
+#define BVMOp_Logs_MoveNext(macro, sep) \
+	macro(uint32_t, iSlot) sep \
+	macro(void*, pKey) sep \
+	macro(uint32_t&, nKey) sep \
+	macro(void*, pVal) sep \
+	macro(uint32_t&, nVal) sep \
+	macro(HeightPos&, pos) sep \
+	macro(uint8_t, nRepeat)
+
+#define BVMOp_Logs_Close(macro, sep) \
+	macro(uint32_t, iSlot)
 
 #define BVMOp_VarGetProof(macro, sep) \
 	macro(const void*, pKey) sep \
@@ -400,13 +410,15 @@
 	macro(0x3A, uint8_t  , AssetDestroy) \
 
 #define BVMOpsAll_Manager(macro) \
-	macro(0x51, void     , VarsEnum) \
-	macro(0x52, uint8_t  , VarsMoveNext) \
-	macro(0x53, uint32_t , VarGetProof) \
-	macro(0x54, void     , LogsEnum) \
-	macro(0x55, uint8_t  , LogsMoveNext) \
-	macro(0x56, uint32_t , LogGetProof) \
-	macro(0x58, void     , DerivePk) \
+	macro(0x51, uint32_t , Vars_Enum) \
+	macro(0x52, uint8_t  , Vars_MoveNext) \
+	macro(0x53, void     , Vars_Close) \
+	macro(0x54, uint32_t , VarGetProof) \
+	macro(0x55, uint32_t , Logs_Enum) \
+	macro(0x56, uint8_t  , Logs_MoveNext) \
+	macro(0x57, void     , Logs_Close) \
+	macro(0x58, uint32_t , LogGetProof) \
+	macro(0x5A, void     , DerivePk) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \
 	macro(0x62, void     , DocAddText) \

@@ -13,7 +13,8 @@
 // limitations under the License.
 #include "exchange_rate.h"
 
-namespace beam::wallet {
+namespace beam::wallet
+{
     bool ExchangeRate::operator==(const ExchangeRate &other) const
     {
         return m_from == other.m_from
@@ -25,5 +26,44 @@ namespace beam::wallet {
     bool ExchangeRate::operator!=(const ExchangeRate &other) const
     {
         return !(*this == other);
+    }
+
+    ExchangeRate ExchangeRate::FromERH2(const ExchangeRateF2& rold)
+    {
+        ExchangeRate nrate;
+        nrate.m_rate = rold.m_rate;
+        nrate.m_updateTime = rold.m_updateTime;
+
+        switch (rold.m_currency)
+        {
+            case ExchangeRateF2::CurrencyF2::Beam: nrate.m_from = Currency::BEAM(); break;
+            case ExchangeRateF2::CurrencyF2::Bitcoin: nrate.m_from = Currency::BTC(); break;
+            case ExchangeRateF2::CurrencyF2::Litecoin: nrate.m_from = Currency::LTC(); break;
+            case ExchangeRateF2::CurrencyF2::Qtum: nrate.m_from = Currency::QTUM(); break;
+            case ExchangeRateF2::CurrencyF2::Usd: nrate.m_from = Currency::USD(); break;
+            case ExchangeRateF2::CurrencyF2::Dogecoin: nrate.m_from = Currency::DOGE(); break;
+            case ExchangeRateF2::CurrencyF2::Dash: nrate.m_from = Currency::DASH(); break;
+            case ExchangeRateF2::CurrencyF2::Ethereum: nrate.m_from = Currency::ETH(); break;
+            case ExchangeRateF2::CurrencyF2::Dai: nrate.m_from = Currency::DAI(); break;
+            case ExchangeRateF2::CurrencyF2::Usdt: nrate.m_from = Currency::USDT(); break;
+            case ExchangeRateF2::CurrencyF2::WBTC: nrate.m_from = Currency::WBTC(); break;
+            case ExchangeRateF2::CurrencyF2::Bitcoin_Cash: nrate.m_from = Currency::BCH(); break;
+            default: {
+                assert(false);
+                nrate.m_from = Currency::UNKNOWN();
+            }
+        }
+
+        switch(rold.m_unit)
+        {
+            case ExchangeRateF2::CurrencyF2::Usd: nrate.m_to = Currency::USD();  break;
+            case ExchangeRateF2::CurrencyF2::Bitcoin: nrate.m_to = Currency::BTC(); break;
+            default: {
+                assert(false);
+                nrate.m_from = Currency::UNKNOWN();
+            }
+        }
+
+        return nrate;
     }
 }

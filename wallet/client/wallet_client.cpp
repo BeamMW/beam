@@ -574,6 +574,7 @@ namespace beam::wallet
                 //
                 // DEX
                 //
+                /*
                 auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
@@ -581,6 +582,7 @@ namespace beam::wallet
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
                 _dex = dexBoard;
+                */
 
                 //
                 // Shaders

@@ -746,6 +746,50 @@ namespace beam
 		db.ContractLogEnum(wlkCdl, HeightPos(0), HeightPos(MaxHeight));
 		verify_test(wlkCdl.MoveNext());
 		verify_test(!wlkCdl.MoveNext());
+
+		// Cache
+		{
+			ECC::Hash::Value key1 = 1U;
+			ECC::Hash::Value key2 = 2U;
+			ECC::Hash::Value key3 = 3U;
+
+			db.CacheInsert(key1, key1);
+			db.CacheInsert(key2, key2);
+			db.CacheInsert(key3, key3);
+
+			NodeDB::CacheState cs;
+			db.get_CacheState(cs);
+			verify_test(cs.m_HitCounter == 3);
+			verify_test(cs.m_SizeCurrent == key1.nBytes * 3);
+
+			ByteBuffer buf;
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.get_CacheState(cs);
+			verify_test(cs.m_HitCounter == 4);
+
+			db.CacheSetMaxSize(key1.nBytes * 2); // should throw out key1
+			db.get_CacheState(cs);
+			verify_test(cs.m_SizeCurrent == cs.m_SizeMax);
+			verify_test(!db.CacheFind(key1, buf));
+
+			verify_test(db.CacheFind(key3, buf));
+			verify_test(Blob(buf) == Blob(key3));
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.CacheInsert(key1, key1); // should throw out key3
+			verify_test(!db.CacheFind(key3, buf));
+			verify_test(db.CacheFind(key2, buf));
+			verify_test(Blob(buf) == Blob(key2));
+
+			db.CacheSetMaxSize(0);
+			verify_test(!db.CacheFind(key2, buf));
+
+			db.get_CacheState(cs);
+			verify_test(cs.m_SizeCurrent == 0);
+		}
 	}
 
 #ifdef WIN32

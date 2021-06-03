@@ -13,6 +13,7 @@ target_link_libraries(bvm
     PUBLIC
         core
         keccak
+        ethash
 )
 
 if(BEAM_TESTS_ENABLED)
