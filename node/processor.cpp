@@ -2329,6 +2329,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
+	bool m_TxValidation = false; // tx or block
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -4445,6 +4446,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
 
+		m_Instruction.m_Mode = m_Bic.m_TxValidation ?
+			Wasm::Reader::Mode::Restrict :
+			Wasm::Reader::Mode::Emulate_x86;
+
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
 		ECC::Hash::Processor hp;
@@ -5553,6 +5558,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.SetAssetHi(*this);
 
 	bic.m_Temporary = true;
+	bic.m_TxValidation = true;
 	bic.m_SkipDefinition = true;
 	bic.m_pTxErrorInfo = pExtraInfo;
 
