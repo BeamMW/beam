@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #pragma once
+#include "common.h"
 #include "Math.h"
 #include "MultiProof.h"
 

@@ -45,15 +45,9 @@ namespace beam::wallet
         void checkCAEnabled() const;
         bool getCAEnabled() const;
 
-        #define RESPONSE_FUNC(api, name, ...) \
-        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
-        WALLET_API_METHODS(RESPONSE_FUNC)
-        #undef RESPONSE_FUNC
+        WALLET_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        WALLET_API_METHODS(BEAM_API_HANDLE_FUNC)
 
-        #define HANDLE_FUNC(api, name, ...) \
-        virtual void onHandle##api(const JsonRpcId& id, const api& data);
-        WALLET_API_METHODS(HANDLE_FUNC)
-        #undef HANDLE_FUNC
 
         template<typename T>
         void doResponse(const JsonRpcId& id, const T& response)
@@ -99,10 +93,7 @@ namespace beam::wallet
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
 
-        #define PARSE_FUNC(api, name, ...) \
-        [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
-        WALLET_API_METHODS(PARSE_FUNC)
-        #undef PARSE_FUNC
+        WALLET_API_METHODS(BEAM_API_PARSE_FUNC)
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);

@@ -5840,11 +5840,11 @@ namespace beam::wallet
             {
                 addressType = TxAddressType::PublicOffline;
             }
+            storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
 
             auto tx = db.getTx(txID);
             if (tx)
             {
-                storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
                 storage::setTxParameter(db, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
                 return;
             }
@@ -5872,8 +5872,7 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::AddressType, addressType);
+                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
                 const auto assetId = coin.m_CoinID.m_AssetID;
                 if (assetId != Asset::s_BeamID)
@@ -6027,6 +6026,8 @@ namespace beam::wallet
                     }
                     importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
                 }
+
+                uint32_t errorsCount = 0;
                 for (const auto& txPair : importedTransactionsMap)
                 {
                     const auto& paramsMap = txPair.second;
@@ -6035,21 +6036,24 @@ namespace beam::wallet
                     if(itype == paramsMap.end())
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. No txtype parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     TxType txtype = TxType::Simple;
                     if (!fromByteBuffer(itype->second.m_value, txtype))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     WalletID wid;
                     if (auto idIt = paramsMap.find(TxParameterID::MyID); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     if(txtype == TxType::AssetConsume ||
@@ -6062,21 +6066,24 @@ namespace beam::wallet
                         if (wid != Zero)
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
                     } else
                     {
                         if (!wid.IsValid())
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         uint64_t myAddrId = 0;
@@ -6085,7 +6092,8 @@ namespace beam::wallet
                             !db.ValidateSbbsWalletID(wid, myAddrId)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         if (!waddr && addressIt == paramsMap.end())
@@ -6101,11 +6109,11 @@ namespace beam::wallet
                             static_cast<SubTxID>(p.m_subTxID),
                             paramPair.first,
                             p.m_value,
-                            true);
+                            false);
                     }
                     LOG_INFO() << "Transaction " << txPair.first << " was imported.";
                 }
-                return true;
+                return errorsCount == 0;
             }
 
             json ExportAddressesToJson(const IWalletDB& db, bool own)

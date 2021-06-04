@@ -21,19 +21,18 @@
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
 
+#include "../ethash_service/ethash_utils.h"
+
 #include <sstream>
 #include <algorithm>
 #include <iterator>
+#include <math.h>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
 #else
 #include "crypto/blake/sse/blake2.h"
 #endif
-
-#include "../../core/mapped_file.h"
-#include "ethash/include/ethash/ethash.h"
-#include "ethash/lib/ethash/ethash-internal.hpp"
 
 namespace Shaders {
 
@@ -254,6 +253,11 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Voting::Withdraw& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
 
 	namespace Env {
@@ -1044,6 +1048,7 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -2356,14 +2361,144 @@ namespace bvm2 {
 		}
 	}
 
+	struct LutGenerator
+	{
+		typedef uint64_t TX;
+		typedef double TY;
+		virtual double Evaluate(TX) = 0;
+
+		std::vector<TX> m_vX;
+		std::vector<TY> m_vY;
+		std::vector<uint32_t> m_vYNorm;
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double yPrecise, double tolerance)
+		{
+			const TX& xPrev = m_vX.back();
+			const TY& yPrev = m_vY.back();
+
+			double yInterp = yPrev + (y1 - yPrev) * (x - xPrev) / (x1 - xPrev);
+
+			double yErr = yInterp - yPrecise;
+			return (fabs(yErr / yPrecise) <= tolerance);
+		}
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double tolerance)
+		{
+			double yPrecise = Evaluate(x);
+			return IsGoodEnough(x, x1, y1, yPrecise, tolerance);
+		}
+
+		void Generate(TX x0, TX x1, double tolerance)
+		{
+			assert(x0 < x1);
+
+			m_vX.push_back(x0);
+			m_vY.push_back(Evaluate(x0));
+
+			double y1 = Evaluate(x1);
+
+			while (true)
+			{
+				TX xNext = x1;
+				TY yNext = y1;
+
+				uint32_t nCycles = 0;
+				for (; ; nCycles++)
+				{
+					// probe 3 points: begin, end, mid
+					const TX& xPrev = m_vX.back();
+					TX dx = xNext - xPrev;
+					TX xMid = xPrev + dx / 2;
+					double yMid = Evaluate(xMid);
+
+					bool bOk = true;
+					double tolerance_der = tolerance / (double) (dx - 2);
+					if (bOk && !IsGoodEnough(xPrev + 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xNext - 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xMid, xNext, yNext, yMid, tolerance))
+						bOk = false;
+
+					if (bOk)
+						break;
+
+					xNext = xMid;
+					yNext = yMid;
+				}
+
+				m_vX.push_back(xNext);
+				m_vY.push_back(yNext);
+
+				if (!nCycles)
+					break;
+			}
+
+		}
+
+		void Normalize(uint32_t nMax)
+		{
+			double maxVal = 0;
+			for (size_t i = 0; i < m_vY.size(); i++)
+				std::setmax(maxVal, m_vY[i]);
+
+			m_vYNorm.resize(m_vY.size());
+			for (size_t i = 0; i < m_vY.size(); i++)
+				m_vYNorm[i] = static_cast<uint32_t>(nMax * m_vY[i] / maxVal);
+		}
+	};
+
 	void MyProcessor::TestDemoXdao()
 	{
+		//struct MyLutGenerator
+		//	:public LutGenerator
+		//{
+		//	virtual double Evaluate(TX x)
+		//	{
+		//		double k = ((double) x) / (double) (Shaders::g_Beam2Groth * 100);
+		//		return pow(k, 0.7);
+		//	}
+		//};
+
+		//MyLutGenerator lg;
+		//lg.Generate(Shaders::g_Beam2Groth * 16, Shaders::g_Beam2Groth * 1000000, 0.1);
+		//lg.Normalize(1000000);
+
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
 		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_BeamLock = 1;
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
 	}
 
 	void MyProcessor::TestBridge()
@@ -2493,308 +2628,6 @@ namespace bvm2 {
 
 
 } // namespace bvm2
-
-namespace EthashUtils
-{
-	typedef Shaders::Dummy::Ethash::ProofBase ProofBase;
-
-	void EvaluateElement(ProofBase::THash& hv, ProofBase::TCount n, const ethash_epoch_context& ctx)
-	{
-		auto item = ethash::calculate_dataset_item_1024(ctx, n);
-
-		ECC::Hash::Processor()
-			<< Blob(item.bytes, sizeof(item.bytes))
-			>> hv;
-	}
-
-
-	struct Hdr
-	{
-		uint32_t m_FullItems;
-		uint32_t m_h0; // height from which the hashes are stored
-		// followed by the tree hashes
-	};
-
-	struct HdrCache
-	{
-		uint32_t m_FullItems;
-		uint32_t m_CacheItems;
-		// followed by the cache
-	};
-
-	struct MyMultiProofBase
-		:public Shaders::Dummy::Ethash::ProofBase
-	{
-		std::vector<THash> m_vRes;
-
-		void ProofPushZero()
-		{
-			m_vRes.emplace_back() = Zero;
-		}
-
-		void ProofMerge()
-		{
-			assert(m_vRes.size() >= 2);
-			auto& hv = m_vRes[m_vRes.size() - 2];
-
-			ECC::Hash::Processor() << hv << m_vRes.back() >> hv;
-			m_vRes.pop_back();
-		}
-
-		static void EvaluateEpoch(THash& hv, const THash& hvEpochRoot, uint32_t nEpochElements)
-		{
-			ECC::Hash::Processor()
-				<< hvEpochRoot
-				<< nEpochElements
-				>> hv;
-		}
-	};
-
-	struct MyMultiProof
-		:public MyMultiProofBase
-	{
-		const THash* m_pHashes;
-		const Hdr* m_pHdr;
-		const ethash_epoch_context* m_pCtx;
-
-		bool ProofPush(TCount n, TCount nHalf)
-		{
-			Merkle::Position pos;
-
-			for (pos.H = 0; nHalf; pos.H++)
-			{
-				nHalf >>= 1;
-				assert(!(1 & n));
-				n >>= 1;
-			}
-
-			pos.X = n;
-
-			uint8_t h0 = static_cast<uint8_t>(ByteOrder::from_le(m_pHdr->m_h0));
-			if (pos.H < h0)
-			{
-				if (pos.H)
-					return false;
-
-				EvaluateElement(m_vRes.emplace_back(), n, *m_pCtx);
-			}
-			else
-			{
-				auto iHash = Merkle::FlatMmr::Pos2Idx(pos, h0);
-				m_vRes.push_back(m_pHashes[iHash]);
-			}
-
-			return true;
-		}
-
-	};
-
-	void GenerateLocalCache(uint32_t iEpoch, const char* szPath)
-	{
-		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
-
-		uint32_t nFullItems = pCtx->full_dataset_num_items;
-
-		HdrCache hdr;
-		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
-		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
-
-		std::FStream fs;
-		fs.Open(szPath, false, true);
-		fs.write(&hdr, sizeof(hdr));
-
-		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
-
-		ethash_destroy_epoch_context(pCtx);
-	}
-
-	ethash_epoch_context ReadLocalCache(MappedFileRaw& fmp, const char* szPath)
-	{
-		fmp.Open(szPath);
-
-		auto& hdr = fmp.get_At<HdrCache>(0);
-
-		return ethash_epoch_context{
-			0,
-			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
-			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
-			nullptr,
-			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
-	}
-
-	void GenerateLocalData(uint32_t iEpoch, const char* szPathCache, const char* szPathMerkle, uint32_t h0)
-	{
-		GenerateLocalCache(iEpoch, szPathCache);
-
-		MappedFileRaw fmpCache;
-		auto ctx = ReadLocalCache(fmpCache, szPathCache);
-
-		uint32_t nFullItems = ctx.full_dataset_num_items;
-
-		Hdr hdr;
-		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
-		hdr.m_h0 = ByteOrder::to_le(h0);
-
-		std::FStream fs;
-		fs.Open(szPathMerkle, false, true);
-		fs.write(&hdr, sizeof(hdr));
-
-		MyMultiProofBase wrk;
-
-		for (uint32_t i = 0; i < nFullItems; )
-		{
-			EvaluateElement(wrk.m_vRes.emplace_back(), i, ctx);
-
-			uint32_t nPos = ++i;
-			for (uint32_t h = 0; ; h++, nPos >>= 1)
-			{
-				if (h >= h0)
-					fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
-
-				if (1 & nPos)
-					break;
-
-				wrk.ProofMerge();
-			}
-		}
-	}
-
-	void GenerateSuperTree(const char* szRes, const char* szPathCache, const char* szPathMerkle, uint32_t h0)
-	{
-		std::FStream fs;
-		fs.Open(szRes, false, true);
-
-		MyMultiProofBase wrk;
-
-		for (uint32_t i = 0; i < ProofBase::nEpochsTotal; )
-		{
-			{
-				std::string sPath = szPathCache;
-				sPath += std::to_string(i) + ".cache";
-
-				MappedFileRaw fmpCache;
-				auto ctx = ReadLocalCache(fmpCache, sPath.c_str());
-
-				sPath = szPathMerkle;
-				sPath += std::to_string(i) + ".tre" + std::to_string(h0);
-
-				MappedFileRaw fmpMerkle;
-				fmpMerkle.Open(sPath.c_str());
-
-				auto& hdrSrc = fmpMerkle.get_At<Hdr>(0);
-				uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
-
-				typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
-				Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
-
-				mpb.m_pHdr = &hdrSrc;
-				mpb.m_pCtx = &ctx;
-				mpb.m_pHashes = &fmpMerkle.get_At<MyBuilder::THash>(sizeof(Hdr));
-
-				mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
-
-				mpb.EvaluateEpoch(wrk.m_vRes.emplace_back(), mpb.m_vRes.front(), nFullItems);
-			}
-
-			uint32_t nPos = ++i;
-			for (uint32_t h = 0; ; h++, nPos >>= 1)
-			{
-				fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
-
-				if (1 & nPos)
-					break;
-
-				wrk.ProofMerge();
-			}
-		}
-	}
-
-	void CropLocalData(const char* szDst, const char* szSrc, uint32_t dh)
-	{
-		MappedFileRaw fmp;
-		fmp.Open(szSrc);
-
-		auto& hdrSrc = fmp.get_At<Hdr>(0);
-		uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
-		uint32_t h0 = ByteOrder::from_le(hdrSrc.m_h0);
-
-		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
-
-		Hdr hdrDst = hdrSrc;
-		hdrDst.m_h0 = ByteOrder::to_le(h0 + dh);
-
-		std::FStream fs;
-		fs.Open(szDst, false, true);
-		fs.write(&hdrDst, sizeof(hdrDst));
-
-		uint32_t nHashes0 = static_cast<uint32_t>(Merkle::FlatMmr::get_TotalHashes(nFullItems, static_cast<uint8_t>(h0)));
-		Merkle::Position pos;
-		ZeroObject(pos);
-
-		for (uint32_t i = 0; i < nHashes0; i++)
-		{
-			if (pos.H >= dh)
-				fs.write(pHashes + i, sizeof(ProofBase::THash));
-
-			const uint32_t nMsk = (2U << pos.H) - 1;
-
-			if (nMsk == (pos.X & nMsk))
-				pos.H++;
-			else
-			{
-				pos.H = 0;
-				pos.X++;
-			}
-		}
-	}
-
-	uint32_t GenerateProof(uint32_t iEpoch, const char* szPathCache, const char* szPathMerkle, const char* szPathSuperTree, const uintBig_t<64>& hvSeed, ByteBuffer& res)
-	{
-		MappedFileRaw fmpCache, fmpMerkle, fmpSuperTree;
-		fmpMerkle.Open(szPathMerkle);
-		auto ctx = ReadLocalCache(fmpCache, szPathCache);
-
-		auto& hdr = fmpMerkle.get_At<Hdr>(0);
-
-		ECC::Hash::Value hvMix;
-		uint32_t pSolIndices[64];
-		ethash_hash1024 pSolItems[64];
-
-		ethash_get_MixHash2((ethash_hash256*)hvMix.m_pData, pSolIndices, pSolItems, &ctx, (ethash_hash512*)hvSeed.m_pData);
-
-		typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
-		Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
-
-		mpb.m_pHdr = &hdr;
-		mpb.m_pCtx = &ctx;
-		mpb.m_pHashes = &fmpMerkle.get_At<MyBuilder::THash>(sizeof(Hdr));
-
-		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
-
-		fmpSuperTree.Open(szPathSuperTree);
-		const auto* pSuper = &fmpSuperTree.get_At<MyBuilder::THash>(0);
-
-		for (uint8_t h = 0; ; h++)
-		{
-			uint32_t nMsk = 1U << h;
-			if (nMsk >= ProofBase::nEpochsTotal)
-				break;
-
-			Merkle::Position pos;
-			pos.X = (iEpoch >> h) ^ 1;
-			pos.H = h;
-
-			mpb.m_vRes.push_back(pSuper[Merkle::FlatMmr::Pos2Idx(pos, 0)]);
-		}
-
-		res.resize(sizeof(pSolItems) + sizeof(ProofBase::THash) * mpb.m_vRes.size());
-		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
-		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(ProofBase::THash) * mpb.m_vRes.size());
-
-		return ctx.full_dataset_num_items;
-	}
-
-} // namespace EthashUtils
 
 
 } // namespace beam
